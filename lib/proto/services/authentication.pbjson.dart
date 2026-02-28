@@ -126,3 +126,32 @@ const Refresh$json = {
 /// Descriptor for `Refresh`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List refreshDescriptor = $convert.base64Decode(
     'CgdSZWZyZXNoEiMKDXJlZnJlc2hfdG9rZW4YASABKAlSDHJlZnJlc2hUb2tlbg==');
+
+@$core.Deprecated('Use changePhoneDescriptor instead')
+const ChangePhone$json = {
+  '1': 'ChangePhone',
+  '2': [
+    {'1': 'token', '3': 1, '4': 1, '5': 9, '10': 'token'},
+    {'1': 'phone', '3': 2, '4': 1, '5': 9, '10': 'phone'},
+  ],
+};
+
+/// Descriptor for `ChangePhone`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List changePhoneDescriptor = $convert.base64Decode(
+    'CgtDaGFuZ2VQaG9uZRIUCgV0b2tlbhgBIAEoCVIFdG9rZW4SFAoFcGhvbmUYAiABKAlSBXBob2'
+    '5l');
+
+@$core.Deprecated('Use confirmChangePhoneDescriptor instead')
+const ConfirmChangePhone$json = {
+  '1': 'ConfirmChangePhone',
+  '2': [
+    {'1': 'token', '3': 1, '4': 1, '5': 9, '10': 'token'},
+    {'1': 'id', '3': 2, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'code', '3': 3, '4': 1, '5': 9, '10': 'code'},
+  ],
+};
+
+/// Descriptor for `ConfirmChangePhone`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List confirmChangePhoneDescriptor = $convert.base64Decode(
+    'ChJDb25maXJtQ2hhbmdlUGhvbmUSFAoFdG9rZW4YASABKAlSBXRva2VuEg4KAmlkGAIgASgJUg'
+    'JpZBISCgRjb2RlGAMgASgJUgRjb2Rl');

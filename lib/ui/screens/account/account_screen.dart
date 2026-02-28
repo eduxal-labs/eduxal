@@ -8,6 +8,8 @@ import '../../../cache/file_cache.dart';
 import '../../../client.dart';
 import '../../../database/tables/enums.dart';
 import '../../../models/authenticated.dart';
+import '../../../core/grpc_errors.dart';
+import '../../../models/result.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/user_avatar.dart';
 import '../auth/login_screen.dart';
@@ -381,18 +383,16 @@ class _AccountScreenState extends State<AccountScreen>
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Phone snackbar
+  // Change phone — two-step bottom sheet
   // ─────────────────────────────────────────────────────────────────────────
 
-  void _showPhoneSnackbar() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Phone number changes require verification. '
-          'This feature is coming soon.',
-        ),
-        duration: Duration(seconds: 4),
-      ),
+  void _changePhone(String userId) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      // isDismissible: false prevents accidental close mid-flow.
+      isDismissible: true,
+      builder: (ctx) => _ChangePhoneSheet(userId: userId),
     );
   }
 
@@ -1002,11 +1002,11 @@ class _AccountScreenState extends State<AccountScreen>
         icon: Icons.phone_outlined,
         label: 'Phone',
         value: _formatPhone(user.user.phone),
-        onTap: _showPhoneSnackbar,
+        onTap: () => _changePhone(user.user.id),
         trailing: Icon(
-          Icons.lock_outline_rounded,
-          size: 16,
-          color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+          Icons.chevron_right_rounded,
+          size: 18,
+          color: cs.onSurfaceVariant.withValues(alpha: 0.4),
         ),
       ),
     ];
@@ -1354,6 +1354,400 @@ class _ThemeToggle extends StatelessWidget {
                 : cs.onSurfaceVariant.withValues(alpha: 0.5),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Change phone — two-step bottom sheet
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Two-step bottom sheet for changing the user's phone number.
+///
+/// Step 1 — Enter new phone number → calls [Authentication.changePhone].
+/// Step 2 — Enter the 6-digit OTP sent to the new number →
+///           calls [Authentication.confirmChangePhone] → persists via
+///           [client.saveAccount].
+class _ChangePhoneSheet extends StatefulWidget {
+  const _ChangePhoneSheet({required this.userId});
+
+  final String userId;
+
+  @override
+  State<_ChangePhoneSheet> createState() => _ChangePhoneSheetState();
+}
+
+class _ChangePhoneSheetState extends State<_ChangePhoneSheet> {
+  // ── Step tracking ──────────────────────────────────────────────────────────
+  bool _onOtpStep = false;
+
+  // ── Step 1 state ───────────────────────────────────────────────────────────
+  final _phoneController = TextEditingController();
+  final _phoneFormKey = GlobalKey<FormState>();
+
+  // ── Step 2 state ───────────────────────────────────────────────────────────
+  final _otpController = TextEditingController();
+  final _otpFormKey = GlobalKey<FormState>();
+
+  /// The verification ID returned by changePhone — required for confirmChangePhone.
+  String? _verificationId;
+
+  /// The new phone number the user entered — shown in the OTP step subtitle.
+  String _pendingPhone = '';
+
+  // ── Loading / error ────────────────────────────────────────────────────────
+  bool _loading = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    _otpController.dispose();
+    super.dispose();
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  void _setError(String? msg) => setState(() => _error = msg);
+  void _setLoading(bool v) => setState(() => _loading = v);
+
+  // ── Step 1: request OTP ────────────────────────────────────────────────────
+
+  Future<void> _requestOtp() async {
+    if (!_phoneFormKey.currentState!.validate()) return;
+    _setError(null);
+    _setLoading(true);
+
+    final phone = _phoneController.text.trim();
+    final result = await client.authentication.changePhone(phone);
+
+    if (!mounted) return;
+    _setLoading(false);
+
+    switch (result) {
+      case Ok(:final value):
+        setState(() {
+          _verificationId = value.id;
+          _pendingPhone = phone;
+          _onOtpStep = true;
+          _error = null;
+        });
+      case Err(:final error):
+        _setError(error.toFriendlyMessage());
+    }
+  }
+
+  // ── Step 2: confirm OTP ────────────────────────────────────────────────────
+
+  Future<void> _confirmOtp() async {
+    if (!_otpFormKey.currentState!.validate()) return;
+    _setError(null);
+    _setLoading(true);
+
+    final code = _otpController.text.trim();
+    final result = await client.authentication.confirmChangePhone(
+      _verificationId!,
+      code,
+    );
+
+    if (!mounted) return;
+    _setLoading(false);
+
+    switch (result) {
+      case Ok(:final value):
+        // Persist the updated account (new phone + fresh tokens).
+        await client.saveAccount(value);
+        if (!mounted) return;
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Phone number updated successfully.')),
+        );
+      case Err(:final error):
+        _setError(error.toFriendlyMessage());
+    }
+  }
+
+  // ── Build ──────────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          child: AnimatedSize(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOut,
+            alignment: Alignment.topCenter,
+            child: _onOtpStep
+                ? _buildOtpStep(theme, cs)
+                : _buildPhoneStep(theme, cs),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Handle bar ─────────────────────────────────────────────────────────────
+
+  Widget _buildHandle(ColorScheme cs) {
+    return Center(
+      child: Container(
+        width: 36,
+        height: 4,
+        decoration: BoxDecoration(
+          color: cs.onSurfaceVariant.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+    );
+  }
+
+  // ── Error banner ────────────────────────────────────────────────────────────
+
+  Widget _buildError(ThemeData theme, ColorScheme cs) {
+    if (_error == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: cs.error.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(AppTheme.kRadius),
+          border: Border.all(color: cs.error.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.error_outline_rounded, size: 16, color: cs.error),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                _error!,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  color: cs.error,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Step 1: phone entry ────────────────────────────────────────────────────
+
+  Widget _buildPhoneStep(ThemeData theme, ColorScheme cs) {
+    return Form(
+      key: _phoneFormKey,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildHandle(cs),
+          const SizedBox(height: 20),
+          Text(
+            'Change phone number',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurface,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Enter your new phone number. We\'ll send a verification code to confirm it.',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 20),
+          _buildError(theme, cs),
+          TextFormField(
+            controller: _phoneController,
+            autofocus: true,
+            keyboardType: TextInputType.phone,
+            decoration: InputDecoration(
+              labelText: 'New phone number',
+              hintText: '+254 7xx xxx xxx',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppTheme.kRadius),
+              ),
+            ),
+            validator: (value) {
+              final trimmed = value?.trim() ?? '';
+              if (trimmed.length < 7) {
+                return 'Enter a valid phone number';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 48,
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.brandGreen,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: AppTheme.brandGreen.withValues(
+                  alpha: 0.35,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.kRadius),
+                ),
+              ),
+              onPressed: _loading ? null : _requestOtp,
+              child: _loading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Send code'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Step 2: OTP entry ──────────────────────────────────────────────────────
+
+  Widget _buildOtpStep(ThemeData theme, ColorScheme cs) {
+    return Form(
+      key: _otpFormKey,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildHandle(cs),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              GestureDetector(
+                onTap: _loading
+                    ? null
+                    : () => setState(() {
+                        _onOtpStep = false;
+                        _error = null;
+                        _otpController.clear();
+                      }),
+                child: Icon(
+                  Icons.chevron_left_rounded,
+                  size: 22,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Verify new number',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurface,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Enter the 6-digit code sent to $_pendingPhone.',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 20),
+          _buildError(theme, cs),
+          TextFormField(
+            controller: _otpController,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            maxLength: 6,
+            decoration: InputDecoration(
+              labelText: 'Verification code',
+              hintText: '------',
+              counterText: '',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppTheme.kRadius),
+              ),
+            ),
+            validator: (value) {
+              final trimmed = value?.trim() ?? '';
+              if (trimmed.length != 6) {
+                return 'Enter the 6-digit code';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 48,
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.brandGreen,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: AppTheme.brandGreen.withValues(
+                  alpha: 0.35,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.kRadius),
+                ),
+              ),
+              onPressed: _loading ? null : _confirmOtp,
+              child: _loading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Confirm'),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Resend link
+          Center(
+            child: TextButton(
+              onPressed: _loading
+                  ? null
+                  : () {
+                      setState(() {
+                        _onOtpStep = false;
+                        _error = null;
+                        _otpController.clear();
+                      });
+                    },
+              child: Text(
+                'Resend or change number',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: cs.primary,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

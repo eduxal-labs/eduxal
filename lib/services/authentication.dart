@@ -1,6 +1,8 @@
+import 'dart:io';
+
 import 'package:grpc/grpc.dart';
 
-import '../client.dart' show refreshToken;
+import '../client.dart' show accessToken, refreshToken;
 import '../core/constants.dart';
 import '../database/database.dart' show UsersData;
 import '../database/daos/users_dao.dart';
@@ -25,9 +27,15 @@ import '../cache/file_cache.dart';
 /// [_downloadProfileIfPresent], because the proto object carrying the GET URL
 /// is only in scope inside these methods.
 ///
-/// Error handling: every gRPC call is wrapped in a try/catch that catches
-/// [GrpcError]. Any other exception propagates — it is not an expected gRPC
-/// failure and should surface as a crash in development.
+/// Error handling: every gRPC call is wrapped in a two-level try/catch:
+/// 1. `on GrpcError` — catches normal gRPC-level failures (status codes,
+///    server-returned errors, etc.) and wraps them in [Err].
+/// 2. `catch` — catches anything the gRPC stack did not absorb: most
+///    commonly [SocketException] (no network), [TlsException], OS-level
+///    I/O errors, or HTTP/2 framing errors. These are converted into a
+///    synthetic `GrpcError` with [StatusCode.unavailable] so that all
+///    callers only ever see a [Result<T, GrpcError>] — never an uncaught
+///    exception.
 class Authentication {
   /// [channel] is the shared gRPC [ClientChannel] owned by `client.dart`.
   /// [_usersDao] is needed only to satisfy the [domain.Authenticated] factory
@@ -57,6 +65,8 @@ class Authentication {
       return Ok(verification);
     } on GrpcError catch (e) {
       return Err(e);
+    } catch (e) {
+      return Err(_toUnavailable(e));
     }
   }
 
@@ -107,6 +117,8 @@ class Authentication {
       }
     } on GrpcError catch (e) {
       return Err(e);
+    } catch (e) {
+      return Err(_toUnavailable(e));
     }
   }
 
@@ -147,6 +159,8 @@ class Authentication {
       return Ok(SetupResult(authenticated: mapped, profileUploadUrl: putUrl));
     } on GrpcError catch (e) {
       return Err(e);
+    } catch (e) {
+      return Err(_toUnavailable(e));
     }
   }
 
@@ -179,12 +193,116 @@ class Authentication {
       return Ok(mapped);
     } on GrpcError catch (e) {
       return Err(e);
+    } catch (e) {
+      return Err(_toUnavailable(e));
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // changePhone
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Initiates a phone number change for the currently authenticated user.
+  ///
+  /// Sends an OTP to [newPhone]. On success returns [Ok] with a [Verification]
+  /// whose [Verification.id] must be passed to [confirmChangePhone] along with
+  /// the received code.
+  ///
+  /// [accessToken] must already be set in memory (i.e. the user is logged in).
+  ///
+  /// Returns [Err] with the raw [GrpcError] on any gRPC-level failure.
+  Future<Result<Verification, GrpcError>> changePhone(String newPhone) async {
+    try {
+      final request = proto_auth.ChangePhone(
+        token: accessToken,
+        phone: newPhone,
+      );
+      final verification = await _client.changePhone(request);
+      return Ok(verification);
+    } on GrpcError catch (e) {
+      return Err(e);
+    } catch (e) {
+      return Err(_toUnavailable(e));
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // confirmChangePhone
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Confirms the phone number change by submitting the OTP the user received
+  /// on [newPhone].
+  ///
+  /// [verificationId] is the [Verification.id] returned by [changePhone].
+  /// [code] is the 6-digit OTP entered by the user.
+  ///
+  /// On success the server returns a fresh [proto_auth.Authenticated] with the
+  /// new phone number and updated tokens. The domain model is built via
+  /// [_mapProtoAuthenticated] and returned inside [Ok] — the caller
+  /// (`AccountScreen`) is responsible for persisting it via
+  /// `client.saveAccount()`.
+  ///
+  /// Returns [Err] with the raw [GrpcError] on any gRPC-level failure.
+  Future<Result<domain.Authenticated, GrpcError>> confirmChangePhone(
+    String verificationId,
+    String code,
+  ) async {
+    try {
+      final request = proto_auth.ConfirmChangePhone(
+        token: accessToken,
+        id: verificationId,
+        code: code,
+      );
+      final proto = await _client.confirmChangePhone(request);
+      final mapped = _mapProtoAuthenticated(proto);
+
+      // Fire-and-forget: re-download profile image in case the server
+      // returns an updated GET URL after the phone change.
+      _downloadProfileIfPresent(
+        proto.user.id,
+        proto.user.hasProfile() ? proto.user.profile : null,
+      );
+
+      return Ok(mapped);
+    } on GrpcError catch (e) {
+      return Err(e);
+    } catch (e) {
+      return Err(_toUnavailable(e));
     }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
   // Private helpers
   // ─────────────────────────────────────────────────────────────────────────
+
+  /// Converts any non-[GrpcError] exception into a synthetic
+  /// [GrpcError] with [StatusCode.unavailable].
+  ///
+  /// This is the catch-all for:
+  /// - [SocketException] — device has no network.
+  /// - [TlsException] — TLS handshake failure (e.g. bad cert).
+  /// - [HttpException] — HTTP-layer error before gRPC could parse it.
+  /// - Any other OS / platform exception that escapes the gRPC stack.
+  ///
+  /// By normalising everything to [StatusCode.unavailable] the UI can always
+  /// use `error.toFriendlyMessage()` from `core/grpc_errors.dart` without
+  /// special-casing socket errors.
+  GrpcError _toUnavailable(Object e) {
+    if (e is SocketException) {
+      return GrpcError.unavailable(
+        'No internet connection. Please check your network and try again.',
+      );
+    }
+    if (e is TlsException) {
+      return GrpcError.unavailable(
+        'Secure connection failed. Please try again.',
+      );
+    }
+    // Generic fallback — include the runtime type for debuggability without
+    // leaking raw exception messages to the user (toFriendlyMessage handles
+    // the display string).
+    return GrpcError.unavailable('Network error (${e.runtimeType})');
+  }
 
   /// Maps a proto [proto_auth.Authenticated] response to the domain
   /// [domain.Authenticated] model.

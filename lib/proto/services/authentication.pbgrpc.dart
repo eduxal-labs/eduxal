@@ -61,6 +61,20 @@ class AuthenticationClient extends $grpc.Client {
     return $createUnaryCall(_$refresh, request, options: options);
   }
 
+  $grpc.ResponseFuture<$1.Verification> changePhone(
+    $0.ChangePhone request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$changePhone, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.Authenticated> confirmChangePhone(
+    $0.ConfirmChangePhone request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$confirmChangePhone, request, options: options);
+  }
+
   // method descriptors
 
   static final _$login = $grpc.ClientMethod<$0.Login, $1.Verification>(
@@ -79,6 +93,16 @@ class AuthenticationClient extends $grpc.Client {
       '/authentication.Authentication/refresh',
       ($0.Refresh value) => value.writeToBuffer(),
       $0.Authenticated.fromBuffer);
+  static final _$changePhone =
+      $grpc.ClientMethod<$0.ChangePhone, $1.Verification>(
+          '/authentication.Authentication/changePhone',
+          ($0.ChangePhone value) => value.writeToBuffer(),
+          $1.Verification.fromBuffer);
+  static final _$confirmChangePhone =
+      $grpc.ClientMethod<$0.ConfirmChangePhone, $0.Authenticated>(
+          '/authentication.Authentication/confirmChangePhone',
+          ($0.ConfirmChangePhone value) => value.writeToBuffer(),
+          $0.Authenticated.fromBuffer);
 }
 
 @$pb.GrpcServiceName('authentication.Authentication')
@@ -114,6 +138,21 @@ abstract class AuthenticationServiceBase extends $grpc.Service {
         false,
         ($core.List<$core.int> value) => $0.Refresh.fromBuffer(value),
         ($0.Authenticated value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.ChangePhone, $1.Verification>(
+        'changePhone',
+        changePhone_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.ChangePhone.fromBuffer(value),
+        ($1.Verification value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.ConfirmChangePhone, $0.Authenticated>(
+        'confirmChangePhone',
+        confirmChangePhone_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.ConfirmChangePhone.fromBuffer(value),
+        ($0.Authenticated value) => value.writeToBuffer()));
   }
 
   $async.Future<$1.Verification> login_Pre(
@@ -146,4 +185,21 @@ abstract class AuthenticationServiceBase extends $grpc.Service {
 
   $async.Future<$0.Authenticated> refresh(
       $grpc.ServiceCall call, $0.Refresh request);
+
+  $async.Future<$1.Verification> changePhone_Pre(
+      $grpc.ServiceCall $call, $async.Future<$0.ChangePhone> $request) async {
+    return changePhone($call, await $request);
+  }
+
+  $async.Future<$1.Verification> changePhone(
+      $grpc.ServiceCall call, $0.ChangePhone request);
+
+  $async.Future<$0.Authenticated> confirmChangePhone_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.ConfirmChangePhone> $request) async {
+    return confirmChangePhone($call, await $request);
+  }
+
+  $async.Future<$0.Authenticated> confirmChangePhone(
+      $grpc.ServiceCall call, $0.ConfirmChangePhone request);
 }

@@ -497,6 +497,150 @@ class Refresh extends $pb.GeneratedMessage {
   void clearRefreshToken() => $_clearField(1);
 }
 
+class ChangePhone extends $pb.GeneratedMessage {
+  factory ChangePhone({
+    $core.String? token,
+    $core.String? phone,
+  }) {
+    final result = create();
+    if (token != null) result.token = token;
+    if (phone != null) result.phone = phone;
+    return result;
+  }
+
+  ChangePhone._();
+
+  factory ChangePhone.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ChangePhone.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ChangePhone',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'authentication'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'token')
+    ..aOS(2, _omitFieldNames ? '' : 'phone')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ChangePhone clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ChangePhone copyWith(void Function(ChangePhone) updates) =>
+      super.copyWith((message) => updates(message as ChangePhone))
+          as ChangePhone;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ChangePhone create() => ChangePhone._();
+  @$core.override
+  ChangePhone createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ChangePhone getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ChangePhone>(create);
+  static ChangePhone? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get token => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set token($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasToken() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearToken() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get phone => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set phone($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasPhone() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearPhone() => $_clearField(2);
+}
+
+class ConfirmChangePhone extends $pb.GeneratedMessage {
+  factory ConfirmChangePhone({
+    $core.String? token,
+    $core.String? id,
+    $core.String? code,
+  }) {
+    final result = create();
+    if (token != null) result.token = token;
+    if (id != null) result.id = id;
+    if (code != null) result.code = code;
+    return result;
+  }
+
+  ConfirmChangePhone._();
+
+  factory ConfirmChangePhone.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ConfirmChangePhone.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ConfirmChangePhone',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'authentication'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'token')
+    ..aOS(2, _omitFieldNames ? '' : 'id')
+    ..aOS(3, _omitFieldNames ? '' : 'code')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConfirmChangePhone clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConfirmChangePhone copyWith(void Function(ConfirmChangePhone) updates) =>
+      super.copyWith((message) => updates(message as ConfirmChangePhone))
+          as ConfirmChangePhone;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ConfirmChangePhone create() => ConfirmChangePhone._();
+  @$core.override
+  ConfirmChangePhone createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ConfirmChangePhone getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ConfirmChangePhone>(create);
+  static ConfirmChangePhone? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get token => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set token($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasToken() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearToken() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get id => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set id($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get code => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set code($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasCode() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearCode() => $_clearField(3);
+}
+
 const $core.bool _omitFieldNames =
     $core.bool.fromEnvironment('protobuf.omit_field_names');
 const $core.bool _omitMessageNames =
