@@ -408,7 +408,7 @@ These must be resolved before the relevant code is written. Do not guess — ask
 | P3 | Sync stream proto definitions — server-streaming gRPC for delta sync. Not yet defined. | lib/sync/, entity services — **deferred to Task Group 2** |
 | P4 | ~~Token expiry source~~ | ✅ **Closed** — access token: `+3 days`; refresh token: `+30 days`. Constants in `core/constants.dart`. Reactive Unauthorized expiry handled in sync engine. |
 | P5 | Failed log retry logic — server error types that distinguish reversible vs irreversible failures. | lib/sync/log_processor.dart |
-| P6 | Missing relationship/table — project owner mentioned a table or relationship they could not remember. To be added when recalled. | database schema |
+| P6 | ~~Missing relationship/table~~ — project owner mentioned a table or relationship they could not remember. | ✅ **Closed** — Owner does not recall at this time. Not blocking any current work. Will be reopened if/when the owner remembers. |
 
 ---
 
