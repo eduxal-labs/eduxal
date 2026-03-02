@@ -6,6 +6,11 @@ import 'database/database.dart';
 import 'database/daos/accounts_dao.dart';
 import 'database/daos/logs_dao.dart';
 import 'database/daos/memberships_dao.dart';
+import 'database/daos/schools_dao.dart';
+import 'database/daos/plans_dao.dart';
+import 'database/daos/roles_dao.dart';
+import 'database/daos/settings_dao.dart';
+import 'database/daos/system_stats_dao.dart';
 import 'database/daos/users_dao.dart';
 import 'models/authenticated.dart';
 import 'models/result.dart';
@@ -30,7 +35,14 @@ final cache = AppCache();
 late final Client client;
 
 late final AccountsDao accountsDao;
+late final UsersDao usersDao;
+late final LogsDao logsDao;
+late final SchoolsDao schoolsDao;
 late final MembershipsDao membershipsDao;
+late final RolesDao rolesDao;
+late final PlansDao plansDao;
+late final SettingsDao settingsDao;
+late final SystemStatsDao systemStatsDao;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Bootstrap
@@ -99,8 +111,15 @@ class Client {
       options: const ChannelOptions(credentials: ChannelCredentials.insecure()),
     );
     accountsDao = AccountsDao(db);
+    usersDao = UsersDao(db);
+    logsDao = LogsDao(db);
+    schoolsDao = SchoolsDao(db);
     membershipsDao = MembershipsDao(db);
-    return Client._(channel, accountsDao, UsersDao(db), LogsDao(db));
+    rolesDao = RolesDao(db);
+    plansDao = PlansDao(db);
+    settingsDao = SettingsDao(db);
+    systemStatsDao = SystemStatsDao(db);
+    return Client._(channel, accountsDao, usersDao, logsDao);
   }
 
   // ───────────────────────────────────────────────────────────────────────────
