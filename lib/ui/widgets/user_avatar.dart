@@ -50,7 +50,7 @@ class UserAvatar extends StatelessWidget {
           child: Icon(
             Icons.person,
             size: radius * 0.9,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+            color: cs.onSurfaceVariant.withValues(alpha: 0.65),
           ),
         );
       },

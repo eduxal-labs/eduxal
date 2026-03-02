@@ -219,7 +219,7 @@ class _AccountScreenState extends State<AccountScreen>
                         width: 36,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.2),
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.3),
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -316,7 +316,7 @@ class _AccountScreenState extends State<AccountScreen>
                         width: 36,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.2),
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.3),
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -429,7 +429,7 @@ class _AccountScreenState extends State<AccountScreen>
                     width: 36,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.2),
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -826,7 +826,7 @@ class _AccountScreenState extends State<AccountScreen>
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.35),
+                color: cs.onSurfaceVariant.withValues(alpha: 0.5),
                 letterSpacing: 0.4,
               ),
             ),
@@ -882,7 +882,7 @@ class _AccountScreenState extends State<AccountScreen>
           user.user.name,
           style: TextStyle(
             fontSize: 22,
-            fontWeight: FontWeight.w300,
+            fontWeight: FontWeight.w400,
             color: cs.onSurface,
             letterSpacing: 0.2,
             height: 1.2,
@@ -895,7 +895,7 @@ class _AccountScreenState extends State<AccountScreen>
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w400,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+            color: cs.onSurfaceVariant.withValues(alpha: 0.85),
             letterSpacing: 0.3,
           ),
           textAlign: TextAlign.center,
@@ -948,7 +948,7 @@ class _AccountScreenState extends State<AccountScreen>
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w500,
-          color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+          color: cs.onSurfaceVariant.withValues(alpha: 0.7),
           letterSpacing: 1.1,
           height: 1.0,
         ),
@@ -977,7 +977,7 @@ class _AccountScreenState extends State<AccountScreen>
         trailing: Icon(
           Icons.chevron_right_rounded,
           size: 18,
-          color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+          color: cs.onSurfaceVariant.withValues(alpha: 0.55),
         ),
       ),
       _divider(cs),
@@ -987,12 +987,12 @@ class _AccountScreenState extends State<AccountScreen>
         icon: Icons.email_outlined,
         label: 'Email',
         value: user.user.email ?? 'Not set',
-        valueOpacity: user.user.email == null ? 0.4 : 1.0,
+        valueOpacity: user.user.email == null ? 0.5 : 1.0,
         onTap: () => _editEmail(user.user.id, user.user.email),
         trailing: Icon(
           Icons.chevron_right_rounded,
           size: 18,
-          color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+          color: cs.onSurfaceVariant.withValues(alpha: 0.55),
         ),
       ),
       _divider(cs),
@@ -1006,7 +1006,7 @@ class _AccountScreenState extends State<AccountScreen>
         trailing: Icon(
           Icons.chevron_right_rounded,
           size: 18,
-          color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+          color: cs.onSurfaceVariant.withValues(alpha: 0.55),
         ),
       ),
     ];
@@ -1032,7 +1032,7 @@ class _AccountScreenState extends State<AccountScreen>
             Icon(
               Icons.brightness_6_outlined,
               size: 20,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+              color: cs.onSurfaceVariant.withValues(alpha: 0.75),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -1074,7 +1074,7 @@ class _AccountScreenState extends State<AccountScreen>
               Icon(
                 Icons.swap_horiz_rounded,
                 size: 20,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                color: cs.onSurfaceVariant.withValues(alpha: 0.75),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -1090,7 +1090,7 @@ class _AccountScreenState extends State<AccountScreen>
               Icon(
                 Icons.chevron_right_rounded,
                 size: 18,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                color: cs.onSurfaceVariant.withValues(alpha: 0.55),
               ),
             ],
           ),
@@ -1107,7 +1107,7 @@ class _AccountScreenState extends State<AccountScreen>
               Icon(
                 Icons.logout_rounded,
                 size: 20,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                color: cs.onSurfaceVariant.withValues(alpha: 0.75),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -1135,7 +1135,7 @@ class _AccountScreenState extends State<AccountScreen>
               Icon(
                 Icons.delete_outline_rounded,
                 size: 20,
-                color: cs.error.withValues(alpha: 0.55),
+                color: cs.error.withValues(alpha: 0.7),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -1144,7 +1144,7 @@ class _AccountScreenState extends State<AccountScreen>
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w400,
-                    color: cs.error.withValues(alpha: 0.75),
+                    color: cs.error.withValues(alpha: 0.85),
                   ),
                 ),
               ),
@@ -1178,7 +1178,7 @@ class _AccountScreenState extends State<AccountScreen>
             Icon(
               icon,
               size: 20,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+              color: cs.onSurfaceVariant.withValues(alpha: 0.75),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -1190,7 +1190,7 @@ class _AccountScreenState extends State<AccountScreen>
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w500,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.65),
                       letterSpacing: 0.6,
                     ),
                   ),
@@ -1225,13 +1225,18 @@ class _AccountScreenState extends State<AccountScreen>
     bool isDesktop,
     List<Widget> children,
   ) {
+    final isDark = cs.brightness == Brightness.dark;
+    final borderColor = isDark
+        ? cs.outline.withValues(alpha: 0.5)
+        : cs.outlineVariant;
+
     if (isDesktop) {
       return Card(
         elevation: 0,
         color: cs.surfaceContainer,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTheme.kRadius),
-          side: BorderSide(color: cs.outlineVariant),
+          side: BorderSide(color: borderColor),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(mainAxisSize: MainAxisSize.min, children: children),
@@ -1242,7 +1247,7 @@ class _AccountScreenState extends State<AccountScreen>
       decoration: BoxDecoration(
         color: cs.surfaceContainer,
         borderRadius: BorderRadius.circular(AppTheme.kRadius),
-        border: Border.all(color: cs.outlineVariant),
+        border: Border.all(color: borderColor),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(mainAxisSize: MainAxisSize.min, children: children),
@@ -1276,11 +1281,18 @@ class _ThemeToggle extends StatelessWidget {
         final currentTheme = snapshot.data?.theme ?? AppThemeMode.system;
         final themeData = Theme.of(context);
         final cs = themeData.colorScheme;
+        final isDark = cs.brightness == Brightness.dark;
 
         return Container(
           decoration: BoxDecoration(
             color: cs.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(10),
+            border: isDark
+                ? Border.all(
+                    color: cs.outlineVariant.withValues(alpha: 0.4),
+                    width: 1,
+                  )
+                : null,
           ),
           padding: const EdgeInsets.all(2),
           child: Row(
@@ -1336,10 +1348,16 @@ class _ThemeToggle extends StatelessWidget {
           decoration: BoxDecoration(
             color: isSelected ? cs.surface : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
+            border: isSelected && cs.brightness == Brightness.dark
+                ? Border.all(
+                    color: cs.outlineVariant.withValues(alpha: 0.5),
+                    width: 1,
+                  )
+                : null,
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
+                      color: Colors.black.withValues(alpha: 0.12),
                       blurRadius: 4,
                       offset: const Offset(0, 1),
                     ),
@@ -1351,7 +1369,7 @@ class _ThemeToggle extends StatelessWidget {
             size: 18,
             color: isSelected
                 ? cs.onSurface
-                : cs.onSurfaceVariant.withValues(alpha: 0.5),
+                : cs.onSurfaceVariant.withValues(alpha: 0.65),
           ),
         ),
       ),
@@ -1503,7 +1521,7 @@ class _ChangePhoneSheetState extends State<_ChangePhoneSheet> {
         width: 36,
         height: 4,
         decoration: BoxDecoration(
-          color: cs.onSurfaceVariant.withValues(alpha: 0.2),
+          color: cs.onSurfaceVariant.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(2),
         ),
       ),

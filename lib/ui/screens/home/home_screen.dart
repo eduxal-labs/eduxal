@@ -24,6 +24,7 @@ class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _entranceController;
   late final Animation<double> _fadeIn;
+  late final Animation<Offset> _slideUp;
 
   @override
   void initState() {
@@ -31,12 +32,16 @@ class _HomeScreenState extends State<HomeScreen>
 
     _entranceController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 400),
+      duration: const Duration(milliseconds: 350),
     );
     _fadeIn = CurvedAnimation(
       parent: _entranceController,
       curve: Curves.easeOut,
     );
+    _slideUp = Tween<Offset>(begin: const Offset(0, 0.04), end: Offset.zero)
+        .animate(
+          CurvedAnimation(parent: _entranceController, curve: Curves.easeOut),
+        );
     _entranceController.forward();
   }
 
@@ -95,7 +100,7 @@ class _HomeScreenState extends State<HomeScreen>
                     width: 36,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.2),
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -189,7 +194,9 @@ class _HomeScreenState extends State<HomeScreen>
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: _roleColor(entry.role).withValues(alpha: 0.1),
+                  color: _roleColor(entry.role).withValues(
+                    alpha: cs.brightness == Brightness.dark ? 0.18 : 0.1,
+                  ),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(icon, size: 20, color: _roleColor(entry.role)),
@@ -215,7 +222,7 @@ class _HomeScreenState extends State<HomeScreen>
             Icon(
               Icons.chevron_right_rounded,
               size: 20,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+              color: cs.onSurfaceVariant.withValues(alpha: 0.55),
             ),
           ],
         ),
@@ -248,38 +255,61 @@ class _HomeScreenState extends State<HomeScreen>
 
     return Scaffold(
       body: SafeArea(
-        child: FadeTransition(
-          opacity: _fadeIn,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // ── Top bar ──────────────────────────────────────────────
-              _buildTopBar(theme, cs, user.user.id),
+        child: SlideTransition(
+          position: _slideUp,
+          child: FadeTransition(
+            opacity: _fadeIn,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // ── Top bar ──────────────────────────────────────────────
+                _buildTopBar(theme, cs, user.user.id),
 
-              // ── Body ────────────────────────────────────────────────
-              Expanded(
-                child: StreamBuilder<List<SchoolMembership>>(
-                  stream: membershipsDao.watchMemberships(user.user.id),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return _buildLoadingState(cs);
-                    }
-
-                    if (snapshot.hasError) {
-                      return _buildErrorState(theme, cs, snapshot.error);
-                    }
-
-                    final memberships = snapshot.data ?? [];
-
-                    if (memberships.isEmpty) {
-                      return _buildEmptyState(theme, cs);
-                    }
-
-                    return _buildMembershipList(theme, cs, memberships, isWide);
-                  },
+                // ── Section header ──────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.only(left: 16, bottom: 10),
+                  child: Text(
+                    'MEMBERSHIPS',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                      letterSpacing: 1.1,
+                      height: 1.0,
+                    ),
+                  ),
                 ),
-              ),
-            ],
+
+                // ── Body ────────────────────────────────────────────────
+                Expanded(
+                  child: StreamBuilder<List<SchoolMembership>>(
+                    stream: membershipsDao.watchMemberships(user.user.id),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return _buildLoadingState(cs);
+                      }
+
+                      if (snapshot.hasError) {
+                        return _buildErrorState(theme, cs, snapshot.error);
+                      }
+
+                      final memberships = snapshot.data ?? [];
+
+                      if (memberships.isEmpty) {
+                        return _buildEmptyState(theme, cs);
+                      }
+
+                      return _buildMembershipList(
+                        theme,
+                        cs,
+                        memberships,
+                        isWide,
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -293,62 +323,75 @@ class _HomeScreenState extends State<HomeScreen>
   Widget _buildTopBar(ThemeData theme, ColorScheme cs, String userId) {
     final level = cache.currentUser?.user.level;
     final isPrivileged = level == UserLevel.system || level == UserLevel.super_;
+    final isDark = cs.brightness == Brightness.dark;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Row(
         children: [
-          // App name — soft, rounded, understated.
+          // App name — a whisper, not a shout. Light and architectural.
           Text(
             'eduxal',
             style: TextStyle(
               color: cs.onSurface,
-              fontSize: 19,
-              fontWeight: FontWeight.w400,
-              letterSpacing: 0.8,
+              fontSize: 18,
+              fontWeight: FontWeight.w300,
+              letterSpacing: -0.5,
             ),
           ),
           // System badge — only for system / super users.
-          // Sits right after the wordmark like a role indicator, not a button.
           if (isPrivileged) ...[
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: () {
-                Navigator.of(context).push(
-                  PageRouteBuilder(
-                    pageBuilder: (_, _, _) => const SystemDashboardScreen(),
-                    transitionsBuilder: (_, animation, _, child) =>
-                        FadeTransition(opacity: animation, child: child),
-                    transitionDuration: const Duration(milliseconds: 250),
-                  ),
-                );
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: cs.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(
-                    color: cs.primary.withValues(alpha: 0.35),
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.shield_outlined, size: 12, color: cs.primary),
-                    const SizedBox(width: 4),
-                    Text(
-                      level == UserLevel.super_ ? 'super' : 'system',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: cs.primary,
-                        letterSpacing: 0.4,
-                        height: 1.2,
-                      ),
+            const SizedBox(width: 12),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(4),
+                onTap: () {
+                  Navigator.of(context).push(
+                    PageRouteBuilder(
+                      pageBuilder: (_, _, _) => const SystemDashboardScreen(),
+                      transitionsBuilder: (_, animation, _, child) =>
+                          FadeTransition(opacity: animation, child: child),
+                      transitionDuration: const Duration(milliseconds: 250),
                     ),
-                  ],
+                  );
+                },
+                child: Ink(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainer,
+                    border: Border.all(
+                      color: isDark
+                          ? cs.outline.withValues(alpha: 0.5)
+                          : cs.outlineVariant,
+                      width: 1,
+                    ),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.shield_outlined,
+                        size: 12,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.75),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        level == UserLevel.super_ ? 'SUPER' : 'SYSTEM',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w500,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.75),
+                          letterSpacing: 1.0,
+                          height: 1.2,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -362,75 +405,11 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Loading state — shimmer-like placeholders
+  // Loading state — delegates to _LoadingShimmer widget with sweep animation
   // ─────────────────────────────────────────────────────────────────────────
 
   Widget _buildLoadingState(ColorScheme cs) {
-    final shimmer = cs.surfaceContainerHighest;
-    final shimmerLight = cs.surfaceContainer;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Column(
-        children: List.generate(3, (i) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              height: 96,
-              decoration: BoxDecoration(
-                color: cs.surfaceContainer,
-                borderRadius: BorderRadius.circular(AppTheme.kRadius),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 160,
-                    height: 14,
-                    decoration: BoxDecoration(
-                      color: shimmer,
-                      borderRadius: BorderRadius.circular(7),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    width: 100,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: shimmerLight,
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                  ),
-                  const Spacer(),
-                  Row(
-                    children: [
-                      Container(
-                        width: 52,
-                        height: 22,
-                        decoration: BoxDecoration(
-                          color: shimmerLight,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        width: 60,
-                        height: 22,
-                        decoration: BoxDecoration(
-                          color: shimmerLight,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          );
-        }),
-      ),
-    );
+    return const _LoadingShimmer();
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -440,31 +419,34 @@ class _HomeScreenState extends State<HomeScreen>
   Widget _buildEmptyState(ThemeData theme, ColorScheme cs) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
+        padding: const EdgeInsets.symmetric(horizontal: 32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: AppTheme.brandGreen.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.school_rounded,
-                size: 32,
-                color: AppTheme.brandGreen.withValues(alpha: 0.7),
+            Icon(
+              Icons.school_outlined,
+              size: 36,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No schools yet',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.75),
+                letterSpacing: 0.1,
               ),
             ),
-            const SizedBox(height: 24),
-            Text('No schools yet', style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             Text(
-              'Your schools will appear here once you\'re added by a school administrator.',
+              'Schools will appear here once you\'re added by an administrator.',
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: cs.onSurfaceVariant,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                letterSpacing: 0.1,
                 height: 1.5,
               ),
             ),
@@ -481,13 +463,13 @@ class _HomeScreenState extends State<HomeScreen>
   Widget _buildErrorState(ThemeData theme, ColorScheme cs, Object? error) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
+        padding: const EdgeInsets.symmetric(horizontal: 32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               Icons.error_outline_rounded,
-              size: 40,
+              size: 36,
               color: cs.error.withValues(alpha: 0.6),
             ),
             const SizedBox(height: 16),
@@ -528,9 +510,9 @@ class _HomeScreenState extends State<HomeScreen>
     List<SchoolMembership> memberships,
   ) {
     return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       itemCount: memberships.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         return _MembershipCard(
           membership: memberships[index],
@@ -545,25 +527,38 @@ class _HomeScreenState extends State<HomeScreen>
     ColorScheme cs,
     List<SchoolMembership> memberships,
   ) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 720),
-        child: GridView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
-            childAspectRatio: 2.0,
-          ),
-          itemCount: memberships.length,
-          itemBuilder: (context, index) {
-            return _MembershipCard(
-              membership: memberships[index],
-              onTap: () => _onCardTap(memberships[index]),
-            );
-          },
-        ),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          const double spacing = 16.0;
+          const double maxItemWidth = 400.0;
+
+          int crossAxisCount = (constraints.maxWidth / maxItemWidth).ceil();
+          if (crossAxisCount < 1) crossAxisCount = 1;
+
+          // Subtract a tiny amount to prevent floating point inaccuracies
+          // from causing the last item in a row to wrap prematurely.
+          final double itemWidth =
+              ((constraints.maxWidth - (spacing * (crossAxisCount - 1))) /
+                  crossAxisCount) -
+              0.1;
+
+          return Wrap(
+            alignment: WrapAlignment.start,
+            spacing: spacing,
+            runSpacing: spacing,
+            children: memberships.map((membership) {
+              return SizedBox(
+                width: itemWidth,
+                child: _MembershipCard(
+                  membership: membership,
+                  onTap: () => _onCardTap(membership),
+                ),
+              );
+            }).toList(),
+          );
+        },
       ),
     );
   }
@@ -575,10 +570,12 @@ class _HomeScreenState extends State<HomeScreen>
   static Color _roleColor(MembershipRole role) {
     return switch (role) {
       MembershipRole.owner => AppTheme.brandIndigo,
-      MembershipRole.teacher => const Color(0xFF1976D2),
-      MembershipRole.staff => const Color(0xFF607D8B),
+      MembershipRole.teacher => const Color(
+        0xFF42A5F5,
+      ), // brighter blue for dark legibility
+      MembershipRole.staff => const Color(0xFF78909C), // brighter blue-grey
       MembershipRole.student => AppTheme.brandGreen,
-      MembershipRole.guardian => const Color(0xFF009688),
+      MembershipRole.guardian => const Color(0xFF26A69A), // brighter teal
     };
   }
 }
@@ -598,31 +595,50 @@ class _MembershipCard extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
 
-    return Card(
+    final isDark = cs.brightness == Brightness.dark;
+
+    return Material(
+      color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppTheme.kRadius),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: cs.surfaceContainer,
+            borderRadius: BorderRadius.circular(AppTheme.kRadius),
+            border: Border.all(
+              color: isDark
+                  ? cs.outline.withValues(alpha: 0.5)
+                  : cs.outlineVariant,
+              width: 1,
+            ),
+          ),
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               // ── School name + arrow ────────────────────────────────
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: Text(
                       membership.school.name,
-                      style: theme.textTheme.titleSmall,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurface,
+                        letterSpacing: -0.1,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   Icon(
                     Icons.chevron_right_rounded,
-                    size: 20,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                    size: 18,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.65),
                   ),
                 ],
               ),
@@ -633,26 +649,134 @@ class _MembershipCard extends StatelessWidget {
                 Text(
                   membership.school.motto!,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                    fontStyle: FontStyle.italic,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.85),
+                    fontSize: 12,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
 
               // ── Role chips ────────────────────────────────────────
               Wrap(
-                spacing: 6,
-                runSpacing: 4,
+                spacing: 8,
+                runSpacing: 8,
                 children: membership.roles.map((role) {
                   return _RoleChip(role: role);
                 }).toList(),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Loading shimmer — sweep animation
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _LoadingShimmer extends StatefulWidget {
+  const _LoadingShimmer();
+
+  @override
+  State<_LoadingShimmer> createState() => _LoadingShimmerState();
+}
+
+class _LoadingShimmerState extends State<_LoadingShimmer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+    _animation = CurvedAnimation(parent: _controller, curve: Curves.linear);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+    final baseColor = cs.surfaceContainerHighest;
+    final highlightColor = cs.surfaceContainer;
+
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, _) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Column(
+            children: List.generate(3, (i) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  height: 96,
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainer,
+                    borderRadius: BorderRadius.circular(AppTheme.kRadius),
+                    border: Border.all(
+                      color: isDark
+                          ? cs.outline.withValues(alpha: 0.5)
+                          : cs.outlineVariant,
+                      width: 1,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _shimmerBar(160, 14, baseColor, highlightColor),
+                      const SizedBox(height: 8),
+                      _shimmerBar(100, 10, baseColor, highlightColor),
+                      const Spacer(),
+                      Row(
+                        children: [
+                          _shimmerBar(52, 22, baseColor, highlightColor),
+                          const SizedBox(width: 8),
+                          _shimmerBar(60, 22, baseColor, highlightColor),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _shimmerBar(
+    double width,
+    double height,
+    Color baseColor,
+    Color highlightColor,
+  ) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(4),
+        gradient: LinearGradient(
+          begin: Alignment(-1.0 + 2.0 * _animation.value, 0),
+          end: Alignment(-1.0 + 2.0 * _animation.value + 1.0, 0),
+          colors: [baseColor, highlightColor, baseColor],
+          stops: const [0.0, 0.5, 1.0],
         ),
       ),
     );
@@ -670,19 +794,25 @@ class _RoleChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
     final color = _HomeScreenState._roleColor(role);
     final label = role.name[0].toUpperCase() + role.name.substring(1);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
+        color: color.withValues(alpha: isDark ? 0.15 : 0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: color.withValues(alpha: isDark ? 0.45 : 0.3),
+          width: 1,
+        ),
       ),
       child: Text(
         label,
         style: TextStyle(
-          color: color,
+          color: isDark ? color.withValues(alpha: 0.95) : color,
           fontSize: 12,
           fontWeight: FontWeight.w500,
         ),

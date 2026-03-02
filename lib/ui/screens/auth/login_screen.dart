@@ -98,9 +98,9 @@ class _LoginScreenState extends State<LoginScreen>
       case Ok(value: final verification):
         Navigator.of(context).push(
           PageRouteBuilder(
-            pageBuilder: (_, __, ___) =>
+            pageBuilder: (_, _, _) =>
                 OtpScreen(verificationId: verification.id, phone: normalised),
-            transitionsBuilder: (_, animation, __, child) {
+            transitionsBuilder: (_, animation, _, child) {
               return FadeTransition(opacity: animation, child: child);
             },
             transitionDuration: const Duration(milliseconds: 250),
@@ -282,7 +282,13 @@ class _LoginScreenState extends State<LoginScreen>
                 ),
               ),
               const SizedBox(width: 12),
-              Container(width: 1, height: 22, color: cs.outlineVariant),
+              Container(
+                width: 1,
+                height: 22,
+                color: cs.brightness == Brightness.dark
+                    ? cs.outlineVariant.withValues(alpha: 0.7)
+                    : cs.outlineVariant,
+              ),
             ],
           ),
         ),
@@ -358,7 +364,7 @@ class _LoginScreenState extends State<LoginScreen>
       'Carrier charges may apply.',
       textAlign: TextAlign.center,
       style: theme.textTheme.bodySmall?.copyWith(
-        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+        color: cs.onSurfaceVariant.withValues(alpha: 0.7),
         fontSize: 12,
       ),
     );

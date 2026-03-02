@@ -211,11 +211,11 @@ class _OtpScreenState extends State<OtpScreen>
             if (!mounted) return;
             Navigator.of(context).pushReplacement(
               PageRouteBuilder(
-                pageBuilder: (_, __, ___) => SetupScreen.existingUser(
+                pageBuilder: (_, _, _) => SetupScreen.existingUser(
                   authenticated: authenticated,
                   profileUploadUrl: profileUploadUrl,
                 ),
-                transitionsBuilder: (_, animation, __, child) =>
+                transitionsBuilder: (_, animation, _, child) =>
                     FadeTransition(opacity: animation, child: child),
                 transitionDuration: const Duration(milliseconds: 250),
               ),
@@ -223,9 +223,9 @@ class _OtpScreenState extends State<OtpScreen>
           case VerifyResultRegistered(:final token):
             Navigator.of(context).pushReplacement(
               PageRouteBuilder(
-                pageBuilder: (_, __, ___) =>
+                pageBuilder: (_, _, _) =>
                     SetupScreen(token: token, phone: widget.phone),
-                transitionsBuilder: (_, animation, __, child) =>
+                transitionsBuilder: (_, animation, _, child) =>
                     FadeTransition(opacity: animation, child: child),
                 transitionDuration: const Duration(milliseconds: 250),
               ),
@@ -547,14 +547,14 @@ class _OtpScreenState extends State<OtpScreen>
           Text(
             'Resend code in ${_cooldownTime.difference(now).inSeconds}s',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: cs.onSurfaceVariant,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.9),
             ),
           ),
         const SizedBox(height: 4),
         Text(
           'Code expires in $expiryMin:$expirySec',
           style: theme.textTheme.bodySmall?.copyWith(
-            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+            color: cs.onSurfaceVariant.withValues(alpha: 0.7),
             fontSize: 12,
           ),
         ),

@@ -5,19 +5,21 @@ import '../../database/tables/enums.dart';
 ///
 /// Surface elevation staircase
 /// ───────────────────────────
-/// Dark mode (slate family):
-///   scaffold bg  → slate-950  #0B0F14
-///   surface/card → slate-900  #111720
-///   container    → slate-850  #161E28  (section containers, input fills)
-///   item/row bg  → slate-800  #1C2530  (elevated items inside containers)
-///   border       → slate-700  #243040  (dividers, outlines)
+/// Dark mode (slate family) — wider gaps for clear visual separation:
+///   scaffold bg  → slate-950  #0A0E13   deepest layer
+///   surface/card → slate-900  #121A24   cards, sheets, AppBar
+///   container    → slate-800  #1A2435   section containers, input fills
+///   item/row bg  → slate-700  #243042   elevated items inside containers
+///   border       → slate-600  #334155   dividers, outlines (primary)
+///   border light → slate-550  #3E4F65   outlineVariant (softer dividers)
 ///
 /// Light mode (neutral gray family):
 ///   scaffold bg  → white      #FFFFFF
 ///   surface/card → gray-50    #F8F9FA
-///   container    → gray-100   #F1F3F5  (section containers, input fills)
-///   item/row bg  → gray-150   #E9ECEF  (elevated items inside containers)
-///   border       → gray-200   #DEE2E6  (dividers, outlines)
+///   container    → gray-100   #F1F3F5   section containers, input fills
+///   item/row bg  → gray-150   #E8EBEE   elevated items inside containers
+///   border       → gray-250   #CED4DA   dividers, outlines (primary)
+///   border light → gray-200   #DEE2E6   outlineVariant (softer dividers)
 class AppTheme {
   AppTheme._();
 
@@ -32,26 +34,29 @@ class AppTheme {
   static const Color _indigoDark = Color(0xFF8C9EFF);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Dark palette — slate staircase (950 → 700)
+  // Dark palette — slate staircase (wider gaps for real differentiation)
   // ─────────────────────────────────────────────────────────────────────────
 
   /// slate-950 — scaffold / page background.
-  static const Color _slateBg = Color(0xFF0B0F14);
+  static const Color _slateBg = Color(0xFF0A0E13);
 
   /// slate-900 — surface: cards, sheets, dialogs, AppBar.
-  static const Color _slateSurface = Color(0xFF111720);
+  static const Color _slateSurface = Color(0xFF121A24);
 
-  /// slate-850 — surfaceContainer: section containers, input fills.
-  static const Color _slateContainer = Color(0xFF161E28);
+  /// slate-800 — surfaceContainer: section containers, input fills.
+  static const Color _slateContainer = Color(0xFF1A2435);
 
-  /// slate-800 — surfaceContainerHighest: row backgrounds, elevated items.
-  static const Color _slateItem = Color(0xFF1C2530);
+  /// slate-700 — surfaceContainerHighest: row backgrounds, elevated items.
+  static const Color _slateItem = Color(0xFF243042);
 
-  /// slate-700 — outline / border / divider.
-  static const Color _slateBorder = Color(0xFF243040);
+  /// slate-600 — outline: borders, dividers (stronger).
+  static const Color _slateBorder = Color(0xFF334155);
+
+  /// slate-550 — outlineVariant: softer dividers, secondary borders.
+  static const Color _slateBorderLight = Color(0xFF3E4F65);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Light palette — neutral gray staircase (white → gray-200)
+  // Light palette — neutral gray staircase
   // ─────────────────────────────────────────────────────────────────────────
 
   /// white — scaffold / page background.
@@ -64,10 +69,13 @@ class AppTheme {
   static const Color _lightContainer = Color(0xFFF1F3F5);
 
   /// gray-150 — surfaceContainerHighest: row backgrounds, elevated items.
-  static const Color _lightItem = Color(0xFFE9ECEF);
+  static const Color _lightItem = Color(0xFFE8EBEE);
 
-  /// gray-200 — outline / border / divider.
-  static const Color _lightBorder = Color(0xFFDEE2E6);
+  /// gray-250 — outline: borders, dividers (stronger).
+  static const Color _lightBorder = Color(0xFFCED4DA);
+
+  /// gray-200 — outlineVariant: softer dividers, secondary borders.
+  static const Color _lightBorderLight = Color(0xFFDEE2E6);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Responsive breakpoints
@@ -123,17 +131,29 @@ class AppTheme {
       secondary: brandGreen,
       // Scaffold bg is pure white — set via scaffoldBg below.
       surface: _lightSurface, // cards, sheets, AppBar
+      surfaceContainerLowest: _lightBg,
       onSurface: const Color(0xFF1A1C1E),
-      onSurfaceVariant: const Color(0xFF5F6368),
+      onSurfaceVariant: const Color(0xFF555E68),
       surfaceContainer: _lightContainer, // section containers, input fills
       surfaceContainerHighest: _lightItem, // row/item backgrounds
       outline: _lightBorder,
-      outlineVariant: _lightBorder,
+      outlineVariant: _lightBorderLight,
     );
     return _build(cs, scaffoldBg: _lightBg);
   }
 
   /// Dark theme — slate staircase, never pure black.
+  ///
+  /// Key contrast decisions:
+  /// - `onSurface` is warm off-white (#E3E8ED) — high contrast on all slates.
+  /// - `onSurfaceVariant` is brighter (#94A3B3) than before — secondary text
+  ///   is clearly readable without squinting.
+  /// - `outline` and `outlineVariant` are now distinct colours: outline is
+  ///   the stronger border (#334155), outlineVariant the softer one (#3E4F65).
+  ///   Previously both were #243040 which made borders invisible.
+  /// - Surface staircase gaps are ~12-14 luminance units instead of ~6-8,
+  ///   so cards visibly float above the scaffold and containers visibly
+  ///   separate from their card parents.
   static ThemeData dark() {
     final base = ColorScheme.fromSeed(
       seedColor: brandIndigo,
@@ -144,12 +164,13 @@ class AppTheme {
       secondary: brandGreen,
       // Scaffold bg is slate-950 — set via scaffoldBg below.
       surface: _slateSurface, // cards, sheets, AppBar
-      onSurface: const Color(0xFFE9EDEF),
-      onSurfaceVariant: const Color(0xFF8696A0),
+      surfaceContainerLowest: _slateBg,
+      onSurface: const Color(0xFFE3E8ED), // warm off-white, high readability
+      onSurfaceVariant: const Color(0xFF94A3B3), // brighter secondary text
       surfaceContainer: _slateContainer, // section containers, input fills
       surfaceContainerHighest: _slateItem, // row/item backgrounds
-      outline: _slateBorder,
-      outlineVariant: _slateBorder,
+      outline: _slateBorder, // primary borders — clearly visible
+      outlineVariant: _slateBorderLight, // softer borders — still visible
     );
     return _build(cs, scaffoldBg: _slateBg);
   }
@@ -317,7 +338,7 @@ class AppTheme {
       ),
 
       // ── Input Decoration (text fields) ─────────────────────────────────
-      // WhatsApp-style: filled, rounded, no visible border by default.
+      // WhatsApp-style: filled, rounded, subtle border visible in dark mode.
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: inputFill,
@@ -327,13 +348,25 @@ class AppTheme {
         ),
         isDense: false,
 
+        // In dark mode, show a faint border even in the resting state so the
+        // input field is visually distinct from surrounding containers.
         border: OutlineInputBorder(
           borderRadius: _borderRadiusLg,
-          borderSide: BorderSide.none,
+          borderSide: isLight
+              ? BorderSide.none
+              : BorderSide(
+                  color: cs.outlineVariant.withValues(alpha: 0.4),
+                  width: 1,
+                ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: _borderRadiusLg,
-          borderSide: BorderSide.none,
+          borderSide: isLight
+              ? BorderSide.none
+              : BorderSide(
+                  color: cs.outlineVariant.withValues(alpha: 0.4),
+                  width: 1,
+                ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: _borderRadiusLg,
@@ -349,7 +382,7 @@ class AppTheme {
         ),
 
         hintStyle: TextStyle(
-          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+          color: cs.onSurfaceVariant.withValues(alpha: 0.55),
           fontWeight: FontWeight.w400,
           fontSize: 15,
         ),
@@ -373,14 +406,18 @@ class AppTheme {
       ),
 
       // ── Cards ──────────────────────────────────────────────────────────
-      // slate-900 / gray-50 surface — one step above the scaffold bg.
+      // In dark mode, cards get a clearly visible border.
       cardTheme: CardThemeData(
         elevation: 0,
         color: cs.surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: _borderRadius,
-          side: BorderSide(color: cs.outline.withValues(alpha: 0.5)),
+          side: BorderSide(
+            color: isLight
+                ? cs.outline.withValues(alpha: 0.4)
+                : cs.outline.withValues(alpha: 0.7),
+          ),
         ),
         margin: EdgeInsets.zero,
         clipBehavior: Clip.antiAlias,
@@ -389,7 +426,12 @@ class AppTheme {
       // ── Chips ──────────────────────────────────────────────────────────
       chipTheme: ChipThemeData(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        side: BorderSide.none,
+        side: isLight
+            ? BorderSide.none
+            : BorderSide(
+                color: cs.outlineVariant.withValues(alpha: 0.4),
+                width: 1,
+              ),
         backgroundColor: cs.surfaceContainerHighest,
         labelStyle: TextStyle(
           color: cs.onSurface,
@@ -432,7 +474,7 @@ class AppTheme {
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: _borderRadius),
-        backgroundColor: isLight ? const Color(0xFF323232) : _slateContainer,
+        backgroundColor: isLight ? const Color(0xFF323232) : _slateItem,
         contentTextStyle: const TextStyle(
           color: Colors.white,
           fontSize: 14,
@@ -445,8 +487,8 @@ class AppTheme {
       // ── Divider ────────────────────────────────────────────────────────
       dividerTheme: DividerThemeData(
         color: cs.outlineVariant,
-        thickness: 0.5,
-        space: 0.5,
+        thickness: isLight ? 0.5 : 1.0,
+        space: isLight ? 0.5 : 1.0,
       ),
 
       // ── ListTile ───────────────────────────────────────────────────────
@@ -472,7 +514,12 @@ class AppTheme {
 
       // ── PopupMenu ─────────────────────────────────────────────────────
       popupMenuTheme: PopupMenuThemeData(
-        shape: RoundedRectangleBorder(borderRadius: _borderRadius),
+        shape: RoundedRectangleBorder(
+          borderRadius: _borderRadius,
+          side: isLight
+              ? BorderSide.none
+              : BorderSide(color: cs.outline, width: 1),
+        ),
         color: isLight ? Colors.white : _slateSurface,
         surfaceTintColor: Colors.transparent,
         elevation: isLight ? 4 : 2,
@@ -486,8 +533,14 @@ class AppTheme {
       // ── Tooltip ────────────────────────────────────────────────────────
       tooltipTheme: TooltipThemeData(
         decoration: BoxDecoration(
-          color: isLight ? const Color(0xFF616161) : _slateContainer,
+          color: isLight ? const Color(0xFF616161) : _slateItem,
           borderRadius: BorderRadius.circular(8),
+          border: isLight
+              ? null
+              : Border.all(
+                  color: cs.outlineVariant.withValues(alpha: 0.5),
+                  width: 1,
+                ),
         ),
         textStyle: const TextStyle(
           color: Colors.white,
@@ -529,7 +582,16 @@ class AppTheme {
           borderSide: BorderSide(color: cs.primary, width: 2),
         ),
         dividerColor: cs.outlineVariant,
-        dividerHeight: 0.5,
+        dividerHeight: isLight ? 0.5 : 1.0,
+      ),
+
+      // ── NavigationBar ─────────────────────────────────────────────────
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: isLight ? cs.surface : _slateSurface,
+        surfaceTintColor: Colors.transparent,
+        indicatorColor: cs.primary.withValues(alpha: 0.12),
+        elevation: 0,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
       ),
     );
   }

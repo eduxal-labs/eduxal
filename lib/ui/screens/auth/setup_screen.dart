@@ -312,8 +312,8 @@ class _SetupScreenState extends State<SetupScreen>
   void _navigateToHome() {
     Navigator.of(context).pushAndRemoveUntil(
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) => const HomeScreen(),
-        transitionsBuilder: (_, animation, __, child) =>
+        pageBuilder: (_, _, _) => const HomeScreen(),
+        transitionsBuilder: (_, animation, _, child) =>
             FadeTransition(opacity: animation, child: child),
         transitionDuration: const Duration(milliseconds: 250),
       ),
@@ -499,7 +499,7 @@ class _SetupScreenState extends State<SetupScreen>
       child: Icon(
         Icons.person,
         size: radius * 0.8,
-        color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+        color: cs.onSurfaceVariant.withValues(alpha: 0.55),
       ),
     );
   }
