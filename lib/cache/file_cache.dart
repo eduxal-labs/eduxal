@@ -113,6 +113,35 @@ class FileCache {
     }
   }
 
+  /// Saves raw [bytes] to `{appDir}/{relativePath}`, creating any missing
+  /// parent directories. Overwrites any existing file at the target path.
+  ///
+  /// Returns the written [File] on success, or `null` if the write fails.
+  ///
+  /// Used when saving a locally-picked image (e.g. from `image_picker`) to
+  /// the cache without an HTTP download step.
+  ///
+  /// ```dart
+  /// final bytes = await pickedFile.readAsBytes();
+  /// final cached = await FileCache.saveBytes(
+  ///   bytes,
+  ///   FileCache.profilePath(userId),
+  /// );
+  /// ```
+  static Future<File?> saveBytes(List<int> bytes, String relativePath) async {
+    try {
+      final file = await _resolve(relativePath);
+      final dir = file.parent;
+      if (!dir.existsSync()) {
+        await dir.create(recursive: true);
+      }
+      await file.writeAsBytes(bytes, flush: true);
+      return file;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Deletes the file at `{appDir}/{relativePath}` if it exists.
   ///
   /// No-op if the file is absent. Errors during deletion are silently ignored.
@@ -141,6 +170,18 @@ class FileCache {
   /// This is the single canonical definition of this convention — no other
   /// file in the codebase should construct this path manually.
   static String profilePath(String userId) => 'users/$userId/profile';
+
+  /// Relative path for a school's logo image.
+  ///
+  /// Resolves to `{appDir}/schools/{schoolId}/logo` at runtime.
+  static String logoPath(String schoolId) => 'schools/$schoolId/logo';
+
+  /// Relative path for a student's photo.
+  ///
+  /// Resolves to `{appDir}/schools/{schoolId}/students/{adm}/image` at runtime.
+  /// Not used in Task Group 4 but establishes the convention for later groups.
+  static String studentImagePath(String schoolId, int adm) =>
+      'schools/$schoolId/students/$adm/image';
 
   // ─────────────────────────────────────────────────────────────────────────
   // Private helpers
