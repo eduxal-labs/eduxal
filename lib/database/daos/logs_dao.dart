@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import '../database.dart';
 import '../tables/enums.dart';
 import '../tables/logs.dart';
+import '../../models/app_notification.dart';
 
 part 'logs_dao.g.dart';
 
@@ -66,6 +67,39 @@ class LogsDao extends DatabaseAccessor<AppDatabase> with _$LogsDaoMixin {
               t.status.equalsValue(LogStatus.failed),
         ))
         .get();
+  }
+
+  /// Emits all failed log entries for [accountId] as [AppNotification] objects,
+  /// ordered by [LogsData.created] descending (most recent first), whenever
+  /// the [Logs] table changes.
+  ///
+  /// Used by the notifications panel and the app bar badge count.
+  Stream<List<AppNotification>> watchFailedLogs(String accountId) {
+    return (select(logs)
+          ..where(
+            (t) =>
+                t.account.equals(accountId) &
+                t.status.equalsValue(LogStatus.failed),
+          )
+          ..orderBy([(t) => OrderingTerm.desc(t.created)]))
+        .watch()
+        .map(
+          (rows) => rows
+              .map(
+                (row) => AppNotification(
+                  logId: row.id,
+                  table: row.tbl,
+                  operation: row.op,
+                  rowKey: row.rowKey,
+                  errorMessage: row.error,
+                  attempts: row.attempts,
+                  occurred: DateTime.fromMillisecondsSinceEpoch(
+                    row.created.toInt(),
+                  ),
+                ),
+              )
+              .toList(),
+        );
   }
 
   // ---------------------------------------------------------------------------

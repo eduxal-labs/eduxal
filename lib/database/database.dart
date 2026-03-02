@@ -5,8 +5,10 @@ import 'tables/enums.dart';
 
 import 'daos/accounts_dao.dart';
 import 'daos/logs_dao.dart';
-
+import 'daos/plans_dao.dart';
+import 'daos/roles_dao.dart';
 import 'daos/schools_dao.dart';
+import 'daos/system_stats_dao.dart';
 import 'daos/users_dao.dart';
 
 import 'tables/users.dart';
@@ -88,7 +90,20 @@ late final AppDatabase db;
   // create a circular import that breaks build_runner. The DAO still works
   // correctly — @DriftAccessor generates its mixin independently. Instantiate
   // it via `MembershipsDao(db)` directly wherever needed.
-  daos: [AccountsDao, LogsDao, SchoolsDao, UsersDao],
+  //
+  // SystemStatsDao is also excluded for the same reason — it imports
+  // lib/models/system_stats.dart which has no circular dependency, but to
+  // keep the pattern consistent and avoid any future issues, it is instantiated
+  // directly wherever needed.
+  daos: [
+    AccountsDao,
+    LogsDao,
+    PlansDao,
+    RolesDao,
+    SchoolsDao,
+    SystemStatsDao,
+    UsersDao,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(LazyDatabase(() => driftDatabase(name: 'eduxal')));

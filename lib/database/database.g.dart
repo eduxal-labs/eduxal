@@ -17669,7 +17669,12 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $LogsTable logs = $LogsTable(this);
   late final AccountsDao accountsDao = AccountsDao(this as AppDatabase);
   late final LogsDao logsDao = LogsDao(this as AppDatabase);
+  late final PlansDao plansDao = PlansDao(this as AppDatabase);
+  late final RolesDao rolesDao = RolesDao(this as AppDatabase);
   late final SchoolsDao schoolsDao = SchoolsDao(this as AppDatabase);
+  late final SystemStatsDao systemStatsDao = SystemStatsDao(
+    this as AppDatabase,
+  );
   late final UsersDao usersDao = UsersDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
