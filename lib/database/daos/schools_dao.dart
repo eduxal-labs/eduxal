@@ -249,6 +249,24 @@ class SchoolsDao extends DatabaseAccessor<AppDatabase> with _$SchoolsDaoMixin {
     return row != null;
   }
 
+  /// Logs an intent to sync the school logo image to the server.
+  /// No DB columns are changed — this is a fire-and-forget log entry
+  /// that tells the sync engine the logo bytes need uploading.
+  ///
+  /// Currently a no-op placeholder (same pattern as
+  /// [AccountsDao.logProfileImageChange]) until the upload-URL endpoint
+  /// exists on the server.
+  ///
+  /// [accountId] is the currently active account's user id.
+  Future<void> logLogoChange(
+    String schoolId, {
+    required String accountId,
+  }) async {
+    // TODO(P8): Write a log entry once the server exposes a presigned PUT URL
+    // for school logos. The sync engine will handle file uploads via a
+    // dedicated file-sync mechanism — no DB column exists for the logo itself.
+  }
+
   /// Links an existing user as an owner of a school and writes a log insert
   /// entry, both in a single transaction.
   ///

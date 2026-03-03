@@ -238,6 +238,108 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
     return updateUserDetails(userId, companion, accountId: accountId);
   }
 
+  /// Updates the [UserStatus] for a list of user IDs in a single transaction.
+  ///
+  /// Each user also gets its [UsersData.updated] timestamp refreshed.
+  /// Each change produces its own log entry within the transaction.
+  ///
+  /// [accountId] is the currently active account's user id.
+  Future<void> bulkUpdateStatus(
+    List<String> userIds,
+    UserStatus status, {
+    required String accountId,
+  }) {
+    return transaction(() async {
+      final nowSeconds = BigInt.from(
+        DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      );
+      final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      final int mask =
+          (1 << UsersColumn.status.bit) | (1 << UsersColumn.updated.bit);
+
+      for (final userId in userIds) {
+        await (update(users)..where((t) => t.id.equals(userId))).write(
+          UsersCompanion(status: Value(status), updated: Value(nowSeconds)),
+        );
+        await into(logs).insert(
+          LogsCompanion(
+            account: Value(accountId),
+            tbl: Value(LogTable.users),
+            op: Value(LogOperation.update),
+            rowKey: Value(userId),
+            columns: Value(mask),
+            status: const Value(LogStatus.pending),
+            created: Value(nowMs),
+          ),
+        );
+      }
+    });
+  }
+
+  /// Updates the [UserLevel] for a list of user IDs in a single transaction.
+  ///
+  /// Each user also gets its [UsersData.updated] timestamp refreshed.
+  /// Each change produces its own log entry within the transaction.
+  ///
+  /// [accountId] is the currently active account's user id.
+  Future<void> bulkUpdateLevel(
+    List<String> userIds,
+    UserLevel level, {
+    required String accountId,
+  }) {
+    return transaction(() async {
+      final nowSeconds = BigInt.from(
+        DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      );
+      final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      final int mask =
+          (1 << UsersColumn.level.bit) | (1 << UsersColumn.updated.bit);
+
+      for (final userId in userIds) {
+        await (update(users)..where((t) => t.id.equals(userId))).write(
+          UsersCompanion(level: Value(level), updated: Value(nowSeconds)),
+        );
+        await into(logs).insert(
+          LogsCompanion(
+            account: Value(accountId),
+            tbl: Value(LogTable.users),
+            op: Value(LogOperation.update),
+            rowKey: Value(userId),
+            columns: Value(mask),
+            status: const Value(LogStatus.pending),
+            created: Value(nowMs),
+          ),
+        );
+      }
+    });
+  }
+
+  /// Hard-deletes a list of user rows from the local DB in a single
+  /// transaction. Writes a delete log entry for each user **before** deletion.
+  ///
+  /// [accountId] is the currently active account's user id.
+  Future<void> bulkPurge(List<String> userIds, {required String accountId}) {
+    return transaction(() async {
+      final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      for (final userId in userIds) {
+        await into(logs).insert(
+          LogsCompanion(
+            account: Value(accountId),
+            tbl: Value(LogTable.users),
+            op: Value(LogOperation.delete),
+            rowKey: Value(userId),
+            status: const Value(LogStatus.pending),
+            created: Value(nowMs),
+          ),
+        );
+        await (delete(users)..where((t) => t.id.equals(userId))).go();
+      }
+    });
+  }
+
   /// Hard-deletes a user row from the local DB. Writes a delete log entry
   /// **before** the deletion so the sync engine can replay it to the server.
   ///

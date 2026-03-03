@@ -140,4 +140,29 @@ class PlansDao extends DatabaseAccessor<AppDatabase> with _$PlansDaoMixin {
       accountId: accountId,
     );
   }
+
+  /// Hard-deletes a plan row from the local DB. Writes a delete log entry
+  /// **before** the deletion so the sync engine can replay it to the server.
+  ///
+  /// Should only be called for plans that are already in [PlanStatus.deleted]
+  /// status. Only super-level users should be allowed to call this.
+  ///
+  /// [accountId] is the currently active account's user id.
+  Future<void> purgePlan(String planId, {required String accountId}) {
+    return transaction(() async {
+      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+      await into(logs).insert(
+        LogsCompanion(
+          account: Value(accountId),
+          tbl: const Value(LogTable.plans),
+          op: const Value(LogOperation.delete),
+          rowKey: Value(planId),
+          status: const Value(LogStatus.pending),
+          created: Value(now),
+        ),
+      );
+
+      await (delete(plans)..where((t) => t.id.equals(planId))).go();
+    });
+  }
 }

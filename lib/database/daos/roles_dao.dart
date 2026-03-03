@@ -35,6 +35,46 @@ class RolesDao extends DatabaseAccessor<AppDatabase> with _$RolesDaoMixin {
         .watch();
   }
 
+  /// Emits the list of system-level roles assigned to a specific user via the
+  /// [Scopes] table, joined with the [Roles] table to include full role details.
+  /// Only system-level scopes (where `scopes.school IS NULL`) are included.
+  /// Ordered by role name ascending.
+  ///
+  /// Each emission is a list of `(Scope, Role)` pairs. The stream re-emits
+  /// whenever the [Scopes] or [Roles] table changes for matching rows.
+  ///
+  /// Used by the Member Roles sheet on the Members tab.
+  Stream<List<({Scope scope, Role role})>> watchRolesForUser(String userId) {
+    final query =
+        select(scopes).join([innerJoin(roles, roles.id.equalsExp(scopes.role))])
+          ..where(scopes.user.equals(userId) & scopes.school.isNull())
+          ..orderBy([OrderingTerm.asc(roles.name)]);
+
+    return query.watch().map((rows) {
+      return rows.map((row) {
+        return (scope: row.readTable(scopes), role: row.readTable(roles));
+      }).toList();
+    });
+  }
+
+  /// Emits all system-level roles (where `roles.school IS NULL`) that are
+  /// **not yet** assigned to [userId] via a system-level scope.
+  /// Ordered by role name ascending.
+  ///
+  /// Used by the "Assign role" picker inside the Member Roles sheet.
+  Stream<List<Role>> watchEligibleRolesForUser(String userId) {
+    final assignedSubquery = selectOnly(scopes)
+      ..addColumns([scopes.role])
+      ..where(scopes.user.equals(userId) & scopes.school.isNull());
+
+    return (select(roles)
+          ..where(
+            (r) => r.school.isNull() & r.id.isNotInQuery(assignedSubquery),
+          )
+          ..orderBy([(r) => OrderingTerm.asc(r.name)]))
+        .watch();
+  }
+
   /// Emits the list of users assigned to a specific role via the [Scopes]
   /// table, joined with the [Users] table to include full user details.
   /// Only system-level scopes (where `scopes.school IS NULL`) are included.
