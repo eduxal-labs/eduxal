@@ -40,6 +40,10 @@ class _UsersSectionState extends State<UsersSection> {
   bool _filterExpanded = false;
   final Set<String> _selectedIds = {};
 
+  // Snapshot of all users — kept in sync with the stream so bulk actions
+  // can look up user objects by id without an extra async read.
+  List<UsersData> _allUsers = [];
+
   // ── Search debounce ────────────────────────────────────────────────────────
 
   Timer? _debounce;
@@ -99,6 +103,164 @@ class _UsersSectionState extends State<UsersSection> {
   }
 
   // ── Actions ────────────────────────────────────────────────────────────────
+
+  // ── Individual ─────────────────────────────────────────────────────────────
+
+  Future<void> _suspendUser(UsersData user) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        title: const Text('Suspend user'),
+        content: Text(
+          'Suspend ${user.name}? They will lose access until restored.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Suspend'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final accountId = cache.currentUser?.user.id;
+      if (accountId == null) return;
+      await usersDao.updateUserStatus(
+        user.id,
+        UserStatus.suspended,
+        accountId: accountId,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('${user.name} suspended')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to suspend user: $e')));
+      }
+    }
+  }
+
+  Future<void> _restoreUser(UsersData user) async {
+    try {
+      final accountId = cache.currentUser?.user.id;
+      if (accountId == null) return;
+      await usersDao.updateUserStatus(
+        user.id,
+        UserStatus.active,
+        accountId: accountId,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${user.name} restored to active')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to restore user: $e')));
+      }
+    }
+  }
+
+  Future<void> _promoteUser(UsersData user) async {
+    final targetLevel = user.level == UserLevel.normal
+        ? UserLevel.system
+        : UserLevel.super_;
+    final label = targetLevel == UserLevel.system ? 'System' : 'Super';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        title: Text('Promote to $label'),
+        content: Text('Promote ${user.name} to $label level?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Promote'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final accountId = cache.currentUser?.user.id;
+      if (accountId == null) return;
+      await usersDao.setUserLevel(user.id, targetLevel, accountId: accountId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${user.name} promoted to $label')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to promote user: $e')));
+      }
+    }
+  }
+
+  Future<void> _demoteUser(UsersData user) async {
+    final targetLevel = user.level == UserLevel.super_
+        ? UserLevel.system
+        : UserLevel.normal;
+    final label = targetLevel == UserLevel.system ? 'System' : 'Normal';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        title: Text('Demote to $label'),
+        content: Text('Demote ${user.name} to $label level?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Demote'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final accountId = cache.currentUser?.user.id;
+      if (accountId == null) return;
+      await usersDao.setUserLevel(user.id, targetLevel, accountId: accountId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${user.name} demoted to $label')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to demote user: $e')));
+      }
+    }
+  }
 
   Future<void> _trashUser(UsersData user) async {
     final confirmed = await showDialog<bool>(
@@ -189,6 +351,261 @@ class _UsersSectionState extends State<UsersSection> {
     }
   }
 
+  // ── Bulk actions ────────────────────────────────────────────────────────────
+
+  /// Resolves the [UsersData] objects for the currently selected IDs,
+  /// using the cached snapshot so no async DB read is needed.
+  List<UsersData> get _selectedUsers =>
+      _allUsers.where((u) => _selectedIds.contains(u.id)).toList();
+
+  Future<void> _bulkSuspend() async {
+    final selected = _selectedUsers;
+    final eligible = selected
+        .where((u) => u.status != UserStatus.suspended)
+        .toList();
+    if (eligible.isEmpty) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        title: const Text('Suspend users'),
+        content: Text('Suspend ${eligible.length} user(s)?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Suspend'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final accountId = cache.currentUser?.user.id;
+      if (accountId == null) return;
+      await usersDao.bulkUpdateStatus(
+        eligible.map((u) => u.id).toList(),
+        UserStatus.suspended,
+        accountId: accountId,
+      );
+      if (mounted) {
+        setState(() => _selectedIds.clear());
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${eligible.length} user(s) suspended')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to suspend users: $e')));
+      }
+    }
+  }
+
+  Future<void> _bulkTrash() async {
+    final selected = _selectedUsers;
+    final eligible = selected
+        .where((u) => u.status != UserStatus.deleted)
+        .toList();
+    if (eligible.isEmpty) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        title: const Text('Trash users'),
+        content: Text(
+          'Move ${eligible.length} user(s) to trash? '
+          'This is a soft delete — records can be restored later.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Trash'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final accountId = cache.currentUser?.user.id;
+      if (accountId == null) return;
+      await usersDao.bulkUpdateStatus(
+        eligible.map((u) => u.id).toList(),
+        UserStatus.deleted,
+        accountId: accountId,
+      );
+      if (mounted) {
+        setState(() => _selectedIds.clear());
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${eligible.length} user(s) moved to trash')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to trash users: $e')));
+      }
+    }
+  }
+
+  Future<void> _bulkPromote() async {
+    final selected = _selectedUsers;
+    if (selected.isEmpty) return;
+    final level = selected.first.level;
+    if (!selected.every((u) => u.level == level)) return;
+
+    final targetLevel = level == UserLevel.normal
+        ? UserLevel.system
+        : UserLevel.super_;
+    final label = targetLevel == UserLevel.system ? 'System' : 'Super';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        title: Text('Promote to $label'),
+        content: Text('Promote ${selected.length} user(s) to $label level?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Promote'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final accountId = cache.currentUser?.user.id;
+      if (accountId == null) return;
+      await usersDao.bulkUpdateLevel(
+        selected.map((u) => u.id).toList(),
+        targetLevel,
+        accountId: accountId,
+      );
+      if (mounted) {
+        setState(() => _selectedIds.clear());
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${selected.length} user(s) promoted to $label'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to promote users: $e')));
+      }
+    }
+  }
+
+  Future<void> _bulkDemote() async {
+    final selected = _selectedUsers;
+    if (selected.isEmpty) return;
+    final level = selected.first.level;
+    if (!selected.every((u) => u.level == level)) return;
+
+    final targetLevel = level == UserLevel.super_
+        ? UserLevel.system
+        : UserLevel.normal;
+    final label = targetLevel == UserLevel.system ? 'System' : 'Normal';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        title: Text('Demote to $label'),
+        content: Text('Demote ${selected.length} user(s) to $label level?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Demote'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final accountId = cache.currentUser?.user.id;
+      if (accountId == null) return;
+      await usersDao.bulkUpdateLevel(
+        selected.map((u) => u.id).toList(),
+        targetLevel,
+        accountId: accountId,
+      );
+      if (mounted) {
+        setState(() => _selectedIds.clear());
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${selected.length} user(s) demoted to $label'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to demote users: $e')));
+      }
+    }
+  }
+
+  Future<void> _bulkPurge() async {
+    final selected = _selectedUsers;
+    if (selected.isEmpty) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => _PurgeDialog(users: selected),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final accountId = cache.currentUser?.user.id;
+      if (accountId == null) return;
+      await usersDao.bulkPurge(
+        selected.map((u) => u.id).toList(),
+        accountId: accountId,
+      );
+      if (mounted) {
+        setState(() => _selectedIds.clear());
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${selected.length} user(s) permanently deleted'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to purge users: $e')));
+      }
+    }
+  }
+
   void _openDetail(UsersData user) {
     showModalBottomSheet(
       context: context,
@@ -209,51 +626,53 @@ class _UsersSectionState extends State<UsersSection> {
       stream: usersDao.watchAllUsers(),
       builder: (context, snapshot) {
         final allUsers = snapshot.data ?? [];
+        // Keep the cached snapshot in sync for bulk action lookups.
+        _allUsers = allUsers;
         final filtered = _applyFilters(allUsers);
+
+        // ── Compute bulk-action visibility ─────────────────────────────────
+        final selected = _selectedUsers;
+        final isSuper = widget.permissions.level == UserLevel.super_;
+
+        final showSuspend = selected.any(
+          (u) => u.status != UserStatus.suspended,
+        );
+        final showTrash = selected.any((u) => u.status != UserStatus.deleted);
+
+        // Promote/Demote only when ALL selected users share the same level.
+        final allSameLevel =
+            selected.isNotEmpty &&
+            selected.every((u) => u.level == selected.first.level);
+        final commonLevel = allSameLevel ? selected.first.level : null;
+        final showPromote =
+            allSameLevel &&
+            commonLevel != UserLevel.super_ &&
+            // Promoting to super_ requires super_ permissions.
+            (commonLevel != UserLevel.system || isSuper);
+        final showDemote =
+            allSameLevel &&
+            commonLevel != UserLevel.normal &&
+            // Demoting from super_ requires super_ permissions.
+            (commonLevel != UserLevel.super_ || isSuper);
 
         return Column(
           children: [
             // ── Toolbar ────────────────────────────────────────────────────
             if (_selectedIds.isNotEmpty)
-              Container(
-                height: 62,
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                color: cs.primaryContainer.withValues(
-                  alpha: cs.brightness == Brightness.dark ? 0.2 : 0.3,
-                ),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded),
-                      onPressed: () => setState(() => _selectedIds.clear()),
-                      color: cs.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 16),
-                    Text(
-                      '${_selectedIds.length} selected',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: cs.onSurface,
-                      ),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline_rounded),
-                      onPressed: () {
-                        // TODO: Bulk delete
-                      },
-                      color: cs.error,
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.more_vert_rounded),
-                      onPressed: () {
-                        // TODO: Bulk actions
-                      },
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ],
-                ),
+              _BulkActionBar(
+                cs: cs,
+                count: _selectedIds.length,
+                onClear: () => setState(() => _selectedIds.clear()),
+                showSuspend: showSuspend,
+                showTrash: showTrash,
+                showPromote: showPromote,
+                showDemote: showDemote,
+                showPurge: isSuper,
+                onSuspend: _bulkSuspend,
+                onTrash: _bulkTrash,
+                onPromote: _bulkPromote,
+                onDemote: _bulkDemote,
+                onPurge: _bulkPurge,
               )
             else
               _Toolbar(
@@ -299,6 +718,7 @@ class _UsersSectionState extends State<UsersSection> {
                       users: filtered,
                       permissions: widget.permissions,
                       selectedIds: _selectedIds,
+                      currentUserId: cache.currentUser?.user.id,
                       onTap: (u) {
                         if (_selectedIds.isNotEmpty) {
                           setState(() {
@@ -328,6 +748,10 @@ class _UsersSectionState extends State<UsersSection> {
                       },
                       onTrash: (u) => _trashUser(u),
                       onPurge: (u) => _purgeUser(u),
+                      onSuspend: (u) => _suspendUser(u),
+                      onRestore: (u) => _restoreUser(u),
+                      onPromote: (u) => _promoteUser(u),
+                      onDemote: (u) => _demoteUser(u),
                       cs: cs,
                     ),
             ),
@@ -340,6 +764,295 @@ class _UsersSectionState extends State<UsersSection> {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Toolbar
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Bulk action bar
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _BulkActionBar extends StatelessWidget {
+  const _BulkActionBar({
+    required this.cs,
+    required this.count,
+    required this.onClear,
+    required this.showSuspend,
+    required this.showTrash,
+    required this.showPromote,
+    required this.showDemote,
+    required this.showPurge,
+    required this.onSuspend,
+    required this.onTrash,
+    required this.onPromote,
+    required this.onDemote,
+    required this.onPurge,
+  });
+
+  final ColorScheme cs;
+  final int count;
+  final VoidCallback onClear;
+  final bool showSuspend;
+  final bool showTrash;
+  final bool showPromote;
+  final bool showDemote;
+  final bool showPurge;
+  final VoidCallback onSuspend;
+  final VoidCallback onTrash;
+  final VoidCallback onPromote;
+  final VoidCallback onDemote;
+  final VoidCallback onPurge;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = cs.brightness == Brightness.dark;
+    return Container(
+      height: 62,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      color: cs.primaryContainer.withValues(alpha: isDark ? 0.2 : 0.3),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.close_rounded, size: 20),
+            onPressed: onClear,
+            color: cs.onSurfaceVariant,
+            tooltip: 'Clear selection',
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '$count selected',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurface,
+            ),
+          ),
+          const Spacer(),
+          if (showSuspend)
+            IconButton(
+              icon: const Icon(Icons.block_outlined, size: 20),
+              onPressed: onSuspend,
+              color: const Color(0xFFFFB300),
+              tooltip: 'Suspend',
+            ),
+          if (showPromote)
+            IconButton(
+              icon: const Icon(Icons.arrow_upward_rounded, size: 20),
+              onPressed: onPromote,
+              color: cs.primary,
+              tooltip: 'Promote',
+            ),
+          if (showDemote)
+            IconButton(
+              icon: const Icon(Icons.arrow_downward_rounded, size: 20),
+              onPressed: onDemote,
+              color: cs.onSurfaceVariant,
+              tooltip: 'Demote',
+            ),
+          if (showTrash)
+            IconButton(
+              icon: const Icon(Icons.delete_outline_rounded, size: 20),
+              onPressed: onTrash,
+              color: cs.error,
+              tooltip: 'Trash',
+            ),
+          if (showPurge)
+            IconButton(
+              icon: const Icon(Icons.delete_forever_rounded, size: 20),
+              onPressed: onPurge,
+              color: cs.error,
+              tooltip: 'Purge permanently',
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Purge confirmation dialog
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PurgeDialog extends StatefulWidget {
+  const _PurgeDialog({required this.users});
+
+  final List<UsersData> users;
+
+  @override
+  State<_PurgeDialog> createState() => _PurgeDialogState();
+}
+
+class _PurgeDialogState extends State<_PurgeDialog> {
+  final _controller = TextEditingController();
+  bool _confirmed = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final count = widget.users.length;
+    // Show up to 5 names; append "and N more…" if there are more.
+    final names = widget.users.take(5).map((u) => u.name).toList();
+    final remainder = count - names.length;
+
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      backgroundColor: cs.surface,
+      title: Row(
+        children: [
+          Icon(Icons.warning_amber_rounded, color: cs.error, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Permanently delete $count user(s)?',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: cs.onSurface,
+              ),
+            ),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 400,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'This action CANNOT be undone. The following records will be '
+              'permanently removed from the database with no possibility of '
+              'recovery:',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 10),
+            ...names.map(
+              (name) => Padding(
+                padding: const EdgeInsets.only(bottom: 3),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.person_outlined,
+                      size: 14,
+                      color: cs.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        name,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: cs.onSurface,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (remainder > 0) ...[
+              const SizedBox(height: 2),
+              Text(
+                'and $remainder more…',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            ],
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: cs.errorContainer,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                'Type "DELETE" to confirm',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onErrorContainer,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurface,
+              ),
+              decoration: InputDecoration(
+                hintText: 'DELETE',
+                hintStyle: TextStyle(
+                  fontSize: 13,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 10,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: BorderSide(color: cs.outline),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: BorderSide(color: cs.error),
+                ),
+              ),
+              onChanged: (v) {
+                setState(() => _confirmed = v == 'DELETE');
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text(
+            'Cancel',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: cs.error),
+          onPressed: _confirmed ? () => Navigator.of(context).pop(true) : null,
+          child: const Text(
+            'Purge permanently',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Toolbar (search + filter toggle)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _Toolbar extends StatelessWidget {
@@ -780,22 +1493,32 @@ class _UserList extends StatelessWidget {
     required this.users,
     required this.permissions,
     required this.selectedIds,
+    required this.currentUserId,
     required this.onTap,
     required this.onLongPress,
     required this.onToggleSelection,
     required this.onTrash,
     required this.onPurge,
+    required this.onSuspend,
+    required this.onRestore,
+    required this.onPromote,
+    required this.onDemote,
     required this.cs,
   });
 
   final List<UsersData> users;
   final SystemPermissions permissions;
   final Set<String> selectedIds;
+  final String? currentUserId;
   final void Function(UsersData) onTap;
   final void Function(UsersData) onLongPress;
   final void Function(UsersData) onToggleSelection;
   final void Function(UsersData) onTrash;
   final void Function(UsersData) onPurge;
+  final void Function(UsersData) onSuspend;
+  final void Function(UsersData) onRestore;
+  final void Function(UsersData) onPromote;
+  final void Function(UsersData) onDemote;
   final ColorScheme cs;
 
   @override
@@ -815,11 +1538,16 @@ class _UserList extends StatelessWidget {
           permissions: permissions,
           isSelected: isSelected,
           selectionMode: selectionMode,
+          isMe: u.id == currentUserId,
           onTap: () => onTap(u),
           onLongPress: () => onLongPress(u),
           onToggleSelection: () => onToggleSelection(u),
           onTrash: () => onTrash(u),
           onPurge: () => onPurge(u),
+          onSuspend: () => onSuspend(u),
+          onRestore: () => onRestore(u),
+          onPromote: () => onPromote(u),
+          onDemote: () => onDemote(u),
           cs: cs,
         );
       },
@@ -833,11 +1561,16 @@ class _UserRow extends StatefulWidget {
     required this.permissions,
     required this.isSelected,
     required this.selectionMode,
+    required this.isMe,
     required this.onTap,
     required this.onLongPress,
     required this.onToggleSelection,
     required this.onTrash,
     required this.onPurge,
+    required this.onSuspend,
+    required this.onRestore,
+    required this.onPromote,
+    required this.onDemote,
     required this.cs,
   });
 
@@ -845,11 +1578,16 @@ class _UserRow extends StatefulWidget {
   final SystemPermissions permissions;
   final bool isSelected;
   final bool selectionMode;
+  final bool isMe;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
   final VoidCallback onToggleSelection;
   final VoidCallback onTrash;
   final VoidCallback onPurge;
+  final VoidCallback onSuspend;
+  final VoidCallback onRestore;
+  final VoidCallback onPromote;
+  final VoidCallback onDemote;
   final ColorScheme cs;
 
   @override
@@ -864,7 +1602,6 @@ class _UserRowState extends State<_UserRow> {
     final cs = widget.cs;
     final isDesktop =
         MediaQuery.sizeOf(context).width >= AppTheme.kMobileBreakpoint;
-
     final isDark = cs.brightness == Brightness.dark;
 
     return Container(
@@ -966,143 +1703,248 @@ class _UserRowState extends State<_UserRow> {
                           color: cs.onSurfaceVariant.withValues(alpha: 0.9),
                         ),
                       ),
+                      if (widget.isMe) ...[
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: cs.primary.withValues(alpha: 0.07),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: cs.primary.withValues(alpha: 0.5),
+                              width: 1,
+                            ),
+                          ),
+                          child: Text(
+                            'YOU',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                              color: cs.primary,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
 
                 if (!widget.selectionMode) ...[
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
                   if (isDesktop)
-                    IgnorePointer(
-                      ignoring: !_isHovering,
-                      child: AnimatedOpacity(
-                        opacity: _isHovering ? 1.0 : 0.0,
-                        duration: const Duration(milliseconds: 150),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit_outlined),
-                              iconSize: 18,
-                              color: cs.onSurfaceVariant,
-                              onPressed: widget.onTap,
-                              tooltip: 'Edit',
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline_rounded),
-                              iconSize: 18,
-                              color: cs.onSurfaceVariant,
-                              onPressed: widget.onTrash,
-                              tooltip: 'Trash',
-                            ),
-                            if (widget.permissions.level == UserLevel.super_)
-                              IconButton(
-                                icon: const Icon(Icons.delete_forever_rounded),
-                                iconSize: 18,
-                                color: cs.error,
-                                onPressed: widget.onPurge,
-                                tooltip: 'Purge',
-                              ),
-                          ],
-                        ),
-                      ),
-                    )
+                    _buildDesktopActions(cs)
                   else
-                    PopupMenuButton<String>(
-                      icon: Icon(
-                        Icons.more_vert_rounded,
-                        size: 20,
-                        color: cs.onSurfaceVariant,
-                      ),
-                      padding: EdgeInsets.zero,
-                      color: cs.surfaceContainerHighest,
-                      elevation: 1,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: BorderSide(color: cs.outlineVariant, width: 1),
-                      ),
-                      position: PopupMenuPosition.under,
-                      onSelected: (val) {
-                        if (val == 'edit') {
-                          widget.onTap();
-                        } else if (val == 'trash') {
-                          widget.onTrash();
-                        } else if (val == 'purge') {
-                          widget.onPurge();
-                        }
-                      },
-                      itemBuilder: (context) => [
-                        PopupMenuItem(
-                          value: 'edit',
-                          height: 40,
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.edit_outlined,
-                                size: 18,
-                                color: cs.onSurface,
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                'Edit',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: cs.onSurface,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        PopupMenuItem(
-                          value: 'trash',
-                          height: 40,
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.delete_outline_rounded,
-                                size: 18,
-                                color: cs.onSurfaceVariant,
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                'Trash',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: cs.onSurface,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (widget.permissions.level == UserLevel.super_)
-                          PopupMenuItem(
-                            value: 'purge',
-                            height: 40,
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.delete_forever_rounded,
-                                  size: 18,
-                                  color: cs.error,
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  'Purge',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: cs.error,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
-                    ),
+                    _buildMobileMenu(cs),
                 ],
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildDesktopActions(ColorScheme cs) {
+    final user = widget.user;
+    final isSuper = widget.permissions.level == UserLevel.super_;
+    final canSuspend =
+        user.status != UserStatus.suspended &&
+        user.status != UserStatus.deleted;
+    final canRestore =
+        user.status == UserStatus.suspended ||
+        user.status == UserStatus.deleted;
+    final canPromote =
+        user.level != UserLevel.super_ &&
+        (user.level != UserLevel.system || isSuper);
+    final canDemote =
+        user.level != UserLevel.normal &&
+        (user.level != UserLevel.super_ || isSuper);
+
+    return IgnorePointer(
+      ignoring: !_isHovering,
+      child: AnimatedOpacity(
+        opacity: _isHovering ? 1.0 : 0.0,
+        duration: const Duration(milliseconds: 150),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              iconSize: 18,
+              color: cs.onSurfaceVariant,
+              onPressed: widget.onTap,
+              tooltip: 'Edit',
+            ),
+            if (canSuspend)
+              IconButton(
+                icon: const Icon(Icons.block_outlined),
+                iconSize: 18,
+                color: const Color(0xFFFFB300),
+                onPressed: widget.onSuspend,
+                tooltip: 'Suspend',
+              ),
+            if (canRestore)
+              IconButton(
+                icon: const Icon(Icons.restore_rounded),
+                iconSize: 18,
+                color: Colors.teal,
+                onPressed: widget.onRestore,
+                tooltip: 'Restore',
+              ),
+            if (canPromote)
+              IconButton(
+                icon: const Icon(Icons.arrow_upward_rounded),
+                iconSize: 18,
+                color: cs.primary,
+                onPressed: widget.onPromote,
+                tooltip: 'Promote',
+              ),
+            if (canDemote)
+              IconButton(
+                icon: const Icon(Icons.arrow_downward_rounded),
+                iconSize: 18,
+                color: cs.onSurfaceVariant,
+                onPressed: widget.onDemote,
+                tooltip: 'Demote',
+              ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline_rounded),
+              iconSize: 18,
+              color: cs.onSurfaceVariant,
+              onPressed: widget.onTrash,
+              tooltip: 'Trash',
+            ),
+            if (isSuper)
+              IconButton(
+                icon: const Icon(Icons.delete_forever_rounded),
+                iconSize: 18,
+                color: cs.error,
+                onPressed: widget.onPurge,
+                tooltip: 'Purge',
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileMenu(ColorScheme cs) {
+    final user = widget.user;
+    final isSuper = widget.permissions.level == UserLevel.super_;
+    final canSuspend =
+        user.status != UserStatus.suspended &&
+        user.status != UserStatus.deleted;
+    final canRestore =
+        user.status == UserStatus.suspended ||
+        user.status == UserStatus.deleted;
+    final canPromote =
+        user.level != UserLevel.super_ &&
+        (user.level != UserLevel.system || isSuper);
+    final canDemote =
+        user.level != UserLevel.normal &&
+        (user.level != UserLevel.super_ || isSuper);
+
+    return PopupMenuButton<String>(
+      icon: Icon(Icons.more_vert_rounded, size: 20, color: cs.onSurfaceVariant),
+      padding: EdgeInsets.zero,
+      color: cs.surfaceContainerHighest,
+      elevation: 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: cs.outlineVariant, width: 1),
+      ),
+      position: PopupMenuPosition.under,
+      onSelected: (val) {
+        switch (val) {
+          case 'edit':
+            widget.onTap();
+          case 'suspend':
+            widget.onSuspend();
+          case 'restore':
+            widget.onRestore();
+          case 'promote':
+            widget.onPromote();
+          case 'demote':
+            widget.onDemote();
+          case 'trash':
+            widget.onTrash();
+          case 'purge':
+            widget.onPurge();
+        }
+      },
+      itemBuilder: (context) => [
+        _menuItem('edit', Icons.edit_outlined, 'Edit', cs.onSurface, cs),
+        if (canSuspend)
+          _menuItem(
+            'suspend',
+            Icons.block_outlined,
+            'Suspend',
+            const Color(0xFFFFB300),
+            cs,
+          ),
+        if (canRestore)
+          _menuItem(
+            'restore',
+            Icons.restore_rounded,
+            'Restore',
+            Colors.teal,
+            cs,
+          ),
+        if (canPromote)
+          _menuItem(
+            'promote',
+            Icons.arrow_upward_rounded,
+            'Promote',
+            cs.primary,
+            cs,
+          ),
+        if (canDemote)
+          _menuItem(
+            'demote',
+            Icons.arrow_downward_rounded,
+            'Demote',
+            cs.onSurfaceVariant,
+            cs,
+          ),
+        _menuItem(
+          'trash',
+          Icons.delete_outline_rounded,
+          'Trash',
+          cs.onSurfaceVariant,
+          cs,
+        ),
+        if (isSuper)
+          _menuItem(
+            'purge',
+            Icons.delete_forever_rounded,
+            'Purge',
+            cs.error,
+            cs,
+          ),
+      ],
+    );
+  }
+
+  PopupMenuItem<String> _menuItem(
+    String value,
+    IconData icon,
+    String label,
+    Color color,
+    ColorScheme cs,
+  ) {
+    return PopupMenuItem(
+      value: value,
+      height: 40,
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 12),
+          Text(label, style: TextStyle(fontSize: 13, color: color)),
+        ],
       ),
     );
   }

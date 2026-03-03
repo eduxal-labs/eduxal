@@ -39,8 +39,6 @@ class _UserDetailSheetState extends State<UserDetailSheet> {
   // ── Edit form controllers ──────────────────────────────────────────────────
   late final TextEditingController _nameCtrl;
   late final TextEditingController _emailCtrl;
-  UserStatus? _editStatus;
-  UserLevel? _editLevel;
 
   bool _saving = false;
   String? _saveError;
@@ -54,8 +52,6 @@ class _UserDetailSheetState extends State<UserDetailSheet> {
     super.initState();
     _nameCtrl = TextEditingController(text: widget.user.name);
     _emailCtrl = TextEditingController(text: widget.user.email ?? '');
-    _editStatus = widget.user.status;
-    _editLevel = widget.user.level;
   }
 
   @override
@@ -71,8 +67,6 @@ class _UserDetailSheetState extends State<UserDetailSheet> {
     setState(() {
       _nameCtrl.text = current.name;
       _emailCtrl.text = current.email ?? '';
-      _editStatus = current.status;
-      _editLevel = current.level;
       _editing = true;
       _saveError = null;
       _pickedImage = null;
@@ -110,8 +104,6 @@ class _UserDetailSheetState extends State<UserDetailSheet> {
         UsersCompanion(
           name: Value(name),
           email: Value(email.isEmpty ? null : email),
-          status: Value(_editStatus!),
-          level: Value(_editLevel!),
           updated: Value(nowSeconds),
         ),
         accountId: accountId,
@@ -230,6 +222,86 @@ class _UserDetailSheetState extends State<UserDetailSheet> {
     );
   }
 
+  // ── Action helpers ─────────────────────────────────────────────────────────
+
+  Future<void> _updateLevel(UsersData user, UserLevel level) async {
+    final accountId = cache.currentUser?.user.id;
+    if (accountId == null) return;
+    await usersDao.setUserLevel(user.id, level, accountId: accountId);
+  }
+
+  Future<void> _updateStatus(UsersData user, UserStatus status) async {
+    final accountId = cache.currentUser?.user.id;
+    if (accountId == null) return;
+    await usersDao.updateUserStatus(user.id, status, accountId: accountId);
+  }
+
+  /// Shows a confirmation dialog and, on confirm, calls [onConfirm].
+  Future<void> _confirmAndRun({
+    required BuildContext context,
+    required String title,
+    required String message,
+    required String confirmLabel,
+    required Color confirmColor,
+    required Future<void> Function() onConfirm,
+  }) async {
+    final cs = Theme.of(context).colorScheme;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.kRadius),
+        ),
+        backgroundColor: cs.surface,
+        title: Text(
+          title,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            color: cs.onSurface,
+          ),
+        ),
+        content: Text(
+          message,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+            color: cs.onSurfaceVariant,
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              confirmLabel,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: confirmColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await onConfirm();
+    }
+  }
+
   // ── Build ───────────────────────────────────────────────────────────────────
 
   @override
@@ -270,6 +342,7 @@ class _UserDetailSheetState extends State<UserDetailSheet> {
                   _saveError = null;
                   _pickedImage = null;
                 }),
+                onViewImage: () => _viewImage(user.id),
                 cs: cs,
               ),
 
@@ -278,27 +351,39 @@ class _UserDetailSheetState extends State<UserDetailSheet> {
               // ── Body ──────────────────────────────────────────────────────
               Flexible(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
                   child: _editing
                       ? _EditBody(
                           user: user,
                           nameCtrl: _nameCtrl,
                           emailCtrl: _emailCtrl,
-                          status: _editStatus!,
-                          level: _editLevel!,
-                          canEditLevel: widget.permissions.canSeeDeleted,
                           error: _saveError,
                           pickedImage: _pickedImage,
-                          onStatusChanged: (s) =>
-                              setState(() => _editStatus = s),
-                          onLevelChanged: (l) => setState(() => _editLevel = l),
                           onPickImage: _pickImage,
                           cs: cs,
                         )
                       : _ViewBody(
                           user: user,
                           cs: cs,
-                          onViewImage: () => _viewImage(user.id),
+                          permissions: widget.permissions,
+                          onUpdateLevel: (level) => _updateLevel(user, level),
+                          onUpdateStatus: (status) =>
+                              _updateStatus(user, status),
+                          onConfirmAndRun:
+                              ({
+                                required title,
+                                required message,
+                                required confirmLabel,
+                                required confirmColor,
+                                required onConfirm,
+                              }) => _confirmAndRun(
+                                context: context,
+                                title: title,
+                                message: message,
+                                confirmLabel: confirmLabel,
+                                confirmColor: confirmColor,
+                                onConfirm: onConfirm,
+                              ),
                         ),
                 ),
               ),
@@ -347,6 +432,7 @@ class _SheetHeader extends StatelessWidget {
     required this.onEdit,
     required this.onSave,
     required this.onCancel,
+    required this.onViewImage,
     required this.cs,
   });
 
@@ -357,6 +443,7 @@ class _SheetHeader extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onSave;
   final VoidCallback onCancel;
+  final VoidCallback onViewImage;
   final ColorScheme cs;
 
   @override
@@ -365,8 +452,13 @@ class _SheetHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 12, 12, 16),
       child: Row(
         children: [
-          // Status dot on the avatar.
-          _AvatarWithDot(userId: user.id, status: user.status, cs: cs),
+          // Tappable avatar with status dot — 52 px.
+          _AvatarWithDot(
+            userId: user.id,
+            status: user.status,
+            cs: cs,
+            onTap: editing ? null : onViewImage,
+          ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -464,7 +556,7 @@ class _SheetHeader extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Avatar with status dot overlay
+// Avatar with status dot overlay — 52 px, optionally tappable
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _AvatarWithDot extends StatelessWidget {
@@ -472,21 +564,23 @@ class _AvatarWithDot extends StatelessWidget {
     required this.userId,
     required this.status,
     required this.cs,
+    this.onTap,
   });
 
   final String userId;
   final UserStatus status;
   final ColorScheme cs;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 60,
-      height: 60,
+    final avatar = SizedBox(
+      width: 52,
+      height: 52,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          UserAvatar(userId: userId, radius: 28),
+          UserAvatar(userId: userId, radius: 26),
           Positioned(
             bottom: 0,
             right: 0,
@@ -503,23 +597,46 @@ class _AvatarWithDot extends StatelessWidget {
         ],
       ),
     );
+
+    if (onTap == null) return avatar;
+
+    return GestureDetector(onTap: onTap, child: avatar);
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// View body — card-based read-only display with copy-to-clipboard
+// Typedef for the confirm-and-run callback to keep _ViewBody clean
+// ─────────────────────────────────────────────────────────────────────────────
+
+typedef _ConfirmAndRun =
+    Future<void> Function({
+      required String title,
+      required String message,
+      required String confirmLabel,
+      required Color confirmColor,
+      required Future<void> Function() onConfirm,
+    });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// View body — card-based read-only display + Account Actions
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ViewBody extends StatelessWidget {
   const _ViewBody({
     required this.user,
     required this.cs,
-    required this.onViewImage,
+    required this.permissions,
+    required this.onUpdateLevel,
+    required this.onUpdateStatus,
+    required this.onConfirmAndRun,
   });
 
   final UsersData user;
   final ColorScheme cs;
-  final VoidCallback onViewImage;
+  final SystemPermissions permissions;
+  final Future<void> Function(UserLevel) onUpdateLevel;
+  final Future<void> Function(UserStatus) onUpdateStatus;
+  final _ConfirmAndRun onConfirmAndRun;
 
   @override
   Widget build(BuildContext context) {
@@ -538,13 +655,6 @@ class _ViewBody extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Tappable profile image ──────────────────────────────────────
-        Center(
-          child: _ProfileImage(userId: user.id, cs: cs, onTap: onViewImage),
-        ),
-
-        const SizedBox(height: 24),
-
         // ── Contact section ─────────────────────────────────────────────
         _SectionHeader(title: 'Contact', cs: cs),
         const SizedBox(height: 4),
@@ -612,6 +722,22 @@ class _ViewBody extends StatelessWidget {
           ],
         ),
 
+        // ── Account Actions section ──────────────────────────────────────
+        if (permissions.can('users.update')) ...[
+          const SizedBox(height: 20),
+          _SectionHeader(title: 'Account Actions', cs: cs),
+          const SizedBox(height: 4),
+          _AccountActionsCard(
+            user: user,
+            cs: cs,
+            borderColor: borderColor,
+            permissions: permissions,
+            onUpdateLevel: onUpdateLevel,
+            onUpdateStatus: onUpdateStatus,
+            onConfirmAndRun: onConfirmAndRun,
+          ),
+        ],
+
         const SizedBox(height: 20),
 
         // ── Timestamps section ──────────────────────────────────────────
@@ -660,55 +786,309 @@ class _ViewBody extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Profile image — tappable, shows full-screen viewer
+// Account Actions card — contextual level + status action rows
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _ProfileImage extends StatelessWidget {
-  const _ProfileImage({
-    required this.userId,
+class _AccountActionsCard extends StatelessWidget {
+  const _AccountActionsCard({
+    required this.user,
     required this.cs,
-    required this.onTap,
+    required this.borderColor,
+    required this.permissions,
+    required this.onUpdateLevel,
+    required this.onUpdateStatus,
+    required this.onConfirmAndRun,
   });
 
-  final String userId;
+  final UsersData user;
   final ColorScheme cs;
-  final VoidCallback onTap;
+  final Color borderColor;
+  final SystemPermissions permissions;
+  final Future<void> Function(UserLevel) onUpdateLevel;
+  final Future<void> Function(UserStatus) onUpdateStatus;
+  final _ConfirmAndRun onConfirmAndRun;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: FutureBuilder<File?>(
-        future: FileCache.get(FileCache.profilePath(userId)),
-        builder: (context, snapshot) {
-          final file = snapshot.data;
-          final hasImage = file != null && file.existsSync();
+    final rows = <Widget>[];
+    bool first = true;
 
-          if (hasImage) {
-            return CircleAvatar(
-              radius: 48,
-              backgroundImage: FileImage(file),
-              backgroundColor: cs.surfaceContainerHighest,
-            );
-          }
+    void addRow(Widget row) {
+      if (!first) rows.add(_RowDivider(cs: cs));
+      rows.add(row);
+      first = false;
+    }
 
-          return CircleAvatar(
-            radius: 48,
-            backgroundColor: cs.surfaceContainerHighest,
-            child: Icon(
-              Icons.person,
-              size: 40,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+    // ── Level actions ──────────────────────────────────────────────────
+    final viewerLevel = permissions.level;
+
+    switch (user.level) {
+      case UserLevel.normal:
+        addRow(
+          _ActionRow(
+            icon: Icons.upgrade_rounded,
+            iconColor: cs.primary,
+            label: 'Promote to member',
+            sublabel: 'Grants system access',
+            cs: cs,
+            onTap: () => onUpdateLevel(UserLevel.system),
+          ),
+        );
+      case UserLevel.system:
+        addRow(
+          _ActionRow(
+            icon: Icons.arrow_upward_rounded,
+            iconColor: cs.primary,
+            label: 'Elevate to super',
+            sublabel: 'Grants full access',
+            cs: cs,
+            onTap: () => onUpdateLevel(UserLevel.super_),
+          ),
+        );
+        addRow(
+          _ActionRow(
+            icon: Icons.arrow_downward_rounded,
+            iconColor: const Color(0xFFFFB300),
+            label: 'Demote to normal',
+            sublabel: 'Removes system access',
+            cs: cs,
+            destructive: true,
+            onTap: () => onConfirmAndRun(
+              title: 'Demote to normal?',
+              message:
+                  'This will remove system access from ${user.name}. They will no longer be able to use the system dashboard.',
+              confirmLabel: 'Demote',
+              confirmColor: const Color(0xFFFFB300),
+              onConfirm: () => onUpdateLevel(UserLevel.normal),
+            ),
+          ),
+        );
+      case UserLevel.super_:
+        // Only another super can downgrade a super user.
+        if (viewerLevel == UserLevel.super_) {
+          addRow(
+            _ActionRow(
+              icon: Icons.arrow_downward_rounded,
+              iconColor: const Color(0xFFFFB300),
+              label: 'Downgrade to member',
+              sublabel: 'Reverts full access',
+              cs: cs,
+              destructive: true,
+              onTap: () => onConfirmAndRun(
+                title: 'Downgrade to member?',
+                message:
+                    'This will revoke super-level access from ${user.name}. They will be set to system level.',
+                confirmLabel: 'Downgrade',
+                confirmColor: const Color(0xFFFFB300),
+                onConfirm: () => onUpdateLevel(UserLevel.system),
+              ),
             ),
           );
-        },
+        }
+    }
+
+    // ── Status actions ─────────────────────────────────────────────────
+    switch (user.status) {
+      case UserStatus.invited:
+        addRow(
+          _ActionRow(
+            icon: Icons.block_outlined,
+            iconColor: const Color(0xFFFFB300),
+            label: 'Suspend',
+            sublabel: 'Prevents account access',
+            cs: cs,
+            destructive: true,
+            onTap: () => onConfirmAndRun(
+              title: 'Suspend ${user.name}?',
+              message:
+                  'Suspending this account will prevent them from accessing the system until restored.',
+              confirmLabel: 'Suspend',
+              confirmColor: const Color(0xFFFFB300),
+              onConfirm: () => onUpdateStatus(UserStatus.suspended),
+            ),
+          ),
+        );
+      case UserStatus.active:
+        addRow(
+          _ActionRow(
+            icon: Icons.block_outlined,
+            iconColor: const Color(0xFFFFB300),
+            label: 'Suspend',
+            sublabel: 'Prevents account access',
+            cs: cs,
+            destructive: true,
+            onTap: () => onConfirmAndRun(
+              title: 'Suspend ${user.name}?',
+              message:
+                  'Suspending this account will prevent them from accessing the system until restored.',
+              confirmLabel: 'Suspend',
+              confirmColor: const Color(0xFFFFB300),
+              onConfirm: () => onUpdateStatus(UserStatus.suspended),
+            ),
+          ),
+        );
+        addRow(
+          _ActionRow(
+            icon: Icons.delete_outline_rounded,
+            iconColor: const Color(0xFFEF5350),
+            label: 'Delete',
+            sublabel: 'Marks account as deleted',
+            cs: cs,
+            destructive: true,
+            onTap: () => onConfirmAndRun(
+              title: 'Delete ${user.name}?',
+              message:
+                  'This will mark the account as deleted. The user will lose access. This action can be reversed by restoring the account.',
+              confirmLabel: 'Delete',
+              confirmColor: const Color(0xFFEF5350),
+              onConfirm: () => onUpdateStatus(UserStatus.deleted),
+            ),
+          ),
+        );
+      case UserStatus.suspended:
+        addRow(
+          _ActionRow(
+            icon: Icons.restore_rounded,
+            iconColor: const Color(0xFF26A69A),
+            label: 'Restore',
+            sublabel: 'Reactivates account access',
+            cs: cs,
+            onTap: () => onUpdateStatus(UserStatus.active),
+          ),
+        );
+        addRow(
+          _ActionRow(
+            icon: Icons.delete_outline_rounded,
+            iconColor: const Color(0xFFEF5350),
+            label: 'Delete',
+            sublabel: 'Marks account as deleted',
+            cs: cs,
+            destructive: true,
+            onTap: () => onConfirmAndRun(
+              title: 'Delete ${user.name}?',
+              message:
+                  'This will mark the account as deleted. The user will lose access. This action can be reversed by restoring the account.',
+              confirmLabel: 'Delete',
+              confirmColor: const Color(0xFFEF5350),
+              onConfirm: () => onUpdateStatus(UserStatus.deleted),
+            ),
+          ),
+        );
+      case UserStatus.deleted:
+        addRow(
+          _ActionRow(
+            icon: Icons.restore_rounded,
+            iconColor: const Color(0xFF26A69A),
+            label: 'Restore',
+            sublabel: 'Reactivates account access',
+            cs: cs,
+            onTap: () => onUpdateStatus(UserStatus.active),
+          ),
+        );
+        // Purge is only available to super_ users.
+        if (viewerLevel == UserLevel.super_) {
+          addRow(
+            _ActionRow(
+              icon: Icons.delete_forever_rounded,
+              iconColor: const Color(0xFFEF5350),
+              label: 'Purge',
+              sublabel: 'Permanently removes from system',
+              cs: cs,
+              destructive: true,
+              onTap: () => onConfirmAndRun(
+                title: 'Purge ${user.name}?',
+                message:
+                    'This will permanently delete ${user.name} from the system. This cannot be undone.',
+                confirmLabel: 'Purge',
+                confirmColor: const Color(0xFFEF5350),
+                onConfirm: () async {
+                  final accountId = cache.currentUser?.user.id;
+                  if (accountId == null) return;
+                  await usersDao.purgeUser(user.id, accountId: accountId);
+                },
+              ),
+            ),
+          );
+        }
+    }
+
+    if (rows.isEmpty) return const SizedBox.shrink();
+
+    return _SectionCard(cs: cs, borderColor: borderColor, children: rows);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Action row — icon + label/sublabel + chevron
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ActionRow extends StatelessWidget {
+  const _ActionRow({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.sublabel,
+    required this.cs,
+    required this.onTap,
+    this.destructive = false,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final String sublabel;
+  final ColorScheme cs;
+  final VoidCallback onTap;
+  final bool destructive;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: iconColor),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      color: destructive ? iconColor : cs.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    sublabel,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w300,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 16,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Section header — uppercase label (account screen pattern)
+// Section header — uppercase label
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _SectionHeader extends StatelessWidget {
@@ -736,7 +1116,7 @@ class _SectionHeader extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Section card container (account screen pattern)
+// Section card container
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _SectionCard extends StatelessWidget {
@@ -959,6 +1339,7 @@ class _CopyButton extends StatelessWidget {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Edit body — profile image picker + section-grouped form fields
+// (status/level dropdowns removed — use Account Actions in view mode)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _EditBody extends StatelessWidget {
@@ -966,13 +1347,8 @@ class _EditBody extends StatelessWidget {
     required this.user,
     required this.nameCtrl,
     required this.emailCtrl,
-    required this.status,
-    required this.level,
-    required this.canEditLevel,
     required this.error,
     required this.pickedImage,
-    required this.onStatusChanged,
-    required this.onLevelChanged,
     required this.onPickImage,
     required this.cs,
   });
@@ -980,15 +1356,8 @@ class _EditBody extends StatelessWidget {
   final UsersData user;
   final TextEditingController nameCtrl;
   final TextEditingController emailCtrl;
-  final UserStatus status;
-  final UserLevel level;
-
-  /// Only super_ users can change another user's level.
-  final bool canEditLevel;
   final String? error;
   final File? pickedImage;
-  final void Function(UserStatus) onStatusChanged;
-  final void Function(UserLevel) onLevelChanged;
   final VoidCallback onPickImage;
   final ColorScheme cs;
 
@@ -1062,62 +1431,6 @@ class _EditBody extends StatelessWidget {
                 textInputAction: TextInputAction.done,
               ),
             ),
-          ],
-        ),
-
-        const SizedBox(height: 20),
-
-        // ── Account section ─────────────────────────────────────────────
-        _SectionHeader(title: 'Account', cs: cs),
-        const SizedBox(height: 4),
-        _SectionCard(
-          cs: cs,
-          borderColor: borderColor,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _FormLabel(label: 'Status', cs: cs),
-                  const SizedBox(height: 6),
-                  _StyledDropdown<UserStatus>(
-                    value: status,
-                    items: const [
-                      (UserStatus.invited, 'Invited'),
-                      (UserStatus.active, 'Active'),
-                      (UserStatus.suspended, 'Suspended'),
-                      (UserStatus.deleted, 'Deleted'),
-                    ],
-                    onChanged: onStatusChanged,
-                    cs: cs,
-                  ),
-                ],
-              ),
-            ),
-            if (canEditLevel) ...[
-              _RowDivider(cs: cs),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _FormLabel(label: 'Level', cs: cs),
-                    const SizedBox(height: 6),
-                    _StyledDropdown<UserLevel>(
-                      value: level,
-                      items: const [
-                        (UserLevel.normal, 'Normal'),
-                        (UserLevel.system, 'System'),
-                        (UserLevel.super_, 'Super'),
-                      ],
-                      onChanged: onLevelChanged,
-                      cs: cs,
-                    ),
-                  ],
-                ),
-              ),
-            ],
           ],
         ),
       ],
@@ -1304,56 +1617,6 @@ class _FormField extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _StyledDropdown<T> extends StatelessWidget {
-  const _StyledDropdown({
-    required this.value,
-    required this.items,
-    required this.onChanged,
-    required this.cs,
-  });
-
-  final T value;
-  final List<(T, String)> items;
-  final void Function(T) onChanged;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainer,
-        borderRadius: BorderRadius.circular(AppTheme.kRadius),
-        border: Border.all(
-          color: cs.brightness == Brightness.dark
-              ? cs.outline.withValues(alpha: 0.5)
-              : cs.outlineVariant,
-          width: 1,
-        ),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<T>(
-          value: value,
-          isExpanded: true,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-            color: cs.onSurface,
-          ),
-          dropdownColor: cs.surface,
-          borderRadius: BorderRadius.circular(AppTheme.kRadius),
-          items: items
-              .map((e) => DropdownMenuItem<T>(value: e.$1, child: Text(e.$2)))
-              .toList(),
-          onChanged: (v) {
-            if (v != null) onChanged(v);
-          },
-        ),
-      ),
     );
   }
 }
