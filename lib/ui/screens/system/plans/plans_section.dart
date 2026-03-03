@@ -10,6 +10,7 @@ import '../../../../database/tables/enums.dart';
 import '../../../../models/plan_features.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/animated_save_button.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PlansSection — standalone plans management widget
@@ -46,7 +47,12 @@ class PlansSection extends StatelessWidget {
           );
         }
 
-        final plans = snapshot.data!;
+        final plans = snapshot.data!
+            .where(
+              (p) =>
+                  permissions.canSeeDeleted || p.status != PlanStatus.deleted,
+            )
+            .toList();
 
         if (plans.isEmpty) {
           return Center(
@@ -119,7 +125,7 @@ void openCreatePlan(BuildContext context, SystemPermissions permissions) {
 // Plan card
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _PlanCard extends StatelessWidget {
+class _PlanCard extends StatefulWidget {
   const _PlanCard({
     required this.plan,
     required this.permissions,
@@ -131,7 +137,64 @@ class _PlanCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  State<_PlanCard> createState() => _PlanCardState();
+}
+
+class _PlanCardState extends State<_PlanCard> {
+  bool _actioning = false;
+
+  Future<void> _updateStatus(PlanStatus newStatus) async {
+    final accountId = cache.currentUser?.user.id;
+    if (accountId == null) return;
+    setState(() => _actioning = true);
+    try {
+      await plansDao.updatePlanStatus(
+        widget.plan.id,
+        newStatus,
+        accountId: accountId,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update status: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _actioning = false);
+    }
+  }
+
+  Future<void> _purge() async {
+    final plan = widget.plan;
+    final confirmed = await _showPurgeDialog(context, plan.name);
+    if (!confirmed || !mounted) return;
+
+    final accountId = cache.currentUser?.user.id;
+    if (accountId == null) return;
+    setState(() => _actioning = true);
+    try {
+      await plansDao.purgePlan(plan.id, accountId: accountId);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to purge plan: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _actioning = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final plan = widget.plan;
+    final permissions = widget.permissions;
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
 
@@ -171,7 +234,7 @@ class _PlanCard extends StatelessWidget {
           ),
         ),
         child: InkWell(
-          onTap: onTap,
+          onTap: widget.onTap,
           borderRadius: BorderRadius.circular(AppTheme.kRadius),
           child: Padding(
             padding: const EdgeInsets.all(14),
@@ -256,6 +319,77 @@ class _PlanCard extends StatelessWidget {
                     ),
                   ],
                 ),
+
+                // ── Status action buttons ────────────────────────────────
+                if (permissions.can('plans.update') ||
+                    (plan.status == PlanStatus.deleted &&
+                        permissions.canSeeDeleted)) ...[
+                  const SizedBox(height: 10),
+                  Divider(
+                    height: 1,
+                    thickness: 0.5,
+                    color: cs.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      if (_actioning)
+                        SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            color: cs.primary,
+                          ),
+                        )
+                      else ...[
+                        if (plan.status == PlanStatus.pending ||
+                            plan.status == PlanStatus.suspended)
+                          _CardActionButton(
+                            icon: Icons.play_arrow_rounded,
+                            tooltip: 'Activate',
+                            color: const Color(0xFF4CAF50),
+                            onTap: () => _updateStatus(PlanStatus.active),
+                            cs: cs,
+                          ),
+                        if (plan.status == PlanStatus.active)
+                          _CardActionButton(
+                            icon: Icons.pause_rounded,
+                            tooltip: 'Suspend',
+                            color: const Color(0xFFFF8F00),
+                            onTap: () => _updateStatus(PlanStatus.suspended),
+                            cs: cs,
+                          ),
+                        if (plan.status == PlanStatus.deleted)
+                          _CardActionButton(
+                            icon: Icons.restore_rounded,
+                            tooltip: 'Restore',
+                            color: const Color(0xFF26A69A),
+                            onTap: () => _updateStatus(PlanStatus.pending),
+                            cs: cs,
+                          ),
+                        if (plan.status != PlanStatus.deleted &&
+                            permissions.can('plans.delete'))
+                          _CardActionButton(
+                            icon: Icons.delete_outline_rounded,
+                            tooltip: 'Delete',
+                            color: cs.error,
+                            onTap: () => _updateStatus(PlanStatus.deleted),
+                            cs: cs,
+                          ),
+                        if (plan.status == PlanStatus.deleted &&
+                            permissions.canSeeDeleted)
+                          _CardActionButton(
+                            icon: Icons.delete_forever_rounded,
+                            tooltip: 'Purge',
+                            color: cs.error,
+                            onTap: _purge,
+                            cs: cs,
+                          ),
+                      ],
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -736,7 +870,7 @@ class _CreatePlanSheetState extends State<_CreatePlanSheet> {
           amount: Value(amount),
           levels: Value(_levelsBitmask),
           features: Value(_serialiseFeatures()),
-          status: const Value(PlanStatus.active),
+          status: const Value(PlanStatus.pending),
           created: Value(nowSeconds),
           updated: Value(nowSeconds),
         ),
@@ -778,70 +912,6 @@ class _CreatePlanSheetState extends State<_CreatePlanSheet> {
     );
   }
 
-  Widget _buildFeatureRow(
-    ColorScheme cs,
-    PlanFeature feature,
-    bool enabled,
-    bool isLast,
-  ) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 36,
-                height: 28,
-                child: Switch(
-                  value: enabled,
-                  onChanged: (v) => setState(() => _features[feature.key] = v),
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      feature.title,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                        color: cs.onSurface,
-                        letterSpacing: 0.1,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      feature.description,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w400,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (!isLast)
-          Divider(
-            height: 1,
-            thickness: 0.5,
-            indent: 46,
-            color: cs.outlineVariant,
-          ),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -856,7 +926,7 @@ class _CreatePlanSheetState extends State<_CreatePlanSheet> {
       ),
       decoration: BoxDecoration(
         color: cs.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -928,7 +998,7 @@ class _CreatePlanSheetState extends State<_CreatePlanSheet> {
                           cs: cs,
                         ),
                         const SizedBox(height: 12),
-                        _FormLabel(label: 'Amount (KES)', cs: cs),
+                        _FormLabel(label: 'Amount', cs: cs),
                         const SizedBox(height: 6),
                         _FormTextField(
                           controller: _amountCtrl,
@@ -936,6 +1006,7 @@ class _CreatePlanSheetState extends State<_CreatePlanSheet> {
                           error: _amountError,
                           cs: cs,
                           keyboardType: TextInputType.number,
+                          prefixText: 'KES  ',
                         ),
                       ],
                     ),
@@ -983,11 +1054,15 @@ class _CreatePlanSheetState extends State<_CreatePlanSheet> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         for (var i = 0; i < kPlanFeatures.length; i++)
-                          _buildFeatureRow(
-                            cs,
-                            kPlanFeatures[i],
-                            _features[kPlanFeatures[i].key] == true,
-                            i == kPlanFeatures.length - 1,
+                          _FeatureToggleRow(
+                            feature: kPlanFeatures[i],
+                            enabled: _features[kPlanFeatures[i].key] == true,
+                            isLast: i == kPlanFeatures.length - 1,
+                            onTap: () => setState(() {
+                              final key = kPlanFeatures[i].key;
+                              _features[key] = !(_features[key] == true);
+                            }),
+                            cs: cs,
                           ),
                       ],
                     ),
@@ -1022,6 +1097,8 @@ class _PlanDetailSheetState extends State<_PlanDetailSheet> {
   bool _editing = false;
   bool _saving = false;
   bool _deleting = false;
+  bool _purging = false;
+  bool _isDirty = false;
   String? _saveError;
 
   late final TextEditingController _nameCtrl;
@@ -1030,6 +1107,27 @@ class _PlanDetailSheetState extends State<_PlanDetailSheet> {
   late Set<GradeLevel> _editLevels;
   late Map<String, bool> _editFeatures;
   PlanStatus? _editStatus;
+
+  // ── Dirty-tracking helpers ────────────────────────────────────────────────
+
+  bool _computeDirty() {
+    final p = widget.plan;
+    if (_nameCtrl.text.trim() != p.name) return true;
+    if (_descCtrl.text.trim() != (p.description ?? '')) return true;
+    if (_amountCtrl.text.trim() != p.amount.toStringAsFixed(0)) return true;
+    if (_editStatus != p.status) return true;
+    if (_levelsBitmask != p.levels) return true;
+    final originalFeatures = _parseFeatures(p.features);
+    for (final key in _editFeatures.keys) {
+      if (_editFeatures[key] != originalFeatures[key]) return true;
+    }
+    return false;
+  }
+
+  void _onTextChanged() {
+    final dirty = _computeDirty();
+    if (dirty != _isDirty) setState(() => _isDirty = dirty);
+  }
 
   @override
   void initState() {
@@ -1042,6 +1140,10 @@ class _PlanDetailSheetState extends State<_PlanDetailSheet> {
     _editLevels = _parseLevels(widget.plan.levels);
     _editFeatures = _parseFeatures(widget.plan.features);
     _editStatus = widget.plan.status;
+
+    _nameCtrl.addListener(_onTextChanged);
+    _descCtrl.addListener(_onTextChanged);
+    _amountCtrl.addListener(_onTextChanged);
   }
 
   @override
@@ -1090,11 +1192,13 @@ class _PlanDetailSheetState extends State<_PlanDetailSheet> {
       _editFeatures = _parseFeatures(current.features);
       _editStatus = current.status;
       _editing = true;
+      _isDirty = false;
       _saveError = null;
     });
   }
 
-  Future<void> _save(Plan current) async {
+  Future<void> _save([Plan? currentOverride]) async {
+    final current = currentOverride ?? widget.plan;
     final name = _nameCtrl.text.trim();
     if (name.length < 2) {
       setState(() => _saveError = 'Plan name must be at least 2 characters.');
@@ -1136,7 +1240,12 @@ class _PlanDetailSheetState extends State<_PlanDetailSheet> {
         accountId: accountId,
       );
 
-      if (mounted) setState(() => _editing = false);
+      if (mounted) {
+        setState(() {
+          _editing = false;
+          _isDirty = false;
+        });
+      }
     } catch (e) {
       if (mounted) setState(() => _saveError = 'Failed to save: $e');
     } finally {
@@ -1145,59 +1254,57 @@ class _PlanDetailSheetState extends State<_PlanDetailSheet> {
   }
 
   Future<void> _confirmDelete(Plan current) async {
+    final cs = Theme.of(context).colorScheme;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) {
-        final cs = Theme.of(ctx).colorScheme;
-        return AlertDialog(
-          backgroundColor: cs.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.kRadius),
+      builder: (ctx) => AlertDialog(
+        backgroundColor: cs.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.kRadius),
+        ),
+        title: Text(
+          'Delete plan?',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w400,
+            color: cs.onSurface,
           ),
-          title: Text(
-            'Delete plan?',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w400,
-              color: cs.onSurface,
-            ),
+        ),
+        content: Text(
+          'Mark "${current.name}" as deleted? '
+          'It can be restored or purged later.',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+            color: cs.onSurfaceVariant,
+            height: 1.5,
           ),
-          content: Text(
-            'Are you sure you want to delete "${current.name}"? '
-            'The plan will be marked as deleted.',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
-              color: cs.onSurfaceVariant,
-              height: 1.5,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: Text(
-                'Cancel',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurfaceVariant,
-                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant,
               ),
             ),
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: Text(
-                'Delete',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  color: cs.error,
-                ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              'Delete',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: cs.error,
               ),
             ),
-          ],
-        );
-      },
+          ),
+        ],
+      ),
     );
 
     if (confirmed != true || !mounted) return;
@@ -1208,7 +1315,6 @@ class _PlanDetailSheetState extends State<_PlanDetailSheet> {
     setState(() => _deleting = true);
 
     try {
-      // Soft delete (D13): set status to deleted.
       await plansDao.updatePlanStatus(
         current.id,
         PlanStatus.deleted,
@@ -1235,6 +1341,41 @@ class _PlanDetailSheetState extends State<_PlanDetailSheet> {
       }
     } finally {
       if (mounted) setState(() => _deleting = false);
+    }
+  }
+
+  Future<void> _confirmPurge(Plan current) async {
+    final confirmed = await _showPurgeDialog(context, current.name);
+    if (!confirmed || !mounted) return;
+
+    final accountId = cache.currentUser?.user.id;
+    if (accountId == null) return;
+
+    setState(() => _purging = true);
+
+    try {
+      await plansDao.purgePlan(current.id, accountId: accountId);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Plan "${current.name}" permanently deleted.'),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to purge plan: $e'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _purging = false);
     }
   }
 
@@ -1276,6 +1417,7 @@ class _PlanDetailSheetState extends State<_PlanDetailSheet> {
                   TextButton(
                     onPressed: () => setState(() {
                       _editing = false;
+                      _isDirty = false;
                       _saveError = null;
                     }),
                     child: Text(
@@ -1287,28 +1429,36 @@ class _PlanDetailSheetState extends State<_PlanDetailSheet> {
                       ),
                     ),
                   ),
-                  TextButton(
-                    onPressed: _saving ? null : () => _save(plan),
-                    child: _saving
-                        ? SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 1.5,
-                              color: cs.primary,
-                            ),
-                          )
-                        : Text(
-                            'Save',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: cs.primary,
-                            ),
-                          ),
+                  AnimatedSaveButton(
+                    isDirty: _isDirty,
+                    isSaving: _saving,
+                    onSave: (_isDirty && !_saving) ? _save : null,
                   ),
                 ] else ...[
-                  if (canDelete)
+                  // Purge — only for deleted plans, super users only
+                  if (plan.status == PlanStatus.deleted &&
+                      widget.permissions.canSeeDeleted)
+                    IconButton(
+                      icon: _purging
+                          ? SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                                color: cs.error,
+                              ),
+                            )
+                          : Icon(
+                              Icons.delete_forever_rounded,
+                              size: 19,
+                              color: cs.error.withValues(alpha: 0.8),
+                            ),
+                      onPressed: _purging ? null : () => _confirmPurge(plan),
+                      tooltip: 'Purge permanently',
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  // Soft delete — for non-deleted plans
+                  if (plan.status != PlanStatus.deleted && canDelete)
                     IconButton(
                       icon: _deleting
                           ? SizedBox(
@@ -1427,10 +1577,16 @@ class _PlanDetailSheetState extends State<_PlanDetailSheet> {
                         } else {
                           _editLevels.add(level);
                         }
+                        _isDirty = _computeDirty();
                       }),
-                      onFeatureToggled: (key, value) =>
-                          setState(() => _editFeatures[key] = value),
-                      onStatusChanged: (s) => setState(() => _editStatus = s),
+                      onFeatureToggled: (key, value) => setState(() {
+                        _editFeatures[key] = value;
+                        _isDirty = _computeDirty();
+                      }),
+                      onStatusChanged: (s) => setState(() {
+                        _editStatus = s;
+                        _isDirty = _computeDirty();
+                      }),
                       cs: cs,
                     )
                   : _PlanViewBody(plan: plan, cs: cs),
@@ -1892,45 +2048,10 @@ class _PlanEditForm extends StatelessWidget {
         ),
         const SizedBox(height: 12),
 
-        // Status dropdown.
+        // Status action buttons — contextual transitions only.
         _FormLabel(label: 'Status', cs: cs),
-        const SizedBox(height: 6),
-        DropdownButtonFormField<PlanStatus>(
-          initialValue: status,
-          onChanged: (v) {
-            if (v != null) onStatusChanged(v);
-          },
-          items: [PlanStatus.active, PlanStatus.suspended].map((s) {
-            return DropdownMenuItem<PlanStatus>(
-              value: s,
-              child: Text(
-                s.name,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurface,
-                ),
-              ),
-            );
-          }).toList(),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: cs.surfaceContainer,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.kRadius),
-              borderSide: BorderSide(color: cs.outlineVariant),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.kRadius),
-              borderSide: BorderSide(color: cs.outlineVariant, width: 1),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 12,
-            ),
-            isDense: true,
-          ),
-        ),
+        const SizedBox(height: 8),
+        _PlanStatusActions(status: status, onUpdate: onStatusChanged, cs: cs),
         const SizedBox(height: 20),
 
         // Level selector.
@@ -1954,51 +2075,16 @@ class _PlanEditForm extends StatelessWidget {
         // Feature toggles.
         _FormLabel(label: 'Features', cs: cs),
         const SizedBox(height: 8),
-        ...kPlanFeatures.map((feature) {
+        ...kPlanFeatures.asMap().entries.map((entry) {
+          final i = entry.key;
+          final feature = entry.value;
           final enabled = features[feature.key] == true;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: 36,
-                  height: 28,
-                  child: Switch(
-                    value: enabled,
-                    onChanged: (v) => onFeatureToggled(feature.key, v),
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        feature.title,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: cs.onSurface,
-                          letterSpacing: 0.1,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        feature.description,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w400,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+          return _FeatureToggleRow(
+            feature: feature,
+            enabled: enabled,
+            isLast: i == kPlanFeatures.length - 1,
+            onTap: () => onFeatureToggled(feature.key, !enabled),
+            cs: cs,
           );
         }),
 
@@ -2057,10 +2143,10 @@ class _SheetHeader extends StatelessWidget {
             child: Text(
               title,
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 15,
                 fontWeight: FontWeight.w400,
                 color: cs.onSurface,
-                letterSpacing: 0.2,
+                letterSpacing: 0.1,
               ),
             ),
           ),
@@ -2103,7 +2189,7 @@ class _FormLabel extends StatelessWidget {
       style: TextStyle(
         fontSize: 12,
         fontWeight: FontWeight.w400,
-        color: cs.onSurfaceVariant.withValues(alpha: 0.8),
+        color: cs.onSurfaceVariant.withValues(alpha: 0.75),
         letterSpacing: 0.2,
       ),
     );
@@ -2117,6 +2203,7 @@ class _FormTextField extends StatelessWidget {
     required this.cs,
     this.error,
     this.keyboardType,
+    this.prefixText,
   });
 
   final TextEditingController controller;
@@ -2124,6 +2211,7 @@ class _FormTextField extends StatelessWidget {
   final ColorScheme cs;
   final String? error;
   final TextInputType? keyboardType;
+  final String? prefixText;
 
   @override
   Widget build(BuildContext context) {
@@ -2135,7 +2223,7 @@ class _FormTextField extends StatelessWidget {
           controller: controller,
           keyboardType: keyboardType,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 13,
             fontWeight: FontWeight.w400,
             color: cs.onSurface,
           ),
@@ -2145,6 +2233,12 @@ class _FormTextField extends StatelessWidget {
               fontSize: 13,
               fontWeight: FontWeight.w400,
               color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+            ),
+            prefixText: prefixText,
+            prefixStyle: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant,
             ),
             filled: true,
             fillColor: cs.surfaceContainer,
@@ -2199,6 +2293,366 @@ class _FormTextField extends StatelessWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Feature toggle row — dot indicator instead of Switch
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _FeatureToggleRow extends StatelessWidget {
+  const _FeatureToggleRow({
+    required this.feature,
+    required this.enabled,
+    required this.isLast,
+    required this.onTap,
+    required this.cs,
+  });
+
+  final PlanFeature feature;
+  final bool enabled;
+  final bool isLast;
+  final VoidCallback onTap;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(4),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        feature.title,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: cs.onSurface,
+                          letterSpacing: 0.1,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        feature.description,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w400,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Dot indicator
+                Container(
+                  width: 10,
+                  height: 10,
+                  margin: const EdgeInsets.only(top: 3),
+                  decoration: BoxDecoration(
+                    color: enabled
+                        ? const Color(0xFF4CAF50)
+                        : cs.onSurfaceVariant.withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (!isLast)
+          Divider(
+            height: 1,
+            thickness: 0.5,
+            color: cs.outlineVariant.withValues(alpha: 0.5),
+          ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Card action button — compact icon button for plan card status actions
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CardActionButton extends StatelessWidget {
+  const _CardActionButton({
+    required this.icon,
+    required this.tooltip,
+    required this.color,
+    required this.onTap,
+    required this.cs,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final Color color;
+  final VoidCallback onTap;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(4),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          child: Icon(icon, size: 18, color: color),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Plan status action buttons — contextual transitions (edit form)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PlanStatusActions extends StatelessWidget {
+  const _PlanStatusActions({
+    required this.status,
+    required this.onUpdate,
+    required this.cs,
+  });
+
+  final PlanStatus status;
+  final void Function(PlanStatus) onUpdate;
+  final ColorScheme cs;
+
+  static const _green = Color(0xFF4CAF50);
+  static const _amber = Color(0xFFFF8F00);
+
+  @override
+  Widget build(BuildContext context) {
+    final actions = _actionsFor(status);
+    if (actions.isEmpty) {
+      return Text(
+        status.name,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w400,
+          color: cs.onSurfaceVariant,
+        ),
+      );
+    }
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: actions.map((action) {
+        return SizedBox(
+          height: 32,
+          child: OutlinedButton(
+            onPressed: () => onUpdate(action.target),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: action.color,
+              side: BorderSide(color: action.color.withValues(alpha: 0.5)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              textStyle: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+            child: Text(action.label),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  List<({PlanStatus target, String label, Color color})> _actionsFor(
+    PlanStatus s,
+  ) {
+    return switch (s) {
+      PlanStatus.pending => [
+        (target: PlanStatus.active, label: 'Activate', color: _green),
+        (target: PlanStatus.suspended, label: 'Suspend', color: _amber),
+      ],
+      PlanStatus.active => [
+        (target: PlanStatus.suspended, label: 'Suspend', color: _amber),
+      ],
+      PlanStatus.suspended => [
+        (target: PlanStatus.active, label: 'Reactivate', color: _green),
+      ],
+      PlanStatus.deleted => [],
+    };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Purge confirmation dialog — requires typed "DELETE" confirmation
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Shows a serious purge confirmation dialog that requires the user to type
+/// "DELETE" before the confirm button is enabled.
+///
+/// Returns `true` if the user confirmed, `false` otherwise.
+Future<bool> _showPurgeDialog(BuildContext context, String itemName) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (ctx) => _PurgeConfirmDialog(itemName: itemName),
+  );
+  return confirmed == true;
+}
+
+class _PurgeConfirmDialog extends StatefulWidget {
+  const _PurgeConfirmDialog({required this.itemName});
+  final String itemName;
+
+  @override
+  State<_PurgeConfirmDialog> createState() => _PurgeConfirmDialogState();
+}
+
+class _PurgeConfirmDialogState extends State<_PurgeConfirmDialog> {
+  final _ctrl = TextEditingController();
+  bool _confirmed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl.addListener(() {
+      final ok = _ctrl.text.trim() == 'DELETE';
+      if (ok != _confirmed) setState(() => _confirmed = ok);
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return AlertDialog(
+      backgroundColor: cs.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.kRadius),
+      ),
+      title: Row(
+        children: [
+          Icon(Icons.warning_amber_rounded, size: 18, color: cs.error),
+          const SizedBox(width: 8),
+          Text(
+            'Permanently delete?',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurface,
+            ),
+          ),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '"${widget.itemName}" will be permanently removed and cannot be recovered.',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Type DELETE to confirm',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+              letterSpacing: 0.2,
+            ),
+          ),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _ctrl,
+            autofocus: true,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurface,
+            ),
+            decoration: InputDecoration(
+              hintText: 'DELETE',
+              hintStyle: TextStyle(
+                fontSize: 13,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+              ),
+              filled: true,
+              fillColor: cs.surfaceContainer,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide(color: cs.outlineVariant),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide(color: cs.outlineVariant),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide(color: cs.error, width: 1),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+              isDense: true,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text(
+            'Cancel',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+        ),
+        TextButton(
+          onPressed: _confirmed ? () => Navigator.of(context).pop(true) : null,
+          child: Text(
+            'Purge',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: _confirmed
+                  ? cs.error
+                  : cs.onSurfaceVariant.withValues(alpha: 0.4),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Error banner
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _ErrorBanner extends StatelessWidget {
   const _ErrorBanner({required this.message, required this.cs});
