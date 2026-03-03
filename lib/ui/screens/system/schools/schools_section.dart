@@ -89,6 +89,41 @@ class _SchoolsSectionState extends State<SchoolsSection> {
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
+  Future<void> _updateSchoolStatus(
+    SchoolsData school,
+    SchoolStatus newStatus,
+  ) async {
+    final accountId = cache.currentUser?.user.id;
+    if (accountId == null) return;
+    try {
+      await schoolsDao.updateSchoolStatus(
+        school.id,
+        newStatus,
+        accountId: accountId,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${school.name} — status updated to ${newStatus.name}.',
+            ),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update status: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _trashSchool(SchoolsData school) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -311,6 +346,8 @@ class _SchoolsSectionState extends State<SchoolsSection> {
                       },
                       onTrash: (s) => _trashSchool(s),
                       onPurge: (s) => _purgeSchool(s),
+                      onStatusChange: (s, status) =>
+                          _updateSchoolStatus(s, status),
                       cs: cs,
                     ),
             ),
@@ -741,6 +778,7 @@ class _SchoolList extends StatelessWidget {
     required this.onToggleSelection,
     required this.onTrash,
     required this.onPurge,
+    required this.onStatusChange,
     required this.cs,
   });
 
@@ -752,6 +790,7 @@ class _SchoolList extends StatelessWidget {
   final void Function(SchoolsData) onToggleSelection;
   final void Function(SchoolsData) onTrash;
   final void Function(SchoolsData) onPurge;
+  final void Function(SchoolsData, SchoolStatus) onStatusChange;
   final ColorScheme cs;
 
   @override
@@ -776,6 +815,7 @@ class _SchoolList extends StatelessWidget {
           onToggleSelection: () => onToggleSelection(s),
           onTrash: () => onTrash(s),
           onPurge: () => onPurge(s),
+          onStatusChange: (status) => onStatusChange(s, status),
           cs: cs,
         );
       },
@@ -794,6 +834,7 @@ class _SchoolRow extends StatefulWidget {
     required this.onToggleSelection,
     required this.onTrash,
     required this.onPurge,
+    required this.onStatusChange,
     required this.cs,
   });
 
@@ -806,6 +847,7 @@ class _SchoolRow extends StatefulWidget {
   final VoidCallback onToggleSelection;
   final VoidCallback onTrash;
   final VoidCallback onPurge;
+  final void Function(SchoolStatus) onStatusChange;
   final ColorScheme cs;
 
   @override
@@ -941,6 +983,15 @@ class _SchoolRowState extends State<_SchoolRow> {
                               onPressed: widget.onTap,
                               tooltip: 'Edit',
                             ),
+                            // Status transition actions
+                            ..._statusActions(widget.school.status).map(
+                              (a) => IconButton(
+                                icon: Icon(a.icon, size: 18, color: a.color),
+                                onPressed: () =>
+                                    widget.onStatusChange(a.target),
+                                tooltip: a.label,
+                              ),
+                            ),
                             IconButton(
                               icon: const Icon(Icons.delete_outline_rounded),
                               iconSize: 18,
@@ -982,6 +1033,16 @@ class _SchoolRowState extends State<_SchoolRow> {
                           widget.onTrash();
                         } else if (val == 'purge') {
                           widget.onPurge();
+                        } else {
+                          // Status transition values are encoded as
+                          // 'status_<index>' where index is the enum index.
+                          final status = SchoolStatus.values.firstWhere(
+                            (s) => 'status_${s.index}' == val,
+                            orElse: () => widget.school.status,
+                          );
+                          if ('status_${status.index}' == val) {
+                            widget.onStatusChange(status);
+                          }
                         }
                       },
                       itemBuilder: (context) => [
@@ -1004,6 +1065,26 @@ class _SchoolRowState extends State<_SchoolRow> {
                                 ),
                               ),
                             ],
+                          ),
+                        ),
+                        // Status transition actions
+                        ..._statusActions(widget.school.status).map(
+                          (a) => PopupMenuItem<String>(
+                            value: 'status_${a.target.index}',
+                            height: 40,
+                            child: Row(
+                              children: [
+                                Icon(a.icon, size: 18, color: a.color),
+                                const SizedBox(width: 12),
+                                Text(
+                                  a.label,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: a.color,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                         PopupMenuItem(
@@ -1059,6 +1140,60 @@ class _SchoolRowState extends State<_SchoolRow> {
       ),
     );
   }
+}
+
+// Status action descriptor for _SchoolRowState
+typedef _StatusAction = ({
+  SchoolStatus target,
+  String label,
+  IconData icon,
+  Color color,
+});
+
+List<_StatusAction> _statusActions(SchoolStatus status) {
+  const green = Color(0xFF4CAF50);
+  const amber = Color(0xFFFF8F00);
+  return switch (status) {
+    SchoolStatus.trial => [
+      (
+        target: SchoolStatus.active,
+        label: 'Activate',
+        icon: Icons.check_circle_outline_rounded,
+        color: green,
+      ),
+      (
+        target: SchoolStatus.suspended,
+        label: 'Suspend',
+        icon: Icons.pause_circle_outline_rounded,
+        color: amber,
+      ),
+    ],
+    SchoolStatus.active => [
+      (
+        target: SchoolStatus.suspended,
+        label: 'Suspend',
+        icon: Icons.pause_circle_outline_rounded,
+        color: amber,
+      ),
+    ],
+    SchoolStatus.cancelled => [
+      (
+        target: SchoolStatus.active,
+        label: 'Reactivate',
+        icon: Icons.check_circle_outline_rounded,
+        color: green,
+      ),
+    ],
+    SchoolStatus.suspended => [
+      (
+        target: SchoolStatus.active,
+        label: 'Reactivate',
+        icon: Icons.check_circle_outline_rounded,
+        color: green,
+      ),
+    ],
+    SchoolStatus.deleted => [],
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

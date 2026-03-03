@@ -11,6 +11,7 @@ import '../../../../database/database.dart';
 import '../../../../database/tables/enums.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/animated_save_button.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Resource groupings (shared with create_role_sheet / role_detail_sheet)
@@ -1274,34 +1275,11 @@ class _ChangeBar extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 6),
-          SizedBox(
-            height: 32,
-            child: FilledButton(
-              onPressed: saving ? null : onSave,
-              style: FilledButton.styleFrom(
-                backgroundColor: cs.primary,
-                foregroundColor: cs.onPrimary,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                textStyle: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              child: saving
-                  ? SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 1.5,
-                        color: cs.onPrimary,
-                      ),
-                    )
-                  : const Text('Save'),
-            ),
+          const SizedBox(width: 4),
+          AnimatedSaveButton(
+            isDirty: true,
+            isSaving: saving,
+            onSave: saving ? null : onSave,
           ),
         ],
       ),

@@ -1,11 +1,15 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:bson/bson.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
+import '../../../../cache/file_cache.dart';
 import '../../../../client.dart';
 import '../../../../database/database.dart';
+import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../database/tables/enums.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
@@ -43,8 +47,11 @@ class _CreateSchoolSheetState extends State<CreateSchoolSheet> {
   final _mottoCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
-  final _countyCtrl = TextEditingController();
   final _domainCtrl = TextEditingController();
+
+  KenyaCounty? _selectedCounty;
+  File? _logoImage;
+  final _picker = ImagePicker();
 
   // Days since epoch for established date; null = not set.
   int? _establishedDays;
@@ -82,7 +89,6 @@ class _CreateSchoolSheetState extends State<CreateSchoolSheet> {
     _mottoCtrl.dispose();
     _phoneCtrl.dispose();
     _emailCtrl.dispose();
-    _countyCtrl.dispose();
     _domainCtrl.dispose();
     _ownerPhoneCtrl.dispose();
     _ownerNameCtrl.dispose();
@@ -91,22 +97,32 @@ class _CreateSchoolSheetState extends State<CreateSchoolSheet> {
     super.dispose();
   }
 
+  // ── Logo picking ───────────────────────────────────────────────────────────
+
+  Future<void> _pickLogo() async {
+    final picked = await _picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 400,
+      maxHeight: 400,
+      imageQuality: 85,
+    );
+    if (picked != null && mounted) {
+      setState(() => _logoImage = File(picked.path));
+    }
+  }
+
+  void _clearLogo() => setState(() => _logoImage = null);
+
   // ── Step 1 validation ──────────────────────────────────────────────────────
 
   bool _validateStep1() {
     final name = _nameCtrl.text.trim();
-    final countyStr = _countyCtrl.text.trim();
 
     String? nameErr;
     String? countyErr;
 
     if (name.isEmpty) nameErr = 'School name is required.';
-
-    if (countyStr.isEmpty) {
-      countyErr = 'County is required.';
-    } else if (int.tryParse(countyStr) == null) {
-      countyErr = 'County must be a number.';
-    }
+    if (_selectedCounty == null) countyErr = 'Please select a county.';
 
     setState(() {
       _nameError = nameErr;
@@ -199,7 +215,7 @@ class _CreateSchoolSheetState extends State<CreateSchoolSheet> {
       final nowSeconds = BigInt.from(now.millisecondsSinceEpoch ~/ 1000);
 
       final schoolId = ObjectId().oid;
-      final countyVal = int.parse(_countyCtrl.text.trim());
+      final countyVal = _selectedCounty!.number;
       final mottoVal = _mottoCtrl.text.trim();
       final phoneVal = _phoneCtrl.text.trim();
       final emailVal = _emailCtrl.text.trim();
@@ -259,6 +275,13 @@ class _CreateSchoolSheetState extends State<CreateSchoolSheet> {
             accountId: accountId,
           );
         });
+      }
+
+      // Save logo to local cache if one was picked.
+      if (_logoImage != null) {
+        final bytes = await _logoImage!.readAsBytes();
+        await FileCache.saveBytes(bytes, FileCache.logoPath(schoolId));
+        await schoolsDao.logLogoChange(schoolId, accountId: accountId);
       }
 
       if (!mounted) return;
@@ -345,6 +368,24 @@ class _CreateSchoolSheetState extends State<CreateSchoolSheet> {
     });
   }
 
+  // ── County picker ───────────────────────────────────────────────────────────
+
+  Future<void> _openCountyPicker() async {
+    final cs = Theme.of(context).colorScheme;
+    final selected = await showModalBottomSheet<KenyaCounty>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _CountyPickerSheet(selected: _selectedCounty, cs: cs),
+    );
+    if (selected != null && mounted) {
+      setState(() {
+        _selectedCounty = selected;
+        _countyError = null;
+      });
+    }
+  }
+
   // ── Build ────────────────────────────────────────────────────────────────────
 
   @override
@@ -405,8 +446,12 @@ class _CreateSchoolSheetState extends State<CreateSchoolSheet> {
                       mottoCtrl: _mottoCtrl,
                       phoneCtrl: _phoneCtrl,
                       emailCtrl: _emailCtrl,
-                      countyCtrl: _countyCtrl,
+                      selectedCounty: _selectedCounty,
+                      onOpenCountyPicker: _openCountyPicker,
                       domainCtrl: _domainCtrl,
+                      logoImage: _logoImage,
+                      onPickLogo: _pickLogo,
+                      onClearLogo: _clearLogo,
                       establishedLabel: _establishedLabel,
                       onPickDate: _pickEstablishedDate,
                       nameError: _nameError,
@@ -503,8 +548,12 @@ class _Step1Form extends StatelessWidget {
     required this.mottoCtrl,
     required this.phoneCtrl,
     required this.emailCtrl,
-    required this.countyCtrl,
+    required this.selectedCounty,
+    required this.onOpenCountyPicker,
     required this.domainCtrl,
+    required this.logoImage,
+    required this.onPickLogo,
+    required this.onClearLogo,
     required this.establishedLabel,
     required this.onPickDate,
     required this.nameError,
@@ -516,8 +565,12 @@ class _Step1Form extends StatelessWidget {
   final TextEditingController mottoCtrl;
   final TextEditingController phoneCtrl;
   final TextEditingController emailCtrl;
-  final TextEditingController countyCtrl;
+  final KenyaCounty? selectedCounty;
+  final VoidCallback onOpenCountyPicker;
   final TextEditingController domainCtrl;
+  final File? logoImage;
+  final VoidCallback onPickLogo;
+  final VoidCallback onClearLogo;
   final String? establishedLabel;
   final VoidCallback onPickDate;
   final String? nameError;
@@ -529,6 +582,19 @@ class _Step1Form extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // ── Logo picker ───────────────────────────────────────────
+        const SizedBox(height: 8),
+        Center(
+          child: _LogoPicker(
+            image: logoImage,
+            onPick: onPickLogo,
+            onClear: onClearLogo,
+            cs: cs,
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // ── Name ─────────────────────────────────────────────────
         _FormField(
           label: 'Name *',
           controller: nameCtrl,
@@ -564,16 +630,16 @@ class _Step1Form extends StatelessWidget {
           textInputAction: TextInputAction.next,
         ),
         const SizedBox(height: 12),
-        _FormField(
-          label: 'County *',
-          controller: countyCtrl,
-          hint: 'e.g. 1',
+
+        // ── County picker ─────────────────────────────────────────
+        _CountyPicker(
+          selected: selectedCounty,
           error: countyError,
+          onTap: onOpenCountyPicker,
           cs: cs,
-          keyboardType: TextInputType.number,
-          textInputAction: TextInputAction.next,
         ),
         const SizedBox(height: 12),
+
         _FormField(
           label: 'Domain',
           controller: domainCtrl,
@@ -583,7 +649,7 @@ class _Step1Form extends StatelessWidget {
         ),
         const SizedBox(height: 12),
 
-        // Established date picker.
+        // ── Established date picker ───────────────────────────────
         _FormLabel(label: 'Established', cs: cs),
         const SizedBox(height: 6),
         GestureDetector(
@@ -660,33 +726,38 @@ class _Step2Form extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          'Enter the owner\'s phone number to look them up in the local '
-          'database.',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w400,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-            height: 1.5,
+        // ── Instruction text ──────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Text(
+            'Enter the owner\'s phone number to look them up. If no account is '
+            'found, you can register a new user.',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+              height: 1.5,
+            ),
           ),
         ),
-        const SizedBox(height: 14),
+
+        // ── Phone field ───────────────────────────────────────────
         _FormField(
           label: 'Owner phone *',
           controller: ownerPhoneCtrl,
-          hint: 'e.g. 0712345678',
+          hint: 'e.g. +254712345678',
           error: phoneError,
           cs: cs,
           keyboardType: TextInputType.phone,
-          textInputAction: TextInputAction.done,
+          textInputAction: TextInputAction.next,
           onChanged: onPhoneChanged,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
 
-        // Lookup indicator.
+        // ── Lookup state ──────────────────────────────────────────
         if (lookingUp)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
+            padding: const EdgeInsets.symmetric(vertical: 8),
             child: Row(
               children: [
                 SizedBox(
@@ -697,38 +768,47 @@ class _Step2Form extends StatelessWidget {
                     color: cs.primary,
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Text(
                   'Looking up…',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 13,
                     color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                   ),
                 ),
               ],
             ),
-          ),
-
-        // Found owner preview card.
-        if (foundOwner != null) ...[
+          )
+        else if (foundOwner != null) ...[
+          // ── Found user card ─────────────────────────────────────
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFF26A69A).withValues(alpha: 0.08),
+              color: cs.surfaceContainer,
               borderRadius: BorderRadius.circular(AppTheme.kRadius),
-              border: Border.all(
-                color: const Color(0xFF26A69A).withValues(alpha: 0.3),
-                width: 1,
-              ),
+              border: Border.all(color: cs.outlineVariant, width: 1),
             ),
             child: Row(
               children: [
-                Icon(
-                  Icons.check_circle_outline_rounded,
-                  size: 18,
-                  color: const Color(0xFF26A69A),
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: cs.primaryContainer,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Center(
+                    child: Text(
+                      _initials(foundOwner!.name),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: cs.onPrimaryContainer,
+                      ),
+                    ),
+                  ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -736,47 +816,52 @@ class _Step2Form extends StatelessWidget {
                       Text(
                         foundOwner!.name,
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: 14,
                           fontWeight: FontWeight.w400,
                           color: cs.onSurface,
                         ),
                       ),
-                      Text(
-                        'Will be linked as owner.',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: const Color(0xFF26A69A),
+                      if (foundOwner!.email != null)
+                        Text(
+                          foundOwner!.email!,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                          ),
                         ),
-                      ),
                     ],
                   ),
+                ),
+                Icon(
+                  Icons.check_circle_outline_rounded,
+                  size: 18,
+                  color: AppTheme.brandGreen,
                 ),
               ],
             ),
           ),
-        ],
-
-        // Not found — show new user fields.
-        if (ownerNotFound) ...[
+          const SizedBox(height: 12),
+        ] else if (ownerNotFound) ...[
+          // ── Not found — create new user fields ──────────────────
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            margin: const EdgeInsets.only(bottom: 14),
             decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(AppTheme.kRadius),
-              border: Border.all(color: cs.outlineVariant, width: 1),
+              color: cs.tertiaryContainer.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: cs.tertiary.withValues(alpha: 0.2)),
             ),
             child: Text(
-              'User not found. An invitation will be created.',
+              'No account found. Fill in the details below to invite a new user.',
               style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.75),
+                fontSize: 12.5,
+                color: cs.onSurface.withValues(alpha: 0.7),
+                height: 1.4,
               ),
             ),
           ),
-          const SizedBox(height: 12),
           _FormField(
-            label: 'New owner name *',
+            label: 'Name *',
             controller: ownerNameCtrl,
             hint: 'Full name',
             error: nameError,
@@ -785,17 +870,395 @@ class _Step2Form extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _FormField(
-            label: 'New owner email (optional)',
+            label: 'Email',
             controller: ownerEmailCtrl,
-            hint: 'example@domain.com',
+            hint: 'Optional',
             cs: cs,
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.done,
           ),
+          const SizedBox(height: 12),
         ],
 
-        const SizedBox(height: 24),
+        const SizedBox(height: 12),
       ],
+    );
+  }
+
+  String _initials(String name) {
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty) return '?';
+    if (parts.length == 1) return parts[0][0].toUpperCase();
+    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Logo picker widget
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A square 64×64 container with dashed border. Shows the selected image if
+/// one is picked, or a camera icon + "Add logo" label otherwise.
+/// A small ×-badge in the top-right corner allows clearing a picked image.
+class _LogoPicker extends StatelessWidget {
+  const _LogoPicker({
+    required this.image,
+    required this.onPick,
+    required this.onClear,
+    required this.cs,
+  });
+
+  final File? image;
+  final VoidCallback onPick;
+  final VoidCallback onClear;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 64,
+      height: 64,
+      child: Stack(
+        children: [
+          GestureDetector(
+            onTap: onPick,
+            child: Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: cs.surfaceContainer,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: cs.outlineVariant,
+                  width: 1,
+                  // dashed border approximated with a solid thin border;
+                  // true dashed borders require a custom painter which is
+                  // heavier — the thin solid border reads as minimal/clean.
+                ),
+              ),
+              clipBehavior: Clip.hardEdge,
+              child: image != null && image!.existsSync()
+                  ? Image.file(image!, fit: BoxFit.cover)
+                  : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.camera_alt_outlined,
+                          size: 22,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Add logo',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w400,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ),
+          // Clear button — only shown when an image is picked.
+          if (image != null)
+            Positioned(
+              top: -4,
+              right: -4,
+              child: GestureDetector(
+                onTap: onClear,
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: cs.errorContainer,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: cs.surface, width: 1.5),
+                  ),
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 11,
+                    color: cs.onErrorContainer,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// County picker inline widget (tappable field-shaped row)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CountyPicker extends StatelessWidget {
+  const _CountyPicker({
+    required this.selected,
+    required this.onTap,
+    required this.cs,
+    this.error,
+  });
+
+  final KenyaCounty? selected;
+  final VoidCallback onTap;
+  final ColorScheme cs;
+  final String? error;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _FormLabel(label: 'County *', cs: cs),
+        const SizedBox(height: 6),
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainer,
+              borderRadius: BorderRadius.circular(AppTheme.kRadius),
+              border: Border.all(
+                color: error != null ? cs.error : cs.outlineVariant,
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    selected?.label ?? 'Select county',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      color: selected != null
+                          ? cs.onSurface
+                          : cs.onSurfaceVariant.withValues(alpha: 0.4),
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  size: 16,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (error != null) ...[
+          const SizedBox(height: 5),
+          Text(error!, style: TextStyle(fontSize: 12, color: cs.error)),
+        ],
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// County picker bottom sheet
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CountyPickerSheet extends StatefulWidget {
+  const _CountyPickerSheet({required this.selected, required this.cs});
+
+  final KenyaCounty? selected;
+  final ColorScheme cs;
+
+  @override
+  State<_CountyPickerSheet> createState() => _CountyPickerSheetState();
+}
+
+class _CountyPickerSheetState extends State<_CountyPickerSheet> {
+  final _searchCtrl = TextEditingController();
+  List<KenyaCounty> _filtered = KenyaCounty.values;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchCtrl.addListener(_onSearch);
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.removeListener(_onSearch);
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onSearch() {
+    final q = _searchCtrl.text.trim().toLowerCase();
+    setState(() {
+      _filtered = q.isEmpty
+          ? KenyaCounty.values
+          : KenyaCounty.values
+                .where((c) => c.label.toLowerCase().contains(q))
+                .toList();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.65;
+
+    return Container(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle
+          _SheetHandle(cs: cs),
+
+          // Title
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+            child: Row(
+              children: [
+                Text(
+                  'Counties',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurface,
+                    letterSpacing: 0.1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          Divider(height: 16, thickness: 1, color: cs.outlineVariant),
+
+          // Search field
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: TextField(
+              controller: _searchCtrl,
+              autofocus: true,
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurface,
+              ),
+              decoration: InputDecoration(
+                hintText: 'Search counties…',
+                hintStyle: TextStyle(
+                  fontSize: 13.5,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+                ),
+                prefixIcon: Icon(
+                  Icons.search_rounded,
+                  size: 18,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+                filled: true,
+                fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                isDense: true,
+              ),
+            ),
+          ),
+
+          // County list
+          Flexible(
+            child: ListView.builder(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
+              ),
+              itemCount: _filtered.length,
+              itemBuilder: (context, index) {
+                final county = _filtered[index];
+                final isSelected = county == widget.selected;
+                return _CountyRow(
+                  county: county,
+                  isSelected: isSelected,
+                  cs: cs,
+                  onTap: () => Navigator.of(context).pop(county),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CountyRow extends StatelessWidget {
+  const _CountyRow({
+    required this.county,
+    required this.isSelected,
+    required this.cs,
+    required this.onTap,
+  });
+
+  final KenyaCounty county;
+  final bool isSelected;
+  final ColorScheme cs;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: SizedBox(
+        height: 44,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            children: [
+              // County number badge
+              SizedBox(
+                width: 28,
+                child: Text(
+                  county.number.toString().padLeft(2, '0'),
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  county.label,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w400,
+                    color: isSelected ? cs.primary : cs.onSurface,
+                  ),
+                ),
+              ),
+              if (isSelected)
+                Icon(Icons.check_rounded, size: 16, color: cs.primary),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

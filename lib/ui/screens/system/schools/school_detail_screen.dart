@@ -5,14 +5,19 @@ import 'dart:io';
 import 'package:bson/bson.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../cache/file_cache.dart';
 import '../../../../client.dart';
 import '../../../../database/database.dart';
+import '../../../../database/tables/curriculum_subjects.dart';
+
 import '../../../../database/tables/enums.dart';
 import '../../../../models/mpesa_config.dart';
+import '../../../../models/school_config.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/animated_save_button.dart';
 import '../../../widgets/status_indicator.dart';
 
 /// Full-page school detail screen, pushed onto the navigator from
@@ -252,13 +257,11 @@ class _SchoolDetailScreenState extends State<SchoolDetailScreen>
                           subtitle:
                               'Plan and billing information will appear here once subscription data is synced.',
                         ),
-                        _PlaceholderTab(
+                        _SettingsTab(
+                          school: school,
+                          permissions: widget.permissions,
                           cs: cs,
                           horizontalPadding: horizontalPadding,
-                          icon: Icons.tune_outlined,
-                          title: 'Settings',
-                          subtitle:
-                              'School configuration is pending schema definition from the project owner (P10).',
                         ),
                         _IntegrationsTab(
                           school: school,
@@ -340,7 +343,7 @@ class _HeaderSection extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              _StatusChip(status: school.status, cs: cs),
+              _StatusDot(status: school.status),
             ],
           ),
           const SizedBox(height: 12),
@@ -351,7 +354,7 @@ class _HeaderSection extends StatelessWidget {
             children: [
               _DetailChip(
                 icon: Icons.location_on_outlined,
-                label: 'County ${school.county}',
+                label: _countyName(school.county),
                 cs: cs,
               ),
               if (school.phone != null)
@@ -385,6 +388,16 @@ class _HeaderSection extends StatelessWidget {
     );
   }
 
+  static String _countyName(int countyNumber) {
+    try {
+      return KenyaCounty.values
+          .firstWhere((c) => c.number == countyNumber)
+          .label;
+    } catch (_) {
+      return 'County $countyNumber';
+    }
+  }
+
   String _daysToDateString(int daysSinceEpoch) {
     final dt = DateTime.fromMillisecondsSinceEpoch(
       daysSinceEpoch * 86400 * 1000,
@@ -414,12 +427,73 @@ class _SchoolLogo extends StatelessWidget {
   final String schoolId;
   final ColorScheme cs;
 
+  void _viewLogo(BuildContext context, File file) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (ctx) {
+        return GestureDetector(
+          onTap: () => Navigator.of(ctx).pop(),
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            body: SafeArea(
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: GestureDetector(
+                      onTap: () => Navigator.of(ctx).pop(),
+                      behavior: HitTestBehavior.opaque,
+                      child: const SizedBox.expand(),
+                    ),
+                  ),
+                  Center(
+                    child: InteractiveViewer(
+                      minScale: 1.0,
+                      maxScale: 4.0,
+                      child: Image.file(
+                        file,
+                        fit: BoxFit.contain,
+                        width: double.infinity,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: GestureDetector(
+                      onTap: () => Navigator.of(ctx).pop(),
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.45),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close_rounded,
+                          size: 18,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<File?>(
       future: FileCache.get(FileCache.logoPath(schoolId)),
       builder: (context, snapshot) {
-        return Container(
+        final file = snapshot.data;
+        final hasImage = file != null && file.existsSync();
+        final container = Container(
           width: 44,
           height: 44,
           decoration: BoxDecoration(
@@ -430,8 +504,8 @@ class _SchoolLogo extends StatelessWidget {
             ),
           ),
           clipBehavior: Clip.antiAlias,
-          child: snapshot.data != null
-              ? Image.file(snapshot.data!, fit: BoxFit.cover)
+          child: hasImage
+              ? Image.file(file, fit: BoxFit.cover)
               : Center(
                   child: Icon(
                     Icons.school_outlined,
@@ -439,6 +513,13 @@ class _SchoolLogo extends StatelessWidget {
                     color: cs.onSurfaceVariant.withValues(alpha: 0.3),
                   ),
                 ),
+        );
+
+        if (!hasImage) return container;
+
+        return GestureDetector(
+          onTap: () => _viewLogo(context, file),
+          child: container,
         );
       },
     );
@@ -645,7 +726,14 @@ class _OwnersTab extends StatelessWidget {
             if (owners.isEmpty)
               _OwnersEmptyState(cs: cs)
             else
-              _OwnersList(owners: owners, cs: cs),
+              for (int i = 0; i < owners.length; i++) ...[
+                if (i > 0) const SizedBox(height: 10),
+                _OwnerCard(
+                  user: owners[i].user,
+                  owner: owners[i].owner,
+                  cs: cs,
+                ),
+              ],
           ],
         );
       },
@@ -708,42 +796,8 @@ class _OwnersEmptyState extends StatelessWidget {
   }
 }
 
-class _OwnersList extends StatelessWidget {
-  const _OwnersList({required this.owners, required this.cs});
-
-  final List<({OwnersData owner, UsersData user})> owners;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainer,
-        borderRadius: BorderRadius.circular(AppTheme.kRadius),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (int i = 0; i < owners.length; i++) ...[
-            if (i > 0)
-              Divider(
-                height: 0.5,
-                thickness: 0.5,
-                indent: 60,
-                color: cs.outlineVariant.withValues(alpha: 0.35),
-              ),
-            _OwnerRow(user: owners[i].user, owner: owners[i].owner, cs: cs),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _OwnerRow extends StatelessWidget {
-  const _OwnerRow({required this.user, required this.owner, required this.cs});
+class _OwnerCard extends StatelessWidget {
+  const _OwnerCard({required this.user, required this.owner, required this.cs});
 
   final UsersData user;
   final OwnersData owner;
@@ -751,87 +805,127 @@ class _OwnerRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-      child: Row(
+    final isDark = cs.brightness == Brightness.dark;
+    final joinedDate = _formatDate(owner.created);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainer,
+        borderRadius: BorderRadius.circular(AppTheme.kRadius),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.45)),
+        boxShadow: [
+          BoxShadow(
+            color: cs.shadow.withValues(alpha: isDark ? 0.15 : 0.06),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Avatar with status dot ─────────────────────────────
-          Stack(
-            clipBehavior: Clip.none,
+          // ── Top row: avatar + name/email + level badge ─────────
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              FutureBuilder<File?>(
-                future: FileCache.get(FileCache.profilePath(user.id)),
-                builder: (context, snap) {
-                  return Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(9),
-                      border: Border.all(
-                        color: cs.outlineVariant.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: snap.data != null
-                        ? Image.file(snap.data!, fit: BoxFit.cover)
-                        : Center(
-                            child: Text(
-                              _initials(user.name),
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: cs.onSurfaceVariant.withValues(
-                                  alpha: 0.5,
-                                ),
-                                letterSpacing: 0.2,
-                              ),
-                            ),
+              // Avatar with status dot
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  FutureBuilder<File?>(
+                    future: FileCache.get(FileCache.profilePath(user.id)),
+                    builder: (context, snap) {
+                      return Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: cs.surfaceContainerHighest.withValues(
+                            alpha: 0.5,
                           ),
-                  );
-                },
+                          borderRadius: BorderRadius.circular(9),
+                          border: Border.all(
+                            color: cs.outlineVariant.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: snap.data != null
+                            ? Image.file(snap.data!, fit: BoxFit.cover)
+                            : Center(
+                                child: Text(
+                                  _initials(user.name),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: cs.onSurfaceVariant.withValues(
+                                      alpha: 0.5,
+                                    ),
+                                    letterSpacing: 0.2,
+                                  ),
+                                ),
+                              ),
+                      );
+                    },
+                  ),
+                  Positioned(
+                    bottom: -1,
+                    right: -1,
+                    child: StatusIndicator(
+                      status: user.status,
+                      level: user.level,
+                      backgroundColor: cs.surfaceContainer,
+                    ),
+                  ),
+                ],
               ),
-              Positioned(
-                bottom: -1,
-                right: -1,
-                child: StatusIndicator(
-                  status: user.status,
-                  level: user.level,
-                  backgroundColor: cs.surface,
+              const SizedBox(width: 12),
+              // Name + email
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      user.name,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w500,
+                        color: cs.onSurface,
+                        height: 1.25,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      user.email ?? user.phone,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                        height: 1.25,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
               ),
+              // Level badge (only for non-normal users)
+              if (user.level != UserLevel.normal) ...[
+                const SizedBox(width: 8),
+                _LevelBadge(level: user.level, cs: cs),
+              ],
             ],
           ),
-          const SizedBox(width: 13),
-          // ── Info ────────────────────────────────────────────────
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  user.name,
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurface,
-                    height: 1.25,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  user.email ?? user.phone,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                    height: 1.25,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+          const SizedBox(height: 10),
+          // ── Bottom row: join date ──────────────────────────────
+          Text(
+            'Joined $joinedDate',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w300,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+              height: 1.3,
             ),
           ),
         ],
@@ -845,6 +939,1991 @@ class _OwnerRow extends StatelessWidget {
       return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
     }
     return name.isNotEmpty ? name[0].toUpperCase() : '?';
+  }
+
+  /// Formats a seconds-since-epoch [BigInt] as "DD Mon YYYY".
+  String _formatDate(BigInt secondsSinceEpoch) {
+    final dt = DateTime.fromMillisecondsSinceEpoch(
+      secondsSinceEpoch.toInt() * 1000,
+      isUtc: true,
+    ).toLocal();
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${dt.day.toString().padLeft(2, '0')} '
+        '${months[dt.month - 1]} '
+        '${dt.year}';
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Level badge chip
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _LevelBadge extends StatelessWidget {
+  const _LevelBadge({required this.level, required this.cs});
+
+  final UserLevel level;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = switch (level) {
+      UserLevel.system => 'SYSTEM',
+      UserLevel.super_ => 'SUPER',
+      UserLevel.normal => '',
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.55)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w400,
+          color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+          letterSpacing: 0.4,
+          height: 1.2,
+        ),
+      ),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Settings Tab — Grades & Streams configuration (CBC + 8-4-4)
+// ═════════════════════════════════════════════════════════════════════════════
+
+class _SettingsTab extends StatefulWidget {
+  const _SettingsTab({
+    required this.school,
+    required this.permissions,
+    required this.cs,
+    required this.horizontalPadding,
+  });
+
+  final SchoolsData school;
+  final SystemPermissions permissions;
+  final ColorScheme cs;
+  final double horizontalPadding;
+
+  @override
+  State<_SettingsTab> createState() => _SettingsTabState();
+}
+
+class _SettingsTabState extends State<_SettingsTab> {
+  bool _editMode = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<Setting?>(
+      stream: settingsDao.watchSettings(widget.school.id),
+      builder: (context, snapshot) {
+        final settingsRow = snapshot.data;
+        final SchoolConfig config = _parseConfig(settingsRow?.data);
+        final canEdit = widget.permissions.can('settings.update');
+
+        final width = MediaQuery.sizeOf(context).width;
+        final isDesktop = width >= AppTheme.kMobileBreakpoint;
+        final contentMaxWidth = isDesktop ? 680.0 : double.infinity;
+
+        return Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: contentMaxWidth),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 150),
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeIn,
+              transitionBuilder: (child, animation) {
+                return FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0, 0.015),
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: child,
+                  ),
+                );
+              },
+              child: _editMode
+                  ? KeyedSubtree(
+                      key: const ValueKey('edit'),
+                      child: _SettingsEditMode(
+                        school: widget.school,
+                        cs: widget.cs,
+                        horizontalPadding: widget.horizontalPadding,
+                        initialConfig: config,
+                        onCancel: () => setState(() => _editMode = false),
+                        onSaved: () => setState(() => _editMode = false),
+                      ),
+                    )
+                  : KeyedSubtree(
+                      key: const ValueKey('view'),
+                      child: _SettingsViewMode(
+                        cs: widget.cs,
+                        horizontalPadding: widget.horizontalPadding,
+                        config: config,
+                        canEdit: canEdit,
+                        onEdit: () => setState(() => _editMode = true),
+                      ),
+                    ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  SchoolConfig _parseConfig(String? dataJson) {
+    if (dataJson == null || dataJson.isEmpty) return SchoolConfig.defaults();
+    try {
+      final decoded = jsonDecode(dataJson);
+      if (decoded is Map<String, dynamic>) {
+        return SchoolConfig.fromJson(decoded);
+      }
+    } catch (_) {
+      // Malformed JSON — return defaults.
+    }
+    return SchoolConfig.defaults();
+  }
+}
+
+// ── Settings View Mode ────────────────────────────────────────────────────────
+
+class _SettingsViewMode extends StatefulWidget {
+  const _SettingsViewMode({
+    required this.cs,
+    required this.horizontalPadding,
+    required this.config,
+    required this.canEdit,
+    required this.onEdit,
+  });
+
+  final ColorScheme cs;
+  final double horizontalPadding;
+  final SchoolConfig config;
+  final bool canEdit;
+  final VoidCallback onEdit;
+
+  @override
+  State<_SettingsViewMode> createState() => _SettingsViewModeState();
+}
+
+class _SettingsViewModeState extends State<_SettingsViewMode> {
+  // Tracks which grade rows are expanded per curriculum type.
+  final Map<CurriculumType, Set<int>> _expandedGrades = {};
+
+  bool _isExpanded(CurriculumType type, int grade) =>
+      (_expandedGrades[type] ?? {}).contains(grade);
+
+  void _toggleGrade(CurriculumType type, int grade) {
+    setState(() {
+      final set = _expandedGrades.putIfAbsent(type, () => {});
+      if (set.contains(grade)) {
+        set.remove(grade);
+      } else {
+        set.add(grade);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final isLight = cs.brightness == Brightness.light;
+
+    if (widget.config.isEmpty) {
+      return ListView(
+        padding: EdgeInsets.fromLTRB(
+          widget.horizontalPadding,
+          20,
+          widget.horizontalPadding,
+          40,
+        ),
+        children: [
+          _SettingsSectionCard(
+            cs: cs,
+            icon: Icons.school_outlined,
+            iconColor: AppTheme.brandIndigo,
+            header: 'Curricula',
+            subtitle: 'No curricula configured',
+            trailing: widget.canEdit ? _editButton(cs) : null,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: isLight
+                      ? const Color(0xFFF5F5FC).withValues(alpha: 0.7)
+                      : cs.surfaceContainerHigh.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: cs.outlineVariant.withValues(alpha: 0.15),
+                    width: 0.5,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(7),
+                      ),
+                      child: Icon(
+                        Icons.info_outline_rounded,
+                        size: 14,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text.rich(
+                        TextSpan(
+                          text: 'No curriculum has been set up yet. ',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                            height: 1.45,
+                          ),
+                          children: widget.canEdit
+                              ? [
+                                  WidgetSpan(
+                                    alignment: PlaceholderAlignment.baseline,
+                                    baseline: TextBaseline.alphabetic,
+                                    child: GestureDetector(
+                                      onTap: widget.onEdit,
+                                      child: Text(
+                                        'Configure now',
+                                        style: TextStyle(
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w500,
+                                          color: AppTheme.brandIndigo,
+                                          height: 1.45,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final curricula = widget.config.curricula;
+
+    return ListView(
+      padding: EdgeInsets.fromLTRB(
+        widget.horizontalPadding,
+        20,
+        widget.horizontalPadding,
+        40,
+      ),
+      children: [
+        for (int ci = 0; ci < curricula.length; ci++) ...[
+          if (ci > 0) const SizedBox(height: 14),
+          _buildCurriculumCard(cs, isLight, curricula[ci], isFirst: ci == 0),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildCurriculumCard(
+    ColorScheme cs,
+    bool isLight,
+    CurriculumConfig curriculum, {
+    required bool isFirst,
+  }) {
+    final isCbc = curriculum.type == CurriculumType.cbc;
+    final typeLabel = isCbc ? 'CBC' : '8-4-4';
+    final typeSubtitle = isCbc ? 'Competency-Based Curriculum' : '8-4-4 System';
+    final gradeLabels = gradeLabelsFor(curriculum.type);
+    final gradeCount = curriculum.grades.length;
+    final totalStreams = curriculum.grades.fold<int>(
+      0,
+      (sum, g) => sum + g.streams.length,
+    );
+
+    return _SettingsSectionCard(
+      cs: cs,
+      icon: isCbc ? Icons.auto_awesome_outlined : Icons.menu_book_outlined,
+      iconColor: isCbc ? AppTheme.brandIndigo : const Color(0xFF7B61FF),
+      header: typeLabel,
+      subtitle: typeSubtitle,
+      trailing: isFirst && widget.canEdit ? _editButton(cs) : null,
+      child: curriculum.grades.isEmpty
+          ? Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: isLight
+                      ? const Color(0xFFF5F5FC).withValues(alpha: 0.7)
+                      : cs.surfaceContainerHigh.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: cs.outlineVariant.withValues(alpha: 0.15),
+                    width: 0.5,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(7),
+                      ),
+                      child: Icon(
+                        Icons.info_outline_rounded,
+                        size: 14,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text.rich(
+                        TextSpan(
+                          text: 'No grades configured. ',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                            height: 1.45,
+                          ),
+                          children: widget.canEdit
+                              ? [
+                                  WidgetSpan(
+                                    alignment: PlaceholderAlignment.baseline,
+                                    baseline: TextBaseline.alphabetic,
+                                    child: GestureDetector(
+                                      onTap: widget.onEdit,
+                                      child: Text(
+                                        'Configure',
+                                        style: TextStyle(
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w500,
+                                          color: AppTheme.brandIndigo,
+                                          height: 1.45,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Summary badges row
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                  child: Row(
+                    children: [
+                      _summaryBadge(
+                        cs,
+                        isLight,
+                        Icons.layers_outlined,
+                        '$gradeCount ${gradeCount == 1 ? 'grade' : 'grades'}',
+                      ),
+                      const SizedBox(width: 8),
+                      _summaryBadge(
+                        cs,
+                        isLight,
+                        Icons.view_stream_outlined,
+                        '$totalStreams ${totalStreams == 1 ? 'stream' : 'streams'}',
+                      ),
+                    ],
+                  ),
+                ),
+                // Grade rows
+                for (int i = 0; i < curriculum.grades.length; i++) ...[
+                  _buildViewGradeRow(
+                    cs,
+                    isLight,
+                    curriculum.type,
+                    curriculum.grades[i],
+                    gradeLabels,
+                    isEven: i.isEven,
+                    isLast: i == curriculum.grades.length - 1,
+                  ),
+                ],
+              ],
+            ),
+    );
+  }
+
+  Widget _summaryBadge(
+    ColorScheme cs,
+    bool isLight,
+    IconData icon,
+    String text,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: isLight
+            ? cs.surfaceContainerHighest.withValues(alpha: 0.45)
+            : cs.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 13,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildViewGradeRow(
+    ColorScheme cs,
+    bool isLight,
+    CurriculumType type,
+    GradeConfig gradeConfig,
+    Map<int, String> gradeLabels, {
+    required bool isEven,
+    required bool isLast,
+  }) {
+    final gradeLabel =
+        gradeLabels[gradeConfig.grade] ?? 'Grade ${gradeConfig.grade}';
+    final expanded = _isExpanded(type, gradeConfig.grade);
+    final streamCount = gradeConfig.streams.length;
+    final streamBadge = streamCount == 0
+        ? 'No streams'
+        : streamCount == 1
+        ? '1 stream'
+        : '$streamCount streams';
+
+    // Alternate row tinting for scanability
+    final rowBg = isEven
+        ? Colors.transparent
+        : (isLight
+              ? cs.surfaceContainerHighest.withValues(alpha: 0.18)
+              : cs.surfaceContainerHigh.withValues(alpha: 0.25));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Grade header row ─────────────────────────────────────
+        Container(
+          color: rowBg,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: streamCount > 0
+                  ? () => _toggleGrade(type, gradeConfig.grade)
+                  : null,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                child: Row(
+                  children: [
+                    // Expand arrow
+                    AnimatedRotation(
+                      turns: expanded ? 0.25 : 0.0,
+                      duration: const Duration(milliseconds: 200),
+                      child: Icon(
+                        Icons.chevron_right_rounded,
+                        size: 18,
+                        color: streamCount > 0
+                            ? cs.onSurfaceVariant.withValues(alpha: 0.5)
+                            : cs.onSurfaceVariant.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        gradeLabel,
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w500,
+                          color: cs.onSurface,
+                          letterSpacing: 0.1,
+                        ),
+                      ),
+                    ),
+                    // Stream count badge — tinted by count
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: streamCount > 0
+                            ? AppTheme.brandIndigo.withValues(alpha: 0.07)
+                            : cs.surfaceContainerHighest.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        streamBadge,
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w500,
+                          color: streamCount > 0
+                              ? AppTheme.brandIndigo.withValues(alpha: 0.7)
+                              : cs.onSurfaceVariant.withValues(alpha: 0.45),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // ── Expanded streams list ────────────────────────────────
+        AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          child: expanded && gradeConfig.streams.isNotEmpty
+              ? Container(
+                  decoration: BoxDecoration(
+                    color: isLight
+                        ? const Color(0xFFF0F1F8).withValues(alpha: 0.5)
+                        : cs.surfaceContainerHigh.withValues(alpha: 0.6),
+                    border: Border(
+                      top: BorderSide(
+                        color: cs.outlineVariant.withValues(alpha: 0.25),
+                        width: 0.5,
+                      ),
+                      bottom: isLast
+                          ? BorderSide.none
+                          : BorderSide(
+                              color: cs.outlineVariant.withValues(alpha: 0.25),
+                              width: 0.5,
+                            ),
+                    ),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 14, 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: gradeConfig.streams.asMap().entries.map((entry) {
+                      final stream = entry.value;
+                      return Container(
+                        margin: EdgeInsets.only(top: entry.key == 0 ? 0 : 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isLight
+                              ? Colors.white.withValues(alpha: 0.75)
+                              : cs.surfaceContainer,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: cs.outlineVariant.withValues(alpha: 0.2),
+                            width: 0.5,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: AppTheme.brandIndigo.withValues(
+                                  alpha: 0.35,
+                                ),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                stream.name,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w400,
+                                  color: cs.onSurface,
+                                  letterSpacing: 0.1,
+                                ),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.06,
+                                ),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                '#${stream.code}',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: cs.onSurfaceVariant.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+
+  Widget _editButton(ColorScheme cs) {
+    return SizedBox(
+      height: 32,
+      child: TextButton.icon(
+        onPressed: widget.onEdit,
+        icon: Icon(Icons.edit_outlined, size: 14, color: cs.onSurfaceVariant),
+        label: Text(
+          'Edit',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
+          ),
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+      ),
+    );
+  }
+}
+
+// ── Settings Edit Mode ────────────────────────────────────────────────────────
+
+class _SettingsEditMode extends StatefulWidget {
+  const _SettingsEditMode({
+    required this.school,
+    required this.cs,
+    required this.horizontalPadding,
+    required this.initialConfig,
+    required this.onCancel,
+    required this.onSaved,
+  });
+
+  final SchoolsData school;
+  final ColorScheme cs;
+  final double horizontalPadding;
+  final SchoolConfig initialConfig;
+  final VoidCallback onCancel;
+  final VoidCallback onSaved;
+
+  @override
+  State<_SettingsEditMode> createState() => _SettingsEditModeState();
+}
+
+class _SettingsEditModeState extends State<_SettingsEditMode> {
+  late List<CurriculumConfig> _curricula;
+  bool _saving = false;
+  String? _error;
+
+  // Two-tap confirm for removal. Stores the type pending removal.
+  CurriculumType? _pendingRemoval;
+
+  // Tracks which grade rows are expanded per curriculum type.
+  final Map<CurriculumType, Set<int>> _expandedGrades = {};
+
+  // TextEditingControllers keyed by (curriculumType, gradeIndex, streamIndex).
+  // We regenerate them on grade/stream structural changes.
+  final Map<String, TextEditingController> _nameControllers = {};
+  final Map<String, TextEditingController> _codeControllers = {};
+
+  @override
+  void initState() {
+    super.initState();
+    // Deep-copy so cancel fully reverts.
+    _curricula = widget.initialConfig.curricula
+        .map(
+          (c) => CurriculumConfig(
+            type: c.type,
+            grades: c.grades
+                .map(
+                  (g) => GradeConfig(
+                    grade: g.grade,
+                    streams: g.streams
+                        .map((s) => GradeStream(name: s.name, code: s.code))
+                        .toList(),
+                  ),
+                )
+                .toList(),
+          ),
+        )
+        .toList();
+    _rebuildControllers();
+  }
+
+  @override
+  void dispose() {
+    for (final c in _nameControllers.values) {
+      c.dispose();
+    }
+    for (final c in _codeControllers.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  // ── Controller management ────────────────────────────────────
+
+  void _rebuildControllers() {
+    // Dispose all existing controllers.
+    for (final c in _nameControllers.values) {
+      c.dispose();
+    }
+    for (final c in _codeControllers.values) {
+      c.dispose();
+    }
+    _nameControllers.clear();
+    _codeControllers.clear();
+
+    for (int ci = 0; ci < _curricula.length; ci++) {
+      final curriculum = _curricula[ci];
+      for (int gi = 0; gi < curriculum.grades.length; gi++) {
+        final grade = curriculum.grades[gi];
+        for (int si = 0; si < grade.streams.length; si++) {
+          final key = '${curriculum.type.index_}:$gi:$si';
+          _nameControllers[key] = TextEditingController(
+            text: grade.streams[si].name,
+          );
+          _codeControllers[key] = TextEditingController(
+            text: grade.streams[si].code.toString(),
+          );
+        }
+      }
+    }
+  }
+
+  String _controllerKey(int ci, int gi, int si) {
+    return '${_curricula[ci].type.index_}:$gi:$si';
+  }
+
+  // ── Data mutation helpers ─────────────────────────────────────
+
+  bool _hasCurriculum(CurriculumType type) =>
+      _curricula.any((c) => c.type == type);
+
+  void _toggleCurriculum(CurriculumType type) {
+    setState(() {
+      _error = null;
+      if (_hasCurriculum(type)) {
+        if (_pendingRemoval == type) {
+          // Second tap — confirm removal.
+          _curricula.removeWhere((c) => c.type == type);
+          _pendingRemoval = null;
+          _rebuildControllers();
+        } else {
+          // First tap — set pending.
+          _pendingRemoval = type;
+        }
+      } else {
+        _pendingRemoval = null;
+        _curricula.add(CurriculumConfig(type: type, grades: []));
+        // Keep CBC before 8-4-4.
+        _curricula.sort((a, b) => a.type.index_.compareTo(b.type.index_));
+        _rebuildControllers();
+      }
+    });
+  }
+
+  int _curriculumIndex(CurriculumType type) =>
+      _curricula.indexWhere((c) => c.type == type);
+
+  void _addGrade(CurriculumType type, int grade) {
+    final ci = _curriculumIndex(type);
+    if (ci < 0) return;
+    setState(() {
+      final grades = List<GradeConfig>.from(_curricula[ci].grades);
+      grades.add(GradeConfig(grade: grade, streams: []));
+      grades.sort((a, b) => a.grade.compareTo(b.grade));
+      _curricula[ci] = CurriculumConfig(type: type, grades: grades);
+      _rebuildControllers();
+      // Auto-expand newly added grade.
+      (_expandedGrades[type] ??= {}).add(grade);
+    });
+  }
+
+  void _removeGrade(CurriculumType type, int grade) {
+    final ci = _curriculumIndex(type);
+    if (ci < 0) return;
+    setState(() {
+      final grades = List<GradeConfig>.from(_curricula[ci].grades)
+        ..removeWhere((g) => g.grade == grade);
+      _curricula[ci] = CurriculumConfig(type: type, grades: grades);
+      _expandedGrades[type]?.remove(grade);
+      _rebuildControllers();
+    });
+  }
+
+  void _addStream(CurriculumType type, int gradeIndex) {
+    final ci = _curriculumIndex(type);
+    if (ci < 0) return;
+    final grade = _curricula[ci].grades[gradeIndex];
+    final nextCode = grade.streams.isEmpty
+        ? 1
+        : grade.streams.map((s) => s.code).reduce((a, b) => a > b ? a : b) + 1;
+    setState(() {
+      final updatedStreams = List<GradeStream>.from(grade.streams)
+        ..add(GradeStream(name: '', code: nextCode));
+      final updatedGrades = List<GradeConfig>.from(_curricula[ci].grades);
+      updatedGrades[gradeIndex] = GradeConfig(
+        grade: grade.grade,
+        streams: updatedStreams,
+      );
+      _curricula[ci] = CurriculumConfig(type: type, grades: updatedGrades);
+      _rebuildControllers();
+    });
+  }
+
+  void _removeStream(CurriculumType type, int gradeIndex, int streamIndex) {
+    final ci = _curriculumIndex(type);
+    if (ci < 0) return;
+    final grade = _curricula[ci].grades[gradeIndex];
+    setState(() {
+      final updatedStreams = List<GradeStream>.from(grade.streams)
+        ..removeAt(streamIndex);
+      final updatedGrades = List<GradeConfig>.from(_curricula[ci].grades);
+      updatedGrades[gradeIndex] = GradeConfig(
+        grade: grade.grade,
+        streams: updatedStreams,
+      );
+      _curricula[ci] = CurriculumConfig(type: type, grades: updatedGrades);
+      _rebuildControllers();
+    });
+  }
+
+  // ── Validation ────────────────────────────────────────────────
+
+  String? _validate() {
+    for (final curriculum in _curricula) {
+      for (final grade in curriculum.grades) {
+        // Check for empty stream names.
+        for (final stream in grade.streams) {
+          if (stream.name.trim().isEmpty) {
+            final gradeLabel =
+                gradeLabelsFor(curriculum.type)[grade.grade] ??
+                'Grade ${grade.grade}';
+            return 'Stream name cannot be empty in $gradeLabel.';
+          }
+        }
+        // Check for duplicate codes within a grade.
+        final codes = grade.streams.map((s) => s.code).toList();
+        final uniqueCodes = codes.toSet();
+        if (uniqueCodes.length != codes.length) {
+          final gradeLabel =
+              gradeLabelsFor(curriculum.type)[grade.grade] ??
+              'Grade ${grade.grade}';
+          return 'Stream codes must be unique within $gradeLabel.';
+        }
+      }
+    }
+    return null;
+  }
+
+  // ── Sync controller values back into model before save/validate ──
+
+  void _flushControllers() {
+    for (int ci = 0; ci < _curricula.length; ci++) {
+      final curriculum = _curricula[ci];
+      final newGrades = <GradeConfig>[];
+      for (int gi = 0; gi < curriculum.grades.length; gi++) {
+        final grade = curriculum.grades[gi];
+        final newStreams = <GradeStream>[];
+        for (int si = 0; si < grade.streams.length; si++) {
+          final key = _controllerKey(ci, gi, si);
+          final name = _nameControllers[key]?.text ?? grade.streams[si].name;
+          final codeStr = _codeControllers[key]?.text ?? '';
+          final code = int.tryParse(codeStr) ?? grade.streams[si].code;
+          newStreams.add(GradeStream(name: name.trim(), code: code));
+        }
+        newGrades.add(GradeConfig(grade: grade.grade, streams: newStreams));
+      }
+      _curricula[ci] = CurriculumConfig(
+        type: curriculum.type,
+        grades: newGrades,
+      );
+    }
+  }
+
+  // ── Save ──────────────────────────────────────────────────────
+
+  Future<void> _save() async {
+    _flushControllers();
+    final validationError = _validate();
+    if (validationError != null) {
+      setState(() => _error = validationError);
+      return;
+    }
+
+    final accountId = cache.currentUser?.user.id;
+    if (accountId == null) return;
+
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+
+    try {
+      final config = SchoolConfig(curricula: _curricula);
+      await settingsDao.updateSchoolConfig(
+        widget.school.id,
+        config,
+        accountId: accountId,
+      );
+      widget.onSaved();
+    } catch (e) {
+      setState(() {
+        _error = 'Failed to save settings. Please try again.';
+        _saving = false;
+      });
+    }
+  }
+
+  // ── Grade expand/collapse ─────────────────────────────────────
+
+  bool _isExpanded(CurriculumType type, int grade) =>
+      (_expandedGrades[type] ?? {}).contains(grade);
+
+  void _toggleGrade(CurriculumType type, int grade) {
+    setState(() {
+      final set = _expandedGrades.putIfAbsent(type, () => {});
+      if (set.contains(grade)) {
+        set.remove(grade);
+      } else {
+        set.add(grade);
+      }
+    });
+  }
+
+  // ── Build ─────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+
+    return ListView(
+      padding: EdgeInsets.fromLTRB(
+        widget.horizontalPadding,
+        20,
+        widget.horizontalPadding,
+        40,
+      ),
+      children: [
+        // ── Curriculum toggle row ────────────────────────────────
+        _SettingsSectionCard(
+          cs: cs,
+          icon: Icons.school_outlined,
+          iconColor: AppTheme.brandIndigo,
+          header: 'Curricula',
+          subtitle: 'Select active curriculum systems',
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _CurriculumToggleCard(
+                    label: 'CBC',
+                    subtitle: 'Competency-Based',
+                    active: _hasCurriculum(CurriculumType.cbc),
+                    pendingRemoval: _pendingRemoval == CurriculumType.cbc,
+                    cs: cs,
+                    onTap: () => _toggleCurriculum(CurriculumType.cbc),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _CurriculumToggleCard(
+                    label: '8-4-4',
+                    subtitle: 'Classic System',
+                    active: _hasCurriculum(CurriculumType.eightFourFour),
+                    pendingRemoval:
+                        _pendingRemoval == CurriculumType.eightFourFour,
+                    cs: cs,
+                    onTap: () =>
+                        _toggleCurriculum(CurriculumType.eightFourFour),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        if (_pendingRemoval != null) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: cs.errorContainer.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: cs.error.withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.warning_amber_rounded,
+                  size: 16,
+                  color: cs.error.withValues(alpha: 0.7),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Tap again to confirm removing '
+                    '${_pendingRemoval == CurriculumType.cbc ? "CBC" : "8-4-4"}.'
+                    ' This will delete all its grade and stream configuration.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: cs.error.withValues(alpha: 0.8),
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+
+        const SizedBox(height: 14),
+
+        // ── Per-curriculum grade sections ────────────────────────
+        for (int ci = 0; ci < _curricula.length; ci++) ...[
+          if (ci > 0) const SizedBox(height: 14),
+          _buildCurriculumSection(cs, ci),
+        ],
+
+        const SizedBox(height: 18),
+
+        // ── Validation / error banner ────────────────────────────
+        if (_error != null) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            decoration: BoxDecoration(
+              color: cs.errorContainer.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: cs.error.withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.error_outline_rounded, size: 16, color: cs.error),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    _error!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: cs.onErrorContainer,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+        ],
+
+        // ── Action row ───────────────────────────────────────────
+        Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 40,
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(
+                      color: cs.outlineVariant.withValues(alpha: 0.6),
+                      width: 1,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    foregroundColor: cs.onSurfaceVariant,
+                  ),
+                  onPressed: _saving ? null : widget.onCancel,
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: SizedBox(
+                height: 40,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppTheme.brandGreen,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: AppTheme.brandGreen.withValues(
+                      alpha: 0.35,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onPressed: _saving ? null : _save,
+                  child: _saving
+                      ? SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white.withValues(alpha: 0.85),
+                          ),
+                        )
+                      : const Text(
+                          'Save',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCurriculumSection(ColorScheme cs, int ci) {
+    final curriculum = _curricula[ci];
+    final isCbc = curriculum.type == CurriculumType.cbc;
+    final typeLabel = isCbc ? 'CBC' : '8-4-4';
+    final typeSubtitle = isCbc ? 'Competency-Based Curriculum' : '8-4-4 System';
+    final gradeLabels = gradeLabelsFor(curriculum.type);
+    final addedGrades = curriculum.grades.map((g) => g.grade).toSet();
+
+    return _SettingsSectionCard(
+      cs: cs,
+      icon: isCbc ? Icons.auto_awesome_outlined : Icons.menu_book_outlined,
+      iconColor: isCbc ? AppTheme.brandIndigo : const Color(0xFF7B61FF),
+      header: typeLabel,
+      subtitle: typeSubtitle,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Grade rows ─────────────────────────────────────────
+          for (int gi = 0; gi < curriculum.grades.length; gi++) ...[
+            _buildEditGradeRow(cs, ci, gi, curriculum, gradeLabels),
+          ],
+
+          // ── Add grade button ───────────────────────────────────
+          if (curriculum.grades.length < gradeLabels.length) ...[
+            Divider(
+              height: 0.5,
+              thickness: 0.5,
+              color: cs.outlineVariant.withValues(alpha: 0.2),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 6, 14, 8),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => _openGradePicker(curriculum.type, addedGrades),
+                  borderRadius: BorderRadius.circular(6),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 8,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 22,
+                          height: 22,
+                          decoration: BoxDecoration(
+                            color: AppTheme.brandIndigo.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Icon(
+                            Icons.add_rounded,
+                            size: 14,
+                            color: AppTheme.brandIndigo.withValues(alpha: 0.8),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Add grade',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: AppTheme.brandIndigo.withValues(alpha: 0.9),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ] else
+            const SizedBox(height: 10),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEditGradeRow(
+    ColorScheme cs,
+    int ci,
+    int gi,
+    CurriculumConfig curriculum,
+    Map<int, String> gradeLabels,
+  ) {
+    final grade = curriculum.grades[gi];
+    final gradeLabel = gradeLabels[grade.grade] ?? 'Grade ${grade.grade}';
+    final expanded = _isExpanded(curriculum.type, grade.grade);
+    final isLight = cs.brightness == Brightness.light;
+
+    // Alternate row tinting for edit mode too
+    final rowBg = gi.isEven
+        ? Colors.transparent
+        : (isLight
+              ? cs.surfaceContainerHighest.withValues(alpha: 0.18)
+              : cs.surfaceContainerHigh.withValues(alpha: 0.25));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Grade header ─────────────────────────────────────
+        Container(
+          color: rowBg,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => _toggleGrade(curriculum.type, grade.grade),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+                child: Row(
+                  children: [
+                    AnimatedRotation(
+                      turns: expanded ? 0.25 : 0.0,
+                      duration: const Duration(milliseconds: 200),
+                      child: Icon(
+                        Icons.chevron_right_rounded,
+                        size: 18,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        gradeLabel,
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w500,
+                          color: cs.onSurface,
+                          letterSpacing: 0.1,
+                        ),
+                      ),
+                    ),
+                    // Stream count badge
+                    if (grade.streams.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.brandIndigo.withValues(alpha: 0.07),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '${grade.streams.length}',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.brandIndigo.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ),
+                    // Remove grade button
+                    GestureDetector(
+                      onTap: () => _removeGrade(curriculum.type, grade.grade),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Icon(
+                          Icons.close_rounded,
+                          size: 16,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.35),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // ── Streams editor (expanded) ─────────────────────────
+        AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          child: expanded
+              ? Container(
+                  decoration: BoxDecoration(
+                    color: isLight
+                        ? const Color(0xFFF0F1F8).withValues(alpha: 0.5)
+                        : cs.surfaceContainerHigh.withValues(alpha: 0.6),
+                    border: Border(
+                      top: BorderSide(
+                        color: cs.outlineVariant.withValues(alpha: 0.25),
+                        width: 0.5,
+                      ),
+                      bottom: BorderSide(
+                        color: cs.outlineVariant.withValues(alpha: 0.25),
+                        width: 0.5,
+                      ),
+                    ),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Stream label
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8, left: 2),
+                        child: Text(
+                          'STREAMS',
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w600,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                      ),
+                      // Stream rows
+                      for (int si = 0; si < grade.streams.length; si++) ...[
+                        if (si > 0) const SizedBox(height: 6),
+                        _buildStreamRow(cs, ci, gi, si, curriculum.type, grade),
+                      ],
+
+                      const SizedBox(height: 10),
+
+                      // Add stream button
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => _addStream(curriculum.type, gi),
+                          borderRadius: BorderRadius.circular(6),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 6,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 20,
+                                  height: 20,
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.brandIndigo.withValues(
+                                      alpha: 0.08,
+                                    ),
+                                    borderRadius: BorderRadius.circular(5),
+                                  ),
+                                  child: Icon(
+                                    Icons.add_rounded,
+                                    size: 13,
+                                    color: AppTheme.brandIndigo.withValues(
+                                      alpha: 0.8,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Add stream',
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppTheme.brandIndigo.withValues(
+                                      alpha: 0.85,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStreamRow(
+    ColorScheme cs,
+    int ci,
+    int gi,
+    int si,
+    CurriculumType type,
+    GradeConfig grade,
+  ) {
+    final key = _controllerKey(ci, gi, si);
+    final nameCtrl = _nameControllers[key];
+    final codeCtrl = _codeControllers[key];
+    if (nameCtrl == null || codeCtrl == null) return const SizedBox.shrink();
+    final isLight = cs.brightness == Brightness.light;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isLight ? Colors.white : cs.surfaceContainer,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: isLight ? 0.35 : 0.5),
+          width: 0.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isLight ? 0.03 : 0.1),
+            blurRadius: 2,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Row(
+        children: [
+          // Name field
+          Expanded(
+            flex: 5,
+            child: TextField(
+              controller: nameCtrl,
+              maxLength: 20,
+              decoration: InputDecoration(
+                hintText: 'Stream name',
+                hintStyle: TextStyle(
+                  fontSize: 13,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+                ),
+                border: InputBorder.none,
+                counterText: '',
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                isDense: true,
+              ),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurface,
+              ),
+            ),
+          ),
+          Container(
+            width: 0.5,
+            height: 36,
+            color: cs.outlineVariant.withValues(alpha: 0.3),
+          ),
+          // Code field
+          Container(
+            width: 56,
+            color: isLight
+                ? cs.surfaceContainerHighest.withValues(alpha: 0.2)
+                : cs.surfaceContainerHigh.withValues(alpha: 0.3),
+            child: TextField(
+              controller: codeCtrl,
+              keyboardType: TextInputType.number,
+              maxLength: 2,
+              textAlign: TextAlign.center,
+              decoration: InputDecoration(
+                hintText: '#',
+                hintStyle: TextStyle(
+                  fontSize: 13,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+                ),
+                border: InputBorder.none,
+                counterText: '',
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                isDense: true,
+              ),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: cs.onSurface,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+          Container(
+            width: 0.5,
+            height: 36,
+            color: cs.outlineVariant.withValues(alpha: 0.3),
+          ),
+          // Remove stream button
+          GestureDetector(
+            onTap: () => _removeStream(type, gi, si),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+              child: Icon(
+                Icons.close_rounded,
+                size: 15,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.35),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openGradePicker(CurriculumType type, Set<int> alreadyAdded) {
+    final cs = widget.cs;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: cs.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _GradePickerSheet(
+        curriculumType: type,
+        alreadyAdded: alreadyAdded,
+        onPick: (grade) {
+          Navigator.of(context).pop();
+          _addGrade(type, grade);
+        },
+        cs: cs,
+      ),
+    );
+  }
+}
+
+// ── Curriculum toggle card ────────────────────────────────────────────────────
+
+class _CurriculumToggleCard extends StatelessWidget {
+  const _CurriculumToggleCard({
+    required this.label,
+    required this.subtitle,
+    required this.active,
+    required this.pendingRemoval,
+    required this.cs,
+    required this.onTap,
+  });
+
+  final String label;
+  final String subtitle;
+  final bool active;
+  final bool pendingRemoval;
+  final ColorScheme cs;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final activeColor = AppTheme.brandIndigo;
+    final isLight = cs.brightness == Brightness.light;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        decoration: BoxDecoration(
+          color: pendingRemoval
+              ? cs.errorContainer.withValues(alpha: 0.12)
+              : active
+              ? activeColor.withValues(alpha: 0.06)
+              : isLight
+              ? Colors.white
+              : cs.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: pendingRemoval
+                ? cs.error.withValues(alpha: 0.4)
+                : active
+                ? activeColor.withValues(alpha: 0.45)
+                : cs.outlineVariant.withValues(alpha: 0.4),
+            width: active || pendingRemoval ? 1.5 : 1,
+          ),
+          boxShadow: active && !pendingRemoval
+              ? [
+                  BoxShadow(
+                    color: activeColor.withValues(alpha: 0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w500,
+                      color: pendingRemoval
+                          ? cs.error
+                          : active
+                          ? activeColor
+                          : cs.onSurface,
+                      letterSpacing: 0.1,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w400,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (active && !pendingRemoval)
+              Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: activeColor.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.check_rounded, size: 14, color: activeColor),
+              )
+            else if (pendingRemoval)
+              Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: cs.error.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.remove_rounded,
+                  size: 14,
+                  color: cs.error.withValues(alpha: 0.7),
+                ),
+              )
+            else
+              Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: cs.outlineVariant.withValues(alpha: 0.5),
+                    width: 1.5,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Grade picker bottom sheet ─────────────────────────────────────────────────
+
+class _GradePickerSheet extends StatelessWidget {
+  const _GradePickerSheet({
+    required this.curriculumType,
+    required this.alreadyAdded,
+    required this.onPick,
+    required this.cs,
+  });
+
+  final CurriculumType curriculumType;
+  final Set<int> alreadyAdded;
+  final void Function(int grade) onPick;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    final labels = gradeLabelsFor(curriculumType);
+    final entries = labels.entries.toList();
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Handle bar ───────────────────────────────────────
+        Center(
+          child: Container(
+            margin: const EdgeInsets.only(top: 12, bottom: 8),
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: cs.onSurfaceVariant.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 14),
+          child: Text(
+            curriculumType == CurriculumType.cbc
+                ? 'Select CBC Grade'
+                : 'Select 8-4-4 Grade',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurface,
+              letterSpacing: -0.1,
+            ),
+          ),
+        ),
+        Divider(
+          height: 0.5,
+          thickness: 0.5,
+          color: cs.outlineVariant.withValues(alpha: 0.4),
+        ),
+        Flexible(
+          child: ListView.separated(
+            shrinkWrap: true,
+            itemCount: entries.length,
+            separatorBuilder: (_, _) => Divider(
+              height: 0.5,
+              thickness: 0.5,
+              color: cs.outlineVariant.withValues(alpha: 0.3),
+              indent: 20,
+              endIndent: 20,
+            ),
+            itemBuilder: (context, index) {
+              final entry = entries[index];
+              final isAdded = alreadyAdded.contains(entry.key);
+              return Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: isAdded ? null : () => onPick(entry.key),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 14,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            entry.value,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w400,
+                              color: isAdded
+                                  ? cs.onSurfaceVariant.withValues(alpha: 0.3)
+                                  : cs.onSurface,
+                            ),
+                          ),
+                        ),
+                        if (isAdded)
+                          Container(
+                            width: 20,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              color: AppTheme.brandIndigo.withValues(
+                                alpha: 0.1,
+                              ),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.check_rounded,
+                              size: 14,
+                              color: AppTheme.brandIndigo.withValues(
+                                alpha: 0.6,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        SizedBox(height: MediaQuery.paddingOf(context).bottom + 12),
+      ],
+    );
+  }
+}
+
+// ── Settings section card ─────────────────────────────────────────────────────
+
+class _SettingsSectionCard extends StatelessWidget {
+  const _SettingsSectionCard({
+    required this.cs,
+    required this.header,
+    required this.child,
+    this.icon,
+    this.iconColor,
+    this.subtitle,
+    this.trailing,
+  });
+
+  final ColorScheme cs;
+  final String header;
+  final Widget child;
+  final IconData? icon;
+  final Color? iconColor;
+  final String? subtitle;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = cs.brightness == Brightness.dark;
+    final effectiveIconColor = iconColor ?? cs.onSurfaceVariant;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surfaceContainer,
+        borderRadius: BorderRadius.circular(AppTheme.kRadius),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+        boxShadow: [
+          BoxShadow(
+            color: cs.shadow.withValues(alpha: isDark ? 0.15 : 0.06),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── Rich header ─────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+            child: Row(
+              children: [
+                if (icon != null) ...[
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: effectiveIconColor.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(icon, size: 20, color: effectiveIconColor),
+                  ),
+                  const SizedBox(width: 14),
+                ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        header,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle!,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                ?trailing,
+              ],
+            ),
+          ),
+          // ── Separator between header and content ────────────
+          Divider(
+            height: 0.5,
+            thickness: 0.5,
+            color: cs.outlineVariant.withValues(alpha: 0.35),
+          ),
+          const SizedBox(height: 2),
+          child,
+        ],
+      ),
+    );
   }
 }
 
@@ -1284,11 +3363,37 @@ class _EditSchoolSheetState extends State<_EditSchoolSheet> {
   late final TextEditingController _phoneCtrl;
   late final TextEditingController _emailCtrl;
   late final TextEditingController _domainCtrl;
-  late final TextEditingController _countyCtrl;
-  late SchoolStatus _editStatus;
+  late KenyaCounty? _selectedCounty;
+
+  File? _logoImage;
+  final _picker = ImagePicker();
 
   bool _saving = false;
+  bool _isDirty = false;
   String? _saveError;
+  String? _countyError;
+
+  // ── Dirty-tracking helpers ────────────────────────────────────────────────
+
+  bool _computeDirty() {
+    final s = widget.school;
+    if (_nameCtrl.text.trim() != s.name) return true;
+    if (_mottoCtrl.text.trim() != (s.motto ?? '')) return true;
+    if (_phoneCtrl.text.trim() != (s.phone ?? '')) return true;
+    if (_emailCtrl.text.trim() != (s.email ?? '')) return true;
+    if (_domainCtrl.text.trim() != (s.domain ?? '')) return true;
+    final originalCounty = KenyaCounty.values
+        .where((c) => c.number == s.county)
+        .firstOrNull;
+    if (_selectedCounty != originalCounty) return true;
+    if (_logoImage != null) return true;
+    return false;
+  }
+
+  void _onTextChanged() {
+    final dirty = _computeDirty();
+    if (dirty != _isDirty) setState(() => _isDirty = dirty);
+  }
 
   @override
   void initState() {
@@ -1299,8 +3404,16 @@ class _EditSchoolSheetState extends State<_EditSchoolSheet> {
     _phoneCtrl = TextEditingController(text: s.phone ?? '');
     _emailCtrl = TextEditingController(text: s.email ?? '');
     _domainCtrl = TextEditingController(text: s.domain ?? '');
-    _countyCtrl = TextEditingController(text: '${s.county}');
-    _editStatus = s.status;
+    _selectedCounty = KenyaCounty.values
+        .where((c) => c.number == s.county)
+        .firstOrNull;
+
+    // Attach listeners for dirty tracking.
+    _nameCtrl.addListener(_onTextChanged);
+    _mottoCtrl.addListener(_onTextChanged);
+    _phoneCtrl.addListener(_onTextChanged);
+    _emailCtrl.addListener(_onTextChanged);
+    _domainCtrl.addListener(_onTextChanged);
   }
 
   @override
@@ -1310,9 +3423,86 @@ class _EditSchoolSheetState extends State<_EditSchoolSheet> {
     _phoneCtrl.dispose();
     _emailCtrl.dispose();
     _domainCtrl.dispose();
-    _countyCtrl.dispose();
     super.dispose();
   }
+
+  // ── Logo picking ─────────────────────────────────────────────────────────
+
+  Future<void> _pickLogo() async {
+    final picked = await _picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 400,
+      maxHeight: 400,
+      imageQuality: 85,
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        _logoImage = File(picked.path);
+        _isDirty = true;
+      });
+    }
+  }
+
+  void _clearLogo() {
+    setState(() {
+      _logoImage = null;
+      _isDirty = _computeDirty();
+    });
+  }
+
+  // ── Status update (instant, independent of save) ─────────────────────────
+
+  Future<void> _updateStatus(SchoolStatus newStatus) async {
+    final accountId = cache.currentUser?.user.id;
+    if (accountId == null) return;
+
+    try {
+      await schoolsDao.updateSchoolStatus(
+        widget.school.id,
+        newStatus,
+        accountId: accountId,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Status updated to ${newStatus.name}.'),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update status: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  // ── County picker ────────────────────────────────────────────────────────
+
+  Future<void> _openCountyPicker() async {
+    final cs = Theme.of(context).colorScheme;
+    final selected = await showModalBottomSheet<KenyaCounty>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _EditCountyPickerSheet(selected: _selectedCounty, cs: cs),
+    );
+    if (selected != null && mounted) {
+      setState(() {
+        _selectedCounty = selected;
+        _countyError = null;
+        _isDirty = _computeDirty();
+      });
+    }
+  }
+
+  // ── Save ─────────────────────────────────────────────────────────────────
 
   Future<void> _save() async {
     final name = _nameCtrl.text.trim();
@@ -1321,10 +3511,8 @@ class _EditSchoolSheetState extends State<_EditSchoolSheet> {
       return;
     }
 
-    final countyStr = _countyCtrl.text.trim();
-    final county = int.tryParse(countyStr);
-    if (county == null) {
-      setState(() => _saveError = 'County must be a number.');
+    if (_selectedCounty == null) {
+      setState(() => _countyError = 'Please select a county.');
       return;
     }
 
@@ -1334,6 +3522,7 @@ class _EditSchoolSheetState extends State<_EditSchoolSheet> {
     setState(() {
       _saving = true;
       _saveError = null;
+      _countyError = null;
     });
 
     try {
@@ -1353,12 +3542,18 @@ class _EditSchoolSheetState extends State<_EditSchoolSheet> {
           phone: Value(phone.isEmpty ? null : phone),
           email: Value(email.isEmpty ? null : email),
           domain: Value(domain.isEmpty ? null : domain),
-          county: Value(county),
-          status: Value(_editStatus),
+          county: Value(_selectedCounty!.number),
           updated: Value(nowSeconds),
         ),
         accountId: accountId,
       );
+
+      // Save logo to local cache if a new one was picked.
+      if (_logoImage != null) {
+        final bytes = await _logoImage!.readAsBytes();
+        await FileCache.saveBytes(bytes, FileCache.logoPath(widget.school.id));
+        await schoolsDao.logLogoChange(widget.school.id, accountId: accountId);
+      }
 
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
@@ -1371,216 +3566,716 @@ class _EditSchoolSheetState extends State<_EditSchoolSheet> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.92,
+      ),
       decoration: BoxDecoration(
         color: cs.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 16,
-        bottom: bottomInset + 24,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // ── Handle ──────────────────────────────────────────────────
-          Center(
-            child: Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: cs.onSurfaceVariant.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(2),
-              ),
+          _EditSheetHandle(cs: cs),
+
+          // ── Title row ──────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 6, 12, 0),
+            child: Row(
+              children: [
+                Text(
+                  'Edit details',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurface,
+                    letterSpacing: 0.1,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  'Edit school',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                AnimatedSaveButton(
+                  isDirty: _isDirty,
+                  isSaving: _saving,
+                  onSave: (_isDirty && !_saving) ? _save : null,
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
-          // ── Title row ──────────────────────────────────────────────
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Edit School',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w500,
-                  color: cs.onSurface,
-                  letterSpacing: -0.1,
-                ),
+
+          Divider(height: 20, thickness: 1, color: cs.outlineVariant),
+
+          // ── Scrollable form content ─────────────────────────────────
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                4,
+                20,
+                MediaQuery.viewInsetsOf(context).bottom + 24,
               ),
-              GestureDetector(
-                onTap: () => Navigator.of(context).pop(),
-                child: Container(
-                  width: 30,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    Icons.close_rounded,
-                    size: 18,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          // ── Error ──────────────────────────────────────────────────
-          if (_saveError != null) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: cs.errorContainer.withValues(alpha: 0.6),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: cs.error.withValues(alpha: 0.2)),
-              ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Icon(Icons.error_outline, size: 16, color: cs.error),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _saveError!,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: cs.onErrorContainer,
-                      ),
+                  // ── Logo picker ───────────────────────────────────
+                  Center(
+                    child: _EditLogoSection(
+                      schoolId: widget.school.id,
+                      logoImage: _logoImage,
+                      onPick: _pickLogo,
+                      onClear: _clearLogo,
+                      cs: cs,
                     ),
                   ),
+                  const SizedBox(height: 20),
+
+                  // ── Error banner ─────────────────────────────────
+                  if (_saveError != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: cs.errorContainer.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: cs.error.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.error_outline, size: 16, color: cs.error),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _saveError!,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: cs.onErrorContainer,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // ── Section: Identity ─────────────────────────────
+                  _EditSectionCard(
+                    cs: cs,
+                    header: 'Identity',
+                    children: [
+                      _SheetFormField(
+                        label: 'Name',
+                        controller: _nameCtrl,
+                        cs: cs,
+                      ),
+                      const SizedBox(height: 12),
+                      _SheetFormField(
+                        label: 'Motto',
+                        controller: _mottoCtrl,
+                        hint: 'Optional',
+                        cs: cs,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // ── Section: Contact ──────────────────────────────
+                  _EditSectionCard(
+                    cs: cs,
+                    header: 'Contact',
+                    children: [
+                      _SheetFormField(
+                        label: 'Phone',
+                        controller: _phoneCtrl,
+                        hint: 'Optional',
+                        cs: cs,
+                        keyboardType: TextInputType.phone,
+                      ),
+                      const SizedBox(height: 12),
+                      _SheetFormField(
+                        label: 'Email',
+                        controller: _emailCtrl,
+                        hint: 'Optional',
+                        cs: cs,
+                        keyboardType: TextInputType.emailAddress,
+                      ),
+                      const SizedBox(height: 12),
+                      _SheetFormField(
+                        label: 'Domain',
+                        controller: _domainCtrl,
+                        hint: 'Optional — e.g. school.ac.ke',
+                        cs: cs,
+                      ),
+                      const SizedBox(height: 12),
+                      // County picker
+                      _EditCountyPicker(
+                        selected: _selectedCounty,
+                        error: _countyError,
+                        onTap: _openCountyPicker,
+                        cs: cs,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // ── Status actions ────────────────────────────────
+                  _SchoolStatusActions(
+                    status: widget.school.status,
+                    isSuperUser:
+                        cache.currentUser?.user.level == UserLevel.super_,
+                    onUpdate: _updateStatus,
+                    cs: cs,
+                  ),
+
+                  const SizedBox(height: 20),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-          ],
-          // ── Form fields ────────────────────────────────────────────
-          Flexible(
-            child: SingleChildScrollView(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final isWide = constraints.maxWidth > 500;
-                  final halfWidth = (constraints.maxWidth / 2) - 8;
+          ),
+        ],
+      ),
+    );
+  }
+}
 
-                  return Wrap(
-                    spacing: 16,
-                    runSpacing: 14,
-                    children: [
-                      SizedBox(
-                        width: isWide ? halfWidth : double.infinity,
-                        child: _SheetFormField(
-                          label: 'Name',
-                          controller: _nameCtrl,
-                          cs: cs,
-                        ),
-                      ),
-                      SizedBox(
-                        width: isWide ? halfWidth : double.infinity,
-                        child: _SheetFormField(
-                          label: 'Motto',
-                          controller: _mottoCtrl,
-                          hint: 'Optional',
-                          cs: cs,
-                        ),
-                      ),
-                      SizedBox(
-                        width: isWide ? halfWidth : double.infinity,
-                        child: _SheetFormField(
-                          label: 'Phone',
-                          controller: _phoneCtrl,
-                          hint: 'Optional',
-                          cs: cs,
-                          keyboardType: TextInputType.phone,
-                        ),
-                      ),
-                      SizedBox(
-                        width: isWide ? halfWidth : double.infinity,
-                        child: _SheetFormField(
-                          label: 'Email',
-                          controller: _emailCtrl,
-                          hint: 'Optional',
-                          cs: cs,
-                          keyboardType: TextInputType.emailAddress,
-                        ),
-                      ),
-                      SizedBox(
-                        width: isWide ? halfWidth : double.infinity,
-                        child: _SheetFormField(
-                          label: 'Domain',
-                          controller: _domainCtrl,
-                          hint: 'Optional',
-                          cs: cs,
-                        ),
-                      ),
-                      SizedBox(
-                        width: isWide ? halfWidth : double.infinity,
-                        child: _SheetFormField(
-                          label: 'County',
-                          controller: _countyCtrl,
-                          cs: cs,
-                          keyboardType: TextInputType.number,
-                        ),
-                      ),
-                      SizedBox(
-                        width: isWide ? halfWidth : double.infinity,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _SheetFormLabel(label: 'Status', cs: cs),
-                            const SizedBox(height: 5),
-                            _StyledDropdown<SchoolStatus>(
-                              value: _editStatus,
-                              items: const [
-                                (SchoolStatus.trial, 'Trial'),
-                                (SchoolStatus.active, 'Active'),
-                                (SchoolStatus.cancelled, 'Cancelled'),
-                                (SchoolStatus.suspended, 'Suspended'),
-                                (SchoolStatus.deleted, 'Deleted'),
-                              ],
-                              onChanged: (s) => setState(() => _editStatus = s),
-                              cs: cs,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  );
-                },
+// ─────────────────────────────────────────────────────────────────────────────
+// Status action buttons — contextual transitions for the school edit sheet
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SchoolStatusActions extends StatelessWidget {
+  const _SchoolStatusActions({
+    required this.status,
+    required this.isSuperUser,
+    required this.onUpdate,
+    required this.cs,
+  });
+
+  final SchoolStatus status;
+  final bool isSuperUser;
+  final void Function(SchoolStatus) onUpdate;
+  final ColorScheme cs;
+
+  static const _green = Color(0xFF4CAF50);
+  static const _amber = Color(0xFFFF8F00);
+  static const _grey = Color(0xFF9E9E9E);
+
+  @override
+  Widget build(BuildContext context) {
+    final actions = _actionsFor(status);
+    if (actions.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Status',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w400,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+            letterSpacing: 0.2,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: actions.map((action) {
+            return SizedBox(
+              height: 32,
+              child: OutlinedButton(
+                onPressed: () => onUpdate(action.target),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: action.color,
+                  side: BorderSide(color: action.color.withValues(alpha: 0.5)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  textStyle: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                child: Text(action.label),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  List<({SchoolStatus target, String label, Color color})> _actionsFor(
+    SchoolStatus s,
+  ) {
+    return switch (s) {
+      SchoolStatus.trial => [
+        (target: SchoolStatus.active, label: 'Activate', color: _green),
+        (target: SchoolStatus.suspended, label: 'Suspend', color: _amber),
+        (target: SchoolStatus.cancelled, label: 'Cancel', color: _grey),
+      ],
+      SchoolStatus.active => [
+        (target: SchoolStatus.suspended, label: 'Suspend', color: _amber),
+        (target: SchoolStatus.cancelled, label: 'Cancel', color: _grey),
+      ],
+      SchoolStatus.cancelled => [
+        (target: SchoolStatus.active, label: 'Reactivate', color: _green),
+      ],
+      SchoolStatus.suspended => [
+        (target: SchoolStatus.active, label: 'Reactivate', color: _green),
+        (target: SchoolStatus.cancelled, label: 'Cancel', color: _grey),
+      ],
+      SchoolStatus.deleted =>
+        isSuperUser
+            ? [(target: SchoolStatus.active, label: 'Restore', color: _green)]
+            : [],
+    };
+  }
+}
+
+// ── Edit sheet helpers ────────────────────────────────────────────────────────
+
+/// Sheet handle (drag indicator) for the edit school sheet.
+class _EditSheetHandle extends StatelessWidget {
+  const _EditSheetHandle({required this.cs});
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 10, bottom: 4),
+      child: Center(
+        child: Container(
+          width: 36,
+          height: 4,
+          decoration: BoxDecoration(
+            color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Grouped section card used in the edit school sheet.
+class _EditSectionCard extends StatelessWidget {
+  const _EditSectionCard({
+    required this.cs,
+    required this.header,
+    required this.children,
+  });
+
+  final ColorScheme cs;
+  final String header;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surfaceContainer.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.6)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+            child: Text(
+              header,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                letterSpacing: 0.5,
               ),
             ),
           ),
-          const SizedBox(height: 24),
-          // ── Save button ────────────────────────────────────────────
-          SizedBox(
-            height: 46,
-            child: FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: AppTheme.brandGreen,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                textStyle: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: cs.outlineVariant.withValues(alpha: 0.5),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: children,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Logo viewer + picker for the edit sheet. Pre-populates from the file cache.
+class _EditLogoSection extends StatelessWidget {
+  const _EditLogoSection({
+    required this.schoolId,
+    required this.logoImage,
+    required this.onPick,
+    required this.onClear,
+    required this.cs,
+  });
+
+  final String schoolId;
+  final File? logoImage;
+  final VoidCallback onPick;
+  final VoidCallback onClear;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 64,
+      height: 64,
+      child: Stack(
+        children: [
+          GestureDetector(
+            onTap: onPick,
+            child: Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: cs.surfaceContainer,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: cs.outlineVariant, width: 1),
+              ),
+              clipBehavior: Clip.hardEdge,
+              child: logoImage != null && logoImage!.existsSync()
+                  ? Image.file(logoImage!, fit: BoxFit.cover)
+                  : FutureBuilder<File?>(
+                      future: FileCache.get(FileCache.logoPath(schoolId)),
+                      builder: (context, snapshot) {
+                        final file = snapshot.data;
+                        if (file != null && file.existsSync()) {
+                          return Image.file(file, fit: BoxFit.cover);
+                        }
+                        return Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.camera_alt_outlined,
+                              size: 22,
+                              color: cs.onSurfaceVariant.withValues(
+                                alpha: 0.45,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Add logo',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w400,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.5,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+            ),
+          ),
+          if (logoImage != null)
+            Positioned(
+              top: -4,
+              right: -4,
+              child: GestureDetector(
+                onTap: onClear,
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: cs.errorContainer,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: cs.surface, width: 1.5),
+                  ),
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 11,
+                    color: cs.onErrorContainer,
+                  ),
                 ),
               ),
-              onPressed: _saving ? null : _save,
-              child: _saving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Field-shaped county picker for the edit school sheet.
+class _EditCountyPicker extends StatelessWidget {
+  const _EditCountyPicker({
+    required this.selected,
+    required this.onTap,
+    required this.cs,
+    this.error,
+  });
+
+  final KenyaCounty? selected;
+  final VoidCallback onTap;
+  final ColorScheme cs;
+  final String? error;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SheetFormLabel(label: 'County', cs: cs),
+        const SizedBox(height: 5),
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            height: 44,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainer,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: error != null
+                    ? cs.error
+                    : cs.outlineVariant.withValues(alpha: 0.5),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    selected?.label ?? 'Select county',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      color: selected != null
+                          ? cs.onSurface
+                          : cs.onSurfaceVariant.withValues(alpha: 0.35),
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  size: 16,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (error != null) ...[
+          const SizedBox(height: 4),
+          Text(error!, style: TextStyle(fontSize: 12, color: cs.error)),
+        ],
+      ],
+    );
+  }
+}
+
+/// County picker bottom sheet for the edit school sheet.
+class _EditCountyPickerSheet extends StatefulWidget {
+  const _EditCountyPickerSheet({required this.selected, required this.cs});
+
+  final KenyaCounty? selected;
+  final ColorScheme cs;
+
+  @override
+  State<_EditCountyPickerSheet> createState() => _EditCountyPickerSheetState();
+}
+
+class _EditCountyPickerSheetState extends State<_EditCountyPickerSheet> {
+  final _searchCtrl = TextEditingController();
+  List<KenyaCounty> _filtered = KenyaCounty.values;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchCtrl.addListener(_onSearch);
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.removeListener(_onSearch);
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onSearch() {
+    final q = _searchCtrl.text.trim().toLowerCase();
+    setState(() {
+      _filtered = q.isEmpty
+          ? KenyaCounty.values
+          : KenyaCounty.values
+                .where((c) => c.label.toLowerCase().contains(q))
+                .toList();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.65;
+
+    return Container(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle
+          Padding(
+            padding: const EdgeInsets.only(top: 10, bottom: 4),
+            child: Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+          ),
+          // Title
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Counties',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurface,
+                  letterSpacing: 0.1,
+                ),
+              ),
+            ),
+          ),
+          Divider(height: 16, thickness: 1, color: cs.outlineVariant),
+          // Search field
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: TextField(
+              controller: _searchCtrl,
+              autofocus: true,
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurface,
+              ),
+              decoration: InputDecoration(
+                hintText: 'Search counties…',
+                hintStyle: TextStyle(
+                  fontSize: 13.5,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+                ),
+                prefixIcon: Icon(
+                  Icons.search_rounded,
+                  size: 18,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+                filled: true,
+                fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                isDense: true,
+              ),
+            ),
+          ),
+          // County list
+          Flexible(
+            child: ListView.builder(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
+              ),
+              itemCount: _filtered.length,
+              itemBuilder: (context, index) {
+                final county = _filtered[index];
+                final isSelected = county == widget.selected;
+                return InkWell(
+                  onTap: () => Navigator.of(context).pop(county),
+                  child: SizedBox(
+                    height: 44,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 28,
+                            child: Text(
+                              county.number.toString().padLeft(2, '0'),
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w400,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.45,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              county.label,
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w400,
+                                color: isSelected ? cs.primary : cs.onSurface,
+                              ),
+                            ),
+                          ),
+                          if (isSelected)
+                            Icon(
+                              Icons.check_rounded,
+                              size: 16,
+                              color: cs.primary,
+                            ),
+                        ],
                       ),
-                    )
-                  : const Text('Save Changes'),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -2119,37 +4814,27 @@ class _SensitiveFormField extends StatelessWidget {
 // Shared Widgets
 // ═════════════════════════════════════════════════════════════════════════════
 
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.status, required this.cs});
+class _StatusDot extends StatelessWidget {
+  const _StatusDot({required this.status});
 
   final SchoolStatus status;
-  final ColorScheme cs;
 
   @override
   Widget build(BuildContext context) {
     final (label, color) = switch (status) {
-      SchoolStatus.trial => ('Trial', const Color(0xFF42A5F5)),
-      SchoolStatus.active => ('Active', const Color(0xFF26A69A)),
-      SchoolStatus.cancelled => ('Cancelled', const Color(0xFFBDBDBD)),
-      SchoolStatus.suspended => ('Suspended', const Color(0xFFFFB300)),
-      SchoolStatus.deleted => ('Deleted', const Color(0xFFEF5350)),
+      SchoolStatus.trial => ('Trial', _kColorTrial),
+      SchoolStatus.active => ('Active', _kColorActive),
+      SchoolStatus.cancelled => ('Cancelled', _kColorCancelled),
+      SchoolStatus.suspended => ('Suspended', _kColorSuspended),
+      SchoolStatus.deleted => ('Deleted', _kColorDeleted),
     };
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withValues(alpha: 0.25), width: 1),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-          color: color,
-          letterSpacing: 0.2,
-        ),
+    return Tooltip(
+      message: label,
+      child: Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
       ),
     );
   }
@@ -2885,3 +5570,10 @@ class _StyledDropdown<T> extends StatelessWidget {
     );
   }
 }
+
+// ── Status dot colour constants ───────────────────────────────────────────────
+const Color _kColorTrial = Color(0xFF42A5F5);
+const Color _kColorActive = Color(0xFF26A69A);
+const Color _kColorCancelled = Color(0xFFBDBDBD);
+const Color _kColorSuspended = Color(0xFFFFB300);
+const Color _kColorDeleted = Color(0xFFEF5350);
