@@ -373,9 +373,7 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
     if (tab == _kTabPlans) {
       if (!canCreatePlan) return const SizedBox.shrink();
       return FloatingActionButton.small(
-        backgroundColor: AppTheme.brandGreen,
-        foregroundColor: Colors.white,
-        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         onPressed: () => openCreatePlan(context, _permissions),
         child: const Icon(Icons.add_rounded, size: 20),
       );
@@ -385,9 +383,7 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
     if (tab == _kTabMembers) {
       if (!canAddMember) return const SizedBox.shrink();
       return FloatingActionButton.small(
-        backgroundColor: AppTheme.brandGreen,
-        foregroundColor: Colors.white,
-        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         onPressed: () => _onFabAction(_FabAction.addMember),
         child: const Icon(Icons.add_rounded, size: 20),
       );
@@ -423,9 +419,7 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
     // If only one permission is held, FAB taps directly (no expand).
     if (actions.length == 1) {
       return FloatingActionButton.small(
-        backgroundColor: AppTheme.brandGreen,
-        foregroundColor: Colors.white,
-        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         onPressed: () => _onFabAction(
           canInvite
               ? _FabAction.inviteUser
@@ -462,9 +456,9 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
         }),
         // Main FAB — icon rotates 45° when expanded.
         FloatingActionButton.small(
-          backgroundColor: AppTheme.brandGreen,
-          foregroundColor: Colors.white,
-          elevation: 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           onPressed: _toggleFab,
           child: AnimatedRotation(
             turns: _fabExpanded ? 0.125 : 0.0, // 45°
@@ -600,15 +594,11 @@ class _DesktopBody extends StatelessWidget {
             ],
           ),
         ),
-        // ── Top panel: fixed stats ──────────────────────────────────────
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 240),
-          child: SystemStatsSection(permissions: permissions),
-        ),
+        // ── Top panel: stats section (expandable — no fixed height cap) ──
+        SystemStatsSection(permissions: permissions),
         // ── Pinned tab bar ──────────────────────────────────────────────
         Container(
           decoration: BoxDecoration(
-            color: cs.surface,
             border: Border(
               bottom: BorderSide(
                 color: cs.brightness == Brightness.dark
@@ -619,113 +609,166 @@ class _DesktopBody extends StatelessWidget {
             ),
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            child: Row(
-              children: [
-                Container(
-                  height: 36,
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: cs.surfaceContainerHighest.withValues(
-                      alpha: cs.brightness == Brightness.dark ? 0.7 : 0.5,
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                    border: cs.brightness == Brightness.dark
-                        ? Border.all(
-                            color: cs.outlineVariant.withValues(alpha: 0.3),
-                            width: 1,
-                          )
-                        : null,
-                  ),
-                  child: TabBar(
-                    controller: tabController,
-                    isScrollable: true,
-                    tabAlignment: TabAlignment.start,
-                    dividerColor: Colors.transparent,
-                    indicatorSize: TabBarIndicatorSize.tab,
-                    indicator: BoxDecoration(
-                      color: cs.surface,
-                      borderRadius: BorderRadius.circular(6),
-                      border: cs.brightness == Brightness.dark
-                          ? Border.all(
-                              color: cs.outlineVariant.withValues(alpha: 0.4),
-                              width: 1,
-                            )
-                          : null,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(
-                            alpha: cs.brightness == Brightness.dark
-                                ? 0.12
-                                : 0.04,
-                          ),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            // Stack lets the pill anchor left and grow rightward while the
+            // + button is independently pinned to the far right. The pill's
+            // right edge is constrained to never overlap the button (8 gap +
+            // 32 button width = 40 px from the right).
+            child: SizedBox(
+              height: 36,
+              child: Stack(
+                children: [
+                  // ── Pill: anchored left, shrinks to content, max right = 40px from edge ──
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    right: 40,
+                    child: UnconstrainedBox(
+                      alignment: Alignment.centerLeft,
+                      constrainedAxis: Axis.vertical,
+                      clipBehavior: Clip.hardEdge,
+                      child: ConstrainedBox(
+                        // Never wider than the available space (Stack width − 40).
+                        constraints: const BoxConstraints(
+                          maxWidth: double.infinity,
                         ),
-                      ],
-                    ),
-                    labelColor: cs.onSurface,
-                    unselectedLabelColor: cs.onSurfaceVariant,
-                    labelPadding: const EdgeInsets.symmetric(horizontal: 20),
-                    labelStyle: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 0.2,
-                    ),
-                    unselectedLabelStyle: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w400,
-                      letterSpacing: 0.2,
-                    ),
-                    tabs: const [
-                      Tab(text: 'Users'),
-                      Tab(text: 'Members'),
-                      Tab(text: 'Schools'),
-                      Tab(text: 'Roles'),
-                      Tab(text: 'Notifications'),
-                      Tab(text: 'Plans'),
-                    ],
-                  ),
-                ),
-                const Spacer(),
-                AnimatedBuilder(
-                  animation: tabController,
-                  builder: (context, _) {
-                    final index = tabController.index;
-                    // Users=0, Members=1, Schools=2, Roles=3 → show "+" button.
-                    // Notifications=4 → no "+" button.
-                    // Plans=5 → "+" button opens create plan sheet.
-                    final VoidCallback? action = switch (index) {
-                      0 => onInviteUser,
-                      1 => onAddMember,
-                      2 => onCreateSchool,
-                      3 => onCreateRole,
-                      5 => onCreatePlan,
-                      _ => null,
-                    };
-
-                    if (action == null) return const SizedBox.shrink();
-
-                    return Material(
-                      color: cs.primary,
-                      borderRadius: BorderRadius.circular(8),
-                      child: InkWell(
-                        onTap: action,
-                        borderRadius: BorderRadius.circular(8),
-                        child: SizedBox(
-                          width: 32,
-                          height: 32,
-                          child: Icon(
-                            Icons.add_rounded,
-                            color: cs.onPrimary,
-                            size: 18,
-                          ),
+                        child: AnimatedBuilder(
+                          animation: tabController,
+                          builder: (context, _) {
+                            // Measure natural tab widths to know when to stop shrinking.
+                            return LayoutBuilder(
+                              builder: (context, bc) {
+                                return Container(
+                                  height: 36,
+                                  constraints: BoxConstraints(
+                                    maxWidth: bc.maxWidth,
+                                  ),
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: cs.surfaceContainerHighest
+                                        .withValues(
+                                          alpha:
+                                              cs.brightness == Brightness.dark
+                                              ? 0.7
+                                              : 0.5,
+                                        ),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: cs.brightness == Brightness.dark
+                                        ? Border.all(
+                                            color: cs.outlineVariant.withValues(
+                                              alpha: 0.3,
+                                            ),
+                                            width: 1,
+                                          )
+                                        : null,
+                                  ),
+                                  child: TabBar(
+                                    controller: tabController,
+                                    isScrollable: true,
+                                    tabAlignment: TabAlignment.start,
+                                    splashBorderRadius: BorderRadius.circular(
+                                      6,
+                                    ),
+                                    dividerColor: Colors.transparent,
+                                    indicatorSize: TabBarIndicatorSize.tab,
+                                    indicator: BoxDecoration(
+                                      color: cs.surface,
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: cs.brightness == Brightness.dark
+                                          ? Border.all(
+                                              color: cs.outlineVariant
+                                                  .withValues(alpha: 0.4),
+                                              width: 1,
+                                            )
+                                          : null,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(
+                                            alpha:
+                                                cs.brightness == Brightness.dark
+                                                ? 0.12
+                                                : 0.04,
+                                          ),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    labelColor: cs.onSurface,
+                                    unselectedLabelColor: cs.onSurfaceVariant,
+                                    labelPadding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                    ),
+                                    labelStyle: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      letterSpacing: 0.2,
+                                    ),
+                                    unselectedLabelStyle: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w400,
+                                      letterSpacing: 0.2,
+                                    ),
+                                    tabs: const [
+                                      Tab(text: 'Users'),
+                                      Tab(text: 'Members'),
+                                      Tab(text: 'Schools'),
+                                      Tab(text: 'Roles'),
+                                      Tab(text: 'Notifications'),
+                                      Tab(text: 'Plans'),
+                                    ],
+                                  ),
+                                );
+                              },
+                            );
+                          },
                         ),
                       ),
-                    );
-                  },
-                ),
-              ],
+                    ),
+                  ),
+                  // ── + button: pinned to the far right ──
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                    child: AnimatedBuilder(
+                      animation: tabController,
+                      builder: (context, _) {
+                        final index = tabController.index;
+                        final VoidCallback? action = switch (index) {
+                          0 => onInviteUser,
+                          1 => onAddMember,
+                          2 => onCreateSchool,
+                          3 => onCreateRole,
+                          5 => onCreatePlan,
+                          _ => null,
+                        };
+
+                        if (action == null) return const SizedBox(width: 32);
+
+                        return Material(
+                          color: cs.primary,
+                          borderRadius: BorderRadius.circular(8),
+                          child: InkWell(
+                            onTap: action,
+                            borderRadius: BorderRadius.circular(8),
+                            child: SizedBox(
+                              width: 32,
+                              height: 32,
+                              child: Icon(
+                                Icons.add_rounded,
+                                color: cs.onPrimary,
+                                size: 18,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -802,8 +845,9 @@ class _FabSubButton extends StatelessWidget {
         FloatingActionButton.small(
           heroTag: label,
           backgroundColor: AppTheme.brandGreen.withValues(alpha: 0.85),
-          foregroundColor: Colors.white,
-          elevation: 1,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           onPressed: () => onTap(action),
           child: Icon(icon, size: 20),
         ),
