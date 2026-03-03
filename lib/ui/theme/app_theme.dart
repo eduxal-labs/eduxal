@@ -28,7 +28,9 @@ class AppTheme {
   // ─────────────────────────────────────────────────────────────────────────
 
   static const Color brandIndigo = Color(0xFF3F51B5);
-  static const Color brandGreen = Color(0xFF00A884); // WhatsApp-ish teal-green
+  static const Color brandGreen = Color(
+    0xFF4CAF50,
+  ); // Material Green 500 — action/CTA colour
 
   /// Lighter indigo for dark-mode primary text/icons.
   static const Color _indigoDark = Color(0xFF8C9EFF);
@@ -565,7 +567,7 @@ class AppTheme {
         focusElevation: 3,
         hoverElevation: 3,
         highlightElevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
 
       // ── TabBar ────────────────────────────────────────────────────────
