@@ -5,6 +5,49 @@
 library;
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Current term context
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Identifies the "current" academic term used to scope term-sensitive stats.
+///
+/// Resolution order (performed by the DAO):
+///   1. Any term whose `start <= now AND end >= now` → most recently started.
+///   2. Fallback: the term with the highest `end` in the past (last completed).
+///   3. If the local DB has no terms at all → null (stats show lifetime totals).
+///
+/// [year] is the calendar year (e.g. 2025).
+/// [term] is the 0-based term index within the year (0, 1, or 2).
+/// [label] is a human-readable string shown in the card header, e.g. "T1 2025".
+class CurrentTerm {
+  const CurrentTerm({
+    required this.year,
+    required this.term,
+    required this.startEpochSecs,
+    required this.endEpochSecs,
+  });
+
+  final int year;
+
+  /// 0-based term index (0 = first term, 1 = second, 2 = third).
+  final int term;
+
+  /// Term start — seconds since Unix epoch (same unit as `terms.start`).
+  final int startEpochSecs;
+
+  /// Term end — seconds since Unix epoch.
+  final int endEpochSecs;
+
+  /// Human-readable label, e.g. "T1 2025".
+  String get label => 'T${term + 1} $year';
+
+  /// Term start converted to days since Unix epoch (same unit as `payments.date`).
+  int get startDays => startEpochSecs ~/ 86400;
+
+  /// Term end converted to days since Unix epoch.
+  int get endDays => endEpochSecs ~/ 86400;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Shared stat bar segment — used by the UI to render inline mini bars
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -108,6 +151,68 @@ class SchoolStats {
     suspended: 0,
     deleted: 0,
   );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Student stats
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Counts of students grouped by [StudentStatus].
+class StudentStats {
+  const StudentStats({
+    required this.total,
+    required this.active,
+    required this.expelled,
+    required this.graduated,
+    required this.transferred,
+    required this.withdrawn,
+    required this.deleted,
+    this.currentTerm,
+  });
+
+  final int total;
+
+  /// Students with status = active (0).
+  final int active;
+
+  /// Students with status = expelled (1).
+  final int expelled;
+
+  /// Students with status = graduated (2).
+  final int graduated;
+
+  /// Students with status = transferred (3).
+  final int transferred;
+
+  /// Students with status = withdrawn (4).
+  final int withdrawn;
+
+  /// Students with status = deleted (5).
+  final int deleted;
+
+  static const empty = StudentStats(
+    total: 0,
+    active: 0,
+    expelled: 0,
+    graduated: 0,
+    transferred: 0,
+    withdrawn: 0,
+    deleted: 0,
+  );
+
+  /// The term these counts are scoped to. Null means lifetime totals
+  /// (no terms exist in the local DB yet).
+  final CurrentTerm? currentTerm;
+
+  String get subtitle {
+    final parts = <String>[];
+    if (active > 0) parts.add('$active active');
+    if (graduated > 0) parts.add('$graduated graduated');
+    if (transferred > 0) parts.add('$transferred transferred');
+    if (expelled > 0) parts.add('$expelled expelled');
+    if (withdrawn > 0) parts.add('$withdrawn withdrawn');
+    return parts.isEmpty ? 'No students' : parts.join(', ');
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -227,6 +332,7 @@ class SubscriptionStats {
     required this.active,
     required this.cancelled,
     required this.deleted,
+    this.currentTerm,
   });
 
   final int total;
@@ -242,6 +348,9 @@ class SubscriptionStats {
 
   /// Subscriptions with status = deleted (3).
   final int deleted;
+
+  /// The term these counts are scoped to. Null means lifetime totals.
+  final CurrentTerm? currentTerm;
 
   static const empty = SubscriptionStats(
     total: 0,
@@ -277,6 +386,7 @@ class RevenueStats {
     required this.cheque,
     required this.mpesa,
     required this.bank,
+    this.currentTerm,
   });
 
   /// Sum of all payment amounts.
@@ -296,6 +406,9 @@ class RevenueStats {
 
   /// Sum of bank payments.
   final double bank;
+
+  /// The term these totals are scoped to. Null means lifetime totals.
+  final CurrentTerm? currentTerm;
 
   static const empty = RevenueStats(
     totalAmount: 0,

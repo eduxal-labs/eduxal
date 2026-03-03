@@ -5,12 +5,15 @@ import 'package:drift/drift.dart';
 
 import '../database.dart';
 import '../tables/enums.dart';
+import '../tables/enrollments.dart';
+import '../tables/invoices.dart';
 import '../tables/payments.dart';
 import '../tables/plans.dart';
 import '../tables/schools.dart';
 import '../tables/students.dart';
 import '../tables/subscriptions.dart';
 import '../tables/teachers.dart';
+import '../tables/terms.dart';
 import '../tables/users.dart';
 import '../../models/system_stats.dart';
 
@@ -24,7 +27,18 @@ part 'system_stats_dao.g.dart';
 /// The streams always include all counts (including deleted) — the UI layer
 /// decides what to show based on the current user's [UserLevel].
 @DriftAccessor(
-  tables: [Users, Schools, Students, Plans, Subscriptions, Teachers, Payments],
+  tables: [
+    Users,
+    Schools,
+    Students,
+    Enrollments,
+    Terms,
+    Plans,
+    Subscriptions,
+    Teachers,
+    Invoices,
+    Payments,
+  ],
 )
 class SystemStatsDao extends DatabaseAccessor<AppDatabase>
     with _$SystemStatsDaoMixin {
@@ -56,6 +70,22 @@ class SystemStatsDao extends DatabaseAccessor<AppDatabase>
     }
   }
 
+  /// Emits [StudentStats] (counts per [StudentStatus] scoped to the current
+  /// term via enrollments) whenever the `students`, `enrollments`, or `terms`
+  /// table changes. Emits the current state immediately on first subscription.
+  Stream<StudentStats> watchStudentStats() async* {
+    yield await _fetchStudentStats();
+
+    final merged = StreamGroup.merge([
+      db.tableUpdates(TableUpdateQuery.onTable(db.students)),
+      db.tableUpdates(TableUpdateQuery.onTable(db.enrollments)),
+      db.tableUpdates(TableUpdateQuery.onTable(db.terms)),
+    ]);
+    await for (final _ in merged) {
+      yield await _fetchStudentStats();
+    }
+  }
+
   /// Emits [StudentPlanStats] (total students + per-plan subscription counts)
   /// whenever the `students`, `subscriptions`, or `plans` table changes.
   /// Emits the current state immediately on first subscription.
@@ -66,6 +96,7 @@ class SystemStatsDao extends DatabaseAccessor<AppDatabase>
       db.tableUpdates(TableUpdateQuery.onTable(db.students)),
       db.tableUpdates(TableUpdateQuery.onTable(db.subscriptions)),
       db.tableUpdates(TableUpdateQuery.onTable(db.plans)),
+      db.tableUpdates(TableUpdateQuery.onTable(db.terms)),
     ]);
 
     await for (final _ in merged) {
@@ -84,24 +115,31 @@ class SystemStatsDao extends DatabaseAccessor<AppDatabase>
     }
   }
 
-  /// Emits [SubscriptionStats] (counts per [SubscriptionStatus]) whenever
-  /// the `subscriptions` table changes. Emits the current state immediately.
+  /// Emits [SubscriptionStats] (counts per [SubscriptionStatus] scoped to the
+  /// current term) whenever `subscriptions` or `terms` changes.
   Stream<SubscriptionStats> watchSubscriptionStats() async* {
     yield await _fetchSubscriptionStats();
 
-    final changes = db.tableUpdates(TableUpdateQuery.onTable(db.subscriptions));
-    await for (final _ in changes) {
+    final merged = StreamGroup.merge([
+      db.tableUpdates(TableUpdateQuery.onTable(db.subscriptions)),
+      db.tableUpdates(TableUpdateQuery.onTable(db.terms)),
+    ]);
+    await for (final _ in merged) {
       yield await _fetchSubscriptionStats();
     }
   }
 
-  /// Emits [RevenueStats] (payment sums grouped by method) whenever the
-  /// `payments` table changes. Emits the current state immediately.
+  /// Emits [RevenueStats] (payment sums grouped by method scoped to the
+  /// current term) whenever `payments`, `invoices`, or `terms` changes.
   Stream<RevenueStats> watchRevenueStats() async* {
     yield await _fetchRevenueStats();
 
-    final changes = db.tableUpdates(TableUpdateQuery.onTable(db.payments));
-    await for (final _ in changes) {
+    final merged = StreamGroup.merge([
+      db.tableUpdates(TableUpdateQuery.onTable(db.payments)),
+      db.tableUpdates(TableUpdateQuery.onTable(db.invoices)),
+      db.tableUpdates(TableUpdateQuery.onTable(db.terms)),
+    ]);
+    await for (final _ in merged) {
       yield await _fetchRevenueStats();
     }
   }
@@ -118,7 +156,7 @@ class SystemStatsDao extends DatabaseAccessor<AppDatabase>
     // with raw SQL to get unambiguous int values.
     final rows = await customSelect(
       'SELECT status, COUNT(*) AS cnt FROM users GROUP BY status',
-      readsFrom: {users},
+      readsFrom: {db.users},
     ).get();
 
     int invited = 0, active = 0, suspended = 0, deleted = 0;
@@ -151,7 +189,7 @@ class SystemStatsDao extends DatabaseAccessor<AppDatabase>
   Future<SchoolStats> _fetchSchoolStats() async {
     final rows = await customSelect(
       'SELECT status, COUNT(*) AS cnt FROM schools GROUP BY status',
-      readsFrom: {schools},
+      readsFrom: {db.schools},
     ).get();
 
     int trial = 0, active = 0, cancelled = 0, suspended = 0, deleted = 0;
@@ -183,6 +221,141 @@ class SystemStatsDao extends DatabaseAccessor<AppDatabase>
     );
   }
 
+  /// Fetches student counts grouped by status via raw SQL.
+  /// Resolves the "current" term across all schools in the local DB.
+  ///
+  /// Priority:
+  ///   1. A term currently in progress: `start <= nowSecs AND end >= nowSecs`.
+  ///      When multiple schools have overlapping active terms, pick the one
+  ///      whose `start` is most recent (most recently begun).
+  ///   2. Fallback: the term with the largest `end` value in the past
+  ///      (most recently completed term).
+  ///   3. If no terms exist at all → returns null (caller shows lifetime data).
+  Future<CurrentTerm?> _fetchCurrentTerm() async {
+    final nowSecs = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+    // Try active term first.
+    final activeRows = await customSelect(
+      '''
+      SELECT year, term, start, end
+      FROM terms
+      WHERE start <= ? AND end >= ?
+      ORDER BY start DESC
+      LIMIT 1
+      ''',
+      variables: [Variable.withInt(nowSecs), Variable.withInt(nowSecs)],
+      readsFrom: {db.terms},
+    ).get();
+
+    if (activeRows.isNotEmpty) {
+      final r = activeRows.first;
+      return CurrentTerm(
+        year: r.read<int>('year'),
+        term: r.read<int>('term'),
+        startEpochSecs: r.read<int>('start'),
+        endEpochSecs: r.read<int>('end'),
+      );
+    }
+
+    // Fallback: most recently ended term.
+    final pastRows = await customSelect(
+      '''
+      SELECT year, term, start, end
+      FROM terms
+      WHERE end < ?
+      ORDER BY end DESC
+      LIMIT 1
+      ''',
+      variables: [Variable.withInt(nowSecs)],
+      readsFrom: {db.terms},
+    ).get();
+
+    if (pastRows.isNotEmpty) {
+      final r = pastRows.first;
+      return CurrentTerm(
+        year: r.read<int>('year'),
+        term: r.read<int>('term'),
+        startEpochSecs: r.read<int>('start'),
+        endEpochSecs: r.read<int>('end'),
+      );
+    }
+
+    return null;
+  }
+
+  /// Fetches student counts grouped by status, scoped to the current term.
+  ///
+  /// Counts distinct students enrolled in the current term (via the
+  /// `enrollments` table) and looks up each student's current status from
+  /// the `students` table.  If no terms exist, falls back to a full count
+  /// of all students by status.
+  Future<StudentStats> _fetchStudentStats() async {
+    final ct = await _fetchCurrentTerm();
+
+    List<QueryRow> rows;
+
+    if (ct != null) {
+      // Count students enrolled this term, grouped by their current status.
+      rows = await customSelect(
+        '''
+        SELECT s.status, COUNT(DISTINCT e.student) AS cnt
+        FROM enrollments e
+        JOIN students s ON s.school = e.school AND s.adm = e.student
+        WHERE e.year = ? AND e.term = ?
+        GROUP BY s.status
+        ''',
+        variables: [
+          Variable.withInt(ct.year),
+          Variable.withInt(ct.term),
+        ],
+        readsFrom: {db.enrollments, db.students},
+      ).get();
+    } else {
+      // No terms yet — fall back to lifetime student counts.
+      rows = await customSelect(
+        'SELECT status, COUNT(*) AS cnt FROM students GROUP BY status',
+        readsFrom: {db.students},
+      ).get();
+    }
+
+    int active = 0,
+        expelled = 0,
+        graduated = 0,
+        transferred = 0,
+        withdrawn = 0,
+        deleted = 0;
+
+    for (final row in rows) {
+      final statusInt = row.read<int>('status');
+      final count = row.read<int>('cnt');
+      switch (statusInt) {
+        case 0:
+          active = count;
+        case 1:
+          expelled = count;
+        case 2:
+          graduated = count;
+        case 3:
+          transferred = count;
+        case 4:
+          withdrawn = count;
+        case 5:
+          deleted = count;
+      }
+    }
+
+    return StudentStats(
+      total: active + expelled + graduated + transferred + withdrawn + deleted,
+      active: active,
+      expelled: expelled,
+      graduated: graduated,
+      transferred: transferred,
+      withdrawn: withdrawn,
+      deleted: deleted,
+      currentTerm: ct,
+    );
+  }
+
   Future<StudentPlanStats> _fetchStudentPlanStats() async {
     // ── Total student count ──────────────────────────────────────────────────
     final totalCountExpr = students.adm.count();
@@ -202,7 +375,7 @@ class SystemStatsDao extends DatabaseAccessor<AppDatabase>
       GROUP BY s.plan
       ORDER BY cnt DESC
       ''',
-      readsFrom: {subscriptions, plans},
+      readsFrom: {db.subscriptions, db.plans},
     ).get();
 
     final perPlan = <PlanSubscriptionCount>[];
@@ -234,7 +407,7 @@ class SystemStatsDao extends DatabaseAccessor<AppDatabase>
   Future<TeacherStats> _fetchTeacherStats() async {
     final rows = await customSelect(
       'SELECT status, COUNT(*) AS cnt FROM teachers GROUP BY status',
-      readsFrom: {teachers},
+      readsFrom: {db.teachers},
     ).get();
 
     int active = 0, resigned = 0, transferred = 0, fired = 0, retired = 0;
@@ -266,12 +439,32 @@ class SystemStatsDao extends DatabaseAccessor<AppDatabase>
     );
   }
 
-  /// Fetches subscription counts grouped by status via raw SQL.
+  /// Fetches subscription counts grouped by status, scoped to the current term.
   Future<SubscriptionStats> _fetchSubscriptionStats() async {
-    final rows = await customSelect(
-      'SELECT status, COUNT(*) AS cnt FROM subscriptions GROUP BY status',
-      readsFrom: {subscriptions},
-    ).get();
+    final ct = await _fetchCurrentTerm();
+
+    List<QueryRow> rows;
+
+    if (ct != null) {
+      rows = await customSelect(
+        '''
+        SELECT status, COUNT(*) AS cnt
+        FROM subscriptions
+        WHERE year = ? AND term = ?
+        GROUP BY status
+        ''',
+        variables: [
+          Variable.withInt(ct.year),
+          Variable.withInt(ct.term),
+        ],
+        readsFrom: {db.subscriptions},
+      ).get();
+    } else {
+      rows = await customSelect(
+        'SELECT status, COUNT(*) AS cnt FROM subscriptions GROUP BY status',
+        readsFrom: {db.subscriptions},
+      ).get();
+    }
 
     int pending = 0, active = 0, cancelled = 0, deleted = 0;
 
@@ -280,13 +473,13 @@ class SystemStatsDao extends DatabaseAccessor<AppDatabase>
       final count = row.read<int>('cnt');
       switch (statusInt) {
         case 0:
-          pending = count; // SubscriptionStatus.pending
+          pending = count;
         case 1:
-          active = count; // SubscriptionStatus.active
+          active = count;
         case 2:
-          cancelled = count; // SubscriptionStatus.cancelled
+          cancelled = count;
         case 3:
-          deleted = count; // SubscriptionStatus.deleted
+          deleted = count;
       }
     }
 
@@ -296,16 +489,54 @@ class SystemStatsDao extends DatabaseAccessor<AppDatabase>
       active: active,
       cancelled: cancelled,
       deleted: deleted,
+      currentTerm: ct,
     );
   }
 
-  /// Fetches revenue aggregates grouped by payment method via raw SQL.
+  /// Fetches revenue aggregates grouped by payment method, scoped to the
+  /// current term.
+  ///
+  /// A payment is "in term" if:
+  ///   • It has an invoice whose `year` and `term` match the current term, OR
+  ///   • It is a direct payment (invoice IS NULL) whose `date` (days since
+  ///     epoch) falls within the term's [startDays, endDays] window.
   Future<RevenueStats> _fetchRevenueStats() async {
-    final rows = await customSelect(
-      'SELECT method, COUNT(*) AS cnt, COALESCE(SUM(amount), 0.0) AS total'
-      ' FROM payments GROUP BY method',
-      readsFrom: {payments},
-    ).get();
+    final ct = await _fetchCurrentTerm();
+
+    List<QueryRow> rows;
+
+    if (ct != null) {
+      rows = await customSelect(
+        '''
+        SELECT p.method,
+               COUNT(*)            AS cnt,
+               COALESCE(SUM(p.amount), 0.0) AS total
+        FROM payments p
+        LEFT JOIN invoices i ON i.id = p.invoice
+        WHERE (
+          -- invoice-linked payment: belongs to the current term's invoices
+          (p.invoice IS NOT NULL AND i.year = ? AND i.term = ?)
+          OR
+          -- direct payment: date falls within the term window
+          (p.invoice IS NULL AND p.date >= ? AND p.date <= ?)
+        )
+        GROUP BY p.method
+        ''',
+        variables: [
+          Variable.withInt(ct.year),
+          Variable.withInt(ct.term),
+          Variable.withInt(ct.startDays),
+          Variable.withInt(ct.endDays),
+        ],
+        readsFrom: {db.payments, db.invoices},
+      ).get();
+    } else {
+      rows = await customSelect(
+        'SELECT method, COUNT(*) AS cnt, COALESCE(SUM(amount), 0.0) AS total'
+        ' FROM payments GROUP BY method',
+        readsFrom: {db.payments},
+      ).get();
+    }
 
     double cash = 0, cheque = 0, mpesa = 0, bank = 0;
     int totalCount = 0;
@@ -317,13 +548,13 @@ class SystemStatsDao extends DatabaseAccessor<AppDatabase>
       totalCount += count;
       switch (methodInt) {
         case 0:
-          cash = amount; // PaymentMethod.cash
+          cash = amount;
         case 1:
-          cheque = amount; // PaymentMethod.cheque
+          cheque = amount;
         case 2:
-          mpesa = amount; // PaymentMethod.mpesa
+          mpesa = amount;
         case 3:
-          bank = amount; // PaymentMethod.bank
+          bank = amount;
       }
     }
 
@@ -334,6 +565,7 @@ class SystemStatsDao extends DatabaseAccessor<AppDatabase>
       cheque: cheque,
       mpesa: mpesa,
       bank: bank,
+      currentTerm: ct,
     );
   }
 }
