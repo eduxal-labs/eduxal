@@ -35,6 +35,10 @@ class AppTheme {
   /// Lighter indigo for dark-mode primary text/icons.
   static const Color _indigoDark = Color(0xFF8C9EFF);
 
+  /// Public alias for [_indigoDark] — lighter indigo used as the active/accent
+  /// colour in dark mode (e.g. sidebar nav items, role badges).
+  static const Color brandIndigoDark = Color(0xFF8C9EFF);
+
   // ─────────────────────────────────────────────────────────────────────────
   // Dark palette — slate staircase (wider gaps for real differentiation)
   // ─────────────────────────────────────────────────────────────────────────
@@ -85,6 +89,9 @@ class AppTheme {
 
   static const double kMobileBreakpoint = 600;
   static const double kTabletBreakpoint = 960;
+
+  /// Width at which the full labelled sidebar replaces the icon rail.
+  static const double kDesktopBreakpoint = 1200;
 
   // ─────────────────────────────────────────────────────────────────────────
   // Corner radius — single source of truth
