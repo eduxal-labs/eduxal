@@ -1,0 +1,1193 @@
+import 'package:drift/drift.dart';
+
+import '../database.dart';
+import '../tables/enums.dart';
+import '../tables/fees.dart';
+import '../tables/invoices.dart';
+import '../tables/payments.dart';
+import '../tables/discounts.dart';
+import '../tables/students.dart';
+import '../tables/logs.dart';
+import '../tables/terms.dart';
+import '../tables/plans.dart';
+
+part 'finance_dao.g.dart';
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Data models — joined / aggregated rows used by the UI
+// ═════════════════════════════════════════════════════════════════════════════
+
+/// A fee definition with the count of invoices generated from it.
+class FeeWithStats {
+  const FeeWithStats({required this.fee, required this.invoiceCount});
+
+  final Fee fee;
+  final int invoiceCount;
+}
+
+/// An invoice joined with its linked fee (if any), the student name, and
+/// the total amount paid against it.
+class InvoiceWithDetails {
+  const InvoiceWithDetails({
+    required this.invoice,
+    required this.studentName,
+    required this.studentAdm,
+    this.feeTitle,
+    required this.totalPaid,
+  });
+
+  final Invoice invoice;
+  final String studentName;
+  final int studentAdm;
+  final String? feeTitle;
+  final double totalPaid;
+
+  /// Outstanding balance = invoiced amount − payments received.
+  double get balance => invoice.amount - totalPaid;
+
+  /// Whether the invoice is fully settled.
+  bool get isFullyPaid => balance <= 0.001; // tolerance for floating point
+}
+
+/// A payment joined with its invoice details (if linked) and student info.
+class PaymentWithDetails {
+  const PaymentWithDetails({
+    required this.payment,
+    this.invoiceId,
+    this.invoiceDescription,
+    required this.studentName,
+    required this.studentAdm,
+    this.recorderName,
+  });
+
+  final Payment payment;
+  final String? invoiceId;
+  final String? invoiceDescription;
+  final String studentName;
+  final int studentAdm;
+  final String? recorderName;
+}
+
+/// A discount row joined with its plan name.
+class DiscountWithPlan {
+  const DiscountWithPlan({required this.discount, required this.planName});
+
+  final Discount discount;
+  final String planName;
+}
+
+/// Financial summary for a school in a specific term.
+class TermFinanceSummary {
+  const TermFinanceSummary({
+    required this.totalInvoiced,
+    required this.totalPaid,
+    required this.totalPending,
+    required this.totalOverdue,
+    required this.invoiceCount,
+    required this.paidCount,
+    required this.pendingCount,
+    required this.overdueCount,
+  });
+
+  final double totalInvoiced;
+  final double totalPaid;
+  final double totalPending;
+  final double totalOverdue;
+  final int invoiceCount;
+  final int paidCount;
+  final int pendingCount;
+  final int overdueCount;
+
+  double get collectionRate =>
+      totalInvoiced > 0 ? (totalPaid / totalInvoiced) : 0.0;
+}
+
+/// A student's financial summary — all invoices and payments rolled up.
+class StudentFinanceSummary {
+  const StudentFinanceSummary({
+    required this.studentName,
+    required this.studentAdm,
+    required this.invoices,
+    required this.payments,
+  });
+
+  final String studentName;
+  final int studentAdm;
+  final List<InvoiceWithDetails> invoices;
+  final List<PaymentWithDetails> payments;
+
+  double get totalInvoiced =>
+      invoices.fold(0.0, (sum, inv) => sum + inv.invoice.amount);
+
+  double get totalPaid => invoices.fold(0.0, (sum, inv) => sum + inv.totalPaid);
+
+  double get totalBalance => totalInvoiced - totalPaid;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// DAO
+// ═════════════════════════════════════════════════════════════════════════════
+
+/// DAO for financial tables: [Fees], [Invoices], [Payments], [Discounts].
+///
+/// Provides reactive streams for the owner/staff financial dashboard and
+/// the guardian read-only view, plus local mutation methods that write
+/// corresponding [Logs] entries inside the same transaction for offline sync.
+@DriftAccessor(
+  tables: [Fees, Invoices, Payments, Discounts, Students, Logs, Terms, Plans],
+)
+class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
+  FinanceDao(super.db);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // FEES — reactive streams
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Emits all fee definitions for a school/term/grade, ordered by due date.
+  Stream<List<Fee>> watchFees({
+    required String schoolId,
+    required int year,
+    required int term,
+    required int grade,
+  }) {
+    return (select(fees)
+          ..where(
+            (f) =>
+                f.school.equals(schoolId) &
+                f.year.equals(year) &
+                f.term.equals(term) &
+                f.grade.equals(grade),
+          )
+          ..orderBy([(f) => OrderingTerm.asc(f.due)]))
+        .watch();
+  }
+
+  /// Emits all fee definitions for a school/term (all grades), ordered by
+  /// grade then due date.
+  Stream<List<Fee>> watchAllFeesForTerm({
+    required String schoolId,
+    required int year,
+    required int term,
+  }) {
+    return (select(fees)
+          ..where(
+            (f) =>
+                f.school.equals(schoolId) &
+                f.year.equals(year) &
+                f.term.equals(term),
+          )
+          ..orderBy([
+            (f) => OrderingTerm.asc(f.grade),
+            (f) => OrderingTerm.asc(f.due),
+          ]))
+        .watch();
+  }
+
+  /// Emits fees with their invoice counts for the overview cards.
+  Stream<List<FeeWithStats>> watchFeesWithStats({
+    required String schoolId,
+    required int year,
+    required int term,
+  }) {
+    final feeTable = alias(fees, 'f');
+    final invTable = alias(invoices, 'i');
+
+    final countExpr = invTable.id.count();
+
+    final query = selectOnly(feeTable)
+      ..addColumns([
+        feeTable.id,
+        feeTable.school,
+        feeTable.year,
+        feeTable.term,
+        feeTable.grade,
+        feeTable.title,
+        feeTable.description,
+        feeTable.amount,
+        feeTable.mandatory,
+        feeTable.due,
+        feeTable.created,
+        feeTable.updated,
+        countExpr,
+      ])
+      ..join([leftOuterJoin(invTable, invTable.fee.equalsExp(feeTable.id))])
+      ..where(
+        feeTable.school.equals(schoolId) &
+            feeTable.year.equals(year) &
+            feeTable.term.equals(term),
+      )
+      ..groupBy([feeTable.id])
+      ..orderBy([
+        OrderingTerm.asc(feeTable.grade),
+        OrderingTerm.asc(feeTable.due),
+      ]);
+
+    return query.watch().map(
+      (rows) => rows.map((row) {
+        final feeRow = Fee(
+          id: row.read(feeTable.id)!,
+          school: row.read(feeTable.school)!,
+          year: row.read(feeTable.year)!,
+          term: row.read(feeTable.term)!,
+          grade: row.read(feeTable.grade)!,
+          title: row.read(feeTable.title)!,
+          description: row.read(feeTable.description)!,
+          amount: row.read(feeTable.amount)!,
+          mandatory: row.read(feeTable.mandatory)!,
+          due: row.read(feeTable.due)!,
+          created: row.read(feeTable.created)!,
+          updated: row.read(feeTable.updated)!,
+        );
+        return FeeWithStats(
+          fee: feeRow,
+          invoiceCount: row.read(countExpr) ?? 0,
+        );
+      }).toList(),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // INVOICES — reactive streams
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Builds the payment totals map for a set of invoices.
+  Future<Map<String, double>> _buildPaymentTotals() async {
+    final allPayments = await (select(
+      payments,
+    )..where((p) => p.invoice.isNotNull())).get();
+
+    final paymentTotals = <String, double>{};
+    for (final p in allPayments) {
+      if (p.invoice != null) {
+        paymentTotals[p.invoice!] = (paymentTotals[p.invoice!] ?? 0) + p.amount;
+      }
+    }
+    return paymentTotals;
+  }
+
+  /// Emits all invoices for a school/term with joined student name, fee
+  /// title, and total payments.
+  ///
+  /// This is the primary stream for the owner/staff invoice list view.
+  Stream<List<InvoiceWithDetails>> watchInvoicesForTerm({
+    required String schoolId,
+    required int year,
+    required int term,
+  }) {
+    final invStream =
+        (select(invoices).join([
+                innerJoin(
+                  students,
+                  students.adm.equalsExp(invoices.student) &
+                      students.school.equalsExp(invoices.school),
+                ),
+                leftOuterJoin(fees, fees.id.equalsExp(invoices.fee)),
+              ])
+              ..where(
+                invoices.school.equals(schoolId) &
+                    invoices.year.equals(year) &
+                    invoices.term.equals(term),
+              )
+              ..orderBy([OrderingTerm.desc(invoices.created)]))
+            .watch();
+
+    return invStream.asyncMap((invRows) async {
+      final paymentTotals = await _buildPaymentTotals();
+
+      return invRows.map((row) {
+        final inv = row.readTable(invoices);
+        final stu = row.readTable(students);
+        final feeRow = row.readTableOrNull(fees);
+
+        return InvoiceWithDetails(
+          invoice: inv,
+          studentName: stu.name,
+          studentAdm: stu.adm,
+          feeTitle: feeRow?.title,
+          totalPaid: paymentTotals[inv.id] ?? 0.0,
+        );
+      }).toList();
+    });
+  }
+
+  /// Emits invoices for a specific student (guardian view).
+  Stream<List<InvoiceWithDetails>> watchStudentInvoices({
+    required String schoolId,
+    required int studentAdm,
+    required int year,
+    required int term,
+  }) {
+    return (select(invoices).join([
+            innerJoin(
+              students,
+              students.adm.equalsExp(invoices.student) &
+                  students.school.equalsExp(invoices.school),
+            ),
+            leftOuterJoin(fees, fees.id.equalsExp(invoices.fee)),
+          ])
+          ..where(
+            invoices.school.equals(schoolId) &
+                invoices.student.equals(studentAdm) &
+                invoices.year.equals(year) &
+                invoices.term.equals(term),
+          )
+          ..orderBy([OrderingTerm.desc(invoices.created)]))
+        .watch()
+        .asyncMap((rows) async {
+          final paymentTotals = await _buildPaymentTotals();
+
+          return rows.map((row) {
+            final inv = row.readTable(invoices);
+            final stu = row.readTable(students);
+            final feeRow = row.readTableOrNull(fees);
+
+            return InvoiceWithDetails(
+              invoice: inv,
+              studentName: stu.name,
+              studentAdm: stu.adm,
+              feeTitle: feeRow?.title,
+              totalPaid: paymentTotals[inv.id] ?? 0.0,
+            );
+          }).toList();
+        });
+  }
+
+  /// Emits invoices filtered by status.
+  Stream<List<InvoiceWithDetails>> watchInvoicesByStatus({
+    required String schoolId,
+    required int year,
+    required int term,
+    required InvoiceStatus status,
+  }) {
+    return (select(invoices).join([
+            innerJoin(
+              students,
+              students.adm.equalsExp(invoices.student) &
+                  students.school.equalsExp(invoices.school),
+            ),
+            leftOuterJoin(fees, fees.id.equalsExp(invoices.fee)),
+          ])
+          ..where(
+            invoices.school.equals(schoolId) &
+                invoices.year.equals(year) &
+                invoices.term.equals(term) &
+                invoices.status.equalsValue(status),
+          )
+          ..orderBy([OrderingTerm.desc(invoices.created)]))
+        .watch()
+        .asyncMap((rows) async {
+          final paymentTotals = await _buildPaymentTotals();
+
+          return rows.map((row) {
+            final inv = row.readTable(invoices);
+            final stu = row.readTable(students);
+            final feeRow = row.readTableOrNull(fees);
+
+            return InvoiceWithDetails(
+              invoice: inv,
+              studentName: stu.name,
+              studentAdm: stu.adm,
+              feeTitle: feeRow?.title,
+              totalPaid: paymentTotals[inv.id] ?? 0.0,
+            );
+          }).toList();
+        });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // PAYMENTS — reactive streams
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Emits all payments linked to invoices in a school/term.
+  Stream<List<PaymentWithDetails>> watchPaymentsForTerm({
+    required String schoolId,
+    required int year,
+    required int term,
+  }) {
+    // Payments linked to invoices for this term.
+    final query =
+        select(payments).join([
+            leftOuterJoin(invoices, invoices.id.equalsExp(payments.invoice)),
+            innerJoin(
+              students,
+              // When payment has an invoice, use the invoice's school+student.
+              // When direct, use payment's own school+student.
+              students.school.equals(schoolId) &
+                  (students.adm.equalsExp(invoices.student) |
+                      students.adm.equalsExp(payments.student)),
+            ),
+          ])
+          ..where(
+            // Invoice-linked payments for this term.
+            (invoices.school.equals(schoolId) &
+                    invoices.year.equals(year) &
+                    invoices.term.equals(term)) |
+                // Direct payments for this school.
+                (payments.invoice.isNull() & payments.school.equals(schoolId)),
+          )
+          ..orderBy([OrderingTerm.desc(payments.created)]);
+
+    return query.watch().map(
+      (rows) => rows.map((row) {
+        final pay = row.readTable(payments);
+        final inv = row.readTableOrNull(invoices);
+        final stu = row.readTable(students);
+
+        return PaymentWithDetails(
+          payment: pay,
+          invoiceId: inv?.id,
+          invoiceDescription: inv?.description,
+          studentName: stu.name,
+          studentAdm: stu.adm,
+        );
+      }).toList(),
+    );
+  }
+
+  /// Emits all payments for a specific student.
+  Stream<List<PaymentWithDetails>> watchStudentPayments({
+    required String schoolId,
+    required int studentAdm,
+    required int year,
+    required int term,
+  }) {
+    return (select(payments).join([
+            leftOuterJoin(invoices, invoices.id.equalsExp(payments.invoice)),
+            innerJoin(
+              students,
+              students.school.equals(schoolId) &
+                  students.adm.equals(studentAdm),
+            ),
+          ])
+          ..where(
+            (invoices.school.equals(schoolId) &
+                    invoices.student.equals(studentAdm) &
+                    invoices.year.equals(year) &
+                    invoices.term.equals(term)) |
+                (payments.invoice.isNull() &
+                    payments.school.equals(schoolId) &
+                    payments.student.equals(studentAdm)),
+          )
+          ..orderBy([OrderingTerm.desc(payments.created)]))
+        .watch()
+        .map(
+          (rows) => rows.map((row) {
+            final pay = row.readTable(payments);
+            final inv = row.readTableOrNull(invoices);
+            final stu = row.readTable(students);
+
+            return PaymentWithDetails(
+              payment: pay,
+              invoiceId: inv?.id,
+              invoiceDescription: inv?.description,
+              studentName: stu.name,
+              studentAdm: stu.adm,
+            );
+          }).toList(),
+        );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // DISCOUNTS — reactive streams
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Emits all discounts for a school/term joined with plan names.
+  Stream<List<DiscountWithPlan>> watchDiscountsForTerm({
+    required String schoolId,
+    required int year,
+    required int term,
+  }) {
+    return (select(
+            discounts,
+          ).join([innerJoin(plans, plans.id.equalsExp(discounts.plan))])
+          ..where(
+            discounts.school.equals(schoolId) &
+                discounts.year.equals(year) &
+                discounts.term.equals(term),
+          )
+          ..orderBy([
+            OrderingTerm.asc(discounts.grade),
+            OrderingTerm.asc(plans.name),
+          ]))
+        .watch()
+        .map(
+          (rows) => rows.map((row) {
+            return DiscountWithPlan(
+              discount: row.readTable(discounts),
+              planName: row.readTable(plans).name,
+            );
+          }).toList(),
+        );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SUMMARY — aggregate finance data
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Emits a [TermFinanceSummary] for the owner/staff dashboard overview.
+  ///
+  /// Aggregates all invoices and their payment status for the given term.
+  Stream<TermFinanceSummary> watchTermFinanceSummary({
+    required String schoolId,
+    required int year,
+    required int term,
+  }) {
+    // Watch invoices for the term.
+    final invStream =
+        (select(invoices)..where(
+              (i) =>
+                  i.school.equals(schoolId) &
+                  i.year.equals(year) &
+                  i.term.equals(term),
+            ))
+            .watch();
+
+    return invStream.asyncMap((invList) async {
+      // Load all payments for these invoices.
+      final invoiceIds = invList.map((i) => i.id).toList();
+      final payList = invoiceIds.isEmpty
+          ? <Payment>[]
+          : await (select(
+              payments,
+            )..where((p) => p.invoice.isIn(invoiceIds))).get();
+
+      final paymentTotals = <String, double>{};
+      for (final p in payList) {
+        if (p.invoice != null) {
+          paymentTotals[p.invoice!] =
+              (paymentTotals[p.invoice!] ?? 0) + p.amount;
+        }
+      }
+
+      double totalInvoiced = 0;
+      double totalPaid = 0;
+      double totalPending = 0;
+      double totalOverdue = 0;
+      int paidCount = 0;
+      int pendingCount = 0;
+      int overdueCount = 0;
+
+      for (final inv in invList) {
+        totalInvoiced += inv.amount;
+        final paid = paymentTotals[inv.id] ?? 0.0;
+        totalPaid += paid;
+
+        final balance = inv.amount - paid;
+        if (balance <= 0.001) {
+          paidCount++;
+        } else if (inv.status == InvoiceStatus.overdue) {
+          overdueCount++;
+          totalOverdue += balance;
+        } else {
+          pendingCount++;
+          totalPending += balance;
+        }
+      }
+
+      return TermFinanceSummary(
+        totalInvoiced: totalInvoiced,
+        totalPaid: totalPaid,
+        totalPending: totalPending,
+        totalOverdue: totalOverdue,
+        invoiceCount: invList.length,
+        paidCount: paidCount,
+        pendingCount: pendingCount,
+        overdueCount: overdueCount,
+      );
+    });
+  }
+
+  /// Emits a per-student financial summary for the guardian view.
+  Stream<StudentFinanceSummary> watchStudentFinanceSummary({
+    required String schoolId,
+    required int studentAdm,
+    required int year,
+    required int term,
+  }) {
+    return watchStudentInvoices(
+      schoolId: schoolId,
+      studentAdm: studentAdm,
+      year: year,
+      term: term,
+    ).asyncMap((invDetails) async {
+      final studentRow =
+          await (select(students)..where(
+                (s) => s.school.equals(schoolId) & s.adm.equals(studentAdm),
+              ))
+              .getSingleOrNull();
+
+      final payDetails = await watchStudentPayments(
+        schoolId: schoolId,
+        studentAdm: studentAdm,
+        year: year,
+        term: term,
+      ).first;
+
+      return StudentFinanceSummary(
+        studentName: studentRow?.name ?? 'Unknown',
+        studentAdm: studentAdm,
+        invoices: invDetails,
+        payments: payDetails,
+      );
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // MUTATIONS — fees
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Creates a new fee definition.
+  ///
+  /// Both the write and a [LogTable.fees] Insert log entry are wrapped in a
+  /// single transaction.
+  Future<void> createFee({
+    required String id,
+    required String schoolId,
+    required int year,
+    required int term,
+    required int grade,
+    required String title,
+    required String description,
+    required double amount,
+    required bool mandatory,
+    required BigInt due,
+    required String accountId,
+  }) {
+    return transaction(() async {
+      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
+      final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      await into(fees).insert(
+        FeesCompanion(
+          id: Value(id),
+          school: Value(schoolId),
+          year: Value(year),
+          term: Value(term),
+          grade: Value(grade),
+          title: Value(title),
+          description: Value(description),
+          amount: Value(amount),
+          mandatory: Value(mandatory),
+          due: Value(due),
+          created: Value(now),
+          updated: Value(now),
+        ),
+      );
+
+      await into(logs).insert(
+        LogsCompanion(
+          account: Value(accountId),
+          tbl: const Value(LogTable.fees),
+          op: const Value(LogOperation.insert),
+          rowKey: Value(id),
+          status: const Value(LogStatus.pending),
+          created: Value(nowMs),
+        ),
+      );
+    });
+  }
+
+  /// Updates an existing fee definition.
+  Future<void> updateFee({
+    required String id,
+    String? title,
+    String? description,
+    double? amount,
+    bool? mandatory,
+    BigInt? due,
+    required String accountId,
+  }) {
+    return transaction(() async {
+      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
+      final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      int mask = 0;
+      if (title != null) mask |= (1 << FeesColumn.title.bit);
+      if (description != null) mask |= (1 << FeesColumn.description.bit);
+      if (amount != null) mask |= (1 << FeesColumn.amount.bit);
+      if (mandatory != null) mask |= (1 << FeesColumn.mandatory.bit);
+      if (due != null) mask |= (1 << FeesColumn.due.bit);
+      mask |= (1 << FeesColumn.updated.bit);
+
+      await (update(fees)..where((f) => f.id.equals(id))).write(
+        FeesCompanion(
+          title: title != null ? Value(title) : const Value.absent(),
+          description: description != null
+              ? Value(description)
+              : const Value.absent(),
+          amount: amount != null ? Value(amount) : const Value.absent(),
+          mandatory: mandatory != null
+              ? Value(mandatory)
+              : const Value.absent(),
+          due: due != null ? Value(due) : const Value.absent(),
+          updated: Value(now),
+        ),
+      );
+
+      await into(logs).insert(
+        LogsCompanion(
+          account: Value(accountId),
+          tbl: const Value(LogTable.fees),
+          op: const Value(LogOperation.update),
+          rowKey: Value(id),
+          columns: Value(mask),
+          status: const Value(LogStatus.pending),
+          created: Value(nowMs),
+        ),
+      );
+    });
+  }
+
+  /// Deletes a fee definition.
+  Future<void> deleteFee({required String id, required String accountId}) {
+    return transaction(() async {
+      final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      await (delete(fees)..where((f) => f.id.equals(id))).go();
+
+      await into(logs).insert(
+        LogsCompanion(
+          account: Value(accountId),
+          tbl: const Value(LogTable.fees),
+          op: const Value(LogOperation.delete),
+          rowKey: Value(id),
+          status: const Value(LogStatus.pending),
+          created: Value(nowMs),
+        ),
+      );
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // MUTATIONS — invoices
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Creates a new invoice.
+  Future<void> createInvoice({
+    required String id,
+    required String schoolId,
+    required int year,
+    required int term,
+    String? feeId,
+    String? description,
+    required int studentAdm,
+    required double amount,
+    InvoiceStatus status = InvoiceStatus.pending,
+    BigInt? due,
+    required String accountId,
+  }) {
+    return transaction(() async {
+      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
+      final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      await into(invoices).insert(
+        InvoicesCompanion(
+          id: Value(id),
+          school: Value(schoolId),
+          year: Value(year),
+          term: Value(term),
+          fee: Value(feeId),
+          description: Value(description),
+          student: Value(studentAdm),
+          amount: Value(amount),
+          status: Value(status),
+          due: Value(due),
+          created: Value(now),
+          updated: Value(now),
+        ),
+      );
+
+      await into(logs).insert(
+        LogsCompanion(
+          account: Value(accountId),
+          tbl: const Value(LogTable.invoices),
+          op: const Value(LogOperation.insert),
+          rowKey: Value(id),
+          status: const Value(LogStatus.pending),
+          created: Value(nowMs),
+        ),
+      );
+    });
+  }
+
+  /// Generates invoices for all enrolled students in a grade from a fee.
+  ///
+  /// [generateId] is a callback that returns a unique ID for each invoice
+  /// (e.g. a UUID generator).
+  Future<int> generateInvoicesFromFee({
+    required Fee fee,
+    required String Function() generateId,
+    required String accountId,
+  }) {
+    return transaction(() async {
+      // Cross-reference with enrollments table to get students in this grade.
+      final enrolledStudents = await customSelect(
+        'SELECT DISTINCT e.student FROM enrollments e '
+        'WHERE e.school = ? AND e.year = ? AND e.term = ? AND e.grade = ?',
+        variables: [
+          Variable.withString(fee.school),
+          Variable.withInt(fee.year),
+          Variable.withInt(fee.term),
+          Variable.withInt(fee.grade),
+        ],
+        readsFrom: {},
+      ).get();
+
+      final studentAdms = enrolledStudents
+          .map((r) => r.read<int>('student'))
+          .toSet();
+
+      int count = 0;
+      for (final adm in studentAdms) {
+        // Check for existing invoice from this fee for this student.
+        final existing =
+            await (select(invoices)..where(
+                  (i) =>
+                      i.school.equals(fee.school) &
+                      i.fee.equals(fee.id) &
+                      i.student.equals(adm),
+                ))
+                .getSingleOrNull();
+
+        if (existing != null) continue; // already invoiced
+
+        final id = generateId();
+        await createInvoice(
+          id: id,
+          schoolId: fee.school,
+          year: fee.year,
+          term: fee.term,
+          feeId: fee.id,
+          studentAdm: adm,
+          amount: fee.amount,
+          due: fee.due,
+          accountId: accountId,
+        );
+        count++;
+      }
+      return count;
+    });
+  }
+
+  /// Updates an invoice's status.
+  Future<void> updateInvoiceStatus({
+    required String id,
+    required InvoiceStatus status,
+    required String accountId,
+  }) {
+    return transaction(() async {
+      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
+      final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      await (update(invoices)..where((i) => i.id.equals(id))).write(
+        InvoicesCompanion(status: Value(status), updated: Value(now)),
+      );
+
+      int mask = 0;
+      mask |= (1 << InvoicesColumn.status.bit);
+      mask |= (1 << InvoicesColumn.updated.bit);
+
+      await into(logs).insert(
+        LogsCompanion(
+          account: Value(accountId),
+          tbl: const Value(LogTable.invoices),
+          op: const Value(LogOperation.update),
+          rowKey: Value(id),
+          columns: Value(mask),
+          status: const Value(LogStatus.pending),
+          created: Value(nowMs),
+        ),
+      );
+    });
+  }
+
+  /// Cancels an invoice.
+  Future<void> cancelInvoice({required String id, required String accountId}) {
+    return updateInvoiceStatus(
+      id: id,
+      status: InvoiceStatus.cancelled,
+      accountId: accountId,
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // MUTATIONS — payments
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Records a payment and automatically recalculates the invoice status.
+  ///
+  /// If the payment fully settles the invoice, the invoice status is updated
+  /// to [InvoiceStatus.paid]. If it partially settles it, the status is
+  /// updated to [InvoiceStatus.partial].
+  Future<void> recordPayment({
+    required String id,
+    String? invoiceId,
+    String? schoolId,
+    int? studentAdm,
+    required double amount,
+    required PaymentMethod method,
+    String? reference,
+    String? recorderId,
+    int? date,
+    required String accountId,
+  }) {
+    return transaction(() async {
+      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
+      final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      await into(payments).insert(
+        PaymentsCompanion(
+          id: Value(id),
+          invoice: Value(invoiceId),
+          school: Value(schoolId),
+          student: Value(studentAdm),
+          amount: Value(amount),
+          method: Value(method),
+          reference: Value(reference),
+          recorder: Value(recorderId),
+          date: Value(date),
+          created: Value(now),
+          updated: Value(now),
+        ),
+      );
+
+      await into(logs).insert(
+        LogsCompanion(
+          account: Value(accountId),
+          tbl: const Value(LogTable.payments),
+          op: const Value(LogOperation.insert),
+          rowKey: Value(id),
+          status: const Value(LogStatus.pending),
+          created: Value(nowMs),
+        ),
+      );
+
+      // If the payment is linked to an invoice, recalculate the invoice status.
+      if (invoiceId != null) {
+        await _recalculateInvoiceStatus(invoiceId, accountId);
+      }
+    });
+  }
+
+  /// Recalculates and updates the invoice status based on total payments.
+  Future<void> _recalculateInvoiceStatus(
+    String invoiceId,
+    String accountId,
+  ) async {
+    final inv = await (select(
+      invoices,
+    )..where((i) => i.id.equals(invoiceId))).getSingleOrNull();
+
+    if (inv == null) return;
+
+    // Sum all payments for this invoice.
+    final payList = await (select(
+      payments,
+    )..where((p) => p.invoice.equals(invoiceId))).get();
+
+    final totalPaid = payList.fold(0.0, (sum, p) => sum + p.amount);
+    final balance = inv.amount - totalPaid;
+
+    InvoiceStatus newStatus;
+    if (balance <= 0.001) {
+      newStatus = InvoiceStatus.paid;
+    } else if (totalPaid > 0.001) {
+      newStatus = InvoiceStatus.partial;
+    } else {
+      return; // no change needed
+    }
+
+    if (newStatus != inv.status) {
+      await updateInvoiceStatus(
+        id: invoiceId,
+        status: newStatus,
+        accountId: accountId,
+      );
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // MUTATIONS — discounts
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Creates or replaces a discount for a plan/grade/term combination.
+  Future<void> upsertDiscount({
+    required String schoolId,
+    required String planId,
+    required int year,
+    required int term,
+    required int grade,
+    required double amount,
+    required DiscountUnit unit,
+    required String accountId,
+  }) {
+    return transaction(() async {
+      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
+      final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+      final rowKey = '$schoolId|$planId|$year|$term|$grade';
+
+      // Check if exists.
+      final existing =
+          await (select(discounts)..where(
+                (d) =>
+                    d.school.equals(schoolId) &
+                    d.plan.equals(planId) &
+                    d.year.equals(year) &
+                    d.term.equals(term) &
+                    d.grade.equals(grade),
+              ))
+              .getSingleOrNull();
+
+      if (existing != null) {
+        await (update(discounts)..where(
+              (d) =>
+                  d.school.equals(schoolId) &
+                  d.plan.equals(planId) &
+                  d.year.equals(year) &
+                  d.term.equals(term) &
+                  d.grade.equals(grade),
+            ))
+            .write(
+              DiscountsCompanion(
+                amount: Value(amount),
+                unit: Value(unit),
+                updated: Value(now),
+              ),
+            );
+
+        int mask = 0;
+        mask |= (1 << DiscountsColumn.amount.bit);
+        mask |= (1 << DiscountsColumn.unit.bit);
+        mask |= (1 << DiscountsColumn.updated.bit);
+
+        await into(logs).insert(
+          LogsCompanion(
+            account: Value(accountId),
+            tbl: const Value(LogTable.discounts),
+            op: const Value(LogOperation.update),
+            rowKey: Value(rowKey),
+            columns: Value(mask),
+            status: const Value(LogStatus.pending),
+            created: Value(nowMs),
+          ),
+        );
+      } else {
+        await into(discounts).insert(
+          DiscountsCompanion(
+            school: Value(schoolId),
+            plan: Value(planId),
+            year: Value(year),
+            term: Value(term),
+            grade: Value(grade),
+            amount: Value(amount),
+            unit: Value(unit),
+            created: Value(now),
+            updated: Value(now),
+          ),
+        );
+
+        await into(logs).insert(
+          LogsCompanion(
+            account: Value(accountId),
+            tbl: const Value(LogTable.discounts),
+            op: const Value(LogOperation.insert),
+            rowKey: Value(rowKey),
+            status: const Value(LogStatus.pending),
+            created: Value(nowMs),
+          ),
+        );
+      }
+    });
+  }
+
+  /// Deletes a discount.
+  Future<void> deleteDiscount({
+    required String schoolId,
+    required String planId,
+    required int year,
+    required int term,
+    required int grade,
+    required String accountId,
+  }) {
+    return transaction(() async {
+      final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+      final rowKey = '$schoolId|$planId|$year|$term|$grade';
+
+      await (delete(discounts)..where(
+            (d) =>
+                d.school.equals(schoolId) &
+                d.plan.equals(planId) &
+                d.year.equals(year) &
+                d.term.equals(term) &
+                d.grade.equals(grade),
+          ))
+          .go();
+
+      await into(logs).insert(
+        LogsCompanion(
+          account: Value(accountId),
+          tbl: const Value(LogTable.discounts),
+          op: const Value(LogOperation.delete),
+          rowKey: Value(rowKey),
+          status: const Value(LogStatus.pending),
+          created: Value(nowMs),
+        ),
+      );
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // UTILITY reads
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Returns a single fee by ID.
+  Future<Fee?> getFee(String id) {
+    return (select(fees)..where((f) => f.id.equals(id))).getSingleOrNull();
+  }
+
+  /// Returns a single invoice by ID.
+  Future<Invoice?> getInvoice(String id) {
+    return (select(invoices)..where((i) => i.id.equals(id))).getSingleOrNull();
+  }
+
+  /// Returns total payments for an invoice.
+  Future<double> getTotalPaymentsForInvoice(String invoiceId) async {
+    final payList = await (select(
+      payments,
+    )..where((p) => p.invoice.equals(invoiceId))).get();
+    var total = 0.0;
+    for (final p in payList) {
+      total += p.amount;
+    }
+    return total;
+  }
+
+  /// Returns all payments for a specific invoice.
+  Stream<List<Payment>> watchPaymentsForInvoice(String invoiceId) {
+    return (select(payments)
+          ..where((p) => p.invoice.equals(invoiceId))
+          ..orderBy([(p) => OrderingTerm.desc(p.created)]))
+        .watch();
+  }
+
+  /// Returns enrolled student count for a grade/term (for invoice generation).
+  Future<int> getEnrolledStudentCount({
+    required String schoolId,
+    required int year,
+    required int term,
+    required int grade,
+  }) async {
+    final result = await customSelect(
+      'SELECT COUNT(DISTINCT student) AS c FROM enrollments '
+      'WHERE school = ? AND year = ? AND term = ? AND grade = ?',
+      variables: [
+        Variable.withString(schoolId),
+        Variable.withInt(year),
+        Variable.withInt(term),
+        Variable.withInt(grade),
+      ],
+      readsFrom: {},
+    ).getSingle();
+    return result.read<int>('c');
+  }
+}
