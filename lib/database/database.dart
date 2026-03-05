@@ -4,12 +4,23 @@ import 'package:drift_flutter/drift_flutter.dart';
 import 'tables/enums.dart';
 
 import 'daos/accounts_dao.dart';
+import 'daos/attendance_dao.dart';
 import 'daos/logs_dao.dart';
+import 'daos/terms_dao.dart';
 import 'daos/plans_dao.dart';
 import 'daos/roles_dao.dart';
 import 'daos/schools_dao.dart';
 import 'daos/system_stats_dao.dart';
+import 'daos/members_dao.dart';
 import 'daos/users_dao.dart';
+import 'daos/departments_dao.dart';
+import 'daos/subjects_dao.dart';
+import 'daos/enrollments_dao.dart';
+import 'daos/school_scopes_dao.dart';
+import 'daos/exams_grades_dao.dart';
+import 'daos/finance_dao.dart';
+import 'daos/announcements_dao.dart';
+import 'daos/timetable_dao.dart';
 
 import 'tables/users.dart';
 import 'tables/schools.dart';
@@ -97,12 +108,23 @@ late final AppDatabase db;
   // directly wherever needed.
   daos: [
     AccountsDao,
+    AttendanceDao,
     LogsDao,
+    MembersDao,
     PlansDao,
     RolesDao,
     SchoolsDao,
     SystemStatsDao,
+    TermsDao,
     UsersDao,
+    DepartmentsDao,
+    SubjectsDao,
+    EnrollmentsDao,
+    SchoolScopesDao,
+    ExamsGradesDao,
+    FinanceDao,
+    AnnouncementsDao,
+    TimetableDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {

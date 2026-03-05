@@ -7,6 +7,8 @@ mixin _$SystemStatsDaoMixin on DatabaseAccessor<AppDatabase> {
   $UsersTable get users => attachedDatabase.users;
   $SchoolsTable get schools => attachedDatabase.schools;
   $StudentsTable get students => attachedDatabase.students;
+  $EnrollmentsTable get enrollments => attachedDatabase.enrollments;
+  $TermsTable get terms => attachedDatabase.terms;
   $PlansTable get plans => attachedDatabase.plans;
   $FeesTable get fees => attachedDatabase.fees;
   $InvoicesTable get invoices => attachedDatabase.invoices;
@@ -25,6 +27,10 @@ class SystemStatsDaoManager {
       $$SchoolsTableTableManager(_db.attachedDatabase, _db.schools);
   $$StudentsTableTableManager get students =>
       $$StudentsTableTableManager(_db.attachedDatabase, _db.students);
+  $$EnrollmentsTableTableManager get enrollments =>
+      $$EnrollmentsTableTableManager(_db.attachedDatabase, _db.enrollments);
+  $$TermsTableTableManager get terms =>
+      $$TermsTableTableManager(_db.attachedDatabase, _db.terms);
   $$PlansTableTableManager get plans =>
       $$PlansTableTableManager(_db.attachedDatabase, _db.plans);
   $$FeesTableTableManager get fees =>

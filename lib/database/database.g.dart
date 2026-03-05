@@ -17668,14 +17668,35 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $AccountsTable accounts = $AccountsTable(this);
   late final $LogsTable logs = $LogsTable(this);
   late final AccountsDao accountsDao = AccountsDao(this as AppDatabase);
+  late final AttendanceDao attendanceDao = AttendanceDao(this as AppDatabase);
   late final LogsDao logsDao = LogsDao(this as AppDatabase);
+  late final MembersDao membersDao = MembersDao(this as AppDatabase);
   late final PlansDao plansDao = PlansDao(this as AppDatabase);
   late final RolesDao rolesDao = RolesDao(this as AppDatabase);
   late final SchoolsDao schoolsDao = SchoolsDao(this as AppDatabase);
   late final SystemStatsDao systemStatsDao = SystemStatsDao(
     this as AppDatabase,
   );
+  late final TermsDao termsDao = TermsDao(this as AppDatabase);
   late final UsersDao usersDao = UsersDao(this as AppDatabase);
+  late final DepartmentsDao departmentsDao = DepartmentsDao(
+    this as AppDatabase,
+  );
+  late final SubjectsDao subjectsDao = SubjectsDao(this as AppDatabase);
+  late final EnrollmentsDao enrollmentsDao = EnrollmentsDao(
+    this as AppDatabase,
+  );
+  late final SchoolScopesDao schoolScopesDao = SchoolScopesDao(
+    this as AppDatabase,
+  );
+  late final ExamsGradesDao examsGradesDao = ExamsGradesDao(
+    this as AppDatabase,
+  );
+  late final FinanceDao financeDao = FinanceDao(this as AppDatabase);
+  late final AnnouncementsDao announcementsDao = AnnouncementsDao(
+    this as AppDatabase,
+  );
+  late final TimetableDao timetableDao = TimetableDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
