@@ -6,6 +6,7 @@ import '../../../models/membership.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/user_avatar.dart';
 import '../account/account_screen.dart';
+import '../school_dashboard/school_dashboard_screen.dart';
 import '../system/system_dashboard_screen.dart';
 
 /// Home screen — the user's school membership picker.
@@ -231,9 +232,14 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _navigateToSchool(SchoolMembership membership, MembershipEntry entry) {
-    // Placeholder — Task Group 3 will implement the real school dashboard.
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${membership.school.name} → ${entry.role.name}')),
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            SchoolDashboardScreen(membership: membership, initialEntry: entry),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+            FadeTransition(opacity: animation, child: child),
+        transitionDuration: const Duration(milliseconds: 250),
+      ),
     );
   }
 
