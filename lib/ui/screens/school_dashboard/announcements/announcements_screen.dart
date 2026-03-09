@@ -152,17 +152,22 @@ class _AdminFeedState extends State<_AdminFeed> {
         Positioned(
           right: 20,
           bottom: 20,
-          child: _ElevatedFab(
-            icon: Icons.edit_outlined,
-            label: 'Compose',
-            cs: cs,
-            isDark: isDark,
-            onTap: () => _showComposeSheet(
+          child: FloatingActionButton.small(
+            onPressed: () => _showComposeSheet(
               context,
               dao: _dao,
               schoolId: _schoolId,
               config: _config,
             ),
+            tooltip: 'Compose',
+            elevation: 4,
+            highlightElevation: 6,
+            backgroundColor: cs.primary,
+            foregroundColor: cs.onPrimary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.add, size: 20),
           ),
         ),
       ],
@@ -1556,69 +1561,6 @@ class _DropdownField<T> extends StatelessWidget {
 // ═════════════════════════════════════════════════════════════════════════════
 // ELEVATED FAB
 // ═════════════════════════════════════════════════════════════════════════════
-
-class _ElevatedFab extends StatelessWidget {
-  const _ElevatedFab({
-    required this.icon,
-    required this.label,
-    required this.cs,
-    required this.isDark,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final ColorScheme cs;
-  final bool isDark;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: cs.primary,
-      borderRadius: BorderRadius.circular(10),
-      elevation: 0,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: [
-              BoxShadow(
-                color: cs.primary.withValues(alpha: isDark ? 0.3 : 0.35),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-              BoxShadow(
-                color: cs.primary.withValues(alpha: isDark ? 0.12 : 0.15),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 17, color: cs.onPrimary),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: cs.onPrimary,
-                  letterSpacing: 0.2,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 // ═════════════════════════════════════════════════════════════════════════════
 // EMPTY & NO-TERM STATES

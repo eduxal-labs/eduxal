@@ -1339,12 +1339,8 @@ class _FeesTab extends StatelessWidget {
         Positioned(
           right: 20,
           bottom: 20,
-          child: _ElevatedFab(
-            icon: Icons.add_rounded,
-            label: 'New Fee',
-            cs: cs,
-            isDark: isDark,
-            onTap: () => _showCreateFeeSheet(
+          child: FloatingActionButton.small(
+            onPressed: () => _showCreateFeeSheet(
               context,
               dao,
               schoolId,
@@ -1353,6 +1349,15 @@ class _FeesTab extends StatelessWidget {
               config,
               cs,
             ),
+            tooltip: 'New Fee',
+            elevation: 4,
+            highlightElevation: 6,
+            backgroundColor: cs.primary,
+            foregroundColor: cs.onPrimary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.add, size: 20),
           ),
         ),
       ],
@@ -1523,55 +1528,6 @@ class _FeeTile extends StatelessWidget {
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ElevatedFab extends StatelessWidget {
-  const _ElevatedFab({
-    required this.icon,
-    required this.label,
-    required this.cs,
-    required this.isDark,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final ColorScheme cs;
-  final bool isDark;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: cs.primary,
-      borderRadius: BorderRadius.circular(AppTheme.kRadius),
-      elevation: 4,
-      shadowColor: cs.primary.withValues(alpha: 0.4),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppTheme.kRadius),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 18, color: cs.onPrimary),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: cs.onPrimary,
-                  letterSpacing: 0.2,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

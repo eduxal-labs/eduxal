@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -198,41 +199,66 @@ class _OtpScreenState extends State<OtpScreen>
 
     if (!mounted) return;
 
-    setState(() => _isLoading = false);
-
     switch (result) {
       case Ok(value: final verifyResult):
-        switch (verifyResult) {
-          case VerifyResultAuthenticated(
-            :final authenticated,
-            :final profileUploadUrl,
-          ):
-            await client.saveAccount(authenticated);
-            if (!mounted) return;
-            Navigator.of(context).pushReplacement(
-              PageRouteBuilder(
-                pageBuilder: (_, _, _) => SetupScreen.existingUser(
-                  authenticated: authenticated,
-                  profileUploadUrl: profileUploadUrl,
+        // The server has consumed the OTP at this point — any failure after
+        // here must NOT leave the user stranded on the OTP screen, because
+        // re-submitting the same code will always return "invalid code".
+        try {
+          switch (verifyResult) {
+            case VerifyResultAuthenticated(
+              :final authenticated,
+              :final profileUploadUrl,
+            ):
+              try {
+                await client.saveAccount(authenticated);
+              } catch (e, st) {
+                // Log but do NOT rethrow. The OTP is already consumed so we
+                // must proceed to the next screen regardless. The worst case
+                // is that the user lands on setup without a persisted session
+                // — they will be prompted to log in again on next cold start.
+                debugPrint('saveAccount failed after verify: $e\n$st');
+              }
+              if (!mounted) return;
+              setState(() => _isLoading = false);
+              Navigator.of(context).pushReplacement(
+                PageRouteBuilder(
+                  pageBuilder: (_, _, _) => SetupScreen.existingUser(
+                    authenticated: authenticated,
+                    profileUploadUrl: profileUploadUrl,
+                  ),
+                  transitionsBuilder: (_, animation, _, child) =>
+                      FadeTransition(opacity: animation, child: child),
+                  transitionDuration: const Duration(milliseconds: 250),
                 ),
-                transitionsBuilder: (_, animation, _, child) =>
-                    FadeTransition(opacity: animation, child: child),
-                transitionDuration: const Duration(milliseconds: 250),
-              ),
-            );
-          case VerifyResultRegistered(:final token):
-            Navigator.of(context).pushReplacement(
-              PageRouteBuilder(
-                pageBuilder: (_, _, _) =>
-                    SetupScreen(token: token, phone: widget.phone),
-                transitionsBuilder: (_, animation, _, child) =>
-                    FadeTransition(opacity: animation, child: child),
-                transitionDuration: const Duration(milliseconds: 250),
-              ),
-            );
+              );
+            case VerifyResultRegistered(:final token):
+              setState(() => _isLoading = false);
+              Navigator.of(context).pushReplacement(
+                PageRouteBuilder(
+                  pageBuilder: (_, _, _) =>
+                      SetupScreen(token: token, phone: widget.phone),
+                  transitionsBuilder: (_, animation, _, child) =>
+                      FadeTransition(opacity: animation, child: child),
+                  transitionDuration: const Duration(milliseconds: 250),
+                ),
+              );
+          }
+        } catch (e, st) {
+          // Safety net: catch anything unexpected in the success path so the
+          // user is never silently stuck on the OTP screen after the server
+          // has already consumed the code.
+          debugPrint('Unexpected error after successful verify: $e\n$st');
+          if (!mounted) return;
+          setState(() {
+            _isLoading = false;
+            _errorMessage =
+                'Something went wrong. Please try logging in again.';
+          });
         }
       case Err(error: final error):
         setState(() {
+          _isLoading = false;
           _errorMessage = error.toFriendlyMessage();
         });
     }

@@ -11,6 +11,7 @@ import '../../../database/tables/enums.dart';
 import '../../../models/result.dart';
 import '../../../services/members.dart';
 import '../../../ui/theme/app_theme.dart';
+import '../inline_calendar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public entry-point
@@ -280,202 +281,245 @@ class _AddStudentFormState extends State<_AddStudentForm> {
     final isDark = cs.brightness == Brightness.dark;
     final accent = isDark ? AppTheme.brandIndigoDark : AppTheme.brandIndigo;
 
-    return Form(
-      key: _formKey,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // ── Header ────────────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 12, 0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Add Student',
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w500,
-                          color: cs.onSurface,
-                          letterSpacing: -0.2,
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOut,
+      builder: (context, value, child) => Opacity(
+        opacity: value,
+        child: Transform.translate(
+          offset: Offset(0, 12 * (1 - value)),
+          child: child,
+        ),
+      ),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Header ────────────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 12, 0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Add Student',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w500,
+                            color: cs.onSurface,
+                            letterSpacing: -0.2,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        'Fill in the student\'s details. An admission number '
-                        'will be assigned automatically.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.65),
-                          height: 1.4,
+                        const SizedBox(height: 3),
+                        Text(
+                          'Fill in the student\'s details. An admission number '
+                          'will be assigned automatically.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                            height: 1.4,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                // Close button
-                Material(
-                  color: Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
-                  child: InkWell(
-                    onTap: widget.onCancel,
+                  // Close button
+                  Material(
+                    color: Colors.transparent,
                     borderRadius: BorderRadius.circular(8),
-                    child: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Icon(
-                        Icons.close,
-                        size: 18,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                    child: InkWell(
+                      onTap: widget.onCancel,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Icon(
+                          Icons.close,
+                          size: 18,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
 
-          const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
-          // ── Photo picker ──────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: _PhotoPicker(
-              imageFile: _imageFile,
-              cs: cs,
-              isDark: isDark,
-              accent: accent,
-              onTap: _pickImage,
-              onClear: () => setState(() => _imageFile = null),
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
-          // ── Name ──────────────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _FieldLabel(label: 'Full Name', cs: cs),
-                const SizedBox(height: 7),
-                _StyledInput(
-                  controller: _nameCtrl,
-                  hint: 'e.g. John Kamau',
-                  prefixIcon: Icons.person_outline,
-                  isDark: isDark,
-                  cs: cs,
-                  textCapitalization: TextCapitalization.words,
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) {
-                      return 'Name is required';
-                    }
-                    return null;
-                  },
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // ── Gender ────────────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _FieldLabel(label: 'Gender', cs: cs),
-                const SizedBox(height: 7),
-                _GenderSelector(
-                  value: _gender,
-                  cs: cs,
-                  isDark: isDark,
-                  accent: accent,
-                  onChanged: (g) => setState(() => _gender = g),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // ── Date of birth ─────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _FieldLabel(label: 'Date of Birth', cs: cs),
-                const SizedBox(height: 7),
-                _DatePickerTile(
-                  value: _dob,
-                  hint: 'Select date of birth (optional)',
-                  icon: Icons.cake_outlined,
-                  isDark: isDark,
-                  cs: cs,
-                  firstDate: DateTime(1990),
-                  lastDate: DateTime.now(),
-                  onChanged: (d) => setState(() => _dob = d),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // ── Admission date ────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _FieldLabel(label: 'Admission Date', cs: cs),
-                const SizedBox(height: 7),
-                _DatePickerTile(
-                  value: _admitted,
-                  hint: 'Select admission date (optional)',
-                  icon: Icons.calendar_today_outlined,
-                  isDark: isDark,
-                  cs: cs,
-                  firstDate: DateTime(2000),
-                  lastDate: DateTime.now().add(const Duration(days: 365)),
-                  onChanged: (d) => setState(() => _admitted = d),
-                ),
-              ],
-            ),
-          ),
-
-          // ── Error banner ──────────────────────────────────────────────────
-          if (_error != null)
+            // ── Photo picker ──────────────────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-              child: _ErrorBanner(message: _error!, cs: cs, isDark: isDark),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _PhotoPicker(
+                imageFile: _imageFile,
+                cs: cs,
+                isDark: isDark,
+                accent: accent,
+                onTap: _pickImage,
+                onClear: () => setState(() => _imageFile = null),
+              ),
             ),
 
-          // ── CTA ───────────────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-            child: _CtaButton(
-              label: 'Add Student',
-              saving: _saving,
-              isDark: isDark,
-              cs: cs,
-              onTap: _saving ? null : _submit,
+            const SizedBox(height: 14),
+
+            // ── Name ──────────────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _FieldLabel(label: 'Full Name', cs: cs),
+                  const SizedBox(height: 7),
+                  _StyledInput(
+                    controller: _nameCtrl,
+                    hint: 'e.g. John Kamau',
+                    prefixIcon: Icons.person_outline,
+                    isDark: isDark,
+                    cs: cs,
+                    textCapitalization: TextCapitalization.words,
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) {
+                        return 'Name is required';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+
+            const SizedBox(height: 14),
+
+            // ── Gender ────────────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _FieldLabel(label: 'Gender', cs: cs),
+                  const SizedBox(height: 7),
+                  _GenderSelector(
+                    value: _gender,
+                    cs: cs,
+                    isDark: isDark,
+                    accent: accent,
+                    onChanged: (g) => setState(() => _gender = g),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 14),
+
+            // ── Date of birth ─────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _FieldLabel(label: 'Date of Birth', cs: cs),
+                  const SizedBox(height: 7),
+                  InlineCalendar(
+                    value: _dob,
+                    hint: 'Select date of birth (optional)',
+                    icon: Icons.cake_outlined,
+                    firstDate: DateTime(1990),
+                    lastDate: DateTime.now(),
+                    onChanged: (d) => setState(() => _dob = d),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 14),
+
+            // ── Admission date ────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _FieldLabel(label: 'Admission Date', cs: cs),
+                  const SizedBox(height: 7),
+                  InlineCalendar(
+                    value: _admitted,
+                    hint: 'Select admission date (optional)',
+                    icon: Icons.calendar_today_outlined,
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                    onChanged: (d) => setState(() => _admitted = d),
+                  ),
+                ],
+              ),
+            ),
+
+            // ── Error banner ──────────────────────────────────────────────────
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                child: _ErrorBanner(message: _error!, cs: cs, isDark: isDark),
+              ),
+
+            // ── CTA ───────────────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton.icon(
+                  onPressed: _saving ? null : _submit,
+                  icon: _saving
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.check_rounded, size: 18),
+                  label: Text(
+                    _saving ? 'Saving…' : 'Add Student',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: accent,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: accent.withValues(
+                      alpha: isDark ? 0.28 : 0.24,
+                    ),
+                    disabledForegroundColor: Colors.white.withValues(
+                      alpha: isDark ? 0.45 : 0.50,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 10,
+                    ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -504,34 +548,38 @@ class _PhotoPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final borderColor = cs.outlineVariant.withValues(
+      alpha: isDark ? 0.25 : 0.4,
+    );
+
     return Row(
       children: [
         // Photo preview / placeholder
         GestureDetector(
           onTap: onTap,
           child: Container(
-            width: 72,
-            height: 72,
+            width: 68,
+            height: 68,
             decoration: BoxDecoration(
-              color: accent.withValues(alpha: isDark ? 0.10 : 0.07),
-              borderRadius: BorderRadius.circular(10),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.22 : 0.07),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+              color: imageFile != null
+                  ? Colors.transparent
+                  : (isDark ? const Color(0xFF1E2A3A) : cs.surfaceContainerLow),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: imageFile != null
+                    ? accent.withValues(alpha: 0.4)
+                    : borderColor,
+              ),
             ),
             child: imageFile != null
                 ? ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(7),
                     child: Image.file(imageFile!, fit: BoxFit.cover),
                   )
                 : Icon(
                     Icons.add_a_photo_outlined,
-                    size: 24,
-                    color: accent.withValues(alpha: isDark ? 0.55 : 0.45),
+                    size: 22,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.4),
                   ),
           ),
         ),
@@ -651,34 +699,22 @@ class _GenderChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bg = isSelected
-        ? accent.withValues(alpha: isDark ? 0.18 : 0.10)
-        : (isDark
-              ? const Color(0xFF1A2435)
-              : cs.surfaceContainerHighest.withValues(alpha: 0.5));
+        ? accent.withValues(alpha: isDark ? 0.14 : 0.08)
+        : (isDark ? const Color(0xFF1E2A3A) : cs.surfaceContainerLow);
+
+    final borderColor = isSelected
+        ? accent.withValues(alpha: isDark ? 0.45 : 0.35)
+        : cs.outlineVariant.withValues(alpha: isDark ? 0.2 : 0.35);
 
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: bg,
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: accent.withValues(alpha: isDark ? 0.15 : 0.10),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.05),
-                    blurRadius: isDark ? 6 : 3,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: borderColor),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -756,19 +792,15 @@ class _StyledInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final borderColor = cs.outlineVariant.withValues(
+      alpha: isDark ? 0.2 : 0.35,
+    );
+
     return Container(
       decoration: BoxDecoration(
-        color: isDark
-            ? const Color(0xFF1A2435)
-            : cs.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.05),
-            blurRadius: isDark ? 6 : 3,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: isDark ? const Color(0xFF1E2A3A) : cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor),
       ),
       child: TextFormField(
         controller: controller,
@@ -785,122 +817,26 @@ class _StyledInput extends StatelessWidget {
           hintStyle: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w400,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.38),
+            color: cs.onSurfaceVariant.withValues(alpha: 0.55),
           ),
           prefixIcon: Icon(
             prefixIcon,
             size: 18,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+            color: cs.onSurfaceVariant.withValues(alpha: 0.65),
           ),
           filled: false,
           border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 14,
+            horizontal: 14,
+            vertical: 13,
           ),
         ),
         validator: validator,
       ),
     );
   }
-}
-
-class _DatePickerTile extends StatelessWidget {
-  const _DatePickerTile({
-    required this.value,
-    required this.hint,
-    required this.icon,
-    required this.isDark,
-    required this.cs,
-    required this.firstDate,
-    required this.lastDate,
-    required this.onChanged,
-  });
-
-  final DateTime? value;
-  final String hint;
-  final IconData icon;
-  final bool isDark;
-  final ColorScheme cs;
-  final DateTime firstDate;
-  final DateTime lastDate;
-  final ValueChanged<DateTime?> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = isDark ? AppTheme.brandIndigoDark : AppTheme.brandIndigo;
-    final display = value != null ? _fmt(value!) : null;
-
-    return GestureDetector(
-      onTap: () async {
-        final picked = await showDatePicker(
-          context: context,
-          initialDate: value ?? DateTime.now(),
-          firstDate: firstDate,
-          lastDate: lastDate,
-          builder: (ctx, child) => Theme(
-            data: Theme.of(ctx).copyWith(
-              colorScheme: Theme.of(ctx).colorScheme.copyWith(primary: accent),
-            ),
-            child: child!,
-          ),
-        );
-        if (picked != null) onChanged(picked);
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-        decoration: BoxDecoration(
-          color: isDark
-              ? const Color(0xFF1A2435)
-              : cs.surfaceContainerHighest.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.05),
-              blurRadius: isDark ? 6 : 3,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: 17,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                display ?? hint,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  color: display != null
-                      ? cs.onSurface
-                      : cs.onSurfaceVariant.withValues(alpha: 0.38),
-                ),
-              ),
-            ),
-            if (value != null)
-              GestureDetector(
-                onTap: () => onChanged(null),
-                child: Icon(
-                  Icons.close,
-                  size: 15,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.45),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  static String _fmt(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')} / '
-      '${d.month.toString().padLeft(2, '0')} / '
-      '${d.year}';
 }
 
 class _ErrorBanner extends StatelessWidget {
@@ -946,86 +882,6 @@ class _ErrorBanner extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _CtaButton extends StatelessWidget {
-  const _CtaButton({
-    required this.label,
-    required this.saving,
-    required this.isDark,
-    required this.cs,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool saving;
-  final bool isDark;
-  final ColorScheme cs;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = isDark ? AppTheme.brandIndigoDark : AppTheme.brandIndigo;
-    final enabled = onTap != null;
-    final bgColor = enabled
-        ? accent
-        : accent.withValues(alpha: isDark ? 0.28 : 0.24);
-    final fgColor = enabled
-        ? Colors.white
-        : Colors.white.withValues(alpha: isDark ? 0.45 : 0.50);
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      height: 46,
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: enabled
-            ? [
-                BoxShadow(
-                  color: accent.withValues(alpha: isDark ? 0.30 : 0.22),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ]
-            : null,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          splashColor: Colors.white.withValues(alpha: 0.1),
-          child: Center(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 180),
-              child: saving
-                  ? SizedBox(
-                      key: const ValueKey('saving'),
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 1.8,
-                        valueColor: AlwaysStoppedAnimation<Color>(fgColor),
-                      ),
-                    )
-                  : Text(
-                      key: const ValueKey('label'),
-                      label,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: fgColor,
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-            ),
-          ),
-        ),
       ),
     );
   }

@@ -198,6 +198,9 @@ class _AddStaffFormState extends State<_AddStaffForm> {
       ctaLabel: 'Add Staff Member',
       alreadyExistsMessage:
           'This person is already a staff member at this school.',
+      checkAlreadyExists: (user) async {
+        return await MembersDao(db).staffExists(widget.schoolId, user.id);
+      },
       extraFields: (_) => _StaffExtras(
         idNumberCtrl: _idNumberCtrl,
         roleCtrl: _roleCtrl,
@@ -337,19 +340,15 @@ class _StyledInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final borderColor = cs.outlineVariant.withValues(
+      alpha: isDark ? 0.2 : 0.35,
+    );
+
     return Container(
       decoration: BoxDecoration(
-        color: isDark
-            ? const Color(0xFF1A2435)
-            : cs.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.05),
-            blurRadius: isDark ? 6 : 3,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: isDark ? const Color(0xFF1E2A3A) : cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor),
       ),
       child: TextField(
         controller: controller,
@@ -364,15 +363,17 @@ class _StyledInput extends StatelessWidget {
           hintStyle: TextStyle(
             fontSize: 13.5,
             fontWeight: FontWeight.w400,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.38),
+            color: cs.onSurfaceVariant.withValues(alpha: 0.55),
           ),
           prefixIcon: Icon(
             prefixIcon,
             size: 17,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+            color: cs.onSurfaceVariant.withValues(alpha: 0.65),
           ),
           filled: false,
           border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 14,
             vertical: 13,

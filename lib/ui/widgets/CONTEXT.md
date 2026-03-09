@@ -1,0 +1,125 @@
+# ui/widgets/ — Shared Widgets Context
+
+> Reusable UI components used across multiple screens throughout the app.
+> Screen-specific widgets that are only used by one screen live in that screen's directory, not here.
+
+## Overview
+
+This directory contains **13 files** and **1 subdirectory** (`member_creation/`). These are the shared building blocks that enforce visual consistency across the app — tab bars, term selectors, avatars, save buttons, status indicators, sync indicators, progress bars, trajectory indicators, stat badges, and member creation flows.
+
+## Files
+
+| File | Key Exports | Status | Description |
+|---|---|---|---|
+| `active_term_provider.dart` | `ActiveTermProvider` | ✅ Complete | `InheritedNotifier` that provides `ActiveTermContext` to the widget tree. Screens access via `ActiveTermProvider.of(context)`. |
+| `thin_progress_bar.dart` | `ThinProgressBar` | ✅ Complete | A thin, color-coded horizontal progress bar for percentage visualization (exam scores, mastery levels, attendance rates). Height defaults to 6px. Auto-colors via `percentageColor()` from `academic_utils.dart` or accepts an override. Animates width changes with a 300ms ease-out `TweenAnimationBuilder`. Accepts `percent`, `height`, `color`, `backgroundColor`, `borderRadius`, `width`. |
+| `trajectory_indicator.dart` | `TrajectoryIndicator` | ✅ Complete | Compact trajectory indicator showing direction + label in the trajectory's color. Supports `compact` mode (icon only, 16px default) and full mode (icon + 4px gap + label text, 12px default). Maps `Trajectory` enum values: improving → green trending_up, declining → red trending_down, stable → amber trending_flat, insufficientData → grey help_outline. |
+| `stat_badge.dart` | `StatBadge` | ✅ Complete | Compact stat badge showing a label + value in a tinted container. Used for summary stat rows (comparisons, student overview, etc.). Accepts `label`, `value`, optional `tintColor` (8% alpha background) and `icon` (inline with label). Min width 80, `BorderRadius.circular(8)`, label 11px w400 muted, value 16px w500. |
+| `animated_save_button.dart` | `AnimatedSaveButton` | ✅ Complete | A button that animates between idle → saving → saved states. Used for row-level or form-level saves in data entry screens (grades, attendance, etc.). |
+| `create_term_modal.dart` | `CreateTermModal` | ✅ Complete | Modal dialog/sheet for creating a new academic term. Fields: year, term number, start date, end date. Writes to `terms` table via `TermsDao`. |
+| `edu_tab_bar.dart` | `EduTabBar`, `EduTab` | ✅ Complete | The **single source of truth** for all tab aesthetics in the app. Elevated, shadow-based indicator (not a thin underline). Slightly tinted background container with subtle elevation. Supports both icon-only and text-label modes. `BorderRadius.circular(8)` or `10`, slim text (`w400` unselected / `w500` selected). Every tabbed surface in the app uses this — no raw `TabBar` anywhere. |
+| `no_terms_blank_state.dart` | `NoTermsBlankState` | ✅ Complete | Displayed when a school has no terms configured (`ActiveTermContext.hasTerms == false`). Shows an inviting empty state with a "Create First Term" CTA for owners. Non-owners see a message indicating no terms are available. |
+| `status_indicator.dart` | `StatusIndicator` | ✅ Complete | A compact status badge/chip widget. Takes a label string and a color, renders as a small elevated chip with the status text. Used for member status badges, invoice status, school status, etc. |
+| `term_selector_chip.dart` | `TermSelectorChip` | ✅ Complete | Compact chip widget shown in the school dashboard AppBar. Displays `ActiveTermContext.currentTermLabel` (e.g. "2025 · Term 2"). On tap, opens a picker showing all available terms. Calls `ActiveTermContext.setTerm(term)` on selection. |
+| `sync_indicator.dart` | `SyncIndicator` | ✅ Complete | Tiny (7 px) sync status dot. Binds to `sync.status` (`ValueNotifier<SyncStatus>` from `SyncEngine`). Colors: disconnected → muted red, idle → subtle green, pushing/pulling → pulsing blue. Uses `SingleTickerProviderStateMixin` for pulse animation (900 ms, ease-in-out, opacity 0.35→1.0). Tooltip shows "Offline" / "Connected" / "Syncing…". 20×20 touch target, `BorderRadius.circular(1.5)` (slightly blunted square, not circular). Placed in home screen top bar and all three school dashboard layouts (full sidebar footer, icon rail footer, mobile top bar). |
+| `user_avatar.dart` | `UserAvatar` | ✅ Complete | Circular avatar widget that loads a user's profile image from `FileCache.profilePath(userId)`. Falls back to initials (first letter of name) on a colored background if no cached image exists. Accepts a `radius` parameter for sizing. |
+| `inline_calendar.dart` | `InlineCalendar` | ✅ Complete | Compact, embeddable inline date picker. Renders as a trigger row (icon + date text + chevron) that expands/collapses a calendar grid via `SizeTransition`. Month/year header with `<` `>` nav arrows, Su–Sa day-of-week labels, tight 32×32 day cells with accent fill on selected, border on today, faded outside/disabled days. Auto-collapses after selection. Accepts `value`, `firstDate`, `lastDate`, `onChanged`, optional `hint` and `icon`. Uses `AppTheme.brandIndigo` / `brandIndigoDark` for accent. Replaces `showDatePicker` dialog usage in member creation forms. |
+
+## Subdirectory: `member_creation/`
+
+Phone-first (and name-first for students) member creation panels used by the Members page in the school dashboard.
+
+> **Styling overhaul (Task 06):** All member creation forms have been thoroughly cleaned up to remove glassy/neumorphic patterns and align with the app's clean, minimal aesthetic (AGENT.md §21). Key changes:
+>
+> - **Text inputs** (`_PhoneField`, `_NameField`, all `_StyledInput` widgets): Now use `Container` with `surfaceContainerLow` fill (light) / `Color(0xFF1E2A3A)` (dark) + thin `Border.all(outlineVariant)` + `InputBorder.none` internally. No `Material` elevation, no `BoxShadow`, no double-border artifacts.
+> - **Date pickers** — replaced entirely. The old `_DatePickerTile` + `showDatePicker` dialog approach is gone from both student and teacher panels. Both now use the shared `InlineCalendar` widget (`lib/ui/widgets/inline_calendar.dart`) — a compact, dashboard-style inline calendar that expands/collapses within the form. No popup dialog at all.
+> - **Photo picker** (`_PhotoPicker` in student panel): Removed glassy `BoxShadow`. Now uses `Container` with thin border (accent-tinted when image is selected, `outlineVariant` when empty). Slightly smaller (68×68). Camera icon uses `onSurfaceVariant` instead of accent tint.
+> - **Gender chips** (`_GenderChip` in student panel): Replaced `BoxShadow` with thin `Border.all`. Selected state uses accent-tinted border instead of accent shadow. Tightened radius from 10 to 8.
+> - **Found user card** (`_FoundUserCard` in phone_first_panel): Replaced `BoxShadow` with thin accent-tinted border. Tightened radius from 10 to 8. Avatar radius from 8 to 6.
+> - **CTA buttons** (`_CtaButton` in student + phone_first panels): Removed heavy accent `BoxShadow`. Tightened radius from 10 to 8.
+> - **All `borderRadius` values** standardised to `8` across inputs, chips, tiles, and buttons (was a mix of 10/8 before).
+> - Non-input selection widgets (`_SelectableChip`, `_RoleRow` in guardian panel) were intentionally left unchanged.
+
+| File | Key Exports | Status | Description |
+|---|---|---|---|
+| `add_guardian_panel.dart` | `AddGuardianPanel` | ✅ Complete | Phone-first guardian creation flow. Linked to a specific student (ward). Fields: phone → user lookup → relationship, role. Uses `MemberCreationService.createGuardian()`. |
+| `add_owner_panel.dart` | `AddOwnerPanel` | ✅ Complete | Phone-first owner creation flow. Fields: phone → user lookup → confirm link. Uses `MemberCreationService.createOwner()`. |
+| `add_staff_panel.dart` | `AddStaffPanel` | ✅ Complete | Phone-first staff creation flow. Fields: phone → user lookup → ID number, role, department. Uses `MemberCreationService.createStaff()`. |
+| `add_student_panel.dart` | `AddStudentPanel` | ✅ Complete | Name-first student creation flow (students don't need a phone number). Fields: name, DOB, gender, photo, admission date. Uses `MemberCreationService.createStudent()`. **UI polish (Task 09):** Replaced full-width `_CtaButton` with a compact right-aligned `FilledButton.icon` (check icon + label, `BorderRadius.circular(6)`). Added form entrance animation (`TweenAnimationBuilder` fade+slide, 350ms ease-out). Reduced inter-field spacing from 20px to 14–16px for a tighter, more compact layout. Removed the now-unused `_CtaButton` private widget class entirely. |
+| `add_teacher_panel.dart` | `AddTeacherPanel` | ✅ Complete | Phone-first teacher creation flow. Fields: phone → user lookup → hired date, role, department. Uses `MemberCreationService.createTeacher()`. |
+| `phone_first_panel.dart` | `PhoneFirstPanel` | ✅ Complete | Shared base component for the phone-first lookup pattern. Renders a phone number input field, calls `MemberCreationService.lookupPhone()`, then expands to show either "User found — link?" confirmation or "User not found — enter name" expansion. Used by `AddOwnerPanel`, `AddTeacherPanel`, `AddStaffPanel`, `AddGuardianPanel`. |
+
+### Phone-First Flow (shared pattern)
+
+1. User enters phone number in `PhoneFirstPanel`.
+2. `MemberCreationService.lookupPhone(phone)` is called → returns `UserFound` or `UserNotFound`.
+3. **If `UserFound`:** Shows user's name and a "Link to school" confirmation button. On confirm, calls the appropriate `create*()` method with the existing user.
+4. **If `UserNotFound`:** Expands the form to request name (+ role-specific fields). On submit, creates a new `users` row with `status = invited` and links the membership.
+5. All creation methods write both the entity row and corresponding `logs` entries in a single transaction.
+
+### Student Flow (name-first)
+
+Students use `AddStudentPanel` which does NOT use `PhoneFirstPanel`. Instead:
+1. User enters admission number, name, DOB, gender.
+2. On submit, calls `MemberCreationService.createStudent()` which creates the student row directly.
+3. Students may optionally be linked to a `users` row later (when the student gets a phone/account).
+
+## Key Widget Details
+
+### `EduTabBar` — Design Specification
+
+This is the most important shared widget for visual consistency. Key properties:
+- **Indicator:** Elevated container with subtle shadow, matching the tab's background but slightly shifted — NOT a thin underline indicator.
+- **Background:** Slightly tinted container that distinguishes the tab row from surrounding content.
+- **Typography:** `w400` for unselected tabs, `w500` for selected. Thin and clean.
+- **Border radius:** `8`–`10` on the indicator and container. No pill shapes.
+- **Modes:** Accepts both icon-only tabs (for mobile nav) and text-label tabs (for inner page sections).
+- **Usage:** Used by `MembersPage` (5 tabs), `SchoolRoleDetailScreen` (2 tabs), `RoleDetailScreen` (2 tabs), and any future tabbed surface.
+
+### `ActiveTermProvider` — Usage Pattern
+
+```dart
+// Providing (in SchoolDashboardScreen):
+ActiveTermProvider(
+  context: activeTermContext,
+  child: ...
+)
+
+// Consuming (in any child screen):
+final termCtx = ActiveTermProvider.of(context);
+return ValueListenableBuilder<Term?>(
+  valueListenable: termCtx.termNotifier,
+  builder: (context, term, _) {
+    if (term == null) return const NoTermsBlankState();
+    return _MyTermSensitiveWidget(term: term);
+  },
+);
+```
+
+### `UserAvatar` — Usage Pattern
+
+```dart
+UserAvatar(
+  userId: user.id,
+  name: user.name,
+  radius: 20,  // defaults to 20
+)
+```
+
+Internally calls `FileCache.get(FileCache.profilePath(userId))` to check for a cached image file. Shows initials on a deterministic color (derived from userId hash) if no file exists.
+
+## Dependencies
+
+- **Depends on:** `models/active_term_context.dart` (ActiveTermProvider), `models/school_context.dart` (member panels read school context), `services/members.dart` (`MemberCreationService`, `PhoneLookupResult`), `database/daos/terms_dao.dart` (CreateTermModal), `database/database.dart` (for generated types like `Term`), `database/tables/enums.dart` (status enums), `cache/file_cache.dart` (UserAvatar), `core/extensions.dart` (`toKenyanPhone()` in phone panels), `client.dart` (global DAOs, services, `sync` getter), `sync/sync_status.dart` (`SyncStatus` enum)
+- **Depended on by:** `ui/screens/school_dashboard/` (all screens use these widgets), `ui/screens/system/` (roles screens use `EduTabBar`)
+
+## Conventions
+
+- Shared widgets are stateless when possible, stateful only when they manage their own animation controllers, form state, or subscriptions.
+- Widget files are named descriptively in snake_case: `edu_tab_bar.dart`, `user_avatar.dart`, `animated_save_button.dart`.
+- All member creation panels follow the same visual pattern — slide-over panels on desktop, full-screen dialogs on mobile.
+- `EduTabBar` is the **only** tab widget used in the app. No screen should create a raw `TabBar`.
+- Widgets never import services or DAOs directly for business logic — they receive callbacks or data via constructor parameters. Exception: `CreateTermModal` and member creation panels which instantiate service calls directly (they are self-contained mini-flows, not pure presentational widgets).
+
+## Last Updated
+Task 09 — `add_student_panel.dart` UI polish: compact CTA button, entrance animation, tighter spacing.

@@ -5,6 +5,7 @@ import '../../../database/daos/members_dao.dart';
 import '../../../models/result.dart';
 import '../../../services/members.dart';
 import '../../../ui/theme/app_theme.dart';
+import '../inline_calendar.dart';
 import 'phone_first_panel.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -198,6 +199,9 @@ class _AddTeacherFormState extends State<_AddTeacherForm> {
           'EduXal, they will be linked instantly.',
       ctaLabel: 'Add Teacher',
       alreadyExistsMessage: 'This person is already a teacher at this school.',
+      checkAlreadyExists: (user) async {
+        return await MembersDao(db).teacherExists(widget.schoolId, user.id);
+      },
       extraFields: (_) => _TeacherExtras(
         hiredDate: _hiredDate,
         roleCtrl: _roleCtrl,
@@ -285,12 +289,12 @@ class _TeacherExtras extends StatelessWidget {
         // Hired date picker
         _FieldLabel(label: 'Hire Date', cs: cs),
         const SizedBox(height: 7),
-        _DatePickerTile(
+        InlineCalendar(
           value: hiredDate,
           hint: 'Select hire date (optional)',
           icon: Icons.calendar_today_outlined,
-          isDark: isDark,
-          cs: cs,
+          firstDate: DateTime(1990),
+          lastDate: DateTime.now(),
           onChanged: onHiredDateChanged,
         ),
       ],
@@ -340,19 +344,15 @@ class _StyledInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final borderColor = cs.outlineVariant.withValues(
+      alpha: isDark ? 0.2 : 0.35,
+    );
+
     return Container(
       decoration: BoxDecoration(
-        color: isDark
-            ? const Color(0xFF1A2435)
-            : cs.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.05),
-            blurRadius: isDark ? 6 : 3,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: isDark ? const Color(0xFF1E2A3A) : cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor),
       ),
       child: TextField(
         controller: controller,
@@ -367,15 +367,17 @@ class _StyledInput extends StatelessWidget {
           hintStyle: TextStyle(
             fontSize: 13.5,
             fontWeight: FontWeight.w400,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.38),
+            color: cs.onSurfaceVariant.withValues(alpha: 0.55),
           ),
           prefixIcon: Icon(
             prefixIcon,
             size: 17,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+            color: cs.onSurfaceVariant.withValues(alpha: 0.65),
           ),
           filled: false,
           border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 14,
             vertical: 13,
@@ -384,100 +386,6 @@ class _StyledInput extends StatelessWidget {
       ),
     );
   }
-}
-
-class _DatePickerTile extends StatelessWidget {
-  const _DatePickerTile({
-    required this.value,
-    required this.hint,
-    required this.icon,
-    required this.isDark,
-    required this.cs,
-    required this.onChanged,
-  });
-
-  final DateTime? value;
-  final String hint;
-  final IconData icon;
-  final bool isDark;
-  final ColorScheme cs;
-  final ValueChanged<DateTime?> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = isDark ? AppTheme.brandIndigoDark : AppTheme.brandIndigo;
-    final displayText = value != null ? _formatDate(value!) : null;
-
-    return GestureDetector(
-      onTap: () async {
-        final picked = await showDatePicker(
-          context: context,
-          initialDate: value ?? DateTime.now(),
-          firstDate: DateTime(1990),
-          lastDate: DateTime.now(),
-          builder: (ctx, child) => Theme(
-            data: Theme.of(ctx).copyWith(
-              colorScheme: Theme.of(ctx).colorScheme.copyWith(primary: accent),
-            ),
-            child: child!,
-          ),
-        );
-        if (picked != null) onChanged(picked);
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-        decoration: BoxDecoration(
-          color: isDark
-              ? const Color(0xFF1A2435)
-              : cs.surfaceContainerHighest.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.05),
-              blurRadius: isDark ? 6 : 3,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: 17,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                displayText ?? hint,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  color: displayText != null
-                      ? cs.onSurface
-                      : cs.onSurfaceVariant.withValues(alpha: 0.38),
-                ),
-              ),
-            ),
-            if (value != null)
-              GestureDetector(
-                onTap: () => onChanged(null),
-                child: Icon(
-                  Icons.close,
-                  size: 15,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.45),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  static String _formatDate(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')} / '
-      '${d.month.toString().padLeft(2, '0')} / '
-      '${d.year}';
 }
 
 class _SectionDivider extends StatelessWidget {

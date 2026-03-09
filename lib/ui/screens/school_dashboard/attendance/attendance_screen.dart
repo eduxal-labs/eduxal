@@ -7,12 +7,14 @@ import '../../../../database/database.dart';
 import '../../../../database/daos/attendance_dao.dart';
 import '../../../../database/daos/enrollments_dao.dart';
 import '../../../../database/tables/enums.dart';
+import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../models/active_term_context.dart';
 import '../../../../models/membership.dart';
 import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
-import '../../../theme/app_theme.dart';
+
 import '../../../widgets/active_term_provider.dart';
+import '../academics/grade_detail_page.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Entry point
@@ -24,7 +26,9 @@ import '../../../widgets/active_term_provider.dart';
 /// teachers, students, and guardians.
 ///
 /// Role dispatch:
-/// - **Teacher:** Class-based marking UI with date selector and toggle buttons.
+/// - **Teacher / Owner:** Class picker list. Each card shows grade + stream +
+///   today's marking status. Tapping navigates to [GradeDetailPage] with the
+///   Attendance content tab pre-selected.
 /// - **Guardian:** Calendar-based read-only history for their ward.
 /// - **Student:** Calendar-based read-only history for themselves.
 class AttendanceScreen extends StatelessWidget {
@@ -42,7 +46,7 @@ class AttendanceScreen extends StatelessWidget {
     final entry = schoolContext.currentEntry.value;
 
     return switch (entry) {
-      TeacherEntry() => _TeacherAttendanceShell(
+      TeacherEntry() => _ClassPickerShell(
         schoolContext: schoolContext,
         termContext: termCtx,
       ),
@@ -58,7 +62,7 @@ class AttendanceScreen extends StatelessWidget {
         studentAdm: student.adm,
         studentName: student.name,
       ),
-      _ => _TeacherAttendanceShell(
+      _ => _ClassPickerShell(
         schoolContext: schoolContext,
         termContext: termCtx,
       ),
@@ -67,11 +71,14 @@ class AttendanceScreen extends StatelessWidget {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// TEACHER ATTENDANCE SHELL
+// CLASS PICKER — Teacher / Owner flow
 // ═════════════════════════════════════════════════════════════════════════════
 
-class _TeacherAttendanceShell extends StatefulWidget {
-  const _TeacherAttendanceShell({
+/// Shows a list of classes (grade + stream) with today's marking status.
+/// Tapping a class navigates to [GradeDetailPage] with the Attendance content
+/// tab pre-selected (index 3) and the correct stream tab.
+class _ClassPickerShell extends StatefulWidget {
+  const _ClassPickerShell({
     required this.schoolContext,
     required this.termContext,
   });
@@ -80,59 +87,55 @@ class _TeacherAttendanceShell extends StatefulWidget {
   final ActiveTermContext termContext;
 
   @override
-  State<_TeacherAttendanceShell> createState() =>
-      _TeacherAttendanceShellState();
+  State<_ClassPickerShell> createState() => _ClassPickerShellState();
 }
 
-class _TeacherAttendanceShellState extends State<_TeacherAttendanceShell> {
+class _ClassPickerShellState extends State<_ClassPickerShell> {
   late final AttendanceDao _attendanceDao;
   late final EnrollmentsDao _enrollmentsDao;
 
-  SchoolConfig _config = SchoolConfig.defaults();
+  SchoolConfig? _config;
+  bool _loadingConfig = true;
 
-  // Selected class.
-  int? _selectedGrade;
-  int? _selectedStream;
-
-  // Selected date — defaults to today.
-  late DateTime _selectedDate;
-  late int _selectedDateEpochDays;
-
-  // Available classes from enrollments.
+  /// Available classes from enrollments.
   List<({int grade, int stream})> _availableClasses = [];
   bool _loadingClasses = true;
+
+  String get _schoolId => widget.schoolContext.membership.school.id;
 
   @override
   void initState() {
     super.initState();
     _attendanceDao = AttendanceDao(db);
     _enrollmentsDao = EnrollmentsDao(db);
-    _selectedDate = DateTime.now();
-    _selectedDateEpochDays = _dateToEpochDays(_selectedDate);
     _loadConfig();
     _loadClasses();
   }
 
   Future<void> _loadConfig() async {
-    final schoolId = widget.schoolContext.membership.school.id;
-    final row = await settingsDao.getSettings(schoolId);
-    if (row == null || !mounted) return;
+    final row = await settingsDao.getSettings(_schoolId);
+    if (row == null || !mounted) {
+      if (mounted) setState(() => _loadingConfig = false);
+      return;
+    }
     try {
       final decoded = Map<String, dynamic>.from(jsonDecode(row.data) as Map);
-      setState(() => _config = SchoolConfig.fromJson(decoded));
-    } catch (_) {}
+      setState(() {
+        _config = SchoolConfig.fromJson(decoded);
+        _loadingConfig = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loadingConfig = false);
+    }
   }
 
-  Future<void> _loadClasses() async {
+  void _loadClasses() {
     final term = widget.termContext.currentTerm;
     if (term == null) return;
 
-    final schoolId = widget.schoolContext.membership.school.id;
-
-    // Subscribe to populated classes stream.
     _enrollmentsDao
         .watchPopulatedClasses(
-          schoolId: schoolId,
+          schoolId: _schoolId,
           year: term.year,
           term: term.term,
         )
@@ -141,43 +144,64 @@ class _TeacherAttendanceShellState extends State<_TeacherAttendanceShell> {
           setState(() {
             _availableClasses = classes;
             _loadingClasses = false;
-
-            // Auto-select first class if nothing selected yet.
-            if (_selectedGrade == null && classes.isNotEmpty) {
-              _selectedGrade = classes.first.grade;
-              _selectedStream = classes.first.stream;
-            }
           });
         });
   }
 
-  void _selectClass(int grade, int stream) {
-    setState(() {
-      _selectedGrade = grade;
-      _selectedStream = stream;
-    });
+  /// Resolves the [GradeConfig] and [CurriculumType] for a given grade integer,
+  /// plus the stream index within that grade's stream list.
+  ({GradeConfig gradeConfig, CurriculumType type, int streamIndex})?
+  _resolveClass(int grade, int stream) {
+    final config = _config;
+    if (config == null) return null;
+
+    for (final curriculum in config.curricula) {
+      for (final gc in curriculum.grades) {
+        if (gc.grade == grade) {
+          final streamIdx = gc.streams.indexWhere((s) => s.code == stream);
+          if (streamIdx >= 0) {
+            return (
+              gradeConfig: gc,
+              type: curriculum.type,
+              streamIndex: streamIdx,
+            );
+          }
+        }
+      }
+    }
+    return null;
   }
 
-  Future<void> _pickDate(BuildContext context) async {
-    final cs = Theme.of(context).colorScheme;
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(colorScheme: cs),
-          child: child!,
-        );
-      },
+  void _navigateToClass(int grade, int stream) {
+    final resolved = _resolveClass(grade, stream);
+    if (resolved == null) return;
+
+    final label =
+        gradeLabelsFor(resolved.type)[resolved.gradeConfig.grade] ??
+        'Grade ${resolved.gradeConfig.grade}';
+
+    // Stream tab index: 0 = Comparisons, so stream tabs start at 1.
+    final streamTabIndex = resolved.streamIndex + 1;
+
+    // Attendance is content tab index 3 (Students=0, Exams=1, Subjects=2,
+    // Attendance=3).
+    const attendanceTabIndex = 3;
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ActiveTermProvider(
+          termContext: ActiveTermProvider.read(context),
+          child: GradeDetailPage(
+            schoolContext: widget.schoolContext,
+            curriculumType: resolved.type,
+            grade: resolved.gradeConfig,
+            gradeLabel: label,
+            initialStreamIndex: streamTabIndex,
+            initialContentTabIndex: attendanceTabIndex,
+          ),
+        ),
+      ),
     );
-    if (picked != null && mounted) {
-      setState(() {
-        _selectedDate = picked;
-        _selectedDateEpochDays = _dateToEpochDays(picked);
-      });
-    }
   }
 
   @override
@@ -187,24 +211,52 @@ class _TeacherAttendanceShellState extends State<_TeacherAttendanceShell> {
 
     if (term == null) return const _NoTermState();
 
+    final isLoading = _loadingClasses || _loadingConfig;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // ── Header bar ────────────────────────────────────────────────────
-        _AttendanceHeader(
-          config: _config,
-          availableClasses: _availableClasses,
-          selectedGrade: _selectedGrade,
-          selectedStream: _selectedStream,
-          selectedDate: _selectedDate,
-          onClassSelected: _selectClass,
-          onDateTap: () => _pickDate(context),
-          cs: cs,
+        // ── Header ────────────────────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
+          decoration: BoxDecoration(
+            color: cs.surface,
+            boxShadow: [
+              BoxShadow(
+                color: cs.shadow.withValues(alpha: 0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Attendance',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurface,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Select a class to mark attendance',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w300,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                ),
+              ),
+            ],
+          ),
         ),
 
         // ── Content ───────────────────────────────────────────────────────
         Expanded(
-          child: _loadingClasses
+          child: isLoading
               ? Center(
                   child: SizedBox(
                     width: 20,
@@ -217,22 +269,16 @@ class _TeacherAttendanceShellState extends State<_TeacherAttendanceShell> {
                 )
               : _availableClasses.isEmpty
               ? _EmptyClassesState(cs: cs)
-              : (_selectedGrade != null && _selectedStream != null)
-              ? _AttendanceMarkingList(
-                  key: ValueKey(
-                    '$_selectedGrade|$_selectedStream|$_selectedDateEpochDays',
-                  ),
-                  schoolId: widget.schoolContext.membership.school.id,
+              : _ClassList(
+                  classes: _availableClasses,
+                  config: _config,
+                  schoolId: _schoolId,
                   year: term.year,
                   term: term.term,
-                  grade: _selectedGrade!,
-                  stream: _selectedStream!,
-                  date: _selectedDateEpochDays,
-                  dao: _attendanceDao,
-                  config: _config,
+                  attendanceDao: _attendanceDao,
                   cs: cs,
-                )
-              : _EmptyClassesState(cs: cs),
+                  onClassTap: _navigateToClass,
+                ),
         ),
       ],
     );
@@ -240,188 +286,166 @@ class _TeacherAttendanceShellState extends State<_TeacherAttendanceShell> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Attendance header — class selector + date picker
+// Class list — each card shows grade + stream + today's marking status
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _AttendanceHeader extends StatelessWidget {
-  const _AttendanceHeader({
+class _ClassList extends StatelessWidget {
+  const _ClassList({
+    required this.classes,
     required this.config,
-    required this.availableClasses,
-    required this.selectedGrade,
-    required this.selectedStream,
-    required this.selectedDate,
-    required this.onClassSelected,
-    required this.onDateTap,
+    required this.schoolId,
+    required this.year,
+    required this.term,
+    required this.attendanceDao,
     required this.cs,
+    required this.onClassTap,
   });
 
-  final SchoolConfig config;
-  final List<({int grade, int stream})> availableClasses;
-  final int? selectedGrade;
-  final int? selectedStream;
-  final DateTime selectedDate;
-  final void Function(int grade, int stream) onClassSelected;
-  final VoidCallback onDateTap;
+  final List<({int grade, int stream})> classes;
+  final SchoolConfig? config;
+  final String schoolId;
+  final int year;
+  final int term;
+  final AttendanceDao attendanceDao;
   final ColorScheme cs;
+  final void Function(int grade, int stream) onClassTap;
 
   @override
   Widget build(BuildContext context) {
-    final isToday = _isSameDay(selectedDate, DateTime.now());
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-      decoration: BoxDecoration(
-        color: cs.surface,
-        boxShadow: [
-          BoxShadow(
-            color: cs.shadow.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
+      itemCount: classes.length,
+      itemBuilder: (context, index) {
+        final cls = classes[index];
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: _ClassCard(
+            grade: cls.grade,
+            stream: cls.stream,
+            config: config,
+            schoolId: schoolId,
+            year: year,
+            term: term,
+            attendanceDao: attendanceDao,
+            cs: cs,
+            onTap: () => onClassTap(cls.grade, cls.stream),
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Title row with date picker.
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Attendance',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurface,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-              ),
-              // Date chip.
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: onDateTap,
-                  borderRadius: BorderRadius.circular(AppTheme.kRadius),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 7,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isToday
-                          ? cs.primary.withValues(alpha: 0.08)
-                          : cs.surfaceContainerHighest.withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(AppTheme.kRadius),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.calendar_today_outlined,
-                          size: 14,
-                          color: isToday ? cs.primary : cs.onSurfaceVariant,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          isToday ? 'Today' : _fmtDate(selectedDate),
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w400,
-                            color: isToday ? cs.primary : cs.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Icon(
-                          Icons.expand_more_rounded,
-                          size: 16,
-                          color: isToday ? cs.primary : cs.onSurfaceVariant,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          if (availableClasses.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            // Class selector chips — horizontal scroll.
-            SizedBox(
-              height: 34,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: availableClasses.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 8),
-                itemBuilder: (context, index) {
-                  final cls = availableClasses[index];
-                  final isSelected =
-                      cls.grade == selectedGrade &&
-                      cls.stream == selectedStream;
-                  final label = _classLabel(cls.grade, cls.stream, config);
-
-                  return _ClassFilterChip(
-                    label: label,
-                    isSelected: isSelected,
-                    cs: cs,
-                    onTap: () => onClassSelected(cls.grade, cls.stream),
-                  );
-                },
-              ),
-            ),
-          ],
-        ],
-      ),
+        );
+      },
     );
   }
 }
 
-class _ClassFilterChip extends StatelessWidget {
-  const _ClassFilterChip({
-    required this.label,
-    required this.isSelected,
+// ─────────────────────────────────────────────────────────────────────────────
+// Class card — grade label + stream name + today's marking status badge
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ClassCard extends StatelessWidget {
+  const _ClassCard({
+    required this.grade,
+    required this.stream,
+    required this.config,
+    required this.schoolId,
+    required this.year,
+    required this.term,
+    required this.attendanceDao,
     required this.cs,
     required this.onTap,
   });
 
-  final String label;
-  final bool isSelected;
+  final int grade;
+  final int stream;
+  final SchoolConfig? config;
+  final String schoolId;
+  final int year;
+  final int term;
+  final AttendanceDao attendanceDao;
   final ColorScheme cs;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final gradeLabel = _gradeLabel(grade, config);
+    final streamLabel = _streamLabel(grade, stream, config);
+    final today = _dateToEpochDays(DateTime.now());
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(AppTheme.kRadius),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            color: isSelected
-                ? cs.primary.withValues(alpha: 0.12)
-                : cs.surfaceContainerHighest.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(AppTheme.kRadius),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: cs.primary.withValues(alpha: 0.1),
-                      blurRadius: 4,
-                      offset: const Offset(0, 1),
-                    ),
-                  ]
-                : null,
+            color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: cs.outline.withValues(alpha: 0.06)),
           ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
-              color: isSelected ? cs.primary : cs.onSurfaceVariant,
-            ),
+          child: Row(
+            children: [
+              // ── Class icon ─────────────────────────────────────────────
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: cs.primary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.class_outlined,
+                  size: 20,
+                  color: cs.primary.withValues(alpha: 0.7),
+                ),
+              ),
+              const SizedBox(width: 14),
+
+              // ── Labels ─────────────────────────────────────────────────
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      gradeLabel,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      streamLabel,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w300,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // ── Today's marking status ─────────────────────────────────
+              _TodayStatusBadge(
+                schoolId: schoolId,
+                year: year,
+                term: term,
+                grade: grade,
+                stream: stream,
+                date: today,
+                attendanceDao: attendanceDao,
+                cs: cs,
+              ),
+
+              const SizedBox(width: 8),
+
+              // ── Chevron ────────────────────────────────────────────────
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+              ),
+            ],
           ),
         ),
       ),
@@ -430,20 +454,18 @@ class _ClassFilterChip extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Attendance marking list — the core teacher experience
+// Today's marking status badge — reactive via stream
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _AttendanceMarkingList extends StatefulWidget {
-  const _AttendanceMarkingList({
-    super.key,
+class _TodayStatusBadge extends StatelessWidget {
+  const _TodayStatusBadge({
     required this.schoolId,
     required this.year,
     required this.term,
     required this.grade,
     required this.stream,
     required this.date,
-    required this.dao,
-    required this.config,
+    required this.attendanceDao,
     required this.cs,
   });
 
@@ -453,591 +475,79 @@ class _AttendanceMarkingList extends StatefulWidget {
   final int grade;
   final int stream;
   final int date;
-  final AttendanceDao dao;
-  final SchoolConfig config;
+  final AttendanceDao attendanceDao;
   final ColorScheme cs;
 
   @override
-  State<_AttendanceMarkingList> createState() => _AttendanceMarkingListState();
-}
-
-class _AttendanceMarkingListState extends State<_AttendanceMarkingList> {
-  // In-memory draft statuses — tracks what the user has toggled before save.
-  final Map<int, AttendanceStatus> _drafts = {};
-  bool _saving = false;
-  bool _hasUnsavedChanges = false;
-
-  String get _accountId => cache.currentUser!.user.id;
-
-  void _markAllPresent(List<StudentAttendanceRow> rows) {
-    setState(() {
-      for (final row in rows) {
-        final serverStatus = row.attendance?.status;
-        if (serverStatus != AttendanceStatus.present) {
-          _drafts[row.student.adm] = AttendanceStatus.present;
-        } else {
-          _drafts.remove(row.student.adm);
-        }
-      }
-      _hasUnsavedChanges = _drafts.isNotEmpty;
-    });
-  }
-
-  Future<void> _saveAll() async {
-    if (_drafts.isEmpty || _saving) return;
-    setState(() => _saving = true);
-
-    try {
-      await widget.dao.markClassAttendance(
-        schoolId: widget.schoolId,
-        year: widget.year,
-        term: widget.term,
-        grade: widget.grade,
-        stream: widget.stream,
-        date: widget.date,
-        statuses: Map.from(_drafts),
-        accountId: _accountId,
-      );
-
-      if (mounted) {
-        setState(() {
-          _drafts.clear();
-          _hasUnsavedChanges = false;
-          _saving = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-
-  /// Mark a single student immediately (zero extra taps after toggle).
-  Future<void> _markSingle(int studentAdm, AttendanceStatus status) async {
-    await widget.dao.markAttendance(
-      schoolId: widget.schoolId,
-      year: widget.year,
-      term: widget.term,
-      grade: widget.grade,
-      stream: widget.stream,
-      studentAdm: studentAdm,
-      date: widget.date,
-      status: status,
-      accountId: _accountId,
-    );
-    // Remove from drafts since it's now persisted.
-    if (mounted) {
-      setState(() {
-        _drafts.remove(studentAdm);
-        _hasUnsavedChanges = _drafts.isNotEmpty;
-      });
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final cs = widget.cs;
-
     return StreamBuilder<List<StudentAttendanceRow>>(
-      stream: widget.dao.watchClassAttendance(
-        schoolId: widget.schoolId,
-        year: widget.year,
-        term: widget.term,
-        grade: widget.grade,
-        stream: widget.stream,
-        date: widget.date,
+      stream: attendanceDao.watchClassAttendance(
+        schoolId: schoolId,
+        year: year,
+        term: term,
+        grade: grade,
+        stream: stream,
+        date: date,
       ),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting &&
-            !snapshot.hasData) {
+        if (!snapshot.hasData) {
           return const SizedBox.shrink();
         }
 
-        final rows = snapshot.data ?? [];
-
+        final rows = snapshot.data!;
         if (rows.isEmpty) {
-          return _EmptyStudentsState(cs: cs);
+          return _buildBadge(
+            label: 'No students',
+            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+            bgColor: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+          );
         }
 
-        // Compute summary.
-        int present = 0, absent = 0, leave = 0, unmarked = 0;
-        for (final row in rows) {
-          final draft = _drafts[row.student.adm];
-          final status = draft ?? row.attendance?.status;
-          if (status == null) {
-            unmarked++;
-          } else {
-            switch (status) {
-              case AttendanceStatus.present:
-                present++;
-              case AttendanceStatus.absent:
-                absent++;
-              case AttendanceStatus.leave:
-                leave++;
-            }
-          }
+        final total = rows.length;
+        final marked = rows.where((r) => r.isMarked).length;
+
+        if (marked == 0) {
+          return _buildBadge(
+            label: 'Not marked',
+            color: _kAbsentColor,
+            bgColor: _kAbsentColor.withValues(alpha: 0.08),
+          );
         }
 
-        return Column(
-          children: [
-            // ── Summary strip ─────────────────────────────────────────────
-            _SummaryStrip(
-              total: rows.length,
-              present: present,
-              absent: absent,
-              leave: leave,
-              unmarked: unmarked,
-              cs: cs,
-            ),
+        if (marked == total) {
+          return _buildBadge(
+            label: 'Fully marked',
+            color: _kPresentColor,
+            bgColor: _kPresentColor.withValues(alpha: 0.08),
+          );
+        }
 
-            // ── Action bar ────────────────────────────────────────────────
-            _ActionBar(
-              hasUnsavedChanges: _hasUnsavedChanges,
-              saving: _saving,
-              onMarkAllPresent: () => _markAllPresent(rows),
-              onSave: _saveAll,
-              cs: cs,
-            ),
-
-            // ── Student list ──────────────────────────────────────────────
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
-                itemCount: rows.length,
-                itemBuilder: (context, index) {
-                  final row = rows[index];
-                  final draftStatus = _drafts[row.student.adm];
-                  final currentStatus = draftStatus ?? row.attendance?.status;
-                  final isDirty = draftStatus != null;
-
-                  return _StudentAttendanceTile(
-                    student: row.student,
-                    currentStatus: currentStatus,
-                    isDirty: isDirty,
-                    cs: cs,
-                    onStatusChanged: (status) {
-                      // Instant save for individual toggles.
-                      _markSingle(row.student.adm, status);
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
+        return _buildBadge(
+          label: '$marked / $total marked',
+          color: _kLeaveColor,
+          bgColor: _kLeaveColor.withValues(alpha: 0.08),
         );
       },
     );
   }
-}
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Summary strip — compact attendance stats
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _SummaryStrip extends StatelessWidget {
-  const _SummaryStrip({
-    required this.total,
-    required this.present,
-    required this.absent,
-    required this.leave,
-    required this.unmarked,
-    required this.cs,
-  });
-
-  final int total;
-  final int present;
-  final int absent;
-  final int leave;
-  final int unmarked;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildBadge({
+    required String label,
+    required Color color,
+    required Color bgColor,
+  }) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(AppTheme.kRadius),
-      ),
-      child: Row(
-        children: [
-          _SummaryChip(
-            label: 'Total',
-            count: total,
-            color: cs.onSurfaceVariant,
-            cs: cs,
-          ),
-          const SizedBox(width: 16),
-          _SummaryChip(
-            label: 'Present',
-            count: present,
-            color: _kPresentColor,
-            cs: cs,
-          ),
-          const SizedBox(width: 16),
-          _SummaryChip(
-            label: 'Absent',
-            count: absent,
-            color: _kAbsentColor,
-            cs: cs,
-          ),
-          const SizedBox(width: 16),
-          _SummaryChip(
-            label: 'Leave',
-            count: leave,
-            color: _kLeaveColor,
-            cs: cs,
-          ),
-          if (unmarked > 0) ...[
-            const Spacer(),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: cs.errorContainer.withValues(alpha: 0.6),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                '$unmarked unmarked',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  color: cs.onErrorContainer,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _SummaryChip extends StatelessWidget {
-  const _SummaryChip({
-    required this.label,
-    required this.count,
-    required this.color,
-    required this.cs,
-  });
-
-  final String label;
-  final int count;
-  final Color color;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const SizedBox(width: 5),
-        Text(
-          '$count',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: cs.onSurface,
-          ),
-        ),
-        const SizedBox(width: 3),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11.5,
-            fontWeight: FontWeight.w300,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Action bar — Mark All Present + Save
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _ActionBar extends StatelessWidget {
-  const _ActionBar({
-    required this.hasUnsavedChanges,
-    required this.saving,
-    required this.onMarkAllPresent,
-    required this.onSave,
-    required this.cs,
-  });
-
-  final bool hasUnsavedChanges;
-  final bool saving;
-  final VoidCallback onMarkAllPresent;
-  final VoidCallback onSave;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-      child: Row(
-        children: [
-          // Mark All Present button.
-          _ActionButton(
-            icon: Icons.done_all_rounded,
-            label: 'Mark All Present',
-            color: _kPresentColor,
-            cs: cs,
-            onTap: onMarkAllPresent,
-          ),
-          const Spacer(),
-          if (hasUnsavedChanges || saving)
-            _ActionButton(
-              icon: saving ? Icons.hourglass_top_rounded : Icons.save_rounded,
-              label: saving ? 'Saving…' : 'Save All',
-              color: cs.primary,
-              cs: cs,
-              onTap: saving ? null : onSave,
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.cs,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-  final ColorScheme cs;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppTheme.kRadius),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(AppTheme.kRadius),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 15, color: color),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w500,
-                  color: color,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Student attendance tile — the tactile toggle experience
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _StudentAttendanceTile extends StatelessWidget {
-  const _StudentAttendanceTile({
-    required this.student,
-    required this.currentStatus,
-    required this.isDirty,
-    required this.cs,
-    required this.onStatusChanged,
-  });
-
-  final StudentsData student;
-  final AttendanceStatus? currentStatus;
-  final bool isDirty;
-  final ColorScheme cs;
-  final ValueChanged<AttendanceStatus> onStatusChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final bgColor = _tileBackground(currentStatus, cs);
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOutCubic,
-      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(AppTheme.kRadius),
-        boxShadow: [
-          BoxShadow(
-            color: cs.shadow.withValues(alpha: 0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 1),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(4),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Row(
-          children: [
-            // Student info.
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    student.name,
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w400,
-                      color: cs.onSurface,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Adm: ${student.adm}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w300,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Status toggle buttons.
-            _StatusToggleGroup(
-              currentStatus: currentStatus,
-              cs: cs,
-              onStatusChanged: onStatusChanged,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StatusToggleGroup extends StatelessWidget {
-  const _StatusToggleGroup({
-    required this.currentStatus,
-    required this.cs,
-    required this.onStatusChanged,
-  });
-
-  final AttendanceStatus? currentStatus;
-  final ColorScheme cs;
-  final ValueChanged<AttendanceStatus> onStatusChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      padding: const EdgeInsets.all(3),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _ToggleButton(
-            label: 'P',
-            isActive: currentStatus == AttendanceStatus.present,
-            activeColor: _kPresentColor,
-            cs: cs,
-            onTap: () => onStatusChanged(AttendanceStatus.present),
-          ),
-          const SizedBox(width: 2),
-          _ToggleButton(
-            label: 'A',
-            isActive: currentStatus == AttendanceStatus.absent,
-            activeColor: _kAbsentColor,
-            cs: cs,
-            onTap: () => onStatusChanged(AttendanceStatus.absent),
-          ),
-          const SizedBox(width: 2),
-          _ToggleButton(
-            label: 'L',
-            isActive: currentStatus == AttendanceStatus.leave,
-            activeColor: _kLeaveColor,
-            cs: cs,
-            onTap: () => onStatusChanged(AttendanceStatus.leave),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ToggleButton extends StatelessWidget {
-  const _ToggleButton({
-    required this.label,
-    required this.isActive,
-    required this.activeColor,
-    required this.cs,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool isActive;
-  final Color activeColor;
-  final ColorScheme cs;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        width: 34,
-        height: 30,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: isActive ? activeColor : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-          boxShadow: isActive
-              ? [
-                  BoxShadow(
-                    color: activeColor.withValues(alpha: 0.25),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                  ),
-                ]
-              : null,
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: isActive ? FontWeight.w500 : FontWeight.w400,
-            color: isActive
-                ? Colors.white
-                : cs.onSurfaceVariant.withValues(alpha: 0.6),
-          ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          color: color,
         ),
       ),
     );
@@ -1174,7 +684,7 @@ class _GuardianAttendanceViewState extends State<_GuardianAttendanceView> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Guardian summary card
+// Guardian summary card — term-wide stats
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _GuardianSummaryCard extends StatelessWidget {
@@ -1205,76 +715,48 @@ class _GuardianSummaryCard extends StatelessWidget {
       ),
       builder: (context, snapshot) {
         final data = snapshot.data;
-        final totalDays = data?.totalDays ?? 0;
         final present = data?.present ?? 0;
         final absent = data?.absent ?? 0;
         final leave = data?.leave ?? 0;
-        final rate = totalDays > 0 ? (present / totalDays * 100) : 0.0;
+        final total = present + absent + leave;
+        final rate = total > 0 ? (present / total * 100) : 0.0;
 
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: cs.surface,
-            borderRadius: BorderRadius.circular(AppTheme.kRadius),
-            boxShadow: [
-              BoxShadow(
-                color: cs.shadow.withValues(alpha: 0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            color: cs.surfaceContainerHighest.withValues(alpha: 0.35),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: cs.outline.withValues(alpha: 0.06)),
           ),
           child: Row(
             children: [
               // Attendance rate circle.
               _RateCircle(rate: rate, cs: cs),
               const SizedBox(width: 20),
-              // Stats.
+
+              // Stat pills.
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Wrap(
+                  spacing: 10,
+                  runSpacing: 8,
                   children: [
-                    Text(
-                      'Term Overview',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: cs.onSurface,
-                      ),
+                    _StatPill(
+                      label: 'Present',
+                      count: present,
+                      color: _kPresentColor,
+                      cs: cs,
                     ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        _StatPill(
-                          label: 'Present',
-                          count: present,
-                          color: _kPresentColor,
-                          cs: cs,
-                        ),
-                        const SizedBox(width: 10),
-                        _StatPill(
-                          label: 'Absent',
-                          count: absent,
-                          color: _kAbsentColor,
-                          cs: cs,
-                        ),
-                        const SizedBox(width: 10),
-                        _StatPill(
-                          label: 'Leave',
-                          count: leave,
-                          color: _kLeaveColor,
-                          cs: cs,
-                        ),
-                      ],
+                    _StatPill(
+                      label: 'Absent',
+                      count: absent,
+                      color: _kAbsentColor,
+                      cs: cs,
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '$totalDays school days recorded',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w300,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                      ),
+                    _StatPill(
+                      label: 'Leave',
+                      count: leave,
+                      color: _kLeaveColor,
+                      cs: cs,
                     ),
                   ],
                 ),
@@ -1295,9 +777,9 @@ class _RateCircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = rate >= 90
+    final color = rate >= 80
         ? _kPresentColor
-        : rate >= 75
+        : rate >= 60
         ? _kLeaveColor
         : _kAbsentColor;
 
@@ -1305,27 +787,22 @@ class _RateCircle extends StatelessWidget {
       width: 56,
       height: 56,
       child: Stack(
-        alignment: Alignment.center,
+        fit: StackFit.expand,
         children: [
-          SizedBox(
-            width: 56,
-            height: 56,
-            child: CircularProgressIndicator(
-              value: rate / 100,
-              strokeWidth: 4,
-              backgroundColor: cs.surfaceContainerHighest.withValues(
-                alpha: 0.5,
-              ),
-              valueColor: AlwaysStoppedAnimation(color),
-              strokeCap: StrokeCap.round,
-            ),
+          CircularProgressIndicator(
+            value: rate / 100,
+            strokeWidth: 4,
+            backgroundColor: cs.surfaceContainerHighest.withValues(alpha: 0.6),
+            color: color,
           ),
-          Text(
-            '${rate.round()}%',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: cs.onSurface,
+          Center(
+            child: Text(
+              '${rate.toStringAsFixed(0)}%',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: cs.onSurface,
+              ),
             ),
           ),
         ],
@@ -1350,27 +827,38 @@ class _StatPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(4),
       ),
-      child: Column(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 6),
           Text(
             '$count',
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: color,
+              color: cs.onSurface,
             ),
           ),
+          const SizedBox(width: 4),
           Text(
             label,
             style: TextStyle(
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: FontWeight.w300,
-              color: color.withValues(alpha: 0.8),
+              color: cs.onSurfaceVariant.withValues(alpha: 0.7),
             ),
           ),
         ],
@@ -1380,7 +868,7 @@ class _StatPill extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Attendance calendar — month view with colored dots
+// Guardian calendar — monthly calendar with attendance heatmap
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _AttendanceCalendar extends StatelessWidget {
@@ -1408,12 +896,6 @@ class _AttendanceCalendar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final canGoNext = DateTime(
-      calendarMonth.year,
-      calendarMonth.month + 1,
-    ).isBefore(DateTime(now.year, now.month + 1));
-
     return StreamBuilder<List<StudentAttendanceRecord>>(
       stream: dao.watchStudentAttendanceHistory(
         schoolId: schoolId,
@@ -1424,161 +906,141 @@ class _AttendanceCalendar extends StatelessWidget {
       builder: (context, snapshot) {
         final records = snapshot.data ?? [];
 
-        // Build a lookup of epochDays → status.
-        final statusMap = <int, AttendanceStatus>{};
+        // Build a map of date → status for fast lookup.
+        final statusByDate = <int, AttendanceStatus>{};
         for (final r in records) {
-          statusMap[r.date] = r.status;
+          statusByDate[r.date] = r.status;
         }
 
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: cs.surface,
-              borderRadius: BorderRadius.circular(AppTheme.kRadius),
-              boxShadow: [
-                BoxShadow(
-                  color: cs.shadow.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          children: [
+            // ── Month navigation ──────────────────────────────────────────
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  icon: Icon(
+                    Icons.chevron_left_rounded,
+                    size: 22,
+                    color: cs.onSurfaceVariant,
+                  ),
+                  onPressed: onPreviousMonth,
+                  splashRadius: 18,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  _fmtMonth(calendarMonth),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: Icon(
+                    Icons.chevron_right_rounded,
+                    size: 22,
+                    color: cs.onSurfaceVariant,
+                  ),
+                  onPressed: onNextMonth,
+                  splashRadius: 18,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
                 ),
               ],
             ),
-            child: Column(
-              children: [
-                // Month navigation.
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton(
-                      onPressed: onPreviousMonth,
-                      icon: Icon(
-                        Icons.chevron_left_rounded,
-                        color: cs.onSurfaceVariant,
-                        size: 20,
-                      ),
-                      splashRadius: 18,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 32,
-                        minHeight: 32,
-                      ),
-                    ),
-                    Text(
-                      _fmtMonth(calendarMonth),
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: cs.onSurface,
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: canGoNext ? onNextMonth : null,
-                      icon: Icon(
-                        Icons.chevron_right_rounded,
-                        color: canGoNext
-                            ? cs.onSurfaceVariant
-                            : cs.onSurfaceVariant.withValues(alpha: 0.2),
-                        size: 20,
-                      ),
-                      splashRadius: 18,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 32,
-                        minHeight: 32,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
 
-                // Day-of-week headers.
-                Row(
-                  children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-                      .map(
-                        (d) => Expanded(
-                          child: Center(
-                            child: Text(
-                              d,
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w400,
-                                color: cs.onSurfaceVariant.withValues(
-                                  alpha: 0.5,
-                                ),
-                              ),
-                            ),
+            const SizedBox(height: 12),
+
+            // ── Day-of-week headers ───────────────────────────────────────
+            Row(
+              children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+                  .map(
+                    (d) => Expanded(
+                      child: Center(
+                        child: Text(
+                          d,
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w500,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
                           ),
                         ),
-                      )
-                      .toList(),
-                ),
-                const SizedBox(height: 8),
-
-                // Calendar grid.
-                Expanded(child: _buildCalendarGrid(statusMap)),
-
-                // Legend.
-                const SizedBox(height: 12),
-                _CalendarLegend(cs: cs),
-              ],
+                      ),
+                    ),
+                  )
+                  .toList(),
             ),
-          ),
+            const SizedBox(height: 6),
+
+            // ── Calendar grid ─────────────────────────────────────────────
+            _buildCalendarGrid(statusByDate),
+
+            const SizedBox(height: 16),
+
+            // ── Legend ─────────────────────────────────────────────────────
+            _CalendarLegend(cs: cs),
+          ],
         );
       },
     );
   }
 
-  Widget _buildCalendarGrid(Map<int, AttendanceStatus> statusMap) {
+  Widget _buildCalendarGrid(Map<int, AttendanceStatus> statusByDate) {
+    final now = DateTime.now();
     final firstDay = DateTime(calendarMonth.year, calendarMonth.month, 1);
     final daysInMonth = DateTime(
       calendarMonth.year,
       calendarMonth.month + 1,
       0,
     ).day;
+    // Monday-based offset (Monday = 0, Sunday = 6).
+    final offset = (firstDay.weekday - 1) % 7;
 
-    // Monday = 1 in DateTime.weekday. We want Mon as first column.
-    final startWeekday = firstDay.weekday; // 1=Mon .. 7=Sun
-    final leadingBlanks = startWeekday - 1;
-
-    final totalCells = leadingBlanks + daysInMonth;
+    final totalCells = offset + daysInMonth;
     final rows = (totalCells / 7).ceil();
-    final today = DateTime.now();
 
     return Column(
-      children: List.generate(rows, (rowIdx) {
-        return Expanded(
-          child: Row(
-            children: List.generate(7, (colIdx) {
-              final cellIndex = rowIdx * 7 + colIdx;
-              if (cellIndex < leadingBlanks ||
-                  cellIndex >= leadingBlanks + daysInMonth) {
-                return const Expanded(child: SizedBox.shrink());
-              }
+      children: List.generate(rows, (row) {
+        return Row(
+          children: List.generate(7, (col) {
+            final cellIndex = row * 7 + col;
+            final dayNum = cellIndex - offset + 1;
 
-              final day = cellIndex - leadingBlanks + 1;
-              final date = DateTime(
-                calendarMonth.year,
-                calendarMonth.month,
-                day,
-              );
-              final epochDays = _dateToEpochDays(date);
-              final status = statusMap[epochDays];
-              final isToday = _isSameDay(date, today);
-              final isFuture = date.isAfter(today);
+            if (dayNum < 1 || dayNum > daysInMonth) {
+              return const Expanded(child: SizedBox(height: 36));
+            }
 
-              return Expanded(
-                child: _CalendarDayCell(
-                  day: day,
-                  status: status,
-                  isToday: isToday,
-                  isFuture: isFuture,
-                  cs: cs,
-                ),
-              );
-            }),
-          ),
+            final date = DateTime(
+              calendarMonth.year,
+              calendarMonth.month,
+              dayNum,
+            );
+            final epochDays = _dateToEpochDays(date);
+            final status = statusByDate[epochDays];
+            final isToday = _isSameDay(date, now);
+            final isFuture = date.isAfter(now);
+
+            return Expanded(
+              child: _CalendarDayCell(
+                day: dayNum,
+                status: status,
+                isToday: isToday,
+                isFuture: isFuture,
+                cs: cs,
+              ),
+            );
+          }),
         );
       }),
     );
@@ -1602,58 +1064,48 @@ class _CalendarDayCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color? bgColor;
-    Color textColor = cs.onSurface;
+    final isDark = cs.brightness == Brightness.dark;
+    Color bgColor;
+    Color textColor;
 
     if (isFuture) {
-      textColor = cs.onSurfaceVariant.withValues(alpha: 0.25);
+      bgColor = Colors.transparent;
+      textColor = cs.onSurfaceVariant.withValues(alpha: 0.2);
     } else if (status != null) {
-      bgColor = switch (status!) {
-        AttendanceStatus.present => _kPresentColor.withValues(alpha: 0.12),
-        AttendanceStatus.absent => _kAbsentColor.withValues(alpha: 0.12),
-        AttendanceStatus.leave => _kLeaveColor.withValues(alpha: 0.12),
-      };
-      textColor = switch (status!) {
-        AttendanceStatus.present => _kPresentColor,
-        AttendanceStatus.absent => _kAbsentColor,
-        AttendanceStatus.leave => _kLeaveColor,
-      };
+      switch (status!) {
+        case AttendanceStatus.present:
+          bgColor = _kPresentColor.withValues(alpha: isDark ? 0.25 : 0.15);
+          textColor = _kPresentColor;
+        case AttendanceStatus.absent:
+          bgColor = _kAbsentColor.withValues(alpha: isDark ? 0.25 : 0.15);
+          textColor = _kAbsentColor;
+        case AttendanceStatus.leave:
+          bgColor = _kLeaveColor.withValues(alpha: isDark ? 0.25 : 0.15);
+          textColor = _kLeaveColor;
+      }
+    } else {
+      bgColor = Colors.transparent;
+      textColor = cs.onSurfaceVariant.withValues(alpha: 0.5);
     }
 
-    return Center(
-      child: Container(
-        width: 32,
-        height: 32,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(8),
-          border: isToday
-              ? Border.all(color: cs.primary.withValues(alpha: 0.4), width: 1.5)
-              : null,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '$day',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isToday ? FontWeight.w500 : FontWeight.w400,
-                color: textColor,
-              ),
-            ),
-            if (status != null)
-              Container(
-                margin: const EdgeInsets.only(top: 1),
-                width: 4,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: textColor,
-                  shape: BoxShape.circle,
-                ),
-              ),
-          ],
+    return Container(
+      height: 36,
+      margin: const EdgeInsets.all(1.5),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(3),
+        border: isToday
+            ? Border.all(color: cs.primary.withValues(alpha: 0.6), width: 1.5)
+            : null,
+      ),
+      child: Center(
+        child: Text(
+          '$day',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: isToday ? FontWeight.w500 : FontWeight.w400,
+            color: isToday ? cs.primary : textColor,
+          ),
         ),
       ),
     );
@@ -1697,20 +1149,20 @@ class _LegendItem extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 8,
-          height: 8,
+          width: 10,
+          height: 10,
           decoration: BoxDecoration(
-            color: color,
+            color: color.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(2),
           ),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: 5),
         Text(
           label,
           style: TextStyle(
             fontSize: 10.5,
-            fontWeight: FontWeight.w300,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+            fontWeight: FontWeight.w400,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
           ),
         ),
       ],
@@ -1719,7 +1171,7 @@ class _LegendItem extends StatelessWidget {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// EMPTY / PLACEHOLDER STATES
+// Empty / Error states
 // ═════════════════════════════════════════════════════════════════════════════
 
 class _NoTermState extends StatelessWidget {
@@ -1732,27 +1184,35 @@ class _NoTermState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.event_busy_outlined,
-            size: 36,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.3),
-          ),
-          const SizedBox(height: 14),
-          Text(
-            'No active term',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.calendar_today_outlined,
+              size: 22,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.3),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 18),
           Text(
-            'Create or select a term to begin tracking attendance.',
+            'No terms configured',
+            style: TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurface,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            'Create a term to start taking attendance',
             style: TextStyle(
               fontSize: 12,
-              fontWeight: FontWeight.w300,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.35),
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
             ),
           ),
         ],
@@ -1773,63 +1233,32 @@ class _EmptyClassesState extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 48,
-            height: 48,
+            width: 52,
+            height: 52,
             decoration: BoxDecoration(
               color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
-              Icons.groups_outlined,
+              Icons.people_outline_rounded,
               size: 22,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.35),
+              color: cs.onSurfaceVariant.withValues(alpha: 0.3),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 18),
           Text(
-            'No classes with enrolled students',
+            'No classes found',
             style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+              fontSize: 13.5,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurface,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 5),
           Text(
-            'Enroll students into classes to start taking attendance.',
+            'Enroll students into classes to mark attendance',
             style: TextStyle(
               fontSize: 12,
-              fontWeight: FontWeight.w300,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.35),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmptyStudentsState extends StatelessWidget {
-  const _EmptyStudentsState({required this.cs});
-
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.person_search_outlined,
-            size: 36,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.3),
-          ),
-          const SizedBox(height: 14),
-          Text(
-            'No students in this class',
-            style: TextStyle(
-              fontSize: 13,
               fontWeight: FontWeight.w400,
               color: cs.onSurfaceVariant.withValues(alpha: 0.5),
             ),
@@ -1841,26 +1270,12 @@ class _EmptyStudentsState extends StatelessWidget {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// HELPERS
+// Shared helpers
 // ═════════════════════════════════════════════════════════════════════════════
-
-// ── Status colors ────────────────────────────────────────────────────────────
-// Muted, brand-aligned colors for attendance states. Slightly desaturated
-// to keep the UI feeling composed rather than flashy.
 
 const Color _kPresentColor = Color(0xFF4CAF50); // muted green
 const Color _kAbsentColor = Color(0xFFEF5350); // muted red
 const Color _kLeaveColor = Color(0xFFFFA726); // muted amber
-
-/// Returns a very subtle tinted background for attendance tiles.
-Color _tileBackground(AttendanceStatus? status, ColorScheme cs) {
-  if (status == null) return cs.surface;
-  return switch (status) {
-    AttendanceStatus.present => _kPresentColor.withValues(alpha: 0.04),
-    AttendanceStatus.absent => _kAbsentColor.withValues(alpha: 0.04),
-    AttendanceStatus.leave => _kLeaveColor.withValues(alpha: 0.04),
-  };
-}
 
 /// Converts a [DateTime] to days since Unix epoch (matching the schema's
 /// `integer` date columns).
@@ -1873,25 +1288,7 @@ int _dateToEpochDays(DateTime dt) {
 bool _isSameDay(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;
 
-String _fmtDate(DateTime d) =>
-    '${d.day.toString().padLeft(2, '0')} ${_months[d.month - 1]} ${d.year}';
-
 String _fmtMonth(DateTime d) => '${_monthsFull[d.month - 1]} ${d.year}';
-
-const _months = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
 
 const _monthsFull = [
   'January',
@@ -1908,14 +1305,8 @@ const _monthsFull = [
   'December',
 ];
 
-/// Returns a compact "Grade X · Stream Y" label for a class.
-String _classLabel(int grade, int stream, SchoolConfig config) {
-  final gl = _gradeLabel(grade, config);
-  final sl = _streamLabel(grade, stream, config);
-  return '$gl · $sl';
-}
-
-String _gradeLabel(int grade, SchoolConfig config) {
+String _gradeLabel(int grade, SchoolConfig? config) {
+  if (config == null) return 'Grade $grade';
   for (final c in config.curricula) {
     final labels = gradeLabelsFor(c.type);
     if (labels.containsKey(grade)) return labels[grade]!;
@@ -1923,7 +1314,8 @@ String _gradeLabel(int grade, SchoolConfig config) {
   return 'Grade $grade';
 }
 
-String _streamLabel(int grade, int streamCode, SchoolConfig config) {
+String _streamLabel(int grade, int streamCode, SchoolConfig? config) {
+  if (config == null) return 'Stream $streamCode';
   for (final c in config.curricula) {
     final gc = c.grades.where((g) => g.grade == grade).firstOrNull;
     if (gc != null) {

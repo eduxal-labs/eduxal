@@ -83,93 +83,101 @@ class EduTabBar extends StatelessWidget {
     final bool iconOnly = tabs.every((t) => t.label == null && t.icon != null);
     final double stripHeight = height ?? (iconOnly ? 36.0 : 38.0);
 
-    return Padding(
-      padding:
-          padding ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Container(
-        height: stripHeight,
-        padding: const EdgeInsets.all(3),
-        decoration: BoxDecoration(
-          color: isDark
-              ? cs.surfaceContainerHighest.withValues(alpha: 0.6)
-              : cs.surfaceContainerHighest.withValues(alpha: 0.45),
-          borderRadius: BorderRadius.circular(10),
+    Widget strip = Container(
+      height: stripHeight,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: isDark
+            ? cs.surfaceContainerHighest.withValues(alpha: 0.6)
+            : cs.surfaceContainerHighest.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.08 : 0.03),
+            blurRadius: 2,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: TabBar(
+        controller: controller,
+        isScrollable: isScrollable,
+        tabAlignment: isScrollable ? TabAlignment.start : TabAlignment.fill,
+        splashBorderRadius: BorderRadius.circular(8),
+        dividerColor: Colors.transparent,
+        dividerHeight: 0,
+        indicatorSize: TabBarIndicatorSize.tab,
+        indicator: BoxDecoration(
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(8),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.08 : 0.03),
-              blurRadius: 2,
-              offset: const Offset(0, 1),
+              color: Colors.black.withValues(alpha: isDark ? 0.16 : 0.07),
+              blurRadius: 5,
+              offset: const Offset(0, 1.5),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.06 : 0.02),
+              blurRadius: 1,
+              offset: const Offset(0, 0.5),
             ),
           ],
         ),
-        child: TabBar(
-          controller: controller,
-          isScrollable: isScrollable,
-          tabAlignment: isScrollable ? TabAlignment.start : TabAlignment.fill,
-          splashBorderRadius: BorderRadius.circular(8),
-          dividerColor: Colors.transparent,
-          dividerHeight: 0,
-          indicatorSize: TabBarIndicatorSize.tab,
-          indicator: BoxDecoration(
-            color: cs.surface,
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.16 : 0.07),
-                blurRadius: 5,
-                offset: const Offset(0, 1.5),
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.06 : 0.02),
-                blurRadius: 1,
-                offset: const Offset(0, 0.5),
-              ),
-            ],
-          ),
-          labelColor: cs.onSurface,
-          unselectedLabelColor: cs.onSurfaceVariant.withValues(alpha: 0.7),
-          labelPadding: isScrollable
-              ? const EdgeInsets.symmetric(horizontal: 16)
-              : EdgeInsets.zero,
-          labelStyle: const TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w500,
-            letterSpacing: 0.15,
-          ),
-          unselectedLabelStyle: const TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w400,
-            letterSpacing: 0.15,
-          ),
-          overlayColor: WidgetStateProperty.all(Colors.transparent),
-          splashFactory: NoSplash.splashFactory,
-          tabs: tabs.map((tab) {
-            if (iconOnly) {
-              return Tab(
-                height: stripHeight - 8, // account for container padding
-                icon: Icon(tab.icon, size: 17),
-              );
-            }
-            if (tab.icon != null && tab.label != null) {
-              // Combined: icon + label
-              return Tab(
-                height: stripHeight - 8,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(tab.icon, size: 15),
-                    const SizedBox(width: 6),
-                    Text(tab.label!),
-                  ],
-                ),
-              );
-            }
-            // Text-only (the common case for inner pages)
-            return Tab(height: stripHeight - 8, text: tab.label ?? '');
-          }).toList(),
+        labelColor: cs.onSurface,
+        unselectedLabelColor: cs.onSurfaceVariant.withValues(alpha: 0.7),
+        labelPadding: isScrollable
+            ? const EdgeInsets.symmetric(horizontal: 16)
+            : EdgeInsets.zero,
+        labelStyle: const TextStyle(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0.15,
         ),
+        unselectedLabelStyle: const TextStyle(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w400,
+          letterSpacing: 0.15,
+        ),
+        overlayColor: WidgetStateProperty.all(Colors.transparent),
+        splashFactory: NoSplash.splashFactory,
+        tabs: tabs.map((tab) {
+          if (iconOnly) {
+            return Tab(
+              height: stripHeight - 8, // account for container padding
+              icon: Icon(tab.icon, size: 17),
+            );
+          }
+          if (tab.icon != null && tab.label != null) {
+            // Combined: icon + label
+            return Tab(
+              height: stripHeight - 8,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(tab.icon, size: 15),
+                  const SizedBox(width: 6),
+                  Text(tab.label!),
+                ],
+              ),
+            );
+          }
+          // Text-only (the common case for inner pages)
+          return Tab(height: stripHeight - 8, text: tab.label ?? '');
+        }).toList(),
       ),
+    );
+
+    // When scrollable, don't force the strip to fill the full width —
+    // let it hug its content and sit at the left edge.
+    if (isScrollable) {
+      strip = Align(alignment: Alignment.centerLeft, child: strip);
+    }
+
+    return Padding(
+      padding:
+          padding ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: strip,
     );
   }
 }

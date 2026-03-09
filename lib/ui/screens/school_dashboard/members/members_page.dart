@@ -1,16 +1,27 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
+import '../../../../cache/file_cache.dart';
+import '../../../../client.dart';
 import '../../../../database/database.dart';
+import '../../../../database/daos/departments_dao.dart';
 import '../../../../database/daos/members_dao.dart';
+import '../../../../database/daos/settings_dao.dart';
+import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../database/tables/enums.dart';
+import '../../../../models/curriculum_levels.dart';
+import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
 import '../../../widgets/edu_tab_bar.dart';
 import '../../../widgets/status_indicator.dart';
 import '../../../widgets/user_avatar.dart';
+import '../../../../services/member_management.dart';
 import '../../../widgets/member_creation/add_guardian_panel.dart';
+import 'student_detail_page.dart';
 import '../../../widgets/member_creation/add_owner_panel.dart';
 import '../../../widgets/member_creation/add_staff_panel.dart';
 import '../../../widgets/member_creation/add_student_panel.dart';
@@ -34,7 +45,7 @@ class MembersPage extends StatelessWidget {
 // Tabs enum for clarity
 // ─────────────────────────────────────────────────────────────────────────────
 
-enum _MemberTab { owners, teachers, staff, students, guardians }
+enum _MemberTab { departments, owners, teachers, staff, students, guardians }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Page body — TabController host
@@ -86,6 +97,8 @@ class _MembersPageBodyState extends State<_MembersPageBody>
 
   Future<void> _onFabPressed() async {
     switch (_currentTab) {
+      case _MemberTab.departments:
+        _showCreateDepartment();
       case _MemberTab.owners:
         await showAddOwnerPanel(context: context, schoolId: _schoolId);
       case _MemberTab.teachers:
@@ -100,33 +113,27 @@ class _MembersPageBodyState extends State<_MembersPageBody>
     }
   }
 
+  void _showCreateDepartment() {
+    final cs = Theme.of(context).colorScheme;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: cs.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
+      ),
+      builder: (ctx) =>
+          _CreateDepartmentSheet(schoolId: _schoolId, dao: DepartmentsDao(db)),
+    );
+  }
+
   Future<void> _pickStudentThenAddGuardian() async {
-    final students =
-        await (db.select(db.students)
-              ..where(
-                (t) =>
-                    t.school.equals(_schoolId) &
-                    t.status.equals(StudentStatus.active.index),
-              )
-              ..orderBy([(t) => OrderingTerm.asc(t.adm)]))
-            .get();
-
-    if (students.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Add a student first before linking a guardian.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
     if (!mounted) return;
     final picked = await showModalBottomSheet<StudentsData>(
       context: context,
       isScrollControlled: true,
-      builder: (ctx) => _StudentPickerSheet(students: students),
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _StudentPickerSheet(schoolId: _schoolId),
     );
 
     if (picked == null || !mounted) return;
@@ -155,7 +162,9 @@ class _MembersPageBodyState extends State<_MembersPageBody>
           EduTabBar(
             controller: _tabController,
             isScrollable: true,
+            padding: const EdgeInsets.only(left: 16, top: 8, bottom: 8),
             tabs: const [
+              EduTab(label: 'Departments'),
               EduTab(label: 'Owners'),
               EduTab(label: 'Teachers'),
               EduTab(label: 'Staff'),
@@ -169,6 +178,7 @@ class _MembersPageBodyState extends State<_MembersPageBody>
             child: TabBarView(
               controller: _tabController,
               children: [
+                _DepartmentsTab(schoolId: _schoolId),
                 _OwnersTab(schoolId: _schoolId, dao: _dao),
                 _TeachersTab(schoolId: _schoolId, dao: _dao),
                 _StaffTab(schoolId: _schoolId, dao: _dao),
@@ -194,6 +204,7 @@ class _MembersFab extends StatelessWidget {
   final VoidCallback onPressed;
 
   String get _tooltip => switch (tab) {
+    _MemberTab.departments => 'Add Department',
     _MemberTab.owners => 'Add Owner',
     _MemberTab.teachers => 'Add Teacher',
     _MemberTab.staff => 'Add Staff',
@@ -204,17 +215,220 @@ class _MembersFab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final isDark = cs.brightness == Brightness.dark;
 
-    return FloatingActionButton(
+    return FloatingActionButton.small(
       onPressed: onPressed,
       tooltip: _tooltip,
-      elevation: isDark ? 4 : 2,
+      elevation: 4,
+      highlightElevation: 6,
       backgroundColor: cs.primary,
       foregroundColor: cs.onPrimary,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: const Icon(Icons.add, size: 22),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: const Icon(Icons.add, size: 20),
     );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Departments tab
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _DepartmentsTab extends StatefulWidget {
+  const _DepartmentsTab({required this.schoolId});
+  final String schoolId;
+
+  @override
+  State<_DepartmentsTab> createState() => _DepartmentsTabState();
+}
+
+class _DepartmentsTabState extends State<_DepartmentsTab> {
+  late final DepartmentsDao _dao;
+
+  @override
+  void initState() {
+    super.initState();
+    _dao = DepartmentsDao(db);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    return StreamBuilder<List<Department>>(
+      stream: _dao.watchDepartments(widget.schoolId),
+      builder: (context, snap) {
+        if (!snap.hasData) {
+          return const Center(
+            child: CircularProgressIndicator(strokeWidth: 1.5),
+          );
+        }
+        final depts = snap.data!;
+        if (depts.isEmpty) {
+          return _EmptyTab(
+            icon: Icons.domain_outlined,
+            label: 'No departments',
+            hint: 'Create one to organise teachers and staff.',
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: depts.length,
+          itemBuilder: (context, index) {
+            final dept = depts[index];
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Material(
+                color: isDark
+                    ? cs.surfaceContainerHighest.withValues(alpha: 0.4)
+                    : cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(6),
+                child: InkWell(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => _DepartmentDetailScreen(
+                          dept: dept,
+                          schoolId: widget.schoolId,
+                          dao: _dao,
+                        ),
+                      ),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(6),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                dept.name,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: cs.onSurface,
+                                ),
+                              ),
+                              if (dept.description != null &&
+                                  dept.description!.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Text(
+                                    dept.description!,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w400,
+                                      color: cs.onSurfaceVariant.withValues(
+                                        alpha: 0.55,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        InkWell(
+                          onTap: () => _confirmDeleteDepartment(context, dept),
+                          borderRadius: BorderRadius.circular(4),
+                          child: Padding(
+                            padding: const EdgeInsets.all(6),
+                            child: Icon(
+                              Icons.delete_outline_rounded,
+                              size: 16,
+                              color: cs.error.withValues(alpha: 0.45),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          size: 18,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _confirmDeleteDepartment(
+    BuildContext context,
+    Department dept,
+  ) async {
+    final cs = Theme.of(context).colorScheme;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: cs.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        title: Text(
+          'Delete "${dept.name}"?',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            color: cs.onSurface,
+          ),
+        ),
+        content: Text(
+          'This department will be permanently removed.',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              'Delete',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: cs.error,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      final user = cache.currentUser?.user;
+      if (user != null) {
+        await _dao.deleteDepartment(
+          widget.schoolId,
+          dept.name,
+          accountId: user.id,
+        );
+      }
+    }
   }
 }
 
@@ -282,14 +496,49 @@ class _OwnerRow extends StatelessWidget {
 
   void _openDetail(BuildContext context, UsersData? user) {
     if (user == null) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => _MemberDetailStub(
-          user: user,
-          roleLabel: 'Owner',
-          schoolId: schoolId,
-        ),
-      ),
+    final w = MediaQuery.sizeOf(context).width;
+    if (w >= 600) {
+      _showOwnerSideSheet(context, user);
+    } else {
+      _showOwnerBottomSheet(context, user);
+    }
+  }
+
+  void _showOwnerBottomSheet(BuildContext context, UsersData user) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _OwnerInfoSheet(user: user, schoolId: schoolId),
+    );
+  }
+
+  void _showOwnerSideSheet(BuildContext context, UsersData user) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss',
+      barrierColor: Colors.black.withValues(alpha: 0.35),
+      transitionDuration: const Duration(milliseconds: 250),
+      pageBuilder: (ctx, anim, anim2) {
+        return Align(
+          alignment: Alignment.centerRight,
+          child: _OwnerInfoSheet(
+            user: user,
+            schoolId: schoolId,
+            isSideSheet: true,
+          ),
+        );
+      },
+      transitionBuilder: (ctx, anim, anim2, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1, 0),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+          child: child,
+        );
+      },
     );
   }
 }
@@ -358,22 +607,53 @@ class _TeacherRow extends StatelessWidget {
           trailing: _statusChip(context, teacher.status),
           onTap: () {
             if (user == null) return;
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => _MemberDetailStub(
-                  user: user,
-                  roleLabel: 'Teacher',
-                  schoolId: schoolId,
-                  extra: {
-                    if (teacher.role != null) 'Role': teacher.role!,
-                    if (teacher.department != null)
-                      'Department': teacher.department!,
-                    'Status': teacher.status.name,
-                  },
-                ),
-              ),
-            );
+            final w = MediaQuery.sizeOf(context).width;
+            if (w >= 600) {
+              _showTeacherSideSheet(context, user);
+            } else {
+              _showTeacherBottomSheet(context, user);
+            }
           },
+        );
+      },
+    );
+  }
+
+  void _showTeacherBottomSheet(BuildContext context, UsersData user) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) =>
+          _TeacherInfoSheet(user: user, teacher: teacher, schoolId: schoolId),
+    );
+  }
+
+  void _showTeacherSideSheet(BuildContext context, UsersData user) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss',
+      barrierColor: Colors.black.withValues(alpha: 0.35),
+      transitionDuration: const Duration(milliseconds: 250),
+      pageBuilder: (ctx, anim, anim2) {
+        return Align(
+          alignment: Alignment.centerRight,
+          child: _TeacherInfoSheet(
+            user: user,
+            teacher: teacher,
+            schoolId: schoolId,
+            isSideSheet: true,
+          ),
+        );
+      },
+      transitionBuilder: (ctx, anim, anim2, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1, 0),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+          child: child,
         );
       },
     );
@@ -450,22 +730,53 @@ class _StaffRow extends StatelessWidget {
           trailing: _statusChip(context, member.status),
           onTap: () {
             if (user == null) return;
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => _MemberDetailStub(
-                  user: user,
-                  roleLabel: 'Staff',
-                  schoolId: schoolId,
-                  extra: {
-                    if (member.role != null) 'Role': member.role!,
-                    if (member.department != null)
-                      'Department': member.department!,
-                    'Status': member.status.name,
-                  },
-                ),
-              ),
-            );
+            final w = MediaQuery.sizeOf(context).width;
+            if (w >= 600) {
+              _showStaffSideSheet(context, user);
+            } else {
+              _showStaffBottomSheet(context, user);
+            }
           },
+        );
+      },
+    );
+  }
+
+  void _showStaffBottomSheet(BuildContext context, UsersData user) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) =>
+          _StaffInfoSheet(user: user, member: member, schoolId: schoolId),
+    );
+  }
+
+  void _showStaffSideSheet(BuildContext context, UsersData user) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss',
+      barrierColor: Colors.black.withValues(alpha: 0.35),
+      transitionDuration: const Duration(milliseconds: 250),
+      pageBuilder: (ctx, anim, anim2) {
+        return Align(
+          alignment: Alignment.centerRight,
+          child: _StaffInfoSheet(
+            user: user,
+            member: member,
+            schoolId: schoolId,
+            isSideSheet: true,
+          ),
+        );
+      },
+      transitionBuilder: (ctx, anim, anim2, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1, 0),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+          child: child,
         );
       },
     );
@@ -491,7 +802,7 @@ class _StudentsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<StudentsData>>(
-      stream: dao.watchStudents(schoolId),
+      stream: dao.watchAllStudents(schoolId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting &&
             !snapshot.hasData) {
@@ -526,7 +837,7 @@ class _StudentRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    final subtitle = 'Adm #${student.adm}';
+    final subtitle = '${student.adm}';
 
     return _BaseTile(
       leading: _StudentAvatar(
@@ -541,11 +852,58 @@ class _StudentRow extends StatelessWidget {
           ? _SmallChip(label: student.status.name, cs: cs)
           : null,
       onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) =>
-                _StudentDetailStub(student: student, schoolId: schoolId),
+        final w = MediaQuery.sizeOf(context).width;
+        if (w >= 600) {
+          _showStudentSideSheet(context);
+        } else {
+          _showStudentBottomSheet(context);
+        }
+      },
+    );
+  }
+
+  void _showStudentBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.9,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (ctx, scrollCtrl) => StudentDetailSheet(
+          initialStudent: student,
+          schoolId: schoolId,
+          scrollController: scrollCtrl,
+        ),
+      ),
+    );
+  }
+
+  void _showStudentSideSheet(BuildContext context) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss',
+      barrierColor: Colors.black.withValues(alpha: 0.35),
+      transitionDuration: const Duration(milliseconds: 250),
+      pageBuilder: (ctx, anim, anim2) {
+        return Align(
+          alignment: Alignment.centerRight,
+          child: StudentDetailSheet(
+            initialStudent: student,
+            schoolId: schoolId,
+            isSideSheet: true,
           ),
+        );
+      },
+      transitionBuilder: (ctx, anim, anim2, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1, 0),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+          child: child,
         );
       },
     );
@@ -564,8 +922,8 @@ class _GuardiansTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<GuardiansData>>(
-      stream: dao.watchAllGuardians(schoolId),
+    return StreamBuilder<List<({UsersData user, int wardCount})>>(
+      stream: dao.watchUniqueGuardians(schoolId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting &&
             !snapshot.hasData) {
@@ -582,83 +940,88 @@ class _GuardiansTab extends StatelessWidget {
         return _MemberListView(
           itemCount: list.length,
           itemBuilder: (context, i) {
-            final g = list[i];
-            return _GuardianRow(schoolId: schoolId, guardian: g);
-          },
-        );
-      },
-    );
-  }
-}
-
-class _GuardianRow extends StatelessWidget {
-  const _GuardianRow({required this.schoolId, required this.guardian});
-  final String schoolId;
-  final GuardiansData guardian;
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<_GuardianResolved?>(
-      future: _resolve(),
-      builder: (context, snap) {
-        final resolved = snap.data;
-        final user = resolved?.user;
-        final ward = resolved?.ward;
-
-        final parts = <String>[];
-        if (user?.phone != null) parts.add(user!.phone);
-        if (ward != null) parts.add('Ward: ${ward.name}');
-        parts.add(guardian.relationship.name);
-
-        return _MemberTile(
-          userId: guardian.user,
-          name: user?.name ?? '…',
-          subtitle: parts.join('  ·  '),
-          status: user?.status,
-          level: user?.level,
-          trailing: _roleChip(context, guardian.role),
-          onTap: () {
-            if (user == null) return;
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => _MemberDetailStub(
-                  user: user,
-                  roleLabel: 'Guardian',
-                  schoolId: schoolId,
-                  extra: {
-                    'Relationship': guardian.relationship.name,
-                    'Role': guardian.role.name,
-                    if (ward != null) 'Ward': ward.name,
-                    if (ward != null) 'Ward Adm': '${ward.adm}',
-                  },
-                ),
-              ),
+            final item = list[i];
+            return _UniqueGuardianRow(
+              schoolId: schoolId,
+              user: item.user,
+              wardCount: item.wardCount,
             );
           },
         );
       },
     );
   }
-
-  Future<_GuardianResolved?> _resolve() async {
-    final membersDao = MembersDao(db);
-    final user = await membersDao.findUserById(guardian.user);
-    final ward = await membersDao.getStudent(schoolId, guardian.student);
-    if (user == null) return null;
-    return _GuardianResolved(user: user, ward: ward);
-  }
-
-  Widget? _roleChip(BuildContext context, GuardianRole role) {
-    if (role == GuardianRole.primary) return null;
-    final cs = Theme.of(context).colorScheme;
-    return _SmallChip(label: role.name, cs: cs);
-  }
 }
 
-class _GuardianResolved {
-  const _GuardianResolved({required this.user, this.ward});
+class _UniqueGuardianRow extends StatelessWidget {
+  const _UniqueGuardianRow({
+    required this.schoolId,
+    required this.user,
+    required this.wardCount,
+  });
+
+  final String schoolId;
   final UsersData user;
-  final StudentsData? ward;
+  final int wardCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return _MemberTile(
+      userId: user.id,
+      name: user.name,
+      subtitle: '${user.phone}  ·  $wardCount ward${wardCount == 1 ? '' : 's'}',
+      status: user.status,
+      level: user.level,
+      onTap: () => _openDetail(context),
+    );
+  }
+
+  void _openDetail(BuildContext context) {
+    final w = MediaQuery.sizeOf(context).width;
+    if (w >= 600) {
+      _showGuardianSideSheet(context);
+    } else {
+      _showGuardianBottomSheet(context);
+    }
+  }
+
+  void _showGuardianBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _GuardianWardsSheet(user: user, schoolId: schoolId),
+    );
+  }
+
+  void _showGuardianSideSheet(BuildContext context) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss',
+      barrierColor: Colors.black.withValues(alpha: 0.35),
+      transitionDuration: const Duration(milliseconds: 250),
+      pageBuilder: (ctx, anim, anim2) {
+        return Align(
+          alignment: Alignment.centerRight,
+          child: _GuardianWardsSheet(
+            user: user,
+            schoolId: schoolId,
+            isSideSheet: true,
+          ),
+        );
+      },
+      transitionBuilder: (ctx, anim, anim2, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1, 0),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+          child: child,
+        );
+      },
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -742,14 +1105,18 @@ class _BaseTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
 
     return Material(
-      color: Colors.transparent,
+      color: isDark
+          ? cs.surfaceContainerHighest.withValues(alpha: 0.4)
+          : cs.surfaceContainerHighest.withValues(alpha: 0.3),
+      borderRadius: BorderRadius.circular(6),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(6),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Row(
             children: [
               // Avatar
@@ -781,7 +1148,7 @@ class _BaseTile extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w400,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.55),
                           letterSpacing: 0.1,
                         ),
                       ),
@@ -822,17 +1189,33 @@ class _StudentAvatar extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final initials = _initials(name);
 
-    return CircleAvatar(
-      radius: 20,
-      backgroundColor: cs.surfaceContainerHighest,
-      child: Text(
-        initials,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-          color: cs.onSurfaceVariant.withValues(alpha: 0.8),
-        ),
-      ),
+    return FutureBuilder<File?>(
+      future: FileCache.get(FileCache.studentImagePath(schoolId, adm)),
+      builder: (context, snapshot) {
+        final file = snapshot.data;
+        final hasImage = file != null && file.existsSync();
+
+        if (hasImage) {
+          return CircleAvatar(
+            radius: 20,
+            backgroundImage: FileImage(file),
+            backgroundColor: cs.surfaceContainerHighest,
+          );
+        }
+
+        return CircleAvatar(
+          radius: 20,
+          backgroundColor: cs.surfaceContainerHighest,
+          child: Text(
+            initials,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.8),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -888,9 +1271,14 @@ class _MemberListView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
-      padding: const EdgeInsets.only(top: 4, bottom: 80),
+      padding: const EdgeInsets.only(left: 16, right: 16, top: 8, bottom: 80),
       itemCount: itemCount,
-      itemBuilder: itemBuilder,
+      itemBuilder: (context, index) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: itemBuilder(context, index),
+        );
+      },
     );
   }
 }
@@ -986,10 +1374,41 @@ class _LoadingIndicator extends StatelessWidget {
 // Student picker sheet (for guardian creation)
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _StudentPickerSheet extends StatelessWidget {
-  const _StudentPickerSheet({required this.students});
+class _StudentPickerSheet extends StatefulWidget {
+  const _StudentPickerSheet({required this.schoolId});
+  final String schoolId;
 
-  final List<StudentsData> students;
+  @override
+  State<_StudentPickerSheet> createState() => _StudentPickerSheetState();
+}
+
+class _StudentPickerSheetState extends State<_StudentPickerSheet> {
+  final _searchCtrl = TextEditingController();
+  final _dao = MembersDao(db);
+  List<StudentsData> _results = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _search('');
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _search(String query) async {
+    setState(() => _loading = true);
+    final results = await _dao.searchStudents(widget.schoolId, query);
+    if (!mounted) return;
+    setState(() {
+      _results = results;
+      _loading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -998,7 +1417,7 @@ class _StudentPickerSheet extends StatelessWidget {
 
     return Container(
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(context).height * 0.65,
+        maxHeight: MediaQuery.sizeOf(context).height * 0.75,
       ),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF18222E) : cs.surface,
@@ -1035,49 +1454,1131 @@ class _StudentPickerSheet extends StatelessWidget {
               ),
             ),
           ),
+          // Search field
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark
+                    ? const Color(0xFF1E2A3A)
+                    : cs.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: cs.outlineVariant.withValues(
+                    alpha: isDark ? 0.2 : 0.35,
+                  ),
+                ),
+              ),
+              child: TextField(
+                controller: _searchCtrl,
+                style: TextStyle(fontSize: 14, color: cs.onSurface),
+                decoration: InputDecoration(
+                  hintText: 'Search by name or admission number...',
+                  hintStyle: TextStyle(
+                    fontSize: 13.5,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                  ),
+                  prefixIcon: Icon(
+                    Icons.search,
+                    size: 18,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                  ),
+                  filled: false,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 13,
+                  ),
+                ),
+                onChanged: (q) => _search(q),
+              ),
+            ),
+          ),
           const Divider(height: 1),
-          // List
+          // Results list
           Flexible(
-            child: ListView.builder(
-              shrinkWrap: true,
-              padding: const EdgeInsets.only(top: 4, bottom: 16),
-              itemCount: students.length,
-              itemBuilder: (context, i) {
-                final s = students[i];
-                return ListTile(
-                  dense: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20),
-                  leading: CircleAvatar(
-                    radius: 16,
-                    backgroundColor: cs.surfaceContainerHighest,
-                    child: Text(
-                      _StudentAvatar._initials(s.name),
+            child: _loading
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                : _results.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Text(
+                        _searchCtrl.text.isEmpty
+                            ? 'No active students found.'
+                            : 'No students match "${_searchCtrl.text}"',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.only(top: 4, bottom: 16),
+                    itemCount: _results.length,
+                    itemBuilder: (context, i) {
+                      final s = _results[i];
+                      return ListTile(
+                        dense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                        ),
+                        leading: CircleAvatar(
+                          radius: 16,
+                          backgroundColor: cs.surfaceContainerHighest,
+                          child: Text(
+                            _initials(s.name),
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                        title: Text(
+                          s.name,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: cs.onSurface,
+                          ),
+                        ),
+                        subtitle: Text(
+                          '${s.adm}',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                          ),
+                        ),
+                        onTap: () => Navigator.of(context).pop(s),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _initials(String name) {
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.length >= 2) {
+      return '${parts.first[0]}${parts[1][0]}'.toUpperCase();
+    }
+    return parts.first.isNotEmpty ? parts.first[0].toUpperCase() : '?';
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Member detail stub — placeholder until full detail pages are built
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Owner info sheet — bottom sheet (mobile) / side sheet (desktop)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _OwnerInfoSheet extends StatelessWidget {
+  const _OwnerInfoSheet({
+    required this.user,
+    required this.schoolId,
+    this.isSideSheet = false,
+  });
+
+  final UsersData user;
+  final String schoolId;
+  final bool isSideSheet;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    return Material(
+      color: isDark ? const Color(0xFF18222E) : cs.surface,
+      borderRadius: isSideSheet
+          ? const BorderRadius.horizontal(left: Radius.circular(12))
+          : const BorderRadius.vertical(top: Radius.circular(16)),
+      child: SafeArea(
+        top: isSideSheet,
+        child: SizedBox(
+          width: isSideSheet ? 380 : double.infinity,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Drag handle (mobile only)
+                if (!isSideSheet) ...[
+                  Container(
+                    width: 36,
+                    height: 3.5,
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.20),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ],
+
+                // Avatar
+                UserAvatar(userId: user.id, radius: 36),
+                const SizedBox(height: 14),
+
+                // Name
+                Text(
+                  user.name,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 4),
+
+                // Phone
+                Text(
+                  user.phone,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                  ),
+                ),
+
+                // Email (if available)
+                if (user.email != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    user.email!,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 6),
+
+                // Status only (NO level)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: StatusIndicator.colorFor(user.status),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      user.status.name,
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        color: StatusIndicator.colorFor(user.status),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 24),
+                Divider(
+                  height: 1,
+                  color: cs.outlineVariant.withValues(
+                    alpha: isDark ? 0.15 : 0.3,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Actions section
+                Text(
+                  'Actions',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Remove owner action
+                _OwnerAction(
+                  icon: Icons.person_remove_outlined,
+                  label: 'Remove from school',
+                  color: cs.error,
+                  onTap: () => _confirmRemoveOwner(context),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _confirmRemoveOwner(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text(
+          'Remove Owner',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+        ),
+        content: Text(
+          'Remove ${user.name} as an owner of this school? This action can be undone by re-adding them.',
+          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w400),
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel', style: TextStyle(color: cs.onSurfaceVariant)),
+          ),
+          TextButton(
+            onPressed: () async {
+              final accountId = cache.currentUser?.user.id;
+              if (accountId == null) {
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('No active account. Please log in again.'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+                return;
+              }
+              try {
+                final dao = MembersDao(db);
+                await dao.removeOwner(
+                  schoolId: schoolId,
+                  userId: user.id,
+                  accountId: accountId,
+                );
+                if (ctx.mounted) Navigator.pop(ctx); // close dialog
+                if (context.mounted) Navigator.pop(context); // close sheet
+              } catch (e) {
+                if (ctx.mounted) Navigator.pop(ctx); // close dialog
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to remove owner: $e'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              }
+            },
+            child: Text('Remove', style: TextStyle(color: cs.error)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OwnerAction extends StatelessWidget {
+  const _OwnerAction({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: color.withValues(alpha: isDark ? 0.25 : 0.2),
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: color.withValues(alpha: 0.8)),
+            const SizedBox(width: 10),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: color.withValues(alpha: 0.9),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Teacher detail page — full profile with edit / status / remove actions
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _TeacherInfoSheet extends StatefulWidget {
+  const _TeacherInfoSheet({
+    required this.user,
+    required this.teacher,
+    required this.schoolId,
+    this.isSideSheet = false,
+  });
+
+  final UsersData user;
+  final TeachersData teacher;
+  final String schoolId;
+  final bool isSideSheet;
+
+  @override
+  State<_TeacherInfoSheet> createState() => _TeacherInfoSheetState();
+}
+
+class _TeacherInfoSheetState extends State<_TeacherInfoSheet> {
+  late final MembersDao _dao;
+  late final MemberManagementService _service;
+  CurriculumType? _curriculumType;
+  bool _classTeacherExpanded = false;
+  bool _subjectsExpanded = false;
+
+  UsersData get user => widget.user;
+  TeachersData get teacher => widget.teacher;
+  String get schoolId => widget.schoolId;
+  bool get isSideSheet => widget.isSideSheet;
+
+  @override
+  void initState() {
+    super.initState();
+    _dao = MembersDao(db);
+    _service = MemberManagementService(_dao);
+    _loadCurriculum();
+  }
+
+  Future<void> _loadCurriculum() async {
+    final setting = await SettingsDao(db).getSettings(schoolId);
+    if (setting != null && mounted) {
+      try {
+        final config = SchoolConfig.fromJson(
+          jsonDecode(setting.data) as Map<String, dynamic>,
+        );
+        if (config.curricula.isNotEmpty) {
+          setState(() => _curriculumType = config.curricula.first.type);
+        }
+      } catch (_) {
+        // Ignore parse errors — curriculum type stays null.
+      }
+    }
+  }
+
+  String _subjectName(int subjectIndex) {
+    if (_curriculumType == null) return 'Subject $subjectIndex';
+    return subjectLabel(_curriculumType!, subjectIndex);
+  }
+
+  String _gradeLabel(int grade) {
+    if (_curriculumType == null) return 'Grade $grade';
+    final labels = gradeLabelsFor(_curriculumType!);
+    return labels[grade] ?? 'Grade $grade';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    return Material(
+      color: isDark ? const Color(0xFF18222E) : cs.surface,
+      borderRadius: isSideSheet
+          ? const BorderRadius.horizontal(left: Radius.circular(12))
+          : const BorderRadius.vertical(top: Radius.circular(16)),
+      child: SafeArea(
+        top: isSideSheet,
+        child: SizedBox(
+          width: isSideSheet ? 380 : double.infinity,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Drag handle (mobile only)
+                if (!isSideSheet) ...[
+                  Container(
+                    width: 36,
+                    height: 3.5,
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.20),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ],
+
+                // Avatar
+                UserAvatar(userId: user.id, radius: 36),
+                const SizedBox(height: 14),
+
+                // Name
+                Text(
+                  user.name,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 4),
+
+                // Phone
+                Text(
+                  user.phone,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                  ),
+                ),
+
+                // Email
+                if (user.email != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    user.email!,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 6),
+
+                // Status dot + label
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _teacherStatusColor(teacher.status, cs),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      teacher.status.name,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        color: _teacherStatusColor(teacher.status, cs),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 20),
+
+                // Detail rows
+                if (teacher.role != null)
+                  _DetailRow(label: 'Role', value: teacher.role!, cs: cs),
+                if (teacher.department != null)
+                  _DetailRow(
+                    label: 'Department',
+                    value: teacher.department!,
+                    cs: cs,
+                  ),
+                if (teacher.hired != null)
+                  _DetailRow(
+                    label: 'Hired',
+                    value: _formatHiredDate(teacher.hired) ?? '—',
+                    cs: cs,
+                  ),
+
+                // ── Class teacher assignments ────────────────────────
+                _buildCollapsibleSection(
+                  cs: cs,
+                  isDark: isDark,
+                  icon: Icons.school_outlined,
+                  title: 'Class Teacher',
+                  expanded: _classTeacherExpanded,
+                  onToggle: () => setState(
+                    () => _classTeacherExpanded = !_classTeacherExpanded,
+                  ),
+                  child: StreamBuilder<List<ClassTeacher>>(
+                    stream: _dao.watchClassTeacherAssignments(
+                      schoolId,
+                      teacher.user,
+                    ),
+                    builder: (context, snapshot) {
+                      final items = snapshot.data ?? [];
+                      if (items.isEmpty) {
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 4, bottom: 8),
+                          child: Text(
+                            'Not assigned as class teacher',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        );
+                      }
+                      return Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: items.map((ct) {
+                          final label =
+                              '${_gradeLabel(ct.grade)} · S${ct.stream}'
+                              ' (${ct.year} T${ct.term})';
+                          return _AssignmentChip(label: label, cs: cs);
+                        }).toList(),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 4),
+
+                // ── Subject assignments ──────────────────────────────
+                _buildCollapsibleSection(
+                  cs: cs,
+                  isDark: isDark,
+                  icon: Icons.menu_book_outlined,
+                  title: 'Subjects',
+                  expanded: _subjectsExpanded,
+                  onToggle: () =>
+                      setState(() => _subjectsExpanded = !_subjectsExpanded),
+                  child: StreamBuilder<List<Subject>>(
+                    stream: _dao.watchTeacherSubjects(schoolId, teacher.user),
+                    builder: (context, snapshot) {
+                      final items = snapshot.data ?? [];
+                      if (items.isEmpty) {
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 4, bottom: 8),
+                          child: Text(
+                            'No subjects assigned',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        );
+                      }
+                      // Group subjects by (year, term, grade, stream)
+                      final grouped = <String, List<Subject>>{};
+                      for (final s in items) {
+                        final key =
+                            '${s.year}|${s.term}|${s.grade}|${s.stream}';
+                        grouped.putIfAbsent(key, () => []).add(s);
+                      }
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: grouped.entries.map((entry) {
+                          final first = entry.value.first;
+                          final header =
+                              '${_gradeLabel(first.grade)} · S${first.stream}'
+                              ' (${first.year} T${first.term})';
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  header,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    color: cs.onSurfaceVariant.withValues(
+                                      alpha: 0.7,
+                                    ),
+                                    letterSpacing: 0.2,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 4,
+                                  children: entry.value.map((s) {
+                                    return _AssignmentChip(
+                                      label: _subjectName(s.subject),
+                                      cs: cs,
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      );
+                    },
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+                Divider(
+                  height: 1,
+                  color: cs.outlineVariant.withValues(
+                    alpha: isDark ? 0.15 : 0.3,
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // ── Grouped icon action buttons ──────────────────────
+                Text(
+                  'Actions',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                _ActionIconGroup(
+                  actions: [
+                    _ActionIconItem(
+                      icon: Icons.edit_outlined,
+                      tooltip: 'Edit',
+                      color: cs.primary,
+                      onTap: () => _showEditSheet(context, _service),
+                    ),
+                    _ActionIconItem(
+                      icon: Icons.exit_to_app_outlined,
+                      tooltip: 'Resign',
+                      color: Colors.orange,
+                      onTap: () => _changeStatus(
+                        context,
+                        _service,
+                        TeacherStatus.resigned,
+                      ),
+                    ),
+                    _ActionIconItem(
+                      icon: Icons.undo_outlined,
+                      tooltip: 'Restore',
+                      color: Colors.green,
+                      onTap: () => _changeStatus(
+                        context,
+                        _service,
+                        TeacherStatus.active,
+                      ),
+                    ),
+                    _ActionIconItem(
+                      icon: Icons.swap_horiz_outlined,
+                      tooltip: 'Transfer',
+                      color: cs.tertiary,
+                      onTap: () => _changeStatus(
+                        context,
+                        _service,
+                        TeacherStatus.transferred,
+                      ),
+                    ),
+                    _ActionIconItem(
+                      icon: Icons.block_outlined,
+                      tooltip: 'Fired',
+                      color: cs.error,
+                      onTap: () =>
+                          _changeStatus(context, _service, TeacherStatus.fired),
+                    ),
+                    _ActionIconItem(
+                      icon: Icons.elderly_outlined,
+                      tooltip: 'Retired',
+                      color: cs.onSurfaceVariant,
+                      onTap: () => _changeStatus(
+                        context,
+                        _service,
+                        TeacherStatus.retired,
+                      ),
+                    ),
+                    _ActionIconItem(
+                      icon: Icons.person_remove_outlined,
+                      tooltip: 'Remove',
+                      color: cs.error,
+                      onTap: () => _confirmRemove(context, _service),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Collapsible section builder ─────────────────────────────────────────
+
+  Widget _buildCollapsibleSection({
+    required ColorScheme cs,
+    required bool isDark,
+    required IconData icon,
+    required String title,
+    required bool expanded,
+    required VoidCallback onToggle,
+    required Widget child,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: onToggle,
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 15,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w500,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.8),
+                    ),
+                  ),
+                ),
+                AnimatedRotation(
+                  turns: expanded ? 0.5 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Icon(
+                    Icons.expand_more,
+                    size: 18,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        AnimatedCrossFade(
+          firstChild: const SizedBox.shrink(),
+          secondChild: Padding(
+            padding: const EdgeInsets.only(left: 23, bottom: 4),
+            child: child,
+          ),
+          crossFadeState: expanded
+              ? CrossFadeState.showSecond
+              : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 200),
+          sizeCurve: Curves.easeInOut,
+        ),
+      ],
+    );
+  }
+
+  // ── Helpers ─────────────────────────────────────────────────────────────
+
+  Color _teacherStatusColor(TeacherStatus status, ColorScheme cs) {
+    return switch (status) {
+      TeacherStatus.active => Colors.green,
+      TeacherStatus.resigned => Colors.orange,
+      TeacherStatus.transferred => cs.tertiary,
+      TeacherStatus.fired => cs.error,
+      TeacherStatus.retired => cs.onSurfaceVariant,
+    };
+  }
+
+  String? _formatHiredDate(int? daysSinceEpoch) {
+    if (daysSinceEpoch == null) return null;
+    final date = DateTime.utc(1970).add(Duration(days: daysSinceEpoch));
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
+  }
+
+  // ── Edit sheet ──────────────────────────────────────────────────────────
+
+  void _showEditSheet(BuildContext context, MemberManagementService service) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+    final roleCtrl = TextEditingController(text: teacher.role ?? '');
+    final deptCtrl = TextEditingController(text: teacher.department ?? '');
+    DateTime? hiredDate = teacher.hired != null
+        ? DateTime.utc(1970).add(Duration(days: teacher.hired!))
+        : null;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          return Container(
+            padding: EdgeInsets.only(
+              left: 24,
+              right: 24,
+              top: 20,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+            ),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF18222E) : cs.surface,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Drag handle
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 3.5,
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.20),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                Text(
+                  'Edit Teacher',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Role field
+                TextField(
+                  controller: roleCtrl,
+                  style: TextStyle(fontSize: 13.5, color: cs.onSurface),
+                  decoration: InputDecoration(
+                    labelText: 'Role',
+                    labelStyle: TextStyle(
+                      fontSize: 12.5,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // Department field
+                TextField(
+                  controller: deptCtrl,
+                  style: TextStyle(fontSize: 13.5, color: cs.onSurface),
+                  decoration: InputDecoration(
+                    labelText: 'Department',
+                    labelStyle: TextStyle(
+                      fontSize: 12.5,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // Hired date picker
+                InkWell(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: ctx,
+                      initialDate: hiredDate ?? DateTime.now(),
+                      firstDate: DateTime(1970),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) {
+                      setSheetState(() => hiredDate = picked);
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(4),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: cs.outline.withValues(alpha: 0.4),
+                      ),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            hiredDate != null
+                                ? _formatHiredDate(
+                                    hiredDate!.toUtc().millisecondsSinceEpoch ~/
+                                        86400000,
+                                  )!
+                                : 'Hired date',
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              color: hiredDate != null
+                                  ? cs.onSurface
+                                  : cs.onSurfaceVariant.withValues(alpha: 0.6),
+                            ),
+                          ),
+                        ),
+                        Icon(
+                          Icons.calendar_today_outlined,
+                          size: 16,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Save button
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () async {
+                      final role = roleCtrl.text.trim().isEmpty
+                          ? null
+                          : roleCtrl.text.trim();
+                      final dept = deptCtrl.text.trim().isEmpty
+                          ? null
+                          : deptCtrl.text.trim();
+
+                      await service.updateTeacher(
+                        schoolId: schoolId,
+                        userId: teacher.user,
+                        role: role,
+                        department: dept,
+                        hiredDate: hiredDate,
+                      );
+
+                      if (ctx.mounted) Navigator.pop(ctx);
+                    },
+                    style: FilledButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text(
+                      'Save',
+                      style: TextStyle(
+                        fontSize: 13.5,
                         fontWeight: FontWeight.w500,
-                        color: cs.onSurfaceVariant,
                       ),
                     ),
                   ),
-                  title: Text(
-                    s.name,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: cs.onSurface,
-                    ),
-                  ),
-                  subtitle: Text(
-                    'Adm #${s.adm}',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                    ),
-                  ),
-                  onTap: () => Navigator.of(context).pop(s),
-                );
-              },
+                ),
+              ],
             ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ── Status change ───────────────────────────────────────────────────────
+
+  void _changeStatus(
+    BuildContext context,
+    MemberManagementService service,
+    TeacherStatus status,
+  ) async {
+    await service.changeTeacherStatus(
+      schoolId: schoolId,
+      userId: teacher.user,
+      status: status,
+    );
+    if (context.mounted) Navigator.pop(context); // close sheet
+  }
+
+  // ── Remove confirmation ─────────────────────────────────────────────────
+
+  void _confirmRemove(BuildContext context, MemberManagementService service) {
+    final cs = Theme.of(context).colorScheme;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text(
+          'Remove Teacher',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+        ),
+        content: Text(
+          'Remove ${user.name} as a teacher from this school? '
+          'This action can be undone by re-adding them.',
+          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w400),
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel', style: TextStyle(color: cs.onSurfaceVariant)),
+          ),
+          TextButton(
+            onPressed: () async {
+              await service.removeTeacher(
+                schoolId: schoolId,
+                userId: teacher.user,
+              );
+              if (ctx.mounted) Navigator.pop(ctx); // close dialog
+              if (context.mounted) Navigator.pop(context); // close sheet
+            },
+            child: Text('Remove', style: TextStyle(color: cs.error)),
           ),
         ],
       ),
@@ -1086,191 +2587,2098 @@ class _StudentPickerSheet extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Member detail stub — placeholder until full detail pages are built
+// Assignment chip — compact chip for class teacher / subject display
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _MemberDetailStub extends StatelessWidget {
-  const _MemberDetailStub({
-    required this.user,
-    required this.roleLabel,
-    required this.schoolId,
-    this.extra = const {},
-  });
+class _AssignmentChip extends StatelessWidget {
+  const _AssignmentChip({required this.label, required this.cs});
 
-  final UsersData user;
-  final String roleLabel;
-  final String schoolId;
-  final Map<String, String> extra;
+  final String label;
+  final ColorScheme cs;
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
-
-    return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F1720) : cs.surface,
-      appBar: AppBar(
-        title: Text(
-          roleLabel,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-            letterSpacing: 0.1,
-          ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: cs.primary.withValues(alpha: isDark ? 0.12 : 0.08),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: cs.primary.withValues(alpha: isDark ? 0.25 : 0.15),
+          width: 0.5,
         ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            // Avatar
-            UserAvatar(userId: user.id, radius: 40),
-            const SizedBox(height: 16),
-
-            // Name
-            Text(
-              user.name,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-                color: cs.onSurface,
-              ),
-            ),
-            const SizedBox(height: 4),
-
-            // Phone
-            Text(
-              user.phone,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-              ),
-            ),
-
-            if (user.email != null) ...[
-              const SizedBox(height: 2),
-              Text(
-                user.email!,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-                ),
-              ),
-            ],
-
-            const SizedBox(height: 6),
-
-            // Status + level row
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                StatusIndicator(
-                  status: user.status,
-                  level: user.level,
-                  backgroundColor: isDark
-                      ? const Color(0xFF0F1720)
-                      : cs.surface,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  user.status.name,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    color: StatusIndicator.colorFor(user.status),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 24),
-
-            // Extra info
-            if (extra.isNotEmpty) ...[
-              ...extra.entries.map(
-                (e) => _DetailRow(label: e.key, value: e.value, cs: cs),
-              ),
-            ],
-          ],
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          color: cs.primary.withValues(alpha: 0.9),
+          letterSpacing: 0.1,
         ),
       ),
     );
   }
 }
 
-class _StudentDetailStub extends StatelessWidget {
-  const _StudentDetailStub({required this.student, required this.schoolId});
+// ─────────────────────────────────────────────────────────────────────────────
+// Action icon group — shared compact icon button row for detail sheets
+// ─────────────────────────────────────────────────────────────────────────────
 
-  final StudentsData student;
-  final String schoolId;
+class _ActionIconItem {
+  const _ActionIconItem({
+    required this.icon,
+    required this.tooltip,
+    required this.color,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String tooltip;
+  final Color color;
+  final VoidCallback onTap;
+}
+
+class _ActionIconGroup extends StatelessWidget {
+  const _ActionIconGroup({required this.actions});
+  final List<_ActionIconItem> actions;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
 
-    return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F1720) : cs.surface,
-      appBar: AppBar(
-        title: Text(
-          'Student',
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-            letterSpacing: 0.1,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: isDark
+            ? cs.surfaceContainerHighest.withValues(alpha: 0.4)
+            : cs.surfaceContainerHighest.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        alignment: WrapAlignment.center,
+        children: actions.map((a) {
+          return Tooltip(
+            message: a.tooltip,
+            child: InkWell(
+              onTap: a.onTap,
+              borderRadius: BorderRadius.circular(6),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: a.color.withValues(alpha: isDark ? 0.25 : 0.18),
+                  ),
+                ),
+                child: Icon(
+                  a.icon,
+                  size: 16,
+                  color: a.color.withValues(alpha: 0.75),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Staff detail page — full detail with edit, status change, and remove
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _StaffInfoSheet extends StatelessWidget {
+  const _StaffInfoSheet({
+    required this.user,
+    required this.member,
+    required this.schoolId,
+    this.isSideSheet = false,
+  });
+
+  final UsersData user;
+  final StaffData member;
+  final String schoolId;
+  final bool isSideSheet;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+    final service = MemberManagementService(MembersDao(db));
+
+    return Material(
+      color: isDark ? const Color(0xFF18222E) : cs.surface,
+      borderRadius: isSideSheet
+          ? const BorderRadius.horizontal(left: Radius.circular(12))
+          : const BorderRadius.vertical(top: Radius.circular(16)),
+      child: SafeArea(
+        top: isSideSheet,
+        child: SizedBox(
+          width: isSideSheet ? 380 : double.infinity,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Drag handle (mobile only)
+                if (!isSideSheet) ...[
+                  Container(
+                    width: 36,
+                    height: 3.5,
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.20),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ],
+
+                // Avatar
+                UserAvatar(userId: user.id, radius: 36),
+                const SizedBox(height: 14),
+
+                // Name
+                Text(
+                  user.name,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 4),
+
+                // Phone
+                Text(
+                  user.phone,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                  ),
+                ),
+
+                // Email
+                if (user.email != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    user.email!,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 6),
+
+                // Status dot + label
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _staffStatusColor(member.status, cs),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      member.status.name,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        color: _staffStatusColor(member.status, cs),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 20),
+
+                // Detail rows
+                if (member.role != null)
+                  _DetailRow(label: 'Role', value: member.role!, cs: cs),
+                if (member.department != null)
+                  _DetailRow(
+                    label: 'Department',
+                    value: member.department!,
+                    cs: cs,
+                  ),
+                if (member.idnumber != null)
+                  _DetailRow(
+                    label: 'ID Number',
+                    value: member.idnumber!,
+                    cs: cs,
+                  ),
+
+                const SizedBox(height: 8),
+                Divider(
+                  height: 1,
+                  color: cs.outlineVariant.withValues(
+                    alpha: isDark ? 0.15 : 0.3,
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // ── Grouped icon action buttons ──────────────────────
+                Text(
+                  'Actions',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                _ActionIconGroup(
+                  actions: [
+                    _ActionIconItem(
+                      icon: Icons.edit_outlined,
+                      tooltip: 'Edit',
+                      color: cs.primary,
+                      onTap: () => _showEditSheet(context, service),
+                    ),
+                    _ActionIconItem(
+                      icon: Icons.exit_to_app_outlined,
+                      tooltip: 'Resign',
+                      color: Colors.orange,
+                      onTap: () =>
+                          _changeStatus(context, service, StaffStatus.resigned),
+                    ),
+                    _ActionIconItem(
+                      icon: Icons.undo_outlined,
+                      tooltip: 'Restore',
+                      color: Colors.green,
+                      onTap: () =>
+                          _changeStatus(context, service, StaffStatus.active),
+                    ),
+                    _ActionIconItem(
+                      icon: Icons.swap_horiz_outlined,
+                      tooltip: 'Transfer',
+                      color: cs.tertiary,
+                      onTap: () => _changeStatus(
+                        context,
+                        service,
+                        StaffStatus.transferred,
+                      ),
+                    ),
+                    _ActionIconItem(
+                      icon: Icons.block_outlined,
+                      tooltip: 'Fired',
+                      color: cs.error,
+                      onTap: () =>
+                          _changeStatus(context, service, StaffStatus.fired),
+                    ),
+                    _ActionIconItem(
+                      icon: Icons.elderly_outlined,
+                      tooltip: 'Retired',
+                      color: cs.onSurfaceVariant,
+                      onTap: () =>
+                          _changeStatus(context, service, StaffStatus.retired),
+                    ),
+                    _ActionIconItem(
+                      icon: Icons.person_remove_outlined,
+                      tooltip: 'Remove',
+                      color: cs.error,
+                      onTap: () => _confirmRemove(context, service),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            _StudentAvatar(
-              schoolId: schoolId,
-              adm: student.adm,
-              name: student.name,
-              status: student.status,
-            ),
-            const SizedBox(height: 16),
+    );
+  }
 
+  // ── Helpers ─────────────────────────────────────────────────────────────
+
+  Color _staffStatusColor(StaffStatus status, ColorScheme cs) {
+    return switch (status) {
+      StaffStatus.active => Colors.green,
+      StaffStatus.resigned => Colors.orange,
+      StaffStatus.transferred => cs.tertiary,
+      StaffStatus.fired => cs.error,
+      StaffStatus.retired => cs.onSurfaceVariant,
+    };
+  }
+
+  // ── Edit sheet ──────────────────────────────────────────────────────────
+
+  void _showEditSheet(BuildContext context, MemberManagementService service) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+    final roleCtrl = TextEditingController(text: member.role ?? '');
+    final deptCtrl = TextEditingController(text: member.department ?? '');
+    final idCtrl = TextEditingController(text: member.idnumber ?? '');
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: EdgeInsets.only(
+          left: 24,
+          right: 24,
+          top: 20,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+        ),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF18222E) : cs.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Drag handle
+            Center(
+              child: Container(
+                width: 36,
+                height: 3.5,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.20),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
             Text(
-              student.name,
+              'Edit Staff',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 15,
                 fontWeight: FontWeight.w500,
                 color: cs.onSurface,
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Adm #${student.adm}',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+            const SizedBox(height: 20),
+
+            // Role field
+            TextField(
+              controller: roleCtrl,
+              style: TextStyle(fontSize: 13.5, color: cs.onSurface),
+              decoration: InputDecoration(
+                labelText: 'Role',
+                labelStyle: TextStyle(
+                  fontSize: 12.5,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
               ),
             ),
-            const SizedBox(height: 6),
-            _SmallChip(label: student.status.name, cs: cs),
+            const SizedBox(height: 14),
 
-            const SizedBox(height: 24),
+            // Department field
+            TextField(
+              controller: deptCtrl,
+              style: TextStyle(fontSize: 13.5, color: cs.onSurface),
+              decoration: InputDecoration(
+                labelText: 'Department',
+                labelStyle: TextStyle(
+                  fontSize: 12.5,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
 
-            if (student.gender != null)
-              _DetailRow(label: 'Gender', value: student.gender!.name, cs: cs),
-            _DetailRow(label: 'Status', value: student.status.name, cs: cs),
+            // ID Number field
+            TextField(
+              controller: idCtrl,
+              style: TextStyle(fontSize: 13.5, color: cs.onSurface),
+              decoration: InputDecoration(
+                labelText: 'ID Number',
+                labelStyle: TextStyle(
+                  fontSize: 12.5,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Save button
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () async {
+                  final role = roleCtrl.text.trim().isEmpty
+                      ? null
+                      : roleCtrl.text.trim();
+                  final dept = deptCtrl.text.trim().isEmpty
+                      ? null
+                      : deptCtrl.text.trim();
+                  final idNum = idCtrl.text.trim().isEmpty
+                      ? null
+                      : idCtrl.text.trim();
+
+                  await service.updateStaff(
+                    schoolId: schoolId,
+                    userId: member.user,
+                    role: role,
+                    department: dept,
+                    idNumber: idNum,
+                  );
+
+                  if (ctx.mounted) Navigator.pop(ctx);
+                },
+                style: FilledButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: const Text(
+                  'Save',
+                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500),
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
+
+  // ── Status change ───────────────────────────────────────────────────────
+
+  void _changeStatus(
+    BuildContext context,
+    MemberManagementService service,
+    StaffStatus status,
+  ) async {
+    await service.changeStaffStatus(
+      schoolId: schoolId,
+      userId: member.user,
+      status: status,
+    );
+    if (context.mounted) Navigator.pop(context); // close sheet
+  }
+
+  // ── Remove confirmation ─────────────────────────────────────────────────
+
+  void _confirmRemove(BuildContext context, MemberManagementService service) {
+    final cs = Theme.of(context).colorScheme;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text(
+          'Remove Staff',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+        ),
+        content: Text(
+          'Remove ${user.name} as staff from this school? '
+          'This action can be undone by re-adding them.',
+          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w400),
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel', style: TextStyle(color: cs.onSurfaceVariant)),
+          ),
+          TextButton(
+            onPressed: () async {
+              await service.removeStaff(
+                schoolId: schoolId,
+                userId: member.user,
+              );
+              if (ctx.mounted) Navigator.pop(ctx); // close dialog
+              if (context.mounted) Navigator.pop(context); // close sheet
+            },
+            child: Text('Remove', style: TextStyle(color: cs.error)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Guardian detail page
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _GuardianWardsSheet extends StatelessWidget {
+  const _GuardianWardsSheet({
+    required this.user,
+    required this.schoolId,
+    this.isSideSheet = false,
+  });
+
+  final UsersData user;
+  final String schoolId;
+  final bool isSideSheet;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+    final dao = MembersDao(db);
+    final service = MemberManagementService(dao);
+
+    return Material(
+      color: isDark ? const Color(0xFF18222E) : cs.surface,
+      borderRadius: isSideSheet
+          ? const BorderRadius.horizontal(left: Radius.circular(12))
+          : const BorderRadius.vertical(top: Radius.circular(16)),
+      child: SafeArea(
+        top: isSideSheet,
+        child: SizedBox(
+          width: isSideSheet ? 380 : double.infinity,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!isSideSheet) ...[
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Container(
+                    width: 36,
+                    height: 3.5,
+                    decoration: BoxDecoration(
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.20),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+              ],
+              // Guardian header
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    UserAvatar(userId: user.id, radius: 24),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            user.name,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                              color: cs.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            user.phone,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                            ),
+                          ),
+                          if (user.email != null) ...[
+                            const SizedBox(height: 1),
+                            Text(
+                              user.email!,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.6,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    // Status indicator
+                    StatusIndicator(
+                      status: user.status,
+                      level: user.level,
+                      backgroundColor: isDark
+                          ? const Color(0xFF18222E)
+                          : cs.surface,
+                    ),
+                  ],
+                ),
+              ),
+              Divider(
+                height: 1,
+                color: cs.outlineVariant.withValues(alpha: isDark ? 0.15 : 0.3),
+              ),
+              // Ward list header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Wards',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
+              ),
+              // Reactive ward list
+              Flexible(
+                child:
+                    StreamBuilder<
+                      List<({GuardiansData guardian, StudentsData? student})>
+                    >(
+                      stream: dao.watchGuardianWards(schoolId, user.id),
+                      builder: (context, snap) {
+                        final wards = snap.data ?? [];
+                        if (wards.isEmpty) {
+                          return Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Text(
+                              'No wards linked.',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.4,
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+                        return ListView.builder(
+                          shrinkWrap: true,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: wards.length,
+                          itemBuilder: (context, i) {
+                            final ward = wards[i];
+                            return _WardItem(
+                              guardian: ward.guardian,
+                              student: ward.student,
+                              schoolId: schoolId,
+                              service: service,
+                              cs: cs,
+                              isDark: isDark,
+                            );
+                          },
+                        );
+                      },
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Ward item (inside guardian ward sheet)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _WardItem extends StatelessWidget {
+  const _WardItem({
+    required this.guardian,
+    required this.student,
+    required this.schoolId,
+    required this.service,
+    required this.cs,
+    required this.isDark,
+  });
+
+  final GuardiansData guardian;
+  final StudentsData? student;
+  final String schoolId;
+  final MemberManagementService service;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Material(
+        color: isDark
+            ? cs.surfaceContainerHighest.withValues(alpha: 0.35)
+            : cs.surfaceContainerHighest.withValues(alpha: 0.25),
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      student?.name ?? 'Unknown Student',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${guardian.relationship.name}  ·  ${guardian.role.name}',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Edit button
+              InkWell(
+                onTap: () => _editGuardianLink(context),
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: Icon(
+                    Icons.edit_outlined,
+                    size: 15,
+                    color: cs.primary.withValues(alpha: 0.6),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              // Unlink button
+              InkWell(
+                onTap: () => _unlinkGuardian(context),
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: Icon(
+                    Icons.link_off_outlined,
+                    size: 15,
+                    color: cs.error.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _editGuardianLink(BuildContext context) {
+    final isDarkLocal = cs.brightness == Brightness.dark;
+
+    var selectedRelationship = guardian.relationship;
+    var selectedRole = guardian.role;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Container(
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 20,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+          ),
+          decoration: BoxDecoration(
+            color: isDarkLocal ? const Color(0xFF18222E) : cs.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Drag handle
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 3.5,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.20),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Text(
+                'Edit Guardian',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurface,
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Relationship dropdown
+              Text(
+                'Relationship',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: cs.outlineVariant.withValues(alpha: 0.4),
+                  ),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<GuardianRelationship>(
+                    value: selectedRelationship,
+                    isExpanded: true,
+                    style: TextStyle(fontSize: 13.5, color: cs.onSurface),
+                    dropdownColor: isDarkLocal
+                        ? const Color(0xFF18222E)
+                        : cs.surface,
+                    items: GuardianRelationship.values
+                        .map(
+                          (r) =>
+                              DropdownMenuItem(value: r, child: Text(r.name)),
+                        )
+                        .toList(),
+                    onChanged: (v) {
+                      if (v != null) {
+                        setSheetState(() => selectedRelationship = v);
+                      }
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Role dropdown
+              Text(
+                'Role',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: cs.outlineVariant.withValues(alpha: 0.4),
+                  ),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<GuardianRole>(
+                    value: selectedRole,
+                    isExpanded: true,
+                    style: TextStyle(fontSize: 13.5, color: cs.onSurface),
+                    dropdownColor: isDarkLocal
+                        ? const Color(0xFF18222E)
+                        : cs.surface,
+                    items: GuardianRole.values
+                        .map(
+                          (r) =>
+                              DropdownMenuItem(value: r, child: Text(r.name)),
+                        )
+                        .toList(),
+                    onChanged: (v) {
+                      if (v != null) {
+                        setSheetState(() => selectedRole = v);
+                      }
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Save button
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () async {
+                    final relChanged =
+                        selectedRelationship != guardian.relationship;
+                    final roleChanged = selectedRole != guardian.role;
+
+                    if (!relChanged && !roleChanged) {
+                      Navigator.pop(ctx);
+                      return;
+                    }
+
+                    await service.updateGuardian(
+                      schoolId: schoolId,
+                      userId: guardian.user,
+                      studentAdm: guardian.student,
+                      relationship: relChanged ? selectedRelationship : null,
+                      role: roleChanged ? selectedRole : null,
+                    );
+
+                    if (ctx.mounted) Navigator.pop(ctx);
+                  },
+                  style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Text(
+                    'Save',
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _unlinkGuardian(BuildContext context) {
+    final wardName = student?.name ?? 'this student';
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text(
+          'Unlink Guardian',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+        ),
+        content: Text(
+          'Remove guardian link to $wardName?',
+          style: const TextStyle(fontSize: 13.5),
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel', style: TextStyle(color: cs.onSurfaceVariant)),
+          ),
+          TextButton(
+            onPressed: () async {
+              await service.removeGuardian(
+                schoolId: schoolId,
+                userId: guardian.user,
+                studentAdm: guardian.student,
+              );
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            child: Text('Unlink', style: TextStyle(color: cs.error)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Department Detail Screen — teachers + staff lists
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _DepartmentDetailScreen extends StatefulWidget {
+  const _DepartmentDetailScreen({
+    required this.dept,
+    required this.schoolId,
+    required this.dao,
+  });
+
+  final Department dept;
+  final String schoolId;
+  final DepartmentsDao dao;
+
+  @override
+  State<_DepartmentDetailScreen> createState() =>
+      _DepartmentDetailScreenState();
+}
+
+class _DepartmentDetailScreenState extends State<_DepartmentDetailScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tab;
+
+  @override
+  void initState() {
+    super.initState();
+    _tab = TabController(length: 3, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tab.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Scaffold(
+      backgroundColor: cs.surfaceContainerLowest,
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.chevron_left, size: 26),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(
+          widget.dept.name,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            color: cs.onSurface,
+          ),
+        ),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: cs.surface,
+        actions: [
+          IconButton(
+            icon: Icon(
+              Icons.delete_outline_rounded,
+              size: 19,
+              color: cs.error.withValues(alpha: 0.7),
+            ),
+            tooltip: 'Delete department',
+            onPressed: () => _confirmDelete(context),
+          ),
+          const SizedBox(width: 4),
+        ],
+        bottom: EduTabBarBottom(
+          controller: _tab,
+          isScrollable: true,
+          padding: const EdgeInsets.only(left: 16, top: 4, bottom: 10),
+          tabs: const [
+            EduTab(label: 'All'),
+            EduTab(label: 'Teachers'),
+            EduTab(label: 'Staff'),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton.small(
+        onPressed: () => _showAssignMember(context),
+        tooltip: 'Assign member',
+        elevation: 4,
+        backgroundColor: cs.primary,
+        foregroundColor: cs.onPrimary,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: const Icon(Icons.add, size: 20),
+      ),
+      body: TabBarView(
+        controller: _tab,
+        physics: const NeverScrollableScrollPhysics(),
+        children: [
+          _DeptAllMemberList(
+            teacherStream: widget.dao.watchTeachersInDept(
+              widget.schoolId,
+              widget.dept.name,
+            ),
+            staffStream: widget.dao.watchStaffInDept(
+              widget.schoolId,
+              widget.dept.name,
+            ),
+            onRemoveTeacher: (userId) => _removeTeacher(userId),
+            onRemoveStaff: (userId) => _removeStaff(userId),
+          ),
+          _DeptMemberList<({TeachersData teacher, UsersData user})>(
+            stream: widget.dao.watchTeachersInDept(
+              widget.schoolId,
+              widget.dept.name,
+            ),
+            emptyLabel: 'No teachers assigned',
+            nameOf: (item) => item.user.name,
+            statusOf: (item) => item.teacher.status.name,
+            onRemove: (item) => _removeTeacher(item.teacher.user),
+          ),
+          _DeptMemberList<({StaffData staff, UsersData user})>(
+            stream: widget.dao.watchStaffInDept(
+              widget.schoolId,
+              widget.dept.name,
+            ),
+            emptyLabel: 'No staff assigned',
+            nameOf: (item) => item.user.name,
+            statusOf: (item) => item.staff.status.name,
+            onRemove: (item) => _removeStaff(item.staff.user),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final cs = Theme.of(context).colorScheme;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: cs.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        title: Text(
+          'Delete "${widget.dept.name}"?',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            color: cs.onSurface,
+          ),
+        ),
+        content: Text(
+          'This department will be permanently removed.',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              'Delete',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: cs.error,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      final user = cache.currentUser?.user;
+      if (user != null) {
+        await widget.dao.deleteDepartment(
+          widget.schoolId,
+          widget.dept.name,
+          accountId: user.id,
+        );
+      }
+      if (context.mounted) Navigator.pop(context);
+    }
+  }
+
+  void _showAssignMember(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: cs.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
+      ),
+      builder: (ctx) => _AssignMemberSearchSheet(
+        schoolId: widget.schoolId,
+        deptName: widget.dept.name,
+        dao: widget.dao,
+        onDone: () {
+          if (ctx.mounted) Navigator.pop(ctx);
+        },
+      ),
+    );
+  }
+
+  Future<void> _removeTeacher(String teacherUserId) async {
+    final user = cache.currentUser?.user;
+    if (user == null) return;
+    await widget.dao.assignTeacherToDepartment(
+      widget.schoolId,
+      teacherUserId,
+      departmentName: null,
+      accountId: user.id,
+    );
+  }
+
+  Future<void> _removeStaff(String staffUserId) async {
+    final user = cache.currentUser?.user;
+    if (user == null) return;
+    await widget.dao.assignStaffToDepartment(
+      widget.schoolId,
+      staffUserId,
+      departmentName: null,
+      accountId: user.id,
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Dept member list — reusable for teachers + staff
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _DeptAllMemberList extends StatelessWidget {
+  const _DeptAllMemberList({
+    required this.teacherStream,
+    required this.staffStream,
+    required this.onRemoveTeacher,
+    required this.onRemoveStaff,
+  });
+
+  final Stream<List<({TeachersData teacher, UsersData user})>> teacherStream;
+  final Stream<List<({StaffData staff, UsersData user})>> staffStream;
+  final void Function(String userId) onRemoveTeacher;
+  final void Function(String userId) onRemoveStaff;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return StreamBuilder<List<({TeachersData teacher, UsersData user})>>(
+      stream: teacherStream,
+      builder: (context, teacherSnap) {
+        return StreamBuilder<List<({StaffData staff, UsersData user})>>(
+          stream: staffStream,
+          builder: (context, staffSnap) {
+            final teachers = teacherSnap.data ?? [];
+            final staffMembers = staffSnap.data ?? [];
+
+            // Build combined list with role tag
+            final List<_DeptAllItem> combined = [
+              ...teachers.map(
+                (t) => _DeptAllItem(
+                  name: t.user.name,
+                  statusLabel: t.teacher.status.name,
+                  roleTag: 'Teacher',
+                  onRemove: () => onRemoveTeacher(t.teacher.user),
+                ),
+              ),
+              ...staffMembers.map(
+                (s) => _DeptAllItem(
+                  name: s.user.name,
+                  statusLabel: s.staff.status.name,
+                  roleTag: 'Staff',
+                  onRemove: () => onRemoveStaff(s.staff.user),
+                ),
+              ),
+            ];
+
+            if (combined.isEmpty) {
+              return Center(
+                child: Text(
+                  'No members assigned',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              );
+            }
+
+            return ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              itemCount: combined.length,
+              itemBuilder: (_, i) => combined[i],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _DeptAllItem extends StatelessWidget {
+  const _DeptAllItem({
+    required this.name,
+    required this.statusLabel,
+    required this.roleTag,
+    required this.onRemove,
+  });
+
+  final String name;
+  final String statusLabel;
+  final String roleTag;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Material(
+        color: isDark
+            ? cs.surfaceContainerHighest.withValues(alpha: 0.35)
+            : cs.surfaceContainerHighest.withValues(alpha: 0.25),
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 1),
+                      child: Text(
+                        statusLabel,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w400,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Role tag chip
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: cs.primary.withValues(alpha: isDark ? 0.12 : 0.08),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  roleTag,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: cs.primary.withValues(alpha: 0.8),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: onRemove,
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 15,
+                    color: cs.error.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DeptMemberList<T> extends StatelessWidget {
+  const _DeptMemberList({
+    required this.stream,
+    required this.emptyLabel,
+    required this.nameOf,
+    required this.statusOf,
+    required this.onRemove,
+  });
+
+  final Stream<List<T>> stream;
+  final String emptyLabel;
+  final String Function(T) nameOf;
+  final String Function(T) statusOf;
+  final void Function(T) onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return StreamBuilder<List<T>>(
+      stream: stream,
+      builder: (context, snap) {
+        final items = snap.data ?? [];
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
+              child: Text(
+                '${items.length} member${items.length == 1 ? '' : 's'}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                ),
+              ),
+            ),
+            if (items.isEmpty)
+              Expanded(
+                child: Center(
+                  child: Text(
+                    emptyLabel,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w400,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              )
+            else
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  itemCount: items.length,
+                  itemBuilder: (context, index) {
+                    final item = items[index];
+                    return _DeptMemberRow(
+                      name: nameOf(item),
+                      statusLabel: statusOf(item),
+                      onRemove: () => onRemove(item),
+                    );
+                  },
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _DeptMemberRow extends StatelessWidget {
+  const _DeptMemberRow({
+    required this.name,
+    required this.statusLabel,
+    required this.onRemove,
+  });
+
+  final String name;
+  final String statusLabel;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Material(
+        color: isDark
+            ? cs.surfaceContainerHighest.withValues(alpha: 0.35)
+            : cs.surfaceContainerHighest.withValues(alpha: 0.25),
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                    if (statusLabel.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 1),
+                        child: Text(
+                          statusLabel,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w400,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              InkWell(
+                onTap: onRemove,
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 15,
+                    color: cs.error.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Assign member sheet — picks from unassigned teachers/staff
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _AssignMemberSearchSheet extends StatefulWidget {
+  const _AssignMemberSearchSheet({
+    required this.schoolId,
+    required this.deptName,
+    required this.dao,
+    required this.onDone,
+  });
+
+  final String schoolId;
+  final String deptName;
+  final DepartmentsDao dao;
+  final VoidCallback onDone;
+
+  @override
+  State<_AssignMemberSearchSheet> createState() =>
+      _AssignMemberSearchSheetState();
+}
+
+class _AssignMemberSearchSheetState extends State<_AssignMemberSearchSheet> {
+  final _searchCtrl = TextEditingController();
+  bool _showTeachers = true; // true = teachers, false = staff
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.6,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 32,
+                  height: 3.5,
+                  decoration: BoxDecoration(
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Assign Member',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurface,
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Search field
+              TextField(
+                controller: _searchCtrl,
+                onChanged: (v) =>
+                    setState(() => _query = v.trim().toLowerCase()),
+                style: TextStyle(fontSize: 13.5, color: cs.onSurface),
+                decoration: InputDecoration(
+                  hintText: 'Search by name or phone...',
+                  hintStyle: TextStyle(
+                    fontSize: 13,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                  ),
+                  prefixIcon: Icon(
+                    Icons.search,
+                    size: 18,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                  ),
+                  filled: true,
+                  fillColor: isDark
+                      ? cs.surfaceContainerHighest.withValues(alpha: 0.4)
+                      : cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(6),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 10),
+              // Toggle: Teachers / Staff
+              Row(
+                children: [
+                  _DeptFilterChip(
+                    label: 'Teachers',
+                    selected: _showTeachers,
+                    onTap: () => setState(() => _showTeachers = true),
+                  ),
+                  const SizedBox(width: 6),
+                  _DeptFilterChip(
+                    label: 'Staff',
+                    selected: !_showTeachers,
+                    onTap: () => setState(() => _showTeachers = false),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              // List
+              Flexible(
+                child: _showTeachers
+                    ? _buildTeacherList(cs, isDark)
+                    : _buildStaffList(cs, isDark),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTeacherList(ColorScheme cs, bool isDark) {
+    return StreamBuilder<List<({TeachersData teacher, UsersData user})>>(
+      stream: widget.dao.watchUnassignedTeachers(widget.schoolId),
+      builder: (context, snap) {
+        final items = (snap.data ?? []).where((item) {
+          if (_query.isEmpty) return true;
+          return item.user.name.toLowerCase().contains(_query) ||
+              item.user.phone.toLowerCase().contains(_query);
+        }).toList();
+        return _buildItemList(
+          items: items,
+          nameOf: (item) => item.user.name,
+          phoneOf: (item) => item.user.phone,
+          onTap: (item) async {
+            final user = cache.currentUser?.user;
+            if (user == null) return;
+            await widget.dao.assignTeacherToDepartment(
+              widget.schoolId,
+              item.teacher.user,
+              departmentName: widget.deptName,
+              accountId: user.id,
+            );
+            widget.onDone();
+          },
+          cs: cs,
+          isDark: isDark,
+        );
+      },
+    );
+  }
+
+  Widget _buildStaffList(ColorScheme cs, bool isDark) {
+    return StreamBuilder<List<({StaffData staff, UsersData user})>>(
+      stream: widget.dao.watchUnassignedStaff(widget.schoolId),
+      builder: (context, snap) {
+        final items = (snap.data ?? []).where((item) {
+          if (_query.isEmpty) return true;
+          return item.user.name.toLowerCase().contains(_query) ||
+              item.user.phone.toLowerCase().contains(_query);
+        }).toList();
+        return _buildItemList(
+          items: items,
+          nameOf: (item) => item.user.name,
+          phoneOf: (item) => item.user.phone,
+          onTap: (item) async {
+            final user = cache.currentUser?.user;
+            if (user == null) return;
+            await widget.dao.assignStaffToDepartment(
+              widget.schoolId,
+              item.staff.user,
+              departmentName: widget.deptName,
+              accountId: user.id,
+            );
+            widget.onDone();
+          },
+          cs: cs,
+          isDark: isDark,
+        );
+      },
+    );
+  }
+
+  Widget _buildItemList<T>({
+    required List<T> items,
+    required String Function(T) nameOf,
+    required String Function(T) phoneOf,
+    required Future<void> Function(T) onTap,
+    required ColorScheme cs,
+    required bool isDark,
+  }) {
+    if (items.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'No unassigned members found.',
+            style: TextStyle(
+              fontSize: 12.5,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
+          ),
+        ),
+      );
+    }
+    return ListView.builder(
+      shrinkWrap: true,
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Material(
+            color: isDark
+                ? cs.surfaceContainerHighest.withValues(alpha: 0.35)
+                : cs.surfaceContainerHighest.withValues(alpha: 0.25),
+            borderRadius: BorderRadius.circular(6),
+            child: InkWell(
+              onTap: () => onTap(item),
+              borderRadius: BorderRadius.circular(6),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 11,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      nameOf(item),
+                      style: TextStyle(fontSize: 13, color: cs.onSurface),
+                    ),
+                    Text(
+                      phoneOf(item),
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// Small filter chip for Teachers/Staff toggle in assign sheet
+class _DeptFilterChip extends StatelessWidget {
+  const _DeptFilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: selected
+              ? cs.primary.withValues(alpha: isDark ? 0.18 : 0.10)
+              : isDark
+              ? cs.surfaceContainerHighest.withValues(alpha: 0.35)
+              : cs.surfaceContainerHighest.withValues(alpha: 0.25),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: selected
+                ? cs.primary.withValues(alpha: isDark ? 0.5 : 0.4)
+                : cs.outlineVariant.withValues(alpha: isDark ? 0.2 : 0.3),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+            color: selected
+                ? cs.primary
+                : cs.onSurfaceVariant.withValues(alpha: 0.65),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Create Department Sheet
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CreateDepartmentSheet extends StatefulWidget {
+  const _CreateDepartmentSheet({required this.schoolId, required this.dao});
+  final String schoolId;
+  final DepartmentsDao dao;
+
+  @override
+  State<_CreateDepartmentSheet> createState() => _CreateDepartmentSheetState();
+}
+
+class _CreateDepartmentSheetState extends State<_CreateDepartmentSheet> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameCtrl = TextEditingController();
+  final _descCtrl = TextEditingController();
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _descCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+
+    final user = cache.currentUser?.user;
+    if (user == null) {
+      setState(() => _saving = false);
+      return;
+    }
+
+    try {
+      final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
+      await widget.dao.createDepartment(
+        DepartmentsCompanion(
+          school: Value(widget.schoolId),
+          name: Value(_nameCtrl.text.trim()),
+          description: Value(
+            _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
+          ),
+          created: Value(nowSec),
+          updated: Value(nowSec),
+        ),
+        accountId: user.id,
+      );
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to create department: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          16,
+          20,
+          MediaQuery.of(context).viewInsets.bottom + 16,
+        ),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 32,
+                  height: 3.5,
+                  decoration: BoxDecoration(
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'New Department',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurface,
+                  letterSpacing: 0.1,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _nameCtrl,
+                autofocus: true,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurface,
+                ),
+                decoration: _deptInputDeco(
+                  cs: cs,
+                  isDark: isDark,
+                  hint: 'Department name',
+                ),
+                validator: (v) =>
+                    v == null || v.trim().isEmpty ? 'Name required' : null,
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: _descCtrl,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurface,
+                ),
+                decoration: _deptInputDeco(
+                  cs: cs,
+                  isDark: isDark,
+                  hint: 'Description (optional)',
+                ),
+                maxLines: 2,
+                minLines: 1,
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                child: Material(
+                  color: cs.primary,
+                  borderRadius: BorderRadius.circular(6),
+                  child: InkWell(
+                    onTap: _saving ? null : _save,
+                    borderRadius: BorderRadius.circular(6),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      child: Center(
+                        child: _saving
+                            ? SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  color: cs.onPrimary,
+                                ),
+                              )
+                            : Text(
+                                'Create',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: cs.onPrimary,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper — department input decoration
+// ─────────────────────────────────────────────────────────────────────────────
+
+InputDecoration _deptInputDeco({
+  required ColorScheme cs,
+  required bool isDark,
+  required String hint,
+}) {
+  return InputDecoration(
+    hintText: hint,
+    hintStyle: TextStyle(
+      fontSize: 13,
+      fontWeight: FontWeight.w400,
+      color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+    ),
+    filled: true,
+    fillColor: isDark
+        ? cs.surfaceContainerHighest.withValues(alpha: 0.4)
+        : cs.surfaceContainerHighest.withValues(alpha: 0.3),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(6),
+      borderSide: BorderSide(color: cs.outline.withValues(alpha: 0.2)),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(6),
+      borderSide: BorderSide(color: cs.outline.withValues(alpha: 0.2)),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(6),
+      borderSide: BorderSide(color: cs.primary, width: 1),
+    ),
+    errorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(6),
+      borderSide: BorderSide(color: cs.error.withValues(alpha: 0.5)),
+    ),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    isDense: true,
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

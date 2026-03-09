@@ -3,12 +3,13 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart' hide Column;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Action;
 
 import '../../../../cache/file_cache.dart';
 import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/tables/enums.dart';
+import '../../../../models/permissions.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/animated_save_button.dart';
@@ -358,7 +359,7 @@ class _RoleDetailScreenState extends State<RoleDetailScreen>
         elevation: 0,
         scrolledUnderElevation: 0,
         actions: [
-          if (widget.permissions.can('roles.delete'))
+          if (widget.permissions.can(Resource.roles, Action.delete))
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: IconButton(
@@ -424,7 +425,10 @@ class _RoleDetailScreenState extends State<RoleDetailScreen>
                             cs: cs,
                             isLight: isLight,
                             horizontalPadding: horizontalPadding,
-                            canAssign: widget.permissions.can('scopes.create'),
+                            canAssign: widget.permissions.can(
+                              Resource.roles,
+                              Action.assign,
+                            ),
                             onAssign: () => _openAssignSheet(role),
                           ),
                         ),
@@ -1090,7 +1094,10 @@ class _PermissionsTabState extends State<_PermissionsTab> {
                               ),
                               selectionMode: selectionMode,
                               changeSummary: _resourceChangeSummary(entry.key),
-                              canEdit: widget.permissions.can('roles.update'),
+                              canEdit: widget.permissions.can(
+                                Resource.roles,
+                                Action.update,
+                              ),
                               isLight: isLight,
                               onToggleExpand: () => _toggleExpand(entry.key),
                               onToggleSelection: () =>
@@ -1768,7 +1775,7 @@ class _AssignedTabState extends State<_AssignedTab> {
   Widget build(BuildContext context) {
     final cs = widget.cs;
     final isLight = cs.brightness == Brightness.light;
-    final canUnassign = widget.permissions.can('scopes.delete');
+    final canUnassign = widget.permissions.can(Resource.roles, Action.unassign);
 
     return StreamBuilder<List<({Scope scope, UsersData user})>>(
       stream: rolesDao.watchUsersForRole(widget.role.id),

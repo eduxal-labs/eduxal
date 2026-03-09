@@ -68,6 +68,7 @@ class PhoneFirstPanel extends StatefulWidget {
     required this.subtitle,
     required this.ctaLabel,
     this.alreadyExistsMessage = 'This person is already added.',
+    this.checkAlreadyExists,
     this.extraFields,
     required this.onConfirmed,
     this.onCancel,
@@ -87,6 +88,11 @@ class PhoneFirstPanel extends StatefulWidget {
 
   /// Message shown when [MemberCreationError.alreadyExists] is returned.
   final String alreadyExistsMessage;
+
+  /// Called after a user is resolved via phone lookup to check if they
+  /// already hold the role being created. Returns `true` if the user is
+  /// already a member of that type at the target school.
+  final Future<bool> Function(UsersData user)? checkAlreadyExists;
 
   /// Optional slot for additional form fields rendered between the resolved
   /// user card (or name field) and the CTA button.  Receives the current
@@ -123,6 +129,7 @@ class _PhoneFirstPanelState extends State<PhoneFirstPanel>
   // ── State ──────────────────────────────────────────────────────────────────
   _LookupState _lookupState = const _Idle();
   bool _saving = false;
+  bool _isDuplicate = false;
   String? _submitError;
   Timer? _debounce;
 
@@ -156,11 +163,16 @@ class _PhoneFirstPanelState extends State<PhoneFirstPanel>
       parent: _nameInputCtrl,
       curve: Curves.easeOutCubic,
     );
+
+    // Rebuild when the user types a name so _isReadyToSubmit re-evaluates
+    // and the CTA button enables/disables accordingly.
+    _nameCtrl.addListener(_onNameChanged);
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
+    _nameCtrl.removeListener(_onNameChanged);
     _phoneCtrl.dispose();
     _nameCtrl.dispose();
     _phoneFocus.dispose();
@@ -168,6 +180,11 @@ class _PhoneFirstPanelState extends State<PhoneFirstPanel>
     _foundCardCtrl.dispose();
     _nameInputCtrl.dispose();
     super.dispose();
+  }
+
+  void _onNameChanged() {
+    // Trigger a rebuild so _isReadyToSubmit picks up the latest text.
+    setState(() {});
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -181,6 +198,7 @@ class _PhoneFirstPanelState extends State<PhoneFirstPanel>
       _nameInputCtrl.reverse();
       setState(() {
         _lookupState = const _Idle();
+        _isDuplicate = false;
         _submitError = null;
       });
     }
@@ -207,10 +225,27 @@ class _PhoneFirstPanelState extends State<PhoneFirstPanel>
 
     switch (result) {
       case UserFound(:final user):
+        // Check if already exists in target role.
+        bool isDuplicate = false;
+        if (widget.checkAlreadyExists != null) {
+          isDuplicate = await widget.checkAlreadyExists!(user);
+        }
         // Collapse name input if it was open, open found card.
         _nameInputCtrl.reverse();
         await Future<void>.delayed(const Duration(milliseconds: 80));
-        setState(() => _lookupState = _Resolved(user));
+        if (isDuplicate) {
+          setState(() {
+            _lookupState = _Resolved(user);
+            _isDuplicate = true;
+            _submitError = widget.alreadyExistsMessage;
+          });
+        } else {
+          setState(() {
+            _lookupState = _Resolved(user);
+            _isDuplicate = false;
+            _submitError = null;
+          });
+        }
         _foundCardCtrl.forward();
 
       case UserNotFound():
@@ -235,16 +270,16 @@ class _PhoneFirstPanelState extends State<PhoneFirstPanel>
     final phone = _phoneCtrl.text.trim();
     if (phone.isEmpty) return;
 
-    // Validate the form (name required for new users).
-    if (!(_formKey.currentState?.validate() ?? false)) return;
-
     String? name;
     UsersData? resolvedUser;
 
     switch (_lookupState) {
       case _Resolved(:final user):
+        // User already exists — no form fields need validating.
         resolvedUser = user;
       case _NotFound():
+        // Name field is visible — validate it (requires first + last name).
+        if (!(_formKey.currentState?.validate() ?? false)) return;
         name = _nameCtrl.text.trim();
         if (name.isEmpty) {
           setState(() => _submitError = 'Please enter the person\'s name.');
@@ -378,16 +413,41 @@ class _PhoneFirstPanelState extends State<PhoneFirstPanel>
               ),
             ),
 
-          // ── CTA ─────────────────────────────────────────────────────────
+          // ── Footer ──────────────────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-            child: _CtaButton(
-              label: widget.ctaLabel,
-              enabled: _isReadyToSubmit && !_saving,
-              saving: _saving,
-              isDark: isDark,
-              cs: cs,
-              onTap: _saving ? null : _submit,
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                // Cancel — plain text button
+                GestureDetector(
+                  onTap: _saving ? null : widget.onCancel,
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    child: Text(
+                      'Cancel',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        color: _saving
+                            ? cs.onSurfaceVariant.withValues(alpha: 0.3)
+                            : cs.onSurfaceVariant.withValues(alpha: 0.65),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                // Confirm — green tick icon button
+                _ConfirmIconButton(
+                  enabled: _isReadyToSubmit && !_saving,
+                  saving: _saving,
+                  onTap: _saving ? null : _submit,
+                ),
+              ],
             ),
           ),
         ],
@@ -399,6 +459,7 @@ class _PhoneFirstPanelState extends State<PhoneFirstPanel>
       _lookupState is _Resolved || _lookupState is _NotFound;
 
   bool get _isReadyToSubmit {
+    if (_isDuplicate) return false;
     switch (_lookupState) {
       case _Resolved():
         return true;
@@ -534,17 +595,11 @@ class _PhoneField extends StatelessWidget {
         const SizedBox(height: 7),
         Container(
           decoration: BoxDecoration(
-            color: isDark
-                ? const Color(0xFF1A2435)
-                : cs.surfaceContainerHighest.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.20 : 0.06),
-                blurRadius: isDark ? 8 : 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            color: isDark ? const Color(0xFF1E2A3A) : cs.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: cs.outlineVariant.withValues(alpha: isDark ? 0.2 : 0.35),
+            ),
           ),
           child: TextFormField(
             controller: controller,
@@ -564,13 +619,13 @@ class _PhoneField extends StatelessWidget {
               hintStyle: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.38),
+                color: cs.onSurfaceVariant.withValues(alpha: 0.55),
                 letterSpacing: 0.3,
               ),
               prefixIcon: Icon(
                 Icons.phone_outlined,
                 size: 18,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                color: cs.onSurfaceVariant.withValues(alpha: 0.65),
               ),
               suffixIcon: isLooking
                   ? Padding(
@@ -589,9 +644,11 @@ class _PhoneField extends StatelessWidget {
                   : null,
               filled: false,
               border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 14,
+                horizontal: 14,
+                vertical: 13,
               ),
             ),
             onChanged: onChanged,
@@ -628,16 +685,11 @@ class _FoundUserCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        // Tinted surface to make it visually distinct from the phone field.
-        color: accent.withValues(alpha: isDark ? 0.10 : 0.06),
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: accent.withValues(alpha: isDark ? 0.08 : 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: accent.withValues(alpha: isDark ? 0.08 : 0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: accent.withValues(alpha: isDark ? 0.20 : 0.15),
+        ),
       ),
       child: Row(
         children: [
@@ -646,8 +698,8 @@ class _FoundUserCard extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: accent.withValues(alpha: isDark ? 0.18 : 0.12),
-              borderRadius: BorderRadius.circular(8),
+              color: accent.withValues(alpha: isDark ? 0.15 : 0.10),
+              borderRadius: BorderRadius.circular(6),
             ),
             child: Center(
               child: Text(
@@ -755,17 +807,11 @@ class _NameField extends StatelessWidget {
         const SizedBox(height: 7),
         Container(
           decoration: BoxDecoration(
-            color: isDark
-                ? const Color(0xFF1A2435)
-                : cs.surfaceContainerHighest.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.20 : 0.06),
-                blurRadius: isDark ? 8 : 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            color: isDark ? const Color(0xFF1E2A3A) : cs.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: cs.outlineVariant.withValues(alpha: isDark ? 0.2 : 0.35),
+            ),
           ),
           child: TextFormField(
             controller: controller,
@@ -781,18 +827,20 @@ class _NameField extends StatelessWidget {
               hintStyle: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.38),
+                color: cs.onSurfaceVariant.withValues(alpha: 0.55),
               ),
               prefixIcon: Icon(
                 Icons.person_outline,
                 size: 18,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                color: cs.onSurfaceVariant.withValues(alpha: 0.65),
               ),
               filled: false,
               border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 14,
+                horizontal: 14,
+                vertical: 13,
               ),
             ),
             validator: (v) {
@@ -813,78 +861,71 @@ class _NameField extends StatelessWidget {
 // CTA Button — animated save state
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _CtaButton extends StatelessWidget {
-  const _CtaButton({
-    required this.label,
+class _ConfirmIconButton extends StatelessWidget {
+  const _ConfirmIconButton({
     required this.enabled,
     required this.saving,
-    required this.isDark,
-    required this.cs,
     required this.onTap,
   });
 
-  final String label;
   final bool enabled;
   final bool saving;
-  final bool isDark;
-  final ColorScheme cs;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final accent = isDark ? AppTheme.brandIndigoDark : AppTheme.brandIndigo;
-    final bgColor = enabled
-        ? accent
-        : accent.withValues(alpha: isDark ? 0.28 : 0.24);
-    final fgColor = enabled
-        ? Colors.white
-        : Colors.white.withValues(alpha: isDark ? 0.45 : 0.50);
+    const green = AppTheme.brandGreen;
+    final effectiveColor = enabled && !saving
+        ? green
+        : green.withValues(alpha: 0.4);
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      height: 46,
+      duration: const Duration(milliseconds: 150),
+      width: 36,
+      height: 36,
       decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: enabled
+        color: effectiveColor,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: (enabled && !saving)
             ? [
                 BoxShadow(
-                  color: accent.withValues(alpha: isDark ? 0.30 : 0.22),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
+                  color: green.withValues(alpha: 0.28),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
                 ),
               ]
-            : null,
+            : [],
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
         child: InkWell(
           onTap: enabled ? onTap : null,
-          borderRadius: BorderRadius.circular(10),
-          splashColor: Colors.white.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+          splashFactory: NoSplash.splashFactory,
+          overlayColor: WidgetStateProperty.all(
+            Colors.white.withValues(alpha: 0.08),
+          ),
           child: Center(
             child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 180),
+              duration: const Duration(milliseconds: 150),
               child: saving
                   ? SizedBox(
-                      key: const ValueKey('saving'),
-                      width: 18,
-                      height: 18,
+                      key: const ValueKey('spin'),
+                      width: 14,
+                      height: 14,
                       child: CircularProgressIndicator(
-                        strokeWidth: 1.8,
-                        valueColor: AlwaysStoppedAnimation<Color>(fgColor),
+                        strokeWidth: 1.5,
+                        valueColor: AlwaysStoppedAnimation(
+                          Colors.white.withValues(alpha: 0.85),
+                        ),
                       ),
                     )
-                  : Text(
-                      key: const ValueKey('label'),
-                      label,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: fgColor,
-                        letterSpacing: 0.2,
-                      ),
+                  : const Icon(
+                      key: ValueKey('check'),
+                      Icons.check,
+                      size: 17,
+                      color: Colors.white,
                     ),
             ),
           ),

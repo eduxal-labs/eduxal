@@ -67,6 +67,9 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
 
     final authenticated = results[1];
+
+    if (!mounted) return;
+
     final destination = authenticated == null
         ? const LoginScreen()
         : const HomeScreen();

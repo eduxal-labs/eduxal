@@ -112,7 +112,7 @@ class _SchoolRolesBodyState extends State<_SchoolRolesBody> {
                 elevation: 4,
                 highlightElevation: 6,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(Icons.add, size: 20),
               ),

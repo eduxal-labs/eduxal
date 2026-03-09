@@ -230,6 +230,11 @@ class _AddGuardianFormState extends State<_AddGuardianForm> {
       ctaLabel: 'Add Guardian',
       alreadyExistsMessage:
           'This person is already a guardian for this student.',
+      checkAlreadyExists: (user) async {
+        return await MembersDao(
+          db,
+        ).guardianExists(widget.schoolId, user.id, widget.studentAdm);
+      },
       extraFields: (_) => _GuardianExtras(
         studentName: widget.studentName,
         relationship: _relationship,

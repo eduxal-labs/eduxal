@@ -26,7 +26,8 @@ import 'school_detail_screen.dart';
 /// invited user first.
 ///
 /// On submit, calls [SchoolsDao.createSchool] (and optionally
-/// [UsersDao.inviteUser] for a new owner) inside a single [db.transaction].
+/// [UsersDao.inviteUser] for a new owner). Each DAO method runs its own
+/// internal transaction and calls `sync.schedulePush()` on completion.
 class CreateSchoolSheet extends StatefulWidget {
   const CreateSchoolSheet({super.key, required this.permissions});
 
@@ -241,40 +242,36 @@ class _CreateSchoolSheetState extends State<CreateSchoolSheet> {
         // Existing user found — use directly.
         ownerUserId = latestUser.id;
 
-        await db.transaction(() async {
-          await schoolsDao.createSchool(
-            school: schoolCompanion,
-            ownerUserId: ownerUserId,
-            accountId: accountId,
-          );
-        });
+        await schoolsDao.createSchool(
+          school: schoolCompanion,
+          ownerUserId: ownerUserId,
+          accountId: accountId,
+        );
       } else {
         // New user — create an invited user first, then the school.
         ownerUserId = ObjectId().oid;
         final ownerName = _ownerNameCtrl.text.trim();
         final ownerEmail = _ownerEmailCtrl.text.trim();
 
-        await db.transaction(() async {
-          await usersDao.inviteUser(
-            UsersCompanion(
-              id: Value(ownerUserId),
-              phone: Value(phone),
-              name: Value(ownerName),
-              email: Value(ownerEmail.isEmpty ? null : ownerEmail),
-              level: const Value(UserLevel.normal),
-              status: const Value(UserStatus.invited),
-              created: Value(nowSeconds),
-              updated: Value(nowSeconds),
-            ),
-            accountId: accountId,
-          );
+        await usersDao.inviteUser(
+          UsersCompanion(
+            id: Value(ownerUserId),
+            phone: Value(phone),
+            name: Value(ownerName),
+            email: Value(ownerEmail.isEmpty ? null : ownerEmail),
+            level: const Value(UserLevel.normal),
+            status: const Value(UserStatus.invited),
+            created: Value(nowSeconds),
+            updated: Value(nowSeconds),
+          ),
+          accountId: accountId,
+        );
 
-          await schoolsDao.createSchool(
-            school: schoolCompanion,
-            ownerUserId: ownerUserId,
-            accountId: accountId,
-          );
-        });
+        await schoolsDao.createSchool(
+          school: schoolCompanion,
+          ownerUserId: ownerUserId,
+          accountId: accountId,
+        );
       }
 
       // Save logo to local cache if one was picked.

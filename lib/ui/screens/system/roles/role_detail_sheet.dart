@@ -1,11 +1,12 @@
 import 'dart:convert';
 
 import 'package:drift/drift.dart' hide Column;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Action;
 
 import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/tables/enums.dart';
+import '../../../../models/permissions.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
 
@@ -312,8 +313,11 @@ class _RoleDetailSheetState extends State<RoleDetailSheet> {
                 editing: _editing,
                 saving: _saving,
                 deleting: _deleting,
-                canEdit: widget.permissions.can('roles.update'),
-                canDelete: widget.permissions.can('roles.delete'),
+                canEdit: widget.permissions.can(Resource.roles, Action.update),
+                canDelete: widget.permissions.can(
+                  Resource.roles,
+                  Action.delete,
+                ),
                 onEdit: () => _startEditing(role),
                 onSave: () => _save(role),
                 onCancel: () => setState(() {

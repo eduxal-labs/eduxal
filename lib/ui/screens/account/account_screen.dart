@@ -6,6 +6,8 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../../cache/file_cache.dart';
 import '../../../client.dart';
+import '../../../core/seeder.dart';
+import '../../../database/database.dart';
 import '../../../database/tables/enums.dart';
 import '../../../models/authenticated.dart';
 import '../../../core/grpc_errors.dart';
@@ -818,22 +820,126 @@ class _AccountScreenState extends State<AccountScreen>
         const SizedBox(height: 32),
 
         // ── Version footer ──────────────────────────────────────────────
+        // Long-press triggers the hidden demo data seeder.
         Center(
           child: Padding(
             padding: const EdgeInsets.only(bottom: 24),
-            child: Text(
-              'eduxal v1.0.0',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                letterSpacing: 0.4,
+            child: GestureDetector(
+              onLongPress: () => _triggerSeeder(user),
+              child: Text(
+                'eduxal v1.0.0',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                  letterSpacing: 0.4,
+                ),
               ),
             ),
           ),
         ),
       ],
     );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Hidden seeder trigger (developer / demo use)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Future<void> _triggerSeeder(Authenticated user) async {
+    // 0 = clear & reseed both schools, 1 = add another school
+    final choice = await showDialog<int>(
+      context: context,
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          title: const Text(
+            'Demo data',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          ),
+          content: const Text(
+            'Clear all existing data and load two demo schools, '
+            'or add one more school to the existing data.',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w400),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: cs.onSurfaceVariant,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 1),
+              child: const Text(
+                'Add school',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 0),
+              child: Text(
+                'Clear & reseed',
+                style: TextStyle(fontWeight: FontWeight.w500, color: cs.error),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (choice == null || !mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      if (choice == 0) {
+        print('[Seeder] Starting clearAndSeed for user=${user.user.id}');
+        await Seeder.clearAndSeed(db, user.user.id);
+        print('[Seeder] clearAndSeed completed successfully');
+      } else {
+        print('[Seeder] Starting seedAdditional for user=${user.user.id}');
+        await Seeder.seedAdditional(db, user.user.id);
+        print('[Seeder] seedAdditional completed successfully');
+      }
+
+      if (!mounted) return;
+
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            choice == 0
+                ? 'Demo data loaded (2 schools)'
+                : 'Additional school loaded',
+            style: const TextStyle(fontSize: 13),
+          ),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (e, stack) {
+      print('[Seeder] ERROR: $e');
+      print('[Seeder] STACK TRACE:\n$stack');
+
+      if (!mounted) return;
+
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'Seeder error: $e',
+            style: const TextStyle(fontSize: 13),
+          ),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Theme.of(context).colorScheme.error,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────

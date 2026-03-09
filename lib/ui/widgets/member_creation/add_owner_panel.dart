@@ -180,6 +180,9 @@ class _AddOwnerForm extends StatelessWidget {
           'EduXal, they will be linked instantly.',
       ctaLabel: 'Add Owner',
       alreadyExistsMessage: 'This person is already an owner at this school.',
+      checkAlreadyExists: (user) async {
+        return await MembersDao(db).ownerExists(schoolId, user.id);
+      },
       onConfirmed:
           ({
             required String phone,

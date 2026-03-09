@@ -1,10 +1,11 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Action;
 
 import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/tables/enums.dart';
+import '../../../../models/permissions.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/status_indicator.dart';
@@ -925,7 +926,7 @@ class _MemberRowState extends State<_MemberRow> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Modal that shows the system-level roles assigned to a member, with an
-/// optional "Assign role" button (guarded by `permissions.can('scopes.create')`).
+/// optional "Assign role" button (guarded by `permissions.can(Resource.roles, Action.assign)`).
 ///
 /// On mobile: shown as a bottom sheet (max 75 % of screen height).
 /// On desktop: shown as a centred Dialog with width 480 px.
@@ -986,7 +987,7 @@ class _MemberRolesSheetState extends State<_MemberRolesSheet> {
     final isDesktop =
         MediaQuery.sizeOf(context).width >= AppTheme.kMobileBreakpoint;
     final canAssign =
-        widget.permissions.can('scopes.create') ||
+        widget.permissions.can(Resource.roles, Action.assign) ||
         widget.permissions.level != UserLevel.normal;
 
     // Desktop Dialog has a fixed height; bottom sheet is constrained by max %.

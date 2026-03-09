@@ -542,6 +542,15 @@ class _ExamDetailViewState extends State<_ExamDetailView> {
                       cs: cs,
                     ),
                   ],
+                  const SizedBox(height: 24),
+                  _ClassPerformanceSection(
+                    exam: exam,
+                    schoolId: widget.schoolId,
+                    year: widget.year,
+                    term: widget.term,
+                    config: widget.config,
+                    dao: _dao,
+                  ),
                 ],
               );
             },
@@ -762,6 +771,553 @@ class _PaperDetailViewState extends State<_PaperDetailView> {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Analytics header — donut + bar chart
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Class Performance Analytics — overall + per-subject + student ranking
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ClassPerformanceSection extends StatefulWidget {
+  const _ClassPerformanceSection({
+    required this.exam,
+    required this.schoolId,
+    required this.year,
+    required this.term,
+    required this.config,
+    required this.dao,
+  });
+
+  final Exam exam;
+  final String schoolId;
+  final int year;
+  final int term;
+  final SchoolConfig config;
+  final ExamsGradesDao dao;
+
+  @override
+  State<_ClassPerformanceSection> createState() =>
+      _ClassPerformanceSectionState();
+}
+
+class _ClassPerformanceSectionState extends State<_ClassPerformanceSection> {
+  Map<int, PaperAnalytics>? _analytics;
+  List<_StudentRankRow>? _rankings;
+  List<StudentsData>? _enrolled;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ClassPerformanceSection old) {
+    super.didUpdateWidget(old);
+    if (old.exam.id != widget.exam.id) _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+
+    final analytics = await widget.dao.computeClassAnalytics(
+      schoolId: widget.schoolId,
+      examId: widget.exam.id,
+    );
+
+    final enrolled = await widget.dao.getEnrolledStudents(
+      schoolId: widget.schoolId,
+      year: widget.year,
+      term: widget.term,
+      grade: widget.exam.grade,
+      stream: widget.exam.stream,
+    );
+
+    // Fetch all grades for this exam to compute student totals
+    final allGrades = await (widget.dao.watchClassGrades(
+      schoolId: widget.schoolId,
+      examId: widget.exam.id,
+    )).first;
+
+    // Build student rankings — sum scores across subjects (subject-level totals
+    // preferred, i.e. paper == null). Fall back to all grades if no
+    // subject-level totals exist.
+    final hasSubjectTotals = allGrades.any((g) => g.paper == null);
+    final relevantGrades = hasSubjectTotals
+        ? allGrades.where((g) => g.paper == null).toList()
+        : allGrades;
+
+    // Group by student
+    final byStudent = <int, List<Grade>>{};
+    for (final g in relevantGrades) {
+      byStudent.putIfAbsent(g.student, () => []).add(g);
+    }
+
+    // Index enrolled students by adm for name resolution
+    final studentMap = {for (final s in enrolled) s.adm: s};
+
+    final rankings = <_StudentRankRow>[];
+    for (final entry in byStudent.entries) {
+      final adm = entry.key;
+      final grades = entry.value;
+      double totalScore = 0;
+      int totalPossible = 0;
+      for (final g in grades) {
+        totalScore += g.score;
+        totalPossible += g.total;
+      }
+      final pct = totalPossible > 0 ? (totalScore / totalPossible) * 100 : 0.0;
+      final student = studentMap[adm];
+      rankings.add(
+        _StudentRankRow(
+          name: student?.name ?? 'Student $adm',
+          adm: adm,
+          totalScore: totalScore,
+          totalPossible: totalPossible,
+          percentage: pct,
+        ),
+      );
+    }
+
+    // Sort by percentage descending
+    rankings.sort((a, b) => b.percentage.compareTo(a.percentage));
+
+    // Assign ranks (ties share the same rank)
+    int currentRank = 1;
+    for (int i = 0; i < rankings.length; i++) {
+      if (i > 0 && rankings[i].percentage < rankings[i - 1].percentage) {
+        currentRank = i + 1;
+      }
+      rankings[i] = rankings[i].copyWith(rank: currentRank);
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _analytics = analytics;
+      _rankings = rankings;
+      _enrolled = enrolled;
+      _loading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    if (_loading) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
+          ),
+        ),
+      );
+    }
+
+    final analytics = _analytics;
+    final rankings = _rankings;
+    final enrolled = _enrolled;
+    if (analytics == null || analytics.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // Overall class average across all subjects
+    double totalAvg = 0;
+    for (final a in analytics.values) {
+      totalAvg += a.averagePercent;
+    }
+    final overallAvg = totalAvg / analytics.length;
+    final totalGraded = rankings?.length ?? 0;
+    final totalEnrolled = enrolled?.length ?? 0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _SubLabel(label: 'Class Performance', cs: cs),
+        const SizedBox(height: 12),
+
+        // ── Summary card ──
+        Material(
+          color: cs.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(AppTheme.kRadius),
+          elevation: 0,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppTheme.kRadius),
+              border: Border.all(color: cs.outlineVariant, width: 1),
+            ),
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${overallAvg.toStringAsFixed(1)}%',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w300,
+                          color: _pctColor(overallAvg, cs),
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Class Average',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(width: 1, height: 40, color: cs.outlineVariant),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$totalGraded / $totalEnrolled',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w300,
+                          color: cs.onSurface,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Students Graded',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '${analytics.length}',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w300,
+                        color: cs.onSurface,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Subjects',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 20),
+
+        // ── Subject performance bars ──
+        _SubLabel(label: 'Subject Performance', cs: cs),
+        const SizedBox(height: 10),
+        ...analytics.entries.map((entry) {
+          final subjectCode = entry.key;
+          final pa = entry.value;
+          final label = _subjectLabel(subjectCode, widget.config);
+          final avg = pa.averagePercent;
+          final barColor = avg >= 75
+              ? AppTheme.brandGreen
+              : avg >= 50
+              ? const Color(0xFFF59E0B)
+              : cs.error;
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          color: cs.onSurface,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${avg.toStringAsFixed(1)}%',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: barColor,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: SizedBox(
+                    height: 6,
+                    child: LinearProgressIndicator(
+                      value: (avg / 100).clamp(0.0, 1.0),
+                      backgroundColor: cs.surfaceContainerHighest.withValues(
+                        alpha: 0.5,
+                      ),
+                      valueColor: AlwaysStoppedAnimation(barColor),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+
+        if (rankings != null && rankings.isNotEmpty) ...[
+          const SizedBox(height: 20),
+
+          // ── Student ranking table ──
+          _SubLabel(label: 'Student Ranking', cs: cs),
+          const SizedBox(height: 10),
+          Material(
+            color: cs.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(AppTheme.kRadius),
+            elevation: 0,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(AppTheme.kRadius),
+                border: Border.all(color: cs.outlineVariant, width: 1),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  // Header row
+                  Container(
+                    color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 36,
+                          child: Text(
+                            '#',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 3,
+                          child: Text(
+                            'Student',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 60,
+                          child: Text(
+                            'Score',
+                            textAlign: TextAlign.end,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: 50,
+                          child: Text(
+                            '%',
+                            textAlign: TextAlign.end,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Data rows
+                  ...List.generate(rankings.length, (i) {
+                    final r = rankings[i];
+                    final isEven = i.isEven;
+                    final pctColor = _pctColor(r.percentage, cs);
+                    return Container(
+                      color: isEven
+                          ? Colors.transparent
+                          : cs.surfaceContainerHighest.withValues(alpha: 0.15),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 36,
+                            child: Text(
+                              '${r.rank}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 3,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  r.name,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w400,
+                                    color: cs.onSurface,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  '${r.adm}',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w400,
+                                    color: cs.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(
+                            width: 60,
+                            child: Text(
+                              '${_fmtScore(r.totalScore)}/${r.totalPossible}',
+                              textAlign: TextAlign.end,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w400,
+                                color: cs.onSurface,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            width: 50,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  '${r.percentage.toStringAsFixed(1)}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: pctColor,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(2),
+                                  child: SizedBox(
+                                    height: 3,
+                                    width: 50,
+                                    child: LinearProgressIndicator(
+                                      value: (r.percentage / 100).clamp(
+                                        0.0,
+                                        1.0,
+                                      ),
+                                      backgroundColor: cs
+                                          .surfaceContainerHighest
+                                          .withValues(alpha: 0.5),
+                                      valueColor: AlwaysStoppedAnimation(
+                                        pctColor,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Data class for a single row in the student ranking table.
+class _StudentRankRow {
+  const _StudentRankRow({
+    this.rank = 0,
+    required this.name,
+    required this.adm,
+    required this.totalScore,
+    required this.totalPossible,
+    required this.percentage,
+  });
+
+  final int rank;
+  final String name;
+  final int adm;
+  final double totalScore;
+  final int totalPossible;
+  final double percentage;
+
+  _StudentRankRow copyWith({int? rank}) => _StudentRankRow(
+    rank: rank ?? this.rank,
+    name: name,
+    adm: adm,
+    totalScore: totalScore,
+    totalPossible: totalPossible,
+    percentage: percentage,
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Analytics header — per-paper donut + distribution (existing)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _AnalyticsHeader extends StatelessWidget {

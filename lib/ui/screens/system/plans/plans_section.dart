@@ -2,12 +2,13 @@ import 'dart:convert';
 
 import 'package:bson/bson.dart';
 import 'package:drift/drift.dart' hide Column;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Action;
 
 import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/tables/enums.dart';
 import '../../../../models/plan_features.dart';
+import '../../../../models/permissions.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/animated_save_button.dart';
@@ -321,7 +322,7 @@ class _PlanCardState extends State<_PlanCard> {
                 ),
 
                 // ── Status action buttons ────────────────────────────────
-                if (permissions.can('plans.update') ||
+                if (permissions.can(Resource.plans, Action.update) ||
                     (plan.status == PlanStatus.deleted &&
                         permissions.canSeeDeleted)) ...[
                   const SizedBox(height: 10),
@@ -369,7 +370,7 @@ class _PlanCardState extends State<_PlanCard> {
                             cs: cs,
                           ),
                         if (plan.status != PlanStatus.deleted &&
-                            permissions.can('plans.delete'))
+                            permissions.can(Resource.plans, Action.delete))
                           _CardActionButton(
                             icon: Icons.delete_outline_rounded,
                             tooltip: 'Delete',
@@ -1384,8 +1385,8 @@ class _PlanDetailSheetState extends State<_PlanDetailSheet> {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
     final plan = widget.plan;
-    final canEdit = widget.permissions.can('plans.update');
-    final canDelete = widget.permissions.can('plans.delete');
+    final canEdit = widget.permissions.can(Resource.plans, Action.update);
+    final canDelete = widget.permissions.can(Resource.plans, Action.delete);
 
     final accentColor = switch (plan.status) {
       PlanStatus.active => const Color(0xFF26A69A),

@@ -786,12 +786,18 @@ class _SegmentedBarChartState extends State<_SegmentedBarChart>
         ? segments[_activeIndex]
         : null;
 
-    return AnimatedSwitcher(
+    final visible = active != null && active.value > 0;
+
+    // Use AnimatedOpacity instead of AnimatedSwitcher to avoid duplicate-key
+    // errors that occur when rapid hover/tap cycles cause the switcher's
+    // internal transition Stack to hold multiple outgoing children with the
+    // same key.
+    return AnimatedOpacity(
+      opacity: visible ? 1.0 : 0.0,
       duration: const Duration(milliseconds: 150),
-      child: active != null && active.value > 0
+      child: visible
           ? Text(
               '${active.label}  ${active.value}',
-              key: ValueKey('shared-${active.label}'),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -802,7 +808,7 @@ class _SegmentedBarChartState extends State<_SegmentedBarChart>
                 letterSpacing: 0.1,
               ),
             )
-          : const SizedBox(key: ValueKey('shared-idle')),
+          : const SizedBox.shrink(),
     );
   }
 
@@ -810,23 +816,19 @@ class _SegmentedBarChartState extends State<_SegmentedBarChart>
   /// of the segment name so the bars are identifiable at a glance.
   Widget _buildLabel(ColorScheme cs, int i, _BarSegment seg) {
     final isActive = _activeIndex == i;
+    final color = isActive
+        ? seg.color
+        : cs.onSurfaceVariant.withValues(alpha: 0.5);
 
-    return AnimatedSwitcher(
+    return AnimatedDefaultTextStyle(
       duration: const Duration(milliseconds: 150),
-      child: Text(
-        seg.label[0],
-        key: ValueKey('$i-$isActive'),
-        textAlign: TextAlign.center,
-        maxLines: 1,
-        style: TextStyle(
-          fontSize: 8,
-          fontWeight: FontWeight.w400,
-          color: isActive
-              ? seg.color
-              : cs.onSurfaceVariant.withValues(alpha: 0.5),
-          height: 1.0,
-        ),
+      style: TextStyle(
+        fontSize: 8,
+        fontWeight: FontWeight.w400,
+        color: color,
+        height: 1.0,
       ),
+      child: Text(seg.label[0], textAlign: TextAlign.center, maxLines: 1),
     );
   }
 

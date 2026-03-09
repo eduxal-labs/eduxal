@@ -4,7 +4,7 @@ import 'dart:io';
 
 import 'package:bson/bson.dart';
 import 'package:drift/drift.dart' hide Column;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Action;
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../cache/file_cache.dart';
@@ -14,6 +14,7 @@ import '../../../../database/tables/curriculum_subjects.dart';
 
 import '../../../../database/tables/enums.dart';
 import '../../../../models/mpesa_config.dart';
+import '../../../../models/permissions.dart';
 import '../../../../models/school_config.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
@@ -127,7 +128,7 @@ class _SchoolDetailScreenState extends State<SchoolDetailScreen>
         elevation: 0,
         scrolledUnderElevation: 0,
         actions: [
-          if (widget.permissions.can('owners.create'))
+          if (widget.permissions.can(Resource.owners, Action.create))
             IconButton(
               icon: Icon(
                 Icons.person_add_outlined,
@@ -159,7 +160,7 @@ class _SchoolDetailScreenState extends State<SchoolDetailScreen>
               ),
             ),
           const SizedBox(width: 8),
-          if (widget.permissions.can('schools.update'))
+          if (widget.permissions.can(Resource.schools, Action.update))
             StreamBuilder<SchoolsData?>(
               stream: schoolsDao.watchSchools().map(
                 (list) => list
@@ -1036,7 +1037,7 @@ class _SettingsTabState extends State<_SettingsTab> {
       builder: (context, snapshot) {
         final settingsRow = snapshot.data;
         final SchoolConfig config = _parseConfig(settingsRow?.data);
-        final canEdit = widget.permissions.can('settings.update');
+        final canEdit = widget.permissions.can(Resource.schools, Action.update);
 
         final width = MediaQuery.sizeOf(context).width;
         final isDesktop = width >= AppTheme.kMobileBreakpoint;
@@ -3026,7 +3027,7 @@ class _IntegrationsTab extends StatelessWidget {
         final settingsRow = snapshot.data;
         final MpesaConfig? config = _parseMpesaConfig(settingsRow?.mpesa);
         final isConfigured = config != null && config.isConfigured;
-        final canEdit = permissions.can('settings.update');
+        final canEdit = permissions.can(Resource.schools, Action.update);
 
         return ListView(
           padding: EdgeInsets.fromLTRB(
@@ -5053,7 +5054,7 @@ class _AddOwnerSheetState extends State<_AddOwnerSheet> {
   // ── Submit ────────────────────────────────────────────────────────────────
 
   Future<void> _submit() async {
-    if (!widget.permissions.can('owners.create')) return;
+    if (!widget.permissions.can(Resource.owners, Action.create)) return;
     if (!_validate()) return;
     if (_error != null) return;
 
@@ -5108,27 +5109,25 @@ class _AddOwnerSheetState extends State<_AddOwnerSheet> {
         final name = _nameCtrl.text.trim();
         final email = _emailCtrl.text.trim();
 
-        await db.transaction(() async {
-          await usersDao.inviteUser(
-            UsersCompanion(
-              id: Value(userId),
-              phone: Value(phone),
-              name: Value(name),
-              email: Value(email.isEmpty ? null : email),
-              level: const Value(UserLevel.normal),
-              status: const Value(UserStatus.invited),
-              created: Value(nowSeconds),
-              updated: Value(nowSeconds),
-            ),
-            accountId: accountId,
-          );
+        await usersDao.inviteUser(
+          UsersCompanion(
+            id: Value(userId),
+            phone: Value(phone),
+            name: Value(name),
+            email: Value(email.isEmpty ? null : email),
+            level: const Value(UserLevel.normal),
+            status: const Value(UserStatus.invited),
+            created: Value(nowSeconds),
+            updated: Value(nowSeconds),
+          ),
+          accountId: accountId,
+        );
 
-          await schoolsDao.linkOwner(
-            schoolId: widget.schoolId,
-            userId: userId,
-            accountId: accountId,
-          );
-        });
+        await schoolsDao.linkOwner(
+          schoolId: widget.schoolId,
+          userId: userId,
+          accountId: accountId,
+        );
 
         if (!mounted) return;
         Navigator.of(context).pop();

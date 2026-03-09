@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:drift/drift.dart' hide Column;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Action;
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -9,6 +9,7 @@ import '../../../../cache/file_cache.dart';
 import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/tables/enums.dart';
+import '../../../../models/permissions.dart' show Action, Resource;
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/user_avatar.dart';
@@ -333,7 +334,7 @@ class _UserDetailSheetState extends State<UserDetailSheet> {
               _SheetHeader(
                 user: user,
                 editing: _editing,
-                canEdit: widget.permissions.can('users.update'),
+                canEdit: widget.permissions.can(Resource.users, Action.update),
                 saving: _saving,
                 onEdit: () => _startEditing(user),
                 onSave: () => _save(user),
@@ -723,7 +724,7 @@ class _ViewBody extends StatelessWidget {
         ),
 
         // ── Account Actions section ──────────────────────────────────────
-        if (permissions.can('users.update')) ...[
+        if (permissions.can(Resource.users, Action.update)) ...[
           const SizedBox(height: 20),
           _SectionHeader(title: 'Account Actions', cs: cs),
           const SizedBox(height: 4),

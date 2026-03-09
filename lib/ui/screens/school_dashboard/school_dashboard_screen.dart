@@ -9,6 +9,7 @@ import '../../../database/database.dart';
 import '../../../database/daos/terms_dao.dart';
 import '../../../models/active_term_context.dart';
 import '../../../models/membership.dart';
+import '../../../models/permissions.dart';
 import '../../../models/school_context.dart';
 import '../../../models/school_permissions.dart';
 import '../../theme/app_theme.dart';
@@ -18,13 +19,16 @@ import '../../widgets/no_terms_blank_state.dart';
 import '../../widgets/term_selector_chip.dart';
 import '../../widgets/user_avatar.dart';
 import '../account/account_screen.dart';
+import '../notifications/notifications_page.dart';
 import 'academics/academics_screen.dart';
 import 'attendance/attendance_screen.dart';
 import 'exams/exams_grades_screen.dart';
 import 'members/members_page.dart';
+import '../../widgets/sync_indicator.dart';
 import 'announcements/announcements_screen.dart';
 import 'finance/finance_screen.dart';
 import 'roles/school_roles_screen.dart';
+import 'overview/overview_screen.dart';
 import 'timetable/timetable_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -91,7 +95,7 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
     )..where((t) => t.school.equals(schoolId) & t.user.equals(user.id))).get();
 
     final roleIds = scopesRows.map((s) => s.role).toList();
-    final Set<String> perms = {};
+    var aggregated = const Permissions.empty();
 
     if (roleIds.isNotEmpty) {
       final rolesRows = await (db.select(
@@ -101,11 +105,7 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
       for (final r in rolesRows) {
         try {
           final decoded = jsonDecode(r.permissions);
-          if (decoded is Map) {
-            perms.addAll(decoded.keys.cast<String>());
-          } else if (decoded is List) {
-            perms.addAll(decoded.cast<String>());
-          }
+          aggregated = aggregated.union(Permissions.fromJson(decoded));
         } catch (_) {}
       }
     }
@@ -113,7 +113,7 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
     final permissions = SchoolPermissions(
       schoolId: schoolId,
       userId: user.id,
-      permissions: perms,
+      permissions: aggregated,
     );
 
     // ── 2. Load terms for the initial ActiveTermContext ──────────────────────
@@ -254,6 +254,7 @@ class _DashboardShellState extends State<_DashboardShell>
       MembershipRole.owner => const [
         _NavItem(label: 'Overview', icon: Icons.space_dashboard_outlined),
         _NavItem(label: 'Academics', icon: Icons.menu_book_outlined),
+        _NavItem(label: 'Exams & Grades', icon: Icons.assignment_outlined),
         _NavItem(label: 'Members', icon: Icons.people_alt_outlined),
         _NavItem(label: 'Finance', icon: Icons.account_balance_outlined),
         _NavItem(label: 'Announcements', icon: Icons.campaign_outlined),
@@ -483,6 +484,11 @@ class _DashboardShellState extends State<_DashboardShell>
     MembershipEntry entry,
     Term? currentTerm,
   ) {
+    // ── Overview — role-based landing page ─────────────────────────────────
+    if (item.label == 'Overview') {
+      return OverviewScreen(schoolContext: widget.schoolContext);
+    }
+
     // ── Academics (Departments, Subjects, Classes, Exams) ─────────────────
     // Visible to Owner and Staff who have access; exposed under the 'Academics'
     // nav label for owners.
@@ -838,8 +844,15 @@ class _FullSidebar extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
               child: Row(
                 children: [
-                  // Avatar — opens user menu popup
-                  _UserMenuAnchor(cs: cs),
+                  // Sync status dot + Avatar
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SyncIndicator(),
+                      const SizedBox(width: 4),
+                      _UserMenuAnchor(cs: cs),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -1066,6 +1079,9 @@ class _IconRail extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 10),
               child: Column(
                 children: [
+                  // Sync status dot
+                  const SyncIndicator(),
+                  const SizedBox(height: 6),
                   // User avatar — opens user menu
                   _UserMenuAnchor(cs: cs),
                 ],
@@ -1198,6 +1214,10 @@ class _TabLayoutTopBar extends StatelessWidget {
             compact: true,
           ),
 
+          const SizedBox(width: 4),
+
+          // Sync status dot — tiny, unobtrusive.
+          const SyncIndicator(),
           const SizedBox(width: 4),
 
           // User avatar — opens user menu (anchors downward on mobile)
@@ -1389,7 +1409,14 @@ class _UserMenuAnchorState extends State<_UserMenuAnchor> {
           context,
         ).push(MaterialPageRoute<void>(builder: (_) => const AccountScreen()));
       case _UserMenuAction.notifications:
-        break;
+        final accountId = cache.currentUser?.user.id;
+        if (accountId != null) {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => NotificationsPage(accountId: accountId),
+            ),
+          );
+        }
       case _UserMenuAction.logout:
         client.logOut();
     }
@@ -1412,9 +1439,50 @@ class _UserMenuAnchorState extends State<_UserMenuAnchor> {
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: _open,
-          child: UserAvatar(
-            userId: cache.currentUser?.user.id ?? '',
-            radius: 15,
+          child: StreamBuilder<int>(
+            stream: logsDao.watchFailedLogCount(
+              cache.currentUser?.user.id ?? '',
+            ),
+            builder: (context, snap) {
+              final cs = Theme.of(context).colorScheme;
+              final count = snap.data ?? 0;
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  UserAvatar(
+                    userId: cache.currentUser?.user.id ?? '',
+                    radius: 15,
+                  ),
+                  if (count > 0)
+                    Positioned(
+                      top: -4,
+                      right: -4,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        decoration: BoxDecoration(
+                          color: cs.error,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: cs.surface, width: 1.5),
+                        ),
+                        child: Text(
+                          count > 99 ? '99+' : '$count',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                            color: cs.onError,
+                            height: 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
         ),
       ),

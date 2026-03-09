@@ -4,6 +4,7 @@ import '../../../client.dart';
 import '../../../database/tables/enums.dart';
 import '../../../models/membership.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/sync_indicator.dart';
 import '../../widgets/user_avatar.dart';
 import '../account/account_screen.dart';
 import '../school_dashboard/school_dashboard_screen.dart';
@@ -403,6 +404,9 @@ class _HomeScreenState extends State<HomeScreen>
             ),
           ],
           const Spacer(),
+          // Sync status dot — tiny, unobtrusive.
+          const SyncIndicator(),
+          const SizedBox(width: 6),
           // Avatar button.
           UserAvatar(userId: userId, radius: 19, onTap: _openAccountMenu),
         ],
