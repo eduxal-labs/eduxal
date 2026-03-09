@@ -7,6 +7,7 @@ import '../tables/logs.dart';
 import '../tables/subjects.dart';
 import '../tables/teachers.dart';
 import '../tables/users.dart';
+import '../../client.dart';
 
 part 'subjects_dao.g.dart';
 
@@ -260,8 +261,8 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
     required int subject,
     required String teacherUserId,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowSeconds = BigInt.from(
         DateTime.now().millisecondsSinceEpoch ~/ 1000,
       );
@@ -332,6 +333,7 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
         );
       }
     });
+    sync.schedulePush();
   }
 
   /// Removes a subject assignment entirely and enqueues a delete log entry.
@@ -345,8 +347,8 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
     required int stream,
     required int subject,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final rowKey = '$schoolId|$year|$term|$grade|$stream|$subject';
 
@@ -383,6 +385,7 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
           ))
           .go();
     });
+    sync.schedulePush();
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -407,8 +410,8 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
     required int stream,
     required String teacherUserId,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final today = DateTime.now();
       final todayDays =
@@ -486,6 +489,7 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Removes the active class teacher assignment (sets end = today) without
@@ -500,8 +504,8 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
     required int stream,
     required String teacherUserId,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final todayDays = DateTime.now().millisecondsSinceEpoch ~/ 86400000;
 
@@ -529,5 +533,6 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
         ),
       );
     });
+    sync.schedulePush();
   }
 }

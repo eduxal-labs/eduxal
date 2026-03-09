@@ -53,6 +53,11 @@ class Accounts extends Table {
   /// Milliseconds since epoch of the last local update to this row.
   Int64Column get updated => int64()();
 
+  /// Server's monotonically increasing sequence number for sync tracking.
+  /// Default 0 means "never synced". Updated after each successful watch
+  /// delta is applied so the next `WatchRequest` can resume from this point.
+  Int64Column get lastSeq => int64().withDefault(Constant(BigInt.zero))();
+
   @override
   Set<Column> get primaryKey => {id};
 }

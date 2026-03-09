@@ -5,6 +5,7 @@ import '../tables/announcements.dart';
 import '../tables/enums.dart';
 import '../tables/logs.dart';
 import '../tables/users.dart';
+import '../../client.dart';
 
 part 'announcements_dao.g.dart';
 
@@ -272,8 +273,8 @@ class AnnouncementsDao extends DatabaseAccessor<AppDatabase>
     int? stream,
     required String authorId,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowSeconds = BigInt.from(
         DateTime.now().millisecondsSinceEpoch ~/ 1000,
       );
@@ -306,6 +307,7 @@ class AnnouncementsDao extends DatabaseAccessor<AppDatabase>
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Updates an existing announcement and writes a corresponding UPDATE log
@@ -322,8 +324,8 @@ class AnnouncementsDao extends DatabaseAccessor<AppDatabase>
     // Use Value<int?> to distinguish "not changing" from "setting to null".
     Value<int?>? grade,
     Value<int?>? stream,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowSeconds = BigInt.from(
         DateTime.now().millisecondsSinceEpoch ~/ 1000,
       );
@@ -411,6 +413,7 @@ class AnnouncementsDao extends DatabaseAccessor<AppDatabase>
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Deletes an announcement by [id] and writes a DELETE log entry.
@@ -420,8 +423,8 @@ class AnnouncementsDao extends DatabaseAccessor<AppDatabase>
   Future<void> deleteAnnouncement({
     required String id,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
       await (delete(announcements)..where((t) => t.id.equals(id))).go();
@@ -448,5 +451,6 @@ class AnnouncementsDao extends DatabaseAccessor<AppDatabase>
           ))
           .go();
     });
+    sync.schedulePush();
   }
 }

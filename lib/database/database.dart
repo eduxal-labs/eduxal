@@ -1,5 +1,9 @@
+import 'dart:io';
+
 import 'package:drift/drift.dart';
-import 'package:drift_flutter/drift_flutter.dart';
+import 'package:drift/native.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 import 'tables/enums.dart';
 
@@ -19,6 +23,7 @@ import 'daos/enrollments_dao.dart';
 import 'daos/school_scopes_dao.dart';
 import 'daos/exams_grades_dao.dart';
 import 'daos/finance_dao.dart';
+import 'daos/academics_dao.dart';
 import 'daos/announcements_dao.dart';
 import 'daos/timetable_dao.dart';
 
@@ -125,10 +130,26 @@ late final AppDatabase db;
     FinanceDao,
     AnnouncementsDao,
     TimetableDao,
+    AcademicsDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(LazyDatabase(() => driftDatabase(name: 'eduxal')));
+  AppDatabase()
+    : super(
+        LazyDatabase(() async {
+          final dir = await getApplicationDocumentsDirectory();
+          final file = File(p.join(dir.path, 'eduxal.sqlite'));
+          return NativeDatabase.createBackgroundConnection(
+            file,
+            setup: (db) {
+              // Wait up to 10s for locks instead of failing immediately
+              // with "database is locked". Essential when reactive watch()
+              // streams hold read connections while a large write runs.
+              db.execute('PRAGMA busy_timeout = 10000');
+            },
+          );
+        }),
+      );
 
   /// Opens an [AppDatabase] backed by the provided [executor].
   ///
@@ -140,11 +161,110 @@ class AppDatabase extends _$AppDatabase {
   /// ```
   AppDatabase.forTesting(super.executor);
 
+  /// Deletes every row from every table in the database.
+  ///
+  /// Deletion order respects foreign-key constraints: child tables are cleared
+  /// before parent tables so that `ON DELETE` / `RESTRICT` rules never fire.
+  ///
+  /// This is a full nuclear reset — use it on logout (when no accounts remain)
+  /// or when the user explicitly requests a data wipe.
+  Future<void> deleteAllData() async {
+    // Temporarily disable FK enforcement so deletion order doesn't matter
+    // for complex circular-ish references, then re-enable after.
+    await customStatement('PRAGMA foreign_keys = OFF');
+
+    await transaction(() async {
+      // Leaf / deepest-child tables first, parents last.
+      // ── Sync / client-only ──
+      await delete(logs).go();
+
+      // ── Grades / mastery (depend on exams, papers, students, enrollments) ──
+      await delete(mastery).go();
+      await delete(grades).go();
+
+      // ── Papers (depend on exams) ──
+      await delete(papers).go();
+
+      // ── Exams (depend on schools, terms) ──
+      await delete(exams).go();
+
+      // ── Attendance / lessons / timetable (depend on enrollments, subjects, terms) ──
+      await delete(attendance).go();
+      await delete(lessons).go();
+      await delete(timetable).go();
+
+      // ── Subjects (depend on teachers, terms, schools) ──
+      await delete(subjects).go();
+
+      // ── Enrollments (depend on students, terms, schools) ──
+      await delete(enrollments).go();
+
+      // ── Class teachers (depend on teachers, terms, schools) ──
+      await delete(classTeachers).go();
+
+      // ── Finance (payments → invoices → fees / students) ──
+      await delete(payments).go();
+      await delete(invoices).go();
+      await delete(fees).go();
+
+      // ── Subscriptions / discounts (depend on plans, schools, students) ──
+      await delete(subscriptions).go();
+      await delete(discounts).go();
+
+      // ── AI usage ──
+      await delete(aiUsage).go();
+
+      // ── Announcements ──
+      await delete(announcements).go();
+
+      // ── Scopes (depend on roles, users, schools) ──
+      await delete(scopes).go();
+
+      // ── Roles (depend on schools) ──
+      await delete(roles).go();
+
+      // ── Terms (depend on schools) ──
+      await delete(terms).go();
+
+      // ── Members (depend on users, schools, students) ──
+      await delete(guardians).go();
+      await delete(teachers).go();
+      await delete(staff).go();
+      await delete(owners).go();
+      await delete(students).go();
+
+      // ── Departments (depend on schools) ──
+      await delete(departments).go();
+
+      // ── Settings (depend on schools) ──
+      await delete(settings).go();
+
+      // ── Plans (standalone) ──
+      await delete(plans).go();
+
+      // ── Schools (referenced by many) ──
+      await delete(schools).go();
+
+      // ── Accounts (depend on users via FK CASCADE) ──
+      await delete(accounts).go();
+
+      // ── Users (top-level parent) ──
+      await delete(users).go();
+    });
+
+    await customStatement('PRAGMA foreign_keys = ON');
+  }
+
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.addColumn(accounts, accounts.lastSeq);
+      }
+    },
     onCreate: (m) async {
       // 1. Create all Drift-managed tables.
       await m.createAll();
@@ -676,6 +796,11 @@ class AppDatabase extends _$AppDatabase {
       await customStatement(
         'CREATE INDEX idx_discounts_school_term_grade ON discounts(school, year, term, grade)',
       );
+    },
+    beforeOpen: (details) async {
+      // FK enforcement must be enabled on every connection, not just onCreate,
+      // because it is a per-connection setting in SQLite.
+      await customStatement('PRAGMA foreign_keys = ON');
     },
   );
 }

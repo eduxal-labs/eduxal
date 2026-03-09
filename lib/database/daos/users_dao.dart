@@ -6,6 +6,7 @@ import '../tables/roles.dart';
 import '../tables/scopes.dart';
 import '../tables/users.dart';
 import '../../models/system_permissions.dart';
+import '../../client.dart';
 
 part 'users_dao.g.dart';
 
@@ -135,8 +136,11 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
   ///
   /// The [accountId] is the currently active account's user id, used to
   /// associate the log entry with the correct account.
-  Future<void> inviteUser(UsersCompanion user, {required String accountId}) {
-    return transaction(() async {
+  Future<void> inviteUser(
+    UsersCompanion user, {
+    required String accountId,
+  }) async {
+    await transaction(() async {
       await into(users).insert(user);
 
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
@@ -152,6 +156,7 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Updates the specified fields on a user row and writes a log update entry
@@ -166,8 +171,8 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
     String userId,
     UsersCompanion changes, {
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       await (update(users)..where((t) => t.id.equals(userId))).write(changes);
 
       int mask = 0;
@@ -193,6 +198,7 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Updates a user's [UserStatus] and the [UsersData.updated] timestamp, and
@@ -248,8 +254,8 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
     List<String> userIds,
     UserStatus status, {
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowSeconds = BigInt.from(
         DateTime.now().millisecondsSinceEpoch ~/ 1000,
       );
@@ -275,6 +281,7 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
         );
       }
     });
+    sync.schedulePush();
   }
 
   /// Updates the [UserLevel] for a list of user IDs in a single transaction.
@@ -287,8 +294,8 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
     List<String> userIds,
     UserLevel level, {
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowSeconds = BigInt.from(
         DateTime.now().millisecondsSinceEpoch ~/ 1000,
       );
@@ -314,14 +321,18 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
         );
       }
     });
+    sync.schedulePush();
   }
 
   /// Hard-deletes a list of user rows from the local DB in a single
   /// transaction. Writes a delete log entry for each user **before** deletion.
   ///
   /// [accountId] is the currently active account's user id.
-  Future<void> bulkPurge(List<String> userIds, {required String accountId}) {
-    return transaction(() async {
+  Future<void> bulkPurge(
+    List<String> userIds, {
+    required String accountId,
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
       for (final userId in userIds) {
@@ -338,14 +349,15 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
         await (delete(users)..where((t) => t.id.equals(userId))).go();
       }
     });
+    sync.schedulePush();
   }
 
   /// Hard-deletes a user row from the local DB. Writes a delete log entry
   /// **before** the deletion so the sync engine can replay it to the server.
   ///
   /// [accountId] is the currently active account's user id.
-  Future<void> purgeUser(String userId, {required String accountId}) {
-    return transaction(() async {
+  Future<void> purgeUser(String userId, {required String accountId}) async {
+    await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       await into(logs).insert(
         LogsCompanion(
@@ -360,5 +372,6 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
 
       await (delete(users)..where((t) => t.id.equals(userId))).go();
     });
+    sync.schedulePush();
   }
 }

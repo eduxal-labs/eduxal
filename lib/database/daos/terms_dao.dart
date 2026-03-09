@@ -4,6 +4,7 @@ import '../database.dart';
 import '../tables/enums.dart';
 import '../tables/logs.dart';
 import '../tables/terms.dart';
+import '../../client.dart';
 
 part 'terms_dao.g.dart';
 
@@ -151,8 +152,8 @@ class TermsDao extends DatabaseAccessor<AppDatabase> with _$TermsDaoMixin {
   Future<void> createTerm({
     required TermsCompanion term,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       await into(terms).insert(term);
 
       final schoolId = term.school.value;
@@ -171,6 +172,7 @@ class TermsDao extends DatabaseAccessor<AppDatabase> with _$TermsDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Updates mutable fields on an existing term and writes an UPDATE log entry
@@ -187,8 +189,8 @@ class TermsDao extends DatabaseAccessor<AppDatabase> with _$TermsDaoMixin {
     required int termNumber,
     required TermsCompanion changes,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       await (update(terms)..where(
             (t) =>
                 t.school.equals(schoolId) &
@@ -218,6 +220,7 @@ class TermsDao extends DatabaseAccessor<AppDatabase> with _$TermsDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Deletes a term row and writes a DELETE log entry before the deletion, both
@@ -233,8 +236,8 @@ class TermsDao extends DatabaseAccessor<AppDatabase> with _$TermsDaoMixin {
     required int year,
     required int termNumber,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
       // Log before delete so the sync engine can replay it.
@@ -257,6 +260,7 @@ class TermsDao extends DatabaseAccessor<AppDatabase> with _$TermsDaoMixin {
           ))
           .go();
     });
+    sync.schedulePush();
   }
 
   // ---------------------------------------------------------------------------

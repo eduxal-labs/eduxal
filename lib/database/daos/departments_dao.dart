@@ -7,6 +7,7 @@ import '../tables/logs.dart';
 import '../tables/staff.dart';
 import '../tables/teachers.dart';
 import '../tables/users.dart';
+import '../../client.dart';
 
 part 'departments_dao.g.dart';
 
@@ -164,8 +165,8 @@ class DepartmentsDao extends DatabaseAccessor<AppDatabase>
   Future<void> createDepartment(
     DepartmentsCompanion companion, {
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       await into(departments).insert(companion);
 
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
@@ -182,6 +183,7 @@ class DepartmentsDao extends DatabaseAccessor<AppDatabase>
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Updates the description of a department and writes a log update entry.
@@ -192,8 +194,8 @@ class DepartmentsDao extends DatabaseAccessor<AppDatabase>
     String name, {
     required String? description,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowSeconds = BigInt.from(
         DateTime.now().millisecondsSinceEpoch ~/ 1000,
       );
@@ -224,6 +226,7 @@ class DepartmentsDao extends DatabaseAccessor<AppDatabase>
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Assigns [teacherUserId] to [departmentName] (or unassigns when null).
@@ -237,8 +240,8 @@ class DepartmentsDao extends DatabaseAccessor<AppDatabase>
     String teacherUserId, {
     required String? departmentName,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowSeconds = BigInt.from(
         DateTime.now().millisecondsSinceEpoch ~/ 1000,
       );
@@ -270,6 +273,7 @@ class DepartmentsDao extends DatabaseAccessor<AppDatabase>
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Assigns [staffUserId] to [departmentName] (or unassigns when null).
@@ -283,8 +287,8 @@ class DepartmentsDao extends DatabaseAccessor<AppDatabase>
     String staffUserId, {
     required String? departmentName,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowSeconds = BigInt.from(
         DateTime.now().millisecondsSinceEpoch ~/ 1000,
       );
@@ -316,6 +320,7 @@ class DepartmentsDao extends DatabaseAccessor<AppDatabase>
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Deletes a department row and writes a log delete entry in a single
@@ -331,8 +336,8 @@ class DepartmentsDao extends DatabaseAccessor<AppDatabase>
     String schoolId,
     String name, {
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final rowKey = '$schoolId|$name';
 
@@ -363,5 +368,6 @@ class DepartmentsDao extends DatabaseAccessor<AppDatabase>
         departments,
       )..where((t) => t.school.equals(schoolId) & t.name.equals(name))).go();
     });
+    sync.schedulePush();
   }
 }

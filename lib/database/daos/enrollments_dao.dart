@@ -6,6 +6,7 @@ import '../tables/enums.dart';
 import '../tables/logs.dart';
 import '../tables/students.dart';
 import '../tables/users.dart';
+import '../../client.dart';
 
 part 'enrollments_dao.g.dart';
 
@@ -259,8 +260,8 @@ class EnrollmentsDao extends DatabaseAccessor<AppDatabase>
     required int stream,
     required int studentAdm,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final nowSeconds = BigInt.from(
         DateTime.now().millisecondsSinceEpoch ~/ 1000,
@@ -339,6 +340,7 @@ class EnrollmentsDao extends DatabaseAccessor<AppDatabase>
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Removes the enrollment for [studentAdm] from any class in the given term.
@@ -352,8 +354,8 @@ class EnrollmentsDao extends DatabaseAccessor<AppDatabase>
     required int term,
     required int studentAdm,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
       final existing = await getStudentEnrollment(
@@ -398,6 +400,7 @@ class EnrollmentsDao extends DatabaseAccessor<AppDatabase>
           ))
           .go();
     });
+    sync.schedulePush();
   }
 
   /// Bulk-enrolls a list of students into the same class in a single
@@ -416,8 +419,8 @@ class EnrollmentsDao extends DatabaseAccessor<AppDatabase>
     required int stream,
     required List<int> studentAdms,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       for (final adm in studentAdms) {
         await enrollStudent(
           schoolId: schoolId,
@@ -430,5 +433,6 @@ class EnrollmentsDao extends DatabaseAccessor<AppDatabase>
         );
       }
     });
+    sync.schedulePush();
   }
 }

@@ -11,6 +11,8 @@ mixin _$MembersDaoMixin on DatabaseAccessor<AppDatabase> {
   $StaffTable get staff => attachedDatabase.staff;
   $StudentsTable get students => attachedDatabase.students;
   $GuardiansTable get guardians => attachedDatabase.guardians;
+  $ClassTeachersTable get classTeachers => attachedDatabase.classTeachers;
+  $SubjectsTable get subjects => attachedDatabase.subjects;
   $AccountsTable get accounts => attachedDatabase.accounts;
   $LogsTable get logs => attachedDatabase.logs;
   MembersDaoManager get managers => MembersDaoManager(this);
@@ -33,6 +35,10 @@ class MembersDaoManager {
       $$StudentsTableTableManager(_db.attachedDatabase, _db.students);
   $$GuardiansTableTableManager get guardians =>
       $$GuardiansTableTableManager(_db.attachedDatabase, _db.guardians);
+  $$ClassTeachersTableTableManager get classTeachers =>
+      $$ClassTeachersTableTableManager(_db.attachedDatabase, _db.classTeachers);
+  $$SubjectsTableTableManager get subjects =>
+      $$SubjectsTableTableManager(_db.attachedDatabase, _db.subjects);
   $$AccountsTableTableManager get accounts =>
       $$AccountsTableTableManager(_db.attachedDatabase, _db.accounts);
   $$LogsTableTableManager get logs =>

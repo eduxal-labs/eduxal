@@ -6,6 +6,7 @@ import '../tables/enrollments.dart';
 import '../tables/enums.dart';
 import '../tables/logs.dart';
 import '../tables/students.dart';
+import '../../client.dart';
 
 part 'attendance_dao.g.dart';
 
@@ -387,8 +388,8 @@ class AttendanceDao extends DatabaseAccessor<AppDatabase>
     required int date,
     required AttendanceStatus status,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowSeconds = BigInt.from(
         DateTime.now().millisecondsSinceEpoch ~/ 1000,
       );
@@ -472,6 +473,7 @@ class AttendanceDao extends DatabaseAccessor<AppDatabase>
         );
       }
     });
+    sync.schedulePush();
   }
 
   /// Marks attendance for an entire class on a specific date in a single
@@ -493,8 +495,8 @@ class AttendanceDao extends DatabaseAccessor<AppDatabase>
     required int date,
     required Map<int, AttendanceStatus> statuses,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       for (final entry in statuses.entries) {
         await markAttendance(
           schoolId: schoolId,
@@ -509,6 +511,7 @@ class AttendanceDao extends DatabaseAccessor<AppDatabase>
         );
       }
     });
+    sync.schedulePush();
   }
 
   /// Deletes a single attendance record and queues a Delete log entry.
@@ -527,8 +530,8 @@ class AttendanceDao extends DatabaseAccessor<AppDatabase>
     required int studentAdm,
     required int date,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final rowKey = '$schoolId|$year|$term|$grade|$stream|$studentAdm|$date';
 
@@ -577,5 +580,6 @@ class AttendanceDao extends DatabaseAccessor<AppDatabase>
           ))
           .go();
     });
+    sync.schedulePush();
   }
 }

@@ -7,6 +7,7 @@ import '../tables/enums.dart';
 import '../tables/logs.dart';
 import '../tables/settings.dart';
 import '../../models/school_config.dart';
+import '../../client.dart';
 
 part 'settings_dao.g.dart';
 
@@ -77,8 +78,8 @@ class SettingsDao extends DatabaseAccessor<AppDatabase>
     String schoolId, {
     required String? mpesaJson,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowSeconds = BigInt.from(
         DateTime.now().millisecondsSinceEpoch ~/ 1000,
       );
@@ -128,6 +129,7 @@ class SettingsDao extends DatabaseAccessor<AppDatabase>
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Updates the `data` JSON column with the [SchoolConfig] for a school and
@@ -141,8 +143,8 @@ class SettingsDao extends DatabaseAccessor<AppDatabase>
     String schoolId,
     SchoolConfig config, {
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowSeconds = BigInt.from(
         DateTime.now().millisecondsSinceEpoch ~/ 1000,
       );
@@ -206,5 +208,6 @@ class SettingsDao extends DatabaseAccessor<AppDatabase>
         ),
       );
     });
+    sync.schedulePush();
   }
 }

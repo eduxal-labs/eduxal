@@ -1,14 +1,17 @@
 import 'package:drift/drift.dart';
 
 import '../database.dart';
+import '../tables/class_teachers.dart';
 import '../tables/enums.dart';
 import '../tables/guardians.dart';
 import '../tables/logs.dart';
 import '../tables/owners.dart';
 import '../tables/staff.dart';
 import '../tables/students.dart';
+import '../tables/subjects.dart';
 import '../tables/teachers.dart';
 import '../tables/users.dart';
+import '../../client.dart';
 
 part 'members_dao.g.dart';
 
@@ -31,7 +34,17 @@ part 'members_dao.g.dart';
 /// by name, not by phone.  Optionally a student row can be linked to an
 /// existing user via [linkStudentToUser].
 @DriftAccessor(
-  tables: [Users, Owners, Teachers, Staff, Students, Guardians, Logs],
+  tables: [
+    Users,
+    Owners,
+    Teachers,
+    Staff,
+    Students,
+    Guardians,
+    ClassTeachers,
+    Subjects,
+    Logs,
+  ],
 )
 class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
   MembersDao(super.db);
@@ -215,8 +228,8 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     required UsersCompanion newUser,
     required OwnersCompanion owner,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
 
@@ -249,6 +262,7 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Links an **existing** user (already in the local DB) as an owner at
@@ -258,8 +272,8 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
   Future<void> addExistingUserAsOwner({
     required OwnersCompanion owner,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
 
@@ -279,6 +293,7 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Removes an owner row from [schoolId] and enqueues a delete log entry.
@@ -286,8 +301,8 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     required String schoolId,
     required String userId,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       await into(logs).insert(
         LogsCompanion(
@@ -303,6 +318,7 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
         owners,
       )..where((t) => t.school.equals(schoolId) & t.user.equals(userId))).go();
     });
+    sync.schedulePush();
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -322,8 +338,8 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     required UsersCompanion newUser,
     required TeachersCompanion teacher,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
 
@@ -359,6 +375,7 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Links an **existing** user (already in the local DB) as a teacher at
@@ -368,8 +385,8 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
   Future<void> addExistingUserAsTeacher({
     required TeachersCompanion teacher,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
 
@@ -392,6 +409,7 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Updates mutable fields on a teacher row and writes a log UPDATE entry.
@@ -400,8 +418,8 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     required String userId,
     required TeachersCompanion changes,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       await (update(teachers)
             ..where((t) => t.school.equals(schoolId) & t.user.equals(userId)))
           .write(changes);
@@ -430,6 +448,7 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Removes a teacher row from [schoolId] and enqueues a delete log entry.
@@ -437,8 +456,8 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     required String schoolId,
     required String userId,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       await into(logs).insert(
         LogsCompanion(
@@ -454,6 +473,7 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
         teachers,
       )..where((t) => t.school.equals(schoolId) & t.user.equals(userId))).go();
     });
+    sync.schedulePush();
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -466,8 +486,8 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     required UsersCompanion newUser,
     required StaffCompanion member,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
 
@@ -501,14 +521,15 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Links an existing user as staff. Writes only the staff row + log entry.
   Future<void> addExistingUserAsStaff({
     required StaffCompanion member,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
 
@@ -531,6 +552,7 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Updates mutable fields on a staff row and writes a log UPDATE entry.
@@ -539,8 +561,8 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     required String userId,
     required StaffCompanion changes,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       await (update(staff)
             ..where((t) => t.school.equals(schoolId) & t.user.equals(userId)))
           .write(changes);
@@ -569,6 +591,7 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Removes a staff row and enqueues a delete log entry.
@@ -576,8 +599,8 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     required String schoolId,
     required String userId,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       await into(logs).insert(
         LogsCompanion(
@@ -593,6 +616,7 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
         staff,
       )..where((t) => t.school.equals(schoolId) & t.user.equals(userId))).go();
     });
+    sync.schedulePush();
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -606,8 +630,8 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
   Future<void> createStudent({
     required StudentsCompanion student,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
 
@@ -630,6 +654,7 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Updates mutable fields on a student row and writes a log UPDATE entry.
@@ -638,8 +663,8 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     required int adm,
     required StudentsCompanion changes,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       await (update(students)
             ..where((t) => t.school.equals(schoolId) & t.adm.equals(adm)))
           .write(changes);
@@ -671,6 +696,7 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Links an existing [Users] row to a student row by setting [student.user].
@@ -707,8 +733,8 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     required UsersCompanion newUser,
     required GuardiansCompanion guardian,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
 
@@ -744,14 +770,15 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Links an existing user as a guardian of [studentAdm].
   Future<void> addExistingUserAsGuardian({
     required GuardiansCompanion guardian,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
 
@@ -775,6 +802,7 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Updates mutable fields on a guardian row and writes a log UPDATE entry.
@@ -784,8 +812,8 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     required int studentAdm,
     required GuardiansCompanion changes,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       await (update(guardians)..where(
             (t) =>
                 t.school.equals(schoolId) &
@@ -816,6 +844,7 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Removes a guardian row and enqueues a delete log entry.
@@ -824,8 +853,8 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     required String userId,
     required int studentAdm,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       await into(logs).insert(
         LogsCompanion(
@@ -845,5 +874,162 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
           ))
           .go();
     });
+    sync.schedulePush();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Student queries (list, search, detail)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Emits the list of ALL [StudentsData] for [schoolId] ordered by
+  /// admission number ascending. Includes all statuses (active, expelled, etc.).
+  /// Re-emits on every change.
+  Stream<List<StudentsData>> watchAllStudents(String schoolId) =>
+      (select(students)
+            ..where((t) => t.school.equals(schoolId))
+            ..orderBy([(t) => OrderingTerm.asc(t.adm)]))
+          .watch();
+
+  /// Searches students at [schoolId] by name (case-insensitive contains) or
+  /// admission number (exact match). Only returns active students.
+  /// Returns a one-shot list, not a stream — this is for search-as-you-type.
+  Future<List<StudentsData>> searchStudents(
+    String schoolId,
+    String query,
+  ) async {
+    final q = query.trim();
+    if (q.isEmpty) {
+      return (select(students)
+            ..where(
+              (t) =>
+                  t.school.equals(schoolId) &
+                  t.status.equals(StudentStatus.active.index),
+            )
+            ..orderBy([(t) => OrderingTerm.asc(t.adm)])
+            ..limit(50))
+          .get();
+    }
+
+    final admNum = int.tryParse(q);
+
+    // Name search (case-insensitive LIKE)
+    final nameResults =
+        await (select(students)
+              ..where(
+                (t) =>
+                    t.school.equals(schoolId) &
+                    t.status.equals(StudentStatus.active.index) &
+                    t.name.like('%$q%'),
+              )
+              ..orderBy([(t) => OrderingTerm.asc(t.adm)])
+              ..limit(50))
+            .get();
+
+    if (admNum != null) {
+      final admResults =
+          await (select(students)..where(
+                (t) =>
+                    t.school.equals(schoolId) &
+                    t.status.equals(StudentStatus.active.index) &
+                    t.adm.equals(admNum),
+              ))
+              .get();
+      // Merge, deduplicate by adm
+      final seen = <int>{};
+      final merged = <StudentsData>[];
+      for (final s in [...admResults, ...nameResults]) {
+        if (seen.add(s.adm)) merged.add(s);
+      }
+      return merged;
+    }
+
+    return nameResults;
+  }
+
+  /// Reactively watches a single student row by [schoolId] and [adm].
+  /// Returns `null` if the student does not exist.
+  Stream<StudentsData?> watchStudent(String schoolId, int adm) =>
+      (select(students)
+            ..where((t) => t.school.equals(schoolId) & t.adm.equals(adm)))
+          .watchSingleOrNull();
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Teacher assignment queries (class teacher + subjects)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Watches all class_teachers rows for a teacher at a school, across all
+  /// years/terms. Ordered by year descending, then grade ascending.
+  Stream<List<ClassTeacher>> watchClassTeacherAssignments(
+    String schoolId,
+    String teacherUserId,
+  ) =>
+      (select(classTeachers)
+            ..where(
+              (t) =>
+                  t.school.equals(schoolId) & t.teacher.equals(teacherUserId),
+            )
+            ..orderBy([
+              (t) => OrderingTerm.desc(t.year),
+              (t) => OrderingTerm.asc(t.grade),
+            ]))
+          .watch();
+
+  /// Watches all subjects rows assigned to a teacher at a school, across all
+  /// years/terms. Ordered by year descending, then grade ascending.
+  Stream<List<Subject>> watchTeacherSubjects(
+    String schoolId,
+    String teacherUserId,
+  ) =>
+      (select(subjects)
+            ..where(
+              (t) =>
+                  t.school.equals(schoolId) & t.teacher.equals(teacherUserId),
+            )
+            ..orderBy([
+              (t) => OrderingTerm.desc(t.year),
+              (t) => OrderingTerm.asc(t.grade),
+            ]))
+          .watch();
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Unique guardians + ward queries
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Watches all guardians for [schoolId] and deduplicates by user ID.
+  /// Returns a list of unique `(user, wardCount)` records — one per distinct
+  /// guardian user, regardless of how many students they are linked to.
+  Stream<List<({UsersData user, int wardCount})>> watchUniqueGuardians(
+    String schoolId,
+  ) {
+    return watchAllGuardians(schoolId).asyncMap((all) async {
+      final byUser = <String, int>{};
+      for (final g in all) {
+        byUser[g.user] = (byUser[g.user] ?? 0) + 1;
+      }
+      final results = <({UsersData user, int wardCount})>[];
+      for (final entry in byUser.entries) {
+        final u = await findUserById(entry.key);
+        if (u != null) results.add((user: u, wardCount: entry.value));
+      }
+      return results;
+    });
+  }
+
+  /// Returns all guardian links for a specific user at a school, paired with
+  /// their student (ward) data. One entry per guardian row.
+  Stream<List<({GuardiansData guardian, StudentsData? student})>>
+  watchGuardianWards(String schoolId, String guardianUserId) {
+    return (select(guardians)..where(
+          (t) => t.school.equals(schoolId) & t.user.equals(guardianUserId),
+        ))
+        .watch()
+        .asyncMap((guardianRows) async {
+          final results = <({GuardiansData guardian, StudentsData? student})>[];
+          for (final g in guardianRows) {
+            final student = await getStudent(schoolId, g.student);
+            results.add((guardian: g, student: student));
+          }
+          return results;
+        });
   }
 }

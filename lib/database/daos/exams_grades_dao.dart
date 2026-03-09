@@ -8,6 +8,7 @@ import '../tables/logs.dart';
 import '../tables/mastery.dart';
 import '../tables/papers.dart';
 import '../tables/students.dart';
+import '../../client.dart';
 import '../tables/teachers.dart';
 import '../tables/users.dart';
 import '../tables/enrollments.dart';
@@ -26,11 +27,7 @@ typedef PaperWithGrades = ({Paper paper, List<GradeRow> grades});
 typedef GradeRow = ({Grade grade, StudentsData student});
 
 /// An exam row together with its papers.
-typedef ExamWithPapers = ({
-  Exam exam,
-  List<Paper> papers,
-  UsersData teacher,
-});
+typedef ExamWithPapers = ({Exam exam, List<Paper> papers, UsersData teacher});
 
 /// Analytics snapshot for a single paper — used to drive charts.
 class PaperAnalytics {
@@ -557,8 +554,8 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
   Future<void> createExam({
     required ExamsCompanion exam,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       await into(exams).insert(exam);
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       await into(logs).insert(
@@ -572,6 +569,7 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Updates mutable exam fields and writes an UPDATE log entry.
@@ -579,8 +577,8 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     required String examId,
     required ExamsCompanion changes,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       await (update(exams)..where((e) => e.id.equals(examId))).write(changes);
 
       int mask = 0;
@@ -608,12 +606,16 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Deletes an exam (cascades to papers and grades via FK) and writes a
   /// DELETE log entry.
-  Future<void> deleteExam({required String examId, required String accountId}) {
-    return transaction(() async {
+  Future<void> deleteExam({
+    required String examId,
+    required String accountId,
+  }) async {
+    await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       await into(logs).insert(
         LogsCompanion(
@@ -627,6 +629,7 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
       );
       await (delete(exams)..where((e) => e.id.equals(examId))).go();
     });
+    sync.schedulePush();
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -641,8 +644,8 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
   Future<void> createPaper({
     required PapersCompanion paper,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       await into(papers).insert(paper);
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final paperNum = paper.paper.present && paper.paper.value != null
@@ -661,6 +664,7 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Updates mutable paper fields and writes an UPDATE log entry.
@@ -671,8 +675,8 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     required int? paperNum,
     required PapersCompanion changes,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       await (update(papers)..where(
             (p) =>
                 p.school.equals(schoolId) &
@@ -709,6 +713,7 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Deletes a paper (cascades to grades) and writes a DELETE log entry.
@@ -718,8 +723,8 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     required int subject,
     required int? paperNum,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final paperSeg = paperNum != null ? '$paperNum' : 'null';
       final rowKey = '$schoolId|$examId|$subject|$paperSeg';
@@ -744,6 +749,7 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
           ))
           .go();
     });
+    sync.schedulePush();
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -759,8 +765,8 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
   Future<void> upsertGrade({
     required GradesCompanion grade,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final schoolId = grade.school.value;
       final examId = grade.exam.value;
       final studentAdm = grade.student.value;
@@ -824,6 +830,7 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         );
       }
     });
+    sync.schedulePush();
   }
 
   /// Bulk-upserts a list of grades for the same paper in a single transaction.
@@ -834,12 +841,13 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
   Future<void> bulkUpsertGrades({
     required List<GradesCompanion> gradeList,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       for (final g in gradeList) {
         await upsertGrade(grade: g, accountId: accountId);
       }
     });
+    sync.schedulePush();
   }
 
   /// Deletes a single grade row and writes a DELETE log entry.
@@ -850,8 +858,8 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     required int subject,
     required int? paperNum,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final paperSeg = paperNum != null ? '$paperNum' : 'null';
       final rowKey = '$schoolId|$examId|$studentAdm|$subject|$paperSeg';
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
@@ -878,6 +886,7 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
           ))
           .go();
     });
+    sync.schedulePush();
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -890,8 +899,8 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
   Future<void> upsertMastery({
     required MasteryCompanion entry,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final schoolId = entry.school.value;
       final studentAdm = entry.student.value;
       final grade = entry.grade.value;
@@ -953,5 +962,87 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         );
       }
     });
+    sync.schedulePush();
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Student-level grade queries
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /// Watches all grades for a specific student at a school.
+  /// Used by the student detail page to show exam performance history.
+  Stream<List<Grade>> watchStudentGrades(String schoolId, int studentAdm) {
+    return (select(grades)
+          ..where(
+            (t) => t.school.equals(schoolId) & t.student.equals(studentAdm),
+          )
+          ..orderBy([(t) => OrderingTerm.desc(t.created)]))
+        .watch();
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Class-level grade queries & analytics
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /// Watches all grades for a specific exam at a school.
+  /// Used by the class performance analytics view.
+  Stream<List<Grade>> watchClassGrades({
+    required String schoolId,
+    required String examId,
+  }) {
+    return (select(
+      grades,
+    )..where((t) => t.school.equals(schoolId) & t.exam.equals(examId))).watch();
+  }
+
+  /// Computes performance analytics for a whole class (all students in an exam).
+  /// Groups by subject and returns average scores per subject.
+  /// Only considers subject-level totals (paper == null); falls back to all
+  /// grades grouped by subject if no subject-level totals exist.
+  Future<Map<int, PaperAnalytics>> computeClassAnalytics({
+    required String schoolId,
+    required String examId,
+  }) async {
+    final allGrades = await (select(
+      grades,
+    )..where((t) => t.school.equals(schoolId) & t.exam.equals(examId))).get();
+
+    // Group by subject — prefer subject-level totals (paper == null)
+    final bySubject = <int, List<Grade>>{};
+    for (final g in allGrades) {
+      if (g.paper != null) continue; // only subject-level totals
+      bySubject.putIfAbsent(g.subject, () => []).add(g);
+    }
+
+    // If no subject-level grades exist, fall back to all grades grouped by subject
+    if (bySubject.isEmpty) {
+      for (final g in allGrades) {
+        bySubject.putIfAbsent(g.subject, () => []).add(g);
+      }
+    }
+
+    final result = <int, PaperAnalytics>{};
+    for (final entry in bySubject.entries) {
+      final subjectGrades = entry.value;
+      final totalStudents = subjectGrades.length;
+      if (totalStudents == 0) continue;
+
+      double totalPct = 0;
+      final distribution = _emptyDistribution();
+      for (final g in subjectGrades) {
+        final pct = g.total > 0 ? (g.score / g.total) * 100 : 0.0;
+        totalPct += pct;
+        _bucketScore(distribution, pct);
+      }
+
+      result[entry.key] = PaperAnalytics(
+        totalStudents: totalStudents,
+        gradedStudents: totalStudents,
+        averageScore: totalPct / totalStudents,
+        averagePercent: totalPct / totalStudents,
+        distribution: distribution,
+      );
+    }
+    return result;
   }
 }

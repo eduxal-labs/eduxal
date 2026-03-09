@@ -6,6 +6,7 @@ import '../tables/logs.dart';
 import '../tables/owners.dart';
 import '../tables/schools.dart';
 import '../tables/users.dart';
+import '../../client.dart';
 
 part 'schools_dao.g.dart';
 
@@ -105,8 +106,8 @@ class SchoolsDao extends DatabaseAccessor<AppDatabase> with _$SchoolsDaoMixin {
     required SchoolsCompanion school,
     required String ownerUserId,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       // Insert the school row.
       await into(schools).insert(school);
 
@@ -146,6 +147,7 @@ class SchoolsDao extends DatabaseAccessor<AppDatabase> with _$SchoolsDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Updates the specified fields on a school row and writes a log update entry
@@ -160,8 +162,8 @@ class SchoolsDao extends DatabaseAccessor<AppDatabase> with _$SchoolsDaoMixin {
     String schoolId,
     SchoolsCompanion changes, {
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       await (update(
         schools,
       )..where((t) => t.id.equals(schoolId))).write(changes);
@@ -194,6 +196,7 @@ class SchoolsDao extends DatabaseAccessor<AppDatabase> with _$SchoolsDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Updates a school's [SchoolStatus] and the [SchoolsData.updated] timestamp,
@@ -219,8 +222,8 @@ class SchoolsDao extends DatabaseAccessor<AppDatabase> with _$SchoolsDaoMixin {
   /// **before** the deletion so the sync engine can replay it to the server.
   ///
   /// [accountId] is the currently active account's user id.
-  Future<void> purgeSchool(String schoolId, {required String accountId}) {
-    return transaction(() async {
+  Future<void> purgeSchool(String schoolId, {required String accountId}) async {
+    await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       await into(logs).insert(
         LogsCompanion(
@@ -235,6 +238,7 @@ class SchoolsDao extends DatabaseAccessor<AppDatabase> with _$SchoolsDaoMixin {
 
       await (delete(schools)..where((t) => t.id.equals(schoolId))).go();
     });
+    sync.schedulePush();
   }
 
   /// Returns `true` if a row exists in [Owners] for the given
@@ -279,8 +283,8 @@ class SchoolsDao extends DatabaseAccessor<AppDatabase> with _$SchoolsDaoMixin {
     required String schoolId,
     required String userId,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final nowSeconds = BigInt.from(
         DateTime.now().millisecondsSinceEpoch ~/ 1000,
@@ -305,5 +309,6 @@ class SchoolsDao extends DatabaseAccessor<AppDatabase> with _$SchoolsDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 }

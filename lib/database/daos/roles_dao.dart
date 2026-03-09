@@ -6,6 +6,7 @@ import '../tables/logs.dart';
 import '../tables/roles.dart';
 import '../tables/scopes.dart';
 import '../tables/users.dart';
+import '../../client.dart';
 
 part 'roles_dao.g.dart';
 
@@ -151,8 +152,11 @@ class RolesDao extends DatabaseAccessor<AppDatabase> with _$RolesDaoMixin {
   /// - [RolesCompanion.created] and [RolesCompanion.updated] — seconds since epoch
   ///
   /// [accountId] is the currently active account's user id.
-  Future<void> createRole(RolesCompanion role, {required String accountId}) {
-    return transaction(() async {
+  Future<void> createRole(
+    RolesCompanion role, {
+    required String accountId,
+  }) async {
+    await transaction(() async {
       await into(roles).insert(role);
 
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
@@ -168,6 +172,7 @@ class RolesDao extends DatabaseAccessor<AppDatabase> with _$RolesDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Updates the specified fields on a role row and writes a log update entry
@@ -182,8 +187,8 @@ class RolesDao extends DatabaseAccessor<AppDatabase> with _$RolesDaoMixin {
     String roleId,
     RolesCompanion changes, {
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       await (update(roles)..where((t) => t.id.equals(roleId))).write(changes);
 
       int mask = 0;
@@ -211,6 +216,7 @@ class RolesDao extends DatabaseAccessor<AppDatabase> with _$RolesDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Assigns a user to a role by inserting a system-level scope row
@@ -223,8 +229,8 @@ class RolesDao extends DatabaseAccessor<AppDatabase> with _$RolesDaoMixin {
     required String userId,
     required String roleId,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final nowSeconds = BigInt.from(
         DateTime.now().millisecondsSinceEpoch ~/ 1000,
@@ -252,6 +258,7 @@ class RolesDao extends DatabaseAccessor<AppDatabase> with _$RolesDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Removes a user from a role by deleting the system-level scope row
@@ -264,8 +271,8 @@ class RolesDao extends DatabaseAccessor<AppDatabase> with _$RolesDaoMixin {
     required String userId,
     required String roleId,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
       // Insert the delete log entry.
@@ -300,6 +307,7 @@ class RolesDao extends DatabaseAccessor<AppDatabase> with _$RolesDaoMixin {
           ))
           .go();
     });
+    sync.schedulePush();
   }
 
   /// Deletes a role row and writes a log delete entry, both in a single
@@ -310,8 +318,8 @@ class RolesDao extends DatabaseAccessor<AppDatabase> with _$RolesDaoMixin {
   /// `(tbl=roles, rowKey=roleId)` pair — the delete supersedes them all.
   ///
   /// [accountId] is the currently active account's user id.
-  Future<void> deleteRole(String roleId, {required String accountId}) {
-    return transaction(() async {
+  Future<void> deleteRole(String roleId, {required String accountId}) async {
+    await transaction(() async {
       // Insert the delete log entry first so supersedWithDelete can find it.
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       await into(logs).insert(
@@ -341,5 +349,6 @@ class RolesDao extends DatabaseAccessor<AppDatabase> with _$RolesDaoMixin {
       // Finally delete the actual role row.
       await (delete(roles)..where((t) => t.id.equals(roleId))).go();
     });
+    sync.schedulePush();
   }
 }

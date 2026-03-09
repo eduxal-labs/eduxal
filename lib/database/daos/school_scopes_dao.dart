@@ -8,6 +8,7 @@ import '../tables/logs.dart';
 import '../tables/owners.dart';
 import '../tables/roles.dart';
 import '../tables/scopes.dart';
+import '../../client.dart';
 import '../tables/staff.dart';
 import '../tables/teachers.dart';
 import '../tables/users.dart';
@@ -320,8 +321,8 @@ class SchoolScopesDao extends DatabaseAccessor<AppDatabase>
   Future<void> createRole(
     RolesCompanion companion, {
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       await into(roles).insert(companion);
 
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
@@ -336,6 +337,7 @@ class SchoolScopesDao extends DatabaseAccessor<AppDatabase>
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Updates [name], [description], and/or [permissions] on an existing role
@@ -350,8 +352,8 @@ class SchoolScopesDao extends DatabaseAccessor<AppDatabase>
     String roleId,
     RolesCompanion changes, {
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       await (update(roles)..where((t) => t.id.equals(roleId))).write(changes);
 
       int mask = 0;
@@ -379,6 +381,7 @@ class SchoolScopesDao extends DatabaseAccessor<AppDatabase>
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Deletes a school-scoped role and writes a log delete entry.
@@ -388,8 +391,8 @@ class SchoolScopesDao extends DatabaseAccessor<AppDatabase>
   /// those scope deletions server-side.
   ///
   /// [accountId] is the currently active account's user id.
-  Future<void> deleteRole(String roleId, {required String accountId}) {
-    return transaction(() async {
+  Future<void> deleteRole(String roleId, {required String accountId}) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
       await into(logs).insert(
@@ -416,6 +419,7 @@ class SchoolScopesDao extends DatabaseAccessor<AppDatabase>
 
       await (delete(roles)..where((t) => t.id.equals(roleId))).go();
     });
+    sync.schedulePush();
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -431,8 +435,8 @@ class SchoolScopesDao extends DatabaseAccessor<AppDatabase>
     required String userId,
     required String roleId,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowSeconds = BigInt.from(
         DateTime.now().millisecondsSinceEpoch ~/ 1000,
       );
@@ -459,6 +463,7 @@ class SchoolScopesDao extends DatabaseAccessor<AppDatabase>
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Removes the scope that assigns [roleId] to [userId] at [schoolId] and
@@ -472,8 +477,8 @@ class SchoolScopesDao extends DatabaseAccessor<AppDatabase>
     required String userId,
     required String roleId,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final rowKey = '$schoolId|$userId|$roleId';
 
@@ -506,5 +511,6 @@ class SchoolScopesDao extends DatabaseAccessor<AppDatabase>
           ))
           .go();
     });
+    sync.schedulePush();
   }
 }

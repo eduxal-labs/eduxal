@@ -102,6 +102,24 @@ class LogsDao extends DatabaseAccessor<AppDatabase> with _$LogsDaoMixin {
         );
   }
 
+  /// Reactive count of [LogStatus.failed] entries for [accountId].
+  ///
+  /// Returns `0` when there are no failed entries. More efficient than
+  /// `watchFailedLogs(...).map((list) => list.length)` because it uses a
+  /// COUNT query instead of fetching all rows.
+  ///
+  /// Used by the avatar badge on both the School and System dashboards.
+  Stream<int> watchFailedLogCount(String accountId) {
+    final countExpr = logs.id.count();
+    final query = selectOnly(logs)
+      ..addColumns([countExpr])
+      ..where(
+        logs.account.equals(accountId) &
+            logs.status.equalsValue(LogStatus.failed),
+      );
+    return query.watchSingle().map((row) => row.read(countExpr) ?? 0);
+  }
+
   // ---------------------------------------------------------------------------
   // Deletes — after successful sync
   // ---------------------------------------------------------------------------

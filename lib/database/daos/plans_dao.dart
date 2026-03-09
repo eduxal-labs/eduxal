@@ -4,6 +4,8 @@ import '../database.dart';
 import '../tables/enums.dart';
 import '../tables/logs.dart';
 import '../tables/plans.dart';
+import '../tables/subscriptions.dart';
+import '../../client.dart';
 
 part 'plans_dao.g.dart';
 
@@ -12,7 +14,7 @@ part 'plans_dao.g.dart';
 /// All mutating methods write a corresponding row to the [Logs] table (offline
 /// mutation queue) inside the same transaction so that local changes are queued
 /// for server synchronisation.
-@DriftAccessor(tables: [Plans, Logs])
+@DriftAccessor(tables: [Plans, Subscriptions, Logs])
 class PlansDao extends DatabaseAccessor<AppDatabase> with _$PlansDaoMixin {
   PlansDao(super.db);
 
@@ -59,8 +61,11 @@ class PlansDao extends DatabaseAccessor<AppDatabase> with _$PlansDaoMixin {
   /// - [PlansCompanion.created] and [PlansCompanion.updated] — seconds since epoch
   ///
   /// [accountId] is the currently active account's user id.
-  Future<void> createPlan(PlansCompanion plan, {required String accountId}) {
-    return transaction(() async {
+  Future<void> createPlan(
+    PlansCompanion plan, {
+    required String accountId,
+  }) async {
+    await transaction(() async {
       await into(plans).insert(plan);
 
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
@@ -76,6 +81,7 @@ class PlansDao extends DatabaseAccessor<AppDatabase> with _$PlansDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Updates the specified fields on a plan row and writes a log update entry
@@ -90,8 +96,8 @@ class PlansDao extends DatabaseAccessor<AppDatabase> with _$PlansDaoMixin {
     String planId,
     PlansCompanion changes, {
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       await (update(plans)..where((t) => t.id.equals(planId))).write(changes);
 
       int mask = 0;
@@ -120,6 +126,7 @@ class PlansDao extends DatabaseAccessor<AppDatabase> with _$PlansDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Updates a plan's [PlanStatus] and the [PlansData.updated] timestamp, and
@@ -148,8 +155,8 @@ class PlansDao extends DatabaseAccessor<AppDatabase> with _$PlansDaoMixin {
   /// status. Only super-level users should be allowed to call this.
   ///
   /// [accountId] is the currently active account's user id.
-  Future<void> purgePlan(String planId, {required String accountId}) {
-    return transaction(() async {
+  Future<void> purgePlan(String planId, {required String accountId}) async {
+    await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       await into(logs).insert(
         LogsCompanion(
@@ -164,5 +171,116 @@ class PlansDao extends DatabaseAccessor<AppDatabase> with _$PlansDaoMixin {
 
       await (delete(plans)..where((t) => t.id.equals(planId))).go();
     });
+    sync.schedulePush();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Subscription queries
+  // ---------------------------------------------------------------------------
+
+  /// Watches all subscriptions for a specific student at a school.
+  /// Used by the student detail page to show plan subscriptions.
+  Stream<List<Subscription>> watchStudentSubscriptions(
+    String schoolId,
+    int studentAdm,
+  ) {
+    return (select(subscriptions)
+          ..where(
+            (t) => t.school.equals(schoolId) & t.student.equals(studentAdm),
+          )
+          ..orderBy([(t) => OrderingTerm.desc(t.created)]))
+        .watch();
+  }
+
+  /// Watches subscriptions for a student in a specific term.
+  Stream<List<Subscription>> watchStudentTermSubscriptions(
+    String schoolId,
+    int studentAdm,
+    int year,
+    int term,
+  ) {
+    return (select(subscriptions)..where(
+          (t) =>
+              t.school.equals(schoolId) &
+              t.student.equals(studentAdm) &
+              t.year.equals(year) &
+              t.term.equals(term),
+        ))
+        .watch();
+  }
+
+  /// Creates a subscription for a student and enqueues a log entry.
+  Future<void> createSubscription({
+    required SubscriptionsCompanion sub,
+    required String accountId,
+  }) async {
+    await transaction(() async {
+      await into(subscriptions).insert(sub);
+
+      final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+      final schoolId = sub.school.value;
+      final planId = sub.plan.value;
+      final year = sub.year.value;
+      final term = sub.term.value;
+      final student = sub.student.value;
+      await into(logs).insert(
+        LogsCompanion(
+          account: Value(accountId),
+          tbl: const Value(LogTable.subscriptions),
+          op: const Value(LogOperation.insert),
+          rowKey: Value('$schoolId|$planId|$year|$term|$student'),
+          status: const Value(LogStatus.pending),
+          created: Value(nowMs),
+        ),
+      );
+    });
+    sync.schedulePush();
+  }
+
+  /// Updates a subscription's status and enqueues a log entry.
+  Future<void> updateSubscriptionStatus({
+    required String schoolId,
+    required String planId,
+    required int year,
+    required int term,
+    required int studentAdm,
+    required SubscriptionStatus status,
+    required String accountId,
+  }) async {
+    await transaction(() async {
+      final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
+      await (update(subscriptions)..where(
+            (t) =>
+                t.school.equals(schoolId) &
+                t.plan.equals(planId) &
+                t.year.equals(year) &
+                t.term.equals(term) &
+                t.student.equals(studentAdm),
+          ))
+          .write(
+            SubscriptionsCompanion(
+              status: Value(status),
+              updated: Value(nowSec),
+            ),
+          );
+
+      int mask = 0;
+      mask |= (1 << SubscriptionsColumn.status.bit);
+      mask |= (1 << SubscriptionsColumn.updated.bit);
+
+      final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+      await into(logs).insert(
+        LogsCompanion(
+          account: Value(accountId),
+          tbl: const Value(LogTable.subscriptions),
+          op: const Value(LogOperation.update),
+          rowKey: Value('$schoolId|$planId|$year|$term|$studentAdm'),
+          columns: Value(mask),
+          status: const Value(LogStatus.pending),
+          created: Value(nowMs),
+        ),
+      );
+    });
+    sync.schedulePush();
   }
 }

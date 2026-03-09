@@ -7,6 +7,7 @@ import '../tables/logs.dart';
 import '../tables/subjects.dart';
 import '../tables/timetable.dart';
 import '../tables/users.dart';
+import '../../client.dart';
 
 part 'timetable_dao.g.dart';
 
@@ -216,8 +217,8 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
   Future<void> insertSlot({
     required TimetableCompanion slot,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
       await into(timetable).insert(slot);
@@ -245,6 +246,7 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Bulk-inserts multiple timetable slots (e.g. after generation) and writes
@@ -252,8 +254,8 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
   Future<void> insertSlots({
     required List<TimetableCompanion> slots,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
       for (final slot in slots) {
@@ -282,6 +284,7 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
         );
       }
     });
+    sync.schedulePush();
   }
 
   /// Deletes a single timetable slot and writes a log entry.
@@ -295,8 +298,8 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
     required int subject,
     required int start,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
       await (delete(timetable)..where(
@@ -334,6 +337,7 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Clears all timetable entries for a class in a term and writes delete logs.
@@ -344,8 +348,8 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
     required int grade,
     required int stream,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
       // Fetch all existing entries first to write delete logs.
@@ -393,6 +397,7 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
         );
       }
     });
+    sync.schedulePush();
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -501,8 +506,8 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
   Future<void> insertLesson({
     required LessonsCompanion lesson,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
       await into(lessons).insert(lesson);
@@ -529,6 +534,7 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Deletes a lesson record and writes a log entry.
@@ -542,8 +548,8 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
     required int subject,
     required String teacher,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
       await (delete(lessons)..where(
@@ -581,6 +587,7 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
         ),
       );
     });
+    sync.schedulePush();
   }
 }
 

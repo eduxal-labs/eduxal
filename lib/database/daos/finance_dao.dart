@@ -8,6 +8,7 @@ import '../tables/payments.dart';
 import '../tables/discounts.dart';
 import '../tables/students.dart';
 import '../tables/logs.dart';
+import '../../client.dart';
 import '../tables/terms.dart';
 import '../tables/plans.dart';
 
@@ -652,8 +653,8 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
     required bool mandatory,
     required BigInt due,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
@@ -685,6 +686,7 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Updates an existing fee definition.
@@ -696,8 +698,8 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
     bool? mandatory,
     BigInt? due,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
@@ -736,11 +738,15 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Deletes a fee definition.
-  Future<void> deleteFee({required String id, required String accountId}) {
-    return transaction(() async {
+  Future<void> deleteFee({
+    required String id,
+    required String accountId,
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
       await (delete(fees)..where((f) => f.id.equals(id))).go();
@@ -756,6 +762,7 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -775,8 +782,8 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
     InvoiceStatus status = InvoiceStatus.pending,
     BigInt? due,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
@@ -808,6 +815,7 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Generates invoices for all enrolled students in a grade from a fee.
@@ -818,8 +826,8 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
     required Fee fee,
     required String Function() generateId,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    final count = await transaction(() async {
       // Cross-reference with enrollments table to get students in this grade.
       final enrolledStudents = await customSelect(
         'SELECT DISTINCT e.student FROM enrollments e '
@@ -867,6 +875,8 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
       }
       return count;
     });
+    sync.schedulePush();
+    return count;
   }
 
   /// Updates an invoice's status.
@@ -874,8 +884,8 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
     required String id,
     required InvoiceStatus status,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
@@ -899,6 +909,7 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Cancels an invoice.
@@ -930,8 +941,8 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
     String? recorderId,
     int? date,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
@@ -967,6 +978,7 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
         await _recalculateInvoiceStatus(invoiceId, accountId);
       }
     });
+    sync.schedulePush();
   }
 
   /// Recalculates and updates the invoice status based on total payments.
@@ -1020,8 +1032,8 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
     required double amount,
     required DiscountUnit unit,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final rowKey = '$schoolId|$planId|$year|$term|$grade';
@@ -1098,6 +1110,7 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
         );
       }
     });
+    sync.schedulePush();
   }
 
   /// Deletes a discount.
@@ -1108,8 +1121,8 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
     required int term,
     required int grade,
     required String accountId,
-  }) {
-    return transaction(() async {
+  }) async {
+    await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final rowKey = '$schoolId|$planId|$year|$term|$grade';
 
@@ -1134,6 +1147,7 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
         ),
       );
     });
+    sync.schedulePush();
   }
 
   // ─────────────────────────────────────────────────────────────────────────

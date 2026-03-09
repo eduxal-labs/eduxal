@@ -6,6 +6,7 @@ import '../tables/enums.dart';
 
 import '../tables/users.dart';
 import '../../models/authenticated.dart';
+import '../../client.dart';
 
 part 'accounts_dao.g.dart';
 
@@ -150,6 +151,19 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
     );
   }
 
+  /// Updates the server sync sequence number for [id].
+  ///
+  /// Called by the sync engine after each successful `WatchChanges` delta is
+  /// applied locally, so the next `WatchRequest` can resume from [seq].
+  Future<void> updateLastSeq(String id, int seq) {
+    return (update(accounts)..where((t) => t.id.equals(id))).write(
+      AccountsCompanion(
+        lastSeq: Value(BigInt.from(seq)),
+        updated: Value(BigInt.from(DateTime.now().millisecondsSinceEpoch)),
+      ),
+    );
+  }
+
   /// Updates the theme preference for [id].
   ///
   /// Called by the theme switcher in the UI whenever the user changes their
@@ -190,9 +204,9 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
   ///
   /// The reactive [watchActiveAccount] stream will emit the updated
   /// [Authenticated] automatically because it joins against the `users` table.
-  Future<void> updateName(String userId, String name) {
+  Future<void> updateName(String userId, String name) async {
     final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
-    return transaction(() async {
+    await transaction(() async {
       // 1. Update the users table.
       await (update(db.users)..where((t) => t.id.equals(userId))).write(
         UsersCompanion(name: Value(name), updated: Value(now)),
@@ -212,6 +226,7 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Updates the email address of the user identified by [userId].
@@ -225,9 +240,9 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
   ///
   /// The reactive [watchActiveAccount] stream will emit the updated
   /// [Authenticated] automatically because it joins against the `users` table.
-  Future<void> updateEmail(String userId, String? email) {
+  Future<void> updateEmail(String userId, String? email) async {
     final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
-    return transaction(() async {
+    await transaction(() async {
       // 1. Update the users table.
       await (update(db.users)..where((t) => t.id.equals(userId))).write(
         UsersCompanion(email: Value(email), updated: Value(now)),
@@ -247,6 +262,7 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
         ),
       );
     });
+    sync.schedulePush();
   }
 
   /// Records the intent to sync a profile image change for [userId].
@@ -276,9 +292,9 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
   /// After this call, the account is no longer available for login on this
   /// device. The server will process the deletion request when the sync engine
   /// replays the log entry.
-  Future<void> deleteUserAccount(String userId) {
+  Future<void> deleteUserAccount(String userId) async {
     final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
-    return transaction(() async {
+    await transaction(() async {
       // 1. Mark user as deleted.
       await (update(db.users)..where((t) => t.id.equals(userId))).write(
         UsersCompanion(status: Value(UserStatus.deleted), updated: Value(now)),
@@ -300,5 +316,6 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
       // 3. Remove the local session row.
       await (delete(accounts)..where((t) => t.id.equals(userId))).go();
     });
+    sync.schedulePush();
   }
 }

@@ -16483,6 +16483,18 @@ class $AccountsTable extends Accounts
     type: DriftSqlType.bigInt,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _lastSeqMeta = const VerificationMeta(
+    'lastSeq',
+  );
+  @override
+  late final GeneratedColumn<BigInt> lastSeq = GeneratedColumn<BigInt>(
+    'last_seq',
+    aliasedName,
+    false,
+    type: DriftSqlType.bigInt,
+    requiredDuringInsert: false,
+    defaultValue: Constant(BigInt.zero),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -16495,6 +16507,7 @@ class $AccountsTable extends Accounts
     theme,
     created,
     updated,
+    lastSeq,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -16588,6 +16601,12 @@ class $AccountsTable extends Accounts
     } else if (isInserting) {
       context.missing(_updatedMeta);
     }
+    if (data.containsKey('last_seq')) {
+      context.handle(
+        _lastSeqMeta,
+        lastSeq.isAcceptableOrUnknown(data['last_seq']!, _lastSeqMeta),
+      );
+    }
     return context;
   }
 
@@ -16639,6 +16658,10 @@ class $AccountsTable extends Accounts
         DriftSqlType.bigInt,
         data['${effectivePrefix}updated'],
       )!,
+      lastSeq: attachedDatabase.typeMapping.read(
+        DriftSqlType.bigInt,
+        data['${effectivePrefix}last_seq'],
+      )!,
     );
   }
 
@@ -16683,6 +16706,11 @@ class AccountsData extends DataClass implements Insertable<AccountsData> {
 
   /// Milliseconds since epoch of the last local update to this row.
   final BigInt updated;
+
+  /// Server's monotonically increasing sequence number for sync tracking.
+  /// Default 0 means "never synced". Updated after each successful watch
+  /// delta is applied so the next `WatchRequest` can resume from this point.
+  final BigInt lastSeq;
   const AccountsData({
     required this.id,
     required this.accessToken,
@@ -16694,6 +16722,7 @@ class AccountsData extends DataClass implements Insertable<AccountsData> {
     required this.theme,
     required this.created,
     required this.updated,
+    required this.lastSeq,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -16712,6 +16741,7 @@ class AccountsData extends DataClass implements Insertable<AccountsData> {
     }
     map['created'] = Variable<BigInt>(created);
     map['updated'] = Variable<BigInt>(updated);
+    map['last_seq'] = Variable<BigInt>(lastSeq);
     return map;
   }
 
@@ -16729,6 +16759,7 @@ class AccountsData extends DataClass implements Insertable<AccountsData> {
       theme: Value(theme),
       created: Value(created),
       updated: Value(updated),
+      lastSeq: Value(lastSeq),
     );
   }
 
@@ -16750,6 +16781,7 @@ class AccountsData extends DataClass implements Insertable<AccountsData> {
       theme: serializer.fromJson<AppThemeMode>(json['theme']),
       created: serializer.fromJson<BigInt>(json['created']),
       updated: serializer.fromJson<BigInt>(json['updated']),
+      lastSeq: serializer.fromJson<BigInt>(json['lastSeq']),
     );
   }
   @override
@@ -16766,6 +16798,7 @@ class AccountsData extends DataClass implements Insertable<AccountsData> {
       'theme': serializer.toJson<AppThemeMode>(theme),
       'created': serializer.toJson<BigInt>(created),
       'updated': serializer.toJson<BigInt>(updated),
+      'lastSeq': serializer.toJson<BigInt>(lastSeq),
     };
   }
 
@@ -16780,6 +16813,7 @@ class AccountsData extends DataClass implements Insertable<AccountsData> {
     AppThemeMode? theme,
     BigInt? created,
     BigInt? updated,
+    BigInt? lastSeq,
   }) => AccountsData(
     id: id ?? this.id,
     accessToken: accessToken ?? this.accessToken,
@@ -16791,6 +16825,7 @@ class AccountsData extends DataClass implements Insertable<AccountsData> {
     theme: theme ?? this.theme,
     created: created ?? this.created,
     updated: updated ?? this.updated,
+    lastSeq: lastSeq ?? this.lastSeq,
   );
   AccountsData copyWithCompanion(AccountsCompanion data) {
     return AccountsData(
@@ -16814,6 +16849,7 @@ class AccountsData extends DataClass implements Insertable<AccountsData> {
       theme: data.theme.present ? data.theme.value : this.theme,
       created: data.created.present ? data.created.value : this.created,
       updated: data.updated.present ? data.updated.value : this.updated,
+      lastSeq: data.lastSeq.present ? data.lastSeq.value : this.lastSeq,
     );
   }
 
@@ -16829,7 +16865,8 @@ class AccountsData extends DataClass implements Insertable<AccountsData> {
           ..write('refreshTokenExpiry: $refreshTokenExpiry, ')
           ..write('theme: $theme, ')
           ..write('created: $created, ')
-          ..write('updated: $updated')
+          ..write('updated: $updated, ')
+          ..write('lastSeq: $lastSeq')
           ..write(')'))
         .toString();
   }
@@ -16846,6 +16883,7 @@ class AccountsData extends DataClass implements Insertable<AccountsData> {
     theme,
     created,
     updated,
+    lastSeq,
   );
   @override
   bool operator ==(Object other) =>
@@ -16860,7 +16898,8 @@ class AccountsData extends DataClass implements Insertable<AccountsData> {
           other.refreshTokenExpiry == this.refreshTokenExpiry &&
           other.theme == this.theme &&
           other.created == this.created &&
-          other.updated == this.updated);
+          other.updated == this.updated &&
+          other.lastSeq == this.lastSeq);
 }
 
 class AccountsCompanion extends UpdateCompanion<AccountsData> {
@@ -16874,6 +16913,7 @@ class AccountsCompanion extends UpdateCompanion<AccountsData> {
   final Value<AppThemeMode> theme;
   final Value<BigInt> created;
   final Value<BigInt> updated;
+  final Value<BigInt> lastSeq;
   final Value<int> rowid;
   const AccountsCompanion({
     this.id = const Value.absent(),
@@ -16886,6 +16926,7 @@ class AccountsCompanion extends UpdateCompanion<AccountsData> {
     this.theme = const Value.absent(),
     this.created = const Value.absent(),
     this.updated = const Value.absent(),
+    this.lastSeq = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   AccountsCompanion.insert({
@@ -16899,6 +16940,7 @@ class AccountsCompanion extends UpdateCompanion<AccountsData> {
     this.theme = const Value.absent(),
     required BigInt created,
     required BigInt updated,
+    this.lastSeq = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        accessToken = Value(accessToken),
@@ -16918,6 +16960,7 @@ class AccountsCompanion extends UpdateCompanion<AccountsData> {
     Expression<int>? theme,
     Expression<BigInt>? created,
     Expression<BigInt>? updated,
+    Expression<BigInt>? lastSeq,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -16932,6 +16975,7 @@ class AccountsCompanion extends UpdateCompanion<AccountsData> {
       if (theme != null) 'theme': theme,
       if (created != null) 'created': created,
       if (updated != null) 'updated': updated,
+      if (lastSeq != null) 'last_seq': lastSeq,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -16947,6 +16991,7 @@ class AccountsCompanion extends UpdateCompanion<AccountsData> {
     Value<AppThemeMode>? theme,
     Value<BigInt>? created,
     Value<BigInt>? updated,
+    Value<BigInt>? lastSeq,
     Value<int>? rowid,
   }) {
     return AccountsCompanion(
@@ -16960,6 +17005,7 @@ class AccountsCompanion extends UpdateCompanion<AccountsData> {
       theme: theme ?? this.theme,
       created: created ?? this.created,
       updated: updated ?? this.updated,
+      lastSeq: lastSeq ?? this.lastSeq,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -16999,6 +17045,9 @@ class AccountsCompanion extends UpdateCompanion<AccountsData> {
     if (updated.present) {
       map['updated'] = Variable<BigInt>(updated.value);
     }
+    if (lastSeq.present) {
+      map['last_seq'] = Variable<BigInt>(lastSeq.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -17018,6 +17067,7 @@ class AccountsCompanion extends UpdateCompanion<AccountsData> {
           ..write('theme: $theme, ')
           ..write('created: $created, ')
           ..write('updated: $updated, ')
+          ..write('lastSeq: $lastSeq, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -17697,6 +17747,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this as AppDatabase,
   );
   late final TimetableDao timetableDao = TimetableDao(this as AppDatabase);
+  late final AcademicsDao academicsDao = AcademicsDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -34698,6 +34749,7 @@ typedef $$AccountsTableCreateCompanionBuilder =
       Value<AppThemeMode> theme,
       required BigInt created,
       required BigInt updated,
+      Value<BigInt> lastSeq,
       Value<int> rowid,
     });
 typedef $$AccountsTableUpdateCompanionBuilder =
@@ -34712,6 +34764,7 @@ typedef $$AccountsTableUpdateCompanionBuilder =
       Value<AppThemeMode> theme,
       Value<BigInt> created,
       Value<BigInt> updated,
+      Value<BigInt> lastSeq,
       Value<int> rowid,
     });
 
@@ -34789,6 +34842,11 @@ class $$AccountsTableFilterComposer
 
   ColumnFilters<BigInt> get updated => $composableBuilder(
     column: $table.updated,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<BigInt> get lastSeq => $composableBuilder(
+    column: $table.lastSeq,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -34870,6 +34928,11 @@ class $$AccountsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<BigInt> get lastSeq => $composableBuilder(
+    column: $table.lastSeq,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$UsersTableOrderingComposer get id {
     final $$UsersTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -34940,6 +35003,9 @@ class $$AccountsTableAnnotationComposer
   GeneratedColumn<BigInt> get updated =>
       $composableBuilder(column: $table.updated, builder: (column) => column);
 
+  GeneratedColumn<BigInt> get lastSeq =>
+      $composableBuilder(column: $table.lastSeq, builder: (column) => column);
+
   $$UsersTableAnnotationComposer get id {
     final $$UsersTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -35002,6 +35068,7 @@ class $$AccountsTableTableManager
                 Value<AppThemeMode> theme = const Value.absent(),
                 Value<BigInt> created = const Value.absent(),
                 Value<BigInt> updated = const Value.absent(),
+                Value<BigInt> lastSeq = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AccountsCompanion(
                 id: id,
@@ -35014,6 +35081,7 @@ class $$AccountsTableTableManager
                 theme: theme,
                 created: created,
                 updated: updated,
+                lastSeq: lastSeq,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -35028,6 +35096,7 @@ class $$AccountsTableTableManager
                 Value<AppThemeMode> theme = const Value.absent(),
                 required BigInt created,
                 required BigInt updated,
+                Value<BigInt> lastSeq = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AccountsCompanion.insert(
                 id: id,
@@ -35040,6 +35109,7 @@ class $$AccountsTableTableManager
                 theme: theme,
                 created: created,
                 updated: updated,
+                lastSeq: lastSeq,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
