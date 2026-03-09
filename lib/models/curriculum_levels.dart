@@ -28,13 +28,8 @@ class CurriculumLevel {
 
 /// All CBC levels, in curriculum order.
 const List<CurriculumLevel> kCbcLevels = [
-  CurriculumLevel(
-    index: 0,
-    label: 'Pre-Primary (PP1–PP2)',
-    subjects: [
-      0, // prePrimaryActivities
-    ],
-  ),
+  // NOTE: Pre-Primary (PP1–PP2, index 0) intentionally excluded.
+  // All other indices kept as-is — they are stored in settings.data JSON.
   CurriculumLevel(
     index: 1,
     label: 'Lower Primary (Grades 1–3)',

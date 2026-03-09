@@ -28,6 +28,7 @@ class Authenticated {
     required this.tokenExpiry,
     required this.refreshTokenExpiry,
     this.lastSyncedAt,
+    this.lastSeq = 0,
     required this.theme,
     required this.created,
     required this.updated,
@@ -84,6 +85,11 @@ class Authenticated {
   /// `null` means the device has never completed a sync for this account.
   final int? lastSyncedAt;
 
+  /// Server's monotonically increasing sequence number for sync tracking.
+  /// 0 means "never synced". Updated after each successful watch delta is
+  /// applied so the next `WatchRequest` can resume from this point.
+  final int lastSeq;
+
   // ──────────────────────────────────────────────────────────────────────────
   // Theme preference
   // ──────────────────────────────────────────────────────────────────────────
@@ -123,6 +129,7 @@ class Authenticated {
       tokenExpiry: account.tokenExpiry.toInt(),
       refreshTokenExpiry: account.refreshTokenExpiry.toInt(),
       lastSyncedAt: account.lastSyncedAt?.toInt(),
+      lastSeq: account.lastSeq.toInt(),
       theme: account.theme,
       created: account.created.toInt(),
       updated: account.updated.toInt(),
@@ -151,6 +158,7 @@ class Authenticated {
       lastSyncedAt: Value(
         lastSyncedAt != null ? BigInt.from(lastSyncedAt!) : null,
       ),
+      lastSeq: Value(BigInt.from(lastSeq)),
       theme: Value(theme),
       created: Value(BigInt.from(created)),
       updated: Value(BigInt.from(updated)),

@@ -1,20 +1,20 @@
+import 'permissions.dart';
+
 /// Aggregated permission set for a user within a specific school.
 ///
 /// Assembled by loading all [scopes] rows for `(school, user)`, resolving each
-/// scope's linked [roles] row, and taking the union of every permission key
-/// found in every `roles.permissions` JSON map.
+/// scope's linked [roles] row, and parsing the binary permission blob (or
+/// legacy JSON) from each role. All permissions across all roles are unioned
+/// into a single [Permissions] bitmask instance.
 ///
 /// [SchoolPermissions] is computed once when the user enters a school context
 /// and held constant for the duration of that session. It is pure in-memory
 /// state — never persisted to the local DB.
 ///
-/// Permission key strings are **opaque** to the client. They are defined by
-/// the backend in the `roles.permissions` JSON map (e.g. `"attendance.record"`,
-/// `"students.manage"`, `"fees.view"`). The client treats them as plain strings
-/// and never hard-codes their structure. See P7 in AGENT.md for the pending
-/// alignment on the key taxonomy.
+/// Permission checks use the typed [Resource] / [Action] API from
+/// [Permissions]. See AGENT.md §17a for the full Resource and Action tables.
 class SchoolPermissions {
-  /// Creates a [SchoolPermissions] instance with a pre-assembled permission set.
+  /// Creates a [SchoolPermissions] instance with a pre-assembled [Permissions].
   ///
   /// Prefer using [SchoolPermissions.empty] when no scopes exist for the user,
   /// and constructing manually from DAO results otherwise.
@@ -32,7 +32,7 @@ class SchoolPermissions {
     return SchoolPermissions(
       schoolId: schoolId,
       userId: userId,
-      permissions: const {},
+      permissions: const Permissions.empty(),
     );
   }
 
@@ -42,42 +42,44 @@ class SchoolPermissions {
   /// The user whose aggregated permissions are represented here.
   final String userId;
 
-  /// Flat union of all permission keys from all roles linked to all scopes
-  /// held by [userId] at [schoolId].
+  /// Aggregated permissions from all roles linked to all scopes held by
+  /// [userId] at [schoolId].
   ///
-  /// Each key is an opaque string defined by the backend (e.g. `"fees.view"`).
-  /// The set is unordered. Membership tests are O(1).
-  final Set<String> permissions;
+  /// Each resource maps to a u16 action bitmask. Membership tests are O(1).
+  final Permissions permissions;
 
-  /// Returns `true` if [permission] is in the aggregated permission set.
+  /// Returns `true` if [action] is granted on [resource].
   ///
   /// ```dart
-  /// if (perms.can('attendance.record')) { ... }
+  /// if (perms.can(Resource.attendance, Action.mark)) { ... }
   /// ```
-  bool can(String permission) => permissions.contains(permission);
+  bool can(Resource resource, Action action) =>
+      permissions.can(resource, action);
 
-  /// Returns `true` if **at least one** of [perms] is in the permission set.
+  /// Returns `true` if **at least one** of [actions] is granted on [resource].
   ///
-  /// Useful for showing UI that requires any one of several related permissions.
+  /// Useful for showing UI that requires any one of several related actions.
   ///
   /// ```dart
-  /// if (perms.canAny(['students.view', 'students.manage'])) { ... }
+  /// if (perms.canAny(Resource.students, [Action.read, Action.update])) { ... }
   /// ```
-  bool canAny(List<String> perms) => perms.any(permissions.contains);
+  bool canAny(Resource resource, List<Action> actions) =>
+      permissions.canAny(resource, actions);
 
-  /// Returns `true` if **all** of [perms] are in the permission set.
+  /// Returns `true` if **all** of [actions] are granted on [resource].
   ///
   /// Useful for gating an action that requires several permissions simultaneously.
   ///
   /// ```dart
-  /// if (perms.canAll(['fees.view', 'fees.manage'])) { ... }
+  /// if (perms.canAll(Resource.fees, [Action.read, Action.update])) { ... }
   /// ```
-  bool canAll(List<String> perms) => perms.every(permissions.contains);
+  bool canAll(Resource resource, List<Action> actions) =>
+      permissions.canAll(resource, actions);
 
   @override
   String toString() =>
       'SchoolPermissions(schoolId: $schoolId, userId: $userId, '
-      'count: ${permissions.length})';
+      'permissions: $permissions)';
 
   @override
   bool operator ==(Object other) =>
@@ -86,9 +88,8 @@ class SchoolPermissions {
           runtimeType == other.runtimeType &&
           schoolId == other.schoolId &&
           userId == other.userId &&
-          permissions.length == other.permissions.length &&
-          permissions.containsAll(other.permissions);
+          permissions == other.permissions;
 
   @override
-  int get hashCode => Object.hash(schoolId, userId, permissions.length);
+  int get hashCode => Object.hash(schoolId, userId, permissions);
 }
