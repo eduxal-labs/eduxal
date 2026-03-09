@@ -97,15 +97,20 @@ class MemberCreationService {
 
   /// Looks up a user by [phone] in the local database.
   ///
-  /// Returns [UserFound] when a matching row exists, or [UserNotFound] when
-  /// the phone number is unknown locally.
+  /// Returns [UserFound] when a matching **non-deleted** row exists, or
+  /// [UserNotFound] when the phone number is unknown locally or belongs to
+  /// a deleted user. Deleted users are treated as if they don't exist — the
+  /// UI will ask for a name and the `createXxx` methods will resurrect the
+  /// row (update name + set status to invited).
   ///
   /// The phone number is normalised (trimmed, leading/trailing whitespace
   /// removed) before the query.
   Future<PhoneLookupResult> lookupPhone(String phone) async {
     final normalised = phone.trim();
     final existing = await _dao.findUserByPhone(normalised);
-    if (existing != null) return UserFound(existing);
+    if (existing != null && existing.status != UserStatus.deleted) {
+      return UserFound(existing);
+    }
     return UserNotFound(normalised);
   }
 
@@ -134,8 +139,8 @@ class MemberCreationService {
     final normalised = phone.trim();
     final existing = await _dao.findUserByPhone(normalised);
 
-    if (existing != null) {
-      // User exists — check for duplicate.
+    if (existing != null && existing.status != UserStatus.deleted) {
+      // User exists and is not deleted — check for duplicate.
       final duplicate = await _dao.ownerExists(schoolId, existing.id);
       if (duplicate) return const Err(MemberCreationError.alreadyExists);
 
@@ -152,12 +157,20 @@ class MemberCreationService {
       return Ok(existing);
     }
 
-    // User not found — name is required to create the invited user row.
+    // User not found OR deleted — name is required.
     if (name == null || name.trim().isEmpty) {
       return const Err(MemberCreationError.invalidPhone);
     }
 
+    // If the phone belonged to a deleted user, purge the old row first.
+    // Cascade deletes will clean up any stale role links.
+    if (existing != null && existing.status == UserStatus.deleted) {
+      await _purgeDeletedUser(existing.id, accountId: accountId);
+    }
+
     final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
+
+    // Create a fresh invited user row + owner link.
     final userId = ObjectId().oid;
 
     final newUser = UsersCompanion(
@@ -215,8 +228,8 @@ class MemberCreationService {
     final normalised = phone.trim();
     final existing = await _dao.findUserByPhone(normalised);
 
-    if (existing != null) {
-      // User exists — check for duplicate.
+    if (existing != null && existing.status != UserStatus.deleted) {
+      // User exists and is not deleted — check for duplicate.
       final duplicate = await _dao.teacherExists(schoolId, existing.id);
       if (duplicate) return const Err(MemberCreationError.alreadyExists);
 
@@ -241,12 +254,31 @@ class MemberCreationService {
       return Ok(existing);
     }
 
-    // User not found — name is required to create the invited user row.
+    // User not found OR deleted — name is required.
     if (name == null || name.trim().isEmpty) {
       return const Err(MemberCreationError.invalidPhone);
     }
 
+    // If the phone belonged to a deleted user, purge the old row first.
+    if (existing != null && existing.status == UserStatus.deleted) {
+      await _purgeDeletedUser(existing.id, accountId: accountId);
+    }
+
     final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
+
+    TeachersCompanion teacherCompanion(String userId) => TeachersCompanion(
+      school: Value(schoolId),
+      user: Value(userId),
+      hired: hiredDate != null
+          ? Value(_dateToDaysSinceEpoch(hiredDate))
+          : const Value.absent(),
+      role: role != null ? Value(role) : const Value.absent(),
+      department: department != null ? Value(department) : const Value.absent(),
+      created: Value(nowSec),
+      updated: Value(nowSec),
+    );
+
+    // Create a fresh invited user row + teacher link.
     final userId = ObjectId().oid;
 
     final newUser = UsersCompanion(
@@ -261,19 +293,7 @@ class MemberCreationService {
 
     await _dao.inviteAndAddTeacher(
       newUser: newUser,
-      teacher: TeachersCompanion(
-        school: Value(schoolId),
-        user: Value(userId),
-        hired: hiredDate != null
-            ? Value(_dateToDaysSinceEpoch(hiredDate))
-            : const Value.absent(),
-        role: role != null ? Value(role) : const Value.absent(),
-        department: department != null
-            ? Value(department)
-            : const Value.absent(),
-        created: Value(nowSec),
-        updated: Value(nowSec),
-      ),
+      teacher: teacherCompanion(userId),
       accountId: accountId,
     );
 
@@ -304,7 +324,8 @@ class MemberCreationService {
     final normalised = phone.trim();
     final existing = await _dao.findUserByPhone(normalised);
 
-    if (existing != null) {
+    if (existing != null && existing.status != UserStatus.deleted) {
+      // User exists and is not deleted — check for duplicate.
       final duplicate = await _dao.staffExists(schoolId, existing.id);
       if (duplicate) return const Err(MemberCreationError.alreadyExists);
 
@@ -327,11 +348,29 @@ class MemberCreationService {
       return Ok(existing);
     }
 
+    // User not found OR deleted — name is required.
     if (name == null || name.trim().isEmpty) {
       return const Err(MemberCreationError.invalidPhone);
     }
 
+    // If the phone belonged to a deleted user, purge the old row first.
+    if (existing != null && existing.status == UserStatus.deleted) {
+      await _purgeDeletedUser(existing.id, accountId: accountId);
+    }
+
     final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
+
+    StaffCompanion staffCompanion(String userId) => StaffCompanion(
+      school: Value(schoolId),
+      user: Value(userId),
+      idnumber: idNumber != null ? Value(idNumber) : const Value.absent(),
+      role: role != null ? Value(role) : const Value.absent(),
+      department: department != null ? Value(department) : const Value.absent(),
+      created: Value(nowSec),
+      updated: Value(nowSec),
+    );
+
+    // Create a fresh invited user row + staff link.
     final userId = ObjectId().oid;
 
     final newUser = UsersCompanion(
@@ -346,17 +385,7 @@ class MemberCreationService {
 
     await _dao.inviteAndAddStaff(
       newUser: newUser,
-      member: StaffCompanion(
-        school: Value(schoolId),
-        user: Value(userId),
-        idnumber: idNumber != null ? Value(idNumber) : const Value.absent(),
-        role: role != null ? Value(role) : const Value.absent(),
-        department: department != null
-            ? Value(department)
-            : const Value.absent(),
-        created: Value(nowSec),
-        updated: Value(nowSec),
-      ),
+      member: staffCompanion(userId),
       accountId: accountId,
     );
 
@@ -445,7 +474,8 @@ class MemberCreationService {
     final normalised = phone.trim();
     final existing = await _dao.findUserByPhone(normalised);
 
-    if (existing != null) {
+    if (existing != null && existing.status != UserStatus.deleted) {
+      // User exists and is not deleted — check for duplicate.
       final duplicate = await _dao.guardianExists(
         schoolId,
         existing.id,
@@ -470,11 +500,29 @@ class MemberCreationService {
       return Ok(existing);
     }
 
+    // User not found OR deleted — name is required.
     if (name == null || name.trim().isEmpty) {
       return const Err(MemberCreationError.invalidPhone);
     }
 
+    // If the phone belonged to a deleted user, purge the old row first.
+    if (existing != null && existing.status == UserStatus.deleted) {
+      await _purgeDeletedUser(existing.id, accountId: accountId);
+    }
+
     final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
+
+    GuardiansCompanion guardianCompanion(String userId) => GuardiansCompanion(
+      school: Value(schoolId),
+      user: Value(userId),
+      student: Value(studentAdm),
+      relationship: Value(relationship),
+      role: Value(role),
+      created: Value(nowSec),
+      updated: Value(nowSec),
+    );
+
+    // Create a fresh invited user row + guardian link.
     final userId = ObjectId().oid;
 
     final newUser = UsersCompanion(
@@ -489,15 +537,7 @@ class MemberCreationService {
 
     await _dao.inviteAndAddGuardian(
       newUser: newUser,
-      guardian: GuardiansCompanion(
-        school: Value(schoolId),
-        user: Value(userId),
-        student: Value(studentAdm),
-        relationship: Value(relationship),
-        role: Value(role),
-        created: Value(nowSec),
-        updated: Value(nowSec),
-      ),
+      guardian: guardianCompanion(userId),
       accountId: accountId,
     );
 
@@ -552,6 +592,7 @@ class MemberCreationService {
             ),
           );
 
+      sync.schedulePush();
       return true;
     } catch (_) {
       return false;
@@ -593,10 +634,42 @@ class MemberCreationService {
             ),
           );
 
+      sync.schedulePush();
       return true;
     } catch (_) {
       return false;
     }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Deleted-user cleanup
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Hard-deletes a deleted user row so the phone number can be reused by a
+  /// fresh invited user. A DELETE log entry is enqueued first so the sync
+  /// engine can propagate the removal. Cascade deletes in the schema will
+  /// clean up any stale role links (owners, teachers, staff, guardians).
+  Future<void> _purgeDeletedUser(
+    String userId, {
+    required String accountId,
+  }) async {
+    final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+    await db
+        .into(db.logs)
+        .insert(
+          LogsCompanion(
+            account: Value(accountId),
+            tbl: const Value(LogTable.users),
+            op: const Value(LogOperation.delete),
+            rowKey: Value(userId),
+            status: const Value(LogStatus.pending),
+            created: Value(nowMs),
+          ),
+        );
+
+    await (db.delete(db.users)..where((t) => t.id.equals(userId))).go();
+    sync.schedulePush();
   }
 
   // ─────────────────────────────────────────────────────────────────────────
