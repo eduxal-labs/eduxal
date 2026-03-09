@@ -1,348 +1,1148 @@
-# EduXal — Task Board (School Dashboard Architecture & Implementation)
+# EduXal — Task Board
 
-> **Important Directive for the AI Agent:**
-> We are trusting these tasks to you because we assume that you are an Engineer and Architect with more than four decades of experience. We expect nothing short of amazing. You must care deeply about the result of the written code, its architectural elegance, its functionality, and its usability—not just code completion and compilation without errors. 
-> 
-> **Read the full `AGENT.md` context before starting.** Ensure absolute alignment with the local-first, offline-ready architecture, reactive Drift streams, and the `logs` table mutation queue.
-
-## UI/UX Design Mandate
-- **Aesthetic:** Rigid, elevated, and popping UI. Elements should feel slim and dense, not "spongy", doughy, or bloated with air. No flat UI.
-- **Typography:** Thin/light font weights (w300/w400 for body, w500 max for headings). 
-- **Shapes & Elevation:** Absolutely NO borders. Use subtle elevation (shadows) and slight color shifts/tints to separate layers and make elements pop.
-- **Border Radius:** "In-between" corners—neither perfectly sharp nor pill-shaped (e.g., `BorderRadius.circular(8)` to `12`). Absolutely no pill shapes.
-- **Layout:** Generous whitespace. The UI must feel solid, precise, and architectural.
+> Tasks are ordered by dependency and priority. Execute top-to-bottom.
+> Server tasks are in `LEDGER_TASKS.md` — complete those first before starting client tasks.
 
 ---
 
-## [x] Task 1: The Responsive School Dashboard Shell & Role Switcher
+### Task C0: Commit current client state
 
-**Objective:** Create the foundational responsive layout for the School Dashboard, accommodating five different distinct roles (Owner, Teacher, Staff, Student, Guardian) seamlessly.
+**Files to create/modify:** None (git operations only)
+**Context files to read (if needed):** None
+**Depends on:** Nothing
 
-**UI Hierarchy & Feel:**
-*   **Desktop Layout:** A fixed Left Navigation Sidebar with a primary content area. The aesthetic must rely on clean elevations and distinct background color shifts to establish hierarchy. Cards and panels should pop cleanly off the canvas without using any outline borders.
-*   **Mobile Layout:** Use scrollable tabs at the top for primary section navigation to save vertical space, avoiding a heavy hamburger menu or bottom nav for internal school routing.
-*   **Top App Bar:** Must contain the **Role Switcher**. 
+**Specification:**
 
-**Functionality:**
-*   **Role Switcher:** Reads `SchoolContext.membership.entries`. A user can hold multiple roles in one school. Tapping the switcher updates `SchoolContext.currentEntry` via a `ValueNotifier`. The entire dashboard layout, available tabs, and actionable items must rebuild instantly and locally based on the selected role, without page reloads.
+Create meaningful, chunked git commits of the current dirty working tree in the `eduxal` repo.
+Run `git status` first to see all 157+ uncommitted changes. Group the commits logically:
 
-**Agent Trust Directive:** We are trusting this task to you. As a senior engineer, ensure the responsive breakpoints (`LayoutBuilder`) are clean, avoiding duplicated logic between mobile and desktop where possible, and that the UI context switching feels completely instantaneous.
+1. `chore: update android build config and assets` — `android/`
+2. `chore: update iOS config and assets` — `ios/`
+3. `chore: update project config` — `pubspec.yaml`, `pubspec.lock`, root-level config files
+4. `feat: database layer (tables, DAOs, enums, converters)` — `lib/database/`
+5. `feat: domain models` — `lib/models/`
+6. `feat: services layer` — `lib/services/`
+7. `feat: sync engine (pre-redesign snapshot)` — `lib/sync/`
+8. `feat: proto stubs` — `lib/proto/`
+9. `feat: core utilities and cache` — `lib/core/`, `lib/cache/`
+10. `feat: UI layer (screens, widgets, theme)` — `lib/ui/`
+11. `feat: client entry point` — `lib/client.dart`, `lib/main.dart`
+12. `docs: update AGENT.md and TASKS.md` — `AGENT.md`, `TASKS.md`, `CONVERSATION_CONTEXT.md`
 
----
+Use `git add <paths>` + `git commit -m "<message>"` for each group. Skip any group that has no changes. Do NOT use `git add .`.
 
-## [x] Task 2: Academic Year & Term Context Management
-
-**Objective:** Implement the temporal hierarchy (Year -> Term) which dictates what data is shown across the dashboard. Everything revolves around the Term.
-
-**UI Hierarchy & Feel:**
-*   **Term Selector UI:** Add an Academic Year and Term selector adjacent to the Role Switcher in the top AppBar. It should be a compact, unobtrusive dropdown/picker.
-*   **Blank State (Crucial):** If the database has no terms for this school, the dashboard must blank out all academic features. Present a beautifully styled, prominent "Create First Term" call-to-action centered on the screen for the Owner.
-
-**Functionality:**
-*   **Data Scoping:** Create an `ActiveTermContext` provider/stream. Changing the term instantly updates all dependent queries (subjects, classes, exams, attendance) to query *only* for that term.
-*   **Default State:** On entering the dashboard, default to the current active term.
-
-**Agent Trust Directive:** We are trusting this task to you. As an experienced architect, ensure that the `ActiveTermContext` acts as a robust filter for all reactive Drift streams. Do not fetch data outside the active term unless explicitly requested.
-
----
-
-## [x] Task 3: Universal Member Creation Flow (Phone-First)
-
-**Objective:** Build the unified onboarding logic for adding Teachers, Staff, Students, and Guardians.
-
-**UI Hierarchy & Feel:**
-*   **Creation Forms:** Slide-over panels (desktop) or full-screen dialogs (mobile) with segmented, logical steps. 
-*   **Guardian Flow:** Guardians are not created in isolation; their creation UI is nested *within* the Student profile view to establish the ward relationship implicitly.
-
-**Functionality:**
-*   **Phone-First Lookup:** The primary key for human identity in EduXal is the phone number. When an Owner/Admin adds a Teacher, Staff, or Guardian, the first input is the phone number.
-*   **Resolution Logic:** Query `users` by phone. If found, link the existing user to the new role instantly. If not found, expand the form to request `Name`, create a new `users` row with status = `invite`, then link the role.
-*   **Profile Images:** Implement local file saving to predictable paths (`{appDir}/users/{userId}/profile`). Crucially, write a row to the `logs` table marking a file mutation for the future sync engine.
-
-**Agent Trust Directive:** We are trusting this task to you. With over a decade of experience, you know that identity resolution is tricky. Handle the offline-first creation robustly. Ensure the form is fluid, shows loading states properly, and doesn't block the UI while writing to SQLite.
+**Update after completion:**
+- [ ] Update any relevant `CONTEXT.md` files if they exist
+- [ ] Mark this task `[x]`
 
 ---
 
-## [x] Task 4: Academic & Administrative Setup (Departments, Subjects, Roles)
+### Task C1: Regenerate Dart proto stubs from new `sync.proto`
 
-**Objective:** Build the interfaces for Owners/Admins to configure academic structures, create departments, and assign staff.
+**Files to create/modify:**
+- `lib/proto/services/sync.pb.dart` (regenerated)
+- `lib/proto/services/sync.pbgrpc.dart` (regenerated)
+- `lib/proto/services/sync.pbenum.dart` (regenerated)
+- `lib/proto/services/sync.pbjson.dart` (regenerated)
 
-**UI Hierarchy & Feel:**
-*   **Settings-Driven Labels:** Use inline elevated chips and tactile data rows to display assignments.
-*   **Stream Display:** *Crucial Constraint:* The DB stores streams as integers. You must read `SchoolConfig` to resolve these into human-readable strings (e.g., "Stream A", "North"). The raw integer must never be visible in the UI.
+**Context files to read (if needed):** `generate.sh`
+**Depends on:** Server Task L1 (new `sync.proto` must exist at `../ledger/protos/services/sync.proto`)
 
-**Functionality:**
-*   **Departments:** Allow Owners to create departments and assign Staff/Teachers to them.
-*   **Subject/Teacher Linking:** UI to map Teachers to specific Subjects for the Active Term, linking them as Class Teachers.
-*   **Student Stream Assignment:** UI to assign students (`enrollments`) to specific grades and streams based on the school's configured curriculum.
-*   **Roles/Scopes:** Interface for assigning custom roles and permission scopes to Staff members.
+**Specification:**
 
-**Agent Trust Directive:** We are trusting this task to you. As a veteran developer, you understand the importance of separating database representation (integers) from presentation (Strings). Your stream-name lookup must be efficient, reactive, and seamlessly integrated into the UI.
-
----
-
-## [x] Task 5: Staff Operations (Exams, Papers, Grades, Mastery)
-
-**Objective:** Implement the deeply nested hierarchical UI for Staff and Teachers to manage academic performance.
-
-**UI Hierarchy & Feel:**
-*   **Hierarchy Enforcement:** The UI navigation must strictly enforce the path: `Term -> Exam -> Paper -> Grade/Mastery`.
-*   **Data Entry Views:** Data-dense, spreadsheet-like tables for desktop bulk grading. Highly optimized, easily tappable list views for mobile grading to prevent fat-fingering. Use `AnimatedSaveButton` for row-level or form-level saves.
-*   **Analytics Header:** At the top of Exam/Paper views, integrate Shadcn-style visual metrics (Donut charts for class averages, thin bar charts for grade distributions).
-
-**Functionality:**
-*   **Teacher Filtering:** When viewing as `TeacherEntry`, the streams and subjects must be strictly filtered to only show classes assigned to that specific teacher in the active term.
-*   **Offline-Ready:** Grade entries must write to local Drift tables rapidly, logging the mutations silently in the background.
-
-**Agent Trust Directive:** We are trusting this task to you. Show us your expertise by making data entry for grades incredibly fast. Ensure keyboard navigation works well on desktop tables, and that local Drift streams update the charts instantly as grades are entered.
-
----
-
-## [x] Task 6: Dashboard Navigation Restructure & Consistent Tab Styling
-
-**Objective:** Restructure the Owner's dashboard navigation to replace the separate "Staff" and "Students" items with a unified "Members" item, replace the "Settings" item with a "Roles" item, and establish a consistent, deliberate tab styling system used across **all** inner-page tabs throughout the entire school dashboard — not just the top-level mobile tabs.
-
-### 6a. Consistent Tab Component
-
-**Problem:** The top-level mobile navigation uses the custom `_PillTabStrip` (icon-only, elevated, with shadow indicator), but inner pages (Academics, Roles) fall back to a raw Material `TabBar` with a plain underline indicator. This creates a jarring visual mismatch. The inner tabs feel generic and flat compared to the deliberate mobile nav.
-
-**Solution:** Extract a reusable `EduTab` / `EduTabBar` component into `lib/ui/widgets/edu_tab_bar.dart` that inner pages use for **all** their tab rows. This component must:
-*   Use the same elevated, shadow-based indicator approach (not a thin underline) as the mobile pill strip — adapted for labelled text tabs.
-*   Use a slightly tinted/shifted background container with subtle elevation to distinguish the tab row from its surroundings.
-*   Match the design mandate: no borders on the indicator, subtle shadow, `BorderRadius.circular(8)` or `10`, slim text (w400 unselected / w500 selected).
-*   Accept both icon-only and text-label modes so it can serve all contexts.
-*   Be the **single source of truth** for tab aesthetics. No page should build its own raw `TabBar` anymore.
-
-**Agent Trust Directive:** This component is the foundation of visual consistency. Every tabbed surface in the app will use it. Take extreme care with the look and feel — it must be polished, dense, and feel tactile without looking like generic Material.
-
-### 6b. Owner Navigation Items Update
-
-**Current Owner items:**
-```
-Overview | Academics | Staff | Students | Finance | Timetable | Settings
+Run the proto generation script:
+```bash
+cd /home/abdihakim/Documents/GITHUB/eduxal-labs/eduxal
+bash generate.sh
 ```
 
-**New Owner items:**
+This runs `protoc` against `../ledger/protos/services/sync.proto` and outputs Dart files to `lib/proto/services/`.
+
+After generation, verify the new files contain:
+- `ActionRequest` class (not `MutationBatch`)
+- `ActionResponse` class (not `PushAck`)
+- `ActionRow` class
+- `SyncClient` with `pushActions` method (not `pushChanges`)
+- `WatchRequest`, `SyncDelta`, `FileUrl` — unchanged
+- All 77 `*Payload` message classes (`CreateSchoolPayload`, etc.)
+- `AttendanceRecord`, `GradeRecord` helper messages
+- `InsertData` oneof with all 30 `*Insert` messages — unchanged
+
+Run `dart analyze lib/proto/services/sync.pb.dart 2>&1 | head -20` to verify the generated code is valid.
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+
+---
+
+### Task C2: Update `logs` table and enums for action-based model
+
+**Files to create/modify:**
+- `lib/database/tables/logs.dart`
+- `lib/database/tables/enums.dart`
+
+**Context files to read (if needed):** `lib/database/CONTEXT.md` (if exists)
+**Depends on:** Task C1
+
+**Specification:**
+
+**`lib/database/tables/enums.dart` changes:**
+
+1. **Add** the `SyncAction` enum (77 values) and its `TypeConverter`. Place it after the existing `LogStatus` enum. Values from CONVERSATION_CONTEXT §5g:
+
+```dart
+enum SyncAction {
+  // Schools
+  createSchool(0),
+  updateSchool(1),
+  deleteSchool(2),
+  // Teachers
+  createTeacher(3),
+  updateTeacher(4),
+  deleteTeacher(5),
+  // Staff
+  createStaff(6),
+  updateStaff(7),
+  deleteStaff(8),
+  // Owners
+  createOwner(9),
+  deleteOwner(10),
+  // Students
+  createStudent(11),
+  updateStudent(12),
+  deleteStudent(13),
+  enrollStudent(14),
+  unenrollStudent(15),
+  // Guardians
+  createGuardian(16),
+  updateGuardian(17),
+  deleteGuardian(18),
+  // Departments
+  createDepartment(19),
+  updateDepartment(20),
+  deleteDepartment(21),
+  // Terms
+  createTerm(22),
+  updateTerm(23),
+  deleteTerm(24),
+  // Classes
+  assignClassTeacher(25),
+  unassignClassTeacher(26),
+  assignSubject(27),
+  unassignSubject(28),
+  createTimetableEntry(29),
+  updateTimetableEntry(30),
+  deleteTimetableEntry(31),
+  // Attendance
+  markAttendance(32),
+  deleteAttendance(33),
+  // Lessons
+  createLesson(34),
+  deleteLesson(35),
+  // Exams
+  createExam(36),
+  updateExam(37),
+  deleteExam(38),
+  createPaper(39),
+  updatePaper(40),
+  deletePaper(41),
+  // Grades
+  markGrades(42),
+  updateGrade(43),
+  deleteGrade(44),
+  updateMastery(45),
+  // Fees
+  createFee(46),
+  updateFee(47),
+  deleteFee(48),
+  createInvoice(49),
+  updateInvoice(50),
+  deleteInvoice(51),
+  // Payments
+  createPayment(52),
+  updatePayment(53),
+  deletePayment(54),
+  approvePayment(55),
+  // Announcements
+  createAnnouncement(56),
+  updateAnnouncement(57),
+  deleteAnnouncement(58),
+  // Roles
+  createRole(59),
+  updateRole(60),
+  deleteRole(61),
+  assignRole(62),
+  unassignRole(63),
+  // Users
+  updateUser(64),
+  deleteUser(65),
+  // Settings
+  updateSettings(66),
+  // Plans
+  createPlan(67),
+  updatePlan(68),
+  deletePlan(69),
+  // AI
+  updateAiUsage(70),
+  // Subscriptions
+  createSubscription(71),
+  updateSubscription(72),
+  deleteSubscription(73),
+  // Discounts
+  createDiscount(74),
+  updateDiscount(75),
+  deleteDiscount(76);
+
+  const SyncAction(this.value);
+  final int value;
+}
+
+class SyncActionConverter extends TypeConverter<SyncAction, int> {
+  const SyncActionConverter();
+  @override
+  SyncAction fromSql(int fromDb) =>
+      SyncAction.values.firstWhere((e) => e.value == fromDb);
+  @override
+  int toSql(SyncAction value) => value.value;
+}
 ```
-Overview | Academics | Members | Finance | Timetable | Roles
+
+2. **Remove** these enums and their converters (no longer needed):
+   - `LogTable` enum + `LogTableConverter` (lines ~332–374)
+   - `LogOperation` enum + `LogOperationConverter` (lines ~378–389)
+   - All `*Column` bitset enums (lines ~420–end): `UsersColumn`, `SchoolsColumn`, `StudentsColumn`, `GuardiansColumn`, `DepartmentsColumn`, `TeachersColumn`, `StaffColumn`, `TermsColumn`, `ClassTeachersColumn`, `SubjectsColumn`, `AttendanceColumn`, `TimetableColumn`, `LessonsColumn`, `ExamsColumn`, `PapersColumn`, `GradesColumn`, `FeesColumn`, `InvoicesColumn`, `PaymentsColumn`, `AnnouncementsColumn`, `MasteryColumn`, `AiusageColumn`, `SettingsColumn`, `RolesColumn`, `PlansColumn`, `SubscriptionsColumn`, `DiscountsColumn`
+
+3. **Keep** these enums:
+   - `LogStatus` enum + `LogStatusConverter` — still needed (pending/failed)
+   - All non-log domain enums (`AppThemeMode`, `UserLevel`, `UserStatus`, `SchoolStatus`, `StudentStatus`, `Gender`, `GuardianRelationship`, `GuardianRole`, `TeacherStatus`, `StaffStatus`, `AttendanceStatus`, `ExamType`, `PaperStatus`, `PaymentMethod`, `PaymentStatus`, `Audience`, `PlanStatus`, `InvoiceStatus`, `DiscountUnit`, `SubscriptionStatus`, `Resource`, `Action`)
+
+**`lib/database/tables/logs.dart` changes:**
+
+Replace the entire table definition with the new schema:
+
+```dart
+import 'package:drift/drift.dart';
+import 'enums.dart';
+import 'accounts.dart';
+
+/// Client-only offline action queue — not synced to the server directly.
+///
+/// Every local action (create, update, delete, assign, etc.) produces one row here.
+/// The sync engine sends these one-at-a-time to the server via gRPC stream.
+/// Successfully synced rows are DELETED (never marked as synced).
+@DataClassName('LogsData')
+class Logs extends Table {
+  @override
+  String get tableName => 'logs';
+
+  /// Auto-incrementing surrogate PK — ensures replay order is preserved.
+  IntColumn get id => integer().autoIncrement()();
+
+  /// The account that performed this action.
+  TextColumn get account =>
+      text().references(Accounts, #id, onDelete: KeyAction.cascade)();
+
+  /// The semantic action type (e.g. createSchool, updateTeacher, markAttendance).
+  IntColumn get action => integer().map(const SyncActionConverter())();
+
+  /// Human-readable display key for the notification UI.
+  /// E.g. school name, user phone, "Attendance 2025-01-15", etc.
+  TextColumn get resource => text()();
+
+  /// Serialized protobuf action payload (e.g. CreateSchoolPayload bytes).
+  /// Self-contained — the sync engine does NOT read other tables to build the message.
+  BlobColumn get payload => blob()();
+
+  /// Whether this entry is awaiting replay or has permanently failed.
+  IntColumn get status => integer()
+      .map(const LogStatusConverter())
+      .withDefault(const Constant(0))();
+
+  /// Number of times the sync engine has attempted to send this action.
+  IntColumn get attempts => integer().withDefault(const Constant(0))();
+
+  /// Human-readable error message from server, if any.
+  TextColumn get error => text().nullable()();
+
+  /// Milliseconds since epoch when this log entry was created.
+  Int64Column get created => int64()();
+}
 ```
 
-Changes:
-*   **Remove** `Staff` and `Students` as separate nav items.
-*   **Add** `Members` (icon: `Icons.people_alt_outlined`) — a unified page for all school member types.
-*   **Remove** `Settings`.
-*   **Add** `Roles` (icon: `Icons.admin_panel_settings_outlined`) — directly replacing Settings. The old Settings nav item was already just rendering `SchoolRolesScreen`; this makes it explicit.
+After modifying both files, run `dart analyze lib/database/tables/logs.dart lib/database/tables/enums.dart 2>&1 | head -20` to check for immediate issues. Expect errors from files that import the removed enums — those will be fixed in subsequent tasks.
 
-Update `_itemsForRole(MembershipRole.owner)` in `school_dashboard_screen.dart` and update the `_buildContentPanel` routing accordingly.
+**IMPORTANT:** The `AppDatabase` class in `lib/database/database.dart` has a `schemaVersion` that must be incremented and a migration added for the `logs` table schema change. But Drift generates the schema from the table class, so the code generation step (`dart run build_runner build`) will handle the DDL. The migration strategy in `database.dart` should drop and recreate `logs` on upgrade (data loss in logs is acceptable — they are transient).
 
-**Non-owner roles** are unaffected by this change — their nav items remain the same.
+**Update after completion:**
+- [ ] Update `lib/database/CONTEXT.md` if it exists — note logs table schema change, SyncAction enum addition, removed enums
+- [ ] Mark this task `[x]`
 
 ---
 
-## [x] Task 7: Academics Page — Hierarchical Grade/Stream Architecture
+### Task C3: Update `logs_dao.dart` for new schema
 
-**Objective:** Completely replace the current tabbed Academics page (Departments / Subjects / Classes / Exams & Grades) with a hierarchical, data-driven view rooted in the school's `SchoolConfig` grade and stream structure. The academic data is inherently nested — grades contain streams, streams contain enrollments, subjects, class teachers — so the UI must reflect this nesting visually and navigationally, not flatten it into peer tabs.
+**Files to create/modify:** `lib/database/daos/logs_dao.dart`
+**Context files to read (if needed):** None — current file inlined in task
+**Depends on:** Task C2
 
-### 7a. Academics Landing — Grade/Stream Tree
+**Specification:**
 
-**Current state:** `AcademicsScreen` is a `TabController(length: 4)` rendering four flat tabs: `DepartmentsTab`, `SubjectsTab`, `ClassesTab`, `ExamsGradesScreen`.
+Rewrite `logs_dao.dart` to work with the new `logs` table schema. The DAO becomes simpler because there is no coalescing, no column bitmask collapsing, no supersede-with-delete logic.
 
-**New state:** The Academics landing page is a **scrollable list of grade cards**, one per `GradeConfig` in the school's `SchoolConfig`. No tabs.
+**New `logs_dao.dart`:**
 
-**Data source:** Read the school's settings row from the `settings` table for the current `schoolId`. Parse `settings.data` JSON → `SchoolConfig`. For each `CurriculumConfig` → iterate over `GradeConfig` entries.
+```dart
+import 'package:drift/drift.dart';
 
-If the school supports **both** curricula (CBC and 8-4-4), display them as collapsible curriculum sections — each headed by a curriculum label chip, with grade cards nested under it.
+import '../database.dart';
+import '../tables/enums.dart';
+import '../tables/logs.dart';
+import '../../models/app_notification.dart';
 
-If only **one** curriculum is enabled (the common case), show grade cards directly with no curriculum header.
+part 'logs_dao.g.dart';
 
-**Grade Card Design:**
-*   Each card is an elevated container with the grade's human-readable label from `kCbcGradeLabels` / `kEightFourFourGradeLabels` (e.g., "Grade 4", "Form 2").
-*   Below the label, display the stream names as compact elevated chips (e.g., `Green`, `Blue`, `North`). If no streams are defined, show a muted "No streams" label.
-*   **Action buttons on each grade card (icon row, right-aligned or trailing):**
-    *   `+` icon button — add a new stream to this grade. Opens a mini dialog/sheet for stream name + auto-assigned code.
-    *   Edit icon — edit the grade's stream names (batch rename).
-    *   Delete icon — remove the grade from the config (with confirmation).
-*   **Tappable:** Tapping the body of the grade card navigates to the **Grade Detail Page** (Task 7b).
+@DriftAccessor(tables: [Logs])
+class LogsDao extends DatabaseAccessor<AppDatabase> with _$LogsDaoMixin {
+  LogsDao(super.db);
 
-**Floating Action Button:**
-*   A `+` FAB at the bottom-right to **add a new grade** to the school's config.
-*   Opens a sheet/dialog to pick a grade number from the available grades in the active curriculum that are not yet enabled.
-*   On confirm, appends a new `GradeConfig(grade: selectedGrade, streams: [])` to the config, calls `SettingsDao.updateSchoolConfig()`, and the reactive `watchSettings()` stream triggers a UI rebuild.
+  // ─────────────────────────────────────────────────────────────────────
+  // Writes — enqueueing actions
+  // ─────────────────────────────────────────────────────────────────────
 
-**Blank State:** If `SchoolConfig.isEmpty` (no curricula / no grades configured), show an inviting empty state with a "Configure your school's grade structure" message and a CTA button leading to the same add-grade flow.
+  /// Appends a new action log entry to the queue.
+  ///
+  /// The caller provides:
+  /// - [LogsCompanion.action] — SyncAction enum value
+  /// - [LogsCompanion.resource] — human-readable display key
+  /// - [LogsCompanion.payload] — serialized proto payload bytes
+  /// - [LogsCompanion.created] — milliseconds since epoch
+  Future<void> insertLog(LogsCompanion log) {
+    return into(logs).insert(log);
+  }
 
-**What happens to the old tabs:**
-*   `DepartmentsTab` — Departments are not grade-scoped. They move to a dedicated "Departments" section accessible from the Grade Detail page or a top-level action in the Academics header. **For now**, add a small "Departments" action/link in the Academics page header bar (an icon button or text link) that opens the existing `DepartmentsTab` in a full-screen overlay/push route.
-*   `SubjectsTab` and `ClassesTab` — These are inherently grade+stream scoped. Their content will be absorbed into the Grade Detail Page (Task 7b) where the user has already selected a grade and stream filter.
-*   `ExamsGradesScreen` — Remains reachable. For teachers via their own "Exams & Grades" nav item. For owners, it becomes accessible within the Grade Detail Page scoped to a specific grade/stream, or via a top-level "Exams" action in the Academics header.
+  // ─────────────────────────────────────────────────────────────────────
+  // Reads — sync engine consumption
+  // ─────────────────────────────────────────────────────────────────────
 
-### 7b. Grade Detail Page (Stub)
+  /// Returns all pending entries for [accountId], oldest first.
+  Future<List<LogsData>> getPendingLogs(String accountId) {
+    return (select(logs)
+          ..where(
+            (t) =>
+                t.account.equals(accountId) &
+                t.status.equalsValue(LogStatus.pending),
+          )
+          ..orderBy([(t) => OrderingTerm.asc(t.id)]))
+        .get();
+  }
 
-**Objective:** When a grade card is tapped, navigate to a new `GradeDetailPage` that shows all data scoped to that specific grade.
+  /// Returns all failed entries for [accountId].
+  Future<List<LogsData>> getFailedLogs(String accountId) {
+    return (select(logs)
+          ..where(
+            (t) =>
+                t.account.equals(accountId) &
+                t.status.equalsValue(LogStatus.failed),
+          ))
+        .get();
+  }
 
-**Stream Filter:** At the top, a horizontal row of stream filter chips: `All` (default, selected), then one chip per `GradeStream` in the grade's config. Tapping a chip filters the content below.
+  /// Emits all failed log entries as [AppNotification] objects,
+  /// ordered by created descending, whenever the logs table changes.
+  Stream<List<AppNotification>> watchFailedLogs(String accountId) {
+    return (select(logs)
+          ..where(
+            (t) =>
+                t.account.equals(accountId) &
+                t.status.equalsValue(LogStatus.failed),
+          )
+          ..orderBy([(t) => OrderingTerm.desc(t.created)]))
+        .watch()
+        .map(
+          (rows) => rows
+              .map(
+                (row) => AppNotification(
+                  logId: row.id,
+                  action: row.action,
+                  resource: row.resource,
+                  errorMessage: row.error,
+                  attempts: row.attempts,
+                  occurred: DateTime.fromMillisecondsSinceEpoch(
+                    row.created.toInt(),
+                  ),
+                ),
+              )
+              .toList(),
+        );
+  }
 
-**Content:** For now, this page is a **stub**. Display the grade label as a header, the stream filter chips, and a centered "Grade detail — coming soon" placeholder below. The page structure and filter state must be wired up correctly so that when content is added later, it simply plugs in beneath the filter.
+  /// Reactive count of failed entries for [accountId].
+  Stream<int> watchFailedLogCount(String accountId) {
+    final countExpr = logs.id.count();
+    final query = selectOnly(logs)
+      ..addColumns([countExpr])
+      ..where(
+        logs.account.equals(accountId) &
+            logs.status.equalsValue(LogStatus.failed),
+      );
+    return query.watchSingle().map((row) => row.read(countExpr) ?? 0);
+  }
 
-**Navigation:** Standard push route with a back button. Not an inline tab — this is a full page.
+  // ─────────────────────────────────────────────────────────────────────
+  // Deletes — after successful sync
+  // ─────────────────────────────────────────────────────────────────────
 
-**Agent Trust Directive:** The Academics page is the centerpiece of the school dashboard. The grade cards must look dense, tactile, and information-rich. The stream chips on each card must feel like solid embedded elements, not floaty badges. The FAB and per-grade action icons must be discoverable but not overwhelming. Think of this as the "project list" view of an IDE — compact, scannable, every element earns its place.
+  /// Deletes a single log entry by [id] after successful sync.
+  Future<void> deleteLog(int id) {
+    return (delete(logs)..where((t) => t.id.equals(id))).go();
+  }
 
----
+  /// Deletes multiple log entries by their [ids].
+  Future<void> deleteLogs(List<int> ids) {
+    if (ids.isEmpty) return Future.value();
+    return (delete(logs)..where((t) => t.id.isIn(ids))).go();
+  }
 
-## [x] Task 8: Unified Members Page
+  // ─────────────────────────────────────────────────────────────────────
+  // Error tracking
+  // ─────────────────────────────────────────────────────────────────────
 
-**Objective:** Replace the separate "Staff" and "Students" nav items with a single "Members" page containing five tabs — one for each membership role at the school: Owners, Teachers, Staff, Students, Guardians. Each tab lists the relevant members and supports creation via a shared FAB.
+  /// Marks a log entry as failed and records the error message.
+  Future<void> markFailed(int id, String error) {
+    return customStatement(
+      'UPDATE logs SET status = ?, error = ?, attempts = attempts + 1 WHERE id = ?',
+      [LogStatus.failed.index, error, id],
+    );
+  }
+}
+```
 
-### 8a. Members Page Shell
+**Removed methods (no longer needed):**
+- `collapseUpdateLogs` — no more column bitmask coalescing
+- `supersedWithDelete` — no more delete-supersedes-insert logic
 
-**Structure:**
-*   Five tabs using the `EduTabBar` component from Task 6a: **Owners** | **Teachers** | **Staff** | **Students** | **Guardians**.
-*   A single `+` FAB that is **context-aware** — its action adapts based on the currently active tab:
-    *   Owners tab → "Add Owner" (phone-first flow using existing `PhoneFirstPanel`).
-    *   Teachers tab → "Add Teacher" (phone-first, reuse existing `AddTeacherPanel`).
-    *   Staff tab → "Add Staff" (phone-first, reuse existing `AddStaffPanel`).
-    *   Students tab → "Add Student" (name-first, reuse existing `AddStudentPanel`).
-    *   Guardians tab → "Add Guardian" (phone-first, reuse existing `AddGuardianPanel`). Note: guardians are contextually linked to a student, so this FAB should either prompt for the ward first or link from the student detail.
-
-### 8b. Tab Content — Member Lists
-
-Each tab renders a reactive list from the corresponding Drift table filtered by `schoolId`:
-
-| Tab | Query source | Display fields |
-|---|---|---|
-| **Owners** | `owners` table joined with `users` | Name, phone, status badge |
-| **Teachers** | `teachers` table joined with `users` | Name, phone, department, subject count badge (current term) |
-| **Staff** | `staff` table joined with `users` | Name, phone, department, status badge |
-| **Students** | `students` table (school-scoped) | Name, admission number, grade/stream (from current term enrollment), status badge |
-| **Guardians** | `guardians` table joined with `users` and `students` (ward) | Name, phone, ward name(s), status badge |
-
-**Member Row Design:**
-*   Elevated row with generous padding. User avatar on the left (from cached file at predictable path or initials fallback). Name + secondary info. Status chip on trailing edge.
-*   On tap → navigate to member detail (stub placeholder for now — display name, phone, role-specific info, and a back button).
-*   On long-press (or context menu on desktop) → quick actions: remove from school, change status.
-
-### 8c. Owner Creation Flow
-
-The "Add Owner" flow is the **only new creation flow** — teachers, staff, students, and guardians already have creation panels (`AddTeacherPanel`, `AddStaffPanel`, `AddStudentPanel`, `AddGuardianPanel`) and the `MemberCreationService`.
-
-**Owner creation** follows the same phone-first pattern:
-1. Enter phone number.
-2. Query `users` table by phone.
-3. If found → link to `owners` table for this school.
-4. If not found → expand form for name, create invited user, then link to `owners`.
-5. Write both the `users` row (if new) and the `owners` row inside a single transaction, plus the corresponding `logs` entries.
-
-**DAO additions:** Add `ownerExists(schoolId, userId)` and `insertOwner(...)` methods to `MembersDao`. Add `watchOwners(schoolId)` stream.
-
-**Service additions:** Add `createOwner(...)` method to `MemberCreationService` following the exact same pattern as `createTeacher`/`createStaff`.
-
-**Agent Trust Directive:** The Members page is where administrators spend significant time. Every tab must load instantly from local Drift streams. The FAB must feel responsive and the creation panels must flow naturally. Pay attention to the guardian tab — it needs to show which ward(s) each guardian is linked to, potentially multiple rows if a guardian has multiple wards at the same school.
-
----
-
-## [x] Task 9: Roles Page (Replacing Settings)
-
-**Objective:** The "Settings" nav item is removed and replaced by "Roles". The Roles page manages the school's custom roles and their permission definitions. Role **assignments** (which users hold which roles) are NOT shown on this page's list — they are visible only when navigating into a specific role's detail page.
-
-### 9a. Roles Page Shell
-
-**Structure:**
-*   The page is a **single list of role cards** — no tabs on the landing page itself.
-*   Each role card shows: role name, description snippet, permission count badge.
-*   Tapping a role card navigates to the **Role Detail Page** (Task 9b).
-*   A `+` FAB to create a new role. Opens the existing `_RoleFormSheet` (from `school_roles_screen.dart`) or a similar creation form.
-
-**Data Source:** Query `roles` table filtered by `school = schoolId` via `SchoolScopesDao`. Reactive stream via `watchSchoolRoles(schoolId)`.
-
-**Key Change from Current Implementation:** The current `SchoolRolesScreen` has 2 tabs: "Roles" and "Assignments". The "Assignments" tab (which shows all users and their assigned roles across the school) is **removed from the landing page**. Assignment management now lives exclusively inside each role's detail page (Task 9b), making it contextual — you see who has *this specific role*, not a flat dump of all assignments.
-
-### 9b. Role Detail Page
-
-**Structure:** A full push-route page (like the system dashboard's `RoleDetailScreen`) with:
-*   **Header:** Role name, description, metadata (created date, etc.).
-*   **Two tabs** (using `EduTabBar` from Task 6a): **Permissions** | **Assigned Users**.
-*   **Permissions tab:** The existing permission editor UI — grouped by resource, with toggle chips for each action. Uses the same `_buildResourceGroups` pattern from `role_detail_screen.dart` (system dashboard), adapted for school-scoped resources.
-*   **Assigned Users tab:** Lists all users who hold this specific role at this school (via `scopes` table query: `school = schoolId, role = roleId`). Includes:
-    *   A `+` button/FAB to assign a new user to this role. Opens a school member picker → confirms assignment by inserting a `scopes` row.
-    *   Each assigned user row has a "remove" action to unassign (delete the `scopes` row).
-
-**Key Architectural Note:** This mirrors the system dashboard's `RoleDetailScreen` which already has Permissions and Assigned tabs with the full assign/unassign flow. The school-level version should follow the same patterns but query school-scoped data (`SchoolScopesDao`) instead of system-scoped data.
-
-**Agent Trust Directive:** Roles and permissions are a power-user feature. The UI must feel authoritative and precise. Permission toggles must be instantly responsive (local Drift writes). The role detail page should feel like a focused management console — dense but not cluttered. Follow the visual and architectural patterns already established in `role_detail_screen.dart`.
-
----
-
-## [x] Task 10: Attendance Tracking
-
-**Objective:** Provide a frictionless interface for marking daily or lesson-level attendance.
-
-**UI Hierarchy & Feel:**
-*   **Marking UI:** A list of students for a specific Date, Class, and Stream. Segmented controls or elegant toggle buttons for state (Present, Absent, Late) that look and feel like solid tactile switches.
-*   **Color Coding:** Subtle color hints (e.g., gently elevated tiles with extremely muted green for present, muted red for absent) conforming to the brand guidelines. No outlines.
-
-**Functionality:**
-*   **Quick Actions:** "Mark All Present" button.
-*   **Guardian Visibility:** Guardians must have a clean, calendar-based or list-based view of their ward's historical attendance records.
-
-**Agent Trust Directive:** We are trusting this task to you. Teachers do this every day; it must require absolute minimum taps and zero loading spinners, writing instantly to the local database.
+**Update after completion:**
+- [ ] Mark this task `[x]`
 
 ---
 
-## [x] Task 11: Financial Management (Fees, Invoices, Payments, & Discounts)
+### Task C4: Update `app_notification.dart` for action-based display
 
-**Objective:** Robust financial tracking for the school Owner/Staff and billing visibility for Guardians.
+**Files to create/modify:** `lib/models/app_notification.dart`
+**Context files to read (if needed):** None
+**Depends on:** Task C2
 
-**UI Hierarchy & Feel:**
-*   **Dashboard:** Distinct financial overview cards utilizing elevation and layer separation. Use tabular layouts with exact, right-aligned currency formatting.
-*   **Typography:** Status badges must be crisp, solid, and elevated (e.g., a green "Paid" chip, a red "Overdue" chip).
+**Specification:**
 
-**Functionality:**
-*   **Invoicing & Discounts:** Owner/Staff UI to define fee structures by Grade/Stream, apply valid discounts, and generate invoices.
-*   **Payments:** Form to record received payments, which automatically calculates and updates the outstanding balance locally.
-*   **Guardian View:** A read-only, perfectly clear view of invoices, payments made, and outstanding balances per ward.
+Replace the current `AppNotification` model to use `SyncAction` + `resource` instead of `LogTable` + `LogOperation` + `rowKey`.
 
-**Agent Trust Directive:** We are trusting this task to you. Financial data requires absolute clarity and zero ambiguity. The local database logic must flawlessly handle balance calculations based on the relational invoice, discount, and payment data.
+```dart
+import '../database/tables/enums.dart';
+
+/// A thin display model wrapping a failed log row from the offline action queue.
+class AppNotification {
+  const AppNotification({
+    required this.logId,
+    required this.action,
+    required this.resource,
+    required this.errorMessage,
+    required this.attempts,
+    required this.occurred,
+  });
+
+  /// The auto-incremented primary key of the logs row.
+  final int logId;
+
+  /// Which action failed.
+  final SyncAction action;
+
+  /// Human-readable resource identifier (school name, user phone, etc.).
+  final String resource;
+
+  /// The error message returned by the server on the last attempt.
+  final String? errorMessage;
+
+  /// How many times the sync engine has attempted this action.
+  final int attempts;
+
+  /// When this log entry was originally created.
+  final DateTime occurred;
+
+  /// Human-readable title for the notification row.
+  /// Example: "Sync failed — Create Teacher"
+  String get title => 'Sync failed \u2014 ${_actionName(action)}';
+
+  /// Human-readable subtitle.
+  String get subtitle => (errorMessage != null && errorMessage!.isNotEmpty)
+      ? errorMessage!
+      : 'Attempt $attempts';
+
+  static String _actionName(SyncAction action) => switch (action) {
+    SyncAction.createSchool => 'Create School',
+    SyncAction.updateSchool => 'Update School',
+    SyncAction.deleteSchool => 'Delete School',
+    SyncAction.createTeacher => 'Create Teacher',
+    SyncAction.updateTeacher => 'Update Teacher',
+    SyncAction.deleteTeacher => 'Delete Teacher',
+    SyncAction.createStaff => 'Create Staff',
+    SyncAction.updateStaff => 'Update Staff',
+    SyncAction.deleteStaff => 'Delete Staff',
+    SyncAction.createOwner => 'Create Owner',
+    SyncAction.deleteOwner => 'Delete Owner',
+    SyncAction.createStudent => 'Create Student',
+    SyncAction.updateStudent => 'Update Student',
+    SyncAction.deleteStudent => 'Delete Student',
+    SyncAction.enrollStudent => 'Enroll Student',
+    SyncAction.unenrollStudent => 'Unenroll Student',
+    SyncAction.createGuardian => 'Create Guardian',
+    SyncAction.updateGuardian => 'Update Guardian',
+    SyncAction.deleteGuardian => 'Delete Guardian',
+    SyncAction.createDepartment => 'Create Department',
+    SyncAction.updateDepartment => 'Update Department',
+    SyncAction.deleteDepartment => 'Delete Department',
+    SyncAction.createTerm => 'Create Term',
+    SyncAction.updateTerm => 'Update Term',
+    SyncAction.deleteTerm => 'Delete Term',
+    SyncAction.assignClassTeacher => 'Assign Class Teacher',
+    SyncAction.unassignClassTeacher => 'Unassign Class Teacher',
+    SyncAction.assignSubject => 'Assign Subject',
+    SyncAction.unassignSubject => 'Unassign Subject',
+    SyncAction.createTimetableEntry => 'Create Timetable Entry',
+    SyncAction.updateTimetableEntry => 'Update Timetable Entry',
+    SyncAction.deleteTimetableEntry => 'Delete Timetable Entry',
+    SyncAction.markAttendance => 'Mark Attendance',
+    SyncAction.deleteAttendance => 'Delete Attendance',
+    SyncAction.createLesson => 'Create Lesson',
+    SyncAction.deleteLesson => 'Delete Lesson',
+    SyncAction.createExam => 'Create Exam',
+    SyncAction.updateExam => 'Update Exam',
+    SyncAction.deleteExam => 'Delete Exam',
+    SyncAction.createPaper => 'Create Paper',
+    SyncAction.updatePaper => 'Update Paper',
+    SyncAction.deletePaper => 'Delete Paper',
+    SyncAction.markGrades => 'Mark Grades',
+    SyncAction.updateGrade => 'Update Grade',
+    SyncAction.deleteGrade => 'Delete Grade',
+    SyncAction.updateMastery => 'Update Mastery',
+    SyncAction.createFee => 'Create Fee',
+    SyncAction.updateFee => 'Update Fee',
+    SyncAction.deleteFee => 'Delete Fee',
+    SyncAction.createInvoice => 'Create Invoice',
+    SyncAction.updateInvoice => 'Update Invoice',
+    SyncAction.deleteInvoice => 'Delete Invoice',
+    SyncAction.createPayment => 'Create Payment',
+    SyncAction.updatePayment => 'Update Payment',
+    SyncAction.deletePayment => 'Delete Payment',
+    SyncAction.approvePayment => 'Approve Payment',
+    SyncAction.createAnnouncement => 'Create Announcement',
+    SyncAction.updateAnnouncement => 'Update Announcement',
+    SyncAction.deleteAnnouncement => 'Delete Announcement',
+    SyncAction.createRole => 'Create Role',
+    SyncAction.updateRole => 'Update Role',
+    SyncAction.deleteRole => 'Delete Role',
+    SyncAction.assignRole => 'Assign Role',
+    SyncAction.unassignRole => 'Unassign Role',
+    SyncAction.updateUser => 'Update User',
+    SyncAction.deleteUser => 'Delete User',
+    SyncAction.updateSettings => 'Update Settings',
+    SyncAction.createPlan => 'Create Plan',
+    SyncAction.updatePlan => 'Update Plan',
+    SyncAction.deletePlan => 'Delete Plan',
+    SyncAction.updateAiUsage => 'Update AI Usage',
+    SyncAction.createSubscription => 'Create Subscription',
+    SyncAction.updateSubscription => 'Update Subscription',
+    SyncAction.deleteSubscription => 'Delete Subscription',
+    SyncAction.createDiscount => 'Create Discount',
+    SyncAction.updateDiscount => 'Update Discount',
+    SyncAction.deleteDiscount => 'Delete Discount',
+  };
+}
+```
+
+After writing, search for any UI files that reference the old `AppNotification` fields (`table`, `operation`, `rowKey`) and note them — they'll need minor updates in Task C10.
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
 
 ---
 
-## [x] Task 12: Announcements & School-Wide Communications
+### Task C5: Run Drift code generation
 
-**Objective:** Implement a broadcast system for school communications.
+**Files to create/modify:** All `*.g.dart` files in `lib/database/`
+**Context files to read (if needed):** None
+**Depends on:** Tasks C2, C3
 
-**UI Hierarchy & Feel:**
-*   **Feed:** A chronological, cleanly separated feed of messages. Use crisp elevation and subtle background color tinting for message cards to make them pop. Absolutely no borders.
+**Specification:**
 
-**Functionality:**
-*   **Creation & Targeting:** Owners/Staff can author announcements. They must be able to target specific roles (e.g., "Guardians Only", "Teachers Only") or specific classes.
-*   **Contextual Filtering:** The feed must read the `SchoolContext.currentEntry` and only display announcements relevant to that role. 
+Run the Drift code generator to regenerate all `*.g.dart` files after the `logs` table and enum changes:
 
-**Agent Trust Directive:** We are trusting this task to you. This feature should feel like a modern, lightweight social feed. It must respect the user's active context strictly so they aren't spammed with irrelevant notices.
+```bash
+cd /home/abdihakim/Documents/GITHUB/eduxal-labs/eduxal
+dart run build_runner build --delete-conflicting-outputs
+```
 
----
+This may take a few minutes. After completion:
+1. Check for errors: `dart analyze lib/database/ 2>&1 | head -40`
+2. Verify the generated `LogsCompanion` class now has `action`, `resource`, `payload` fields (not `tbl`, `op`, `rowKey`, `columns`)
+3. Verify `SyncAction` and `SyncActionConverter` are accessible from generated code
 
-## [x] Task 13: Timetable Rules Setup & Generation (Pre-Sync)
+If there are errors due to other files still referencing removed enums (`LogTable`, `LogOperation`, column bitset enums), that's expected — those files will be updated in subsequent tasks.
 
-**Objective:** Build the UI for defining timetable constraints and viewing the generated timetable, acting as the final dashboard module before introducing the Sync Engine.
-
-**UI Hierarchy & Feel:**
-*   **Rules Configuration:** A dense, elevated form where Owners/Admins define constraints (e.g., maximum lessons per day for a teacher, preferred double-lessons). These configurations must feel like high-end toggles and solid sliders.
-*   **Desktop Grid:** A classic, spacious weekly grid view to display the resulting schedule, utilizing subtle drop shadows on the schedule blocks to make them stand out.
-*   **Mobile View:** A vertical timeline or day-by-day horizontal pager. It must not feel cramped.
-
-**Functionality:**
-*   **Rules UI:** Allow creating and saving the rules required for a Genetic Algorithm to run. Store these configurations locally.
-*   **Generation Stub:** Include a prominent "Generate Timetable" CTA. *When clicked, do not attempt to implement the Genetic Algorithm.* Simply display an elegant Snackbar/Toast stating: "Timetable generation algorithm pending implementation." 
-*   **Viewing Mode:** Provide the necessary Drift queries and UI to render `lessons` and `timetable` records for Owners, Teachers, and Guardians, assuming the data exists in the database.
-
-**Agent Trust Directive:** We are trusting this task to you. Timetables are notoriously complex to display responsively. Your solution must look exceptionally clean on both wide desktop monitors and narrow mobile screens without compromising usability. Ensure the generation logic is perfectly stubbed out so the project owner can inject the Genetic Algorithm later seamlessly.
+**Update after completion:**
+- [ ] Mark this task `[x]`
 
 ---
 
-## Execution Rules
-1. Work on **exactly one task** per session, in the order they appear above.
-2. Read all relevant schemas and files before writing code. Do not guess DB columns.
-3. Verify mobile/desktop responsiveness and the "tactile/elevated" design system at every step.
-4. Mark the task as `[x]` upon completion.
-5. Do not proceed to the next task until the current one is robust, styled correctly, and respects the offline-first/Drift-stream architecture.
-6. Tasks 6–9 form a **cohesive restructure group**. They must be executed in order because 6a (tab component) is a dependency for 7, 8, and 9, and 6b (nav restructure) provides the routing for 8 (Members) and 9 (Roles).
+### Task C6: Update `database.dart` — migration for logs table
+
+**Files to create/modify:** `lib/database/database.dart`
+**Context files to read (if needed):** Read current `lib/database/database.dart` to see existing migration strategy
+**Depends on:** Task C5
+
+**Specification:**
+
+Increment `schemaVersion` by 1 in `AppDatabase`. Add a migration step that drops and recreates the `logs` table. Log data is transient (pending sync actions) so data loss is acceptable.
+
+In the `MigrationStrategy`:
+```dart
+onUpgrade: (migrator, from, to) async {
+  // ... existing migrations ...
+  if (from < NEW_VERSION) {
+    // Logs table schema changed: action-based model replaces mutation-based model.
+    // Drop old logs and recreate — pending sync data is lost but that's acceptable.
+    await migrator.deleteTable('logs');
+    await migrator.createTable(logs);
+  }
+},
+```
+
+Also update `onCreate` if the raw SQL for logs indexes/triggers needs changing (the old `logs` table had no special indexes beyond the autoincrement PK, so this should be minimal).
+
+Run `dart analyze lib/database/database.dart 2>&1 | head -20` to verify.
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+
+---
+
+### Task C7: Rewrite `sync_engine.dart` — action-based push flow
+
+**Files to create/modify:** `lib/sync/sync_engine.dart`
+**Context files to read (if needed):** Read current `lib/sync/sync_engine.dart` to understand the watch loop (KEEP) and push loop (REPLACE)
+**Depends on:** Tasks C1, C3, C5
+
+**Specification:**
+
+Rewrite the push side of `sync_engine.dart`. The watch side stays.
+
+**Push flow — what to remove:**
+- All references to `LogProcessor` / `log_processor.dart`
+- Batch-based push logic (`MutationBatch`, batch tracking, mutation result mapping)
+- Any `import` of `log_processor.dart`
+
+**Push flow — new implementation:**
+
+The push loop reads pending log entries one at a time (oldest first) and sends each as an `ActionRequest` via the gRPC bidirectional stream. It waits for the `ActionResponse` before sending the next action.
+
+```dart
+// Pseudocode for the new push loop:
+Future<void> _pushActions(String accountId, String accessToken) async {
+  final logsDao = _db.logsDao;
+  final pending = await logsDao.getPendingLogs(accountId);
+  if (pending.isEmpty) return;
+
+  // Open bidirectional stream
+  final requestController = StreamController<ActionRequest>();
+  final responseStream = _syncClient.pushActions(
+    requestController.stream,
+    options: CallOptions(metadata: {'authorization': 'Bearer $accessToken'}),
+  );
+
+  int nextIndex = 0;
+
+  // Listen for responses
+  await for (final response in responseStream) {
+    // Process the response for the current action
+    if (response.success) {
+      // Apply returned rows to local DB via delta_writer
+      for (final row in response.rows) {
+        await _applyActionRow(row);
+      }
+      // Delete the log entry
+      await logsDao.deleteLog(response.id);
+    } else {
+      // Map error code to action
+      switch (response.code) {
+        case 1: // permission_denied
+          await logsDao.markFailed(response.id, response.error);
+        case 2: // conflict — apply server's version, delete log
+          for (final row in response.rows) {
+            await _applyActionRow(row);
+          }
+          await logsDao.deleteLog(response.id);
+        case 3: // validation_error
+          await logsDao.markFailed(response.id, response.error);
+        case 4: // not_found
+          await logsDao.markFailed(response.id, response.error);
+        default:
+          await logsDao.markFailed(response.id, response.error);
+      }
+    }
+
+    // Send the next action (if any)
+    nextIndex++;
+    if (nextIndex < pending.length) {
+      final next = pending[nextIndex];
+      requestController.add(ActionRequest(
+        id: next.id,
+        action: next.action.value,
+        payload: next.payload,
+      ));
+    } else {
+      await requestController.close();
+    }
+  }
+}
+```
+
+Send the first action to kick off the stream, then send subsequent actions only after receiving each response.
+
+**`_applyActionRow` method:**
+Reuse the existing `DeltaWriter` logic. An `ActionRow` is structurally similar to a `SyncDelta` — it has `table`, `operation`, `row_key`, and `data` (InsertData). Write a thin adapter that converts `ActionRow` to the format `DeltaWriter` expects, or call the delta writer's internal methods directly.
+
+**Watch flow — keep as-is:**
+The watch side of `sync_engine.dart` should remain unchanged. It already uses `WatchRequest`/`SyncDelta` which are not changing.
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+
+---
+
+### Task C8: Delete `log_processor.dart`
+
+**Files to create/modify:**
+- `lib/sync/log_processor.dart` — DELETE entirely
+- Any file that imports `log_processor.dart` — remove the import
+
+**Context files to read (if needed):** None
+**Depends on:** Task C7
+
+**Specification:**
+
+Delete `lib/sync/log_processor.dart` (2097 lines). This file contained:
+- Batch building logic
+- FK dependency ordering (`kTableInsertPriority`)
+- Invitation pairing
+- Coalescing/collapsing mutations
+- Column bitmask OR-ing
+- All of which are eliminated by the action-based model
+
+Search for any remaining imports:
+```bash
+grep -rn "log_processor" lib/
+```
+
+Remove all `import` statements referencing this file. If any code still calls `LogProcessor`, it should have been replaced in Task C7.
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+
+---
+
+### Task C9: Update DAOs — schools_dao.dart, members_dao.dart
+
+**Files to create/modify:**
+- `lib/database/daos/schools_dao.dart`
+- `lib/database/daos/members_dao.dart`
+
+**Context files to read (if needed):** Read these DAO files to see which methods write `LogsCompanion` entries
+**Depends on:** Tasks C2, C5
+
+**Specification:**
+
+Update every method that creates a `LogsCompanion` to use the new action-based format.
+
+**Pattern — old:**
+```dart
+await into(db.logs).insert(LogsCompanion(
+  account: Value(accountId),
+  tbl: Value(LogTable.schools),
+  op: Value(LogOperation.insert),
+  rowKey: Value(schoolId),
+  columns: const Value.absent(),
+  created: Value(BigInt.from(DateTime.now().millisecondsSinceEpoch)),
+));
+```
+
+**Pattern — new:**
+```dart
+final payload = CreateSchoolPayload(
+  id: schoolId,
+  name: name,
+  // ... all fields
+);
+await into(db.logs).insert(LogsCompanion(
+  account: Value(accountId),
+  action: Value(SyncAction.createSchool),
+  resource: Value(name),  // human-readable display key
+  payload: Value(payload.writeToBuffer()),
+  created: Value(BigInt.from(DateTime.now().millisecondsSinceEpoch)),
+));
+```
+
+**`schools_dao.dart` (5 LogsCompanion calls):**
+For each method that logs:
+1. Import the appropriate `*Payload` class from `lib/proto/services/sync.pb.dart`
+2. Build the payload proto message with all the data the method already has
+3. Write the new `LogsCompanion` with `action`, `resource`, and `payload`
+
+- `createSchool` → `SyncAction.createSchool`, `CreateSchoolPayload`, resource = school name
+- `updateSchool` → `SyncAction.updateSchool`, `UpdateSchoolPayload`, resource = school name or ID
+
+**`members_dao.dart` (21 LogsCompanion calls):**
+This is the largest DAO to update. Methods include:
+- `createTeacher` → `SyncAction.createTeacher`, `CreateTeacherPayload`
+- `updateTeacher` → `SyncAction.updateTeacher`, `UpdateTeacherPayload`
+- `deleteTeacher` → `SyncAction.deleteTeacher`, `DeleteTeacherPayload`
+- Same pattern for staff, owner, guardian CRUD
+- Resource display key = user phone or name
+
+For create-member methods (invitation pattern), the payload includes the user's phone and name (which the method already has as parameters). The server will handle the user lookup/creation.
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+
+---
+
+### Task C10: Update DAOs — accounts_dao.dart, departments_dao.dart, terms_dao.dart, subjects_dao.dart, enrollments_dao.dart
+
+**Files to create/modify:**
+- `lib/database/daos/accounts_dao.dart` (3 LogsCompanion calls)
+- `lib/database/daos/departments_dao.dart` (5 LogsCompanion calls)
+- `lib/database/daos/terms_dao.dart` (3 LogsCompanion calls)
+- `lib/database/daos/subjects_dao.dart` (6 LogsCompanion calls)
+- `lib/database/daos/enrollments_dao.dart` (3 LogsCompanion calls)
+
+**Context files to read (if needed):** Read each DAO to see current `LogsCompanion` patterns
+**Depends on:** Tasks C2, C5
+
+**Specification:**
+
+Same pattern as Task C9. For each DAO:
+
+**`accounts_dao.dart`:**
+- `updateName` / `updateEmail` / `updateStatus` → `SyncAction.updateUser`, `UpdateUserPayload`
+- Resource = user name or phone
+
+**`departments_dao.dart`:**
+- `create` → `SyncAction.createDepartment`, `CreateDepartmentPayload`, resource = dept name
+- `update` → `SyncAction.updateDepartment`, `UpdateDepartmentPayload`
+- `delete` → `SyncAction.deleteDepartment`, `DeleteDepartmentPayload`
+- `assignTeacherDept` / `assignStaffDept` → These update the teacher/staff record's department field. Use `SyncAction.updateTeacher` / `SyncAction.updateStaff` with the appropriate `Update*Payload`.
+
+**`terms_dao.dart`:**
+- `createTerm` → `SyncAction.createTerm`, `CreateTermPayload`
+- `updateTerm` → `SyncAction.updateTerm`, `UpdateTermPayload`
+- `deleteTerm` → `SyncAction.deleteTerm`, `DeleteTermPayload`
+- Resource = "Year YYYY Term T"
+
+**`subjects_dao.dart`:**
+- `assignSubject` → `SyncAction.assignSubject`, `AssignSubjectPayload`
+- `unassignSubject` → `SyncAction.unassignSubject`, `UnassignSubjectPayload`
+- `assignClassTeacher` → `SyncAction.assignClassTeacher`, `AssignClassTeacherPayload`
+- `unassignClassTeacher` → `SyncAction.unassignClassTeacher`, `UnassignClassTeacherPayload`
+- Plus any create/update methods
+- Resource = subject name or class description
+
+**`enrollments_dao.dart`:**
+- `enroll` → `SyncAction.enrollStudent`, `EnrollStudentPayload`
+- `unenroll` → `SyncAction.unenrollStudent`, `UnenrollStudentPayload`
+- Plus other logged methods
+- Resource = student name or ADM
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+
+---
+
+### Task C11: Update DAOs — exams_grades_dao.dart, finance_dao.dart
+
+**Files to create/modify:**
+- `lib/database/daos/exams_grades_dao.dart` (11 LogsCompanion calls)
+- `lib/database/daos/finance_dao.dart` (9 LogsCompanion calls)
+
+**Context files to read (if needed):** Read each DAO to see current `LogsCompanion` patterns
+**Depends on:** Tasks C2, C5
+
+**Specification:**
+
+**`exams_grades_dao.dart` (11 log calls):**
+- `createExam` → `SyncAction.createExam`, `CreateExamPayload`
+- `updateExam` → `SyncAction.updateExam`, `UpdateExamPayload`
+- `deleteExam` → `SyncAction.deleteExam`, `DeleteExamPayload`
+- `createPaper` → `SyncAction.createPaper`, `CreatePaperPayload`
+- `updatePaper` → `SyncAction.updatePaper`, `UpdatePaperPayload`
+- `deletePaper` → `SyncAction.deletePaper`, `DeletePaperPayload`
+- `markGrades` → `SyncAction.markGrades`, `MarkGradesPayload` (includes `repeated GradeRecord`)
+- `updateGrade` → `SyncAction.updateGrade`, `UpdateGradePayload`
+- `deleteGrade` → `SyncAction.deleteGrade`, `DeleteGradePayload`
+- `updateMastery` (if logged) → `SyncAction.updateMastery`, `UpdateMasteryPayload`
+
+For `markGrades`: the payload's `records` field is a `repeated GradeRecord`. Build one `GradeRecord` per student grade being marked, then wrap in `MarkGradesPayload`.
+
+**`finance_dao.dart` (9 log calls):**
+- `createFee` → `SyncAction.createFee`, `CreateFeePayload`
+- `updateFee` → `SyncAction.updateFee`, `UpdateFeePayload`
+- `deleteFee` → `SyncAction.deleteFee`, `DeleteFeePayload`
+- `createInvoice` → `SyncAction.createInvoice`, `CreateInvoicePayload`
+- `updateInvoice` → `SyncAction.updateInvoice`, `UpdateInvoicePayload`
+- `deleteInvoice` → `SyncAction.deleteInvoice`, `DeleteInvoicePayload`
+- `createPayment` → `SyncAction.createPayment`, `CreatePaymentPayload`
+- `updatePayment` → `SyncAction.updatePayment`, `UpdatePaymentPayload`
+- `deletePayment` → `SyncAction.deletePayment`, `DeletePaymentPayload`
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+
+---
+
+### Task C12: Update DAOs — attendance_dao.dart, timetable_dao.dart, announcements_dao.dart, roles_dao.dart, plans_dao.dart, settings_dao.dart
+
+**Files to create/modify:**
+- `lib/database/daos/attendance_dao.dart` (3 LogsCompanion calls)
+- `lib/database/daos/timetable_dao.dart` (6 LogsCompanion calls)
+- `lib/database/daos/announcements_dao.dart` (3 LogsCompanion calls)
+- `lib/database/daos/roles_dao.dart` (5 LogsCompanion calls)
+- `lib/database/daos/plans_dao.dart` (5 LogsCompanion calls)
+- `lib/database/daos/settings_dao.dart` (2 LogsCompanion calls)
+
+**Context files to read (if needed):** Read each DAO
+**Depends on:** Tasks C2, C5
+
+**Specification:**
+
+**`attendance_dao.dart`:**
+- `mark` → `SyncAction.markAttendance`, `MarkAttendancePayload` (includes `repeated AttendanceRecord`)
+- `delete` → `SyncAction.deleteAttendance`, `DeleteAttendancePayload`
+
+For `mark`: build one `AttendanceRecord` per student, wrap in `MarkAttendancePayload`.
+
+**`timetable_dao.dart`:**
+- `createEntry` → `SyncAction.createTimetableEntry`, `CreateTimetableEntryPayload`
+- `updateEntry` → `SyncAction.updateTimetableEntry`, `UpdateTimetableEntryPayload`
+- `deleteEntry` → `SyncAction.deleteTimetableEntry`, `DeleteTimetableEntryPayload`
+
+**`announcements_dao.dart`:**
+- `create` → `SyncAction.createAnnouncement`, `CreateAnnouncementPayload`
+- `update` → `SyncAction.updateAnnouncement`, `UpdateAnnouncementPayload`
+- `delete` → `SyncAction.deleteAnnouncement`, `DeleteAnnouncementPayload`
+
+**`roles_dao.dart`:**
+- `createRole` → `SyncAction.createRole`, `CreateRolePayload`
+- `updateRole` → `SyncAction.updateRole`, `UpdateRolePayload`
+- `deleteRole` → `SyncAction.deleteRole`, `DeleteRolePayload`
+- `assignRole` → `SyncAction.assignRole`, `AssignRolePayload`
+- `unassignRole` → `SyncAction.unassignRole`, `UnassignRolePayload`
+
+**`plans_dao.dart`:**
+- `createPlan` → `SyncAction.createPlan`, `CreatePlanPayload`
+- `updatePlan` → `SyncAction.updatePlan`, `UpdatePlanPayload`
+- `deletePlan` → `SyncAction.deletePlan`, `DeletePlanPayload`
+- Plus subscription/discount methods if they exist in this DAO
+
+**`settings_dao.dart`:**
+- `updateSettings` → `SyncAction.updateSettings`, `UpdateSettingsPayload`
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+
+---
+
+### Task C13: Fix UI references to old AppNotification fields
+
+**Files to create/modify:** Any UI files that reference `AppNotification.table`, `AppNotification.operation`, or `AppNotification.rowKey`
+**Context files to read (if needed):** None — search with grep
+**Depends on:** Task C4
+
+**Specification:**
+
+Search for all UI references to the old `AppNotification` fields:
+```bash
+grep -rn "\.table\b\|\.operation\b\|\.rowKey\b" lib/ui/
+grep -rn "AppNotification" lib/ui/
+```
+
+Update any widgets that display notification details to use `.action` and `.resource` instead.
+
+The `title` and `subtitle` getters on `AppNotification` already provide the formatted display strings, so most UI code should just work. If any widget was accessing `.table` or `.operation` directly (e.g. for filtering or icons), update it to use `.action` (a `SyncAction` value).
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+
+---
+
+### Task C14: Update `delta_writer.dart` if needed
+
+**Files to create/modify:** `lib/sync/delta_writer.dart`
+**Context files to read (if needed):** Read current `delta_writer.dart` to check if it references any removed types
+**Depends on:** Task C1
+
+**Specification:**
+
+The `SyncDelta` message format is unchanged, so `delta_writer.dart` should mostly work as-is. However, check for:
+
+1. Any imports of removed proto types (`MutationBatch`, `Mutation`, `PushAck`, `MutationResult`, `UpdateData`)
+2. Any references to `LogTable`, `LogOperation`, or column bitset enums from `enums.dart`
+3. The `ActionRow` type from push responses also needs to be handled — add a method that converts `ActionRow` to the format the delta writer expects (or reuse the existing `SyncDelta` processing path)
+
+If the file compiles cleanly after Tasks C1 and C2 with no changes needed, just verify and mark complete.
+
+Add a helper method for processing `ActionRow` from push responses:
+```dart
+/// Applies a single ActionRow (from push response) to the local database.
+/// ActionRow has the same shape as SyncDelta: table, operation, row_key, data.
+Future<void> applyActionRow(ActionRow row) async {
+  // Reuse the same logic as processDelta but with ActionRow fields
+  if (row.operation == 0) {
+    // Upsert
+    await _upsertRow(row.table, row.rowKey, row.data);
+  } else if (row.operation == 2) {
+    // Delete
+    await _deleteRow(row.table, row.rowKey);
+  }
+}
+```
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+
+---
+
+### Task C15: Update seeder for action-based logging
+
+**Files to create/modify:** `lib/core/seeder.dart`
+**Context files to read (if needed):** Read current `lib/core/seeder.dart` to understand the `_log()` helper
+**Depends on:** Tasks C2, C5
+
+**Specification:**
+
+The seeder (~2200 lines) creates demo data by writing directly to the local DB and creating log entries for sync. Update it for the action-based model:
+
+1. **Find the `_log()` helper function** — it currently creates `LogsCompanion(tbl, op, rowKey, columns)`. Replace it with a new helper:
+
+```dart
+Future<void> _log(SyncAction action, String resource, GeneratedMessage payload) async {
+  await _db.logsDao.insertLog(LogsCompanion(
+    account: Value(_accountId),
+    action: Value(action),
+    resource: Value(resource),
+    payload: Value(Uint8List.fromList(payload.writeToBuffer())),
+    created: Value(BigInt.from(DateTime.now().millisecondsSinceEpoch)),
+  ));
+}
+```
+
+2. **Update every `_log()` call site** throughout the seeder. Each call currently passes `LogTable`, `LogOperation`, `rowKey`, and optionally `columns`. Replace with `SyncAction`, display string, and the appropriate `*Payload` proto message.
+
+3. **Sequential creation:** The CONVERSATION_CONTEXT specifies the seeder should create data sequentially (simulating human actions) rather than in batches. If the seeder currently uses `Future.wait()` or parallel inserts for independent rows, convert them to sequential `await` calls. This is important because the action-based model sends actions one-at-a-time in creation order.
+
+4. **Import** `package:protobuf/protobuf.dart` for `GeneratedMessage` and the proto payload classes from `lib/proto/services/sync.pb.dart`.
+
+The seeder is large so this is a significant update. Focus on correctness: every log call must build the correct `*Payload` with all fields that the server will need to recreate the row.
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+
+---
+
+### Task C16: Full build + analysis
+
+**Files to create/modify:** None (verification only)
+**Context files to read (if needed):** None
+**Depends on:** All previous tasks
+
+**Specification:**
+
+1. Run Drift code generation one final time:
+   ```bash
+   dart run build_runner build --delete-conflicting-outputs
+   ```
+
+2. Run full analysis:
+   ```bash
+   dart analyze lib/
+   ```
+
+3. Fix any remaining compile errors. Common issues:
+   - Lingering imports of `LogTable`, `LogOperation`, or column bitset enums
+   - Missing imports of `SyncAction` or proto payload classes
+   - Type mismatches in `LogsCompanion` constructor calls
+
+4. Search for any remaining references to removed types:
+   ```bash
+   grep -rn "LogTable\|LogOperation\|LogProcessor\|MutationBatch\|PushAck\|UpdateData" lib/ --include="*.dart" | grep -v ".g.dart" | grep -v "proto/"
+   ```
+
+5. Verify no `log_processor.dart` references remain:
+   ```bash
+   grep -rn "log_processor" lib/
+   ```
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+
+---
+
+### Task C17: Commit the sync redesign
+
+**Files to create/modify:** None (git operations only)
+**Context files to read (if needed):** None
+**Depends on:** Task C16
+
+**Specification:**
+
+Create structured commits for the sync redesign:
+
+1. `proto: regenerate Dart stubs for action-based sync` — `lib/proto/`
+2. `db: redesign logs table and enums for action-based model` — `lib/database/tables/logs.dart`, `lib/database/tables/enums.dart`, `lib/database/database.dart`
+3. `db: rewrite logs_dao for action-based model` — `lib/database/daos/logs_dao.dart`
+4. `model: update AppNotification for action-based display` — `lib/models/app_notification.dart`
+5. `sync: rewrite sync engine push flow for action-based model` — `lib/sync/sync_engine.dart`
+6. `sync: delete log_processor (replaced by action-based model)` — delete `lib/sync/log_processor.dart`
+7. `sync: update delta_writer for action row handling` — `lib/sync/delta_writer.dart`
+8. `db: update DAOs for action-based logging` — all modified DAO files
+9. `feat: update seeder for action-based logging` — `lib/core/seeder.dart`
+10. `ui: fix notification display for action-based model` — UI files
+11. `chore: regenerate Drift code` — all `*.g.dart` files
+
+Use `git add <paths>` + `git commit -m "<message>"` for each group.
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+
+---
+
+### Task C18: Update AGENT.md for action-based sync model
+
+**Files to create/modify:** `AGENT.md`
+**Context files to read (if needed):** `CONVERSATION_CONTEXT.md`
+**Depends on:** Task C17
+
+**Specification:**
+
+Update `AGENT.md` to reflect the sync redesign:
+
+1. **§7 (The `logs` Table):** Replace the old schema with the new one (action/resource/payload). Remove all column bitset documentation. Remove LogTable/LogOperation/LogStatus enums (keep LogStatus, add SyncAction).
+
+2. **§7a (Client-Side Batch Ordering):** DELETE this entire section — FK ordering is gone.
+
+3. **Update §15 (Known Code Issues):** Remove I1 and I2 (delta_writer and log_processor compile errors) — both are resolved by the redesign.
+
+4. **Update §5 (Database Design):** Note that the `logs` table now stores action payloads as blobs, not table/operation/rowKey.
+
+5. **Add a new section** documenting the SyncAction enum (77 values) and the action-based push flow.
+
+6. **Update §14 (gRPC Proto Files):** Reflect the new `sync.proto` structure — `PushActions` replaces `PushChanges`, `ActionRequest`/`ActionResponse` replace `MutationBatch`/`PushAck`.
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
