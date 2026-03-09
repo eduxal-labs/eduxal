@@ -1,4 +1,4 @@
-package com.example.eduxal
+package com.eduxal.app
 
 import io.flutter.embedding.android.FlutterActivity
 
