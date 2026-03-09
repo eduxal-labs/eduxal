@@ -37,3 +37,10 @@ const Duration kAccessTokenDuration = Duration(days: 3);
 /// refresh_token_expiry = created_at + kRefreshTokenDuration
 /// When this expires the user must go through full login again.
 const Duration kRefreshTokenDuration = Duration(days: 30);
+
+/// Whether the app is running in demo mode.
+///
+/// When `true`, the splash screen will auto-seed the local database with
+/// realistic school data on first login (if no schools exist locally).
+/// Set to `false` before production builds.
+const bool kDemoMode = true;
