@@ -3,12 +3,15 @@ import 'dart:math';
 
 import 'package:bson/bson.dart';
 import 'package:drift/drift.dart';
+import 'package:fixnum/fixnum.dart' as fixnum;
 import 'package:flutter/foundation.dart';
+import 'package:protobuf/protobuf.dart' show GeneratedMessage;
 
 import '../database/database.dart';
 import '../database/tables/enums.dart';
 import '../database/tables/curriculum_subjects.dart';
 import '../models/school_config.dart';
+import '../proto/services/sync.pb.dart' as sync_pb;
 
 // ============================================================
 // Seeder — populates the local database with realistic demo data
@@ -906,15 +909,19 @@ class _SeederImpl {
   /// Every insert into one of the 30 synced backend tables needs a
   /// corresponding row in the `logs` table so the sync engine can push
   /// the data to the server for other users to see.
-  Future<void> _log(LogTable tbl, String rowKey) async {
+  Future<void> _log(
+    SyncAction action,
+    String resource,
+    GeneratedMessage payload,
+  ) async {
     await _db
         .into(_db.logs)
         .insert(
           LogsCompanion(
             account: Value(_userId),
-            tbl: Value(tbl),
-            op: const Value(LogOperation.insert),
-            rowKey: Value(rowKey),
+            action: Value(action),
+            resource: Value(resource),
+            payload: Value(Uint8List.fromList(payload.writeToBuffer())),
             status: const Value(LogStatus.pending),
             created: Value(_nowMs),
           ),
@@ -925,6 +932,7 @@ class _SeederImpl {
 
   Future<void> _seedSchool() async {
     _schoolId = _id();
+    final established = _pastDays(365 * 7);
     await _db
         .into(_db.schools)
         .insert(
@@ -936,13 +944,27 @@ class _SeederImpl {
             email: Value(_profile.email),
             county: _profile.county,
             domain: Value(_profile.domain),
-            established: Value(_pastDays(365 * 7)), // ~2018
+            established: Value(established), // ~2018
             status: const Value(SchoolStatus.active),
             created: _pastSec(365 * 7),
             updated: _nowSec,
           ),
         );
-    await _log(LogTable.schools, _schoolId);
+    await _log(
+      SyncAction.createSchool,
+      _profile.name,
+      sync_pb.CreateSchoolPayload(
+        id: _schoolId,
+        name: _profile.name,
+        motto: _profile.motto,
+        phone: _profile.phone,
+        email: _profile.email,
+        county: _profile.county,
+        domain: _profile.domain,
+        established: established,
+        ownerId: _userId,
+      ),
+    );
   }
 
   // ── Settings ────────────────────────────────────────────────
@@ -1085,7 +1107,14 @@ class _SeederImpl {
             updated: _nowSec,
           ),
         );
-    await _log(LogTable.settings, _schoolId);
+    await _log(
+      SyncAction.updateSettings,
+      _profile.name,
+      sync_pb.UpdateSettingsPayload(
+        school: _schoolId,
+        data: jsonEncode(config.toJson()),
+      ),
+    );
   }
 
   // ── Departments ─────────────────────────────────────────────
@@ -1103,7 +1132,15 @@ class _SeederImpl {
               updated: _nowSec,
             ),
           );
-      await _log(LogTable.departments, '$_schoolId|$dept');
+      await _log(
+        SyncAction.createDepartment,
+        dept,
+        sync_pb.CreateDepartmentPayload(
+          school: _schoolId,
+          name: dept,
+          description: '$dept Department',
+        ),
+      );
     }
   }
 
@@ -1116,31 +1153,33 @@ class _SeederImpl {
       _teacherUserIds.add(userId);
 
       // Create user
+      final phone = _randomPhone();
+      final name = _randomName();
       await _db
           .into(_db.users)
           .insert(
             UsersCompanion.insert(
               id: userId,
-              phone: _randomPhone(),
+              phone: phone,
               email: Value(null),
-              name: _randomName(),
+              name: name,
               level: const Value(UserLevel.normal),
               status: const Value(UserStatus.active),
               created: _pastSec(365 * 3 + _rng.nextInt(365)),
               updated: _nowSec,
             ),
           );
-      await _log(LogTable.users, userId);
 
       // Create teacher record
       final hiredDaysAgo = 365 * 2 + _rng.nextInt(365 * 3);
+      final hired = _pastDays(hiredDaysAgo);
       await _db
           .into(_db.teachers)
           .insert(
             TeachersCompanion.insert(
               school: _schoolId,
               user: userId,
-              hired: Value(_pastDays(hiredDaysAgo)),
+              hired: Value(hired),
               role: Value(profile.role),
               department: Value(profile.department),
               status: const Value(TeacherStatus.active),
@@ -1148,7 +1187,19 @@ class _SeederImpl {
               updated: _nowSec,
             ),
           );
-      await _log(LogTable.teachers, '$_schoolId|$userId');
+      await _log(
+        SyncAction.createTeacher,
+        name,
+        sync_pb.CreateTeacherPayload(
+          school: _schoolId,
+          userId: userId,
+          phone: phone,
+          name: name,
+          hired: hired,
+          role: profile.role,
+          department: profile.department,
+        ),
+      );
     }
   }
 
@@ -1159,21 +1210,22 @@ class _SeederImpl {
       final userId = _id();
       _staffUserIds.add(userId);
 
+      final phone = _randomPhone();
+      final name = _randomName();
       await _db
           .into(_db.users)
           .insert(
             UsersCompanion.insert(
               id: userId,
-              phone: _randomPhone(),
+              phone: phone,
               email: Value(null),
-              name: _randomName(),
+              name: name,
               level: const Value(UserLevel.normal),
               status: const Value(UserStatus.active),
               created: _pastSec(365 * 2 + _rng.nextInt(365)),
               updated: _nowSec,
             ),
           );
-      await _log(LogTable.users, userId);
 
       await _db
           .into(_db.staff)
@@ -1189,7 +1241,17 @@ class _SeederImpl {
               updated: _nowSec,
             ),
           );
-      await _log(LogTable.staff, '$_schoolId|$userId');
+      await _log(
+        SyncAction.createStaff,
+        name,
+        sync_pb.CreateStaffPayload(
+          school: _schoolId,
+          userId: userId,
+          phone: phone,
+          name: name,
+          role: _kStaffRoles[i],
+        ),
+      );
     }
   }
 
@@ -1205,7 +1267,15 @@ class _SeederImpl {
             created: _pastSec(365 * 7),
           ),
         );
-    await _log(LogTable.owners, '$_schoolId|$_userId');
+    // Owner is created as part of createSchool flow — the CreateSchoolPayload
+    // already includes ownerId. No separate log needed for the owner row
+    // since the server creates it automatically. But we log it anyway for
+    // completeness in case the school was created without an owner payload.
+    await _log(
+      SyncAction.createOwner,
+      _profile.name,
+      sync_pb.CreateOwnerPayload(school: _schoolId, userId: _userId),
+    );
   }
 
   // ── Terms ───────────────────────────────────────────────────
@@ -1240,6 +1310,8 @@ class _SeederImpl {
     DateTime start,
     DateTime end,
   ) async {
+    final startSec = BigInt.from(start.millisecondsSinceEpoch ~/ 1000);
+    final endSec = BigInt.from(end.millisecondsSinceEpoch ~/ 1000);
     await _db
         .into(_db.terms)
         .insert(
@@ -1247,13 +1319,23 @@ class _SeederImpl {
             school: _schoolId,
             year: year,
             term: term,
-            start: BigInt.from(start.millisecondsSinceEpoch ~/ 1000),
-            end: BigInt.from(end.millisecondsSinceEpoch ~/ 1000),
+            start: startSec,
+            end: endSec,
             created: _pastSec(200),
             updated: _nowSec,
           ),
         );
-    await _log(LogTable.terms, '$_schoolId|$year|$term');
+    await _log(
+      SyncAction.createTerm,
+      'Year $year Term $term',
+      sync_pb.CreateTermPayload(
+        school: _schoolId,
+        year: year,
+        term: term,
+        start: fixnum.Int64(startSec.toInt()),
+        end: fixnum.Int64(endSec.toInt()),
+      ),
+    );
   }
 
   // ── Students & Guardians ────────────────────────────────────
@@ -1268,6 +1350,8 @@ class _SeederImpl {
 
           final gender = _randomGender();
           final name = _randomName();
+          final dob = _studentDob(gc.grade);
+          final admitted = _pastDays(365 + _rng.nextInt(365));
 
           await _db
               .into(_db.students)
@@ -1277,16 +1361,27 @@ class _SeederImpl {
                   adm: adm,
                   user: const Value(null),
                   name: name,
-                  dob: Value(_studentDob(gc.grade)),
+                  dob: Value(dob),
                   gender: Value(gender),
                   documents: const Value(null),
-                  admitted: Value(_pastDays(365 + _rng.nextInt(365))),
+                  admitted: Value(admitted),
                   status: const Value(StudentStatus.active),
                   created: _pastSec(365),
                   updated: _nowSec,
                 ),
               );
-          await _log(LogTable.students, '$_schoolId|$adm');
+          await _log(
+            SyncAction.createStudent,
+            name,
+            sync_pb.CreateStudentPayload(
+              school: _schoolId,
+              adm: adm,
+              name: name,
+              dob: dob,
+              gender: gender.index,
+              admitted: admitted,
+            ),
+          );
 
           // Create a guardian for most students.
           // ~15% of students share a guardian (siblings).
@@ -1309,27 +1404,38 @@ class _SeederImpl {
                     updated: _nowSec,
                   ),
                 );
-            await _log(LogTable.guardians, '$_schoolId|$gId|$adm');
+            await _log(
+              SyncAction.createGuardian,
+              name,
+              sync_pb.CreateGuardianPayload(
+                school: _schoolId,
+                userId: gId,
+                student: adm,
+                relationship: relationship.index,
+                role: GuardianRole.secondary.index,
+              ),
+            );
           } else {
             // Create a new guardian user
             final gId = _id();
             _guardianUserIds.add(gId);
 
+            final gPhone = _randomPhone();
+            final gName = _randomName();
             await _db
                 .into(_db.users)
                 .insert(
                   UsersCompanion.insert(
                     id: gId,
-                    phone: _randomPhone(),
+                    phone: gPhone,
                     email: Value(null),
-                    name: _randomName(),
+                    name: gName,
                     level: const Value(UserLevel.normal),
                     status: const Value(UserStatus.active),
                     created: _pastSec(300),
                     updated: _nowSec,
                   ),
                 );
-            await _log(LogTable.users, gId);
 
             final relationship = _rng.nextBool()
                 ? GuardianRelationship.father
@@ -1347,7 +1453,19 @@ class _SeederImpl {
                     updated: _nowSec,
                   ),
                 );
-            await _log(LogTable.guardians, '$_schoolId|$gId|$adm');
+            await _log(
+              SyncAction.createGuardian,
+              gName,
+              sync_pb.CreateGuardianPayload(
+                school: _schoolId,
+                userId: gId,
+                phone: gPhone,
+                name: gName,
+                student: adm,
+                relationship: relationship.index,
+                role: GuardianRole.primary.index,
+              ),
+            );
           }
         }
         _enrolledStudents[(gc.grade, si)] = students;
@@ -1378,8 +1496,16 @@ class _SeederImpl {
                 ),
               );
           await _log(
-            LogTable.enrollments,
-            '$_schoolId|$year|$term|${gc.grade}|$si|$adm',
+            SyncAction.enrollStudent,
+            'Student $adm',
+            sync_pb.EnrollStudentPayload(
+              school: _schoolId,
+              year: year,
+              term: term,
+              grade: gc.grade,
+              stream: si,
+              student: adm,
+            ),
           );
         }
       }
@@ -1414,8 +1540,17 @@ class _SeederImpl {
                 ),
               );
           await _log(
-            LogTable.subjects,
-            '$_schoolId|$year|$term|${gc.grade}|$si|$subj',
+            SyncAction.assignSubject,
+            'Subject $subj',
+            sync_pb.AssignSubjectPayload(
+              school: _schoolId,
+              year: year,
+              term: term,
+              grade: gc.grade,
+              stream: si,
+              subject: subj,
+              teacher: teacherId,
+            ),
           );
 
           // Track assignments for timetable
@@ -1440,6 +1575,7 @@ class _SeederImpl {
         final tid = _teacherUserIds[teacherIdx % _teacherUserIds.length];
         teacherIdx++;
 
+        final startDays = _pastDays(60);
         await _db
             .into(_db.classTeachers)
             .insert(
@@ -1450,14 +1586,23 @@ class _SeederImpl {
                 grade: gc.grade,
                 stream: si,
                 teacher: tid,
-                start: _pastDays(60),
+                start: startDays,
                 end: const Value(null),
                 created: _pastSec(60),
               ),
             );
         await _log(
-          LogTable.classTeachers,
-          '$_schoolId|$year|$term|${gc.grade}|$si|$tid',
+          SyncAction.assignClassTeacher,
+          'Class Teacher',
+          sync_pb.AssignClassTeacherPayload(
+            school: _schoolId,
+            year: year,
+            term: term,
+            grade: gc.grade,
+            stream: si,
+            teacher: tid,
+            start: startDays,
+          ),
         );
       }
     }
@@ -1552,10 +1697,21 @@ class _SeederImpl {
                       updated: _nowSec,
                     ),
                   );
-              // PK: school, year, term, grade, stream, day, subject, start
               await _log(
-                LogTable.timetable,
-                '$_schoolId|$year|$term|${gc.grade}|$si|${day.index}|$subj|$startSec',
+                SyncAction.createTimetableEntry,
+                'Timetable',
+                sync_pb.CreateTimetableEntryPayload(
+                  school: _schoolId,
+                  year: year,
+                  term: term,
+                  grade: gc.grade,
+                  stream: si,
+                  subject: subj,
+                  teacher: teacherId,
+                  day: day.index,
+                  start: startSec,
+                  end: endSec,
+                ),
               );
             } catch (_) {
               // Unique constraint violation (teacher double-booked) — skip this slot
@@ -1598,8 +1754,10 @@ class _SeederImpl {
     for (final gc in _focusGrades) {
       for (var si = 0; si < gc.streamNames.length; si++) {
         final students = _enrolledStudents[(gc.grade, si)]!;
-        for (final adm in students) {
-          for (final dayEpoch in attendanceDays) {
+        for (final dayEpoch in attendanceDays) {
+          // Collect all records for this class/stream/date into one payload
+          final records = <sync_pb.AttendanceRecord>[];
+          for (final adm in students) {
             // ~90% present, ~7% absent, ~3% leave
             final roll = _rng.nextDouble();
             AttendanceStatus status;
@@ -1627,12 +1785,24 @@ class _SeederImpl {
                     updated: _nowSec,
                   ),
                 );
-            // PK: school, year, term, grade, stream, student, date
-            await _log(
-              LogTable.attendance,
-              '$_schoolId|$year|$term|${gc.grade}|$si|$adm|$dayEpoch',
+            records.add(
+              sync_pb.AttendanceRecord(student: adm, status: status.value),
             );
           }
+          // One log per class/stream/date — batch attendance marking
+          await _log(
+            SyncAction.markAttendance,
+            'Attendance $dayEpoch',
+            sync_pb.MarkAttendancePayload(
+              school: _schoolId,
+              year: year,
+              term: term,
+              grade: gc.grade,
+              stream: si,
+              date: dayEpoch,
+              records: records,
+            ),
+          );
         }
       }
     }
@@ -1704,6 +1874,8 @@ class _SeederImpl {
   }) async {
     final examId = _id();
     final teacherId = _teacherUserIds[0]; // exam coordinator
+    final examStartDays = _pastDays(startDaysAgo);
+    final examEndDays = _pastDays(endDaysAgo);
 
     await _db
         .into(_db.exams)
@@ -1717,14 +1889,29 @@ class _SeederImpl {
             stream: const Value(null), // all streams
             personalized: const Value(false),
             type: type,
-            start: _pastDays(startDaysAgo),
-            end: _pastDays(endDaysAgo),
+            start: examStartDays,
+            end: examEndDays,
             teacher: teacherId,
             created: _pastSec(startDaysAgo + 5),
             updated: _nowSec,
           ),
         );
-    await _log(LogTable.exams, examId);
+    await _log(
+      SyncAction.createExam,
+      name,
+      sync_pb.CreateExamPayload(
+        id: examId,
+        school: _schoolId,
+        year: year,
+        term: term,
+        grade: gc.grade,
+        personalized: false,
+        type: type.index,
+        start: examStartDays,
+        end: examEndDays,
+        teacher: teacherId,
+      ),
+    );
 
     // Create papers for each subject
     for (final subj in gc.subjectIndices) {
@@ -1738,6 +1925,8 @@ class _SeederImpl {
         }
       }
 
+      final paperStartSec = _pastSec(startDaysAgo);
+      final paperEndSec = _pastSec(endDaysAgo);
       await _db
           .into(_db.papers)
           .insert(
@@ -1747,25 +1936,38 @@ class _SeederImpl {
               subject: subj,
               paper: const Value(null), // single paper per subject
               invigilator: invigilator,
-              start: _pastSec(startDaysAgo),
-              end: _pastSec(endDaysAgo),
+              start: paperStartSec,
+              end: paperEndSec,
               status: Value(paperStatus),
               created: _pastSec(startDaysAgo + 3),
               updated: _nowSec,
             ),
           );
-      // PK: school, exam, subject, paper — null paper is "null" in row key
-      await _log(LogTable.papers, '$_schoolId|$examId|$subj|null');
+      await _log(
+        SyncAction.createPaper,
+        name,
+        sync_pb.CreatePaperPayload(
+          school: _schoolId,
+          exam: examId,
+          subject: subj,
+          invigilator: invigilator,
+          start: fixnum.Int64(paperStartSec.toInt()),
+          end: fixnum.Int64(paperEndSec.toInt()),
+        ),
+      );
 
-      // Create grades for enrolled students
+      // Create grades for enrolled students — batch per subject
       for (var si = 0; si < gc.streamNames.length; si++) {
         final students = _enrolledStudents[(gc.grade, si)]!;
+        final gradeRecords = <sync_pb.GradeRecord>[];
         for (final adm in students) {
           // Some students may not have grades (based on coverage)
           if (_rng.nextDouble() > gradingCoverage) continue;
 
           // Realistic bell-curve score distribution
-          final score = _bellScore(62.0, 15.0, 15.0, 98.0);
+          final score = double.parse(
+            _bellScore(62.0, 15.0, 15.0, 98.0).toStringAsFixed(1),
+          );
           const total = 100;
 
           await _db
@@ -1777,14 +1979,27 @@ class _SeederImpl {
                   student: adm,
                   subject: subj,
                   paper: const Value(null),
-                  score: double.parse(score.toStringAsFixed(1)),
+                  score: score,
                   total: total,
                   created: _pastSec(endDaysAgo),
                   updated: _nowSec,
                 ),
               );
-          // PK: school, exam, student, subject, paper — null paper is "null"
-          await _log(LogTable.grades, '$_schoolId|$examId|$adm|$subj|null');
+          gradeRecords.add(
+            sync_pb.GradeRecord(student: adm, score: score, total: total),
+          );
+        }
+        if (gradeRecords.isNotEmpty) {
+          await _log(
+            SyncAction.markGrades,
+            name,
+            sync_pb.MarkGradesPayload(
+              school: _schoolId,
+              exam: examId,
+              subject: subj,
+              records: gradeRecords,
+            ),
+          );
         }
       }
     }
@@ -1798,6 +2013,7 @@ class _SeederImpl {
     // Due date: 10 days after the current term starts.
     final dueDate = _currentTerm.start.add(const Duration(days: 10));
     final dueSec = BigInt.from(dueDate.millisecondsSinceEpoch ~/ 1000);
+    final dueInt64 = fixnum.Int64(dueSec.toInt());
 
     for (final gc in _focusGrades) {
       // Tuition
@@ -1820,7 +2036,22 @@ class _SeederImpl {
               updated: _nowSec,
             ),
           );
-      await _log(LogTable.fees, tuitionId);
+      await _log(
+        SyncAction.createFee,
+        'Tuition Fee',
+        sync_pb.CreateFeePayload(
+          id: tuitionId,
+          school: _schoolId,
+          year: year,
+          term: term,
+          grade: gc.grade,
+          title: 'Tuition Fee',
+          description: 'Term $term tuition fee',
+          amount: 15000.0,
+          mandatory: true,
+          due: dueInt64,
+        ),
+      );
 
       // Activity fee
       final activityId = _id();
@@ -1842,7 +2073,22 @@ class _SeederImpl {
               updated: _nowSec,
             ),
           );
-      await _log(LogTable.fees, activityId);
+      await _log(
+        SyncAction.createFee,
+        'Activity Fee',
+        sync_pb.CreateFeePayload(
+          id: activityId,
+          school: _schoolId,
+          year: year,
+          term: term,
+          grade: gc.grade,
+          title: 'Activity Fee',
+          description: 'Co-curricular and sports activities',
+          amount: 2000.0,
+          mandatory: true,
+          due: dueInt64,
+        ),
+      );
     }
   }
 
@@ -1895,7 +2141,20 @@ class _SeederImpl {
                     updated: _nowSec,
                   ),
                 );
-            await _log(LogTable.invoices, invoiceId);
+            await _log(
+              SyncAction.createInvoice,
+              fee.title,
+              sync_pb.CreateInvoicePayload(
+                id: invoiceId,
+                school: _schoolId,
+                year: year,
+                term: term,
+                fee: fee.id,
+                student: adm,
+                amount: fee.amount,
+                due: fixnum.Int64(fee.due.toInt()),
+              ),
+            );
 
             // ~60% of invoices get a payment (partial or full)
             if (_rng.nextDouble() < 0.60) {
@@ -1904,6 +2163,14 @@ class _SeederImpl {
 
               final method = PaymentMethod
                   .values[_rng.nextInt(PaymentMethod.values.length)];
+
+              final reference = method == PaymentMethod.mpesa
+                  ? 'TXN${_rng.nextInt(9999999).toString().padLeft(7, '0')}'
+                  : null;
+              final recorder = _staffUserIds.isNotEmpty
+                  ? _staffUserIds[0]
+                  : null;
+              final payDate = _pastDays(30 + _rng.nextInt(30));
 
               final paymentId = _id();
               await _db
@@ -1916,20 +2183,28 @@ class _SeederImpl {
                       student: Value(adm),
                       amount: payAmount,
                       method: Value(method),
-                      reference: Value(
-                        method == PaymentMethod.mpesa
-                            ? 'TXN${_rng.nextInt(9999999).toString().padLeft(7, '0')}'
-                            : null,
-                      ),
-                      recorder: Value(
-                        _staffUserIds.isNotEmpty ? _staffUserIds[0] : null,
-                      ), // bursar
-                      date: Value(_pastDays(30 + _rng.nextInt(30))),
+                      reference: Value(reference),
+                      recorder: Value(recorder), // bursar
+                      date: Value(payDate),
                       created: _pastSec(30),
                       updated: _nowSec,
                     ),
                   );
-              await _log(LogTable.payments, paymentId);
+              await _log(
+                SyncAction.createPayment,
+                fee.title,
+                sync_pb.CreatePaymentPayload(
+                  id: paymentId,
+                  invoice: invoiceId,
+                  school: _schoolId,
+                  student: adm,
+                  amount: payAmount,
+                  method: method.index,
+                  reference: reference,
+                  recorder: recorder,
+                  date: payDate,
+                ),
+              );
 
               // Update invoice status based on payment
               final newStatus = payAmount >= fee.amount
@@ -1944,22 +2219,14 @@ class _SeederImpl {
                 ),
               );
               // Log the invoice update too
-              await _db
-                  .into(_db.logs)
-                  .insert(
-                    LogsCompanion(
-                      account: Value(_userId),
-                      tbl: const Value(LogTable.invoices),
-                      op: const Value(LogOperation.update),
-                      rowKey: Value(invoiceId),
-                      columns: Value(
-                        (1 << InvoicesColumn.status.bit) |
-                            (1 << InvoicesColumn.updated.bit),
-                      ),
-                      status: const Value(LogStatus.pending),
-                      created: Value(_nowMs),
-                    ),
-                  );
+              await _log(
+                SyncAction.updateInvoice,
+                fee.title,
+                sync_pb.UpdateInvoicePayload(
+                  id: invoiceId,
+                  status: newStatus.index,
+                ),
+              );
             }
           }
         }
@@ -1990,7 +2257,18 @@ class _SeederImpl {
               updated: _pastSec(daysAgo),
             ),
           );
-      await _log(LogTable.announcements, announcementId);
+      await _log(
+        SyncAction.createAnnouncement,
+        title,
+        sync_pb.CreateAnnouncementPayload(
+          id: announcementId,
+          school: _schoolId,
+          title: title,
+          content: content,
+          audience: audience,
+          author: _userId,
+        ),
+      );
     }
   }
 
@@ -2040,7 +2318,17 @@ class _SeederImpl {
             updated: _nowSec,
           ),
         );
-    await _log(LogTable.roles, _roleId);
+    await _log(
+      SyncAction.createRole,
+      'Teacher',
+      sync_pb.CreateRolePayload(
+        id: _roleId,
+        school: _schoolId,
+        name: 'Teacher',
+        description: 'Standard teaching staff permissions',
+        permissions: permBytes,
+      ),
+    );
 
     // Assign all teachers to this role
     for (final tid in _teacherUserIds) {
@@ -2054,7 +2342,11 @@ class _SeederImpl {
               created: _pastSec(365),
             ),
           );
-      await _log(LogTable.scopes, '$_schoolId|$tid|$_roleId');
+      await _log(
+        SyncAction.assignRole,
+        'Teacher',
+        sync_pb.AssignRolePayload(school: _schoolId, user: tid, role: _roleId),
+      );
     }
   }
 
@@ -2075,7 +2367,9 @@ class _SeederImpl {
 
         for (final subj in masterySubjects) {
           for (var topic = 0; topic < 5; topic++) {
-            final score = _bellScore(65.0, 18.0, 30.0, 98.0);
+            final score = double.parse(
+              _bellScore(65.0, 18.0, 30.0, 98.0).toStringAsFixed(1),
+            );
             await _db
                 .into(_db.mastery)
                 .insert(
@@ -2085,15 +2379,22 @@ class _SeederImpl {
                     grade: gc.grade,
                     subject: subj,
                     topic: topic,
-                    score: double.parse(score.toStringAsFixed(1)),
+                    score: score,
                     created: _pastSec(20),
                     updated: _nowSec,
                   ),
                 );
-            // PK: school, student, grade, subject, topic
             await _log(
-              LogTable.mastery,
-              '$_schoolId|$adm|${gc.grade}|$subj|$topic',
+              SyncAction.updateMastery,
+              'Mastery',
+              sync_pb.UpdateMasteryPayload(
+                school: _schoolId,
+                student: adm,
+                grade: gc.grade,
+                subject: subj,
+                topic: topic,
+                score: score,
+              ),
             );
           }
         }
@@ -2173,10 +2474,19 @@ class _SeederImpl {
                       updated: _nowSec,
                     ),
                   );
-              // PK: school, year, term, grade, stream, date, subject, teacher
               await _log(
-                LogTable.lessons,
-                '$_schoolId|$year|$term|${gc.grade}|$si|$dayEpoch|$subj|$teacherId',
+                SyncAction.createLesson,
+                'Lesson',
+                sync_pb.CreateLessonPayload(
+                  school: _schoolId,
+                  year: year,
+                  term: term,
+                  grade: gc.grade,
+                  stream: si,
+                  date: dayEpoch,
+                  subject: subj,
+                  teacher: teacherId,
+                ),
               );
               count++;
             } catch (_) {
