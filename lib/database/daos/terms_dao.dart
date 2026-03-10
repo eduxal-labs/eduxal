@@ -1,10 +1,12 @@
 import 'package:drift/drift.dart';
+import 'package:fixnum/fixnum.dart';
 
 import '../database.dart';
 import '../tables/enums.dart';
 import '../tables/logs.dart';
 import '../tables/terms.dart';
 import '../../client.dart';
+import '../../proto/services/sync.pb.dart' as sync_pb;
 
 part 'terms_dao.g.dart';
 
@@ -161,13 +163,20 @@ class TermsDao extends DatabaseAccessor<AppDatabase> with _$TermsDaoMixin {
       final termNumber = term.term.value;
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
+      final payload = sync_pb.CreateTermPayload(
+        school: schoolId,
+        year: year,
+        term: termNumber,
+      );
+      if (term.start.present) payload.start = Int64(term.start.value.toInt());
+      if (term.end.present) payload.end = Int64(term.end.value.toInt());
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.terms),
-          op: const Value(LogOperation.insert),
-          rowKey: Value('$schoolId|$year|$termNumber'),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.createTerm),
+          resource: Value('Year $year Term $termNumber'),
+          payload: Value(payload.writeToBuffer()),
           created: Value(now),
         ),
       );
@@ -175,12 +184,12 @@ class TermsDao extends DatabaseAccessor<AppDatabase> with _$TermsDaoMixin {
     sync.schedulePush();
   }
 
-  /// Updates mutable fields on an existing term and writes an UPDATE log entry
-  /// with the correct [TermsColumn] bitmask, both in a single transaction.
+  /// Updates mutable fields on an existing term and writes a
+  /// [SyncAction.updateTerm] log entry, both in a single transaction.
   ///
-  /// Only columns whose [Value] is present in [changes] are updated.
-  /// The `updated` field in [changes] must be set to the current timestamp
-  /// (seconds since epoch) by the caller.
+  /// Only columns whose [Value] is present in [changes] are included in the
+  /// payload. The `updated` field in [changes] must be set to the current
+  /// timestamp (seconds since epoch) by the caller.
   ///
   /// [accountId] is the currently active account's user id.
   Future<void> updateTerm({
@@ -199,23 +208,32 @@ class TermsDao extends DatabaseAccessor<AppDatabase> with _$TermsDaoMixin {
           ))
           .write(changes);
 
-      int mask = 0;
-      if (changes.start.present) mask |= (1 << TermsColumn.start.bit);
-      if (changes.end.present) mask |= (1 << TermsColumn.end.bit);
-      if (changes.updated.present) mask |= (1 << TermsColumn.updated.bit);
+      // Build the UpdateTermPayload with only changed fields.
+      final payload = sync_pb.UpdateTermPayload(
+        school: schoolId,
+        year: year,
+        term: termNumber,
+      );
+      bool hasChanges = false;
+      if (changes.start.present) {
+        payload.start = Int64(changes.start.value.toInt());
+        hasChanges = true;
+      }
+      if (changes.end.present) {
+        payload.end = Int64(changes.end.value.toInt());
+        hasChanges = true;
+      }
 
-      if (mask == 0) return; // nothing tracked
+      if (!hasChanges) return; // nothing tracked
 
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.terms),
-          op: const Value(LogOperation.update),
-          rowKey: Value('$schoolId|$year|$termNumber'),
-          columns: Value(mask),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.updateTerm),
+          resource: Value('Year $year Term $termNumber'),
+          payload: Value(payload.writeToBuffer()),
           created: Value(now),
         ),
       );
@@ -240,14 +258,19 @@ class TermsDao extends DatabaseAccessor<AppDatabase> with _$TermsDaoMixin {
     await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
+      final payload = sync_pb.DeleteTermPayload(
+        school: schoolId,
+        year: year,
+        term: termNumber,
+      );
+
       // Log before delete so the sync engine can replay it.
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.terms),
-          op: const Value(LogOperation.delete),
-          rowKey: Value('$schoolId|$year|$termNumber'),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.deleteTerm),
+          resource: Value('Year $year Term $termNumber'),
+          payload: Value(payload.writeToBuffer()),
           created: Value(now),
         ),
       );

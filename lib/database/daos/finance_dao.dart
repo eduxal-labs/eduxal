@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:fixnum/fixnum.dart' as fixnum;
 
 import '../database.dart';
 import '../tables/enums.dart';
@@ -11,6 +12,7 @@ import '../tables/logs.dart';
 import '../../client.dart';
 import '../tables/terms.dart';
 import '../tables/plans.dart';
+import '../../proto/services/sync.pb.dart' as sync_pb;
 
 part 'finance_dao.g.dart';
 
@@ -639,7 +641,7 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
 
   /// Creates a new fee definition.
   ///
-  /// Both the write and a [LogTable.fees] Insert log entry are wrapped in a
+  /// Both the write and a [SyncAction.createFee] log entry are wrapped in a
   /// single transaction.
   Future<void> createFee({
     required String id,
@@ -675,13 +677,25 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
         ),
       );
 
+      final payload = sync_pb.CreateFeePayload(
+        id: id,
+        school: schoolId,
+        year: year,
+        term: term,
+        grade: grade,
+        title: title,
+        description: description,
+        amount: amount,
+        mandatory: mandatory,
+        due: fixnum.Int64(due.toInt()),
+      );
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.fees),
-          op: const Value(LogOperation.insert),
-          rowKey: Value(id),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.createFee),
+          resource: Value(title),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -703,13 +717,30 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
-      int mask = 0;
-      if (title != null) mask |= (1 << FeesColumn.title.bit);
-      if (description != null) mask |= (1 << FeesColumn.description.bit);
-      if (amount != null) mask |= (1 << FeesColumn.amount.bit);
-      if (mandatory != null) mask |= (1 << FeesColumn.mandatory.bit);
-      if (due != null) mask |= (1 << FeesColumn.due.bit);
-      mask |= (1 << FeesColumn.updated.bit);
+      final payload = sync_pb.UpdateFeePayload(id: id);
+      bool hasChanges = false;
+
+      if (title != null) {
+        payload.title = title;
+        hasChanges = true;
+      }
+      if (description != null) {
+        payload.description = description;
+        hasChanges = true;
+      }
+      if (amount != null) {
+        payload.amount = amount;
+        hasChanges = true;
+      }
+      if (mandatory != null) {
+        payload.mandatory = mandatory;
+        hasChanges = true;
+      }
+      if (due != null) {
+        payload.due = fixnum.Int64(due.toInt());
+        hasChanges = true;
+      }
+      if (!hasChanges) return;
 
       await (update(fees)..where((f) => f.id.equals(id))).write(
         FeesCompanion(
@@ -729,11 +760,9 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.fees),
-          op: const Value(LogOperation.update),
-          rowKey: Value(id),
-          columns: Value(mask),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.updateFee),
+          resource: Value(title ?? 'Fee $id'),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -748,16 +777,16 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
   }) async {
     await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+      final payload = sync_pb.DeleteFeePayload(id: id);
 
       await (delete(fees)..where((f) => f.id.equals(id))).go();
 
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.fees),
-          op: const Value(LogOperation.delete),
-          rowKey: Value(id),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.deleteFee),
+          resource: Value('Fee $id'),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -804,13 +833,24 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
         ),
       );
 
+      final invPayload = sync_pb.CreateInvoicePayload(
+        id: id,
+        school: schoolId,
+        year: year,
+        term: term,
+        student: studentAdm,
+        amount: amount,
+      );
+      if (feeId != null) invPayload.fee = feeId;
+      if (description != null) invPayload.description = description;
+      if (due != null) invPayload.due = fixnum.Int64(due.toInt());
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.invoices),
-          op: const Value(LogOperation.insert),
-          rowKey: Value(id),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.createInvoice),
+          resource: Value(description ?? 'Invoice $id'),
+          payload: Value(invPayload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -893,18 +933,17 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
         InvoicesCompanion(status: Value(status), updated: Value(now)),
       );
 
-      int mask = 0;
-      mask |= (1 << InvoicesColumn.status.bit);
-      mask |= (1 << InvoicesColumn.updated.bit);
+      final payload = sync_pb.UpdateInvoicePayload(
+        id: id,
+        status: status.index,
+      );
 
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.invoices),
-          op: const Value(LogOperation.update),
-          rowKey: Value(id),
-          columns: Value(mask),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.updateInvoice),
+          resource: Value('Invoice $id'),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -962,13 +1001,24 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
         ),
       );
 
+      final payPayload = sync_pb.CreatePaymentPayload(
+        id: id,
+        amount: amount,
+        method: method.index,
+      );
+      if (invoiceId != null) payPayload.invoice = invoiceId;
+      if (schoolId != null) payPayload.school = schoolId;
+      if (studentAdm != null) payPayload.student = studentAdm;
+      if (reference != null) payPayload.reference = reference;
+      if (recorderId != null) payPayload.recorder = recorderId;
+      if (date != null) payPayload.date = date;
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.payments),
-          op: const Value(LogOperation.insert),
-          rowKey: Value(id),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.createPayment),
+          resource: Value('Payment $id'),
+          payload: Value(payPayload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -1036,7 +1086,6 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
     await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
-      final rowKey = '$schoolId|$planId|$year|$term|$grade';
 
       // Check if exists.
       final existing =
@@ -1067,19 +1116,22 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
               ),
             );
 
-        int mask = 0;
-        mask |= (1 << DiscountsColumn.amount.bit);
-        mask |= (1 << DiscountsColumn.unit.bit);
-        mask |= (1 << DiscountsColumn.updated.bit);
+        final updPayload = sync_pb.UpdateDiscountPayload(
+          school: schoolId,
+          plan: planId,
+          year: year,
+          term: term,
+          grade: grade,
+          amount: amount,
+          unit: unit.index,
+        );
 
         await into(logs).insert(
           LogsCompanion(
             account: Value(accountId),
-            tbl: const Value(LogTable.discounts),
-            op: const Value(LogOperation.update),
-            rowKey: Value(rowKey),
-            columns: Value(mask),
-            status: const Value(LogStatus.pending),
+            action: Value(SyncAction.updateDiscount),
+            resource: Value('Discount — $planId'),
+            payload: Value(updPayload.writeToBuffer()),
             created: Value(nowMs),
           ),
         );
@@ -1098,13 +1150,22 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
           ),
         );
 
+        final crtPayload = sync_pb.CreateDiscountPayload(
+          school: schoolId,
+          plan: planId,
+          year: year,
+          term: term,
+          grade: grade,
+          amount: amount,
+          unit: unit.index,
+        );
+
         await into(logs).insert(
           LogsCompanion(
             account: Value(accountId),
-            tbl: const Value(LogTable.discounts),
-            op: const Value(LogOperation.insert),
-            rowKey: Value(rowKey),
-            status: const Value(LogStatus.pending),
+            action: Value(SyncAction.createDiscount),
+            resource: Value('Discount — $planId'),
+            payload: Value(crtPayload.writeToBuffer()),
             created: Value(nowMs),
           ),
         );
@@ -1124,7 +1185,14 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
   }) async {
     await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
-      final rowKey = '$schoolId|$planId|$year|$term|$grade';
+
+      final payload = sync_pb.DeleteDiscountPayload(
+        school: schoolId,
+        plan: planId,
+        year: year,
+        term: term,
+        grade: grade,
+      );
 
       await (delete(discounts)..where(
             (d) =>
@@ -1139,10 +1207,9 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.discounts),
-          op: const Value(LogOperation.delete),
-          rowKey: Value(rowKey),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.deleteDiscount),
+          resource: Value('Discount — $planId'),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );

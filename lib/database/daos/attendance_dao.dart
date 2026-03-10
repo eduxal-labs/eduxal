@@ -7,6 +7,7 @@ import '../tables/enums.dart';
 import '../tables/logs.dart';
 import '../tables/students.dart';
 import '../../client.dart';
+import '../../proto/services/sync.pb.dart' as sync_pb;
 
 part 'attendance_dao.g.dart';
 
@@ -394,7 +395,6 @@ class AttendanceDao extends DatabaseAccessor<AppDatabase>
         DateTime.now().millisecondsSinceEpoch ~/ 1000,
       );
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
-      final rowKey = '$schoolId|$year|$term|$grade|$stream|$studentAdm|$date';
 
       final existing = await getAttendanceRecord(
         schoolId: schoolId,
@@ -427,23 +427,6 @@ class AttendanceDao extends DatabaseAccessor<AppDatabase>
                 updated: Value(nowSeconds),
               ),
             );
-
-        // Build the column bitmask for the update.
-        int mask = 0;
-        mask |= (1 << AttendanceColumn.status.bit);
-        mask |= (1 << AttendanceColumn.updated.bit);
-
-        await into(logs).insert(
-          LogsCompanion(
-            account: Value(accountId),
-            tbl: const Value(LogTable.attendance),
-            op: const Value(LogOperation.update),
-            rowKey: Value(rowKey),
-            columns: Value(mask),
-            status: const Value(LogStatus.pending),
-            created: Value(nowMs),
-          ),
-        );
       } else {
         // Insert new record.
         await into(attendance).insert(
@@ -460,18 +443,30 @@ class AttendanceDao extends DatabaseAccessor<AppDatabase>
             updated: Value(nowSeconds),
           ),
         );
-
-        await into(logs).insert(
-          LogsCompanion(
-            account: Value(accountId),
-            tbl: const Value(LogTable.attendance),
-            op: const Value(LogOperation.insert),
-            rowKey: Value(rowKey),
-            status: const Value(LogStatus.pending),
-            created: Value(nowMs),
-          ),
-        );
       }
+
+      // Log: single markAttendance action with one record.
+      final payload = sync_pb.MarkAttendancePayload(
+        school: schoolId,
+        year: year,
+        term: term,
+        grade: grade,
+        stream: stream,
+        date: date,
+        records: [
+          sync_pb.AttendanceRecord(student: studentAdm, status: status.value),
+        ],
+      );
+
+      await into(logs).insert(
+        LogsCompanion(
+          account: Value(accountId),
+          action: Value(SyncAction.markAttendance),
+          resource: Value('Attendance $date'),
+          payload: Value(payload.writeToBuffer()),
+          created: Value(nowMs),
+        ),
+      );
     });
     sync.schedulePush();
   }
@@ -497,19 +492,89 @@ class AttendanceDao extends DatabaseAccessor<AppDatabase>
     required String accountId,
   }) async {
     await transaction(() async {
+      final nowSeconds = BigInt.from(
+        DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      );
+      final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      // Write each student's attendance to the local DB.
       for (final entry in statuses.entries) {
-        await markAttendance(
+        final studentAdm = entry.key;
+        final status = entry.value;
+
+        final existing = await getAttendanceRecord(
           schoolId: schoolId,
           year: year,
           term: term,
           grade: grade,
           stream: stream,
-          studentAdm: entry.key,
+          student: studentAdm,
           date: date,
-          status: entry.value,
-          accountId: accountId,
         );
+
+        if (existing != null) {
+          if (existing.status == status) continue;
+          await (update(attendance)..where(
+                (t) =>
+                    t.school.equals(schoolId) &
+                    t.year.equals(year) &
+                    t.term.equals(term) &
+                    t.grade.equals(grade) &
+                    t.stream.equals(stream) &
+                    t.student.equals(studentAdm) &
+                    t.date.equals(date),
+              ))
+              .write(
+                AttendanceCompanion(
+                  status: Value(status),
+                  updated: Value(nowSeconds),
+                ),
+              );
+        } else {
+          await into(attendance).insert(
+            AttendanceCompanion(
+              school: Value(schoolId),
+              year: Value(year),
+              term: Value(term),
+              grade: Value(grade),
+              stream: Value(stream),
+              student: Value(studentAdm),
+              date: Value(date),
+              status: Value(status),
+              created: Value(nowSeconds),
+              updated: Value(nowSeconds),
+            ),
+          );
+        }
       }
+
+      // Log: single markAttendance action with all records in one payload.
+      final records = statuses.entries
+          .map(
+            (e) =>
+                sync_pb.AttendanceRecord(student: e.key, status: e.value.value),
+          )
+          .toList();
+
+      final payload = sync_pb.MarkAttendancePayload(
+        school: schoolId,
+        year: year,
+        term: term,
+        grade: grade,
+        stream: stream,
+        date: date,
+        records: records,
+      );
+
+      await into(logs).insert(
+        LogsCompanion(
+          account: Value(accountId),
+          action: Value(SyncAction.markAttendance),
+          resource: Value('Attendance $date'),
+          payload: Value(payload.writeToBuffer()),
+          created: Value(nowMs),
+        ),
+      );
     });
     sync.schedulePush();
   }
@@ -533,7 +598,6 @@ class AttendanceDao extends DatabaseAccessor<AppDatabase>
   }) async {
     await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
-      final rowKey = '$schoolId|$year|$term|$grade|$stream|$studentAdm|$date';
 
       final existing = await getAttendanceRecord(
         schoolId: schoolId,
@@ -546,28 +610,7 @@ class AttendanceDao extends DatabaseAccessor<AppDatabase>
       );
       if (existing == null) return;
 
-      // Delete log supersedes any pending insert/update for this row.
-      await into(logs).insert(
-        LogsCompanion(
-          account: Value(accountId),
-          tbl: const Value(LogTable.attendance),
-          op: const Value(LogOperation.delete),
-          rowKey: Value(rowKey),
-          status: const Value(LogStatus.pending),
-          created: Value(nowMs),
-        ),
-      );
-
-      await (delete(logs)..where(
-            (t) =>
-                t.account.equals(accountId) &
-                t.tbl.equalsValue(LogTable.attendance) &
-                t.rowKey.equals(rowKey) &
-                (t.op.equalsValue(LogOperation.insert) |
-                    t.op.equalsValue(LogOperation.update)),
-          ))
-          .go();
-
+      // Delete the local attendance record.
       await (delete(attendance)..where(
             (t) =>
                 t.school.equals(schoolId) &
@@ -579,6 +622,27 @@ class AttendanceDao extends DatabaseAccessor<AppDatabase>
                 t.date.equals(date),
           ))
           .go();
+
+      // Log: deleteAttendance action.
+      final payload = sync_pb.DeleteAttendancePayload(
+        school: schoolId,
+        year: year,
+        term: term,
+        grade: grade,
+        stream: stream,
+        student: studentAdm,
+        date: date,
+      );
+
+      await into(logs).insert(
+        LogsCompanion(
+          account: Value(accountId),
+          action: Value(SyncAction.deleteAttendance),
+          resource: Value('Attendance $date'),
+          payload: Value(payload.writeToBuffer()),
+          created: Value(nowMs),
+        ),
+      );
     });
     sync.schedulePush();
   }

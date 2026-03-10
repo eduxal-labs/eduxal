@@ -3,10 +3,10 @@ import 'package:drift/drift.dart';
 import '../database.dart';
 import '../tables/accounts.dart';
 import '../tables/enums.dart';
-
 import '../tables/users.dart';
 import '../../models/authenticated.dart';
 import '../../client.dart';
+import '../../proto/services/sync.pb.dart' as sync_pb;
 
 part 'accounts_dao.g.dart';
 
@@ -211,17 +211,15 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
       await (update(db.users)..where((t) => t.id.equals(userId))).write(
         UsersCompanion(name: Value(name), updated: Value(now)),
       );
-      // 2. Write a log entry for sync.
+      // 2. Write an action-based log entry for sync.
+      final payload = sync_pb.UpdateUserPayload(id: userId, name: name);
+
       await into(db.logs).insert(
         LogsCompanion(
           account: Value(userId),
-          tbl: Value(LogTable.users),
-          op: Value(LogOperation.update),
-          rowKey: Value(userId),
-          columns: Value(
-            (1 << UsersColumn.name.bit) | (1 << UsersColumn.updated.bit),
-          ),
-          status: Value(LogStatus.pending),
+          action: Value(SyncAction.updateUser),
+          resource: Value(name),
+          payload: Value(payload.writeToBuffer()),
           created: Value(now),
         ),
       );
@@ -247,17 +245,22 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
       await (update(db.users)..where((t) => t.id.equals(userId))).write(
         UsersCompanion(email: Value(email), updated: Value(now)),
       );
-      // 2. Write a log entry for sync.
+      // 2. Write an action-based log entry for sync.
+      final payload = sync_pb.UpdateUserPayload(id: userId);
+      if (email != null) payload.email = email;
+
+      // Use the user's name or phone for the resource display.
+      final user = await (select(
+        db.users,
+      )..where((t) => t.id.equals(userId))).getSingleOrNull();
+      final resourceName = user?.name ?? userId;
+
       await into(db.logs).insert(
         LogsCompanion(
           account: Value(userId),
-          tbl: Value(LogTable.users),
-          op: Value(LogOperation.update),
-          rowKey: Value(userId),
-          columns: Value(
-            (1 << UsersColumn.email.bit) | (1 << UsersColumn.updated.bit),
-          ),
-          status: Value(LogStatus.pending),
+          action: Value(SyncAction.updateUser),
+          resource: Value(resourceName),
+          payload: Value(payload.writeToBuffer()),
           created: Value(now),
         ),
       );
@@ -295,21 +298,28 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
   Future<void> deleteUserAccount(String userId) async {
     final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
     await transaction(() async {
+      // Get user info for resource display before modifying.
+      final user = await (select(
+        db.users,
+      )..where((t) => t.id.equals(userId))).getSingleOrNull();
+      final resourceName = user?.name ?? userId;
+
       // 1. Mark user as deleted.
       await (update(db.users)..where((t) => t.id.equals(userId))).write(
         UsersCompanion(status: Value(UserStatus.deleted), updated: Value(now)),
       );
-      // 2. Write a log entry for sync.
+      // 2. Write an action-based log entry for sync.
+      final payload = sync_pb.UpdateUserPayload(
+        id: userId,
+        status: UserStatus.deleted.index,
+      );
+
       await into(db.logs).insert(
         LogsCompanion(
           account: Value(userId),
-          tbl: Value(LogTable.users),
-          op: Value(LogOperation.update),
-          rowKey: Value(userId),
-          columns: Value(
-            (1 << UsersColumn.status.bit) | (1 << UsersColumn.updated.bit),
-          ),
-          status: Value(LogStatus.pending),
+          action: Value(SyncAction.updateUser),
+          resource: Value(resourceName),
+          payload: Value(payload.writeToBuffer()),
           created: Value(now),
         ),
       );

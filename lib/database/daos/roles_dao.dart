@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 
 import '../database.dart';
@@ -7,6 +9,7 @@ import '../tables/roles.dart';
 import '../tables/scopes.dart';
 import '../tables/users.dart';
 import '../../client.dart';
+import '../../proto/services/sync.pb.dart' as sync_pb;
 
 part 'roles_dao.g.dart';
 
@@ -160,14 +163,27 @@ class RolesDao extends DatabaseAccessor<AppDatabase> with _$RolesDaoMixin {
       await into(roles).insert(role);
 
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      final payload = sync_pb.CreateRolePayload(
+        id: role.id.value,
+        name: role.name.value,
+      );
+      if (role.school.present && role.school.value != null) {
+        payload.school = role.school.value!;
+      }
+      if (role.description.present && role.description.value != null) {
+        payload.description = role.description.value!;
+      }
+      if (role.permissions.present) {
+        payload.permissions = utf8.encode(role.permissions.value);
+      }
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.roles),
-          op: const Value(LogOperation.insert),
-          rowKey: role.id,
-          // columns is null for inserts — the full row is sent on sync.
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.createRole),
+          resource: Value(role.name.value),
+          payload: Value(payload.writeToBuffer()),
           created: Value(now),
         ),
       );
@@ -191,27 +207,43 @@ class RolesDao extends DatabaseAccessor<AppDatabase> with _$RolesDaoMixin {
     await transaction(() async {
       await (update(roles)..where((t) => t.id.equals(roleId))).write(changes);
 
-      int mask = 0;
-      if (changes.name.present) mask |= (1 << RolesColumn.name.bit);
-      if (changes.description.present) {
-        mask |= (1 << RolesColumn.description.bit);
+      final payload = sync_pb.UpdateRolePayload(id: roleId);
+      bool hasChanges = false;
+
+      if (changes.name.present) {
+        payload.name = changes.name.value;
+        hasChanges = true;
+      }
+      if (changes.description.present && changes.description.value != null) {
+        payload.description = changes.description.value!;
+        hasChanges = true;
       }
       if (changes.permissions.present) {
-        mask |= (1 << RolesColumn.permissions.bit);
+        payload.permissions = utf8.encode(changes.permissions.value);
+        hasChanges = true;
       }
-      if (changes.updated.present) mask |= (1 << RolesColumn.updated.bit);
 
-      if (mask == 0) return; // nothing tracked to log
+      if (!hasChanges) return; // nothing tracked to log
 
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      // Try to get role name for resource display; fall back to roleId.
+      String resourceName = roleId;
+      if (changes.name.present) {
+        resourceName = changes.name.value;
+      } else {
+        final existing = await (select(
+          roles,
+        )..where((t) => t.id.equals(roleId))).getSingleOrNull();
+        if (existing != null) resourceName = existing.name;
+      }
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.roles),
-          op: const Value(LogOperation.update),
-          rowKey: Value(roleId),
-          columns: Value(mask),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.updateRole),
+          resource: Value(resourceName),
+          payload: Value(payload.writeToBuffer()),
           created: Value(now),
         ),
       );
@@ -245,15 +277,22 @@ class RolesDao extends DatabaseAccessor<AppDatabase> with _$RolesDaoMixin {
         ),
       );
 
-      // Log: scope insert — composite row_key = "null|{userId}|{roleId}"
-      // (school is null for system-level scopes).
+      // System-level scope — school is omitted (null in proto).
+      final payload = sync_pb.AssignRolePayload(user: userId, role: roleId);
+
+      // Get user phone/name for human-readable resource display.
+      String resourceName = userId;
+      final user = await (select(
+        users,
+      )..where((t) => t.id.equals(userId))).getSingleOrNull();
+      if (user != null) resourceName = user.phone;
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.scopes),
-          op: const Value(LogOperation.insert),
-          rowKey: Value('|$userId|$roleId'),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.assignRole),
+          resource: Value(resourceName),
+          payload: Value(payload.writeToBuffer()),
           created: Value(now),
         ),
       );
@@ -275,28 +314,25 @@ class RolesDao extends DatabaseAccessor<AppDatabase> with _$RolesDaoMixin {
     await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
-      // Insert the delete log entry.
+      // System-level scope — school is omitted (null in proto).
+      final payload = sync_pb.UnassignRolePayload(user: userId, role: roleId);
+
+      // Get user phone/name for human-readable resource display.
+      String resourceName = userId;
+      final user = await (select(
+        users,
+      )..where((t) => t.id.equals(userId))).getSingleOrNull();
+      if (user != null) resourceName = user.phone;
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.scopes),
-          op: const Value(LogOperation.delete),
-          rowKey: Value('|$userId|$roleId'),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.unassignRole),
+          resource: Value(resourceName),
+          payload: Value(payload.writeToBuffer()),
           created: Value(now),
         ),
       );
-
-      // Remove any pending insert logs for the same scope row — the delete
-      // supersedes them.
-      await (delete(logs)..where(
-            (t) =>
-                t.account.equals(accountId) &
-                t.tbl.equalsValue(LogTable.scopes) &
-                t.rowKey.equals('|$userId|$roleId') &
-                t.op.equalsValue(LogOperation.insert),
-          ))
-          .go();
 
       // Delete the actual scope row.
       await (delete(scopes)..where(
@@ -320,33 +356,27 @@ class RolesDao extends DatabaseAccessor<AppDatabase> with _$RolesDaoMixin {
   /// [accountId] is the currently active account's user id.
   Future<void> deleteRole(String roleId, {required String accountId}) async {
     await transaction(() async {
-      // Insert the delete log entry first so supersedWithDelete can find it.
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      // Get role name for human-readable resource display.
+      final existing = await (select(
+        roles,
+      )..where((t) => t.id.equals(roleId))).getSingleOrNull();
+      final resourceName = existing?.name ?? roleId;
+
+      final payload = sync_pb.DeleteRolePayload(id: roleId);
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.roles),
-          op: const Value(LogOperation.delete),
-          rowKey: Value(roleId),
-          // columns is null for deletes.
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.deleteRole),
+          resource: Value(resourceName),
+          payload: Value(payload.writeToBuffer()),
           created: Value(now),
         ),
       );
 
-      // Remove any pending insert/update logs for the same row — the delete
-      // supersedes them.
-      await (delete(logs)..where(
-            (t) =>
-                t.account.equals(accountId) &
-                t.tbl.equalsValue(LogTable.roles) &
-                t.rowKey.equals(roleId) &
-                (t.op.equalsValue(LogOperation.insert) |
-                    t.op.equalsValue(LogOperation.update)),
-          ))
-          .go();
-
-      // Finally delete the actual role row.
+      // Delete the actual role row.
       await (delete(roles)..where((t) => t.id.equals(roleId))).go();
     });
     sync.schedulePush();

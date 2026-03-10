@@ -8,6 +8,7 @@ import '../tables/logs.dart';
 import '../tables/settings.dart';
 import '../../models/school_config.dart';
 import '../../client.dart';
+import '../../proto/services/sync.pb.dart' as sync_pb;
 
 part 'settings_dao.g.dart';
 
@@ -109,22 +110,19 @@ class SettingsDao extends DatabaseAccessor<AppDatabase>
         );
       }
 
-      // Build the column bitmask.
-      int mask = 0;
-      mask |= (1 << SettingsColumn.mpesa.bit);
-      mask |= (1 << SettingsColumn.updated.bit);
+      // Build the proto payload.
+      final payload = sync_pb.UpdateSettingsPayload(
+        school: schoolId,
+        mpesa: mpesaJson,
+      );
 
       // Write a log entry.
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.settings),
-          op: Value(
-            existing != null ? LogOperation.update : LogOperation.insert,
-          ),
-          rowKey: Value(schoolId),
-          columns: Value(mask),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.updateSettings),
+          resource: Value(schoolId),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -150,14 +148,14 @@ class SettingsDao extends DatabaseAccessor<AppDatabase>
       );
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
-      final configJson = jsonEncode(config.toJson());
-
       // Check if a settings row already exists.
       final existing = await getSettings(schoolId);
 
+      // Compute the final data JSON string for both DB write and payload.
+      String finalDataJson;
       if (existing != null) {
-        // Update existing row — merge config into the existing data JSON so
-        // other data fields (e.g. future keys) are preserved.
+        // Merge config into the existing data JSON so other data fields
+        // (e.g. future keys) are preserved.
         Map<String, dynamic> dataMap = {};
         try {
           final decoded = jsonDecode(existing.data);
@@ -168,19 +166,22 @@ class SettingsDao extends DatabaseAccessor<AppDatabase>
           // Malformed JSON — start fresh.
         }
         dataMap.addAll(config.toJson());
+        finalDataJson = jsonEncode(dataMap);
 
         await (update(settings)..where((t) => t.school.equals(schoolId))).write(
           SettingsCompanion(
-            data: Value(jsonEncode(dataMap)),
+            data: Value(finalDataJson),
             updated: Value(nowSeconds),
           ),
         );
       } else {
+        finalDataJson = jsonEncode(config.toJson());
+
         // Insert a new settings row with the config in data and null mpesa.
         await into(settings).insert(
           SettingsCompanion(
             school: Value(schoolId),
-            data: Value(configJson),
+            data: Value(finalDataJson),
             mpesa: const Value(null),
             created: Value(nowSeconds),
             updated: Value(nowSeconds),
@@ -188,22 +189,19 @@ class SettingsDao extends DatabaseAccessor<AppDatabase>
         );
       }
 
-      // Build the column bitmask.
-      int mask = 0;
-      mask |= (1 << SettingsColumn.data.bit);
-      mask |= (1 << SettingsColumn.updated.bit);
+      // Build the proto payload.
+      final payload = sync_pb.UpdateSettingsPayload(
+        school: schoolId,
+        data: finalDataJson,
+      );
 
       // Write a log entry.
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.settings),
-          op: Value(
-            existing != null ? LogOperation.update : LogOperation.insert,
-          ),
-          rowKey: Value(schoolId),
-          columns: Value(mask),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.updateSettings),
+          resource: Value(schoolId),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );

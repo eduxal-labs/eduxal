@@ -8,6 +8,7 @@ import '../tables/subjects.dart';
 import '../tables/timetable.dart';
 import '../tables/users.dart';
 import '../../client.dart';
+import '../../proto/services/sync.pb.dart' as sync_pb;
 
 part 'timetable_dao.g.dart';
 
@@ -223,25 +224,25 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
 
       await into(timetable).insert(slot);
 
-      // Build the row key from the PK components.
-      final rowKey = [
-        slot.school.value,
-        slot.year.value,
-        slot.term.value,
-        slot.grade.value,
-        slot.stream.value,
-        slot.day.value.index, // DayOfWeek → int
-        slot.subject.value,
-        slot.start.value,
-      ].join('|');
+      final payload = sync_pb.CreateTimetableEntryPayload(
+        school: slot.school.value,
+        year: slot.year.value,
+        term: slot.term.value,
+        grade: slot.grade.value,
+        stream: slot.stream.value,
+        subject: slot.subject.value,
+        teacher: slot.teacher.value,
+        day: slot.day.value.index,
+        start: slot.start.value,
+      );
+      if (slot.end.present) payload.end = slot.end.value;
 
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.timetable),
-          op: const Value(LogOperation.insert),
-          rowKey: Value(rowKey),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.createTimetableEntry),
+          resource: Value('Timetable ${slot.day.value.name}'),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -261,24 +262,25 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
       for (final slot in slots) {
         await into(timetable).insert(slot);
 
-        final rowKey = [
-          slot.school.value,
-          slot.year.value,
-          slot.term.value,
-          slot.grade.value,
-          slot.stream.value,
-          slot.day.value.index,
-          slot.subject.value,
-          slot.start.value,
-        ].join('|');
+        final payload = sync_pb.CreateTimetableEntryPayload(
+          school: slot.school.value,
+          year: slot.year.value,
+          term: slot.term.value,
+          grade: slot.grade.value,
+          stream: slot.stream.value,
+          subject: slot.subject.value,
+          teacher: slot.teacher.value,
+          day: slot.day.value.index,
+          start: slot.start.value,
+        );
+        if (slot.end.present) payload.end = slot.end.value;
 
         await into(logs).insert(
           LogsCompanion(
             account: Value(accountId),
-            tbl: const Value(LogTable.timetable),
-            op: const Value(LogOperation.insert),
-            rowKey: Value(rowKey),
-            status: const Value(LogStatus.pending),
+            action: Value(SyncAction.createTimetableEntry),
+            resource: Value('Timetable ${slot.day.value.name}'),
+            payload: Value(payload.writeToBuffer()),
             created: Value(nowMs),
           ),
         );
@@ -315,24 +317,23 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
           ))
           .go();
 
-      final rowKey = [
-        schoolId,
-        year,
-        term,
-        grade,
-        stream,
-        day.index,
-        subject,
-        start,
-      ].join('|');
+      final payload = sync_pb.DeleteTimetableEntryPayload(
+        school: schoolId,
+        year: year,
+        term: term,
+        grade: grade,
+        stream: stream,
+        subject: subject,
+        day: day.index,
+        start: start,
+      );
 
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.timetable),
-          op: const Value(LogOperation.delete),
-          rowKey: Value(rowKey),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.deleteTimetableEntry),
+          resource: Value('Timetable ${day.name}'),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -374,24 +375,23 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
 
       // Write a delete log for each.
       for (final entry in existing) {
-        final rowKey = [
-          entry.school,
-          entry.year,
-          entry.term,
-          entry.grade,
-          entry.stream,
-          entry.day.index,
-          entry.subject,
-          entry.start,
-        ].join('|');
+        final payload = sync_pb.DeleteTimetableEntryPayload(
+          school: entry.school,
+          year: entry.year,
+          term: entry.term,
+          grade: entry.grade,
+          stream: entry.stream,
+          subject: entry.subject,
+          day: entry.day.index,
+          start: entry.start,
+        );
 
         await into(logs).insert(
           LogsCompanion(
             account: Value(accountId),
-            tbl: const Value(LogTable.timetable),
-            op: const Value(LogOperation.delete),
-            rowKey: Value(rowKey),
-            status: const Value(LogStatus.pending),
+            action: Value(SyncAction.deleteTimetableEntry),
+            resource: Value('Timetable ${entry.day.name}'),
+            payload: Value(payload.writeToBuffer()),
             created: Value(nowMs),
           ),
         );
@@ -512,24 +512,23 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
 
       await into(lessons).insert(lesson);
 
-      final rowKey = [
-        lesson.school.value,
-        lesson.year.value,
-        lesson.term.value,
-        lesson.grade.value,
-        lesson.stream.value,
-        lesson.date.value,
-        lesson.subject.value,
-        lesson.teacher.value,
-      ].join('|');
+      final payload = sync_pb.CreateLessonPayload(
+        school: lesson.school.value,
+        year: lesson.year.value,
+        term: lesson.term.value,
+        grade: lesson.grade.value,
+        stream: lesson.stream.value,
+        date: lesson.date.value,
+        subject: lesson.subject.value,
+        teacher: lesson.teacher.value,
+      );
 
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.lessons),
-          op: const Value(LogOperation.insert),
-          rowKey: Value(rowKey),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.createLesson),
+          resource: Value('Lesson ${lesson.date.value}'),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -565,24 +564,23 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
           ))
           .go();
 
-      final rowKey = [
-        schoolId,
-        year,
-        term,
-        grade,
-        stream,
-        date,
-        subject,
-        teacher,
-      ].join('|');
+      final payload = sync_pb.DeleteLessonPayload(
+        school: schoolId,
+        year: year,
+        term: term,
+        grade: grade,
+        stream: stream,
+        date: date,
+        subject: subject,
+        teacher: teacher,
+      );
 
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.lessons),
-          op: const Value(LogOperation.delete),
-          rowKey: Value(rowKey),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.deleteLesson),
+          resource: Value('Lesson $date'),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );

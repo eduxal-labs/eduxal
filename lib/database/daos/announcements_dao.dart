@@ -6,6 +6,7 @@ import '../tables/enums.dart';
 import '../tables/logs.dart';
 import '../tables/users.dart';
 import '../../client.dart';
+import '../../proto/services/sync.pb.dart' as sync_pb;
 
 part 'announcements_dao.g.dart';
 
@@ -295,14 +296,24 @@ class AnnouncementsDao extends DatabaseAccessor<AppDatabase>
         ),
       );
 
-      // Log entry — INSERT, no column bitmask needed.
+      // Build the CreateAnnouncementPayload.
+      final payload = sync_pb.CreateAnnouncementPayload(
+        id: id,
+        school: schoolId,
+        title: title,
+        content: content,
+        audience: audience,
+        author: authorId,
+      );
+      if (grade != null) payload.grade = grade;
+      if (stream != null) payload.stream = stream;
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.announcements),
-          op: const Value(LogOperation.insert),
-          rowKey: Value(id),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.createAnnouncement),
+          resource: Value(title),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -331,7 +342,6 @@ class AnnouncementsDao extends DatabaseAccessor<AppDatabase>
       );
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
-      int columnMask = 0;
       var companion = AnnouncementsCompanion(updated: Value(nowSeconds));
 
       if (title != null) {
@@ -343,7 +353,6 @@ class AnnouncementsDao extends DatabaseAccessor<AppDatabase>
           grade: companion.grade,
           stream: companion.stream,
         );
-        columnMask |= (1 << AnnouncementsColumn.title.bit);
       }
 
       if (content != null) {
@@ -355,7 +364,6 @@ class AnnouncementsDao extends DatabaseAccessor<AppDatabase>
           grade: companion.grade,
           stream: companion.stream,
         );
-        columnMask |= (1 << AnnouncementsColumn.content.bit);
       }
 
       if (audience != null) {
@@ -367,7 +375,6 @@ class AnnouncementsDao extends DatabaseAccessor<AppDatabase>
           grade: companion.grade,
           stream: companion.stream,
         );
-        columnMask |= (1 << AnnouncementsColumn.audience.bit);
       }
 
       if (grade != null) {
@@ -379,7 +386,6 @@ class AnnouncementsDao extends DatabaseAccessor<AppDatabase>
           grade: grade,
           stream: companion.stream,
         );
-        columnMask |= (1 << AnnouncementsColumn.grade.bit);
       }
 
       if (stream != null) {
@@ -391,24 +397,52 @@ class AnnouncementsDao extends DatabaseAccessor<AppDatabase>
           grade: companion.grade,
           stream: stream,
         );
-        columnMask |= (1 << AnnouncementsColumn.stream.bit);
       }
-
-      // Always mark the updated column as changed.
-      columnMask |= (1 << AnnouncementsColumn.updated.bit);
 
       await (update(
         announcements,
       )..where((t) => t.id.equals(id))).write(companion);
 
+      // Build the UpdateAnnouncementPayload with only changed fields.
+      final payload = sync_pb.UpdateAnnouncementPayload(id: id);
+      bool hasChanges = false;
+
+      if (title != null) {
+        payload.title = title;
+        hasChanges = true;
+      }
+      if (content != null) {
+        payload.content = content;
+        hasChanges = true;
+      }
+      if (audience != null) {
+        payload.audience = audience;
+        hasChanges = true;
+      }
+      if (grade != null && grade.present) {
+        if (grade.value != null) payload.grade = grade.value!;
+        hasChanges = true;
+      }
+      if (stream != null && stream.present) {
+        if (stream.value != null) payload.stream = stream.value!;
+        hasChanges = true;
+      }
+
+      if (!hasChanges) return;
+
+      // Use the title if changed, otherwise fetch existing for display.
+      String resourceName = title ?? id;
+      if (title == null) {
+        final existing = await getAnnouncement(id);
+        if (existing != null) resourceName = existing.title;
+      }
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.announcements),
-          op: const Value(LogOperation.update),
-          rowKey: Value(id),
-          columns: Value(columnMask),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.updateAnnouncement),
+          resource: Value(resourceName),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -427,29 +461,23 @@ class AnnouncementsDao extends DatabaseAccessor<AppDatabase>
     await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
+      // Get the title for display before deleting.
+      final existing = await getAnnouncement(id);
+      final resourceName = existing?.title ?? id;
+
       await (delete(announcements)..where((t) => t.id.equals(id))).go();
+
+      final payload = sync_pb.DeleteAnnouncementPayload(id: id);
 
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.announcements),
-          op: const Value(LogOperation.delete),
-          rowKey: Value(id),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.deleteAnnouncement),
+          resource: Value(resourceName),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
-
-      // Supersede any prior insert/update logs for this row.
-      await (delete(logs)..where(
-            (t) =>
-                t.account.equals(accountId) &
-                t.tbl.equalsValue(LogTable.announcements) &
-                t.rowKey.equals(id) &
-                (t.op.equalsValue(LogOperation.insert) |
-                    t.op.equalsValue(LogOperation.update)),
-          ))
-          .go();
     });
     sync.schedulePush();
   }

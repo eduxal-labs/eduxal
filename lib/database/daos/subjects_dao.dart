@@ -8,6 +8,7 @@ import '../tables/subjects.dart';
 import '../tables/teachers.dart';
 import '../tables/users.dart';
 import '../../client.dart';
+import '../../proto/services/sync.pb.dart' as sync_pb;
 
 part 'subjects_dao.g.dart';
 
@@ -277,9 +278,6 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
         subject: subject,
       );
 
-      // Row key for logs: "school|year|term|grade|stream|subject"
-      final rowKey = '$schoolId|$year|$term|$grade|$stream|$subject';
-
       if (existing == null) {
         // Insert a fresh assignment row.
         await into(subjects).insert(
@@ -294,17 +292,6 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
             created: Value(nowSeconds),
           ),
         );
-
-        await into(logs).insert(
-          LogsCompanion(
-            account: Value(accountId),
-            tbl: const Value(LogTable.subjects),
-            op: const Value(LogOperation.insert),
-            rowKey: Value(rowKey),
-            status: const Value(LogStatus.pending),
-            created: Value(nowMs),
-          ),
-        );
       } else {
         // Update the teacher on the existing row.
         await (update(subjects)..where(
@@ -317,21 +304,34 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
                   t.subject.equals(subject),
             ))
             .write(SubjectsCompanion(teacher: Value(teacherUserId)));
-
-        final mask = 1 << SubjectsColumn.teacher.bit;
-
-        await into(logs).insert(
-          LogsCompanion(
-            account: Value(accountId),
-            tbl: const Value(LogTable.subjects),
-            op: const Value(LogOperation.update),
-            rowKey: Value(rowKey),
-            columns: Value(mask),
-            status: const Value(LogStatus.pending),
-            created: Value(nowMs),
-          ),
-        );
       }
+
+      // Log: assignSubject action (covers both insert and reassign).
+      final payload = sync_pb.AssignSubjectPayload(
+        school: schoolId,
+        year: year,
+        term: term,
+        grade: grade,
+        stream: stream,
+        subject: subject,
+        teacher: teacherUserId,
+      );
+
+      // Get teacher name for resource display.
+      final user = await (select(
+        users,
+      )..where((t) => t.id.equals(teacherUserId))).getSingleOrNull();
+      final resourceName = user?.name ?? teacherUserId;
+
+      await into(logs).insert(
+        LogsCompanion(
+          account: Value(accountId),
+          action: Value(SyncAction.assignSubject),
+          resource: Value(resourceName),
+          payload: Value(payload.writeToBuffer()),
+          created: Value(nowMs),
+        ),
+      );
     });
     sync.schedulePush();
   }
@@ -350,29 +350,25 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
   }) async {
     await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
-      final rowKey = '$schoolId|$year|$term|$grade|$stream|$subject';
 
-      // Delete log supersedes pending inserts/updates.
+      final payload = sync_pb.UnassignSubjectPayload(
+        school: schoolId,
+        year: year,
+        term: term,
+        grade: grade,
+        stream: stream,
+        subject: subject,
+      );
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.subjects),
-          op: const Value(LogOperation.delete),
-          rowKey: Value(rowKey),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.unassignSubject),
+          resource: Value('Grade $grade Stream $stream'),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
-
-      await (delete(logs)..where(
-            (t) =>
-                t.account.equals(accountId) &
-                t.tbl.equalsValue(LogTable.subjects) &
-                t.rowKey.equals(rowKey) &
-                (t.op.equalsValue(LogOperation.insert) |
-                    t.op.equalsValue(LogOperation.update)),
-          ))
-          .go();
 
       await (delete(subjects)..where(
             (t) =>
@@ -449,22 +445,33 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
             ))
             .write(ClassTeachersCompanion(end: Value(closeDay)));
 
+        // Log: unassign the old class teacher.
+        final unassignPayload = sync_pb.UnassignClassTeacherPayload(
+          school: schoolId,
+          year: year,
+          term: term,
+          grade: grade,
+          stream: stream,
+          teacher: ct.teacher,
+        );
+
+        final oldUser = await (select(
+          users,
+        )..where((t) => t.id.equals(ct.teacher))).getSingleOrNull();
+        final oldResourceName = oldUser?.name ?? ct.teacher;
+
         await into(logs).insert(
           LogsCompanion(
             account: Value(accountId),
-            tbl: const Value(LogTable.classTeachers),
-            op: const Value(LogOperation.update),
-            rowKey: Value('$schoolId|$year|$term|$grade|$stream|${ct.teacher}'),
-            columns: Value(1 << ClassTeachersColumn.end.bit),
-            status: const Value(LogStatus.pending),
+            action: Value(SyncAction.unassignClassTeacher),
+            resource: Value(oldResourceName),
+            payload: Value(unassignPayload.writeToBuffer()),
             created: Value(nowMs),
           ),
         );
       }
 
       // 2. Insert the new class teacher assignment.
-      final newRowKey = '$schoolId|$year|$term|$grade|$stream|$teacherUserId';
-
       await into(classTeachers).insert(
         ClassTeachersCompanion(
           school: Value(schoolId),
@@ -478,13 +485,28 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
         ),
       );
 
+      // Log: assign the new class teacher.
+      final assignPayload = sync_pb.AssignClassTeacherPayload(
+        school: schoolId,
+        year: year,
+        term: term,
+        grade: grade,
+        stream: stream,
+        teacher: teacherUserId,
+        start: todayDays,
+      );
+
+      final newUser = await (select(
+        users,
+      )..where((t) => t.id.equals(teacherUserId))).getSingleOrNull();
+      final newResourceName = newUser?.name ?? teacherUserId;
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.classTeachers),
-          op: const Value(LogOperation.insert),
-          rowKey: Value(newRowKey),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.assignClassTeacher),
+          resource: Value(newResourceName),
+          payload: Value(assignPayload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -521,14 +543,27 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
           ))
           .write(ClassTeachersCompanion(end: Value(todayDays)));
 
+      final payload = sync_pb.UnassignClassTeacherPayload(
+        school: schoolId,
+        year: year,
+        term: term,
+        grade: grade,
+        stream: stream,
+        teacher: teacherUserId,
+      );
+
+      // Get teacher name for resource display.
+      final user = await (select(
+        users,
+      )..where((t) => t.id.equals(teacherUserId))).getSingleOrNull();
+      final resourceName = user?.name ?? teacherUserId;
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.classTeachers),
-          op: const Value(LogOperation.update),
-          rowKey: Value('$schoolId|$year|$term|$grade|$stream|$teacherUserId'),
-          columns: Value(1 << ClassTeachersColumn.end.bit),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.unassignClassTeacher),
+          resource: Value(resourceName),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );

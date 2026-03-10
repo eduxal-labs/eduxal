@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:drift/drift.dart';
 
@@ -9,6 +10,7 @@ import '../tables/owners.dart';
 import '../tables/roles.dart';
 import '../tables/scopes.dart';
 import '../../client.dart';
+import '../../proto/services/sync.pb.dart' as sync_pb;
 import '../tables/staff.dart';
 import '../tables/teachers.dart';
 import '../tables/users.dart';
@@ -326,12 +328,25 @@ class SchoolScopesDao extends DatabaseAccessor<AppDatabase>
       await into(roles).insert(companion);
 
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+      final payload = sync_pb.CreateRolePayload(
+        id: companion.id.value,
+        school: companion.school.present ? companion.school.value : null,
+        name: companion.name.present ? companion.name.value : null,
+        description: companion.description.present
+            ? companion.description.value
+            : null,
+        permissions: companion.permissions.present
+            ? companion.permissions.value.codeUnits
+            : null,
+      );
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.roles),
-          op: const Value(LogOperation.insert),
-          rowKey: companion.id,
+          action: const Value(SyncAction.createRole),
+          resource: Value(
+            companion.name.present ? companion.name.value : companion.id.value,
+          ),
+          payload: Value(Uint8List.fromList(payload.writeToBuffer())),
           status: const Value(LogStatus.pending),
           created: Value(nowMs),
         ),
@@ -356,26 +371,30 @@ class SchoolScopesDao extends DatabaseAccessor<AppDatabase>
     await transaction(() async {
       await (update(roles)..where((t) => t.id.equals(roleId))).write(changes);
 
-      int mask = 0;
-      if (changes.name.present) mask |= (1 << RolesColumn.name.bit);
+      final payload = sync_pb.UpdateRolePayload(id: roleId);
+      bool anyField = false;
+      if (changes.name.present) {
+        payload.name = changes.name.value;
+        anyField = true;
+      }
       if (changes.description.present) {
-        mask |= (1 << RolesColumn.description.bit);
+        payload.description = changes.description.value ?? '';
+        anyField = true;
       }
       if (changes.permissions.present) {
-        mask |= (1 << RolesColumn.permissions.bit);
+        payload.permissions.addAll(changes.permissions.value.codeUnits);
+        anyField = true;
       }
-      if (changes.updated.present) mask |= (1 << RolesColumn.updated.bit);
 
-      if (mask == 0) return;
+      if (!anyField) return;
 
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.roles),
-          op: const Value(LogOperation.update),
-          rowKey: Value(roleId),
-          columns: Value(mask),
+          action: const Value(SyncAction.updateRole),
+          resource: Value(changes.name.present ? changes.name.value : roleId),
+          payload: Value(Uint8List.fromList(payload.writeToBuffer())),
           status: const Value(LogStatus.pending),
           created: Value(nowMs),
         ),
@@ -394,28 +413,18 @@ class SchoolScopesDao extends DatabaseAccessor<AppDatabase>
   Future<void> deleteRole(String roleId, {required String accountId}) async {
     await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+      final payload = sync_pb.DeleteRolePayload(id: roleId);
 
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.roles),
-          op: const Value(LogOperation.delete),
-          rowKey: Value(roleId),
+          action: const Value(SyncAction.deleteRole),
+          resource: Value(roleId),
+          payload: Value(Uint8List.fromList(payload.writeToBuffer())),
           status: const Value(LogStatus.pending),
           created: Value(nowMs),
         ),
       );
-
-      // Supersede any pending insert/update logs for the same role row.
-      await (delete(logs)..where(
-            (t) =>
-                t.account.equals(accountId) &
-                t.tbl.equalsValue(LogTable.roles) &
-                t.rowKey.equals(roleId) &
-                (t.op.equalsValue(LogOperation.insert) |
-                    t.op.equalsValue(LogOperation.update)),
-          ))
-          .go();
 
       await (delete(roles)..where((t) => t.id.equals(roleId))).go();
     });
@@ -451,13 +460,17 @@ class SchoolScopesDao extends DatabaseAccessor<AppDatabase>
         ),
       );
 
-      // Row key format: "schoolId|userId|roleId"
+      final payload = sync_pb.AssignRolePayload(
+        school: schoolId,
+        user: userId,
+        role: roleId,
+      );
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.scopes),
-          op: const Value(LogOperation.insert),
-          rowKey: Value('$schoolId|$userId|$roleId'),
+          action: const Value(SyncAction.assignRole),
+          resource: Value(roleId),
+          payload: Value(Uint8List.fromList(payload.writeToBuffer())),
           status: const Value(LogStatus.pending),
           created: Value(nowMs),
         ),
@@ -480,28 +493,22 @@ class SchoolScopesDao extends DatabaseAccessor<AppDatabase>
   }) async {
     await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
-      final rowKey = '$schoolId|$userId|$roleId';
+      final payload = sync_pb.UnassignRolePayload(
+        school: schoolId,
+        user: userId,
+        role: roleId,
+      );
 
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.scopes),
-          op: const Value(LogOperation.delete),
-          rowKey: Value(rowKey),
+          action: const Value(SyncAction.unassignRole),
+          resource: Value(roleId),
+          payload: Value(Uint8List.fromList(payload.writeToBuffer())),
           status: const Value(LogStatus.pending),
           created: Value(nowMs),
         ),
       );
-
-      // Supersede any pending insert log for the same scope row.
-      await (delete(logs)..where(
-            (t) =>
-                t.account.equals(accountId) &
-                t.tbl.equalsValue(LogTable.scopes) &
-                t.rowKey.equals(rowKey) &
-                t.op.equalsValue(LogOperation.insert),
-          ))
-          .go();
 
       await (delete(scopes)..where(
             (t) =>

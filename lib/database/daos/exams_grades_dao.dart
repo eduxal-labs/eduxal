@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:fixnum/fixnum.dart' as fixnum;
 
 import '../database.dart';
 import '../tables/enums.dart';
@@ -13,6 +14,7 @@ import '../tables/teachers.dart';
 import '../tables/users.dart';
 import '../tables/enrollments.dart';
 import '../tables/subjects.dart';
+import '../../proto/services/sync.pb.dart' as sync_pb;
 
 part 'exams_grades_dao.g.dart';
 
@@ -548,7 +550,8 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
   // Exam mutations
   // ───────────────────────────────────────────────────────────────────────────
 
-  /// Creates a new exam and writes an INSERT log entry in one transaction.
+  /// Creates a new exam and writes a [SyncAction.createExam] log entry in one
+  /// transaction.
   ///
   /// [exam] must have a stable id (uuid) assigned by the caller.
   Future<void> createExam({
@@ -558,13 +561,31 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     await transaction(() async {
       await into(exams).insert(exam);
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      final payload = sync_pb.CreateExamPayload(
+        id: exam.id.value,
+        school: exam.school.value,
+        year: exam.year.value,
+        term: exam.term.value,
+        grade: exam.grade.value,
+        type: exam.type.value.index,
+        start: exam.start.value,
+        end: exam.end.value,
+        teacher: exam.teacher.value,
+        personalized: exam.personalized.present
+            ? exam.personalized.value
+            : false,
+      );
+      if (exam.stream.present && exam.stream.value != null) {
+        payload.stream = exam.stream.value!;
+      }
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.exams),
-          op: const Value(LogOperation.insert),
-          rowKey: Value(exam.id.value),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.createExam),
+          resource: Value('Exam ${exam.id.value}'),
+          payload: Value(payload.writeToBuffer()),
           created: Value(now),
         ),
       );
@@ -572,7 +593,7 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     sync.schedulePush();
   }
 
-  /// Updates mutable exam fields and writes an UPDATE log entry.
+  /// Updates mutable exam fields and writes a [SyncAction.updateExam] log entry.
   Future<void> updateExam({
     required String examId,
     required ExamsCompanion changes,
@@ -581,27 +602,43 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     await transaction(() async {
       await (update(exams)..where((e) => e.id.equals(examId))).write(changes);
 
-      int mask = 0;
-      if (changes.stream.present) mask |= (1 << ExamsColumn.stream.bit);
-      if (changes.personalized.present) {
-        mask |= (1 << ExamsColumn.personalized.bit);
+      final payload = sync_pb.UpdateExamPayload(id: examId);
+      bool hasChanges = false;
+
+      if (changes.stream.present) {
+        if (changes.stream.value != null)
+          payload.stream = changes.stream.value!;
+        hasChanges = true;
       }
-      if (changes.type.present) mask |= (1 << ExamsColumn.type.bit);
-      if (changes.start.present) mask |= (1 << ExamsColumn.start.bit);
-      if (changes.end.present) mask |= (1 << ExamsColumn.end.bit);
-      if (changes.teacher.present) mask |= (1 << ExamsColumn.teacher.bit);
-      if (changes.updated.present) mask |= (1 << ExamsColumn.updated.bit);
-      if (mask == 0) return;
+      if (changes.personalized.present) {
+        payload.personalized = changes.personalized.value;
+        hasChanges = true;
+      }
+      if (changes.type.present) {
+        payload.type = changes.type.value.index;
+        hasChanges = true;
+      }
+      if (changes.start.present) {
+        payload.start = changes.start.value;
+        hasChanges = true;
+      }
+      if (changes.end.present) {
+        payload.end = changes.end.value;
+        hasChanges = true;
+      }
+      if (changes.teacher.present) {
+        payload.teacher = changes.teacher.value;
+        hasChanges = true;
+      }
+      if (!hasChanges) return;
 
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.exams),
-          op: const Value(LogOperation.update),
-          rowKey: Value(examId),
-          columns: Value(mask),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.updateExam),
+          resource: Value('Exam $examId'),
+          payload: Value(payload.writeToBuffer()),
           created: Value(now),
         ),
       );
@@ -610,20 +647,21 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
   }
 
   /// Deletes an exam (cascades to papers and grades via FK) and writes a
-  /// DELETE log entry.
+  /// [SyncAction.deleteExam] log entry.
   Future<void> deleteExam({
     required String examId,
     required String accountId,
   }) async {
     await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+      final payload = sync_pb.DeleteExamPayload(id: examId);
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.exams),
-          op: const Value(LogOperation.delete),
-          rowKey: Value(examId),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.deleteExam),
+          resource: Value('Exam $examId'),
+          payload: Value(payload.writeToBuffer()),
           created: Value(now),
         ),
       );
@@ -636,11 +674,7 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
   // Paper mutations
   // ───────────────────────────────────────────────────────────────────────────
 
-  /// Creates a new paper and writes an INSERT log entry.
-  ///
-  /// Row key format: `"{school}|{exam}|{subject}|{paper}"`.
-  /// When [paper.paper] is null the literal string "null" is used as the
-  /// last segment — the sync engine understands this convention.
+  /// Creates a new paper and writes a [SyncAction.createPaper] log entry.
   Future<void> createPaper({
     required PapersCompanion paper,
     required String accountId,
@@ -648,18 +682,29 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     await transaction(() async {
       await into(papers).insert(paper);
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
-      final paperNum = paper.paper.present && paper.paper.value != null
-          ? '${paper.paper.value}'
-          : 'null';
-      final rowKey =
-          '${paper.school.value}|${paper.exam.value}|${paper.subject.value}|$paperNum';
+
+      final payload = sync_pb.CreatePaperPayload(
+        school: paper.school.value,
+        exam: paper.exam.value,
+        subject: paper.subject.value,
+        invigilator: paper.invigilator.value,
+        start: fixnum.Int64(paper.start.value.toInt()),
+        end: fixnum.Int64(paper.end.value.toInt()),
+      );
+      if (paper.paper.present && paper.paper.value != null) {
+        payload.paper = paper.paper.value!;
+      }
+
+      final paperLabel = paper.paper.present && paper.paper.value != null
+          ? 'Paper ${paper.paper.value}'
+          : 'Paper';
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.papers),
-          op: const Value(LogOperation.insert),
-          rowKey: Value(rowKey),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.createPaper),
+          resource: Value(paperLabel),
+          payload: Value(payload.writeToBuffer()),
           created: Value(now),
         ),
       );
@@ -667,7 +712,7 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     sync.schedulePush();
   }
 
-  /// Updates mutable paper fields and writes an UPDATE log entry.
+  /// Updates mutable paper fields and writes a [SyncAction.updatePaper] log entry.
   Future<void> updatePaper({
     required String schoolId,
     required String examId,
@@ -688,27 +733,40 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
           ))
           .write(changes);
 
-      int mask = 0;
+      final payload = sync_pb.UpdatePaperPayload(
+        school: schoolId,
+        exam: examId,
+        subject: subject,
+      );
+      if (paperNum != null) payload.paper = paperNum;
+      bool hasChanges = false;
+
       if (changes.invigilator.present) {
-        mask |= (1 << PapersColumn.invigilator.bit);
+        payload.invigilator = changes.invigilator.value;
+        hasChanges = true;
       }
-      if (changes.start.present) mask |= (1 << PapersColumn.start.bit);
-      if (changes.end.present) mask |= (1 << PapersColumn.end.bit);
-      if (changes.status.present) mask |= (1 << PapersColumn.status.bit);
-      if (changes.updated.present) mask |= (1 << PapersColumn.updated.bit);
-      if (mask == 0) return;
+      if (changes.start.present) {
+        payload.start = fixnum.Int64(changes.start.value.toInt());
+        hasChanges = true;
+      }
+      if (changes.end.present) {
+        payload.end = fixnum.Int64(changes.end.value.toInt());
+        hasChanges = true;
+      }
+      if (changes.status.present) {
+        payload.status = changes.status.value.index;
+        hasChanges = true;
+      }
+      if (!hasChanges) return;
 
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
-      final paperSeg = paperNum != null ? '$paperNum' : 'null';
-      final rowKey = '$schoolId|$examId|$subject|$paperSeg';
+      final paperLabel = paperNum != null ? 'Paper $paperNum' : 'Paper';
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.papers),
-          op: const Value(LogOperation.update),
-          rowKey: Value(rowKey),
-          columns: Value(mask),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.updatePaper),
+          resource: Value(paperLabel),
+          payload: Value(payload.writeToBuffer()),
           created: Value(now),
         ),
       );
@@ -716,7 +774,8 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     sync.schedulePush();
   }
 
-  /// Deletes a paper (cascades to grades) and writes a DELETE log entry.
+  /// Deletes a paper (cascades to grades) and writes a [SyncAction.deletePaper]
+  /// log entry.
   Future<void> deletePaper({
     required String schoolId,
     required String examId,
@@ -726,15 +785,20 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
   }) async {
     await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
-      final paperSeg = paperNum != null ? '$paperNum' : 'null';
-      final rowKey = '$schoolId|$examId|$subject|$paperSeg';
+      final payload = sync_pb.DeletePaperPayload(
+        school: schoolId,
+        exam: examId,
+        subject: subject,
+      );
+      if (paperNum != null) payload.paper = paperNum;
+
+      final paperLabel = paperNum != null ? 'Paper $paperNum' : 'Paper';
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.papers),
-          op: const Value(LogOperation.delete),
-          rowKey: Value(rowKey),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.deletePaper),
+          resource: Value(paperLabel),
+          payload: Value(payload.writeToBuffer()),
           created: Value(now),
         ),
       );
@@ -756,12 +820,12 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
   // Grade mutations
   // ───────────────────────────────────────────────────────────────────────────
 
-  /// Upserts a single grade row and writes an INSERT or UPDATE log entry.
+  /// Upserts a single grade row and writes a [SyncAction.updateGrade] or
+  /// [SyncAction.markGrades] log entry.
   ///
-  /// If the grade already exists an UPDATE log is written; otherwise INSERT.
+  /// If the grade already exists an updateGrade log is written; otherwise a
+  /// markGrades log with a single record.
   /// Both operations are atomic in a single transaction.
-  ///
-  /// Row key format: `"{school}|{exam}|{student}|{subject}|{paper}"`.
   Future<void> upsertGrade({
     required GradesCompanion grade,
     required String accountId,
@@ -772,8 +836,6 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
       final studentAdm = grade.student.value;
       final subject = grade.subject.value;
       final paperNum = grade.paper.present ? grade.paper.value : null;
-      final paperSeg = paperNum != null ? '$paperNum' : 'null';
-      final rowKey = '$schoolId|$examId|$studentAdm|$subject|$paperSeg';
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
       final existing = await getGrade(
@@ -798,33 +860,56 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
             ))
             .write(grade);
 
-        int mask = 0;
-        if (grade.score.present) mask |= (1 << GradesColumn.score.bit);
-        if (grade.total.present) mask |= (1 << GradesColumn.total.bit);
-        if (grade.updated.present) mask |= (1 << GradesColumn.updated.bit);
+        final payload = sync_pb.UpdateGradePayload(
+          school: schoolId,
+          exam: examId,
+          student: studentAdm,
+          subject: subject,
+        );
+        if (paperNum != null) payload.paper = paperNum;
+        bool hasChanges = false;
+        if (grade.score.present) {
+          payload.score = grade.score.value;
+          hasChanges = true;
+        }
+        if (grade.total.present) {
+          payload.total = grade.total.value;
+          hasChanges = true;
+        }
 
-        if (mask > 0) {
+        if (hasChanges) {
           await into(logs).insert(
             LogsCompanion(
               account: Value(accountId),
-              tbl: const Value(LogTable.grades),
-              op: const Value(LogOperation.update),
-              rowKey: Value(rowKey),
-              columns: Value(mask),
-              status: const Value(LogStatus.pending),
+              action: Value(SyncAction.updateGrade),
+              resource: Value('Grade — student $studentAdm'),
+              payload: Value(payload.writeToBuffer()),
               created: Value(now),
             ),
           );
         }
       } else {
         await into(grades).insert(grade);
+
+        final record = sync_pb.GradeRecord(
+          student: studentAdm,
+          score: grade.score.value,
+          total: grade.total.value,
+        );
+        final payload = sync_pb.MarkGradesPayload(
+          school: schoolId,
+          exam: examId,
+          subject: subject,
+          records: [record],
+        );
+        if (paperNum != null) payload.paper = paperNum;
+
         await into(logs).insert(
           LogsCompanion(
             account: Value(accountId),
-            tbl: const Value(LogTable.grades),
-            op: const Value(LogOperation.insert),
-            rowKey: Value(rowKey),
-            status: const Value(LogStatus.pending),
+            action: Value(SyncAction.markGrades),
+            resource: Value('Grade — student $studentAdm'),
+            payload: Value(payload.writeToBuffer()),
             created: Value(now),
           ),
         );
@@ -850,7 +935,7 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     sync.schedulePush();
   }
 
-  /// Deletes a single grade row and writes a DELETE log entry.
+  /// Deletes a single grade row and writes a [SyncAction.deleteGrade] log entry.
   Future<void> deleteGrade({
     required String schoolId,
     required String examId,
@@ -860,17 +945,22 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     required String accountId,
   }) async {
     await transaction(() async {
-      final paperSeg = paperNum != null ? '$paperNum' : 'null';
-      final rowKey = '$schoolId|$examId|$studentAdm|$subject|$paperSeg';
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      final payload = sync_pb.DeleteGradePayload(
+        school: schoolId,
+        exam: examId,
+        student: studentAdm,
+        subject: subject,
+      );
+      if (paperNum != null) payload.paper = paperNum;
 
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.grades),
-          op: const Value(LogOperation.delete),
-          rowKey: Value(rowKey),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.deleteGrade),
+          resource: Value('Grade — student $studentAdm'),
+          payload: Value(payload.writeToBuffer()),
           created: Value(now),
         ),
       );
@@ -893,9 +983,10 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
   // Mastery mutations
   // ───────────────────────────────────────────────────────────────────────────
 
-  /// Upserts a mastery row and writes an INSERT or UPDATE log entry.
+  /// Upserts a mastery row and writes a [SyncAction.updateMastery] log entry.
   ///
-  /// Row key format: `"{school}|{student}|{grade}|{subject}|{topic}"`.
+  /// Both inserts and updates use `updateMastery` — the server handles the
+  /// upsert semantics based on the composite PK in the payload.
   Future<void> upsertMastery({
     required MasteryCompanion entry,
     required String accountId,
@@ -906,7 +997,6 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
       final grade = entry.grade.value;
       final subject = entry.subject.value;
       final topic = entry.topic.value;
-      final rowKey = '$schoolId|$studentAdm|$grade|$subject|$topic';
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
       final existing =
@@ -931,32 +1021,44 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
             ))
             .write(entry);
 
-        int mask = 0;
-        if (entry.score.present) mask |= (1 << MasteryColumn.score.bit);
-        if (entry.updated.present) mask |= (1 << MasteryColumn.updated.bit);
+        if (entry.score.present) {
+          final payload = sync_pb.UpdateMasteryPayload(
+            school: schoolId,
+            student: studentAdm,
+            grade: grade,
+            subject: subject,
+            topic: topic,
+            score: entry.score.value,
+          );
 
-        if (mask > 0) {
           await into(logs).insert(
             LogsCompanion(
               account: Value(accountId),
-              tbl: const Value(LogTable.mastery),
-              op: const Value(LogOperation.update),
-              rowKey: Value(rowKey),
-              columns: Value(mask),
-              status: const Value(LogStatus.pending),
+              action: Value(SyncAction.updateMastery),
+              resource: Value('Mastery — student $studentAdm'),
+              payload: Value(payload.writeToBuffer()),
               created: Value(now),
             ),
           );
         }
       } else {
         await into(mastery).insert(entry);
+
+        final payload = sync_pb.UpdateMasteryPayload(
+          school: schoolId,
+          student: studentAdm,
+          grade: grade,
+          subject: subject,
+          topic: topic,
+          score: entry.score.value,
+        );
+
         await into(logs).insert(
           LogsCompanion(
             account: Value(accountId),
-            tbl: const Value(LogTable.mastery),
-            op: const Value(LogOperation.insert),
-            rowKey: Value(rowKey),
-            status: const Value(LogStatus.pending),
+            action: Value(SyncAction.updateMastery),
+            resource: Value('Mastery — student $studentAdm'),
+            payload: Value(payload.writeToBuffer()),
             created: Value(now),
           ),
         );

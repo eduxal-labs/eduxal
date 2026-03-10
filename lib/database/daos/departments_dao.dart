@@ -8,6 +8,7 @@ import '../tables/staff.dart';
 import '../tables/teachers.dart';
 import '../tables/users.dart';
 import '../../client.dart';
+import '../../proto/services/sync.pb.dart' as sync_pb;
 
 part 'departments_dao.g.dart';
 
@@ -152,8 +153,8 @@ class DepartmentsDao extends DatabaseAccessor<AppDatabase>
   // Local mutation writes
   // ─────────────────────────────────────────────────────────────────────────
 
-  /// Inserts a new department row and enqueues a [LogTable.departments] insert
-  /// entry, both in a single transaction.
+  /// Inserts a new department row and enqueues a [SyncAction.createDepartment]
+  /// log entry, both in a single transaction.
   ///
   /// [accountId] is the currently active account's user id.
   ///
@@ -170,15 +171,24 @@ class DepartmentsDao extends DatabaseAccessor<AppDatabase>
       await into(departments).insert(companion);
 
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
-      final rowKey = '${companion.school.value}|${companion.name.value}';
+      final schoolId = companion.school.value;
+      final name = companion.name.value;
+
+      final payload = sync_pb.CreateDepartmentPayload(
+        school: schoolId,
+        name: name,
+      );
+      if (companion.description.present &&
+          companion.description.value != null) {
+        payload.description = companion.description.value!;
+      }
 
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.departments),
-          op: const Value(LogOperation.insert),
-          rowKey: Value(rowKey),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.createDepartment),
+          resource: Value(name),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -210,18 +220,18 @@ class DepartmentsDao extends DatabaseAccessor<AppDatabase>
         ),
       );
 
-      int mask = 0;
-      mask |= (1 << DepartmentsColumn.description.bit);
-      mask |= (1 << DepartmentsColumn.updated.bit);
+      final payload = sync_pb.UpdateDepartmentPayload(
+        school: schoolId,
+        name: name,
+      );
+      if (description != null) payload.description = description;
 
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.departments),
-          op: const Value(LogOperation.update),
-          rowKey: Value('$schoolId|$name'),
-          columns: Value(mask),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.updateDepartment),
+          resource: Value(name),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -231,8 +241,8 @@ class DepartmentsDao extends DatabaseAccessor<AppDatabase>
 
   /// Assigns [teacherUserId] to [departmentName] (or unassigns when null).
   ///
-  /// Updates the [Teachers.department] column and writes a log update entry
-  /// for [LogTable.teachers] with the [TeachersColumn.department] bit set.
+  /// Updates the [Teachers.department] column and writes a
+  /// [SyncAction.updateTeacher] log entry with the department change.
   ///
   /// [accountId] is the currently active account's user id.
   Future<void> assignTeacherToDepartment(
@@ -257,18 +267,24 @@ class DepartmentsDao extends DatabaseAccessor<AppDatabase>
             ),
           );
 
-      int mask = 0;
-      mask |= (1 << TeachersColumn.department.bit);
-      mask |= (1 << TeachersColumn.updated.bit);
+      final payload = sync_pb.UpdateTeacherPayload(
+        school: schoolId,
+        user: teacherUserId,
+      );
+      if (departmentName != null) payload.department = departmentName;
+
+      // Get user info for resource display.
+      final user = await (select(
+        users,
+      )..where((t) => t.id.equals(teacherUserId))).getSingleOrNull();
+      final resourceName = user?.name ?? teacherUserId;
 
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.teachers),
-          op: const Value(LogOperation.update),
-          rowKey: Value('$schoolId|$teacherUserId'),
-          columns: Value(mask),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.updateTeacher),
+          resource: Value(resourceName),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -278,8 +294,8 @@ class DepartmentsDao extends DatabaseAccessor<AppDatabase>
 
   /// Assigns [staffUserId] to [departmentName] (or unassigns when null).
   ///
-  /// Updates the [Staff.department] column and writes a log update entry
-  /// for [LogTable.staff] with the [StaffColumn.department] bit set.
+  /// Updates the [Staff.department] column and writes a
+  /// [SyncAction.updateStaff] log entry with the department change.
   ///
   /// [accountId] is the currently active account's user id.
   Future<void> assignStaffToDepartment(
@@ -304,18 +320,24 @@ class DepartmentsDao extends DatabaseAccessor<AppDatabase>
             ),
           );
 
-      int mask = 0;
-      mask |= (1 << StaffColumn.department.bit);
-      mask |= (1 << StaffColumn.updated.bit);
+      final payload = sync_pb.UpdateStaffPayload(
+        school: schoolId,
+        user: staffUserId,
+      );
+      if (departmentName != null) payload.department = departmentName;
+
+      // Get user info for resource display.
+      final user = await (select(
+        users,
+      )..where((t) => t.id.equals(staffUserId))).getSingleOrNull();
+      final resourceName = user?.name ?? staffUserId;
 
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.staff),
-          op: const Value(LogOperation.update),
-          rowKey: Value('$schoolId|$staffUserId'),
-          columns: Value(mask),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.updateStaff),
+          resource: Value(resourceName),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -339,30 +361,21 @@ class DepartmentsDao extends DatabaseAccessor<AppDatabase>
   }) async {
     await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
-      final rowKey = '$schoolId|$name';
 
-      // Insert the delete log first — supersedes any pending inserts/updates.
+      final payload = sync_pb.DeleteDepartmentPayload(
+        school: schoolId,
+        name: name,
+      );
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.departments),
-          op: const Value(LogOperation.delete),
-          rowKey: Value(rowKey),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.deleteDepartment),
+          resource: Value(name),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
-
-      // Remove superseded pending insert/update entries for the same row.
-      await (delete(logs)..where(
-            (t) =>
-                t.account.equals(accountId) &
-                t.tbl.equalsValue(LogTable.departments) &
-                t.rowKey.equals(rowKey) &
-                (t.op.equalsValue(LogOperation.insert) |
-                    t.op.equalsValue(LogOperation.update)),
-          ))
-          .go();
 
       await (delete(
         departments,

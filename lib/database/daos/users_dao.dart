@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:drift/drift.dart';
+
 import '../database.dart';
 import '../tables/enums.dart';
 import '../tables/logs.dart';
@@ -7,6 +10,7 @@ import '../tables/scopes.dart';
 import '../tables/users.dart';
 import '../../models/system_permissions.dart';
 import '../../client.dart';
+import '../../proto/services/sync.pb.dart' as sync_pb;
 
 part 'users_dao.g.dart';
 
@@ -143,14 +147,25 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
     await transaction(() async {
       await into(users).insert(user);
 
+      // Note: inviteUser creates a user row directly. The invitation pattern
+      // for member creation is handled in the member DAOs (CreateTeacherPayload
+      // etc. carry the user info). This method is for standalone user creation
+      // (e.g. system-level user management).
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+      final payload = sync_pb.UpdateUserPayload(
+        id: user.id.value,
+        phone: user.phone.present ? user.phone.value : null,
+        name: user.name.present ? user.name.value : null,
+        email: user.email.present ? user.email.value : null,
+        level: user.level.present ? user.level.value.index : null,
+        status: user.status.present ? user.status.value.index : null,
+      );
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: Value(LogTable.users),
-          op: Value(LogOperation.insert),
-          rowKey: user.id,
-          // columns is null for inserts — full row is sent on sync.
+          action: const Value(SyncAction.updateUser),
+          resource: Value(user.name.present ? user.name.value : user.id.value),
+          payload: Value(Uint8List.fromList(payload.writeToBuffer())),
           status: const Value(LogStatus.pending),
           created: Value(now),
         ),
@@ -175,24 +190,39 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
     await transaction(() async {
       await (update(users)..where((t) => t.id.equals(userId))).write(changes);
 
-      int mask = 0;
-      if (changes.phone.present) mask |= (1 << UsersColumn.phone.bit);
-      if (changes.email.present) mask |= (1 << UsersColumn.email.bit);
-      if (changes.name.present) mask |= (1 << UsersColumn.name.bit);
-      if (changes.level.present) mask |= (1 << UsersColumn.level.bit);
-      if (changes.status.present) mask |= (1 << UsersColumn.status.bit);
-      if (changes.updated.present) mask |= (1 << UsersColumn.updated.bit);
+      // Build payload with only the fields that changed.
+      final payload = sync_pb.UpdateUserPayload(id: userId);
+      bool anyField = false;
+      if (changes.phone.present) {
+        payload.phone = changes.phone.value;
+        anyField = true;
+      }
+      if (changes.email.present) {
+        payload.email = changes.email.value ?? '';
+        anyField = true;
+      }
+      if (changes.name.present) {
+        payload.name = changes.name.value;
+        anyField = true;
+      }
+      if (changes.level.present) {
+        payload.level = changes.level.value.index;
+        anyField = true;
+      }
+      if (changes.status.present) {
+        payload.status = changes.status.value.index;
+        anyField = true;
+      }
 
-      if (mask == 0) return; // nothing tracked to log
+      if (!anyField) return; // nothing tracked to log
 
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: Value(LogTable.users),
-          op: Value(LogOperation.update),
-          rowKey: Value(userId),
-          columns: Value(mask),
+          action: const Value(SyncAction.updateUser),
+          resource: Value(changes.name.present ? changes.name.value : userId),
+          payload: Value(Uint8List.fromList(payload.writeToBuffer())),
           status: const Value(LogStatus.pending),
           created: Value(now),
         ),
@@ -261,20 +291,20 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
       );
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
-      final int mask =
-          (1 << UsersColumn.status.bit) | (1 << UsersColumn.updated.bit);
-
       for (final userId in userIds) {
         await (update(users)..where((t) => t.id.equals(userId))).write(
           UsersCompanion(status: Value(status), updated: Value(nowSeconds)),
         );
+        final payload = sync_pb.UpdateUserPayload(
+          id: userId,
+          status: status.index,
+        );
         await into(logs).insert(
           LogsCompanion(
             account: Value(accountId),
-            tbl: Value(LogTable.users),
-            op: Value(LogOperation.update),
-            rowKey: Value(userId),
-            columns: Value(mask),
+            action: const Value(SyncAction.updateUser),
+            resource: Value(userId),
+            payload: Value(Uint8List.fromList(payload.writeToBuffer())),
             status: const Value(LogStatus.pending),
             created: Value(nowMs),
           ),
@@ -301,20 +331,20 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
       );
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
-      final int mask =
-          (1 << UsersColumn.level.bit) | (1 << UsersColumn.updated.bit);
-
       for (final userId in userIds) {
         await (update(users)..where((t) => t.id.equals(userId))).write(
           UsersCompanion(level: Value(level), updated: Value(nowSeconds)),
         );
+        final payload = sync_pb.UpdateUserPayload(
+          id: userId,
+          level: level.index,
+        );
         await into(logs).insert(
           LogsCompanion(
             account: Value(accountId),
-            tbl: Value(LogTable.users),
-            op: Value(LogOperation.update),
-            rowKey: Value(userId),
-            columns: Value(mask),
+            action: const Value(SyncAction.updateUser),
+            resource: Value(userId),
+            payload: Value(Uint8List.fromList(payload.writeToBuffer())),
             status: const Value(LogStatus.pending),
             created: Value(nowMs),
           ),
@@ -336,12 +366,13 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
       for (final userId in userIds) {
+        final payload = sync_pb.DeleteUserPayload(id: userId);
         await into(logs).insert(
           LogsCompanion(
             account: Value(accountId),
-            tbl: Value(LogTable.users),
-            op: Value(LogOperation.delete),
-            rowKey: Value(userId),
+            action: const Value(SyncAction.deleteUser),
+            resource: Value(userId),
+            payload: Value(Uint8List.fromList(payload.writeToBuffer())),
             status: const Value(LogStatus.pending),
             created: Value(nowMs),
           ),
@@ -359,12 +390,13 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
   Future<void> purgeUser(String userId, {required String accountId}) async {
     await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+      final payload = sync_pb.DeleteUserPayload(id: userId);
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: Value(LogTable.users),
-          op: Value(LogOperation.delete),
-          rowKey: Value(userId),
+          action: const Value(SyncAction.deleteUser),
+          resource: Value(userId),
+          payload: Value(Uint8List.fromList(payload.writeToBuffer())),
           status: const Value(LogStatus.pending),
           created: Value(now),
         ),

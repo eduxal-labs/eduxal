@@ -6,6 +6,7 @@ import '../tables/logs.dart';
 import '../tables/plans.dart';
 import '../tables/subscriptions.dart';
 import '../../client.dart';
+import '../../proto/services/sync.pb.dart' as sync_pb;
 
 part 'plans_dao.g.dart';
 
@@ -69,14 +70,26 @@ class PlansDao extends DatabaseAccessor<AppDatabase> with _$PlansDaoMixin {
       await into(plans).insert(plan);
 
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      final payload = sync_pb.CreatePlanPayload(
+        id: plan.id.value,
+        name: plan.name.value,
+        amount: plan.amount.value,
+        levels: plan.levels.value,
+      );
+      if (plan.description.present && plan.description.value != null) {
+        payload.description = plan.description.value!;
+      }
+      if (plan.features.present && plan.features.value != null) {
+        payload.features = plan.features.value!;
+      }
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.plans),
-          op: const Value(LogOperation.insert),
-          rowKey: plan.id,
-          // columns is null for inserts — the full row is sent on sync.
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.createPlan),
+          resource: Value(plan.name.value),
+          payload: Value(payload.writeToBuffer()),
           created: Value(now),
         ),
       );
@@ -100,28 +113,59 @@ class PlansDao extends DatabaseAccessor<AppDatabase> with _$PlansDaoMixin {
     await transaction(() async {
       await (update(plans)..where((t) => t.id.equals(planId))).write(changes);
 
-      int mask = 0;
-      if (changes.name.present) mask |= (1 << PlansColumn.name.bit);
-      if (changes.description.present) {
-        mask |= (1 << PlansColumn.description.bit);
-      }
-      if (changes.amount.present) mask |= (1 << PlansColumn.amount.bit);
-      if (changes.levels.present) mask |= (1 << PlansColumn.levels.bit);
-      if (changes.status.present) mask |= (1 << PlansColumn.status.bit);
-      if (changes.features.present) mask |= (1 << PlansColumn.features.bit);
-      if (changes.updated.present) mask |= (1 << PlansColumn.updated.bit);
+      final payload = sync_pb.UpdatePlanPayload(id: planId);
+      bool hasChanges = false;
 
-      if (mask == 0) return; // nothing tracked to log
+      if (changes.name.present) {
+        payload.name = changes.name.value;
+        hasChanges = true;
+      }
+      if (changes.description.present) {
+        if (changes.description.value != null) {
+          payload.description = changes.description.value!;
+        }
+        hasChanges = true;
+      }
+      if (changes.amount.present) {
+        payload.amount = changes.amount.value;
+        hasChanges = true;
+      }
+      if (changes.levels.present) {
+        payload.levels = changes.levels.value;
+        hasChanges = true;
+      }
+      if (changes.status.present) {
+        payload.status = changes.status.value.index;
+        hasChanges = true;
+      }
+      if (changes.features.present) {
+        if (changes.features.value != null) {
+          payload.features = changes.features.value!;
+        }
+        hasChanges = true;
+      }
+
+      if (!hasChanges) return; // nothing tracked to log
 
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      // Try to get plan name for resource display; fall back to planId.
+      String resourceName = planId;
+      if (changes.name.present) {
+        resourceName = changes.name.value;
+      } else {
+        final existing = await (select(
+          plans,
+        )..where((t) => t.id.equals(planId))).getSingleOrNull();
+        if (existing != null) resourceName = existing.name;
+      }
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.plans),
-          op: const Value(LogOperation.update),
-          rowKey: Value(planId),
-          columns: Value(mask),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.updatePlan),
+          resource: Value(resourceName),
+          payload: Value(payload.writeToBuffer()),
           created: Value(now),
         ),
       );
@@ -158,13 +202,21 @@ class PlansDao extends DatabaseAccessor<AppDatabase> with _$PlansDaoMixin {
   Future<void> purgePlan(String planId, {required String accountId}) async {
     await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      // Get the plan name for human-readable resource display.
+      final existing = await (select(
+        plans,
+      )..where((t) => t.id.equals(planId))).getSingleOrNull();
+      final resourceName = existing?.name ?? planId;
+
+      final payload = sync_pb.DeletePlanPayload(id: planId);
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.plans),
-          op: const Value(LogOperation.delete),
-          rowKey: Value(planId),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.deletePlan),
+          resource: Value(resourceName),
+          payload: Value(payload.writeToBuffer()),
           created: Value(now),
         ),
       );
@@ -218,18 +270,27 @@ class PlansDao extends DatabaseAccessor<AppDatabase> with _$PlansDaoMixin {
       await into(subscriptions).insert(sub);
 
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
-      final schoolId = sub.school.value;
-      final planId = sub.plan.value;
-      final year = sub.year.value;
-      final term = sub.term.value;
-      final student = sub.student.value;
+
+      final payload = sync_pb.CreateSubscriptionPayload(
+        school: sub.school.value,
+        plan: sub.plan.value,
+        year: sub.year.value,
+        term: sub.term.value,
+        student: sub.student.value,
+      );
+      if (sub.invoice.present && sub.invoice.value != null) {
+        payload.invoice = sub.invoice.value!;
+      }
+      if (sub.discount.present) {
+        payload.discount = sub.discount.value;
+      }
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.subscriptions),
-          op: const Value(LogOperation.insert),
-          rowKey: Value('$schoolId|$planId|$year|$term|$student'),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.createSubscription),
+          resource: Value('${sub.school.value}|${sub.plan.value}'),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -264,19 +325,23 @@ class PlansDao extends DatabaseAccessor<AppDatabase> with _$PlansDaoMixin {
             ),
           );
 
-      int mask = 0;
-      mask |= (1 << SubscriptionsColumn.status.bit);
-      mask |= (1 << SubscriptionsColumn.updated.bit);
-
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      final payload = sync_pb.UpdateSubscriptionPayload(
+        school: schoolId,
+        plan: planId,
+        year: year,
+        term: term,
+        student: studentAdm,
+        status: status.index,
+      );
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.subscriptions),
-          op: const Value(LogOperation.update),
-          rowKey: Value('$schoolId|$planId|$year|$term|$studentAdm'),
-          columns: Value(mask),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.updateSubscription),
+          resource: Value('$schoolId|$planId'),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );

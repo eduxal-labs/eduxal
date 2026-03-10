@@ -7,6 +7,7 @@ import '../tables/logs.dart';
 import '../tables/students.dart';
 import '../tables/users.dart';
 import '../../client.dart';
+import '../../proto/services/sync.pb.dart' as sync_pb;
 
 part 'enrollments_dao.g.dart';
 
@@ -279,30 +280,25 @@ class EnrollmentsDao extends DatabaseAccessor<AppDatabase>
         // Same class — nothing to do.
         if (existing.grade == grade && existing.stream == stream) return;
 
-        // Different class — remove old enrollment.
-        final oldRowKey =
-            '$schoolId|$year|$term|${existing.grade}|${existing.stream}|$studentAdm';
+        // Different class — unenroll from old class first.
+        final unenrollPayload = sync_pb.UnenrollStudentPayload(
+          school: schoolId,
+          year: year,
+          term: term,
+          grade: existing.grade,
+          stream: existing.stream,
+          student: studentAdm,
+        );
 
         await into(logs).insert(
           LogsCompanion(
             account: Value(accountId),
-            tbl: const Value(LogTable.enrollments),
-            op: const Value(LogOperation.delete),
-            rowKey: Value(oldRowKey),
-            status: const Value(LogStatus.pending),
+            action: Value(SyncAction.unenrollStudent),
+            resource: Value('ADM $studentAdm'),
+            payload: Value(unenrollPayload.writeToBuffer()),
             created: Value(nowMs),
           ),
         );
-
-        // Supersede any pending insert for the old enrollment.
-        await (delete(logs)..where(
-              (t) =>
-                  t.account.equals(accountId) &
-                  t.tbl.equalsValue(LogTable.enrollments) &
-                  t.rowKey.equals(oldRowKey) &
-                  t.op.equalsValue(LogOperation.insert),
-            ))
-            .go();
 
         await (delete(enrollments)..where(
               (t) =>
@@ -315,8 +311,6 @@ class EnrollmentsDao extends DatabaseAccessor<AppDatabase>
       }
 
       // Insert new enrollment.
-      final newRowKey = '$schoolId|$year|$term|$grade|$stream|$studentAdm';
-
       await into(enrollments).insert(
         EnrollmentsCompanion(
           school: Value(schoolId),
@@ -329,13 +323,21 @@ class EnrollmentsDao extends DatabaseAccessor<AppDatabase>
         ),
       );
 
+      final enrollPayload = sync_pb.EnrollStudentPayload(
+        school: schoolId,
+        year: year,
+        term: term,
+        grade: grade,
+        stream: stream,
+        student: studentAdm,
+      );
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.enrollments),
-          op: const Value(LogOperation.insert),
-          rowKey: Value(newRowKey),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.enrollStudent),
+          resource: Value('ADM $studentAdm'),
+          payload: Value(enrollPayload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -367,29 +369,24 @@ class EnrollmentsDao extends DatabaseAccessor<AppDatabase>
 
       if (existing == null) return; // nothing to remove
 
-      final rowKey =
-          '$schoolId|$year|$term|${existing.grade}|${existing.stream}|$studentAdm';
+      final payload = sync_pb.UnenrollStudentPayload(
+        school: schoolId,
+        year: year,
+        term: term,
+        grade: existing.grade,
+        stream: existing.stream,
+        student: studentAdm,
+      );
 
-      // Delete log supersedes any pending insert for this enrollment.
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.enrollments),
-          op: const Value(LogOperation.delete),
-          rowKey: Value(rowKey),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.unenrollStudent),
+          resource: Value('ADM $studentAdm'),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
-
-      await (delete(logs)..where(
-            (t) =>
-                t.account.equals(accountId) &
-                t.tbl.equalsValue(LogTable.enrollments) &
-                t.rowKey.equals(rowKey) &
-                t.op.equalsValue(LogOperation.insert),
-          ))
-          .go();
 
       await (delete(enrollments)..where(
             (t) =>

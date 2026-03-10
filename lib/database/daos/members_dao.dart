@@ -12,6 +12,7 @@ import '../tables/subjects.dart';
 import '../tables/teachers.dart';
 import '../tables/users.dart';
 import '../../client.dart';
+import '../../proto/services/sync.pb.dart' as sync_pb;
 
 part 'members_dao.g.dart';
 
@@ -58,17 +59,18 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
   ///
   /// Called by the creation UI before deciding whether to expand the form
   /// for a "name" field.
-  Future<UsersData?> findUserByPhone(String phone) =>
-      (select(users)..where((t) => t.phone.equals(phone))).getSingleOrNull();
+  Future<UsersData?> findUserByPhone(String phone) {
+    return (select(
+      users,
+    )..where((t) => t.phone.equals(phone))).getSingleOrNull();
+  }
 
-  /// Returns the [UsersData] row for [userId], or `null` if not found.
-  ///
-  /// Used by the Members page to resolve user details (name, phone, status)
-  /// for member rows that reference a user by id.
-  Future<UsersData?> findUserById(String userId) =>
-      (select(users)..where((t) => t.id.equals(userId))).getSingleOrNull();
+  /// Returns the [UsersData] row for a given [id], or `null`.
+  Future<UsersData?> findUserById(String id) {
+    return (select(users)..where((t) => t.id.equals(id))).getSingleOrNull();
+  }
 
-  /// Returns `true` if [schoolId] already has an owner row for [userId].
+  /// Returns `true` if a row exists in [Owners] for the given composite key.
   Future<bool> ownerExists(String schoolId, String userId) async {
     final row =
         await (select(owners)
@@ -77,7 +79,7 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     return row != null;
   }
 
-  /// Returns `true` if [schoolId] already has a teacher row for [userId].
+  /// Returns `true` if a row exists in [Teachers] for the given composite key.
   Future<bool> teacherExists(String schoolId, String userId) async {
     final row =
         await (select(teachers)
@@ -86,7 +88,7 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     return row != null;
   }
 
-  /// Returns `true` if [schoolId] already has a staff row for [userId].
+  /// Returns `true` if a row exists in [Staff] for the given composite key.
   Future<bool> staffExists(String schoolId, String userId) async {
     final row =
         await (select(staff)
@@ -95,8 +97,7 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     return row != null;
   }
 
-  /// Returns `true` if [schoolId] already has a guardian row for
-  /// [userId] linked to [studentAdm].
+  /// Returns `true` if a row exists in [Guardians] for the given composite key.
   Future<bool> guardianExists(
     String schoolId,
     String userId,
@@ -114,103 +115,66 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Next admission number
+  // Admission number generation
   // ─────────────────────────────────────────────────────────────────────────
 
   /// Returns the next available admission number for [schoolId].
   ///
-  /// Uses `MAX(adm) + 1`, or `1` when no student rows exist for the school.
+  /// Currently returns `max(adm) + 1`, starting at `1` if no students exist.
   Future<int> nextAdmissionNumber(String schoolId) async {
     final maxAdm = students.adm.max();
     final query = selectOnly(students)
       ..addColumns([maxAdm])
       ..where(students.school.equals(schoolId));
-    final row = await query.getSingleOrNull();
-    return (row?.read(maxAdm) ?? 0) + 1;
+    final row = await query.getSingle();
+    final current = row.read(maxAdm);
+    return (current ?? 0) + 1;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Reactive streams
+  // Reactive streams — membership lists
   // ─────────────────────────────────────────────────────────────────────────
 
-  /// Emits the list of [OwnersData] for [schoolId] ordered by creation
-  /// timestamp descending. Re-emits on every change.
   Stream<List<OwnersData>> watchOwners(String schoolId) =>
-      (select(owners)
-            ..where((t) => t.school.equals(schoolId))
-            ..orderBy([(t) => OrderingTerm.desc(t.created)]))
-          .watch();
+      (select(owners)..where((t) => t.school.equals(schoolId))).watch();
 
-  /// Emits the list of [TeachersData] for [schoolId] ordered by creation
-  /// timestamp descending. Re-emits on every change.
   Stream<List<TeachersData>> watchTeachers(String schoolId) =>
-      (select(teachers)
-            ..where((t) => t.school.equals(schoolId))
-            ..orderBy([(t) => OrderingTerm.desc(t.created)]))
-          .watch();
+      (select(teachers)..where((t) => t.school.equals(schoolId))).watch();
 
-  /// Emits the list of [StaffData] for [schoolId] ordered by creation
-  /// timestamp descending. Re-emits on every change.
   Stream<List<StaffData>> watchStaff(String schoolId) =>
-      (select(staff)
-            ..where((t) => t.school.equals(schoolId))
-            ..orderBy([(t) => OrderingTerm.desc(t.created)]))
-          .watch();
+      (select(staff)..where((t) => t.school.equals(schoolId))).watch();
 
-  /// Emits the list of active [StudentsData] for [schoolId] ordered by
-  /// admission number ascending. Re-emits on every change.
   Stream<List<StudentsData>> watchStudents(String schoolId) =>
-      (select(students)
-            ..where(
-              (t) =>
-                  t.school.equals(schoolId) &
-                  t.status.equals(StudentStatus.active.index),
-            )
-            ..orderBy([(t) => OrderingTerm.asc(t.adm)]))
-          .watch();
+      (select(students)..where((t) => t.school.equals(schoolId))).watch();
 
-  /// Emits all [GuardiansData] for [schoolId] and [studentAdm], ordered
-  /// by role (primary first). Re-emits on every change.
   Stream<List<GuardiansData>> watchGuardians(String schoolId, int studentAdm) =>
-      (select(guardians)
-            ..where(
-              (t) => t.school.equals(schoolId) & t.student.equals(studentAdm),
-            )
-            ..orderBy([(t) => OrderingTerm.asc(t.role)]))
+      (select(guardians)..where(
+            (t) => t.school.equals(schoolId) & t.student.equals(studentAdm),
+          ))
           .watch();
 
-  /// Emits **all** [GuardiansData] for [schoolId] regardless of student,
-  /// ordered by creation timestamp descending. Used by the Members page
-  /// Guardians tab to display every guardian at the school.
   Stream<List<GuardiansData>> watchAllGuardians(String schoolId) =>
-      (select(guardians)
-            ..where((t) => t.school.equals(schoolId))
-            ..orderBy([(t) => OrderingTerm.desc(t.created)]))
-          .watch();
+      (select(guardians)..where((t) => t.school.equals(schoolId))).watch();
 
   // ─────────────────────────────────────────────────────────────────────────
   // One-shot reads
   // ─────────────────────────────────────────────────────────────────────────
 
-  /// Returns the [OwnersData] row for [schoolId]/[userId], or `null`.
   Future<OwnersData?> getOwner(String schoolId, String userId) =>
       (select(owners)
             ..where((t) => t.school.equals(schoolId) & t.user.equals(userId)))
           .getSingleOrNull();
 
-  /// Returns the [TeachersData] row for [schoolId]/[userId], or `null`.
   Future<TeachersData?> getTeacher(String schoolId, String userId) =>
       (select(teachers)
             ..where((t) => t.school.equals(schoolId) & t.user.equals(userId)))
           .getSingleOrNull();
 
-  /// Returns the [StaffData] row for [schoolId]/[userId], or `null`.
   Future<StaffData?> getStaffMember(String schoolId, String userId) =>
       (select(staff)
             ..where((t) => t.school.equals(schoolId) & t.user.equals(userId)))
           .getSingleOrNull();
 
-  /// Returns the [StudentsData] row for [schoolId]/[adm], or `null`.
   Future<StudentsData?> getStudent(String schoolId, int adm) =>
       (select(students)
             ..where((t) => t.school.equals(schoolId) & t.adm.equals(adm)))
@@ -224,6 +188,9 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
   /// [schoolId], all in a single transaction.
   ///
   /// Use this overload when [findUserByPhone] returned `null` (user unknown).
+  /// Writes a single [SyncAction.createOwner] log entry whose
+  /// [CreateOwnerPayload] carries the user's phone/name/email so the server
+  /// can perform user lookup/creation.
   Future<void> inviteAndAddOwner({
     required UsersCompanion newUser,
     required OwnersCompanion owner,
@@ -235,29 +202,31 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
 
       // 1. Persist the new invited user.
       await into(users).insert(newUser);
-      await into(logs).insert(
-        LogsCompanion(
-          account: Value(accountId),
-          tbl: const Value(LogTable.users),
-          op: const Value(LogOperation.insert),
-          rowKey: newUser.id,
-          status: const Value(LogStatus.pending),
-          created: Value(nowMs),
-        ),
-      );
 
       // 2. Persist the owner row.
       final ownerWithTimestamp = owner.copyWith(created: Value(nowSec));
       await into(owners).insert(ownerWithTimestamp);
+
       final schoolId = owner.school.value;
       final userId = newUser.id.value;
+
+      // 3. Log: createOwner action with user identity embedded.
+      final payload = sync_pb.CreateOwnerPayload(
+        school: schoolId,
+        userId: userId,
+        phone: newUser.phone.value,
+        name: newUser.name.value,
+      );
+      if (newUser.email.present && newUser.email.value != null) {
+        payload.email = newUser.email.value!;
+      }
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.owners),
-          op: const Value(LogOperation.insert),
-          rowKey: Value('$schoolId|$userId'),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.createOwner),
+          resource: Value(newUser.phone.value),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -271,6 +240,7 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
   /// Use this overload when [findUserByPhone] returned a non-null row.
   Future<void> addExistingUserAsOwner({
     required OwnersCompanion owner,
+    required UsersData existingUser,
     required String accountId,
   }) async {
     await transaction(() async {
@@ -281,14 +251,23 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
       await into(owners).insert(ownerWithTimestamp);
 
       final schoolId = owner.school.value;
-      final userId = owner.user.value;
+
+      final payload = sync_pb.CreateOwnerPayload(
+        school: schoolId,
+        userId: existingUser.id,
+        phone: existingUser.phone,
+        name: existingUser.name,
+      );
+      if (existingUser.email != null) {
+        payload.email = existingUser.email!;
+      }
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.owners),
-          op: const Value(LogOperation.insert),
-          rowKey: Value('$schoolId|$userId'),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.createOwner),
+          resource: Value(existingUser.phone),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -304,13 +283,22 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
   }) async {
     await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      // Get user info for resource display before deletion.
+      final user = await findUserById(userId);
+      final resourceName = user?.phone ?? userId;
+
+      final payload = sync_pb.DeleteOwnerPayload(
+        school: schoolId,
+        user: userId,
+      );
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.owners),
-          op: const Value(LogOperation.delete),
-          rowKey: Value('$schoolId|$userId'),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.deleteOwner),
+          resource: Value(resourceName),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -345,16 +333,6 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
 
       // 1. Persist the new invited user.
       await into(users).insert(newUser);
-      await into(logs).insert(
-        LogsCompanion(
-          account: Value(accountId),
-          tbl: const Value(LogTable.users),
-          op: const Value(LogOperation.insert),
-          rowKey: newUser.id,
-          status: const Value(LogStatus.pending),
-          created: Value(nowMs),
-        ),
-      );
 
       // 2. Persist the teacher row.
       final teacherWithTimestamp = teacher.copyWith(
@@ -362,15 +340,36 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
         updated: Value(nowSec),
       );
       await into(teachers).insert(teacherWithTimestamp);
+
       final schoolId = teacher.school.value;
       final userId = newUser.id.value;
+
+      // 3. Log: createTeacher action with user identity embedded.
+      final payload = sync_pb.CreateTeacherPayload(
+        school: schoolId,
+        userId: userId,
+        phone: newUser.phone.value,
+        name: newUser.name.value,
+      );
+      if (newUser.email.present && newUser.email.value != null) {
+        payload.email = newUser.email.value!;
+      }
+      if (teacher.hired.present && teacher.hired.value != null) {
+        payload.hired = teacher.hired.value!;
+      }
+      if (teacher.role.present && teacher.role.value != null) {
+        payload.role = teacher.role.value!;
+      }
+      if (teacher.department.present && teacher.department.value != null) {
+        payload.department = teacher.department.value!;
+      }
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.teachers),
-          op: const Value(LogOperation.insert),
-          rowKey: Value('$schoolId|$userId'),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.createTeacher),
+          resource: Value(newUser.phone.value),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -384,6 +383,7 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
   /// Use this overload when [findUserByPhone] returned a non-null row.
   Future<void> addExistingUserAsTeacher({
     required TeachersCompanion teacher,
+    required UsersData existingUser,
     required String accountId,
   }) async {
     await transaction(() async {
@@ -397,14 +397,32 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
       await into(teachers).insert(teacherWithTimestamp);
 
       final schoolId = teacher.school.value;
-      final userId = teacher.user.value;
+
+      final payload = sync_pb.CreateTeacherPayload(
+        school: schoolId,
+        userId: existingUser.id,
+        phone: existingUser.phone,
+        name: existingUser.name,
+      );
+      if (existingUser.email != null) {
+        payload.email = existingUser.email!;
+      }
+      if (teacher.hired.present && teacher.hired.value != null) {
+        payload.hired = teacher.hired.value!;
+      }
+      if (teacher.role.present && teacher.role.value != null) {
+        payload.role = teacher.role.value!;
+      }
+      if (teacher.department.present && teacher.department.value != null) {
+        payload.department = teacher.department.value!;
+      }
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.teachers),
-          op: const Value(LogOperation.insert),
-          rowKey: Value('$schoolId|$userId'),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.createTeacher),
+          resource: Value(existingUser.phone),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -412,7 +430,10 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     sync.schedulePush();
   }
 
-  /// Updates mutable fields on a teacher row and writes a log UPDATE entry.
+  /// Updates mutable fields on a teacher row and writes a log entry with
+  /// [SyncAction.updateTeacher] containing an [UpdateTeacherPayload].
+  /// The server uses protobuf `has*()` semantics to determine which fields
+  /// were changed.
   Future<void> updateTeacher({
     required String schoolId,
     required String userId,
@@ -424,26 +445,45 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
             ..where((t) => t.school.equals(schoolId) & t.user.equals(userId)))
           .write(changes);
 
-      int mask = 0;
-      if (changes.hired.present) mask |= (1 << TeachersColumn.hired.bit);
-      if (changes.role.present) mask |= (1 << TeachersColumn.role.bit);
-      if (changes.department.present) {
-        mask |= (1 << TeachersColumn.department.bit);
-      }
-      if (changes.status.present) mask |= (1 << TeachersColumn.status.bit);
-      if (changes.updated.present) mask |= (1 << TeachersColumn.updated.bit);
+      // Build the UpdateTeacherPayload with only changed fields.
+      final payload = sync_pb.UpdateTeacherPayload(
+        school: schoolId,
+        user: userId,
+      );
+      bool hasChanges = false;
 
-      if (mask == 0) return;
+      if (changes.hired.present) {
+        if (changes.hired.value != null) payload.hired = changes.hired.value!;
+        hasChanges = true;
+      }
+      if (changes.role.present) {
+        if (changes.role.value != null) payload.role = changes.role.value!;
+        hasChanges = true;
+      }
+      if (changes.department.present) {
+        if (changes.department.value != null) {
+          payload.department = changes.department.value!;
+        }
+        hasChanges = true;
+      }
+      if (changes.status.present) {
+        payload.status = changes.status.value.index;
+        hasChanges = true;
+      }
+
+      if (!hasChanges) return;
+
+      // Get user phone for human-readable resource display.
+      final user = await findUserById(userId);
+      final resourceName = user?.phone ?? userId;
 
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.teachers),
-          op: const Value(LogOperation.update),
-          rowKey: Value('$schoolId|$userId'),
-          columns: Value(mask),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.updateTeacher),
+          resource: Value(resourceName),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -459,13 +499,21 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
   }) async {
     await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      final user = await findUserById(userId);
+      final resourceName = user?.phone ?? userId;
+
+      final payload = sync_pb.DeleteTeacherPayload(
+        school: schoolId,
+        user: userId,
+      );
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.teachers),
-          op: const Value(LogOperation.delete),
-          rowKey: Value('$schoolId|$userId'),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.deleteTeacher),
+          resource: Value(resourceName),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -492,31 +540,41 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
       final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
 
       await into(users).insert(newUser);
-      await into(logs).insert(
-        LogsCompanion(
-          account: Value(accountId),
-          tbl: const Value(LogTable.users),
-          op: const Value(LogOperation.insert),
-          rowKey: newUser.id,
-          status: const Value(LogStatus.pending),
-          created: Value(nowMs),
-        ),
-      );
 
       final memberWithTimestamp = member.copyWith(
         created: Value(nowSec),
         updated: Value(nowSec),
       );
       await into(staff).insert(memberWithTimestamp);
+
       final schoolId = member.school.value;
       final userId = newUser.id.value;
+
+      final payload = sync_pb.CreateStaffPayload(
+        school: schoolId,
+        userId: userId,
+        phone: newUser.phone.value,
+        name: newUser.name.value,
+      );
+      if (newUser.email.present && newUser.email.value != null) {
+        payload.email = newUser.email.value!;
+      }
+      if (member.idnumber.present && member.idnumber.value != null) {
+        payload.idnumber = member.idnumber.value!;
+      }
+      if (member.role.present && member.role.value != null) {
+        payload.role = member.role.value!;
+      }
+      if (member.department.present && member.department.value != null) {
+        payload.department = member.department.value!;
+      }
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.staff),
-          op: const Value(LogOperation.insert),
-          rowKey: Value('$schoolId|$userId'),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.createStaff),
+          resource: Value(newUser.phone.value),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -527,6 +585,7 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
   /// Links an existing user as staff. Writes only the staff row + log entry.
   Future<void> addExistingUserAsStaff({
     required StaffCompanion member,
+    required UsersData existingUser,
     required String accountId,
   }) async {
     await transaction(() async {
@@ -540,14 +599,32 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
       await into(staff).insert(memberWithTimestamp);
 
       final schoolId = member.school.value;
-      final userId = member.user.value;
+
+      final payload = sync_pb.CreateStaffPayload(
+        school: schoolId,
+        userId: existingUser.id,
+        phone: existingUser.phone,
+        name: existingUser.name,
+      );
+      if (existingUser.email != null) {
+        payload.email = existingUser.email!;
+      }
+      if (member.idnumber.present && member.idnumber.value != null) {
+        payload.idnumber = member.idnumber.value!;
+      }
+      if (member.role.present && member.role.value != null) {
+        payload.role = member.role.value!;
+      }
+      if (member.department.present && member.department.value != null) {
+        payload.department = member.department.value!;
+      }
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.staff),
-          op: const Value(LogOperation.insert),
-          rowKey: Value('$schoolId|$userId'),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.createStaff),
+          resource: Value(existingUser.phone),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -555,7 +632,8 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     sync.schedulePush();
   }
 
-  /// Updates mutable fields on a staff row and writes a log UPDATE entry.
+  /// Updates mutable fields on a staff row and writes a log entry with
+  /// [SyncAction.updateStaff] containing an [UpdateStaffPayload].
   Future<void> updateStaff({
     required String schoolId,
     required String userId,
@@ -567,26 +645,45 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
             ..where((t) => t.school.equals(schoolId) & t.user.equals(userId)))
           .write(changes);
 
-      int mask = 0;
-      if (changes.idnumber.present) mask |= (1 << StaffColumn.idnumber.bit);
-      if (changes.role.present) mask |= (1 << StaffColumn.role.bit);
-      if (changes.department.present) {
-        mask |= (1 << StaffColumn.department.bit);
-      }
-      if (changes.status.present) mask |= (1 << StaffColumn.status.bit);
-      if (changes.updated.present) mask |= (1 << StaffColumn.updated.bit);
+      final payload = sync_pb.UpdateStaffPayload(
+        school: schoolId,
+        user: userId,
+      );
+      bool hasChanges = false;
 
-      if (mask == 0) return;
+      if (changes.idnumber.present) {
+        if (changes.idnumber.value != null) {
+          payload.idnumber = changes.idnumber.value!;
+        }
+        hasChanges = true;
+      }
+      if (changes.role.present) {
+        if (changes.role.value != null) payload.role = changes.role.value!;
+        hasChanges = true;
+      }
+      if (changes.department.present) {
+        if (changes.department.value != null) {
+          payload.department = changes.department.value!;
+        }
+        hasChanges = true;
+      }
+      if (changes.status.present) {
+        payload.status = changes.status.value.index;
+        hasChanges = true;
+      }
+
+      if (!hasChanges) return;
+
+      final user = await findUserById(userId);
+      final resourceName = user?.phone ?? userId;
 
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.staff),
-          op: const Value(LogOperation.update),
-          rowKey: Value('$schoolId|$userId'),
-          columns: Value(mask),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.updateStaff),
+          resource: Value(resourceName),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -602,13 +699,21 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
   }) async {
     await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      final user = await findUserById(userId);
+      final resourceName = user?.phone ?? userId;
+
+      final payload = sync_pb.DeleteStaffPayload(
+        school: schoolId,
+        user: userId,
+      );
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.staff),
-          op: const Value(LogOperation.delete),
-          rowKey: Value('$schoolId|$userId'),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.deleteStaff),
+          resource: Value(resourceName),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -623,7 +728,7 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
   // Student mutations
   // ─────────────────────────────────────────────────────────────────────────
 
-  /// Creates a new student row and enqueues an INSERT log entry.
+  /// Creates a new student row and enqueues a [SyncAction.createStudent] log.
   ///
   /// The admission number ([StudentsCompanion.adm]) must already be set
   /// by the caller (obtained via [nextAdmissionNumber]).
@@ -643,13 +748,34 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
 
       final schoolId = student.school.value;
       final adm = student.adm.value;
+
+      final payload = sync_pb.CreateStudentPayload(
+        school: schoolId,
+        adm: adm,
+        name: student.name.value,
+      );
+      if (student.user.present && student.user.value != null) {
+        payload.user = student.user.value!;
+      }
+      if (student.dob.present && student.dob.value != null) {
+        payload.dob = student.dob.value!;
+      }
+      if (student.gender.present && student.gender.value != null) {
+        payload.gender = student.gender.value!.index;
+      }
+      if (student.documents.present && student.documents.value != null) {
+        payload.documents = student.documents.value!;
+      }
+      if (student.admitted.present && student.admitted.value != null) {
+        payload.admitted = student.admitted.value!;
+      }
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.students),
-          op: const Value(LogOperation.insert),
-          rowKey: Value('$schoolId|$adm'),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.createStudent),
+          resource: Value(student.name.value),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -657,7 +783,8 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     sync.schedulePush();
   }
 
-  /// Updates mutable fields on a student row and writes a log UPDATE entry.
+  /// Updates mutable fields on a student row and writes a log entry with
+  /// [SyncAction.updateStudent] containing an [UpdateStudentPayload].
   Future<void> updateStudent({
     required String schoolId,
     required int adm,
@@ -669,29 +796,62 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
             ..where((t) => t.school.equals(schoolId) & t.adm.equals(adm)))
           .write(changes);
 
-      int mask = 0;
-      if (changes.user.present) mask |= (1 << StudentsColumn.user.bit);
-      if (changes.name.present) mask |= (1 << StudentsColumn.name.bit);
-      if (changes.dob.present) mask |= (1 << StudentsColumn.dob.bit);
-      if (changes.gender.present) mask |= (1 << StudentsColumn.gender.bit);
-      if (changes.documents.present) {
-        mask |= (1 << StudentsColumn.documents.bit);
-      }
-      if (changes.admitted.present) mask |= (1 << StudentsColumn.admitted.bit);
-      if (changes.status.present) mask |= (1 << StudentsColumn.status.bit);
-      if (changes.updated.present) mask |= (1 << StudentsColumn.updated.bit);
+      final payload = sync_pb.UpdateStudentPayload(school: schoolId, adm: adm);
+      bool hasChanges = false;
 
-      if (mask == 0) return;
+      if (changes.user.present) {
+        if (changes.user.value != null) payload.user = changes.user.value!;
+        hasChanges = true;
+      }
+      if (changes.name.present) {
+        payload.name = changes.name.value;
+        hasChanges = true;
+      }
+      if (changes.dob.present) {
+        if (changes.dob.value != null) payload.dob = changes.dob.value!;
+        hasChanges = true;
+      }
+      if (changes.gender.present) {
+        if (changes.gender.value != null) {
+          payload.gender = changes.gender.value!.index;
+        }
+        hasChanges = true;
+      }
+      if (changes.documents.present) {
+        if (changes.documents.value != null) {
+          payload.documents = changes.documents.value!;
+        }
+        hasChanges = true;
+      }
+      if (changes.admitted.present) {
+        if (changes.admitted.value != null) {
+          payload.admitted = changes.admitted.value!;
+        }
+        hasChanges = true;
+      }
+      if (changes.status.present) {
+        payload.status = changes.status.value.index;
+        hasChanges = true;
+      }
+
+      if (!hasChanges) return;
+
+      // Get student name for resource display.
+      String resourceName = 'Student #$adm';
+      if (changes.name.present) {
+        resourceName = changes.name.value;
+      } else {
+        final existing = await getStudent(schoolId, adm);
+        if (existing != null) resourceName = existing.name;
+      }
 
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.students),
-          op: const Value(LogOperation.update),
-          rowKey: Value('$schoolId|$adm'),
-          columns: Value(mask),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.updateStudent),
+          resource: Value(resourceName),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -739,16 +899,6 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
       final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
 
       await into(users).insert(newUser);
-      await into(logs).insert(
-        LogsCompanion(
-          account: Value(accountId),
-          tbl: const Value(LogTable.users),
-          op: const Value(LogOperation.insert),
-          rowKey: newUser.id,
-          status: const Value(LogStatus.pending),
-          created: Value(nowMs),
-        ),
-      );
 
       final guardianWithTimestamp = guardian.copyWith(
         created: Value(nowSec),
@@ -757,15 +907,29 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
       await into(guardians).insert(guardianWithTimestamp);
 
       final schoolId = guardian.school.value;
-      final userId = newUser.id.value;
       final studentAdm = guardian.student.value;
+
+      final payload = sync_pb.CreateGuardianPayload(
+        school: schoolId,
+        userId: newUser.id.value,
+        phone: newUser.phone.value,
+        name: newUser.name.value,
+        student: studentAdm,
+        relationship: guardian.relationship.value.index,
+      );
+      if (newUser.email.present && newUser.email.value != null) {
+        payload.email = newUser.email.value!;
+      }
+      if (guardian.role.present) {
+        payload.role = guardian.role.value.index;
+      }
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.guardians),
-          op: const Value(LogOperation.insert),
-          rowKey: Value('$schoolId|$userId|$studentAdm'),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.createGuardian),
+          resource: Value(newUser.phone.value),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -776,6 +940,7 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
   /// Links an existing user as a guardian of [studentAdm].
   Future<void> addExistingUserAsGuardian({
     required GuardiansCompanion guardian,
+    required UsersData existingUser,
     required String accountId,
   }) async {
     await transaction(() async {
@@ -789,15 +954,29 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
       await into(guardians).insert(guardianWithTimestamp);
 
       final schoolId = guardian.school.value;
-      final userId = guardian.user.value;
       final studentAdm = guardian.student.value;
+
+      final payload = sync_pb.CreateGuardianPayload(
+        school: schoolId,
+        userId: existingUser.id,
+        phone: existingUser.phone,
+        name: existingUser.name,
+        student: studentAdm,
+        relationship: guardian.relationship.value.index,
+      );
+      if (existingUser.email != null) {
+        payload.email = existingUser.email!;
+      }
+      if (guardian.role.present) {
+        payload.role = guardian.role.value.index;
+      }
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.guardians),
-          op: const Value(LogOperation.insert),
-          rowKey: Value('$schoolId|$userId|$studentAdm'),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.createGuardian),
+          resource: Value(existingUser.phone),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -805,7 +984,8 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     sync.schedulePush();
   }
 
-  /// Updates mutable fields on a guardian row and writes a log UPDATE entry.
+  /// Updates mutable fields on a guardian row and writes a log entry with
+  /// [SyncAction.updateGuardian] containing an [UpdateGuardianPayload].
   Future<void> updateGuardian({
     required String schoolId,
     required String userId,
@@ -822,24 +1002,34 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
           ))
           .write(changes);
 
-      int mask = 0;
-      if (changes.relationship.present) {
-        mask |= (1 << GuardiansColumn.relationship.bit);
-      }
-      if (changes.role.present) mask |= (1 << GuardiansColumn.role.bit);
-      if (changes.updated.present) mask |= (1 << GuardiansColumn.updated.bit);
+      final payload = sync_pb.UpdateGuardianPayload(
+        school: schoolId,
+        user: userId,
+        student: studentAdm,
+      );
+      bool hasChanges = false;
 
-      if (mask == 0) return;
+      if (changes.relationship.present) {
+        payload.relationship = changes.relationship.value.index;
+        hasChanges = true;
+      }
+      if (changes.role.present) {
+        payload.role = changes.role.value.index;
+        hasChanges = true;
+      }
+
+      if (!hasChanges) return;
+
+      final user = await findUserById(userId);
+      final resourceName = user?.phone ?? userId;
 
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.guardians),
-          op: const Value(LogOperation.update),
-          rowKey: Value('$schoolId|$userId|$studentAdm'),
-          columns: Value(mask),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.updateGuardian),
+          resource: Value(resourceName),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );
@@ -856,13 +1046,22 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
   }) async {
     await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      final user = await findUserById(userId);
+      final resourceName = user?.phone ?? userId;
+
+      final payload = sync_pb.DeleteGuardianPayload(
+        school: schoolId,
+        user: userId,
+        student: studentAdm,
+      );
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.guardians),
-          op: const Value(LogOperation.delete),
-          rowKey: Value('$schoolId|$userId|$studentAdm'),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.deleteGuardian),
+          resource: Value(resourceName),
+          payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
       );

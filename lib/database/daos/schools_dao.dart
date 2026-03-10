@@ -7,6 +7,7 @@ import '../tables/owners.dart';
 import '../tables/schools.dart';
 import '../tables/users.dart';
 import '../../client.dart';
+import '../../proto/services/sync.pb.dart' as sync_pb;
 
 part 'schools_dao.g.dart';
 
@@ -92,19 +93,17 @@ class SchoolsDao extends DatabaseAccessor<AppDatabase> with _$SchoolsDaoMixin {
   /// Creates a new school and links an existing user as its first owner, both
   /// in a single transaction.
   ///
-  /// Also writes two log entries:
-  /// - An INSERT log for the `schools` table (row_key = school id).
-  /// - An INSERT log for the `owners` table (row_key = "{schoolId}|{ownerUserId}").
-  ///
-  /// If the owner user does not yet exist locally, call [UsersDao.inviteUser]
-  /// first (in the same parent [db.transaction] block in the calling code),
-  /// then pass the new user's id as [ownerUserId].
+  /// Writes a single log entry with [SyncAction.createSchool] containing a
+  /// [CreateSchoolPayload] that includes both the school data and the owner
+  /// identity (invitation pattern). The server handles user lookup/creation
+  /// from the owner fields embedded in the payload.
   ///
   /// [accountId] is the currently active account's user id, used to associate
   /// log entries with the correct account.
+  /// [ownerUser] is the [UsersData] for the owner being linked.
   Future<void> createSchool({
     required SchoolsCompanion school,
-    required String ownerUserId,
+    required UsersData ownerUser,
     required String accountId,
   }) async {
     await transaction(() async {
@@ -114,35 +113,53 @@ class SchoolsDao extends DatabaseAccessor<AppDatabase> with _$SchoolsDaoMixin {
       // Insert the owner row.
       final schoolId = school.id.value;
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+      final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
 
       await into(owners).insert(
         OwnersCompanion(
           school: Value(schoolId),
-          user: Value(ownerUserId),
-          created: Value(now),
+          user: Value(ownerUser.id),
+          created: Value(nowSec),
         ),
       );
 
-      // Log: school insert.
-      await into(logs).insert(
-        LogsCompanion(
-          account: Value(accountId),
-          tbl: const Value(LogTable.schools),
-          op: const Value(LogOperation.insert),
-          rowKey: Value(schoolId),
-          status: const Value(LogStatus.pending),
-          created: Value(now),
-        ),
+      // Build the CreateSchoolPayload with embedded owner info.
+      final payload = sync_pb.CreateSchoolPayload(
+        id: schoolId,
+        name: school.name.value,
+        ownerId: ownerUser.id,
+        ownerPhone: ownerUser.phone,
+        ownerName: ownerUser.name,
       );
+      if (school.motto.present && school.motto.value != null) {
+        payload.motto = school.motto.value!;
+      }
+      if (school.phone.present && school.phone.value != null) {
+        payload.phone = school.phone.value!;
+      }
+      if (school.email.present && school.email.value != null) {
+        payload.email = school.email.value!;
+      }
+      if (school.county.present) {
+        payload.county = school.county.value;
+      }
+      if (school.domain.present && school.domain.value != null) {
+        payload.domain = school.domain.value!;
+      }
+      if (school.established.present && school.established.value != null) {
+        payload.established = school.established.value!;
+      }
+      if (ownerUser.email != null) {
+        payload.ownerEmail = ownerUser.email!;
+      }
 
-      // Log: owner insert — composite row_key = "{schoolId}|{ownerUserId}".
+      // Log: single createSchool action.
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.owners),
-          op: const Value(LogOperation.insert),
-          rowKey: Value('$schoolId|$ownerUserId'),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.createSchool),
+          resource: Value(school.name.value),
+          payload: Value(payload.writeToBuffer()),
           created: Value(now),
         ),
       );
@@ -150,12 +167,13 @@ class SchoolsDao extends DatabaseAccessor<AppDatabase> with _$SchoolsDaoMixin {
     sync.schedulePush();
   }
 
-  /// Updates the specified fields on a school row and writes a log update entry
-  /// with the correct [SchoolsColumn] bitmask, both in a single transaction.
+  /// Updates the specified fields on a school row and writes a log entry
+  /// with [SyncAction.updateSchool] containing an [UpdateSchoolPayload],
+  /// both in a single transaction.
   ///
-  /// Only columns whose [Value] is present in [changes] are updated.
-  /// The [SchoolsCompanion.updated] field must be included in [changes] with
-  /// the current timestamp (seconds since epoch).
+  /// Only columns whose [Value] is present in [changes] are included in the
+  /// payload. The server uses protobuf `has*()` semantics to determine which
+  /// fields were changed.
   ///
   /// [accountId] is the currently active account's user id.
   Future<void> updateSchoolDetails(
@@ -168,30 +186,66 @@ class SchoolsDao extends DatabaseAccessor<AppDatabase> with _$SchoolsDaoMixin {
         schools,
       )..where((t) => t.id.equals(schoolId))).write(changes);
 
-      int mask = 0;
-      if (changes.name.present) mask |= (1 << SchoolsColumn.name.bit);
-      if (changes.motto.present) mask |= (1 << SchoolsColumn.motto.bit);
-      if (changes.phone.present) mask |= (1 << SchoolsColumn.phone.bit);
-      if (changes.email.present) mask |= (1 << SchoolsColumn.email.bit);
-      if (changes.county.present) mask |= (1 << SchoolsColumn.county.bit);
-      if (changes.domain.present) mask |= (1 << SchoolsColumn.domain.bit);
-      if (changes.established.present) {
-        mask |= (1 << SchoolsColumn.established.bit);
-      }
-      if (changes.status.present) mask |= (1 << SchoolsColumn.status.bit);
-      if (changes.updated.present) mask |= (1 << SchoolsColumn.updated.bit);
+      // Build the UpdateSchoolPayload with only changed fields.
+      final payload = sync_pb.UpdateSchoolPayload(id: schoolId);
+      bool hasChanges = false;
 
-      if (mask == 0) return; // nothing tracked to log
+      if (changes.name.present) {
+        payload.name = changes.name.value;
+        hasChanges = true;
+      }
+      if (changes.motto.present) {
+        if (changes.motto.value != null) payload.motto = changes.motto.value!;
+        hasChanges = true;
+      }
+      if (changes.phone.present) {
+        if (changes.phone.value != null) payload.phone = changes.phone.value!;
+        hasChanges = true;
+      }
+      if (changes.email.present) {
+        if (changes.email.value != null) payload.email = changes.email.value!;
+        hasChanges = true;
+      }
+      if (changes.county.present) {
+        payload.county = changes.county.value;
+        hasChanges = true;
+      }
+      if (changes.domain.present) {
+        if (changes.domain.value != null) {
+          payload.domain = changes.domain.value!;
+        }
+        hasChanges = true;
+      }
+      if (changes.established.present) {
+        if (changes.established.value != null) {
+          payload.established = changes.established.value!;
+        }
+        hasChanges = true;
+      }
+      if (changes.status.present) {
+        payload.status = changes.status.value.index;
+        hasChanges = true;
+      }
+
+      if (!hasChanges) return; // nothing tracked to log
 
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      // Try to get school name for resource display; fall back to schoolId.
+      String resourceName = schoolId;
+      if (changes.name.present) {
+        resourceName = changes.name.value;
+      } else {
+        final existing = await getSchool(schoolId);
+        if (existing != null) resourceName = existing.name;
+      }
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.schools),
-          op: const Value(LogOperation.update),
-          rowKey: Value(schoolId),
-          columns: Value(mask),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.updateSchool),
+          resource: Value(resourceName),
+          payload: Value(payload.writeToBuffer()),
           created: Value(now),
         ),
       );
@@ -225,13 +279,19 @@ class SchoolsDao extends DatabaseAccessor<AppDatabase> with _$SchoolsDaoMixin {
   Future<void> purgeSchool(String schoolId, {required String accountId}) async {
     await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      // Get the school name for human-readable resource display.
+      final existing = await getSchool(schoolId);
+      final resourceName = existing?.name ?? schoolId;
+
+      final payload = sync_pb.DeleteSchoolPayload(id: schoolId);
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.schools),
-          op: const Value(LogOperation.delete),
-          rowKey: Value(schoolId),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.deleteSchool),
+          resource: Value(resourceName),
+          payload: Value(payload.writeToBuffer()),
           created: Value(now),
         ),
       );
@@ -271,17 +331,18 @@ class SchoolsDao extends DatabaseAccessor<AppDatabase> with _$SchoolsDaoMixin {
     // dedicated file-sync mechanism — no DB column exists for the logo itself.
   }
 
-  /// Links an existing user as an owner of a school and writes a log insert
-  /// entry, both in a single transaction.
+  /// Links an existing user as an owner of a school and writes a log entry
+  /// with [SyncAction.createOwner], both in a single transaction.
   ///
   /// The caller must verify that the user is not already an owner of this
   /// school before calling (see [isOwner]).
   ///
+  /// [ownerUser] is the full [UsersData] row for the user being linked.
   /// [accountId] is the currently active account's user id, used to associate
   /// the log entry with the correct account.
   Future<void> linkOwner({
     required String schoolId,
-    required String userId,
+    required UsersData ownerUser,
     required String accountId,
   }) async {
     await transaction(() async {
@@ -293,18 +354,27 @@ class SchoolsDao extends DatabaseAccessor<AppDatabase> with _$SchoolsDaoMixin {
       await into(owners).insert(
         OwnersCompanion(
           school: Value(schoolId),
-          user: Value(userId),
+          user: Value(ownerUser.id),
           created: Value(nowSeconds),
         ),
       );
 
+      final payload = sync_pb.CreateOwnerPayload(
+        school: schoolId,
+        userId: ownerUser.id,
+        phone: ownerUser.phone,
+        name: ownerUser.name,
+      );
+      if (ownerUser.email != null) {
+        payload.email = ownerUser.email!;
+      }
+
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          tbl: const Value(LogTable.owners),
-          op: const Value(LogOperation.insert),
-          rowKey: Value('$schoolId|$userId'),
-          status: const Value(LogStatus.pending),
+          action: Value(SyncAction.createOwner),
+          resource: Value(ownerUser.phone),
+          payload: Value(payload.writeToBuffer()),
           created: Value(now),
         ),
       );
