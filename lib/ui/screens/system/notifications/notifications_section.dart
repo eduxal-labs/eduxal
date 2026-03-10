@@ -210,7 +210,7 @@ class _NotificationTile extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Table icon.
+          // Action icon.
           Container(
             width: 32,
             height: 32,
@@ -224,7 +224,7 @@ class _NotificationTile extends StatelessWidget {
                   : null,
             ),
             child: Icon(
-              _iconForTable(notification.table),
+              _iconForAction(notification.action),
               size: 16,
               color: cs.error,
             ),
@@ -234,7 +234,7 @@ class _NotificationTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Title row — table name + operation badge.
+                // Title row — action name + action type badge.
                 Row(
                   children: [
                     Expanded(
@@ -251,7 +251,7 @@ class _NotificationTile extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    _OperationBadge(operation: notification.operation, cs: cs),
+                    _ActionBadge(action: notification.action, cs: cs),
                   ],
                 ),
                 const SizedBox(height: 3),
@@ -268,6 +268,22 @@ class _NotificationTile extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
+                // Resource identifier (if non-empty).
+                if (notification.resource.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    notification.resource,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w400,
+                      fontFamily: 'monospace',
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                      letterSpacing: 0.3,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
                 const SizedBox(height: 4),
                 // Timestamp.
                 Text(
@@ -287,38 +303,109 @@ class _NotificationTile extends StatelessWidget {
     );
   }
 
-  /// Returns a representative icon for the given [LogTable] value.
-  static IconData _iconForTable(LogTable table) => switch (table) {
-    LogTable.users => Icons.person_outline_rounded,
-    LogTable.schools => Icons.school_outlined,
-    LogTable.owners => Icons.admin_panel_settings_outlined,
-    LogTable.students => Icons.face_outlined,
-    LogTable.guardians => Icons.family_restroom_outlined,
-    LogTable.departments => Icons.category_outlined,
-    LogTable.teachers => Icons.person_outline_rounded,
-    LogTable.staff => Icons.badge_outlined,
-    LogTable.terms => Icons.calendar_month_outlined,
-    LogTable.classTeachers => Icons.class_outlined,
-    LogTable.enrollments => Icons.how_to_reg_outlined,
-    LogTable.subjects => Icons.book_outlined,
-    LogTable.attendance => Icons.checklist_outlined,
-    LogTable.timetable => Icons.table_chart_outlined,
-    LogTable.lessons => Icons.menu_book_outlined,
-    LogTable.exams => Icons.quiz_outlined,
-    LogTable.papers => Icons.description_outlined,
-    LogTable.grades => Icons.grade_outlined,
-    LogTable.fees => Icons.receipt_outlined,
-    LogTable.invoices => Icons.receipt_long_outlined,
-    LogTable.payments => Icons.payments_outlined,
-    LogTable.announcements => Icons.campaign_outlined,
-    LogTable.mastery => Icons.star_outline_rounded,
-    LogTable.aiusage => Icons.auto_awesome_outlined,
-    LogTable.settings => Icons.settings_outlined,
-    LogTable.roles => Icons.verified_user_outlined,
-    LogTable.scopes => Icons.lock_outline_rounded,
-    LogTable.plans => Icons.subscriptions_outlined,
-    LogTable.subscriptions => Icons.card_membership_outlined,
-    LogTable.discounts => Icons.local_offer_outlined,
+  /// Returns a representative icon for the given [SyncAction] value based on
+  /// the domain group the action belongs to.
+  static IconData _iconForAction(SyncAction action) => switch (action) {
+    // Schools
+    SyncAction.createSchool ||
+    SyncAction.updateSchool ||
+    SyncAction.deleteSchool => Icons.school_outlined,
+    // Teachers
+    SyncAction.createTeacher ||
+    SyncAction.updateTeacher ||
+    SyncAction.deleteTeacher => Icons.person_outline_rounded,
+    // Staff
+    SyncAction.createStaff ||
+    SyncAction.updateStaff ||
+    SyncAction.deleteStaff => Icons.badge_outlined,
+    // Owners
+    SyncAction.createOwner ||
+    SyncAction.deleteOwner => Icons.admin_panel_settings_outlined,
+    // Students
+    SyncAction.createStudent ||
+    SyncAction.updateStudent ||
+    SyncAction.deleteStudent ||
+    SyncAction.enrollStudent ||
+    SyncAction.unenrollStudent => Icons.face_outlined,
+    // Guardians
+    SyncAction.createGuardian ||
+    SyncAction.updateGuardian ||
+    SyncAction.deleteGuardian => Icons.family_restroom_outlined,
+    // Departments
+    SyncAction.createDepartment ||
+    SyncAction.updateDepartment ||
+    SyncAction.deleteDepartment => Icons.category_outlined,
+    // Terms
+    SyncAction.createTerm ||
+    SyncAction.updateTerm ||
+    SyncAction.deleteTerm => Icons.calendar_month_outlined,
+    // Classes (class teachers, subjects, timetable)
+    SyncAction.assignClassTeacher ||
+    SyncAction.unassignClassTeacher => Icons.class_outlined,
+    SyncAction.assignSubject ||
+    SyncAction.unassignSubject => Icons.book_outlined,
+    SyncAction.createTimetableEntry ||
+    SyncAction.updateTimetableEntry ||
+    SyncAction.deleteTimetableEntry => Icons.table_chart_outlined,
+    // Attendance
+    SyncAction.markAttendance ||
+    SyncAction.deleteAttendance => Icons.checklist_outlined,
+    // Lessons
+    SyncAction.createLesson ||
+    SyncAction.deleteLesson => Icons.menu_book_outlined,
+    // Exams & Papers
+    SyncAction.createExam ||
+    SyncAction.updateExam ||
+    SyncAction.deleteExam => Icons.quiz_outlined,
+    SyncAction.createPaper ||
+    SyncAction.updatePaper ||
+    SyncAction.deletePaper => Icons.description_outlined,
+    // Grades & Mastery
+    SyncAction.markGrades ||
+    SyncAction.updateGrade ||
+    SyncAction.deleteGrade => Icons.grade_outlined,
+    SyncAction.updateMastery => Icons.star_outline_rounded,
+    // Fees & Invoices
+    SyncAction.createFee ||
+    SyncAction.updateFee ||
+    SyncAction.deleteFee => Icons.receipt_outlined,
+    SyncAction.createInvoice ||
+    SyncAction.updateInvoice ||
+    SyncAction.deleteInvoice => Icons.receipt_long_outlined,
+    // Payments
+    SyncAction.createPayment ||
+    SyncAction.updatePayment ||
+    SyncAction.deletePayment ||
+    SyncAction.approvePayment => Icons.payments_outlined,
+    // Announcements
+    SyncAction.createAnnouncement ||
+    SyncAction.updateAnnouncement ||
+    SyncAction.deleteAnnouncement => Icons.campaign_outlined,
+    // Roles & Scopes
+    SyncAction.createRole ||
+    SyncAction.updateRole ||
+    SyncAction.deleteRole => Icons.verified_user_outlined,
+    SyncAction.assignRole ||
+    SyncAction.unassignRole => Icons.lock_outline_rounded,
+    // Users
+    SyncAction.updateUser ||
+    SyncAction.deleteUser => Icons.person_outline_rounded,
+    // Settings
+    SyncAction.updateSettings => Icons.settings_outlined,
+    // Plans
+    SyncAction.createPlan ||
+    SyncAction.updatePlan ||
+    SyncAction.deletePlan => Icons.subscriptions_outlined,
+    // AI
+    SyncAction.updateAiUsage => Icons.auto_awesome_outlined,
+    // Subscriptions
+    SyncAction.createSubscription ||
+    SyncAction.updateSubscription ||
+    SyncAction.deleteSubscription => Icons.card_membership_outlined,
+    // Discounts
+    SyncAction.createDiscount ||
+    SyncAction.updateDiscount ||
+    SyncAction.deleteDiscount => Icons.local_offer_outlined,
   };
 
   /// Returns a human-readable relative time string for [time].
@@ -339,28 +426,19 @@ class _NotificationTile extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Operation badge
+// Action badge
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _OperationBadge extends StatelessWidget {
-  const _OperationBadge({required this.operation, required this.cs});
+class _ActionBadge extends StatelessWidget {
+  const _ActionBadge({required this.action, required this.cs});
 
-  final LogOperation operation;
+  final SyncAction action;
   final ColorScheme cs;
 
   @override
   Widget build(BuildContext context) {
-    final label = switch (operation) {
-      LogOperation.insert => 'Insert',
-      LogOperation.update => 'Update',
-      LogOperation.delete => 'Delete',
-    };
+    final (label, color) = _labelAndColor(action);
     final isDark = cs.brightness == Brightness.dark;
-    final color = switch (operation) {
-      LogOperation.insert => const Color(0xFF26A69A),
-      LogOperation.update => const Color(0xFFFFB300),
-      LogOperation.delete => cs.error,
-    };
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -382,5 +460,23 @@ class _OperationBadge extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  (String, Color) _labelAndColor(SyncAction action) {
+    final name = action.name;
+    if (name.startsWith('create')) return ('Create', const Color(0xFF26A69A));
+    if (name.startsWith('update')) return ('Update', const Color(0xFFFFB300));
+    if (name.startsWith('delete')) return ('Delete', cs.error);
+    if (name.startsWith('unassign')) {
+      return ('Unassign', const Color(0xFFEF5350));
+    }
+    if (name.startsWith('assign')) return ('Assign', const Color(0xFF42A5F5));
+    if (name.startsWith('unenroll')) return ('Unenroll', cs.error);
+    if (name.startsWith('enroll')) return ('Enroll', const Color(0xFF26A69A));
+    if (name.startsWith('mark')) return ('Mark', const Color(0xFFFFB300));
+    if (name.startsWith('approve')) {
+      return ('Approve', const Color(0xFF66BB6A));
+    }
+    return ('Action', const Color(0xFF90A4AE));
   }
 }

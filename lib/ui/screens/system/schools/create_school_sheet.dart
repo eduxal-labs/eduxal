@@ -236,20 +236,20 @@ class _CreateSchoolSheetState extends State<CreateSchoolSheet> {
         updated: Value(nowSeconds),
       );
 
-      String ownerUserId;
+      UsersData ownerUser;
 
       if (latestUser != null) {
         // Existing user found — use directly.
-        ownerUserId = latestUser.id;
+        ownerUser = latestUser;
 
         await schoolsDao.createSchool(
           school: schoolCompanion,
-          ownerUserId: ownerUserId,
+          ownerUser: ownerUser,
           accountId: accountId,
         );
       } else {
         // New user — create an invited user first, then the school.
-        ownerUserId = ObjectId().oid;
+        final ownerUserId = ObjectId().oid;
         final ownerName = _ownerNameCtrl.text.trim();
         final ownerEmail = _ownerEmailCtrl.text.trim();
 
@@ -267,9 +267,12 @@ class _CreateSchoolSheetState extends State<CreateSchoolSheet> {
           accountId: accountId,
         );
 
+        // Fetch the freshly created user row to pass to createSchool.
+        ownerUser = (await usersDao.getUser(ownerUserId))!;
+
         await schoolsDao.createSchool(
           school: schoolCompanion,
-          ownerUserId: ownerUserId,
+          ownerUser: ownerUser,
           accountId: accountId,
         );
       }

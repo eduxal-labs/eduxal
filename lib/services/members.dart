@@ -9,6 +9,7 @@ import '../database/database.dart';
 import '../database/daos/members_dao.dart';
 import '../database/tables/enums.dart';
 import '../models/result.dart';
+import '../proto/services/sync.pb.dart' as sync_pb;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Phone-first resolution result
@@ -152,6 +153,7 @@ class MemberCreationService {
           user: Value(existing.id),
           created: Value(nowSec),
         ),
+        existingUser: existing,
         accountId: accountId,
       );
       return Ok(existing);
@@ -249,6 +251,7 @@ class MemberCreationService {
           created: Value(nowSec),
           updated: Value(nowSec),
         ),
+        existingUser: existing,
         accountId: accountId,
       );
       return Ok(existing);
@@ -343,6 +346,7 @@ class MemberCreationService {
           created: Value(nowSec),
           updated: Value(nowSec),
         ),
+        existingUser: existing,
         accountId: accountId,
       );
       return Ok(existing);
@@ -495,6 +499,7 @@ class MemberCreationService {
           created: Value(nowSec),
           updated: Value(nowSec),
         ),
+        existingUser: existing,
         accountId: accountId,
       );
       return Ok(existing);
@@ -556,10 +561,10 @@ class MemberCreationService {
   /// the database**. The image is always served from its constant path.
   ///
   /// After saving the file this method also enqueues a log row so the sync
-  /// engine knows to upload the image when connectivity is restored.  The log
-  /// row uses [LogOperation.update] with a bitmask of 0 (no column changed) —
-  /// a sentinel value that the sync engine interprets as "re-upload profile
-  /// image for this user".
+  /// engine knows to upload the image when connectivity is restored. The log
+  /// uses [SyncAction.updateUser] with an [UpdateUserPayload] containing only
+  /// the user id — the server detects the file-bearing record and returns a
+  /// presigned PUT URL in the ack.
   ///
   /// Returns `true` on success, `false` if the copy failed.
   Future<bool> saveUserProfileImage({
@@ -577,17 +582,20 @@ class MemberCreationService {
 
       // Enqueue a log entry so the sync engine can upload this image.
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+      final payload = sync_pb.UpdateUserPayload(id: userId);
+
+      // Get user phone for resource display.
+      final user = await _dao.findUserById(userId);
+      final resourceName = user?.phone ?? userId;
+
       await db
           .into(db.logs)
           .insert(
             LogsCompanion(
               account: Value(accountId),
-              tbl: const Value(LogTable.users),
-              op: const Value(LogOperation.update),
-              rowKey: Value(userId),
-              // columns = 0 is the sentinel for "re-upload profile image".
-              columns: const Value(0),
-              status: const Value(LogStatus.pending),
+              action: Value(SyncAction.updateUser),
+              resource: Value(resourceName),
+              payload: Value(payload.writeToBuffer()),
               created: Value(nowMs),
             ),
           );
@@ -602,7 +610,9 @@ class MemberCreationService {
   /// Saves a student profile image [sourceFile] to:
   /// `{appDir}/schools/{schoolId}/students/{adm}/image`
   ///
-  /// Same log-queue strategy as [saveUserProfileImage].
+  /// Same log-queue strategy as [saveUserProfileImage], but uses
+  /// [SyncAction.updateStudent] with an [UpdateStudentPayload] containing
+  /// only the PK fields (school + adm).
   Future<bool> saveStudentImage({
     required String schoolId,
     required int adm,
@@ -620,16 +630,20 @@ class MemberCreationService {
       await sourceFile.copy(targetPath);
 
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+      final payload = sync_pb.UpdateStudentPayload(school: schoolId, adm: adm);
+
+      // Get student name for resource display.
+      final student = await _dao.getStudent(schoolId, adm);
+      final resourceName = student?.name ?? 'Student #$adm';
+
       await db
           .into(db.logs)
           .insert(
             LogsCompanion(
               account: Value(accountId),
-              tbl: const Value(LogTable.students),
-              op: const Value(LogOperation.update),
-              rowKey: Value('$schoolId|$adm'),
-              columns: const Value(0),
-              status: const Value(LogStatus.pending),
+              action: Value(SyncAction.updateStudent),
+              resource: Value(resourceName),
+              payload: Value(payload.writeToBuffer()),
               created: Value(nowMs),
             ),
           );
@@ -646,24 +660,30 @@ class MemberCreationService {
   // ─────────────────────────────────────────────────────────────────────────
 
   /// Hard-deletes a deleted user row so the phone number can be reused by a
-  /// fresh invited user. A DELETE log entry is enqueued first so the sync
-  /// engine can propagate the removal. Cascade deletes in the schema will
-  /// clean up any stale role links (owners, teachers, staff, guardians).
+  /// fresh invited user. A [SyncAction.deleteUser] log entry is enqueued first
+  /// so the sync engine can propagate the removal. Cascade deletes in the
+  /// schema will clean up any stale role links (owners, teachers, staff,
+  /// guardians).
   Future<void> _purgeDeletedUser(
     String userId, {
     required String accountId,
   }) async {
     final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
+    // Get user info for resource display before deletion.
+    final user = await _dao.findUserById(userId);
+    final resourceName = user?.phone ?? userId;
+
+    final payload = sync_pb.DeleteUserPayload(id: userId);
+
     await db
         .into(db.logs)
         .insert(
           LogsCompanion(
             account: Value(accountId),
-            tbl: const Value(LogTable.users),
-            op: const Value(LogOperation.delete),
-            rowKey: Value(userId),
-            status: const Value(LogStatus.pending),
+            action: Value(SyncAction.deleteUser),
+            resource: Value(resourceName),
+            payload: Value(payload.writeToBuffer()),
             created: Value(nowMs),
           ),
         );

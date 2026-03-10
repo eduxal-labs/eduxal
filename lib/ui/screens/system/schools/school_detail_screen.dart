@@ -5087,7 +5087,7 @@ class _AddOwnerSheetState extends State<_AddOwnerSheet> {
 
         await schoolsDao.linkOwner(
           schoolId: widget.schoolId,
-          userId: _foundUser!.id,
+          ownerUser: _foundUser!,
           accountId: accountId,
         );
 
@@ -5123,9 +5123,12 @@ class _AddOwnerSheetState extends State<_AddOwnerSheet> {
           accountId: accountId,
         );
 
+        // Fetch the freshly created user row.
+        final createdUser = await usersDao.getUser(userId);
+
         await schoolsDao.linkOwner(
           schoolId: widget.schoolId,
-          userId: userId,
+          ownerUser: createdUser!,
           accountId: accountId,
         );
 
