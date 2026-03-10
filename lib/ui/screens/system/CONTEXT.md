@@ -109,7 +109,9 @@ This directory contains **1 shell screen file** and **8 subdirectories**, each r
 | `notifications_panel.dart` | `NotificationsPanel` | ✅ Complete | Panel/overlay version of the notifications list, used in the dashboard shell for quick access. |
 
 **Data source:** `LogsDao.watchFailedLogs(accountId)` → mapped to `List<AppNotification>`
-**Dependencies:** `database/daos/logs_dao.dart`, `models/app_notification.dart` (`AppNotification`), `database/tables/enums.dart` (`LogTable`, `LogOperation`, `LogStatus`)
+**Dependencies:** `database/daos/logs_dao.dart`, `models/app_notification.dart` (`AppNotification`), `database/tables/enums.dart` (`SyncAction`)
+
+**Migration note (Task C13):** All three notification widgets were updated to use the action-based `SyncAction` enum instead of the old `LogTable`/`LogOperation` enums. Icon mapping is now by domain group derived from `SyncAction`, and operation badges derive create/update/delete/assign/mark/approve labels from the action name prefix. The old `_OperationBadge` widget was replaced by `_ActionBadge`. The `notification.rowKey` field was replaced by `notification.resource`.
 
 ## Permission Gating
 

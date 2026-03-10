@@ -70,12 +70,18 @@ Each DAO extends `DatabaseAccessor<AppDatabase>` and is annotated with `@DriftAc
 - `watchAllUsers() → Stream<List<UsersData>>` — Reactive list of all users.
 
 ### `LogsDao`
-- `insertLog(LogsCompanion) → Future<int>` — Enqueue a mutation log entry.
-- `watchPendingLogs(String accountId) → Stream<List<LogsData>>` — Pending logs for an account.
-- `watchFailedLogs(String accountId) → Stream<List<AppNotification>>` — Failed logs for notifications.
-- `watchFailedLogCount(String accountId) → Stream<int>` — Reactive COUNT of failed logs for badge display. More efficient than mapping `watchFailedLogs` length.
-- `deleteLog(int id) → Future<void>` — Remove a synced/resolved log entry.
-- `markFailed(int id, String error) → Future<void>` — Mark a log as failed with error message.
+- `insertLog(LogsCompanion) → Future<void>` — Enqueue an action log entry (action, resource, payload, created).
+- `getPendingLogs(String accountId) → Future<List<LogsData>>` — All pending entries for an account, oldest first.
+- `getFailedLogs(String accountId) → Future<List<LogsData>>` — All failed entries for an account.
+- `watchFailedLogs(String accountId) → Stream<List<AppNotification>>` — Failed logs as `AppNotification` objects for the notifications panel.
+- `watchFailedLogCount(String accountId) → Stream<int>` — Reactive COUNT of failed logs for badge display.
+- `deleteLog(int id) → Future<void>` — Remove a single synced/resolved log entry.
+- `deleteLogs(List<int> ids) → Future<void>` — Remove multiple log entries by IDs.
+- `markFailed(int id, String error) → Future<void>` — Mark a log as failed with error message and increment attempts.
+
+**Removed methods (action-based redesign):**
+- `collapseUpdateLogs` — no more column bitmask coalescing
+- `supersedWithDelete` — no more delete-supersedes-insert logic
 
 ### `MembershipsDao`
 - `watchMemberships(String userId) → Stream<List<SchoolMembership>>` — Assembles all five membership tables + schools into `SchoolMembership` list for the home screen.
@@ -83,23 +89,55 @@ Each DAO extends `DatabaseAccessor<AppDatabase>` and is annotated with `@DriftAc
 > **Note:** `MembershipsDao` is intentionally **excluded** from `@DriftDatabase(daos: [...])` in `database.dart` to avoid a circular import. It imports `database.dart` for generated types but `database.dart` must not import `membership.dart` (even transitively). It is instantiated manually in `client.dart`.
 
 ### `MembersDao`
-- `watchOwners(String schoolId) → Stream<List<...>>` — Owners joined with users.
-- `watchTeachers(String schoolId) → Stream<List<...>>` — Teachers joined with users.
-- `watchStaff(String schoolId) → Stream<List<...>>` — Staff joined with users.
-- `watchStudents(String schoolId) → Stream<List<...>>` — Active students for a school.
+- `watchOwners(String schoolId) → Stream<List<OwnersData>>` — All owners for a school.
+- `watchTeachers(String schoolId) → Stream<List<TeachersData>>` — All teachers for a school.
+- `watchStaff(String schoolId) → Stream<List<StaffData>>` — All staff for a school.
+- `watchStudents(String schoolId) → Stream<List<StudentsData>>` — All students for a school.
 - `watchAllStudents(String schoolId) → Stream<List<StudentsData>>` — ALL students regardless of status, ordered by adm ascending.
 - `watchStudent(String schoolId, int adm) → Stream<StudentsData?>` — Reactively watches a single student row. Returns `null` if not found.
 - `searchStudents(String schoolId, String query) → Future<List<StudentsData>>` — Searches active students by name (case-insensitive LIKE) or admission number (exact match). Returns up to 50 results. One-shot, not a stream.
-- `watchGuardians(String schoolId) → Stream<List<...>>` — Guardians joined with users + students.
+- `watchGuardians(String schoolId, int studentAdm) → Stream<List<GuardiansData>>` — Guardians for a specific student.
+- `watchAllGuardians(String schoolId) → Stream<List<GuardiansData>>` — All guardians at school.
 - `watchClassTeacherAssignments(String schoolId, String teacherUserId) → Stream<List<ClassTeacher>>` — All class_teachers rows for a teacher at a school, across all years/terms. Ordered by year desc, grade asc.
 - `watchTeacherSubjects(String schoolId, String teacherUserId) → Stream<List<Subject>>` — All subjects rows assigned to a teacher at a school, across all years/terms. Ordered by year desc, grade asc.
-- `insertOwner(...)`, `insertTeacher(...)`, `insertStaff(...)`, `insertStudent(...)`, `insertGuardian(...)` — Insert methods.
-- `ownerExists(schoolId, userId) → Future<bool>`, similar for other member types.
+- `watchUniqueGuardians(String schoolId) → Stream<List<({UsersData user, int wardCount})>>` — Deduped guardians with ward count.
+- `watchGuardianWards(String schoolId, String guardianUserId) → Stream<List<({GuardiansData guardian, StudentsData? student})>>` — Guardian links with ward data.
+- `ownerExists(schoolId, userId) → Future<bool>`, `teacherExists(...)`, `staffExists(...)`, `guardianExists(...)` — Duplicate checks.
+- **Mutation methods (action-based logging):**
+  - `inviteAndAddOwner(newUser, owner, accountId)` — Creates invited user + owner row + single `SyncAction.createOwner` log with `CreateOwnerPayload`.
+  - `addExistingUserAsOwner(owner, existingUser, accountId)` — Links existing user as owner + `SyncAction.createOwner` log. **Signature changed in C9:** now requires `UsersData existingUser` parameter.
+  - `removeOwner(schoolId, userId, accountId)` — Deletes owner + `SyncAction.deleteOwner` log.
+  - `inviteAndAddTeacher(newUser, teacher, accountId)` — Creates invited user + teacher + single `SyncAction.createTeacher` log with `CreateTeacherPayload`.
+  - `addExistingUserAsTeacher(teacher, existingUser, accountId)` — Links existing user + `SyncAction.createTeacher` log. **Signature changed in C9:** now requires `UsersData existingUser`.
+  - `updateTeacher(schoolId, userId, changes, accountId)` — Updates teacher + `SyncAction.updateTeacher` log with `UpdateTeacherPayload` (protobuf `has*()` semantics, no bitmask).
+  - `removeTeacher(schoolId, userId, accountId)` — Deletes teacher + `SyncAction.deleteTeacher` log.
+  - `inviteAndAddStaff(newUser, member, accountId)` — Creates invited user + staff + single `SyncAction.createStaff` log.
+  - `addExistingUserAsStaff(member, existingUser, accountId)` — Links existing user + `SyncAction.createStaff` log. **Signature changed in C9:** now requires `UsersData existingUser`.
+  - `updateStaff(schoolId, userId, changes, accountId)` — Updates staff + `SyncAction.updateStaff` log.
+  - `removeStaff(schoolId, userId, accountId)` — Deletes staff + `SyncAction.deleteStaff` log.
+  - `createStudent(student, accountId)` — Creates student + `SyncAction.createStudent` log with `CreateStudentPayload`.
+  - `updateStudent(schoolId, adm, changes, accountId)` — Updates student + `SyncAction.updateStudent` log with `UpdateStudentPayload`.
+  - `linkStudentToUser(schoolId, adm, userId, accountId)` — Convenience wrapper around `updateStudent`.
+  - `inviteAndAddGuardian(newUser, guardian, accountId)` — Creates invited user + guardian + single `SyncAction.createGuardian` log.
+  - `addExistingUserAsGuardian(guardian, existingUser, accountId)` — Links existing user + `SyncAction.createGuardian` log. **Signature changed in C9:** now requires `UsersData existingUser`.
+  - `updateGuardian(schoolId, userId, studentAdm, changes, accountId)` — Updates guardian + `SyncAction.updateGuardian` log.
+  - `removeGuardian(schoolId, userId, studentAdm, accountId)` — Deletes guardian + `SyncAction.deleteGuardian` log.
+- **Key change in C9:** Invitation methods no longer write a separate `users` INSERT log. The user identity (phone, name, email) is embedded in the member payload (e.g. `CreateTeacherPayload.phone/name/email`). The server handles user lookup/creation from the payload. This eliminates the old two-log invitation pattern.
 
 ### `SchoolsDao`
-- `watchAllSchools() → Stream<List<SchoolsData>>` — All schools.
-- `getSchoolById(String id) → Future<SchoolsData?>` — Single school.
-- `upsertSchool(SchoolsCompanion) → Future<void>` — Insert or replace.
+- `watchSchools() → Stream<List<SchoolsData>>` — All schools (unordered).
+- `watchAllSchools() → Stream<List<SchoolsData>>` — All schools ordered by name ascending.
+- `watchOwnersForSchool(String schoolId) → Stream<List<({OwnersData owner, UsersData user})>>` — Owners joined with users.
+- `getSchool(String id) → Future<SchoolsData?>` — Single school by id.
+- `upsertSchool(SchoolsCompanion) → Future<void>` — Sync-sourced insert or replace (no log).
+- **Mutation methods (action-based logging):**
+  - `createSchool(school, ownerUser, accountId)` — Creates school + owner row + single `SyncAction.createSchool` log with `CreateSchoolPayload` (includes embedded owner identity). **Signature changed in C9:** takes `UsersData ownerUser` instead of `String ownerUserId`.
+  - `updateSchoolDetails(schoolId, changes, accountId)` — Updates school + `SyncAction.updateSchool` log with `UpdateSchoolPayload` (protobuf `has*()` semantics, no bitmask).
+  - `updateSchoolStatus(schoolId, status, accountId)` — Convenience wrapper around `updateSchoolDetails`.
+  - `purgeSchool(schoolId, accountId)` — Deletes school + `SyncAction.deleteSchool` log.
+  - `linkOwner(schoolId, ownerUser, accountId)` — Links existing user as owner + `SyncAction.createOwner` log. **Signature changed in C9:** takes `UsersData ownerUser` instead of `String userId`.
+  - `isOwner(schoolId, userId) → Future<bool>` — Duplicate check.
+  - `logLogoChange(schoolId, accountId)` — Placeholder for logo file sync (currently no-op).
 
 ### `TermsDao`
 - `watchTerms(String schoolId) → Stream<List<Term>>` — All terms for a school, ordered year desc / term asc.
@@ -210,7 +248,38 @@ Other DAOs are created locally where needed (e.g. inside service classes or scre
 - One-shot queries return `Future<T>`.
 - Insert/update methods accept `Companion` objects (e.g. `UsersCompanion`).
 - Mutations to synced tables must also write to the `logs` table inside the same transaction.
-- Every DAO method that writes to the `logs` table calls `sync.pushNow()` (fire-and-forget) immediately after the transaction completes, so local mutations are pushed to the server as fast as possible. The `sync` global getter comes from `import '../../client.dart'`. If sync is not running (offline or no active account), `pushNow()` is a no-op and the mutations remain queued for the next push cycle or the 5-second periodic timer in `SyncEngine`.
+- Every DAO method that writes to the `logs` table calls `sync.schedulePush()` (fire-and-forget) immediately after the transaction completes. The `sync` global getter comes from `import '../../client.dart'`.
+- **Action-based logging (post-C9):** Log entries use `SyncAction` enum + serialized protobuf payload bytes instead of the old `LogTable`/`LogOperation`/bitmask model. Each log is self-contained — the sync engine reads the payload bytes directly without querying other tables. Update payloads use protobuf `has*()` semantics instead of column bitmasks.
+- **Invitation pattern (post-C9):** When creating a member for a new user, only a single log entry is written for the member action (e.g. `createTeacher`). The user's phone/name/email are embedded in the payload. The server handles user lookup/creation. No separate user INSERT log is written.
+- **Signature changes (C9):** `addExistingUserAs*` methods now require a `UsersData existingUser` parameter (previously extracted user ID from the companion). `SchoolsDao.createSchool` takes `UsersData ownerUser` instead of `String ownerUserId`. `SchoolsDao.linkOwner` takes `UsersData ownerUser` instead of `String userId`.
+
+## Callers Updated in C9
+
+- `lib/services/members.dart` — `MemberCreationService` methods now pass `existingUser: existing` to all `addExistingUserAs*` calls.
+- `lib/ui/screens/system/schools/create_school_sheet.dart` — `createSchool` calls now pass `ownerUser: UsersData` instead of `ownerUserId: String`. Fetches the created user row via `usersDao.getUser()` when a new user is invited.
+- `lib/ui/screens/system/schools/school_detail_screen.dart` — `linkOwner` calls now pass `ownerUser: UsersData`. Fetches the created user row via `usersDao.getUser()` when a new user is invited.
+
+## DAOs Updated in C11
+
+- **`exams_grades_dao.dart`** — All 11 `LogsCompanion` calls updated to action-based model. `createExam` → `SyncAction.createExam` + `CreateExamPayload`; `updateExam` → `SyncAction.updateExam` + `UpdateExamPayload` (uses protobuf `has*()` semantics instead of bitmask); `deleteExam` → `SyncAction.deleteExam` + `DeleteExamPayload`; `createPaper` → `SyncAction.createPaper` + `CreatePaperPayload`; `updatePaper` → `SyncAction.updatePaper` + `UpdatePaperPayload`; `deletePaper` → `SyncAction.deletePaper` + `DeletePaperPayload`; `upsertGrade` (existing) → `SyncAction.updateGrade` + `UpdateGradePayload`; `upsertGrade` (new) → `SyncAction.markGrades` + `MarkGradesPayload` with single `GradeRecord`; `deleteGrade` → `SyncAction.deleteGrade` + `DeleteGradePayload`; `upsertMastery` (both insert and update paths) → `SyncAction.updateMastery` + `UpdateMasteryPayload`. Added `import 'package:fixnum/fixnum.dart'` for `Int64` conversion of paper `start`/`end` BigInt→fixnum.Int64. Added `import '../../proto/services/sync.pb.dart' as sync_pb`. Removed all `LogTable`, `LogOperation`, `ExamsColumn`, `PapersColumn`, `GradesColumn`, `MasteryColumn` references.
+- **`finance_dao.dart`** — All 9 `LogsCompanion` calls updated to action-based model. `createFee` → `SyncAction.createFee` + `CreateFeePayload`; `updateFee` → `SyncAction.updateFee` + `UpdateFeePayload` (uses protobuf `has*()` semantics); `deleteFee` → `SyncAction.deleteFee` + `DeleteFeePayload`; `createInvoice` → `SyncAction.createInvoice` + `CreateInvoicePayload`; `updateInvoiceStatus` → `SyncAction.updateInvoice` + `UpdateInvoicePayload`; `recordPayment` → `SyncAction.createPayment` + `CreatePaymentPayload`; `upsertDiscount` (existing) → `SyncAction.updateDiscount` + `UpdateDiscountPayload`; `upsertDiscount` (new) → `SyncAction.createDiscount` + `CreateDiscountPayload`; `deleteDiscount` → `SyncAction.deleteDiscount` + `DeleteDiscountPayload`. Added `import 'package:fixnum/fixnum.dart'` for `Int64` conversion of fee/invoice `due` BigInt→fixnum.Int64. Added `import '../../proto/services/sync.pb.dart' as sync_pb`. Removed all `LogTable`, `LogOperation`, `FeesColumn`, `InvoicesColumn`, `DiscountsColumn` references. Removed unused `rowKey` variable from `upsertDiscount`.
+
+## DAOs Updated in C10
+
+- **`accounts_dao.dart`** — `updateName`, `updateEmail`, `deleteUserAccount` now use `SyncAction.updateUser` + `UpdateUserPayload`. No more `UsersColumn` bitmask or `LogTable`/`LogOperation` references. Added `import '../../proto/services/sync.pb.dart' as sync_pb`.
+- **`departments_dao.dart`** — `createDepartment` → `SyncAction.createDepartment` + `CreateDepartmentPayload`; `updateDepartmentDescription` → `SyncAction.updateDepartment` + `UpdateDepartmentPayload`; `assignTeacherToDepartment` → `SyncAction.updateTeacher` + `UpdateTeacherPayload`; `assignStaffToDepartment` → `SyncAction.updateStaff` + `UpdateStaffPayload`; `deleteDepartment` → `SyncAction.deleteDepartment` + `DeleteDepartmentPayload`. Removed old supersede-pending-log cleanup queries (no longer needed in action-based model).
+- **`terms_dao.dart`** — `createTerm` → `SyncAction.createTerm` + `CreateTermPayload`; `updateTerm` → `SyncAction.updateTerm` + `UpdateTermPayload`; `deleteTerm` → `SyncAction.deleteTerm` + `DeleteTermPayload`. Resource string format: `"Year YYYY Term T"`. Added `import 'package:fixnum/fixnum.dart'` for `Int64` conversion of `start`/`end` BigInt→Int64.
+- **`subjects_dao.dart`** — `assignSubjectTeacher` → `SyncAction.assignSubject` + `AssignSubjectPayload` (covers both fresh insert and reassign); `removeSubjectAssignment` → `SyncAction.unassignSubject` + `UnassignSubjectPayload`; `assignClassTeacher` → logs `SyncAction.unassignClassTeacher` for old + `SyncAction.assignClassTeacher` for new; `removeClassTeacher` → `SyncAction.unassignClassTeacher` + `UnassignClassTeacherPayload`. Removed old supersede-pending-log cleanup queries.
+- **`enrollments_dao.dart`** — `enrollStudent` → `SyncAction.enrollStudent` + `EnrollStudentPayload` (re-enrollment logs `SyncAction.unenrollStudent` for old class first); `unenrollStudent` → `SyncAction.unenrollStudent` + `UnenrollStudentPayload`. Resource string format: `"ADM {adm}"`. Removed old supersede-pending-log cleanup queries.
+
+## DAOs Updated in C12
+
+- **`attendance_dao.dart`** — All 3 `LogsCompanion` call sites updated. `markAttendance` (single student) → `SyncAction.markAttendance` + `MarkAttendancePayload` with one `AttendanceRecord`. `markClassAttendance` rewritten: no longer delegates to `markAttendance` per-student; instead performs all local DB writes inline and emits a single `SyncAction.markAttendance` log with all `AttendanceRecord` entries in one payload. `deleteAttendanceRecord` → `SyncAction.deleteAttendance` + `DeleteAttendancePayload`. Removed old supersede-pending-log cleanup queries (no longer needed). Added `import '../../proto/services/sync.pb.dart' as sync_pb`.
+- **`timetable_dao.dart`** — All 6 `LogsCompanion` call sites updated. `insertSlot` → `SyncAction.createTimetableEntry` + `CreateTimetableEntryPayload` (includes `end` field if present). `insertSlots` → same action per slot. `deleteSlot` → `SyncAction.deleteTimetableEntry` + `DeleteTimetableEntryPayload` (includes `subject`). `clearClassTimetable` → one `SyncAction.deleteTimetableEntry` log per existing entry. `insertLesson` → `SyncAction.createLesson` + `CreateLessonPayload`. `deleteLesson` → `SyncAction.deleteLesson` + `DeleteLessonPayload`. Removed all `LogTable`/`LogOperation`/rowKey references. Added `import '../../proto/services/sync.pb.dart' as sync_pb`.
+- **`announcements_dao.dart`** — All 3 `LogsCompanion` calls updated. `createAnnouncement` → `SyncAction.createAnnouncement` + `CreateAnnouncementPayload`. `updateAnnouncement` → `SyncAction.updateAnnouncement` + `UpdateAnnouncementPayload` (uses protobuf `has*()` semantics instead of bitmask). `deleteAnnouncement` → `SyncAction.deleteAnnouncement` + `DeleteAnnouncementPayload`. Removed old supersede-pending-log cleanup queries and `AnnouncementsColumn` bitmask logic. Added `import '../../proto/services/sync.pb.dart' as sync_pb`.
+- **`roles_dao.dart`** — All 5 `LogsCompanion` calls updated. `createRole` → `SyncAction.createRole` + `CreateRolePayload` (permissions converted via `utf8.encode`). `updateRole` → `SyncAction.updateRole` + `UpdateRolePayload` (permissions via `utf8.encode`). `assignUserToRole` → `SyncAction.assignRole` + `AssignRolePayload` (school omitted for system-level). `unassignUserFromRole` → `SyncAction.unassignRole` + `UnassignRolePayload`. `deleteRole` → `SyncAction.deleteRole` + `DeleteRolePayload`. Removed old supersede-pending-log cleanup queries and `RolesColumn` bitmask logic. Added `import 'dart:convert'` and `import '../../proto/services/sync.pb.dart' as sync_pb`.
+- **`plans_dao.dart`** — All 5 `LogsCompanion` calls updated. `createPlan` → `SyncAction.createPlan` + `CreatePlanPayload`. `updatePlan` → `SyncAction.updatePlan` + `UpdatePlanPayload` (uses protobuf `has*()` semantics; status stored as `.index`). `purgePlan` → `SyncAction.deletePlan` + `DeletePlanPayload`. `createSubscription` → `SyncAction.createSubscription` + `CreateSubscriptionPayload`. `updateSubscriptionStatus` → `SyncAction.updateSubscription` + `UpdateSubscriptionPayload`. Removed all `LogTable`/`LogOperation`/`PlansColumn`/`SubscriptionsColumn` bitmask references. Added `import '../../proto/services/sync.pb.dart' as sync_pb`.
+- **`settings_dao.dart`** — Both 2 `LogsCompanion` calls updated. `updateMpesa` → `SyncAction.updateSettings` + `UpdateSettingsPayload` (with `mpesa` field). `updateSchoolConfig` → `SyncAction.updateSettings` + `UpdateSettingsPayload` (with `data` field containing the merged JSON). Removed `SettingsColumn` bitmask logic and insert-vs-update `LogOperation` branching (now always `SyncAction.updateSettings`). Added `import '../../proto/services/sync.pb.dart' as sync_pb`.
 
 ## Last Updated
-Phase 1 Task 01 — Added `watchFailedLogCount(String accountId) → Stream<int>` to `LogsDao`. Uses `selectOnly` with `COUNT` aggregate for efficient reactive badge counts on dashboard avatars.
+Task C12 — Updated 6 remaining DAOs (`attendance_dao.dart`, `timetable_dao.dart`, `announcements_dao.dart`, `roles_dao.dart`, `plans_dao.dart`, `settings_dao.dart`) to use action-based logging with proto payloads. All old `LogTable`/`LogOperation`/`*Column` bitmask references removed from these files. Each mutation now builds the appropriate `*Payload` proto message and serializes it to `logs.payload`. `markClassAttendance` was rewritten to batch all student writes + emit a single log entry. All 6 files now import `sync.pb.dart as sync_pb`. `roles_dao.dart` additionally imports `dart:convert` for `utf8.encode` on permissions.

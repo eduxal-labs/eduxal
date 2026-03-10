@@ -6,7 +6,7 @@
 
 The Drift database contains **32 tables total**:
 - **30 backend-mirrored tables** — exact replicas of the server SQL schema (see `schema.sql`).
-- **2 client-only tables** — `accounts` (session management) and `logs` (offline mutation queue).
+- **2 client-only tables** — `accounts` (session management) and `logs` (offline action queue).
 
 All tables are defined in `tables/`, all query logic lives in `daos/`, and the `AppDatabase` class in `database.dart` registers everything.
 
@@ -14,7 +14,7 @@ All tables are defined in `tables/`, all query logic lives in `daos/`, and the `
 
 | File | Status | Description |
 |---|---|---|
-| `database.dart` | ✅ Complete | `AppDatabase` class — registers all 32 tables + all DAOs. Defines `MigrationStrategy` with `onCreate` (triggers, indexes as raw SQL). Singleton accessed via global `db` variable set in `client.dart`'s `initializeClient()`. |
+| `database.dart` | ✅ Complete | `AppDatabase` class — registers all 32 tables + all DAOs. Schema version **3**. `MigrationStrategy.onUpgrade` handles: v1→v2 (add `accounts.lastSeq` column), v2→v3 (drop+recreate `logs` table for action-based model). `onCreate` applies triggers + indexes as raw SQL. Singleton accessed via global `db` variable set in `client.dart`'s `initializeClient()`. |
 | `database.g.dart` | ✅ Generated | Drift code-gen output — `part of` `database.dart`. Contains all generated data classes (`UsersData`, `SchoolsData`, `AccountsData`, etc.) and table accessors. **Never edit manually.** Regenerate with `dart run build_runner build`. |
 
 ## Subdirectories
@@ -40,7 +40,7 @@ Companion classes for inserts/updates: `{TableName}Companion` (e.g. `UsersCompan
 
 ## Conventions
 
-- **Enum columns:** Every `smallint` enum column uses a `TypeConverter<EnumType, int>`. All enums and converters live in `tables/enums.dart`.
+- **Enum columns:** Every `smallint` enum column uses a `TypeConverter<EnumType, int>`. All enums and converters live in `tables/enums.dart`. The `SyncAction` enum (77 values) and `LogStatus` enum are the log-specific enums; the old `LogTable`, `LogOperation`, and all `*Column` bitset enums have been removed.
 - **BigInt DateTime:** `bigint` columns representing timestamps are `Int64Column` in Drift → `BigInt` in Dart. Converted to `int` via `.toInt()` in domain models.
 - **Integer Date:** `integer` columns representing dates are days since Unix epoch.
 - **Composite PKs:** Reproduced via `@override Set<Column> get primaryKey => {col1, col2, ...}`.
@@ -56,5 +56,27 @@ Companion classes for inserts/updates: `{TableName}Companion` (e.g. `UsersCompan
 
 The definitive source for all 30 backend table definitions is `eduxal/schema.sql`. It contains exact column names, types, CHECK constraints, FK relationships, triggers, and indexes. Always consult it when modifying or adding table definitions.
 
+## Logs Table Schema (Action-Based Model)
+
+The `logs` table was redesigned in Task C2 from a mutation-tracking model (`tbl`/`op`/`rowKey`/`columns`) to an action-based model:
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | `integer` (autoIncrement) | Surrogate PK — preserves replay order |
+| `account` | `text` (FK → accounts.id) | The account that performed this action |
+| `action` | `integer` (mapped via `SyncActionConverter`) | `SyncAction` enum — 77 semantic action types |
+| `resource` | `text` | Human-readable display key for notification UI |
+| `payload` | `blob` | Serialized protobuf action payload bytes (self-contained) |
+| `status` | `integer` (mapped via `LogStatusConverter`) | `LogStatus` enum: pending (0) / failed (1) |
+| `attempts` | `integer` (default 0) | Sync retry attempt count |
+| `error` | `text` (nullable) | Last server error message |
+| `created` | `int64` | Milliseconds since epoch |
+
+**Removed columns:** `tbl`, `op`, `rowKey`, `columns` (bitmask).
+
+**Removed enums (from `enums.dart`):** `LogTable`, `LogTableConverter`, `LogOperation`, `LogOperationConverter`, and all 27 `*Column` bitset enums (`UsersColumn`, `SchoolsColumn`, `StudentsColumn`, etc.).
+
+**Added enums:** `SyncAction` (77 values, explicit `int value` per entry) + `SyncActionConverter`.
+
 ## Last Updated
-Phase 1 Task 01 — Added `watchFailedLogCount(String accountId) → Stream<int>` to `LogsDao` (see `daos/CONTEXT.md` for full method listing). This method powers the sync-failure badge count on dashboard user avatars across both System and School dashboards.
+Task C6 — Incremented `schemaVersion` to 3. Added `onUpgrade` migration for `from < 3` that drops and recreates the `logs` table (action-based model replaces mutation-based model; pending sync data loss is acceptable).

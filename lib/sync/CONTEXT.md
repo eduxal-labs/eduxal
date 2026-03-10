@@ -57,8 +57,8 @@ Every lifecycle transition has a `debugPrint('[SyncEngine] ...')` call:
 | File | Status | Purpose |
 |---|---|---|
 | `delta_writer.dart` | ✅ Implemented | Receives `SyncDelta` proto messages and writes them directly to the local Drift database, bypassing DAOs to avoid log generation. |
-| `log_processor.dart` | ✅ Implemented | Reads `logs` table, coalesces mutations, builds `MutationBatch` proto messages for pushing to server. |
-| `sync_engine.dart` | ✅ Implemented | Top-level orchestrator — coordinates inbound deltas + outbound log replay via bidirectional gRPC streams. Exposes `ValueNotifier<SyncStatus> status` for UI binding. |
+| `log_processor.dart` | ❌ Deleted (Task C8) | Was: batch-based mutation coalescing, FK ordering, invitation pairing. All replaced by action-based model — sync engine now sends actions one-at-a-time directly from `logs` table. |
+| `sync_engine.dart` | ✅ Implemented | Top-level orchestrator — coordinates inbound deltas + outbound action replay via bidirectional gRPC streams. Exposes `ValueNotifier<SyncStatus> status` for UI binding. Push side rewritten for action-based model (Task C7). |
 | `sync_status.dart` | ✅ Implemented | Defines `SyncStatus` enum: `disconnected`, `idle`, `pushing`, `pulling`. Used by `SyncEngine.status` and the `SyncIndicator` widget. |
 
 ## `delta_writer.dart`
@@ -116,69 +116,17 @@ Every lifecycle transition has a `debugPrint('[SyncEngine] ...')` call:
 - `../database/tables/enums.dart`
 - `../proto/services/sync.pb.dart`
 
-## `log_processor.dart`
+## `log_processor.dart` — ❌ DELETED (Task C8)
 
-**Class:** `LogProcessor`
+This file has been deleted. It contained ~2097 lines of batch-based mutation processing logic that was entirely replaced by the action-based sync model:
 
-**Constructor:** `LogProcessor(AppDatabase db, LogsDao logsDao)`
+- Batch building & coalescing → replaced by one-action-at-a-time push in `sync_engine.dart`
+- FK dependency ordering (`kTableInsertPriority`) → no longer needed; each action is self-contained
+- Invitation pairing → server handles user lookup/creation from member action payloads
+- Column bitmask OR-ing → replaced by proto `*Payload` messages with explicit fields
+- Row data reading from local DB → replaced by pre-serialized payload blobs stored in `logs.payload`
 
-**Key public methods:**
-- `Future<List<MutationBatch>> buildBatches(String accountId, {int batchSize = 50})` — Reads all pending logs for an account, coalesces mutations for the same `(tbl, rowKey)`, reads current row data from the local DB, detects invitation pairs, and splits into `MutationBatch` proto messages respecting invitation-grouping constraints.
-- `List<int> logIdsForBatch(String batchId)` — Returns the log row IDs associated with a batch (for per-mutation error handling).
-- `Future<void> acknowledgeBatch(String batchId)` — Deletes all log rows for a successfully acknowledged batch.
-- `Future<void> markFailed(int logId, String error)` — Marks a single log entry as failed with an error message.
-- `Future<void> markBatchFailed(String batchId, String error)` — Marks all log entries in a batch as failed.
-- `void clearBatch(String batchId)` — Removes internal tracking for a batch without touching DB rows.
-
-**Coalescing logic (in `buildBatches`):**
-1. Groups pending logs by `(tbl, rowKey)`.
-2. If any entry in a group is a Delete → discard all others, emit one Delete mutation (no row data needed).
-3. If the first entry is an Insert (with optional subsequent Updates) → merge into a single Insert, read the full current row from the local DB.
-4. If all entries are Updates → OR all `columns` bitmasks together, emit one Update with the current local values.
-
-**Invitation batch grouping:**
-Before splitting into batches, scans for member Insert mutations (owners, teachers, staff, students, guardians) whose `user` field references a user Insert also in the pending logs. These are grouped into the same `MutationBatch` with the user Insert placed before the member Insert. This allows the server to detect the invitation pattern and resolve phone conflicts.
-
-**Row data reading (`_readRowData`):**
-- Dispatches on `LogTable` (0–29) to a per-table `_readXxx(rowKey)` method.
-- Each method parses the row key, queries the local Drift table by PK, and maps the Drift data class to the corresponding proto `*Row` message wrapped in a `RowData` oneof.
-- Returns `null` if the row no longer exists locally (mutation is skipped).
-- For tables with nullable PK columns (`papers`, `grades`, `scopes`): uses raw `customSelect` SQL with `IS NULL` / `= ?` conditionally, same pattern as `DeltaWriter`.
-
-**Enum conversion (Drift → Proto):**
-- Standard zero-indexed enums: use `.index` (e.g., `row.level.index`, `row.status.index`).
-- Non-zero-indexed enums (e.g., `AttendanceStatus`): use `.value` (e.g., `row.status.value`).
-
-**Permissions encoding (Drift → Proto):**
-- Drift stores `roles.permissions` as `text` (base64-encoded bytes).
-- Proto `RoleRow.permissions` expects `List<int>` (bytes).
-- The processor tries `base64Decode()` first; falls back to `utf8.encode()` for older raw JSON formats.
-
-**Batch ID generation:** Uses `ObjectId().oid` from the `bson` package (already in pubspec).
-
-**Internal tracking:** `Map<String, List<int>> _batchLogIds` maps `batchId → [logIds]` for acknowledgement and failure handling.
-
-**Internal helper types:**
-- `_GroupKey` — `(LogTable tbl, String rowKey)` with proper equality/hashCode for grouping.
-- `_CoalescedEntry` — result of coalescing: `tbl`, `rowKey`, `op`, `columns` (nullable), `logIds`.
-- `_MutationWithMeta` — a built `Mutation` proto alongside its `_CoalescedEntry` metadata.
-- `_InvitationPair` — `(userIndex, memberIndex)` pairing for batch grouping.
-
-**Helpers:**
-- `_parseKey(String rowKey) → List<String>` — splits pipe-delimited row keys
-- `_parseInt(String s) → int` — parses integer PK parts
-- `_parseIntNullable(String s) → int?` — handles `"null"` literal for nullable PK parts
-- `_toInt64(BigInt v) → Int64` — converts Dart BigInt to fixnum Int64 for proto fields
-
-**Imports:**
-- `dart:convert` (for base64Decode, utf8)
-- `package:bson/bson.dart` (for ObjectId)
-- `package:drift/drift.dart`
-- `package:fixnum/fixnum.dart`
-- `../database/database.dart`
-- `../database/daos/logs_dao.dart`
-- `../database/tables/enums.dart`
-- `../proto/services/sync.pb.dart`
+No files import `log_processor.dart` — all references were removed in Task C7.
 
 ## `sync_engine.dart`
 
@@ -187,74 +135,86 @@ Before splitting into batches, scans for member Insert mutations (owners, teache
 **Constructor:** `SyncEngine(ClientChannel channel, AccountsDao accountsDao, LogsDao logsDao)`
 
 **Key public methods:**
-- `Future<void> start({required String accountId, required String accessToken, required int lastSeq})` — Starts sync for a specific account. Stops any existing session first. Pushes pending mutations, opens watch stream, starts periodic push timer (5s).
+- `Future<void> start({required String accountId, required String accessToken, required int lastSeq})` — Starts sync for a specific account. Stops any existing session first. Pushes pending actions, opens watch stream, starts periodic push timer (5s).
 - `Future<void> stop()` — Stops sync entirely. Cancels all streams, subscriptions, and timers.
-- `Future<void> pushNow()` — Pushes pending local mutations immediately. Safe to call from anywhere (fire-and-forget). No-op if not running or offline.
+- `Future<bool> pushNow()` — Pushes pending local actions immediately. Returns `true` if at least one action was sent. Safe to call from anywhere (fire-and-forget). No-op if not running or offline.
+- `void schedulePush()` — Deferred push (150ms delay) to allow outer Drift transactions to commit before querying the `logs` table. Coalesces multiple calls within the same frame.
+- `void revive()` — Called when the app returns from background or regains network. Resets backoff and reconnects immediately if the watch stream is dead; otherwise just triggers a push.
 - `bool get isRunning` — Whether the sync engine is currently running.
-- `ValueNotifier<SyncStatus> status` — Observable sync status for UI widgets. Starts as `disconnected`. Transitions to `pulling` on first delta, `idle` on flush, `pushing` during active push, `disconnected` on `stop()` / stream error / push stream unavailable. Does NOT optimistically set `idle` on `start()` or `_startWatch()` — only confirmed activity moves the status.
+- `ValueNotifier<SyncStatus> status` — Observable sync status for UI widgets. Starts as `disconnected`. Transitions to `pulling` on first delta, `idle` on flush, `pushing` during active push, `disconnected` on `stop()` / stream error. Does NOT optimistically set `idle` on `start()` or `_startWatch()` — only confirmed activity moves the status.
 
 **Module-level helper:**
 - `_runGuarded(void Function() body)` — Wraps `body` in `runZonedGuarded` to catch unhandled async errors from the `http2` transport layer. Used for `_startWatch()` calls (initial + reconnect). Logs caught errors via `dart:developer` with name `'SyncEngine'` and `debugPrint`.
 
-**Inbound (watch) flow:**
-1. Opens `SyncClient.watchChanges(WatchRequest(lastSeq: ...))` server-streaming call (wrapped in `_runGuarded` to catch transport teardown errors). Does NOT set status to `idle` — gRPC stream creation is lazy and the actual TCP connection happens asynchronously.
+**Inbound (watch) flow — UNCHANGED:**
+1. Opens `SyncClient.watchChanges(WatchRequest(lastSeq: ...))` server-streaming call (wrapped in `_runGuarded` to catch transport teardown errors). Uses a raw-bytes streaming call for better proto parse error diagnostics.
 2. Each incoming `SyncDelta` is applied via `DeltaWriter.apply()`. The first delta transitions status from `disconnected` → `pulling` (with a debugPrint confirming connection).
 3. Tracks `_lastSeq` — persists it to `accounts.lastSeq` via `AccountsDao.updateLastSeq()` whenever the DeltaWriter flushes its buffer (checked via `bufferIsEmpty` getter). Status transitions to `idle` on flush.
 4. On `GrpcError(StatusCode.unauthenticated)` → stops sync entirely (caller handles token refresh).
 5. On other errors or stream completion → sets status to `disconnected`, schedules reconnect with exponential backoff (1s→2s→4s→8s→16s→30s max). All transitions have `debugPrint` for visibility.
 
-**Outbound (push) flow:**
-1. `pushNow()` calls `LogProcessor.buildBatches(accountId)` to get coalesced `MutationBatch` messages.
-2. Calls `_ensurePushStream()` which has its own `try/catch` — opens a `SyncClient.pushChanges()` client-streaming call if not already open. If the call throws (server unreachable), the push stream is torn down and `_pushController` remains null.
-3. After `_ensurePushStream()`, checks `_pushController == null || _pushController!.isClosed` — if true, logs and sets status to `disconnected`, returns without sending. Mutations stay queued.
-4. If the push stream is available, sends batches through the stream controller.
-5. Listens for `PushAck` responses from the server.
+**Outbound (push) flow — REWRITTEN (Task C7):**
+The push flow was rewritten from a batch-based model (via `LogProcessor`) to a one-at-a-time action-based model. `LogProcessor` is no longer used.
 
-**PushAck handling (`_onPushAck`):**
-- If `ack.success` → calls `LogProcessor.acknowledgeBatch(batchId)` to delete all associated log rows.
-- If per-mutation results exist → processes each `MutationResult` by error code:
-  - Code 0 (ok): log deleted via batch acknowledgement.
-  - Code 1 (permission_denied): marks log as failed (shown in notifications).
-  - Code 2 (conflict): deletes the local log entry; server version arrives via watch stream.
+1. `pushNow()` calls `LogsDao.getPendingLogs(accountId)` to get all pending `LogsData` rows (oldest first).
+2. Calls `_pushActions(pending)` which opens a bidirectional gRPC stream via `SyncClient.pushActions()`.
+3. Sends the first `ActionRequest` (with `id`, `action` int value, and serialized `payload` bytes from the log row).
+4. Waits for the `ActionResponse` from the server.
+5. Processes the response via `_processActionResponse()`, then sends the next action.
+6. After all actions are acknowledged, closes the stream.
+
+**ActionResponse handling (`_processActionResponse`):**
+- If `response.success` → apply returned `ActionRow` objects to local DB via `_applyActionRow()`, then delete the log entry.
+- Error codes:
+  - Code 1 (permission_denied): marks log as failed via `LogsDao.markFailed()` (shown in notifications).
+  - Code 2 (conflict): applies server's rows to local DB, deletes the log entry.
   - Code 3 (validation_error): marks log as failed (user must fix).
   - Code 4 (not_found): marks log as failed.
-- If batch-level failure with no per-mutation detail → calls `LogProcessor.markBatchFailed()`.
-- Updates `_lastSeq` from `ack.serverSeq` if it advanced, persists to DB.
+  - Default: marks log as failed.
+- Note: `ActionResponse` does not carry a `serverSeq` field — seq advances come through the watch stream exclusively.
 
-**Push stream lifecycle:**
-- `_ensurePushStream()` creates a new `StreamController<MutationBatch>` and opens `pushChanges()` if the controller is null or closed. Wrapped in `try/catch` — if the gRPC call throws (server unreachable), calls `_closePushStream()` so `_pushController` is null and the caller can detect the failure.
-- `_closePushStream()` tears down the push stream so the next `pushNow()` creates a fresh one.
-- On push error with `StatusCode.unauthenticated` → stops sync entirely.
-- On other push errors → closes the push stream (will reopen on next `pushNow()`).
+**`_applyActionRow(ActionRow row)`:**
+- Converts `ActionRow` to a `SyncDelta` (with `seq: Int64.ZERO`, copying `table`, `operation`, `rowKey`, `data`).
+- Calls `DeltaWriter.apply()` then immediately `DeltaWriter.flush()` — push response rows are written right away rather than waiting for the buffer to fill.
+
+**Push stream error handling:**
+- On `GrpcError(StatusCode.unauthenticated)` during push → stops sync entirely.
+- On other gRPC errors → sets status to `disconnected`, actions remain in logs table for next push cycle.
+- Stream controller is always closed in a `finally` block.
 
 **Reconnection:**
 - Exponential backoff with `_reconnectAttempts` counter.
 - Delay: `min(2^attempts, 30)` seconds.
-- Reset to 0 on successful watch connection.
+- Reset to 0 on first successful delta (not on stream open — gRPC stream creation is lazy).
 - Uses a `Timer` (`_reconnectTimer`) that is cancelled on `stop()`.
 
-**Logging:** Uses `dart:developer` `dev.log()` with name `'SyncEngine'` for DevTools filtering.
+**Logging:** Uses `dart:developer` `dev.log()` with name `'SyncEngine'` for DevTools filtering. Extensive `debugPrint` coverage for each action sent/acknowledged.
 
 **Imports:**
 - `dart:async`
+- `dart:convert`
 - `dart:developer`
 - `package:fixnum/fixnum.dart`
+- `package:flutter/foundation.dart`
 - `package:grpc/grpc.dart`
 - `../database/database.dart`
 - `../database/daos/accounts_dao.dart`
 - `../database/daos/logs_dao.dart`
-- `../proto/services/sync.pb.dart`
+- `../proto/services/sync.pb.dart` (as `sync_pb`)
 - `../proto/services/sync.pbgrpc.dart`
 - `delta_writer.dart`
-- `log_processor.dart`
+- `sync_status.dart`
+
+**No longer imports:** `log_processor.dart` (removed in Task C7)
 
 ## Design Decisions (from AGENT.md)
 
-- **Logs table is the outbound queue.** Every local mutation to a synced table writes a row to `logs`. The log processor reads these and replays them.
+- **Logs table is the outbound queue.** Every local action writes a row to `logs` with a `SyncAction` enum, a human-readable `resource` string, and a serialized protobuf `payload` blob. The sync engine reads these and replays them one at a time.
 - **Synced log rows are DELETED** — not marked as synced. The table only contains pending/failed work.
-- **Update coalescing:** For the same `(tbl, row_key)`, the processor ORs all pending `columns` bitmasks, reads the current local values for those columns, and pushes once.
-- **Delete supersedes:** If a Delete log exists for a `(tbl, row_key)`, it supersedes all Insert/Update logs for that row — others are deleted from the queue, only the Delete is sent.
-- **Failed log retry:** Per-mutation error codes from server: 0=ok (delete log), 1=permission_denied (mark failed), 2=conflict (apply server version, delete log), 3=validation_error (mark failed), 4=not_found (mark failed for updates, delete for deletes). Exponential backoff: 1s→2s→4s→8s→30s max. Max 5 retries.
+- **No coalescing or batching.** Each log row maps 1:1 to an `ActionRequest`. The old batch/coalesce/supersede logic (via `LogProcessor`) has been removed.
+- **One-at-a-time push.** Actions are sent sequentially over a bidirectional gRPC stream. The client sends one `ActionRequest`, waits for the `ActionResponse`, processes it, then sends the next.
+- **Self-contained payloads.** The `payload` blob in each log row is a serialized proto message (e.g. `CreateSchoolPayload`). The sync engine does NOT read other tables to build the request — the payload is pre-built by the DAO at mutation time.
+- **Failed log retry:** Per-action error codes from server: 0=ok (delete log), 1=permission_denied (mark failed), 2=conflict (apply server version, delete log), 3=validation_error (mark failed), 4=not_found (mark failed).
 - **Reactive Unauthorized:** If the server responds with Unauthorized on a stream connection, the sync engine stops — `client.dart` handles token refresh and restarts sync.
 - **UI independence:** The UI binds only to Drift streams. Drift streams don't care where data came from. A write from user action and a write from sync both trigger the same `Stream<T>` updates.
 
@@ -280,6 +240,23 @@ Before splitting into batches, scans for member Insert mutations (owners, teache
 - **Depended on by:** `client.dart` (✅ integrated — `Client.syncEngine` field, `SyncEngine get sync` global getter, start/stop wired into `active()`, `saveAccount()`, `switchAccount()`, `logOut()`), `ui/widgets/sync_indicator.dart` (binds to `sync.status` ValueNotifier), `main.dart` (global `runZonedGuarded` zone catches unhandled http2 transport errors)
 
 ## Last Updated
+
+### Task C8: Delete log_processor.dart
+- **Deleted** `lib/sync/log_processor.dart` (~2097 lines)
+- No remaining imports or references to `LogProcessor` anywhere in the codebase
+- All batch-based push logic replaced by action-based one-at-a-time push in `sync_engine.dart` (Task C7)
+
+### Task C7: Action-based push flow rewrite
+- **Rewrote `sync_engine.dart`** push side: replaced batch-based `LogProcessor` + `MutationBatch` + `PushAck` model with one-at-a-time `ActionRequest`/`ActionResponse` model via `SyncClient.pushActions()`.
+- **Removed** `LogProcessor` dependency and import from `sync_engine.dart`. No more `_logProcessor` field.
+- **Removed** `_pushController`, `_pushStream`, `_pushSubscription` fields (batch stream state). Push now uses a fresh `StreamController<ActionRequest>` per `_pushActions()` call.
+- **Removed** `_ensurePushStream()`, `_onPushAck()`, `_handleMutationError()`, `_onPushError()`, `_onPushDone()`, `_closePushStream()` methods.
+- **Added** `_pushActions(List<LogsData> pending)` — opens bidirectional stream, sends actions one at a time, processes responses sequentially.
+- **Added** `_processActionResponse(ActionResponse response)` — handles success/error codes, applies returned rows, deletes or marks-failed log entries.
+- **Added** `_applyActionRow(ActionRow row)` — converts `ActionRow` to `SyncDelta` and applies via `DeltaWriter` with immediate flush.
+- **Watch side unchanged** — `_startWatch()`, `_onDelta()`, `_onWatchError()`, `_onWatchDone()` remain as-is.
+- File compiles cleanly with zero diagnostics.
+
 Bugfix: Off-by-one in `mutation.table` (log_processor) and `delta.table` dispatch (delta_writer)
 
 ### Bugfix: Off-by-one in `mutation.table` and `delta.table` dispatch

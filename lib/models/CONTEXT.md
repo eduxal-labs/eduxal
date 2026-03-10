@@ -140,8 +140,9 @@ M-Pesa Daraja API configuration for a school. Serializable to/from JSON.
 
 ### `AppNotification` — `app_notification.dart`
 Display model for failed log entries shown in the notifications panel.
-- Fields: `logId`, `LogTable table`, `LogOperation operation`, `rowKey`, `errorMessage`, `attempts`, `DateTime occurred`.
-- Helpers: `title` (e.g. "Sync failed — Users"), `subtitle` (error message or attempt count).
+- Fields: `logId` (int), `SyncAction action`, `String resource` (human-readable display key), `errorMessage` (String?), `attempts` (int), `DateTime occurred`.
+- Helpers: `title` (e.g. "Sync failed — Create Teacher"), `subtitle` (error message or attempt count).
+- Private: `_actionName(SyncAction)` — maps all 77 `SyncAction` values to human-readable names.
 
 ### `CurriculumLevel` / level data — `curriculum_levels.dart`
 Defines all CBC and 8-4-4 levels with their valid subject lists.
@@ -165,7 +166,7 @@ System dashboard aggregate statistics. All have `static const empty` for initial
 
 ## Dependencies
 
-- **Depends on:** `database/database.dart` (for Drift-generated data classes like `UsersData`, `AccountsData`, `SchoolsData`, etc.), `database/tables/enums.dart` (for `AppThemeMode`, `UserLevel`, `LogTable`, etc.), `database/tables/curriculum_subjects.dart` (for `CurriculumType`, `CbcSubject`, `EightFourFourSubject`), `package:flutter/foundation.dart` (only `school_context.dart` and `active_term_context.dart` for `ValueNotifier`/`ChangeNotifier`).
+- **Depends on:** `database/database.dart` (for Drift-generated data classes like `UsersData`, `AccountsData`, `SchoolsData`, etc.), `database/tables/enums.dart` (for `AppThemeMode`, `UserLevel`, `SyncAction`, `LogStatus`, etc.), `database/tables/curriculum_subjects.dart` (for `CurriculumType`, `CbcSubject`, `EightFourFourSubject`), `package:flutter/foundation.dart` (only `school_context.dart` and `active_term_context.dart` for `ValueNotifier`/`ChangeNotifier`).
 - **Depended on by:** `services/`, `ui/`, `client.dart`, `database/daos/memberships_dao.dart`.
 
 ## Conventions
@@ -177,4 +178,4 @@ System dashboard aggregate statistics. All have `static const empty` for initial
 - No business logic in models — they are data holders with computed getters only.
 
 ## Last Updated
-Task 17 — Removed PP1/PP2 (Pre-Primary, CBC level index 0) from `kCbcLevels` in `curriculum_levels.dart`. List now has 6 levels (indices 1–6). Indices unchanged to preserve compatibility with `settings.data` JSON. File count: 17.
+Task C4 — Updated `AppNotification` for action-based sync model: replaced `LogTable table`, `LogOperation operation`, `String rowKey` fields with `SyncAction action` and `String resource`. Updated `title` getter and `_actionName` helper to map all 77 `SyncAction` values. File count: 17.

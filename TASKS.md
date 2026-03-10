@@ -32,8 +32,8 @@ Run `git status` first to see all 157+ uncommitted changes. Group the commits lo
 Use `git add <paths>` + `git commit -m "<message>"` for each group. Skip any group that has no changes. Do NOT use `git add .`.
 
 **Update after completion:**
-- [ ] Update any relevant `CONTEXT.md` files if they exist
-- [ ] Mark this task `[x]`
+- [x] Update any relevant `CONTEXT.md` files if they exist
+- [x] Mark this task `[x]`
 
 ---
 
@@ -71,7 +71,7 @@ After generation, verify the new files contain:
 Run `dart analyze lib/proto/services/sync.pb.dart 2>&1 | head -20` to verify the generated code is valid.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -274,8 +274,10 @@ After modifying both files, run `dart analyze lib/database/tables/logs.dart lib/
 **IMPORTANT:** The `AppDatabase` class in `lib/database/database.dart` has a `schemaVersion` that must be incremented and a migration added for the `logs` table schema change. But Drift generates the schema from the table class, so the code generation step (`dart run build_runner build`) will handle the DDL. The migration strategy in `database.dart` should drop and recreate `logs` on upgrade (data loss in logs is acceptable — they are transient).
 
 **Update after completion:**
-- [ ] Update `lib/database/CONTEXT.md` if it exists — note logs table schema change, SyncAction enum addition, removed enums
-- [ ] Mark this task `[x]`
+- [x] Update `lib/database/CONTEXT.md` if it exists — note logs table schema change, SyncAction enum addition, removed enums
+- [x] Mark this task `[x]`
+
+✅ **DONE**
 
 ---
 
@@ -422,7 +424,9 @@ class LogsDao extends DatabaseAccessor<AppDatabase> with _$LogsDaoMixin {
 - `supersedWithDelete` — no more delete-supersedes-insert logic
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
+
+✅ **DONE**
 
 ---
 
@@ -562,7 +566,9 @@ class AppNotification {
 After writing, search for any UI files that reference the old `AppNotification` fields (`table`, `operation`, `rowKey`) and note them — they'll need minor updates in Task C10.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
+
+✅ **DONE**
 
 ---
 
@@ -589,7 +595,9 @@ This may take a few minutes. After completion:
 If there are errors due to other files still referencing removed enums (`LogTable`, `LogOperation`, column bitset enums), that's expected — those files will be updated in subsequent tasks.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
+
+✅ **DONE**
 
 ---
 
@@ -621,7 +629,9 @@ Also update `onCreate` if the raw SQL for logs indexes/triggers needs changing (
 Run `dart analyze lib/database/database.dart 2>&1 | head -20` to verify.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
+
+✅ **DONE**
 
 ---
 
@@ -714,7 +724,9 @@ Reuse the existing `DeltaWriter` logic. An `ActionRow` is structurally similar t
 The watch side of `sync_engine.dart` should remain unchanged. It already uses `WatchRequest`/`SyncDelta` which are not changing.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
+
+✅ **DONE**
 
 ---
 
@@ -745,7 +757,9 @@ grep -rn "log_processor" lib/
 Remove all `import` statements referencing this file. If any code still calls `LogProcessor`, it should have been replaced in Task C7.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
+
+✅ **DONE**
 
 ---
 
@@ -810,7 +824,9 @@ This is the largest DAO to update. Methods include:
 For create-member methods (invitation pattern), the payload includes the user's phone and name (which the method already has as parameters). The server will handle the user lookup/creation.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
+
+✅ **DONE**
 
 ---
 
@@ -861,7 +877,9 @@ Same pattern as Task C9. For each DAO:
 - Resource = student name or ADM
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
+
+✅ **DONE**
 
 ---
 
@@ -902,7 +920,9 @@ For `markGrades`: the payload's `records` field is a `repeated GradeRecord`. Bui
 - `deletePayment` → `SyncAction.deletePayment`, `DeletePaymentPayload`
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
+
+✅ **DONE**
 
 ---
 
@@ -954,7 +974,9 @@ For `mark`: build one `AttendanceRecord` per student, wrap in `MarkAttendancePay
 - `updateSettings` → `SyncAction.updateSettings`, `UpdateSettingsPayload`
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
+
+✅ **DONE**
 
 ---
 
@@ -977,7 +999,9 @@ Update any widgets that display notification details to use `.action` and `.reso
 The `title` and `subtitle` getters on `AppNotification` already provide the formatted display strings, so most UI code should just work. If any widget was accessing `.table` or `.operation` directly (e.g. for filtering or icons), update it to use `.action` (a `SyncAction` value).
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
+
+✅ **DONE**
 
 ---
 
@@ -1014,7 +1038,9 @@ Future<void> applyActionRow(ActionRow row) async {
 ```
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
+
+✅ **DONE** — Verified: `delta_writer.dart` compiles cleanly with zero errors. No references to removed types (`MutationBatch`, `Mutation`, `PushAck`, `MutationResult`, `UpdateData`, `LogTable`, `LogOperation`, column bitset enums). The `ActionRow` handling is already implemented in `sync_engine.dart`'s `_applyActionRow` method which converts `ActionRow` → `SyncDelta` and delegates to `DeltaWriter`. No changes needed.
 
 ---
 
@@ -1051,7 +1077,9 @@ Future<void> _log(SyncAction action, String resource, GeneratedMessage payload) 
 The seeder is large so this is a significant update. Focus on correctness: every log call must build the correct `*Payload` with all fields that the server will need to recreate the row.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
+
+✅ **DONE** — Rewrote `_log()` helper to accept `SyncAction`, `resource` string, and `GeneratedMessage` payload. Updated all ~31 call sites plus the inline invoice-update log. Added imports for `dart:typed_data`, `fixnum`, `protobuf`, and `sync.pb.dart`. Attendance and grades now batch records per class/stream/date into single `MarkAttendancePayload` / `MarkGradesPayload` payloads. Removed all references to `LogTable`, `LogOperation`, `InvoicesColumn`. File compiles cleanly with zero errors or warnings.
 
 ---
 
@@ -1089,7 +1117,9 @@ The seeder is large so this is a significant update. Focus on correctness: every
    ```
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
+
+✅ **DONE** — Drift code generation succeeded (250 outputs). Full `dart analyze lib/` reports 0 errors, 5 pre-existing warnings (all UI unused parameters), 36 info-level lint hints. Fixed two missed DAOs (`users_dao.dart` and `school_scopes_dao.dart`) that still referenced `LogTable`, `LogOperation`, `UsersColumn`, and `RolesColumn` — converted all log calls to action-based `SyncAction`/payload model. Verified zero references to `LogTable`, `LogOperation`, `LogProcessor`, `MutationBatch`, `PushAck` remain in non-generated, non-proto Dart files. No `log_processor.dart` code references remain (only CONTEXT.md documentation).
 
 ---
 

@@ -95,12 +95,13 @@ This directory contains **7 subdirectories**, each representing a major area of 
 - **Data source:** `logsDao.watchFailedLogs(accountId)` → `Stream<List<AppNotification>>`, `logsDao.watchFailedLogCount(accountId)` → `Stream<int>` (for title badge)
 - **Key features:**
   - AppBar with back chevron, "Notifications" title, and live count badge
-  - Reactive list of failed sync entries with table icon, title, operation badge (Insert/Update/Delete), error subtitle, monospaced row key, and relative timestamp
+  - Reactive list of failed sync entries with domain icon (derived from `SyncAction`), title, action badge (Create/Update/Delete/Assign/Mark/Approve/etc.), error subtitle, monospaced resource identifier, and relative timestamp
   - Empty state with checkmark icon + "No sync issues." centered
   - Each tile wrapped in `InkWell` for future retry/dismiss interactions
-  - Icon mapping, relative time formatter, and operation badge are self-contained top-level helpers (copied from `notifications_panel.dart`, not imported)
+  - Icon mapping (`_iconForAction`), relative time formatter, and action badge (`_ActionBadge`) are self-contained top-level helpers
 - **Constructor:** `NotificationsPage({required String accountId})`
-- **Dependencies:** `client.dart` (`logsDao`), `models/app_notification.dart`, `database/tables/enums.dart` (`LogTable`, `LogOperation`), `ui/theme/app_theme.dart`
+- **Dependencies:** `client.dart` (`logsDao`), `models/app_notification.dart`, `database/tables/enums.dart` (`SyncAction`), `ui/theme/app_theme.dart`
+- **Migration note (Task C13):** Updated from old `LogTable`/`LogOperation` enums to action-based `SyncAction`. `_iconForTable` → `_iconForAction`, `_OperationBadge` → `_ActionBadge`, `notification.rowKey` → `notification.resource`.
 
 ---
 
