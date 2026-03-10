@@ -17,123 +17,242 @@ import 'package:protobuf/protobuf.dart' as $pb;
 
 export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
 
-class MutationBatch extends $pb.GeneratedMessage {
-  factory MutationBatch({
-    $core.String? batchId,
-    $core.Iterable<Mutation>? mutations,
+class ActionRequest extends $pb.GeneratedMessage {
+  factory ActionRequest({
+    $core.int? id,
+    $core.int? action,
+    $core.List<$core.int>? payload,
   }) {
     final result = create();
-    if (batchId != null) result.batchId = batchId;
-    if (mutations != null) result.mutations.addAll(mutations);
+    if (id != null) result.id = id;
+    if (action != null) result.action = action;
+    if (payload != null) result.payload = payload;
     return result;
   }
 
-  MutationBatch._();
+  ActionRequest._();
 
-  factory MutationBatch.fromBuffer($core.List<$core.int> data,
+  factory ActionRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromBuffer(data, registry);
-  factory MutationBatch.fromJson($core.String json,
+  factory ActionRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'MutationBatch',
+      _omitMessageNames ? '' : 'ActionRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'batchId')
-    ..pPM<Mutation>(2, _omitFieldNames ? '' : 'mutations',
-        subBuilder: Mutation.create)
+    ..aI(1, _omitFieldNames ? '' : 'id')
+    ..aI(2, _omitFieldNames ? '' : 'action')
+    ..a<$core.List<$core.int>>(
+        3, _omitFieldNames ? '' : 'payload', $pb.PbFieldType.OY)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  MutationBatch clone() => deepCopy();
+  ActionRequest clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  MutationBatch copyWith(void Function(MutationBatch) updates) =>
-      super.copyWith((message) => updates(message as MutationBatch))
-          as MutationBatch;
+  ActionRequest copyWith(void Function(ActionRequest) updates) =>
+      super.copyWith((message) => updates(message as ActionRequest))
+          as ActionRequest;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static MutationBatch create() => MutationBatch._();
+  static ActionRequest create() => ActionRequest._();
   @$core.override
-  MutationBatch createEmptyInstance() => create();
+  ActionRequest createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
-  static MutationBatch getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<MutationBatch>(create);
-  static MutationBatch? _defaultInstance;
+  static ActionRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ActionRequest>(create);
+  static ActionRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get batchId => $_getSZ(0);
+  $core.int get id => $_getIZ(0);
   @$pb.TagNumber(1)
-  set batchId($core.String value) => $_setString(0, value);
+  set id($core.int value) => $_setSignedInt32(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasBatchId() => $_has(0);
+  $core.bool hasId() => $_has(0);
   @$pb.TagNumber(1)
-  void clearBatchId() => $_clearField(1);
+  void clearId() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $pb.PbList<Mutation> get mutations => $_getList(1);
+  $core.int get action => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set action($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasAction() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearAction() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.List<$core.int> get payload => $_getN(2);
+  @$pb.TagNumber(3)
+  set payload($core.List<$core.int> value) => $_setBytes(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasPayload() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearPayload() => $_clearField(3);
 }
 
-class Mutation extends $pb.GeneratedMessage {
-  factory Mutation({
+class ActionResponse extends $pb.GeneratedMessage {
+  factory ActionResponse({
+    $core.int? id,
+    $core.bool? success,
+    $core.int? code,
+    $core.String? error,
+    $core.Iterable<ActionRow>? rows,
+    $core.Iterable<FileUrl>? fileUrls,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (success != null) result.success = success;
+    if (code != null) result.code = code;
+    if (error != null) result.error = error;
+    if (rows != null) result.rows.addAll(rows);
+    if (fileUrls != null) result.fileUrls.addAll(fileUrls);
+    return result;
+  }
+
+  ActionResponse._();
+
+  factory ActionResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ActionResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ActionResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aI(1, _omitFieldNames ? '' : 'id')
+    ..aOB(2, _omitFieldNames ? '' : 'success')
+    ..aI(3, _omitFieldNames ? '' : 'code')
+    ..aOS(4, _omitFieldNames ? '' : 'error')
+    ..pPM<ActionRow>(5, _omitFieldNames ? '' : 'rows',
+        subBuilder: ActionRow.create)
+    ..pPM<FileUrl>(6, _omitFieldNames ? '' : 'fileUrls',
+        subBuilder: FileUrl.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ActionResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ActionResponse copyWith(void Function(ActionResponse) updates) =>
+      super.copyWith((message) => updates(message as ActionResponse))
+          as ActionResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ActionResponse create() => ActionResponse._();
+  @$core.override
+  ActionResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ActionResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ActionResponse>(create);
+  static ActionResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get id => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set id($core.int value) => $_setSignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get success => $_getBF(1);
+  @$pb.TagNumber(2)
+  set success($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSuccess() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSuccess() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get code => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set code($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasCode() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearCode() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get error => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set error($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasError() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearError() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $pb.PbList<ActionRow> get rows => $_getList(4);
+
+  @$pb.TagNumber(6)
+  $pb.PbList<FileUrl> get fileUrls => $_getList(5);
+}
+
+/// A row returned by the server after an action executes
+class ActionRow extends $pb.GeneratedMessage {
+  factory ActionRow({
     $core.int? table,
     $core.int? operation,
     $core.String? rowKey,
-    InsertData? insert,
-    UpdateData? update,
+    InsertData? data,
   }) {
     final result = create();
     if (table != null) result.table = table;
     if (operation != null) result.operation = operation;
     if (rowKey != null) result.rowKey = rowKey;
-    if (insert != null) result.insert = insert;
-    if (update != null) result.update = update;
+    if (data != null) result.data = data;
     return result;
   }
 
-  Mutation._();
+  ActionRow._();
 
-  factory Mutation.fromBuffer($core.List<$core.int> data,
+  factory ActionRow.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromBuffer(data, registry);
-  factory Mutation.fromJson($core.String json,
+  factory ActionRow.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'Mutation',
+      _omitMessageNames ? '' : 'ActionRow',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
       createEmptyInstance: create)
     ..aI(1, _omitFieldNames ? '' : 'table')
     ..aI(2, _omitFieldNames ? '' : 'operation')
     ..aOS(3, _omitFieldNames ? '' : 'rowKey')
-    ..aOM<InsertData>(4, _omitFieldNames ? '' : 'insert',
+    ..aOM<InsertData>(4, _omitFieldNames ? '' : 'data',
         subBuilder: InsertData.create)
-    ..aOM<UpdateData>(5, _omitFieldNames ? '' : 'update',
-        subBuilder: UpdateData.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  Mutation clone() => deepCopy();
+  ActionRow clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  Mutation copyWith(void Function(Mutation) updates) =>
-      super.copyWith((message) => updates(message as Mutation)) as Mutation;
+  ActionRow copyWith(void Function(ActionRow) updates) =>
+      super.copyWith((message) => updates(message as ActionRow)) as ActionRow;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static Mutation create() => Mutation._();
+  static ActionRow create() => ActionRow._();
   @$core.override
-  Mutation createEmptyInstance() => create();
+  ActionRow createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
-  static Mutation getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Mutation>(create);
-  static Mutation? _defaultInstance;
+  static ActionRow getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ActionRow>(create);
+  static ActionRow? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.int get table => $_getIZ(0);
@@ -163,219 +282,15 @@ class Mutation extends $pb.GeneratedMessage {
   void clearRowKey() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  InsertData get insert => $_getN(3);
+  InsertData get data => $_getN(3);
   @$pb.TagNumber(4)
-  set insert(InsertData value) => $_setField(4, value);
+  set data(InsertData value) => $_setField(4, value);
   @$pb.TagNumber(4)
-  $core.bool hasInsert() => $_has(3);
+  $core.bool hasData() => $_has(3);
   @$pb.TagNumber(4)
-  void clearInsert() => $_clearField(4);
+  void clearData() => $_clearField(4);
   @$pb.TagNumber(4)
-  InsertData ensureInsert() => $_ensure(3);
-
-  @$pb.TagNumber(5)
-  UpdateData get update => $_getN(4);
-  @$pb.TagNumber(5)
-  set update(UpdateData value) => $_setField(5, value);
-  @$pb.TagNumber(5)
-  $core.bool hasUpdate() => $_has(4);
-  @$pb.TagNumber(5)
-  void clearUpdate() => $_clearField(5);
-  @$pb.TagNumber(5)
-  UpdateData ensureUpdate() => $_ensure(4);
-}
-
-class PushAck extends $pb.GeneratedMessage {
-  factory PushAck({
-    $core.String? batchId,
-    $core.bool? success,
-    $core.String? error,
-    $fixnum.Int64? serverSeq,
-    $core.Iterable<MutationResult>? results,
-  }) {
-    final result = create();
-    if (batchId != null) result.batchId = batchId;
-    if (success != null) result.success = success;
-    if (error != null) result.error = error;
-    if (serverSeq != null) result.serverSeq = serverSeq;
-    if (results != null) result.results.addAll(results);
-    return result;
-  }
-
-  PushAck._();
-
-  factory PushAck.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory PushAck.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'PushAck',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'batchId')
-    ..aOB(2, _omitFieldNames ? '' : 'success')
-    ..aOS(3, _omitFieldNames ? '' : 'error')
-    ..aInt64(4, _omitFieldNames ? '' : 'serverSeq')
-    ..pPM<MutationResult>(5, _omitFieldNames ? '' : 'results',
-        subBuilder: MutationResult.create)
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  PushAck clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  PushAck copyWith(void Function(PushAck) updates) =>
-      super.copyWith((message) => updates(message as PushAck)) as PushAck;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static PushAck create() => PushAck._();
-  @$core.override
-  PushAck createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static PushAck getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<PushAck>(create);
-  static PushAck? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get batchId => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set batchId($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasBatchId() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearBatchId() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.bool get success => $_getBF(1);
-  @$pb.TagNumber(2)
-  set success($core.bool value) => $_setBool(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasSuccess() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearSuccess() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $core.String get error => $_getSZ(2);
-  @$pb.TagNumber(3)
-  set error($core.String value) => $_setString(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasError() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearError() => $_clearField(3);
-
-  @$pb.TagNumber(4)
-  $fixnum.Int64 get serverSeq => $_getI64(3);
-  @$pb.TagNumber(4)
-  set serverSeq($fixnum.Int64 value) => $_setInt64(3, value);
-  @$pb.TagNumber(4)
-  $core.bool hasServerSeq() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearServerSeq() => $_clearField(4);
-
-  @$pb.TagNumber(5)
-  $pb.PbList<MutationResult> get results => $_getList(4);
-}
-
-class MutationResult extends $pb.GeneratedMessage {
-  factory MutationResult({
-    $core.int? index,
-    $core.bool? success,
-    $core.String? error,
-    $core.int? code,
-    $core.Iterable<FileUrl>? fileUrls,
-  }) {
-    final result = create();
-    if (index != null) result.index = index;
-    if (success != null) result.success = success;
-    if (error != null) result.error = error;
-    if (code != null) result.code = code;
-    if (fileUrls != null) result.fileUrls.addAll(fileUrls);
-    return result;
-  }
-
-  MutationResult._();
-
-  factory MutationResult.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory MutationResult.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'MutationResult',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aI(1, _omitFieldNames ? '' : 'index')
-    ..aOB(2, _omitFieldNames ? '' : 'success')
-    ..aOS(3, _omitFieldNames ? '' : 'error')
-    ..aI(4, _omitFieldNames ? '' : 'code')
-    ..pPM<FileUrl>(5, _omitFieldNames ? '' : 'fileUrls',
-        subBuilder: FileUrl.create)
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  MutationResult clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  MutationResult copyWith(void Function(MutationResult) updates) =>
-      super.copyWith((message) => updates(message as MutationResult))
-          as MutationResult;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static MutationResult create() => MutationResult._();
-  @$core.override
-  MutationResult createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static MutationResult getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<MutationResult>(create);
-  static MutationResult? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.int get index => $_getIZ(0);
-  @$pb.TagNumber(1)
-  set index($core.int value) => $_setSignedInt32(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasIndex() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearIndex() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.bool get success => $_getBF(1);
-  @$pb.TagNumber(2)
-  set success($core.bool value) => $_setBool(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasSuccess() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearSuccess() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $core.String get error => $_getSZ(2);
-  @$pb.TagNumber(3)
-  set error($core.String value) => $_setString(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasError() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearError() => $_clearField(3);
-
-  @$pb.TagNumber(4)
-  $core.int get code => $_getIZ(3);
-  @$pb.TagNumber(4)
-  set code($core.int value) => $_setSignedInt32(3, value);
-  @$pb.TagNumber(4)
-  $core.bool hasCode() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearCode() => $_clearField(4);
-
-  @$pb.TagNumber(5)
-  $pb.PbList<FileUrl> get fileUrls => $_getList(4);
+  InsertData ensureData() => $_ensure(3);
 }
 
 class WatchRequest extends $pb.GeneratedMessage {
@@ -630,6 +545,8523 @@ class FileUrl extends $pb.GeneratedMessage {
   $core.bool hasExpiry() => $_has(3);
   @$pb.TagNumber(4)
   void clearExpiry() => $_clearField(4);
+}
+
+class CreateSchoolPayload extends $pb.GeneratedMessage {
+  factory CreateSchoolPayload({
+    $core.String? id,
+    $core.String? name,
+    $core.String? motto,
+    $core.String? phone,
+    $core.String? email,
+    $core.int? county,
+    $core.String? domain,
+    $core.int? established,
+    $core.String? ownerId,
+    $core.String? ownerPhone,
+    $core.String? ownerName,
+    $core.String? ownerEmail,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (name != null) result.name = name;
+    if (motto != null) result.motto = motto;
+    if (phone != null) result.phone = phone;
+    if (email != null) result.email = email;
+    if (county != null) result.county = county;
+    if (domain != null) result.domain = domain;
+    if (established != null) result.established = established;
+    if (ownerId != null) result.ownerId = ownerId;
+    if (ownerPhone != null) result.ownerPhone = ownerPhone;
+    if (ownerName != null) result.ownerName = ownerName;
+    if (ownerEmail != null) result.ownerEmail = ownerEmail;
+    return result;
+  }
+
+  CreateSchoolPayload._();
+
+  factory CreateSchoolPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CreateSchoolPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateSchoolPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
+    ..aOS(3, _omitFieldNames ? '' : 'motto')
+    ..aOS(4, _omitFieldNames ? '' : 'phone')
+    ..aOS(5, _omitFieldNames ? '' : 'email')
+    ..aI(6, _omitFieldNames ? '' : 'county')
+    ..aOS(7, _omitFieldNames ? '' : 'domain')
+    ..aI(8, _omitFieldNames ? '' : 'established')
+    ..aOS(10, _omitFieldNames ? '' : 'ownerId')
+    ..aOS(11, _omitFieldNames ? '' : 'ownerPhone')
+    ..aOS(12, _omitFieldNames ? '' : 'ownerName')
+    ..aOS(13, _omitFieldNames ? '' : 'ownerEmail')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateSchoolPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateSchoolPayload copyWith(void Function(CreateSchoolPayload) updates) =>
+      super.copyWith((message) => updates(message as CreateSchoolPayload))
+          as CreateSchoolPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreateSchoolPayload create() => CreateSchoolPayload._();
+  @$core.override
+  CreateSchoolPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CreateSchoolPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateSchoolPayload>(create);
+  static CreateSchoolPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get name => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set name($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearName() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get motto => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set motto($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasMotto() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearMotto() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get phone => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set phone($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasPhone() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearPhone() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get email => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set email($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasEmail() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearEmail() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get county => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set county($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasCounty() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearCounty() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get domain => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set domain($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasDomain() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearDomain() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.int get established => $_getIZ(7);
+  @$pb.TagNumber(8)
+  set established($core.int value) => $_setSignedInt32(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasEstablished() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearEstablished() => $_clearField(8);
+
+  /// Owner info (invitation pattern)
+  @$pb.TagNumber(10)
+  $core.String get ownerId => $_getSZ(8);
+  @$pb.TagNumber(10)
+  set ownerId($core.String value) => $_setString(8, value);
+  @$pb.TagNumber(10)
+  $core.bool hasOwnerId() => $_has(8);
+  @$pb.TagNumber(10)
+  void clearOwnerId() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $core.String get ownerPhone => $_getSZ(9);
+  @$pb.TagNumber(11)
+  set ownerPhone($core.String value) => $_setString(9, value);
+  @$pb.TagNumber(11)
+  $core.bool hasOwnerPhone() => $_has(9);
+  @$pb.TagNumber(11)
+  void clearOwnerPhone() => $_clearField(11);
+
+  @$pb.TagNumber(12)
+  $core.String get ownerName => $_getSZ(10);
+  @$pb.TagNumber(12)
+  set ownerName($core.String value) => $_setString(10, value);
+  @$pb.TagNumber(12)
+  $core.bool hasOwnerName() => $_has(10);
+  @$pb.TagNumber(12)
+  void clearOwnerName() => $_clearField(12);
+
+  @$pb.TagNumber(13)
+  $core.String get ownerEmail => $_getSZ(11);
+  @$pb.TagNumber(13)
+  set ownerEmail($core.String value) => $_setString(11, value);
+  @$pb.TagNumber(13)
+  $core.bool hasOwnerEmail() => $_has(11);
+  @$pb.TagNumber(13)
+  void clearOwnerEmail() => $_clearField(13);
+}
+
+class UpdateSchoolPayload extends $pb.GeneratedMessage {
+  factory UpdateSchoolPayload({
+    $core.String? id,
+    $core.String? name,
+    $core.String? motto,
+    $core.String? phone,
+    $core.String? email,
+    $core.int? county,
+    $core.String? domain,
+    $core.int? established,
+    $core.int? status,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (name != null) result.name = name;
+    if (motto != null) result.motto = motto;
+    if (phone != null) result.phone = phone;
+    if (email != null) result.email = email;
+    if (county != null) result.county = county;
+    if (domain != null) result.domain = domain;
+    if (established != null) result.established = established;
+    if (status != null) result.status = status;
+    return result;
+  }
+
+  UpdateSchoolPayload._();
+
+  factory UpdateSchoolPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdateSchoolPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateSchoolPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
+    ..aOS(3, _omitFieldNames ? '' : 'motto')
+    ..aOS(4, _omitFieldNames ? '' : 'phone')
+    ..aOS(5, _omitFieldNames ? '' : 'email')
+    ..aI(6, _omitFieldNames ? '' : 'county')
+    ..aOS(7, _omitFieldNames ? '' : 'domain')
+    ..aI(8, _omitFieldNames ? '' : 'established')
+    ..aI(9, _omitFieldNames ? '' : 'status')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateSchoolPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateSchoolPayload copyWith(void Function(UpdateSchoolPayload) updates) =>
+      super.copyWith((message) => updates(message as UpdateSchoolPayload))
+          as UpdateSchoolPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateSchoolPayload create() => UpdateSchoolPayload._();
+  @$core.override
+  UpdateSchoolPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdateSchoolPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateSchoolPayload>(create);
+  static UpdateSchoolPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get name => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set name($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearName() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get motto => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set motto($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasMotto() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearMotto() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get phone => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set phone($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasPhone() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearPhone() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get email => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set email($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasEmail() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearEmail() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get county => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set county($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasCounty() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearCounty() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get domain => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set domain($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasDomain() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearDomain() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.int get established => $_getIZ(7);
+  @$pb.TagNumber(8)
+  set established($core.int value) => $_setSignedInt32(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasEstablished() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearEstablished() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.int get status => $_getIZ(8);
+  @$pb.TagNumber(9)
+  set status($core.int value) => $_setSignedInt32(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasStatus() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearStatus() => $_clearField(9);
+}
+
+class DeleteSchoolPayload extends $pb.GeneratedMessage {
+  factory DeleteSchoolPayload({
+    $core.String? id,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    return result;
+  }
+
+  DeleteSchoolPayload._();
+
+  factory DeleteSchoolPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteSchoolPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteSchoolPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteSchoolPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteSchoolPayload copyWith(void Function(DeleteSchoolPayload) updates) =>
+      super.copyWith((message) => updates(message as DeleteSchoolPayload))
+          as DeleteSchoolPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteSchoolPayload create() => DeleteSchoolPayload._();
+  @$core.override
+  DeleteSchoolPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteSchoolPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteSchoolPayload>(create);
+  static DeleteSchoolPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+}
+
+class CreateTeacherPayload extends $pb.GeneratedMessage {
+  factory CreateTeacherPayload({
+    $core.String? school,
+    $core.String? userId,
+    $core.String? phone,
+    $core.String? name,
+    $core.String? email,
+    $core.int? hired,
+    $core.String? role,
+    $core.String? department,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (userId != null) result.userId = userId;
+    if (phone != null) result.phone = phone;
+    if (name != null) result.name = name;
+    if (email != null) result.email = email;
+    if (hired != null) result.hired = hired;
+    if (role != null) result.role = role;
+    if (department != null) result.department = department;
+    return result;
+  }
+
+  CreateTeacherPayload._();
+
+  factory CreateTeacherPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CreateTeacherPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateTeacherPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'userId')
+    ..aOS(3, _omitFieldNames ? '' : 'phone')
+    ..aOS(4, _omitFieldNames ? '' : 'name')
+    ..aOS(5, _omitFieldNames ? '' : 'email')
+    ..aI(6, _omitFieldNames ? '' : 'hired')
+    ..aOS(7, _omitFieldNames ? '' : 'role')
+    ..aOS(8, _omitFieldNames ? '' : 'department')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateTeacherPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateTeacherPayload copyWith(void Function(CreateTeacherPayload) updates) =>
+      super.copyWith((message) => updates(message as CreateTeacherPayload))
+          as CreateTeacherPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreateTeacherPayload create() => CreateTeacherPayload._();
+  @$core.override
+  CreateTeacherPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CreateTeacherPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateTeacherPayload>(create);
+  static CreateTeacherPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get userId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set userId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasUserId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearUserId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get phone => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set phone($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasPhone() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearPhone() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get name => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set name($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasName() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearName() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get email => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set email($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasEmail() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearEmail() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get hired => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set hired($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasHired() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearHired() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get role => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set role($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasRole() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearRole() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.String get department => $_getSZ(7);
+  @$pb.TagNumber(8)
+  set department($core.String value) => $_setString(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasDepartment() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearDepartment() => $_clearField(8);
+}
+
+class UpdateTeacherPayload extends $pb.GeneratedMessage {
+  factory UpdateTeacherPayload({
+    $core.String? school,
+    $core.String? user,
+    $core.int? hired,
+    $core.String? role,
+    $core.String? department,
+    $core.int? status,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (user != null) result.user = user;
+    if (hired != null) result.hired = hired;
+    if (role != null) result.role = role;
+    if (department != null) result.department = department;
+    if (status != null) result.status = status;
+    return result;
+  }
+
+  UpdateTeacherPayload._();
+
+  factory UpdateTeacherPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdateTeacherPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateTeacherPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'user')
+    ..aI(3, _omitFieldNames ? '' : 'hired')
+    ..aOS(4, _omitFieldNames ? '' : 'role')
+    ..aOS(5, _omitFieldNames ? '' : 'department')
+    ..aI(6, _omitFieldNames ? '' : 'status')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateTeacherPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateTeacherPayload copyWith(void Function(UpdateTeacherPayload) updates) =>
+      super.copyWith((message) => updates(message as UpdateTeacherPayload))
+          as UpdateTeacherPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateTeacherPayload create() => UpdateTeacherPayload._();
+  @$core.override
+  UpdateTeacherPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdateTeacherPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateTeacherPayload>(create);
+  static UpdateTeacherPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get user => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set user($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasUser() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearUser() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get hired => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set hired($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasHired() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearHired() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get role => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set role($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasRole() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearRole() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get department => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set department($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasDepartment() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearDepartment() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get status => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set status($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasStatus() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearStatus() => $_clearField(6);
+}
+
+class DeleteTeacherPayload extends $pb.GeneratedMessage {
+  factory DeleteTeacherPayload({
+    $core.String? school,
+    $core.String? user,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (user != null) result.user = user;
+    return result;
+  }
+
+  DeleteTeacherPayload._();
+
+  factory DeleteTeacherPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteTeacherPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteTeacherPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'user')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteTeacherPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteTeacherPayload copyWith(void Function(DeleteTeacherPayload) updates) =>
+      super.copyWith((message) => updates(message as DeleteTeacherPayload))
+          as DeleteTeacherPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteTeacherPayload create() => DeleteTeacherPayload._();
+  @$core.override
+  DeleteTeacherPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteTeacherPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteTeacherPayload>(create);
+  static DeleteTeacherPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get user => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set user($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasUser() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearUser() => $_clearField(2);
+}
+
+class CreateStaffPayload extends $pb.GeneratedMessage {
+  factory CreateStaffPayload({
+    $core.String? school,
+    $core.String? userId,
+    $core.String? phone,
+    $core.String? name,
+    $core.String? email,
+    $core.String? idnumber,
+    $core.String? role,
+    $core.String? department,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (userId != null) result.userId = userId;
+    if (phone != null) result.phone = phone;
+    if (name != null) result.name = name;
+    if (email != null) result.email = email;
+    if (idnumber != null) result.idnumber = idnumber;
+    if (role != null) result.role = role;
+    if (department != null) result.department = department;
+    return result;
+  }
+
+  CreateStaffPayload._();
+
+  factory CreateStaffPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CreateStaffPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateStaffPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'userId')
+    ..aOS(3, _omitFieldNames ? '' : 'phone')
+    ..aOS(4, _omitFieldNames ? '' : 'name')
+    ..aOS(5, _omitFieldNames ? '' : 'email')
+    ..aOS(6, _omitFieldNames ? '' : 'idnumber')
+    ..aOS(7, _omitFieldNames ? '' : 'role')
+    ..aOS(8, _omitFieldNames ? '' : 'department')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateStaffPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateStaffPayload copyWith(void Function(CreateStaffPayload) updates) =>
+      super.copyWith((message) => updates(message as CreateStaffPayload))
+          as CreateStaffPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreateStaffPayload create() => CreateStaffPayload._();
+  @$core.override
+  CreateStaffPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CreateStaffPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateStaffPayload>(create);
+  static CreateStaffPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get userId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set userId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasUserId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearUserId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get phone => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set phone($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasPhone() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearPhone() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get name => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set name($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasName() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearName() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get email => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set email($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasEmail() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearEmail() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get idnumber => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set idnumber($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasIdnumber() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearIdnumber() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get role => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set role($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasRole() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearRole() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.String get department => $_getSZ(7);
+  @$pb.TagNumber(8)
+  set department($core.String value) => $_setString(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasDepartment() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearDepartment() => $_clearField(8);
+}
+
+class UpdateStaffPayload extends $pb.GeneratedMessage {
+  factory UpdateStaffPayload({
+    $core.String? school,
+    $core.String? user,
+    $core.String? idnumber,
+    $core.String? role,
+    $core.String? department,
+    $core.int? status,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (user != null) result.user = user;
+    if (idnumber != null) result.idnumber = idnumber;
+    if (role != null) result.role = role;
+    if (department != null) result.department = department;
+    if (status != null) result.status = status;
+    return result;
+  }
+
+  UpdateStaffPayload._();
+
+  factory UpdateStaffPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdateStaffPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateStaffPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'user')
+    ..aOS(3, _omitFieldNames ? '' : 'idnumber')
+    ..aOS(4, _omitFieldNames ? '' : 'role')
+    ..aOS(5, _omitFieldNames ? '' : 'department')
+    ..aI(6, _omitFieldNames ? '' : 'status')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateStaffPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateStaffPayload copyWith(void Function(UpdateStaffPayload) updates) =>
+      super.copyWith((message) => updates(message as UpdateStaffPayload))
+          as UpdateStaffPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateStaffPayload create() => UpdateStaffPayload._();
+  @$core.override
+  UpdateStaffPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdateStaffPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateStaffPayload>(create);
+  static UpdateStaffPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get user => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set user($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasUser() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearUser() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get idnumber => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set idnumber($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasIdnumber() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearIdnumber() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get role => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set role($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasRole() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearRole() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get department => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set department($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasDepartment() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearDepartment() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get status => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set status($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasStatus() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearStatus() => $_clearField(6);
+}
+
+class DeleteStaffPayload extends $pb.GeneratedMessage {
+  factory DeleteStaffPayload({
+    $core.String? school,
+    $core.String? user,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (user != null) result.user = user;
+    return result;
+  }
+
+  DeleteStaffPayload._();
+
+  factory DeleteStaffPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteStaffPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteStaffPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'user')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteStaffPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteStaffPayload copyWith(void Function(DeleteStaffPayload) updates) =>
+      super.copyWith((message) => updates(message as DeleteStaffPayload))
+          as DeleteStaffPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteStaffPayload create() => DeleteStaffPayload._();
+  @$core.override
+  DeleteStaffPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteStaffPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteStaffPayload>(create);
+  static DeleteStaffPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get user => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set user($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasUser() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearUser() => $_clearField(2);
+}
+
+class CreateOwnerPayload extends $pb.GeneratedMessage {
+  factory CreateOwnerPayload({
+    $core.String? school,
+    $core.String? userId,
+    $core.String? phone,
+    $core.String? name,
+    $core.String? email,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (userId != null) result.userId = userId;
+    if (phone != null) result.phone = phone;
+    if (name != null) result.name = name;
+    if (email != null) result.email = email;
+    return result;
+  }
+
+  CreateOwnerPayload._();
+
+  factory CreateOwnerPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CreateOwnerPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateOwnerPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'userId')
+    ..aOS(3, _omitFieldNames ? '' : 'phone')
+    ..aOS(4, _omitFieldNames ? '' : 'name')
+    ..aOS(5, _omitFieldNames ? '' : 'email')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateOwnerPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateOwnerPayload copyWith(void Function(CreateOwnerPayload) updates) =>
+      super.copyWith((message) => updates(message as CreateOwnerPayload))
+          as CreateOwnerPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreateOwnerPayload create() => CreateOwnerPayload._();
+  @$core.override
+  CreateOwnerPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CreateOwnerPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateOwnerPayload>(create);
+  static CreateOwnerPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get userId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set userId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasUserId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearUserId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get phone => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set phone($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasPhone() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearPhone() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get name => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set name($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasName() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearName() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get email => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set email($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasEmail() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearEmail() => $_clearField(5);
+}
+
+class DeleteOwnerPayload extends $pb.GeneratedMessage {
+  factory DeleteOwnerPayload({
+    $core.String? school,
+    $core.String? user,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (user != null) result.user = user;
+    return result;
+  }
+
+  DeleteOwnerPayload._();
+
+  factory DeleteOwnerPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteOwnerPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteOwnerPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'user')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteOwnerPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteOwnerPayload copyWith(void Function(DeleteOwnerPayload) updates) =>
+      super.copyWith((message) => updates(message as DeleteOwnerPayload))
+          as DeleteOwnerPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteOwnerPayload create() => DeleteOwnerPayload._();
+  @$core.override
+  DeleteOwnerPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteOwnerPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteOwnerPayload>(create);
+  static DeleteOwnerPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get user => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set user($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasUser() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearUser() => $_clearField(2);
+}
+
+class CreateStudentPayload extends $pb.GeneratedMessage {
+  factory CreateStudentPayload({
+    $core.String? school,
+    $core.int? adm,
+    $core.String? user,
+    $core.String? name,
+    $core.int? dob,
+    $core.int? gender,
+    $core.String? documents,
+    $core.int? admitted,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (adm != null) result.adm = adm;
+    if (user != null) result.user = user;
+    if (name != null) result.name = name;
+    if (dob != null) result.dob = dob;
+    if (gender != null) result.gender = gender;
+    if (documents != null) result.documents = documents;
+    if (admitted != null) result.admitted = admitted;
+    return result;
+  }
+
+  CreateStudentPayload._();
+
+  factory CreateStudentPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CreateStudentPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateStudentPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aI(2, _omitFieldNames ? '' : 'adm')
+    ..aOS(3, _omitFieldNames ? '' : 'user')
+    ..aOS(4, _omitFieldNames ? '' : 'name')
+    ..aI(5, _omitFieldNames ? '' : 'dob')
+    ..aI(6, _omitFieldNames ? '' : 'gender')
+    ..aOS(7, _omitFieldNames ? '' : 'documents')
+    ..aI(8, _omitFieldNames ? '' : 'admitted')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateStudentPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateStudentPayload copyWith(void Function(CreateStudentPayload) updates) =>
+      super.copyWith((message) => updates(message as CreateStudentPayload))
+          as CreateStudentPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreateStudentPayload create() => CreateStudentPayload._();
+  @$core.override
+  CreateStudentPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CreateStudentPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateStudentPayload>(create);
+  static CreateStudentPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get adm => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set adm($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasAdm() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearAdm() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get user => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set user($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasUser() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearUser() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get name => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set name($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasName() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearName() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get dob => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set dob($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasDob() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearDob() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get gender => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set gender($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasGender() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearGender() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get documents => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set documents($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasDocuments() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearDocuments() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.int get admitted => $_getIZ(7);
+  @$pb.TagNumber(8)
+  set admitted($core.int value) => $_setSignedInt32(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasAdmitted() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearAdmitted() => $_clearField(8);
+}
+
+class UpdateStudentPayload extends $pb.GeneratedMessage {
+  factory UpdateStudentPayload({
+    $core.String? school,
+    $core.int? adm,
+    $core.String? user,
+    $core.String? name,
+    $core.int? dob,
+    $core.int? gender,
+    $core.String? documents,
+    $core.int? admitted,
+    $core.int? status,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (adm != null) result.adm = adm;
+    if (user != null) result.user = user;
+    if (name != null) result.name = name;
+    if (dob != null) result.dob = dob;
+    if (gender != null) result.gender = gender;
+    if (documents != null) result.documents = documents;
+    if (admitted != null) result.admitted = admitted;
+    if (status != null) result.status = status;
+    return result;
+  }
+
+  UpdateStudentPayload._();
+
+  factory UpdateStudentPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdateStudentPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateStudentPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aI(2, _omitFieldNames ? '' : 'adm')
+    ..aOS(3, _omitFieldNames ? '' : 'user')
+    ..aOS(4, _omitFieldNames ? '' : 'name')
+    ..aI(5, _omitFieldNames ? '' : 'dob')
+    ..aI(6, _omitFieldNames ? '' : 'gender')
+    ..aOS(7, _omitFieldNames ? '' : 'documents')
+    ..aI(8, _omitFieldNames ? '' : 'admitted')
+    ..aI(9, _omitFieldNames ? '' : 'status')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateStudentPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateStudentPayload copyWith(void Function(UpdateStudentPayload) updates) =>
+      super.copyWith((message) => updates(message as UpdateStudentPayload))
+          as UpdateStudentPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateStudentPayload create() => UpdateStudentPayload._();
+  @$core.override
+  UpdateStudentPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdateStudentPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateStudentPayload>(create);
+  static UpdateStudentPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get adm => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set adm($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasAdm() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearAdm() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get user => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set user($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasUser() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearUser() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get name => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set name($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasName() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearName() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get dob => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set dob($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasDob() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearDob() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get gender => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set gender($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasGender() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearGender() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get documents => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set documents($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasDocuments() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearDocuments() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.int get admitted => $_getIZ(7);
+  @$pb.TagNumber(8)
+  set admitted($core.int value) => $_setSignedInt32(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasAdmitted() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearAdmitted() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.int get status => $_getIZ(8);
+  @$pb.TagNumber(9)
+  set status($core.int value) => $_setSignedInt32(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasStatus() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearStatus() => $_clearField(9);
+}
+
+class DeleteStudentPayload extends $pb.GeneratedMessage {
+  factory DeleteStudentPayload({
+    $core.String? school,
+    $core.int? adm,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (adm != null) result.adm = adm;
+    return result;
+  }
+
+  DeleteStudentPayload._();
+
+  factory DeleteStudentPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteStudentPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteStudentPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aI(2, _omitFieldNames ? '' : 'adm')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteStudentPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteStudentPayload copyWith(void Function(DeleteStudentPayload) updates) =>
+      super.copyWith((message) => updates(message as DeleteStudentPayload))
+          as DeleteStudentPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteStudentPayload create() => DeleteStudentPayload._();
+  @$core.override
+  DeleteStudentPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteStudentPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteStudentPayload>(create);
+  static DeleteStudentPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get adm => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set adm($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasAdm() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearAdm() => $_clearField(2);
+}
+
+class EnrollStudentPayload extends $pb.GeneratedMessage {
+  factory EnrollStudentPayload({
+    $core.String? school,
+    $core.int? year,
+    $core.int? term,
+    $core.int? grade,
+    $core.int? stream,
+    $core.int? student,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (year != null) result.year = year;
+    if (term != null) result.term = term;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
+    if (student != null) result.student = student;
+    return result;
+  }
+
+  EnrollStudentPayload._();
+
+  factory EnrollStudentPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory EnrollStudentPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'EnrollStudentPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aI(2, _omitFieldNames ? '' : 'year')
+    ..aI(3, _omitFieldNames ? '' : 'term')
+    ..aI(4, _omitFieldNames ? '' : 'grade')
+    ..aI(5, _omitFieldNames ? '' : 'stream')
+    ..aI(6, _omitFieldNames ? '' : 'student')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  EnrollStudentPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  EnrollStudentPayload copyWith(void Function(EnrollStudentPayload) updates) =>
+      super.copyWith((message) => updates(message as EnrollStudentPayload))
+          as EnrollStudentPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static EnrollStudentPayload create() => EnrollStudentPayload._();
+  @$core.override
+  EnrollStudentPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static EnrollStudentPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<EnrollStudentPayload>(create);
+  static EnrollStudentPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get year => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set year($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasYear() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearYear() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get term => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set term($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasTerm() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTerm() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get grade => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set grade($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasGrade() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearGrade() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get stream => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set stream($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasStream() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearStream() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get student => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set student($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasStudent() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearStudent() => $_clearField(6);
+}
+
+class UnenrollStudentPayload extends $pb.GeneratedMessage {
+  factory UnenrollStudentPayload({
+    $core.String? school,
+    $core.int? year,
+    $core.int? term,
+    $core.int? grade,
+    $core.int? stream,
+    $core.int? student,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (year != null) result.year = year;
+    if (term != null) result.term = term;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
+    if (student != null) result.student = student;
+    return result;
+  }
+
+  UnenrollStudentPayload._();
+
+  factory UnenrollStudentPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UnenrollStudentPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UnenrollStudentPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aI(2, _omitFieldNames ? '' : 'year')
+    ..aI(3, _omitFieldNames ? '' : 'term')
+    ..aI(4, _omitFieldNames ? '' : 'grade')
+    ..aI(5, _omitFieldNames ? '' : 'stream')
+    ..aI(6, _omitFieldNames ? '' : 'student')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UnenrollStudentPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UnenrollStudentPayload copyWith(
+          void Function(UnenrollStudentPayload) updates) =>
+      super.copyWith((message) => updates(message as UnenrollStudentPayload))
+          as UnenrollStudentPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UnenrollStudentPayload create() => UnenrollStudentPayload._();
+  @$core.override
+  UnenrollStudentPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UnenrollStudentPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UnenrollStudentPayload>(create);
+  static UnenrollStudentPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get year => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set year($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasYear() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearYear() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get term => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set term($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasTerm() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTerm() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get grade => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set grade($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasGrade() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearGrade() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get stream => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set stream($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasStream() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearStream() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get student => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set student($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasStudent() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearStudent() => $_clearField(6);
+}
+
+class CreateGuardianPayload extends $pb.GeneratedMessage {
+  factory CreateGuardianPayload({
+    $core.String? school,
+    $core.String? userId,
+    $core.String? phone,
+    $core.String? name,
+    $core.String? email,
+    $core.int? student,
+    $core.int? relationship,
+    $core.int? role,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (userId != null) result.userId = userId;
+    if (phone != null) result.phone = phone;
+    if (name != null) result.name = name;
+    if (email != null) result.email = email;
+    if (student != null) result.student = student;
+    if (relationship != null) result.relationship = relationship;
+    if (role != null) result.role = role;
+    return result;
+  }
+
+  CreateGuardianPayload._();
+
+  factory CreateGuardianPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CreateGuardianPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateGuardianPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'userId')
+    ..aOS(3, _omitFieldNames ? '' : 'phone')
+    ..aOS(4, _omitFieldNames ? '' : 'name')
+    ..aOS(5, _omitFieldNames ? '' : 'email')
+    ..aI(6, _omitFieldNames ? '' : 'student')
+    ..aI(7, _omitFieldNames ? '' : 'relationship')
+    ..aI(8, _omitFieldNames ? '' : 'role')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateGuardianPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateGuardianPayload copyWith(
+          void Function(CreateGuardianPayload) updates) =>
+      super.copyWith((message) => updates(message as CreateGuardianPayload))
+          as CreateGuardianPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreateGuardianPayload create() => CreateGuardianPayload._();
+  @$core.override
+  CreateGuardianPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CreateGuardianPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateGuardianPayload>(create);
+  static CreateGuardianPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get userId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set userId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasUserId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearUserId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get phone => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set phone($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasPhone() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearPhone() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get name => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set name($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasName() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearName() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get email => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set email($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasEmail() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearEmail() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get student => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set student($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasStudent() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearStudent() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.int get relationship => $_getIZ(6);
+  @$pb.TagNumber(7)
+  set relationship($core.int value) => $_setSignedInt32(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasRelationship() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearRelationship() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.int get role => $_getIZ(7);
+  @$pb.TagNumber(8)
+  set role($core.int value) => $_setSignedInt32(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasRole() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearRole() => $_clearField(8);
+}
+
+class UpdateGuardianPayload extends $pb.GeneratedMessage {
+  factory UpdateGuardianPayload({
+    $core.String? school,
+    $core.String? user,
+    $core.int? student,
+    $core.int? relationship,
+    $core.int? role,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (user != null) result.user = user;
+    if (student != null) result.student = student;
+    if (relationship != null) result.relationship = relationship;
+    if (role != null) result.role = role;
+    return result;
+  }
+
+  UpdateGuardianPayload._();
+
+  factory UpdateGuardianPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdateGuardianPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateGuardianPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'user')
+    ..aI(3, _omitFieldNames ? '' : 'student')
+    ..aI(4, _omitFieldNames ? '' : 'relationship')
+    ..aI(5, _omitFieldNames ? '' : 'role')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateGuardianPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateGuardianPayload copyWith(
+          void Function(UpdateGuardianPayload) updates) =>
+      super.copyWith((message) => updates(message as UpdateGuardianPayload))
+          as UpdateGuardianPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateGuardianPayload create() => UpdateGuardianPayload._();
+  @$core.override
+  UpdateGuardianPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdateGuardianPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateGuardianPayload>(create);
+  static UpdateGuardianPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get user => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set user($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasUser() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearUser() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get student => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set student($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasStudent() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearStudent() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get relationship => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set relationship($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasRelationship() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearRelationship() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get role => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set role($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasRole() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearRole() => $_clearField(5);
+}
+
+class DeleteGuardianPayload extends $pb.GeneratedMessage {
+  factory DeleteGuardianPayload({
+    $core.String? school,
+    $core.String? user,
+    $core.int? student,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (user != null) result.user = user;
+    if (student != null) result.student = student;
+    return result;
+  }
+
+  DeleteGuardianPayload._();
+
+  factory DeleteGuardianPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteGuardianPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteGuardianPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'user')
+    ..aI(3, _omitFieldNames ? '' : 'student')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteGuardianPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteGuardianPayload copyWith(
+          void Function(DeleteGuardianPayload) updates) =>
+      super.copyWith((message) => updates(message as DeleteGuardianPayload))
+          as DeleteGuardianPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteGuardianPayload create() => DeleteGuardianPayload._();
+  @$core.override
+  DeleteGuardianPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteGuardianPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteGuardianPayload>(create);
+  static DeleteGuardianPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get user => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set user($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasUser() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearUser() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get student => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set student($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasStudent() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearStudent() => $_clearField(3);
+}
+
+class CreateDepartmentPayload extends $pb.GeneratedMessage {
+  factory CreateDepartmentPayload({
+    $core.String? school,
+    $core.String? name,
+    $core.String? description,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (name != null) result.name = name;
+    if (description != null) result.description = description;
+    return result;
+  }
+
+  CreateDepartmentPayload._();
+
+  factory CreateDepartmentPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CreateDepartmentPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateDepartmentPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
+    ..aOS(3, _omitFieldNames ? '' : 'description')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateDepartmentPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateDepartmentPayload copyWith(
+          void Function(CreateDepartmentPayload) updates) =>
+      super.copyWith((message) => updates(message as CreateDepartmentPayload))
+          as CreateDepartmentPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreateDepartmentPayload create() => CreateDepartmentPayload._();
+  @$core.override
+  CreateDepartmentPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CreateDepartmentPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateDepartmentPayload>(create);
+  static CreateDepartmentPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get name => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set name($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearName() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get description => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set description($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasDescription() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearDescription() => $_clearField(3);
+}
+
+class UpdateDepartmentPayload extends $pb.GeneratedMessage {
+  factory UpdateDepartmentPayload({
+    $core.String? school,
+    $core.String? name,
+    $core.String? description,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (name != null) result.name = name;
+    if (description != null) result.description = description;
+    return result;
+  }
+
+  UpdateDepartmentPayload._();
+
+  factory UpdateDepartmentPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdateDepartmentPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateDepartmentPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
+    ..aOS(3, _omitFieldNames ? '' : 'description')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateDepartmentPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateDepartmentPayload copyWith(
+          void Function(UpdateDepartmentPayload) updates) =>
+      super.copyWith((message) => updates(message as UpdateDepartmentPayload))
+          as UpdateDepartmentPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateDepartmentPayload create() => UpdateDepartmentPayload._();
+  @$core.override
+  UpdateDepartmentPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdateDepartmentPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateDepartmentPayload>(create);
+  static UpdateDepartmentPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get name => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set name($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearName() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get description => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set description($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasDescription() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearDescription() => $_clearField(3);
+}
+
+class DeleteDepartmentPayload extends $pb.GeneratedMessage {
+  factory DeleteDepartmentPayload({
+    $core.String? school,
+    $core.String? name,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (name != null) result.name = name;
+    return result;
+  }
+
+  DeleteDepartmentPayload._();
+
+  factory DeleteDepartmentPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteDepartmentPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteDepartmentPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteDepartmentPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteDepartmentPayload copyWith(
+          void Function(DeleteDepartmentPayload) updates) =>
+      super.copyWith((message) => updates(message as DeleteDepartmentPayload))
+          as DeleteDepartmentPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteDepartmentPayload create() => DeleteDepartmentPayload._();
+  @$core.override
+  DeleteDepartmentPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteDepartmentPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteDepartmentPayload>(create);
+  static DeleteDepartmentPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get name => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set name($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearName() => $_clearField(2);
+}
+
+class CreateTermPayload extends $pb.GeneratedMessage {
+  factory CreateTermPayload({
+    $core.String? school,
+    $core.int? year,
+    $core.int? term,
+    $fixnum.Int64? start,
+    $fixnum.Int64? end,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (year != null) result.year = year;
+    if (term != null) result.term = term;
+    if (start != null) result.start = start;
+    if (end != null) result.end = end;
+    return result;
+  }
+
+  CreateTermPayload._();
+
+  factory CreateTermPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CreateTermPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateTermPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aI(2, _omitFieldNames ? '' : 'year')
+    ..aI(3, _omitFieldNames ? '' : 'term')
+    ..aInt64(4, _omitFieldNames ? '' : 'start')
+    ..aInt64(5, _omitFieldNames ? '' : 'end')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateTermPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateTermPayload copyWith(void Function(CreateTermPayload) updates) =>
+      super.copyWith((message) => updates(message as CreateTermPayload))
+          as CreateTermPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreateTermPayload create() => CreateTermPayload._();
+  @$core.override
+  CreateTermPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CreateTermPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateTermPayload>(create);
+  static CreateTermPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get year => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set year($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasYear() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearYear() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get term => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set term($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasTerm() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTerm() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get start => $_getI64(3);
+  @$pb.TagNumber(4)
+  set start($fixnum.Int64 value) => $_setInt64(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasStart() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearStart() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get end => $_getI64(4);
+  @$pb.TagNumber(5)
+  set end($fixnum.Int64 value) => $_setInt64(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasEnd() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearEnd() => $_clearField(5);
+}
+
+class UpdateTermPayload extends $pb.GeneratedMessage {
+  factory UpdateTermPayload({
+    $core.String? school,
+    $core.int? year,
+    $core.int? term,
+    $fixnum.Int64? start,
+    $fixnum.Int64? end,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (year != null) result.year = year;
+    if (term != null) result.term = term;
+    if (start != null) result.start = start;
+    if (end != null) result.end = end;
+    return result;
+  }
+
+  UpdateTermPayload._();
+
+  factory UpdateTermPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdateTermPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateTermPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aI(2, _omitFieldNames ? '' : 'year')
+    ..aI(3, _omitFieldNames ? '' : 'term')
+    ..aInt64(4, _omitFieldNames ? '' : 'start')
+    ..aInt64(5, _omitFieldNames ? '' : 'end')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateTermPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateTermPayload copyWith(void Function(UpdateTermPayload) updates) =>
+      super.copyWith((message) => updates(message as UpdateTermPayload))
+          as UpdateTermPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateTermPayload create() => UpdateTermPayload._();
+  @$core.override
+  UpdateTermPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdateTermPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateTermPayload>(create);
+  static UpdateTermPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get year => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set year($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasYear() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearYear() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get term => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set term($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasTerm() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTerm() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get start => $_getI64(3);
+  @$pb.TagNumber(4)
+  set start($fixnum.Int64 value) => $_setInt64(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasStart() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearStart() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get end => $_getI64(4);
+  @$pb.TagNumber(5)
+  set end($fixnum.Int64 value) => $_setInt64(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasEnd() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearEnd() => $_clearField(5);
+}
+
+class DeleteTermPayload extends $pb.GeneratedMessage {
+  factory DeleteTermPayload({
+    $core.String? school,
+    $core.int? year,
+    $core.int? term,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (year != null) result.year = year;
+    if (term != null) result.term = term;
+    return result;
+  }
+
+  DeleteTermPayload._();
+
+  factory DeleteTermPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteTermPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteTermPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aI(2, _omitFieldNames ? '' : 'year')
+    ..aI(3, _omitFieldNames ? '' : 'term')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteTermPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteTermPayload copyWith(void Function(DeleteTermPayload) updates) =>
+      super.copyWith((message) => updates(message as DeleteTermPayload))
+          as DeleteTermPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteTermPayload create() => DeleteTermPayload._();
+  @$core.override
+  DeleteTermPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteTermPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteTermPayload>(create);
+  static DeleteTermPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get year => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set year($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasYear() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearYear() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get term => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set term($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasTerm() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTerm() => $_clearField(3);
+}
+
+class AssignClassTeacherPayload extends $pb.GeneratedMessage {
+  factory AssignClassTeacherPayload({
+    $core.String? school,
+    $core.int? year,
+    $core.int? term,
+    $core.int? grade,
+    $core.int? stream,
+    $core.String? teacher,
+    $core.int? start,
+    $core.int? end,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (year != null) result.year = year;
+    if (term != null) result.term = term;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
+    if (teacher != null) result.teacher = teacher;
+    if (start != null) result.start = start;
+    if (end != null) result.end = end;
+    return result;
+  }
+
+  AssignClassTeacherPayload._();
+
+  factory AssignClassTeacherPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory AssignClassTeacherPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AssignClassTeacherPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aI(2, _omitFieldNames ? '' : 'year')
+    ..aI(3, _omitFieldNames ? '' : 'term')
+    ..aI(4, _omitFieldNames ? '' : 'grade')
+    ..aI(5, _omitFieldNames ? '' : 'stream')
+    ..aOS(6, _omitFieldNames ? '' : 'teacher')
+    ..aI(7, _omitFieldNames ? '' : 'start')
+    ..aI(8, _omitFieldNames ? '' : 'end')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AssignClassTeacherPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AssignClassTeacherPayload copyWith(
+          void Function(AssignClassTeacherPayload) updates) =>
+      super.copyWith((message) => updates(message as AssignClassTeacherPayload))
+          as AssignClassTeacherPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static AssignClassTeacherPayload create() => AssignClassTeacherPayload._();
+  @$core.override
+  AssignClassTeacherPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static AssignClassTeacherPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<AssignClassTeacherPayload>(create);
+  static AssignClassTeacherPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get year => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set year($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasYear() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearYear() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get term => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set term($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasTerm() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTerm() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get grade => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set grade($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasGrade() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearGrade() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get stream => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set stream($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasStream() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearStream() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get teacher => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set teacher($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasTeacher() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearTeacher() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.int get start => $_getIZ(6);
+  @$pb.TagNumber(7)
+  set start($core.int value) => $_setSignedInt32(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasStart() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearStart() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.int get end => $_getIZ(7);
+  @$pb.TagNumber(8)
+  set end($core.int value) => $_setSignedInt32(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasEnd() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearEnd() => $_clearField(8);
+}
+
+class UnassignClassTeacherPayload extends $pb.GeneratedMessage {
+  factory UnassignClassTeacherPayload({
+    $core.String? school,
+    $core.int? year,
+    $core.int? term,
+    $core.int? grade,
+    $core.int? stream,
+    $core.String? teacher,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (year != null) result.year = year;
+    if (term != null) result.term = term;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
+    if (teacher != null) result.teacher = teacher;
+    return result;
+  }
+
+  UnassignClassTeacherPayload._();
+
+  factory UnassignClassTeacherPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UnassignClassTeacherPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UnassignClassTeacherPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aI(2, _omitFieldNames ? '' : 'year')
+    ..aI(3, _omitFieldNames ? '' : 'term')
+    ..aI(4, _omitFieldNames ? '' : 'grade')
+    ..aI(5, _omitFieldNames ? '' : 'stream')
+    ..aOS(6, _omitFieldNames ? '' : 'teacher')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UnassignClassTeacherPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UnassignClassTeacherPayload copyWith(
+          void Function(UnassignClassTeacherPayload) updates) =>
+      super.copyWith(
+              (message) => updates(message as UnassignClassTeacherPayload))
+          as UnassignClassTeacherPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UnassignClassTeacherPayload create() =>
+      UnassignClassTeacherPayload._();
+  @$core.override
+  UnassignClassTeacherPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UnassignClassTeacherPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UnassignClassTeacherPayload>(create);
+  static UnassignClassTeacherPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get year => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set year($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasYear() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearYear() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get term => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set term($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasTerm() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTerm() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get grade => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set grade($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasGrade() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearGrade() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get stream => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set stream($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasStream() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearStream() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get teacher => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set teacher($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasTeacher() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearTeacher() => $_clearField(6);
+}
+
+class AssignSubjectPayload extends $pb.GeneratedMessage {
+  factory AssignSubjectPayload({
+    $core.String? school,
+    $core.int? year,
+    $core.int? term,
+    $core.int? grade,
+    $core.int? stream,
+    $core.int? subject,
+    $core.String? teacher,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (year != null) result.year = year;
+    if (term != null) result.term = term;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
+    if (subject != null) result.subject = subject;
+    if (teacher != null) result.teacher = teacher;
+    return result;
+  }
+
+  AssignSubjectPayload._();
+
+  factory AssignSubjectPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory AssignSubjectPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AssignSubjectPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aI(2, _omitFieldNames ? '' : 'year')
+    ..aI(3, _omitFieldNames ? '' : 'term')
+    ..aI(4, _omitFieldNames ? '' : 'grade')
+    ..aI(5, _omitFieldNames ? '' : 'stream')
+    ..aI(6, _omitFieldNames ? '' : 'subject')
+    ..aOS(7, _omitFieldNames ? '' : 'teacher')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AssignSubjectPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AssignSubjectPayload copyWith(void Function(AssignSubjectPayload) updates) =>
+      super.copyWith((message) => updates(message as AssignSubjectPayload))
+          as AssignSubjectPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static AssignSubjectPayload create() => AssignSubjectPayload._();
+  @$core.override
+  AssignSubjectPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static AssignSubjectPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<AssignSubjectPayload>(create);
+  static AssignSubjectPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get year => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set year($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasYear() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearYear() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get term => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set term($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasTerm() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTerm() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get grade => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set grade($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasGrade() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearGrade() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get stream => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set stream($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasStream() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearStream() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get subject => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set subject($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasSubject() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearSubject() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get teacher => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set teacher($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasTeacher() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearTeacher() => $_clearField(7);
+}
+
+class UnassignSubjectPayload extends $pb.GeneratedMessage {
+  factory UnassignSubjectPayload({
+    $core.String? school,
+    $core.int? year,
+    $core.int? term,
+    $core.int? grade,
+    $core.int? stream,
+    $core.int? subject,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (year != null) result.year = year;
+    if (term != null) result.term = term;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
+    if (subject != null) result.subject = subject;
+    return result;
+  }
+
+  UnassignSubjectPayload._();
+
+  factory UnassignSubjectPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UnassignSubjectPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UnassignSubjectPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aI(2, _omitFieldNames ? '' : 'year')
+    ..aI(3, _omitFieldNames ? '' : 'term')
+    ..aI(4, _omitFieldNames ? '' : 'grade')
+    ..aI(5, _omitFieldNames ? '' : 'stream')
+    ..aI(6, _omitFieldNames ? '' : 'subject')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UnassignSubjectPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UnassignSubjectPayload copyWith(
+          void Function(UnassignSubjectPayload) updates) =>
+      super.copyWith((message) => updates(message as UnassignSubjectPayload))
+          as UnassignSubjectPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UnassignSubjectPayload create() => UnassignSubjectPayload._();
+  @$core.override
+  UnassignSubjectPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UnassignSubjectPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UnassignSubjectPayload>(create);
+  static UnassignSubjectPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get year => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set year($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasYear() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearYear() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get term => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set term($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasTerm() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTerm() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get grade => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set grade($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasGrade() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearGrade() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get stream => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set stream($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasStream() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearStream() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get subject => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set subject($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasSubject() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearSubject() => $_clearField(6);
+}
+
+class CreateTimetableEntryPayload extends $pb.GeneratedMessage {
+  factory CreateTimetableEntryPayload({
+    $core.String? school,
+    $core.int? year,
+    $core.int? term,
+    $core.int? grade,
+    $core.int? stream,
+    $core.int? subject,
+    $core.String? teacher,
+    $core.int? day,
+    $core.int? start,
+    $core.int? end,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (year != null) result.year = year;
+    if (term != null) result.term = term;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
+    if (subject != null) result.subject = subject;
+    if (teacher != null) result.teacher = teacher;
+    if (day != null) result.day = day;
+    if (start != null) result.start = start;
+    if (end != null) result.end = end;
+    return result;
+  }
+
+  CreateTimetableEntryPayload._();
+
+  factory CreateTimetableEntryPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CreateTimetableEntryPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateTimetableEntryPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aI(2, _omitFieldNames ? '' : 'year')
+    ..aI(3, _omitFieldNames ? '' : 'term')
+    ..aI(4, _omitFieldNames ? '' : 'grade')
+    ..aI(5, _omitFieldNames ? '' : 'stream')
+    ..aI(6, _omitFieldNames ? '' : 'subject')
+    ..aOS(7, _omitFieldNames ? '' : 'teacher')
+    ..aI(8, _omitFieldNames ? '' : 'day')
+    ..aI(9, _omitFieldNames ? '' : 'start')
+    ..aI(10, _omitFieldNames ? '' : 'end')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateTimetableEntryPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateTimetableEntryPayload copyWith(
+          void Function(CreateTimetableEntryPayload) updates) =>
+      super.copyWith(
+              (message) => updates(message as CreateTimetableEntryPayload))
+          as CreateTimetableEntryPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreateTimetableEntryPayload create() =>
+      CreateTimetableEntryPayload._();
+  @$core.override
+  CreateTimetableEntryPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CreateTimetableEntryPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateTimetableEntryPayload>(create);
+  static CreateTimetableEntryPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get year => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set year($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasYear() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearYear() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get term => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set term($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasTerm() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTerm() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get grade => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set grade($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasGrade() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearGrade() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get stream => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set stream($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasStream() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearStream() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get subject => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set subject($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasSubject() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearSubject() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get teacher => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set teacher($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasTeacher() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearTeacher() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.int get day => $_getIZ(7);
+  @$pb.TagNumber(8)
+  set day($core.int value) => $_setSignedInt32(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasDay() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearDay() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.int get start => $_getIZ(8);
+  @$pb.TagNumber(9)
+  set start($core.int value) => $_setSignedInt32(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasStart() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearStart() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.int get end => $_getIZ(9);
+  @$pb.TagNumber(10)
+  set end($core.int value) => $_setSignedInt32(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasEnd() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearEnd() => $_clearField(10);
+}
+
+class UpdateTimetableEntryPayload extends $pb.GeneratedMessage {
+  factory UpdateTimetableEntryPayload({
+    $core.String? school,
+    $core.int? year,
+    $core.int? term,
+    $core.int? grade,
+    $core.int? stream,
+    $core.int? subject,
+    $core.int? day,
+    $core.int? start,
+    $core.String? teacher,
+    $core.int? end,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (year != null) result.year = year;
+    if (term != null) result.term = term;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
+    if (subject != null) result.subject = subject;
+    if (day != null) result.day = day;
+    if (start != null) result.start = start;
+    if (teacher != null) result.teacher = teacher;
+    if (end != null) result.end = end;
+    return result;
+  }
+
+  UpdateTimetableEntryPayload._();
+
+  factory UpdateTimetableEntryPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdateTimetableEntryPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateTimetableEntryPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aI(2, _omitFieldNames ? '' : 'year')
+    ..aI(3, _omitFieldNames ? '' : 'term')
+    ..aI(4, _omitFieldNames ? '' : 'grade')
+    ..aI(5, _omitFieldNames ? '' : 'stream')
+    ..aI(6, _omitFieldNames ? '' : 'subject')
+    ..aI(7, _omitFieldNames ? '' : 'day')
+    ..aI(8, _omitFieldNames ? '' : 'start')
+    ..aOS(9, _omitFieldNames ? '' : 'teacher')
+    ..aI(10, _omitFieldNames ? '' : 'end')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateTimetableEntryPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateTimetableEntryPayload copyWith(
+          void Function(UpdateTimetableEntryPayload) updates) =>
+      super.copyWith(
+              (message) => updates(message as UpdateTimetableEntryPayload))
+          as UpdateTimetableEntryPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateTimetableEntryPayload create() =>
+      UpdateTimetableEntryPayload._();
+  @$core.override
+  UpdateTimetableEntryPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdateTimetableEntryPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateTimetableEntryPayload>(create);
+  static UpdateTimetableEntryPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get year => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set year($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasYear() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearYear() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get term => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set term($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasTerm() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTerm() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get grade => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set grade($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasGrade() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearGrade() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get stream => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set stream($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasStream() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearStream() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get subject => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set subject($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasSubject() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearSubject() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.int get day => $_getIZ(6);
+  @$pb.TagNumber(7)
+  set day($core.int value) => $_setSignedInt32(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasDay() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearDay() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.int get start => $_getIZ(7);
+  @$pb.TagNumber(8)
+  set start($core.int value) => $_setSignedInt32(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasStart() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearStart() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.String get teacher => $_getSZ(8);
+  @$pb.TagNumber(9)
+  set teacher($core.String value) => $_setString(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasTeacher() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearTeacher() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.int get end => $_getIZ(9);
+  @$pb.TagNumber(10)
+  set end($core.int value) => $_setSignedInt32(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasEnd() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearEnd() => $_clearField(10);
+}
+
+class DeleteTimetableEntryPayload extends $pb.GeneratedMessage {
+  factory DeleteTimetableEntryPayload({
+    $core.String? school,
+    $core.int? year,
+    $core.int? term,
+    $core.int? grade,
+    $core.int? stream,
+    $core.int? subject,
+    $core.int? day,
+    $core.int? start,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (year != null) result.year = year;
+    if (term != null) result.term = term;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
+    if (subject != null) result.subject = subject;
+    if (day != null) result.day = day;
+    if (start != null) result.start = start;
+    return result;
+  }
+
+  DeleteTimetableEntryPayload._();
+
+  factory DeleteTimetableEntryPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteTimetableEntryPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteTimetableEntryPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aI(2, _omitFieldNames ? '' : 'year')
+    ..aI(3, _omitFieldNames ? '' : 'term')
+    ..aI(4, _omitFieldNames ? '' : 'grade')
+    ..aI(5, _omitFieldNames ? '' : 'stream')
+    ..aI(6, _omitFieldNames ? '' : 'subject')
+    ..aI(7, _omitFieldNames ? '' : 'day')
+    ..aI(8, _omitFieldNames ? '' : 'start')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteTimetableEntryPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteTimetableEntryPayload copyWith(
+          void Function(DeleteTimetableEntryPayload) updates) =>
+      super.copyWith(
+              (message) => updates(message as DeleteTimetableEntryPayload))
+          as DeleteTimetableEntryPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteTimetableEntryPayload create() =>
+      DeleteTimetableEntryPayload._();
+  @$core.override
+  DeleteTimetableEntryPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteTimetableEntryPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteTimetableEntryPayload>(create);
+  static DeleteTimetableEntryPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get year => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set year($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasYear() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearYear() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get term => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set term($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasTerm() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTerm() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get grade => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set grade($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasGrade() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearGrade() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get stream => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set stream($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasStream() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearStream() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get subject => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set subject($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasSubject() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearSubject() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.int get day => $_getIZ(6);
+  @$pb.TagNumber(7)
+  set day($core.int value) => $_setSignedInt32(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasDay() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearDay() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.int get start => $_getIZ(7);
+  @$pb.TagNumber(8)
+  set start($core.int value) => $_setSignedInt32(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasStart() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearStart() => $_clearField(8);
+}
+
+class AttendanceRecord extends $pb.GeneratedMessage {
+  factory AttendanceRecord({
+    $core.int? student,
+    $core.int? status,
+  }) {
+    final result = create();
+    if (student != null) result.student = student;
+    if (status != null) result.status = status;
+    return result;
+  }
+
+  AttendanceRecord._();
+
+  factory AttendanceRecord.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory AttendanceRecord.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AttendanceRecord',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aI(1, _omitFieldNames ? '' : 'student')
+    ..aI(2, _omitFieldNames ? '' : 'status')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AttendanceRecord clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AttendanceRecord copyWith(void Function(AttendanceRecord) updates) =>
+      super.copyWith((message) => updates(message as AttendanceRecord))
+          as AttendanceRecord;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static AttendanceRecord create() => AttendanceRecord._();
+  @$core.override
+  AttendanceRecord createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static AttendanceRecord getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<AttendanceRecord>(create);
+  static AttendanceRecord? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get student => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set student($core.int value) => $_setSignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasStudent() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearStudent() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get status => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set status($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasStatus() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearStatus() => $_clearField(2);
+}
+
+class MarkAttendancePayload extends $pb.GeneratedMessage {
+  factory MarkAttendancePayload({
+    $core.String? school,
+    $core.int? year,
+    $core.int? term,
+    $core.int? grade,
+    $core.int? stream,
+    $core.int? date,
+    $core.Iterable<AttendanceRecord>? records,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (year != null) result.year = year;
+    if (term != null) result.term = term;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
+    if (date != null) result.date = date;
+    if (records != null) result.records.addAll(records);
+    return result;
+  }
+
+  MarkAttendancePayload._();
+
+  factory MarkAttendancePayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory MarkAttendancePayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'MarkAttendancePayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aI(2, _omitFieldNames ? '' : 'year')
+    ..aI(3, _omitFieldNames ? '' : 'term')
+    ..aI(4, _omitFieldNames ? '' : 'grade')
+    ..aI(5, _omitFieldNames ? '' : 'stream')
+    ..aI(6, _omitFieldNames ? '' : 'date')
+    ..pPM<AttendanceRecord>(7, _omitFieldNames ? '' : 'records',
+        subBuilder: AttendanceRecord.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MarkAttendancePayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MarkAttendancePayload copyWith(
+          void Function(MarkAttendancePayload) updates) =>
+      super.copyWith((message) => updates(message as MarkAttendancePayload))
+          as MarkAttendancePayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MarkAttendancePayload create() => MarkAttendancePayload._();
+  @$core.override
+  MarkAttendancePayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static MarkAttendancePayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<MarkAttendancePayload>(create);
+  static MarkAttendancePayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get year => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set year($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasYear() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearYear() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get term => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set term($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasTerm() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTerm() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get grade => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set grade($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasGrade() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearGrade() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get stream => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set stream($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasStream() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearStream() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get date => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set date($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasDate() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearDate() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $pb.PbList<AttendanceRecord> get records => $_getList(6);
+}
+
+class DeleteAttendancePayload extends $pb.GeneratedMessage {
+  factory DeleteAttendancePayload({
+    $core.String? school,
+    $core.int? year,
+    $core.int? term,
+    $core.int? grade,
+    $core.int? stream,
+    $core.int? student,
+    $core.int? date,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (year != null) result.year = year;
+    if (term != null) result.term = term;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
+    if (student != null) result.student = student;
+    if (date != null) result.date = date;
+    return result;
+  }
+
+  DeleteAttendancePayload._();
+
+  factory DeleteAttendancePayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteAttendancePayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteAttendancePayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aI(2, _omitFieldNames ? '' : 'year')
+    ..aI(3, _omitFieldNames ? '' : 'term')
+    ..aI(4, _omitFieldNames ? '' : 'grade')
+    ..aI(5, _omitFieldNames ? '' : 'stream')
+    ..aI(6, _omitFieldNames ? '' : 'student')
+    ..aI(7, _omitFieldNames ? '' : 'date')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteAttendancePayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteAttendancePayload copyWith(
+          void Function(DeleteAttendancePayload) updates) =>
+      super.copyWith((message) => updates(message as DeleteAttendancePayload))
+          as DeleteAttendancePayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteAttendancePayload create() => DeleteAttendancePayload._();
+  @$core.override
+  DeleteAttendancePayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteAttendancePayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteAttendancePayload>(create);
+  static DeleteAttendancePayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get year => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set year($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasYear() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearYear() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get term => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set term($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasTerm() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTerm() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get grade => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set grade($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasGrade() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearGrade() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get stream => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set stream($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasStream() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearStream() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get student => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set student($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasStudent() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearStudent() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.int get date => $_getIZ(6);
+  @$pb.TagNumber(7)
+  set date($core.int value) => $_setSignedInt32(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasDate() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearDate() => $_clearField(7);
+}
+
+class CreateLessonPayload extends $pb.GeneratedMessage {
+  factory CreateLessonPayload({
+    $core.String? school,
+    $core.int? year,
+    $core.int? term,
+    $core.int? grade,
+    $core.int? stream,
+    $core.int? date,
+    $core.int? subject,
+    $core.String? teacher,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (year != null) result.year = year;
+    if (term != null) result.term = term;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
+    if (date != null) result.date = date;
+    if (subject != null) result.subject = subject;
+    if (teacher != null) result.teacher = teacher;
+    return result;
+  }
+
+  CreateLessonPayload._();
+
+  factory CreateLessonPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CreateLessonPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateLessonPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aI(2, _omitFieldNames ? '' : 'year')
+    ..aI(3, _omitFieldNames ? '' : 'term')
+    ..aI(4, _omitFieldNames ? '' : 'grade')
+    ..aI(5, _omitFieldNames ? '' : 'stream')
+    ..aI(6, _omitFieldNames ? '' : 'date')
+    ..aI(7, _omitFieldNames ? '' : 'subject')
+    ..aOS(8, _omitFieldNames ? '' : 'teacher')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateLessonPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateLessonPayload copyWith(void Function(CreateLessonPayload) updates) =>
+      super.copyWith((message) => updates(message as CreateLessonPayload))
+          as CreateLessonPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreateLessonPayload create() => CreateLessonPayload._();
+  @$core.override
+  CreateLessonPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CreateLessonPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateLessonPayload>(create);
+  static CreateLessonPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get year => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set year($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasYear() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearYear() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get term => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set term($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasTerm() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTerm() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get grade => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set grade($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasGrade() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearGrade() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get stream => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set stream($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasStream() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearStream() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get date => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set date($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasDate() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearDate() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.int get subject => $_getIZ(6);
+  @$pb.TagNumber(7)
+  set subject($core.int value) => $_setSignedInt32(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasSubject() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearSubject() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.String get teacher => $_getSZ(7);
+  @$pb.TagNumber(8)
+  set teacher($core.String value) => $_setString(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasTeacher() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearTeacher() => $_clearField(8);
+}
+
+class DeleteLessonPayload extends $pb.GeneratedMessage {
+  factory DeleteLessonPayload({
+    $core.String? school,
+    $core.int? year,
+    $core.int? term,
+    $core.int? grade,
+    $core.int? stream,
+    $core.int? date,
+    $core.int? subject,
+    $core.String? teacher,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (year != null) result.year = year;
+    if (term != null) result.term = term;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
+    if (date != null) result.date = date;
+    if (subject != null) result.subject = subject;
+    if (teacher != null) result.teacher = teacher;
+    return result;
+  }
+
+  DeleteLessonPayload._();
+
+  factory DeleteLessonPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteLessonPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteLessonPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aI(2, _omitFieldNames ? '' : 'year')
+    ..aI(3, _omitFieldNames ? '' : 'term')
+    ..aI(4, _omitFieldNames ? '' : 'grade')
+    ..aI(5, _omitFieldNames ? '' : 'stream')
+    ..aI(6, _omitFieldNames ? '' : 'date')
+    ..aI(7, _omitFieldNames ? '' : 'subject')
+    ..aOS(8, _omitFieldNames ? '' : 'teacher')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteLessonPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteLessonPayload copyWith(void Function(DeleteLessonPayload) updates) =>
+      super.copyWith((message) => updates(message as DeleteLessonPayload))
+          as DeleteLessonPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteLessonPayload create() => DeleteLessonPayload._();
+  @$core.override
+  DeleteLessonPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteLessonPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteLessonPayload>(create);
+  static DeleteLessonPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get year => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set year($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasYear() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearYear() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get term => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set term($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasTerm() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTerm() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get grade => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set grade($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasGrade() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearGrade() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get stream => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set stream($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasStream() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearStream() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get date => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set date($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasDate() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearDate() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.int get subject => $_getIZ(6);
+  @$pb.TagNumber(7)
+  set subject($core.int value) => $_setSignedInt32(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasSubject() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearSubject() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.String get teacher => $_getSZ(7);
+  @$pb.TagNumber(8)
+  set teacher($core.String value) => $_setString(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasTeacher() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearTeacher() => $_clearField(8);
+}
+
+class CreateExamPayload extends $pb.GeneratedMessage {
+  factory CreateExamPayload({
+    $core.String? id,
+    $core.String? school,
+    $core.int? year,
+    $core.int? term,
+    $core.int? grade,
+    $core.int? stream,
+    $core.bool? personalized,
+    $core.int? type,
+    $core.int? start,
+    $core.int? end,
+    $core.String? teacher,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (school != null) result.school = school;
+    if (year != null) result.year = year;
+    if (term != null) result.term = term;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
+    if (personalized != null) result.personalized = personalized;
+    if (type != null) result.type = type;
+    if (start != null) result.start = start;
+    if (end != null) result.end = end;
+    if (teacher != null) result.teacher = teacher;
+    return result;
+  }
+
+  CreateExamPayload._();
+
+  factory CreateExamPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CreateExamPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateExamPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'school')
+    ..aI(3, _omitFieldNames ? '' : 'year')
+    ..aI(4, _omitFieldNames ? '' : 'term')
+    ..aI(5, _omitFieldNames ? '' : 'grade')
+    ..aI(6, _omitFieldNames ? '' : 'stream')
+    ..aOB(7, _omitFieldNames ? '' : 'personalized')
+    ..aI(8, _omitFieldNames ? '' : 'type')
+    ..aI(9, _omitFieldNames ? '' : 'start')
+    ..aI(10, _omitFieldNames ? '' : 'end')
+    ..aOS(11, _omitFieldNames ? '' : 'teacher')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateExamPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateExamPayload copyWith(void Function(CreateExamPayload) updates) =>
+      super.copyWith((message) => updates(message as CreateExamPayload))
+          as CreateExamPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreateExamPayload create() => CreateExamPayload._();
+  @$core.override
+  CreateExamPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CreateExamPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateExamPayload>(create);
+  static CreateExamPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get school => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set school($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSchool() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSchool() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get year => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set year($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasYear() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearYear() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get term => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set term($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasTerm() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearTerm() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get grade => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set grade($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasGrade() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearGrade() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get stream => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set stream($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasStream() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearStream() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.bool get personalized => $_getBF(6);
+  @$pb.TagNumber(7)
+  set personalized($core.bool value) => $_setBool(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasPersonalized() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearPersonalized() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.int get type => $_getIZ(7);
+  @$pb.TagNumber(8)
+  set type($core.int value) => $_setSignedInt32(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasType() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearType() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.int get start => $_getIZ(8);
+  @$pb.TagNumber(9)
+  set start($core.int value) => $_setSignedInt32(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasStart() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearStart() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.int get end => $_getIZ(9);
+  @$pb.TagNumber(10)
+  set end($core.int value) => $_setSignedInt32(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasEnd() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearEnd() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $core.String get teacher => $_getSZ(10);
+  @$pb.TagNumber(11)
+  set teacher($core.String value) => $_setString(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasTeacher() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearTeacher() => $_clearField(11);
+}
+
+class UpdateExamPayload extends $pb.GeneratedMessage {
+  factory UpdateExamPayload({
+    $core.String? id,
+    $core.int? stream,
+    $core.bool? personalized,
+    $core.int? type,
+    $core.int? start,
+    $core.int? end,
+    $core.String? teacher,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (stream != null) result.stream = stream;
+    if (personalized != null) result.personalized = personalized;
+    if (type != null) result.type = type;
+    if (start != null) result.start = start;
+    if (end != null) result.end = end;
+    if (teacher != null) result.teacher = teacher;
+    return result;
+  }
+
+  UpdateExamPayload._();
+
+  factory UpdateExamPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdateExamPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateExamPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aI(2, _omitFieldNames ? '' : 'stream')
+    ..aOB(3, _omitFieldNames ? '' : 'personalized')
+    ..aI(4, _omitFieldNames ? '' : 'type')
+    ..aI(5, _omitFieldNames ? '' : 'start')
+    ..aI(6, _omitFieldNames ? '' : 'end')
+    ..aOS(7, _omitFieldNames ? '' : 'teacher')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateExamPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateExamPayload copyWith(void Function(UpdateExamPayload) updates) =>
+      super.copyWith((message) => updates(message as UpdateExamPayload))
+          as UpdateExamPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateExamPayload create() => UpdateExamPayload._();
+  @$core.override
+  UpdateExamPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdateExamPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateExamPayload>(create);
+  static UpdateExamPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get stream => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set stream($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasStream() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearStream() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.bool get personalized => $_getBF(2);
+  @$pb.TagNumber(3)
+  set personalized($core.bool value) => $_setBool(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasPersonalized() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearPersonalized() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get type => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set type($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasType() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearType() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get start => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set start($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasStart() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearStart() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get end => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set end($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasEnd() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearEnd() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get teacher => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set teacher($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasTeacher() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearTeacher() => $_clearField(7);
+}
+
+class DeleteExamPayload extends $pb.GeneratedMessage {
+  factory DeleteExamPayload({
+    $core.String? id,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    return result;
+  }
+
+  DeleteExamPayload._();
+
+  factory DeleteExamPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteExamPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteExamPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteExamPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteExamPayload copyWith(void Function(DeleteExamPayload) updates) =>
+      super.copyWith((message) => updates(message as DeleteExamPayload))
+          as DeleteExamPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteExamPayload create() => DeleteExamPayload._();
+  @$core.override
+  DeleteExamPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteExamPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteExamPayload>(create);
+  static DeleteExamPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+}
+
+class CreatePaperPayload extends $pb.GeneratedMessage {
+  factory CreatePaperPayload({
+    $core.String? school,
+    $core.String? exam,
+    $core.int? subject,
+    $core.int? paper,
+    $core.String? invigilator,
+    $fixnum.Int64? start,
+    $fixnum.Int64? end,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (exam != null) result.exam = exam;
+    if (subject != null) result.subject = subject;
+    if (paper != null) result.paper = paper;
+    if (invigilator != null) result.invigilator = invigilator;
+    if (start != null) result.start = start;
+    if (end != null) result.end = end;
+    return result;
+  }
+
+  CreatePaperPayload._();
+
+  factory CreatePaperPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CreatePaperPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreatePaperPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'exam')
+    ..aI(3, _omitFieldNames ? '' : 'subject')
+    ..aI(4, _omitFieldNames ? '' : 'paper')
+    ..aOS(5, _omitFieldNames ? '' : 'invigilator')
+    ..aInt64(6, _omitFieldNames ? '' : 'start')
+    ..aInt64(7, _omitFieldNames ? '' : 'end')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreatePaperPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreatePaperPayload copyWith(void Function(CreatePaperPayload) updates) =>
+      super.copyWith((message) => updates(message as CreatePaperPayload))
+          as CreatePaperPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreatePaperPayload create() => CreatePaperPayload._();
+  @$core.override
+  CreatePaperPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CreatePaperPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreatePaperPayload>(create);
+  static CreatePaperPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get exam => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set exam($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasExam() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearExam() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get subject => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set subject($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSubject() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSubject() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get paper => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set paper($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasPaper() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearPaper() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get invigilator => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set invigilator($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasInvigilator() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearInvigilator() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $fixnum.Int64 get start => $_getI64(5);
+  @$pb.TagNumber(6)
+  set start($fixnum.Int64 value) => $_setInt64(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasStart() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearStart() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $fixnum.Int64 get end => $_getI64(6);
+  @$pb.TagNumber(7)
+  set end($fixnum.Int64 value) => $_setInt64(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasEnd() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearEnd() => $_clearField(7);
+}
+
+class UpdatePaperPayload extends $pb.GeneratedMessage {
+  factory UpdatePaperPayload({
+    $core.String? school,
+    $core.String? exam,
+    $core.int? subject,
+    $core.int? paper,
+    $core.String? invigilator,
+    $fixnum.Int64? start,
+    $fixnum.Int64? end,
+    $core.int? status,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (exam != null) result.exam = exam;
+    if (subject != null) result.subject = subject;
+    if (paper != null) result.paper = paper;
+    if (invigilator != null) result.invigilator = invigilator;
+    if (start != null) result.start = start;
+    if (end != null) result.end = end;
+    if (status != null) result.status = status;
+    return result;
+  }
+
+  UpdatePaperPayload._();
+
+  factory UpdatePaperPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdatePaperPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdatePaperPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'exam')
+    ..aI(3, _omitFieldNames ? '' : 'subject')
+    ..aI(4, _omitFieldNames ? '' : 'paper')
+    ..aOS(5, _omitFieldNames ? '' : 'invigilator')
+    ..aInt64(6, _omitFieldNames ? '' : 'start')
+    ..aInt64(7, _omitFieldNames ? '' : 'end')
+    ..aI(8, _omitFieldNames ? '' : 'status')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdatePaperPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdatePaperPayload copyWith(void Function(UpdatePaperPayload) updates) =>
+      super.copyWith((message) => updates(message as UpdatePaperPayload))
+          as UpdatePaperPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdatePaperPayload create() => UpdatePaperPayload._();
+  @$core.override
+  UpdatePaperPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdatePaperPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdatePaperPayload>(create);
+  static UpdatePaperPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get exam => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set exam($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasExam() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearExam() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get subject => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set subject($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSubject() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSubject() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get paper => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set paper($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasPaper() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearPaper() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get invigilator => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set invigilator($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasInvigilator() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearInvigilator() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $fixnum.Int64 get start => $_getI64(5);
+  @$pb.TagNumber(6)
+  set start($fixnum.Int64 value) => $_setInt64(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasStart() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearStart() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $fixnum.Int64 get end => $_getI64(6);
+  @$pb.TagNumber(7)
+  set end($fixnum.Int64 value) => $_setInt64(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasEnd() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearEnd() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.int get status => $_getIZ(7);
+  @$pb.TagNumber(8)
+  set status($core.int value) => $_setSignedInt32(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasStatus() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearStatus() => $_clearField(8);
+}
+
+class DeletePaperPayload extends $pb.GeneratedMessage {
+  factory DeletePaperPayload({
+    $core.String? school,
+    $core.String? exam,
+    $core.int? subject,
+    $core.int? paper,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (exam != null) result.exam = exam;
+    if (subject != null) result.subject = subject;
+    if (paper != null) result.paper = paper;
+    return result;
+  }
+
+  DeletePaperPayload._();
+
+  factory DeletePaperPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeletePaperPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeletePaperPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'exam')
+    ..aI(3, _omitFieldNames ? '' : 'subject')
+    ..aI(4, _omitFieldNames ? '' : 'paper')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeletePaperPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeletePaperPayload copyWith(void Function(DeletePaperPayload) updates) =>
+      super.copyWith((message) => updates(message as DeletePaperPayload))
+          as DeletePaperPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeletePaperPayload create() => DeletePaperPayload._();
+  @$core.override
+  DeletePaperPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeletePaperPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeletePaperPayload>(create);
+  static DeletePaperPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get exam => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set exam($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasExam() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearExam() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get subject => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set subject($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSubject() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSubject() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get paper => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set paper($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasPaper() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearPaper() => $_clearField(4);
+}
+
+class GradeRecord extends $pb.GeneratedMessage {
+  factory GradeRecord({
+    $core.int? student,
+    $core.double? score,
+    $core.int? total,
+  }) {
+    final result = create();
+    if (student != null) result.student = student;
+    if (score != null) result.score = score;
+    if (total != null) result.total = total;
+    return result;
+  }
+
+  GradeRecord._();
+
+  factory GradeRecord.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory GradeRecord.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GradeRecord',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aI(1, _omitFieldNames ? '' : 'student')
+    ..aD(2, _omitFieldNames ? '' : 'score', fieldType: $pb.PbFieldType.OF)
+    ..aI(3, _omitFieldNames ? '' : 'total')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GradeRecord clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GradeRecord copyWith(void Function(GradeRecord) updates) =>
+      super.copyWith((message) => updates(message as GradeRecord))
+          as GradeRecord;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GradeRecord create() => GradeRecord._();
+  @$core.override
+  GradeRecord createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static GradeRecord getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GradeRecord>(create);
+  static GradeRecord? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get student => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set student($core.int value) => $_setSignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasStudent() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearStudent() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.double get score => $_getN(1);
+  @$pb.TagNumber(2)
+  set score($core.double value) => $_setFloat(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasScore() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearScore() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get total => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set total($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasTotal() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTotal() => $_clearField(3);
+}
+
+class MarkGradesPayload extends $pb.GeneratedMessage {
+  factory MarkGradesPayload({
+    $core.String? school,
+    $core.String? exam,
+    $core.int? subject,
+    $core.int? paper,
+    $core.Iterable<GradeRecord>? records,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (exam != null) result.exam = exam;
+    if (subject != null) result.subject = subject;
+    if (paper != null) result.paper = paper;
+    if (records != null) result.records.addAll(records);
+    return result;
+  }
+
+  MarkGradesPayload._();
+
+  factory MarkGradesPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory MarkGradesPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'MarkGradesPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'exam')
+    ..aI(3, _omitFieldNames ? '' : 'subject')
+    ..aI(4, _omitFieldNames ? '' : 'paper')
+    ..pPM<GradeRecord>(5, _omitFieldNames ? '' : 'records',
+        subBuilder: GradeRecord.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MarkGradesPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MarkGradesPayload copyWith(void Function(MarkGradesPayload) updates) =>
+      super.copyWith((message) => updates(message as MarkGradesPayload))
+          as MarkGradesPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MarkGradesPayload create() => MarkGradesPayload._();
+  @$core.override
+  MarkGradesPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static MarkGradesPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<MarkGradesPayload>(create);
+  static MarkGradesPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get exam => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set exam($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasExam() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearExam() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get subject => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set subject($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSubject() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSubject() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get paper => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set paper($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasPaper() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearPaper() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $pb.PbList<GradeRecord> get records => $_getList(4);
+}
+
+class UpdateGradePayload extends $pb.GeneratedMessage {
+  factory UpdateGradePayload({
+    $core.String? school,
+    $core.String? exam,
+    $core.int? student,
+    $core.int? subject,
+    $core.int? paper,
+    $core.double? score,
+    $core.int? total,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (exam != null) result.exam = exam;
+    if (student != null) result.student = student;
+    if (subject != null) result.subject = subject;
+    if (paper != null) result.paper = paper;
+    if (score != null) result.score = score;
+    if (total != null) result.total = total;
+    return result;
+  }
+
+  UpdateGradePayload._();
+
+  factory UpdateGradePayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdateGradePayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateGradePayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'exam')
+    ..aI(3, _omitFieldNames ? '' : 'student')
+    ..aI(4, _omitFieldNames ? '' : 'subject')
+    ..aI(5, _omitFieldNames ? '' : 'paper')
+    ..aD(6, _omitFieldNames ? '' : 'score', fieldType: $pb.PbFieldType.OF)
+    ..aI(7, _omitFieldNames ? '' : 'total')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateGradePayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateGradePayload copyWith(void Function(UpdateGradePayload) updates) =>
+      super.copyWith((message) => updates(message as UpdateGradePayload))
+          as UpdateGradePayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateGradePayload create() => UpdateGradePayload._();
+  @$core.override
+  UpdateGradePayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdateGradePayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateGradePayload>(create);
+  static UpdateGradePayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get exam => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set exam($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasExam() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearExam() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get student => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set student($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasStudent() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearStudent() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get subject => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set subject($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSubject() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSubject() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get paper => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set paper($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasPaper() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearPaper() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.double get score => $_getN(5);
+  @$pb.TagNumber(6)
+  set score($core.double value) => $_setFloat(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasScore() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearScore() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.int get total => $_getIZ(6);
+  @$pb.TagNumber(7)
+  set total($core.int value) => $_setSignedInt32(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasTotal() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearTotal() => $_clearField(7);
+}
+
+class DeleteGradePayload extends $pb.GeneratedMessage {
+  factory DeleteGradePayload({
+    $core.String? school,
+    $core.String? exam,
+    $core.int? student,
+    $core.int? subject,
+    $core.int? paper,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (exam != null) result.exam = exam;
+    if (student != null) result.student = student;
+    if (subject != null) result.subject = subject;
+    if (paper != null) result.paper = paper;
+    return result;
+  }
+
+  DeleteGradePayload._();
+
+  factory DeleteGradePayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteGradePayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteGradePayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'exam')
+    ..aI(3, _omitFieldNames ? '' : 'student')
+    ..aI(4, _omitFieldNames ? '' : 'subject')
+    ..aI(5, _omitFieldNames ? '' : 'paper')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteGradePayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteGradePayload copyWith(void Function(DeleteGradePayload) updates) =>
+      super.copyWith((message) => updates(message as DeleteGradePayload))
+          as DeleteGradePayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteGradePayload create() => DeleteGradePayload._();
+  @$core.override
+  DeleteGradePayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteGradePayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteGradePayload>(create);
+  static DeleteGradePayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get exam => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set exam($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasExam() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearExam() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get student => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set student($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasStudent() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearStudent() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get subject => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set subject($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSubject() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSubject() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get paper => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set paper($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasPaper() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearPaper() => $_clearField(5);
+}
+
+class UpdateMasteryPayload extends $pb.GeneratedMessage {
+  factory UpdateMasteryPayload({
+    $core.String? school,
+    $core.int? student,
+    $core.int? grade,
+    $core.int? subject,
+    $core.int? topic,
+    $core.double? score,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (student != null) result.student = student;
+    if (grade != null) result.grade = grade;
+    if (subject != null) result.subject = subject;
+    if (topic != null) result.topic = topic;
+    if (score != null) result.score = score;
+    return result;
+  }
+
+  UpdateMasteryPayload._();
+
+  factory UpdateMasteryPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdateMasteryPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateMasteryPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aI(2, _omitFieldNames ? '' : 'student')
+    ..aI(3, _omitFieldNames ? '' : 'grade')
+    ..aI(4, _omitFieldNames ? '' : 'subject')
+    ..aI(5, _omitFieldNames ? '' : 'topic')
+    ..aD(6, _omitFieldNames ? '' : 'score', fieldType: $pb.PbFieldType.OF)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateMasteryPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateMasteryPayload copyWith(void Function(UpdateMasteryPayload) updates) =>
+      super.copyWith((message) => updates(message as UpdateMasteryPayload))
+          as UpdateMasteryPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateMasteryPayload create() => UpdateMasteryPayload._();
+  @$core.override
+  UpdateMasteryPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdateMasteryPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateMasteryPayload>(create);
+  static UpdateMasteryPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get student => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set student($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasStudent() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearStudent() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get grade => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set grade($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasGrade() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearGrade() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get subject => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set subject($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSubject() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSubject() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get topic => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set topic($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasTopic() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearTopic() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.double get score => $_getN(5);
+  @$pb.TagNumber(6)
+  set score($core.double value) => $_setFloat(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasScore() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearScore() => $_clearField(6);
+}
+
+class CreateFeePayload extends $pb.GeneratedMessage {
+  factory CreateFeePayload({
+    $core.String? id,
+    $core.String? school,
+    $core.int? year,
+    $core.int? term,
+    $core.int? grade,
+    $core.String? title,
+    $core.String? description,
+    $core.double? amount,
+    $core.bool? mandatory,
+    $fixnum.Int64? due,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (school != null) result.school = school;
+    if (year != null) result.year = year;
+    if (term != null) result.term = term;
+    if (grade != null) result.grade = grade;
+    if (title != null) result.title = title;
+    if (description != null) result.description = description;
+    if (amount != null) result.amount = amount;
+    if (mandatory != null) result.mandatory = mandatory;
+    if (due != null) result.due = due;
+    return result;
+  }
+
+  CreateFeePayload._();
+
+  factory CreateFeePayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CreateFeePayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateFeePayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'school')
+    ..aI(3, _omitFieldNames ? '' : 'year')
+    ..aI(4, _omitFieldNames ? '' : 'term')
+    ..aI(5, _omitFieldNames ? '' : 'grade')
+    ..aOS(6, _omitFieldNames ? '' : 'title')
+    ..aOS(7, _omitFieldNames ? '' : 'description')
+    ..aD(8, _omitFieldNames ? '' : 'amount', fieldType: $pb.PbFieldType.OF)
+    ..aOB(9, _omitFieldNames ? '' : 'mandatory')
+    ..aInt64(10, _omitFieldNames ? '' : 'due')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateFeePayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateFeePayload copyWith(void Function(CreateFeePayload) updates) =>
+      super.copyWith((message) => updates(message as CreateFeePayload))
+          as CreateFeePayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreateFeePayload create() => CreateFeePayload._();
+  @$core.override
+  CreateFeePayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CreateFeePayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateFeePayload>(create);
+  static CreateFeePayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get school => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set school($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSchool() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSchool() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get year => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set year($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasYear() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearYear() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get term => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set term($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasTerm() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearTerm() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get grade => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set grade($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasGrade() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearGrade() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get title => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set title($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasTitle() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearTitle() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get description => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set description($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasDescription() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearDescription() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.double get amount => $_getN(7);
+  @$pb.TagNumber(8)
+  set amount($core.double value) => $_setFloat(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasAmount() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearAmount() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.bool get mandatory => $_getBF(8);
+  @$pb.TagNumber(9)
+  set mandatory($core.bool value) => $_setBool(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasMandatory() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearMandatory() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $fixnum.Int64 get due => $_getI64(9);
+  @$pb.TagNumber(10)
+  set due($fixnum.Int64 value) => $_setInt64(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasDue() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearDue() => $_clearField(10);
+}
+
+class UpdateFeePayload extends $pb.GeneratedMessage {
+  factory UpdateFeePayload({
+    $core.String? id,
+    $core.String? title,
+    $core.String? description,
+    $core.double? amount,
+    $core.bool? mandatory,
+    $fixnum.Int64? due,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (title != null) result.title = title;
+    if (description != null) result.description = description;
+    if (amount != null) result.amount = amount;
+    if (mandatory != null) result.mandatory = mandatory;
+    if (due != null) result.due = due;
+    return result;
+  }
+
+  UpdateFeePayload._();
+
+  factory UpdateFeePayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdateFeePayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateFeePayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'title')
+    ..aOS(3, _omitFieldNames ? '' : 'description')
+    ..aD(4, _omitFieldNames ? '' : 'amount', fieldType: $pb.PbFieldType.OF)
+    ..aOB(5, _omitFieldNames ? '' : 'mandatory')
+    ..aInt64(6, _omitFieldNames ? '' : 'due')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateFeePayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateFeePayload copyWith(void Function(UpdateFeePayload) updates) =>
+      super.copyWith((message) => updates(message as UpdateFeePayload))
+          as UpdateFeePayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateFeePayload create() => UpdateFeePayload._();
+  @$core.override
+  UpdateFeePayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdateFeePayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateFeePayload>(create);
+  static UpdateFeePayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get title => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set title($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasTitle() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearTitle() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get description => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set description($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasDescription() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearDescription() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.double get amount => $_getN(3);
+  @$pb.TagNumber(4)
+  set amount($core.double value) => $_setFloat(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasAmount() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearAmount() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.bool get mandatory => $_getBF(4);
+  @$pb.TagNumber(5)
+  set mandatory($core.bool value) => $_setBool(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasMandatory() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearMandatory() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $fixnum.Int64 get due => $_getI64(5);
+  @$pb.TagNumber(6)
+  set due($fixnum.Int64 value) => $_setInt64(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasDue() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearDue() => $_clearField(6);
+}
+
+class DeleteFeePayload extends $pb.GeneratedMessage {
+  factory DeleteFeePayload({
+    $core.String? id,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    return result;
+  }
+
+  DeleteFeePayload._();
+
+  factory DeleteFeePayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteFeePayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteFeePayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteFeePayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteFeePayload copyWith(void Function(DeleteFeePayload) updates) =>
+      super.copyWith((message) => updates(message as DeleteFeePayload))
+          as DeleteFeePayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteFeePayload create() => DeleteFeePayload._();
+  @$core.override
+  DeleteFeePayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteFeePayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteFeePayload>(create);
+  static DeleteFeePayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+}
+
+class CreateInvoicePayload extends $pb.GeneratedMessage {
+  factory CreateInvoicePayload({
+    $core.String? id,
+    $core.String? school,
+    $core.int? year,
+    $core.int? term,
+    $core.String? fee,
+    $core.String? description,
+    $core.int? student,
+    $core.double? amount,
+    $fixnum.Int64? due,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (school != null) result.school = school;
+    if (year != null) result.year = year;
+    if (term != null) result.term = term;
+    if (fee != null) result.fee = fee;
+    if (description != null) result.description = description;
+    if (student != null) result.student = student;
+    if (amount != null) result.amount = amount;
+    if (due != null) result.due = due;
+    return result;
+  }
+
+  CreateInvoicePayload._();
+
+  factory CreateInvoicePayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CreateInvoicePayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateInvoicePayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'school')
+    ..aI(3, _omitFieldNames ? '' : 'year')
+    ..aI(4, _omitFieldNames ? '' : 'term')
+    ..aOS(5, _omitFieldNames ? '' : 'fee')
+    ..aOS(6, _omitFieldNames ? '' : 'description')
+    ..aI(7, _omitFieldNames ? '' : 'student')
+    ..aD(8, _omitFieldNames ? '' : 'amount', fieldType: $pb.PbFieldType.OF)
+    ..aInt64(9, _omitFieldNames ? '' : 'due')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateInvoicePayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateInvoicePayload copyWith(void Function(CreateInvoicePayload) updates) =>
+      super.copyWith((message) => updates(message as CreateInvoicePayload))
+          as CreateInvoicePayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreateInvoicePayload create() => CreateInvoicePayload._();
+  @$core.override
+  CreateInvoicePayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CreateInvoicePayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateInvoicePayload>(create);
+  static CreateInvoicePayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get school => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set school($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSchool() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSchool() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get year => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set year($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasYear() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearYear() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get term => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set term($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasTerm() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearTerm() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get fee => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set fee($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasFee() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearFee() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get description => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set description($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasDescription() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearDescription() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.int get student => $_getIZ(6);
+  @$pb.TagNumber(7)
+  set student($core.int value) => $_setSignedInt32(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasStudent() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearStudent() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.double get amount => $_getN(7);
+  @$pb.TagNumber(8)
+  set amount($core.double value) => $_setFloat(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasAmount() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearAmount() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $fixnum.Int64 get due => $_getI64(8);
+  @$pb.TagNumber(9)
+  set due($fixnum.Int64 value) => $_setInt64(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasDue() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearDue() => $_clearField(9);
+}
+
+class UpdateInvoicePayload extends $pb.GeneratedMessage {
+  factory UpdateInvoicePayload({
+    $core.String? id,
+    $core.String? fee,
+    $core.String? description,
+    $core.double? amount,
+    $core.int? status,
+    $fixnum.Int64? due,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (fee != null) result.fee = fee;
+    if (description != null) result.description = description;
+    if (amount != null) result.amount = amount;
+    if (status != null) result.status = status;
+    if (due != null) result.due = due;
+    return result;
+  }
+
+  UpdateInvoicePayload._();
+
+  factory UpdateInvoicePayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdateInvoicePayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateInvoicePayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'fee')
+    ..aOS(3, _omitFieldNames ? '' : 'description')
+    ..aD(4, _omitFieldNames ? '' : 'amount', fieldType: $pb.PbFieldType.OF)
+    ..aI(5, _omitFieldNames ? '' : 'status')
+    ..aInt64(6, _omitFieldNames ? '' : 'due')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateInvoicePayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateInvoicePayload copyWith(void Function(UpdateInvoicePayload) updates) =>
+      super.copyWith((message) => updates(message as UpdateInvoicePayload))
+          as UpdateInvoicePayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateInvoicePayload create() => UpdateInvoicePayload._();
+  @$core.override
+  UpdateInvoicePayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdateInvoicePayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateInvoicePayload>(create);
+  static UpdateInvoicePayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get fee => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set fee($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasFee() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearFee() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get description => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set description($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasDescription() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearDescription() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.double get amount => $_getN(3);
+  @$pb.TagNumber(4)
+  set amount($core.double value) => $_setFloat(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasAmount() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearAmount() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get status => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set status($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasStatus() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearStatus() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $fixnum.Int64 get due => $_getI64(5);
+  @$pb.TagNumber(6)
+  set due($fixnum.Int64 value) => $_setInt64(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasDue() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearDue() => $_clearField(6);
+}
+
+class DeleteInvoicePayload extends $pb.GeneratedMessage {
+  factory DeleteInvoicePayload({
+    $core.String? id,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    return result;
+  }
+
+  DeleteInvoicePayload._();
+
+  factory DeleteInvoicePayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteInvoicePayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteInvoicePayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteInvoicePayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteInvoicePayload copyWith(void Function(DeleteInvoicePayload) updates) =>
+      super.copyWith((message) => updates(message as DeleteInvoicePayload))
+          as DeleteInvoicePayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteInvoicePayload create() => DeleteInvoicePayload._();
+  @$core.override
+  DeleteInvoicePayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteInvoicePayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteInvoicePayload>(create);
+  static DeleteInvoicePayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+}
+
+class CreatePaymentPayload extends $pb.GeneratedMessage {
+  factory CreatePaymentPayload({
+    $core.String? id,
+    $core.String? invoice,
+    $core.String? school,
+    $core.int? student,
+    $core.double? amount,
+    $core.int? method,
+    $core.String? reference,
+    $core.String? recorder,
+    $core.int? date,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (invoice != null) result.invoice = invoice;
+    if (school != null) result.school = school;
+    if (student != null) result.student = student;
+    if (amount != null) result.amount = amount;
+    if (method != null) result.method = method;
+    if (reference != null) result.reference = reference;
+    if (recorder != null) result.recorder = recorder;
+    if (date != null) result.date = date;
+    return result;
+  }
+
+  CreatePaymentPayload._();
+
+  factory CreatePaymentPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CreatePaymentPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreatePaymentPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'invoice')
+    ..aOS(3, _omitFieldNames ? '' : 'school')
+    ..aI(4, _omitFieldNames ? '' : 'student')
+    ..aD(5, _omitFieldNames ? '' : 'amount', fieldType: $pb.PbFieldType.OF)
+    ..aI(6, _omitFieldNames ? '' : 'method')
+    ..aOS(7, _omitFieldNames ? '' : 'reference')
+    ..aOS(8, _omitFieldNames ? '' : 'recorder')
+    ..aI(9, _omitFieldNames ? '' : 'date')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreatePaymentPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreatePaymentPayload copyWith(void Function(CreatePaymentPayload) updates) =>
+      super.copyWith((message) => updates(message as CreatePaymentPayload))
+          as CreatePaymentPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreatePaymentPayload create() => CreatePaymentPayload._();
+  @$core.override
+  CreatePaymentPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CreatePaymentPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreatePaymentPayload>(create);
+  static CreatePaymentPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get invoice => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set invoice($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasInvoice() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearInvoice() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get school => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set school($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSchool() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSchool() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get student => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set student($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasStudent() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearStudent() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.double get amount => $_getN(4);
+  @$pb.TagNumber(5)
+  set amount($core.double value) => $_setFloat(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasAmount() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearAmount() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get method => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set method($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasMethod() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearMethod() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get reference => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set reference($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasReference() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearReference() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.String get recorder => $_getSZ(7);
+  @$pb.TagNumber(8)
+  set recorder($core.String value) => $_setString(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasRecorder() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearRecorder() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.int get date => $_getIZ(8);
+  @$pb.TagNumber(9)
+  set date($core.int value) => $_setSignedInt32(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasDate() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearDate() => $_clearField(9);
+}
+
+class UpdatePaymentPayload extends $pb.GeneratedMessage {
+  factory UpdatePaymentPayload({
+    $core.String? id,
+    $core.String? invoice,
+    $core.double? amount,
+    $core.int? method,
+    $core.String? reference,
+    $core.String? recorder,
+    $core.int? date,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (invoice != null) result.invoice = invoice;
+    if (amount != null) result.amount = amount;
+    if (method != null) result.method = method;
+    if (reference != null) result.reference = reference;
+    if (recorder != null) result.recorder = recorder;
+    if (date != null) result.date = date;
+    return result;
+  }
+
+  UpdatePaymentPayload._();
+
+  factory UpdatePaymentPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdatePaymentPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdatePaymentPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'invoice')
+    ..aD(3, _omitFieldNames ? '' : 'amount', fieldType: $pb.PbFieldType.OF)
+    ..aI(4, _omitFieldNames ? '' : 'method')
+    ..aOS(5, _omitFieldNames ? '' : 'reference')
+    ..aOS(6, _omitFieldNames ? '' : 'recorder')
+    ..aI(7, _omitFieldNames ? '' : 'date')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdatePaymentPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdatePaymentPayload copyWith(void Function(UpdatePaymentPayload) updates) =>
+      super.copyWith((message) => updates(message as UpdatePaymentPayload))
+          as UpdatePaymentPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdatePaymentPayload create() => UpdatePaymentPayload._();
+  @$core.override
+  UpdatePaymentPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdatePaymentPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdatePaymentPayload>(create);
+  static UpdatePaymentPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get invoice => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set invoice($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasInvoice() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearInvoice() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.double get amount => $_getN(2);
+  @$pb.TagNumber(3)
+  set amount($core.double value) => $_setFloat(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasAmount() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearAmount() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get method => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set method($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasMethod() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearMethod() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get reference => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set reference($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasReference() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearReference() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get recorder => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set recorder($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasRecorder() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearRecorder() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.int get date => $_getIZ(6);
+  @$pb.TagNumber(7)
+  set date($core.int value) => $_setSignedInt32(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasDate() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearDate() => $_clearField(7);
+}
+
+class DeletePaymentPayload extends $pb.GeneratedMessage {
+  factory DeletePaymentPayload({
+    $core.String? id,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    return result;
+  }
+
+  DeletePaymentPayload._();
+
+  factory DeletePaymentPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeletePaymentPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeletePaymentPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeletePaymentPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeletePaymentPayload copyWith(void Function(DeletePaymentPayload) updates) =>
+      super.copyWith((message) => updates(message as DeletePaymentPayload))
+          as DeletePaymentPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeletePaymentPayload create() => DeletePaymentPayload._();
+  @$core.override
+  DeletePaymentPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeletePaymentPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeletePaymentPayload>(create);
+  static DeletePaymentPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+}
+
+class ApprovePaymentPayload extends $pb.GeneratedMessage {
+  factory ApprovePaymentPayload({
+    $core.String? id,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    return result;
+  }
+
+  ApprovePaymentPayload._();
+
+  factory ApprovePaymentPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ApprovePaymentPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ApprovePaymentPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ApprovePaymentPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ApprovePaymentPayload copyWith(
+          void Function(ApprovePaymentPayload) updates) =>
+      super.copyWith((message) => updates(message as ApprovePaymentPayload))
+          as ApprovePaymentPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ApprovePaymentPayload create() => ApprovePaymentPayload._();
+  @$core.override
+  ApprovePaymentPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ApprovePaymentPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ApprovePaymentPayload>(create);
+  static ApprovePaymentPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+}
+
+class CreateAnnouncementPayload extends $pb.GeneratedMessage {
+  factory CreateAnnouncementPayload({
+    $core.String? id,
+    $core.String? school,
+    $core.String? title,
+    $core.String? content,
+    $core.int? grade,
+    $core.int? stream,
+    $core.int? audience,
+    $core.String? author,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (school != null) result.school = school;
+    if (title != null) result.title = title;
+    if (content != null) result.content = content;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
+    if (audience != null) result.audience = audience;
+    if (author != null) result.author = author;
+    return result;
+  }
+
+  CreateAnnouncementPayload._();
+
+  factory CreateAnnouncementPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CreateAnnouncementPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateAnnouncementPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'school')
+    ..aOS(3, _omitFieldNames ? '' : 'title')
+    ..aOS(4, _omitFieldNames ? '' : 'content')
+    ..aI(5, _omitFieldNames ? '' : 'grade')
+    ..aI(6, _omitFieldNames ? '' : 'stream')
+    ..aI(7, _omitFieldNames ? '' : 'audience')
+    ..aOS(8, _omitFieldNames ? '' : 'author')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateAnnouncementPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateAnnouncementPayload copyWith(
+          void Function(CreateAnnouncementPayload) updates) =>
+      super.copyWith((message) => updates(message as CreateAnnouncementPayload))
+          as CreateAnnouncementPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreateAnnouncementPayload create() => CreateAnnouncementPayload._();
+  @$core.override
+  CreateAnnouncementPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CreateAnnouncementPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateAnnouncementPayload>(create);
+  static CreateAnnouncementPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get school => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set school($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSchool() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSchool() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get title => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set title($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasTitle() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTitle() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get content => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set content($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasContent() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearContent() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get grade => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set grade($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasGrade() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearGrade() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get stream => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set stream($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasStream() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearStream() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.int get audience => $_getIZ(6);
+  @$pb.TagNumber(7)
+  set audience($core.int value) => $_setSignedInt32(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasAudience() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearAudience() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.String get author => $_getSZ(7);
+  @$pb.TagNumber(8)
+  set author($core.String value) => $_setString(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasAuthor() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearAuthor() => $_clearField(8);
+}
+
+class UpdateAnnouncementPayload extends $pb.GeneratedMessage {
+  factory UpdateAnnouncementPayload({
+    $core.String? id,
+    $core.String? title,
+    $core.String? content,
+    $core.int? grade,
+    $core.int? stream,
+    $core.int? audience,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (title != null) result.title = title;
+    if (content != null) result.content = content;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
+    if (audience != null) result.audience = audience;
+    return result;
+  }
+
+  UpdateAnnouncementPayload._();
+
+  factory UpdateAnnouncementPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdateAnnouncementPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateAnnouncementPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'title')
+    ..aOS(3, _omitFieldNames ? '' : 'content')
+    ..aI(4, _omitFieldNames ? '' : 'grade')
+    ..aI(5, _omitFieldNames ? '' : 'stream')
+    ..aI(6, _omitFieldNames ? '' : 'audience')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateAnnouncementPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateAnnouncementPayload copyWith(
+          void Function(UpdateAnnouncementPayload) updates) =>
+      super.copyWith((message) => updates(message as UpdateAnnouncementPayload))
+          as UpdateAnnouncementPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateAnnouncementPayload create() => UpdateAnnouncementPayload._();
+  @$core.override
+  UpdateAnnouncementPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdateAnnouncementPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateAnnouncementPayload>(create);
+  static UpdateAnnouncementPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get title => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set title($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasTitle() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearTitle() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get content => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set content($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasContent() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearContent() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get grade => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set grade($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasGrade() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearGrade() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get stream => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set stream($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasStream() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearStream() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get audience => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set audience($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasAudience() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearAudience() => $_clearField(6);
+}
+
+class DeleteAnnouncementPayload extends $pb.GeneratedMessage {
+  factory DeleteAnnouncementPayload({
+    $core.String? id,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    return result;
+  }
+
+  DeleteAnnouncementPayload._();
+
+  factory DeleteAnnouncementPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteAnnouncementPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteAnnouncementPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteAnnouncementPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteAnnouncementPayload copyWith(
+          void Function(DeleteAnnouncementPayload) updates) =>
+      super.copyWith((message) => updates(message as DeleteAnnouncementPayload))
+          as DeleteAnnouncementPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteAnnouncementPayload create() => DeleteAnnouncementPayload._();
+  @$core.override
+  DeleteAnnouncementPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteAnnouncementPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteAnnouncementPayload>(create);
+  static DeleteAnnouncementPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+}
+
+class CreateRolePayload extends $pb.GeneratedMessage {
+  factory CreateRolePayload({
+    $core.String? id,
+    $core.String? school,
+    $core.String? name,
+    $core.String? description,
+    $core.List<$core.int>? permissions,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (school != null) result.school = school;
+    if (name != null) result.name = name;
+    if (description != null) result.description = description;
+    if (permissions != null) result.permissions = permissions;
+    return result;
+  }
+
+  CreateRolePayload._();
+
+  factory CreateRolePayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CreateRolePayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateRolePayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'school')
+    ..aOS(3, _omitFieldNames ? '' : 'name')
+    ..aOS(4, _omitFieldNames ? '' : 'description')
+    ..a<$core.List<$core.int>>(
+        5, _omitFieldNames ? '' : 'permissions', $pb.PbFieldType.OY)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateRolePayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateRolePayload copyWith(void Function(CreateRolePayload) updates) =>
+      super.copyWith((message) => updates(message as CreateRolePayload))
+          as CreateRolePayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreateRolePayload create() => CreateRolePayload._();
+  @$core.override
+  CreateRolePayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CreateRolePayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateRolePayload>(create);
+  static CreateRolePayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get school => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set school($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSchool() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSchool() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get name => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set name($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasName() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearName() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get description => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set description($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasDescription() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearDescription() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.List<$core.int> get permissions => $_getN(4);
+  @$pb.TagNumber(5)
+  set permissions($core.List<$core.int> value) => $_setBytes(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasPermissions() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearPermissions() => $_clearField(5);
+}
+
+class UpdateRolePayload extends $pb.GeneratedMessage {
+  factory UpdateRolePayload({
+    $core.String? id,
+    $core.String? name,
+    $core.String? description,
+    $core.List<$core.int>? permissions,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (name != null) result.name = name;
+    if (description != null) result.description = description;
+    if (permissions != null) result.permissions = permissions;
+    return result;
+  }
+
+  UpdateRolePayload._();
+
+  factory UpdateRolePayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdateRolePayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateRolePayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
+    ..aOS(3, _omitFieldNames ? '' : 'description')
+    ..a<$core.List<$core.int>>(
+        4, _omitFieldNames ? '' : 'permissions', $pb.PbFieldType.OY)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateRolePayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateRolePayload copyWith(void Function(UpdateRolePayload) updates) =>
+      super.copyWith((message) => updates(message as UpdateRolePayload))
+          as UpdateRolePayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateRolePayload create() => UpdateRolePayload._();
+  @$core.override
+  UpdateRolePayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdateRolePayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateRolePayload>(create);
+  static UpdateRolePayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get name => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set name($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearName() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get description => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set description($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasDescription() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearDescription() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.List<$core.int> get permissions => $_getN(3);
+  @$pb.TagNumber(4)
+  set permissions($core.List<$core.int> value) => $_setBytes(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasPermissions() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearPermissions() => $_clearField(4);
+}
+
+class DeleteRolePayload extends $pb.GeneratedMessage {
+  factory DeleteRolePayload({
+    $core.String? id,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    return result;
+  }
+
+  DeleteRolePayload._();
+
+  factory DeleteRolePayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteRolePayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteRolePayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteRolePayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteRolePayload copyWith(void Function(DeleteRolePayload) updates) =>
+      super.copyWith((message) => updates(message as DeleteRolePayload))
+          as DeleteRolePayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteRolePayload create() => DeleteRolePayload._();
+  @$core.override
+  DeleteRolePayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteRolePayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteRolePayload>(create);
+  static DeleteRolePayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+}
+
+class AssignRolePayload extends $pb.GeneratedMessage {
+  factory AssignRolePayload({
+    $core.String? school,
+    $core.String? user,
+    $core.String? role,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (user != null) result.user = user;
+    if (role != null) result.role = role;
+    return result;
+  }
+
+  AssignRolePayload._();
+
+  factory AssignRolePayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory AssignRolePayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AssignRolePayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'user')
+    ..aOS(3, _omitFieldNames ? '' : 'role')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AssignRolePayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AssignRolePayload copyWith(void Function(AssignRolePayload) updates) =>
+      super.copyWith((message) => updates(message as AssignRolePayload))
+          as AssignRolePayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static AssignRolePayload create() => AssignRolePayload._();
+  @$core.override
+  AssignRolePayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static AssignRolePayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<AssignRolePayload>(create);
+  static AssignRolePayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get user => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set user($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasUser() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearUser() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get role => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set role($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasRole() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearRole() => $_clearField(3);
+}
+
+class UnassignRolePayload extends $pb.GeneratedMessage {
+  factory UnassignRolePayload({
+    $core.String? school,
+    $core.String? user,
+    $core.String? role,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (user != null) result.user = user;
+    if (role != null) result.role = role;
+    return result;
+  }
+
+  UnassignRolePayload._();
+
+  factory UnassignRolePayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UnassignRolePayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UnassignRolePayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'user')
+    ..aOS(3, _omitFieldNames ? '' : 'role')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UnassignRolePayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UnassignRolePayload copyWith(void Function(UnassignRolePayload) updates) =>
+      super.copyWith((message) => updates(message as UnassignRolePayload))
+          as UnassignRolePayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UnassignRolePayload create() => UnassignRolePayload._();
+  @$core.override
+  UnassignRolePayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UnassignRolePayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UnassignRolePayload>(create);
+  static UnassignRolePayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get user => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set user($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasUser() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearUser() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get role => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set role($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasRole() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearRole() => $_clearField(3);
+}
+
+class UpdateUserPayload extends $pb.GeneratedMessage {
+  factory UpdateUserPayload({
+    $core.String? id,
+    $core.String? phone,
+    $core.String? email,
+    $core.String? name,
+    $core.int? level,
+    $core.int? status,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (phone != null) result.phone = phone;
+    if (email != null) result.email = email;
+    if (name != null) result.name = name;
+    if (level != null) result.level = level;
+    if (status != null) result.status = status;
+    return result;
+  }
+
+  UpdateUserPayload._();
+
+  factory UpdateUserPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdateUserPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateUserPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'phone')
+    ..aOS(3, _omitFieldNames ? '' : 'email')
+    ..aOS(4, _omitFieldNames ? '' : 'name')
+    ..aI(5, _omitFieldNames ? '' : 'level')
+    ..aI(6, _omitFieldNames ? '' : 'status')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateUserPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateUserPayload copyWith(void Function(UpdateUserPayload) updates) =>
+      super.copyWith((message) => updates(message as UpdateUserPayload))
+          as UpdateUserPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateUserPayload create() => UpdateUserPayload._();
+  @$core.override
+  UpdateUserPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdateUserPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateUserPayload>(create);
+  static UpdateUserPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get phone => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set phone($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasPhone() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearPhone() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get email => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set email($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasEmail() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearEmail() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get name => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set name($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasName() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearName() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get level => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set level($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasLevel() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearLevel() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get status => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set status($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasStatus() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearStatus() => $_clearField(6);
+}
+
+class DeleteUserPayload extends $pb.GeneratedMessage {
+  factory DeleteUserPayload({
+    $core.String? id,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    return result;
+  }
+
+  DeleteUserPayload._();
+
+  factory DeleteUserPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteUserPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteUserPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteUserPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteUserPayload copyWith(void Function(DeleteUserPayload) updates) =>
+      super.copyWith((message) => updates(message as DeleteUserPayload))
+          as DeleteUserPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteUserPayload create() => DeleteUserPayload._();
+  @$core.override
+  DeleteUserPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteUserPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteUserPayload>(create);
+  static DeleteUserPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+}
+
+class UpdateSettingsPayload extends $pb.GeneratedMessage {
+  factory UpdateSettingsPayload({
+    $core.String? school,
+    $core.String? data,
+    $core.String? mpesa,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (data != null) result.data = data;
+    if (mpesa != null) result.mpesa = mpesa;
+    return result;
+  }
+
+  UpdateSettingsPayload._();
+
+  factory UpdateSettingsPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdateSettingsPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateSettingsPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'data')
+    ..aOS(3, _omitFieldNames ? '' : 'mpesa')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateSettingsPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateSettingsPayload copyWith(
+          void Function(UpdateSettingsPayload) updates) =>
+      super.copyWith((message) => updates(message as UpdateSettingsPayload))
+          as UpdateSettingsPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateSettingsPayload create() => UpdateSettingsPayload._();
+  @$core.override
+  UpdateSettingsPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdateSettingsPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateSettingsPayload>(create);
+  static UpdateSettingsPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get data => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set data($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasData() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearData() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get mpesa => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set mpesa($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasMpesa() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearMpesa() => $_clearField(3);
+}
+
+class CreatePlanPayload extends $pb.GeneratedMessage {
+  factory CreatePlanPayload({
+    $core.String? id,
+    $core.String? name,
+    $core.String? description,
+    $core.double? amount,
+    $core.int? levels,
+    $core.String? features,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (name != null) result.name = name;
+    if (description != null) result.description = description;
+    if (amount != null) result.amount = amount;
+    if (levels != null) result.levels = levels;
+    if (features != null) result.features = features;
+    return result;
+  }
+
+  CreatePlanPayload._();
+
+  factory CreatePlanPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CreatePlanPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreatePlanPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
+    ..aOS(3, _omitFieldNames ? '' : 'description')
+    ..aD(4, _omitFieldNames ? '' : 'amount', fieldType: $pb.PbFieldType.OF)
+    ..aI(5, _omitFieldNames ? '' : 'levels')
+    ..aOS(6, _omitFieldNames ? '' : 'features')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreatePlanPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreatePlanPayload copyWith(void Function(CreatePlanPayload) updates) =>
+      super.copyWith((message) => updates(message as CreatePlanPayload))
+          as CreatePlanPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreatePlanPayload create() => CreatePlanPayload._();
+  @$core.override
+  CreatePlanPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CreatePlanPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreatePlanPayload>(create);
+  static CreatePlanPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get name => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set name($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearName() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get description => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set description($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasDescription() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearDescription() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.double get amount => $_getN(3);
+  @$pb.TagNumber(4)
+  set amount($core.double value) => $_setFloat(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasAmount() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearAmount() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get levels => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set levels($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasLevels() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearLevels() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get features => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set features($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasFeatures() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearFeatures() => $_clearField(6);
+}
+
+class UpdatePlanPayload extends $pb.GeneratedMessage {
+  factory UpdatePlanPayload({
+    $core.String? id,
+    $core.String? name,
+    $core.String? description,
+    $core.double? amount,
+    $core.int? levels,
+    $core.int? status,
+    $core.String? features,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (name != null) result.name = name;
+    if (description != null) result.description = description;
+    if (amount != null) result.amount = amount;
+    if (levels != null) result.levels = levels;
+    if (status != null) result.status = status;
+    if (features != null) result.features = features;
+    return result;
+  }
+
+  UpdatePlanPayload._();
+
+  factory UpdatePlanPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdatePlanPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdatePlanPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
+    ..aOS(3, _omitFieldNames ? '' : 'description')
+    ..aD(4, _omitFieldNames ? '' : 'amount', fieldType: $pb.PbFieldType.OF)
+    ..aI(5, _omitFieldNames ? '' : 'levels')
+    ..aI(6, _omitFieldNames ? '' : 'status')
+    ..aOS(7, _omitFieldNames ? '' : 'features')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdatePlanPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdatePlanPayload copyWith(void Function(UpdatePlanPayload) updates) =>
+      super.copyWith((message) => updates(message as UpdatePlanPayload))
+          as UpdatePlanPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdatePlanPayload create() => UpdatePlanPayload._();
+  @$core.override
+  UpdatePlanPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdatePlanPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdatePlanPayload>(create);
+  static UpdatePlanPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get name => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set name($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearName() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get description => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set description($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasDescription() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearDescription() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.double get amount => $_getN(3);
+  @$pb.TagNumber(4)
+  set amount($core.double value) => $_setFloat(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasAmount() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearAmount() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get levels => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set levels($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasLevels() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearLevels() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get status => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set status($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasStatus() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearStatus() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get features => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set features($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasFeatures() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearFeatures() => $_clearField(7);
+}
+
+class DeletePlanPayload extends $pb.GeneratedMessage {
+  factory DeletePlanPayload({
+    $core.String? id,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    return result;
+  }
+
+  DeletePlanPayload._();
+
+  factory DeletePlanPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeletePlanPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeletePlanPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeletePlanPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeletePlanPayload copyWith(void Function(DeletePlanPayload) updates) =>
+      super.copyWith((message) => updates(message as DeletePlanPayload))
+          as DeletePlanPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeletePlanPayload create() => DeletePlanPayload._();
+  @$core.override
+  DeletePlanPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeletePlanPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeletePlanPayload>(create);
+  static DeletePlanPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+}
+
+class UpdateAiUsagePayload extends $pb.GeneratedMessage {
+  factory UpdateAiUsagePayload({
+    $core.String? school,
+    $core.int? student,
+    $core.int? year,
+    $core.int? term,
+    $core.int? allocated,
+    $core.int? used,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (student != null) result.student = student;
+    if (year != null) result.year = year;
+    if (term != null) result.term = term;
+    if (allocated != null) result.allocated = allocated;
+    if (used != null) result.used = used;
+    return result;
+  }
+
+  UpdateAiUsagePayload._();
+
+  factory UpdateAiUsagePayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdateAiUsagePayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateAiUsagePayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aI(2, _omitFieldNames ? '' : 'student')
+    ..aI(3, _omitFieldNames ? '' : 'year')
+    ..aI(4, _omitFieldNames ? '' : 'term')
+    ..aI(5, _omitFieldNames ? '' : 'allocated')
+    ..aI(6, _omitFieldNames ? '' : 'used')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateAiUsagePayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateAiUsagePayload copyWith(void Function(UpdateAiUsagePayload) updates) =>
+      super.copyWith((message) => updates(message as UpdateAiUsagePayload))
+          as UpdateAiUsagePayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateAiUsagePayload create() => UpdateAiUsagePayload._();
+  @$core.override
+  UpdateAiUsagePayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdateAiUsagePayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateAiUsagePayload>(create);
+  static UpdateAiUsagePayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get student => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set student($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasStudent() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearStudent() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get year => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set year($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasYear() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearYear() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get term => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set term($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasTerm() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearTerm() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get allocated => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set allocated($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasAllocated() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearAllocated() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get used => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set used($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasUsed() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearUsed() => $_clearField(6);
+}
+
+class CreateSubscriptionPayload extends $pb.GeneratedMessage {
+  factory CreateSubscriptionPayload({
+    $core.String? school,
+    $core.String? plan,
+    $core.int? year,
+    $core.int? term,
+    $core.int? student,
+    $core.String? invoice,
+    $core.double? discount,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (plan != null) result.plan = plan;
+    if (year != null) result.year = year;
+    if (term != null) result.term = term;
+    if (student != null) result.student = student;
+    if (invoice != null) result.invoice = invoice;
+    if (discount != null) result.discount = discount;
+    return result;
+  }
+
+  CreateSubscriptionPayload._();
+
+  factory CreateSubscriptionPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CreateSubscriptionPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateSubscriptionPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'plan')
+    ..aI(3, _omitFieldNames ? '' : 'year')
+    ..aI(4, _omitFieldNames ? '' : 'term')
+    ..aI(5, _omitFieldNames ? '' : 'student')
+    ..aOS(6, _omitFieldNames ? '' : 'invoice')
+    ..aD(7, _omitFieldNames ? '' : 'discount', fieldType: $pb.PbFieldType.OF)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateSubscriptionPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateSubscriptionPayload copyWith(
+          void Function(CreateSubscriptionPayload) updates) =>
+      super.copyWith((message) => updates(message as CreateSubscriptionPayload))
+          as CreateSubscriptionPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreateSubscriptionPayload create() => CreateSubscriptionPayload._();
+  @$core.override
+  CreateSubscriptionPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CreateSubscriptionPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateSubscriptionPayload>(create);
+  static CreateSubscriptionPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get plan => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set plan($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasPlan() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearPlan() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get year => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set year($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasYear() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearYear() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get term => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set term($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasTerm() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearTerm() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get student => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set student($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasStudent() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearStudent() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get invoice => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set invoice($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasInvoice() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearInvoice() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.double get discount => $_getN(6);
+  @$pb.TagNumber(7)
+  set discount($core.double value) => $_setFloat(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasDiscount() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearDiscount() => $_clearField(7);
+}
+
+class UpdateSubscriptionPayload extends $pb.GeneratedMessage {
+  factory UpdateSubscriptionPayload({
+    $core.String? school,
+    $core.String? plan,
+    $core.int? year,
+    $core.int? term,
+    $core.int? student,
+    $core.String? invoice,
+    $core.double? discount,
+    $core.int? status,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (plan != null) result.plan = plan;
+    if (year != null) result.year = year;
+    if (term != null) result.term = term;
+    if (student != null) result.student = student;
+    if (invoice != null) result.invoice = invoice;
+    if (discount != null) result.discount = discount;
+    if (status != null) result.status = status;
+    return result;
+  }
+
+  UpdateSubscriptionPayload._();
+
+  factory UpdateSubscriptionPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdateSubscriptionPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateSubscriptionPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'plan')
+    ..aI(3, _omitFieldNames ? '' : 'year')
+    ..aI(4, _omitFieldNames ? '' : 'term')
+    ..aI(5, _omitFieldNames ? '' : 'student')
+    ..aOS(6, _omitFieldNames ? '' : 'invoice')
+    ..aD(7, _omitFieldNames ? '' : 'discount', fieldType: $pb.PbFieldType.OF)
+    ..aI(8, _omitFieldNames ? '' : 'status')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateSubscriptionPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateSubscriptionPayload copyWith(
+          void Function(UpdateSubscriptionPayload) updates) =>
+      super.copyWith((message) => updates(message as UpdateSubscriptionPayload))
+          as UpdateSubscriptionPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateSubscriptionPayload create() => UpdateSubscriptionPayload._();
+  @$core.override
+  UpdateSubscriptionPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdateSubscriptionPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateSubscriptionPayload>(create);
+  static UpdateSubscriptionPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get plan => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set plan($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasPlan() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearPlan() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get year => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set year($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasYear() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearYear() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get term => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set term($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasTerm() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearTerm() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get student => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set student($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasStudent() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearStudent() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get invoice => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set invoice($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasInvoice() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearInvoice() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.double get discount => $_getN(6);
+  @$pb.TagNumber(7)
+  set discount($core.double value) => $_setFloat(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasDiscount() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearDiscount() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.int get status => $_getIZ(7);
+  @$pb.TagNumber(8)
+  set status($core.int value) => $_setSignedInt32(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasStatus() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearStatus() => $_clearField(8);
+}
+
+class DeleteSubscriptionPayload extends $pb.GeneratedMessage {
+  factory DeleteSubscriptionPayload({
+    $core.String? school,
+    $core.String? plan,
+    $core.int? year,
+    $core.int? term,
+    $core.int? student,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (plan != null) result.plan = plan;
+    if (year != null) result.year = year;
+    if (term != null) result.term = term;
+    if (student != null) result.student = student;
+    return result;
+  }
+
+  DeleteSubscriptionPayload._();
+
+  factory DeleteSubscriptionPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteSubscriptionPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteSubscriptionPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'plan')
+    ..aI(3, _omitFieldNames ? '' : 'year')
+    ..aI(4, _omitFieldNames ? '' : 'term')
+    ..aI(5, _omitFieldNames ? '' : 'student')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteSubscriptionPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteSubscriptionPayload copyWith(
+          void Function(DeleteSubscriptionPayload) updates) =>
+      super.copyWith((message) => updates(message as DeleteSubscriptionPayload))
+          as DeleteSubscriptionPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteSubscriptionPayload create() => DeleteSubscriptionPayload._();
+  @$core.override
+  DeleteSubscriptionPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteSubscriptionPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteSubscriptionPayload>(create);
+  static DeleteSubscriptionPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get plan => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set plan($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasPlan() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearPlan() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get year => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set year($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasYear() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearYear() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get term => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set term($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasTerm() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearTerm() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get student => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set student($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasStudent() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearStudent() => $_clearField(5);
+}
+
+class CreateDiscountPayload extends $pb.GeneratedMessage {
+  factory CreateDiscountPayload({
+    $core.String? school,
+    $core.String? plan,
+    $core.int? year,
+    $core.int? term,
+    $core.int? grade,
+    $core.double? amount,
+    $core.int? unit,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (plan != null) result.plan = plan;
+    if (year != null) result.year = year;
+    if (term != null) result.term = term;
+    if (grade != null) result.grade = grade;
+    if (amount != null) result.amount = amount;
+    if (unit != null) result.unit = unit;
+    return result;
+  }
+
+  CreateDiscountPayload._();
+
+  factory CreateDiscountPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CreateDiscountPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateDiscountPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'plan')
+    ..aI(3, _omitFieldNames ? '' : 'year')
+    ..aI(4, _omitFieldNames ? '' : 'term')
+    ..aI(5, _omitFieldNames ? '' : 'grade')
+    ..aD(6, _omitFieldNames ? '' : 'amount', fieldType: $pb.PbFieldType.OF)
+    ..aI(7, _omitFieldNames ? '' : 'unit')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateDiscountPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateDiscountPayload copyWith(
+          void Function(CreateDiscountPayload) updates) =>
+      super.copyWith((message) => updates(message as CreateDiscountPayload))
+          as CreateDiscountPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreateDiscountPayload create() => CreateDiscountPayload._();
+  @$core.override
+  CreateDiscountPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CreateDiscountPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateDiscountPayload>(create);
+  static CreateDiscountPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get plan => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set plan($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasPlan() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearPlan() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get year => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set year($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasYear() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearYear() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get term => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set term($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasTerm() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearTerm() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get grade => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set grade($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasGrade() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearGrade() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.double get amount => $_getN(5);
+  @$pb.TagNumber(6)
+  set amount($core.double value) => $_setFloat(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasAmount() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearAmount() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.int get unit => $_getIZ(6);
+  @$pb.TagNumber(7)
+  set unit($core.int value) => $_setSignedInt32(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasUnit() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearUnit() => $_clearField(7);
+}
+
+class UpdateDiscountPayload extends $pb.GeneratedMessage {
+  factory UpdateDiscountPayload({
+    $core.String? school,
+    $core.String? plan,
+    $core.int? year,
+    $core.int? term,
+    $core.int? grade,
+    $core.double? amount,
+    $core.int? unit,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (plan != null) result.plan = plan;
+    if (year != null) result.year = year;
+    if (term != null) result.term = term;
+    if (grade != null) result.grade = grade;
+    if (amount != null) result.amount = amount;
+    if (unit != null) result.unit = unit;
+    return result;
+  }
+
+  UpdateDiscountPayload._();
+
+  factory UpdateDiscountPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdateDiscountPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateDiscountPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'plan')
+    ..aI(3, _omitFieldNames ? '' : 'year')
+    ..aI(4, _omitFieldNames ? '' : 'term')
+    ..aI(5, _omitFieldNames ? '' : 'grade')
+    ..aD(6, _omitFieldNames ? '' : 'amount', fieldType: $pb.PbFieldType.OF)
+    ..aI(7, _omitFieldNames ? '' : 'unit')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateDiscountPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateDiscountPayload copyWith(
+          void Function(UpdateDiscountPayload) updates) =>
+      super.copyWith((message) => updates(message as UpdateDiscountPayload))
+          as UpdateDiscountPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateDiscountPayload create() => UpdateDiscountPayload._();
+  @$core.override
+  UpdateDiscountPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdateDiscountPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateDiscountPayload>(create);
+  static UpdateDiscountPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get plan => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set plan($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasPlan() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearPlan() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get year => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set year($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasYear() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearYear() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get term => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set term($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasTerm() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearTerm() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get grade => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set grade($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasGrade() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearGrade() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.double get amount => $_getN(5);
+  @$pb.TagNumber(6)
+  set amount($core.double value) => $_setFloat(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasAmount() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearAmount() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.int get unit => $_getIZ(6);
+  @$pb.TagNumber(7)
+  set unit($core.int value) => $_setSignedInt32(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasUnit() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearUnit() => $_clearField(7);
+}
+
+class DeleteDiscountPayload extends $pb.GeneratedMessage {
+  factory DeleteDiscountPayload({
+    $core.String? school,
+    $core.String? plan,
+    $core.int? year,
+    $core.int? term,
+    $core.int? grade,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (plan != null) result.plan = plan;
+    if (year != null) result.year = year;
+    if (term != null) result.term = term;
+    if (grade != null) result.grade = grade;
+    return result;
+  }
+
+  DeleteDiscountPayload._();
+
+  factory DeleteDiscountPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteDiscountPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteDiscountPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'plan')
+    ..aI(3, _omitFieldNames ? '' : 'year')
+    ..aI(4, _omitFieldNames ? '' : 'term')
+    ..aI(5, _omitFieldNames ? '' : 'grade')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteDiscountPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteDiscountPayload copyWith(
+          void Function(DeleteDiscountPayload) updates) =>
+      super.copyWith((message) => updates(message as DeleteDiscountPayload))
+          as DeleteDiscountPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteDiscountPayload create() => DeleteDiscountPayload._();
+  @$core.override
+  DeleteDiscountPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteDiscountPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteDiscountPayload>(create);
+  static DeleteDiscountPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get plan => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set plan($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasPlan() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearPlan() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get year => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set year($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasYear() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearYear() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get term => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set term($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasTerm() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearTerm() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get grade => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set grade($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasGrade() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearGrade() => $_clearField(5);
 }
 
 enum InsertData_Row {
@@ -1283,559 +9715,6 @@ class InsertData extends $pb.GeneratedMessage {
   void clearDiscount() => $_clearField(30);
   @$pb.TagNumber(30)
   DiscountInsert ensureDiscount() => $_ensure(29);
-}
-
-enum UpdateData_Row {
-  user,
-  school,
-  student,
-  guardian,
-  department,
-  teacher,
-  staffMember,
-  term,
-  classTeacher,
-  attendance,
-  timetable,
-  exam,
-  paper,
-  grade,
-  fee,
-  invoice,
-  payment,
-  announcement,
-  mastery,
-  aiUsage,
-  settings,
-  role,
-  plan,
-  subscription,
-  discount,
-  notSet
-}
-
-class UpdateData extends $pb.GeneratedMessage {
-  factory UpdateData({
-    UserUpdate? user,
-    SchoolUpdate? school,
-    StudentUpdate? student,
-    GuardianUpdate? guardian,
-    DepartmentUpdate? department,
-    TeacherUpdate? teacher,
-    StaffUpdate? staffMember,
-    TermUpdate? term,
-    ClassTeacherUpdate? classTeacher,
-    AttendanceUpdate? attendance,
-    TimetableUpdate? timetable,
-    ExamUpdate? exam,
-    PaperUpdate? paper,
-    GradeUpdate? grade,
-    FeeUpdate? fee,
-    InvoiceUpdate? invoice,
-    PaymentUpdate? payment,
-    AnnouncementUpdate? announcement,
-    MasteryUpdate? mastery,
-    AiUsageUpdate? aiUsage,
-    SettingsUpdate? settings,
-    RoleUpdate? role,
-    PlanUpdate? plan,
-    SubscriptionUpdate? subscription,
-    DiscountUpdate? discount,
-  }) {
-    final result = create();
-    if (user != null) result.user = user;
-    if (school != null) result.school = school;
-    if (student != null) result.student = student;
-    if (guardian != null) result.guardian = guardian;
-    if (department != null) result.department = department;
-    if (teacher != null) result.teacher = teacher;
-    if (staffMember != null) result.staffMember = staffMember;
-    if (term != null) result.term = term;
-    if (classTeacher != null) result.classTeacher = classTeacher;
-    if (attendance != null) result.attendance = attendance;
-    if (timetable != null) result.timetable = timetable;
-    if (exam != null) result.exam = exam;
-    if (paper != null) result.paper = paper;
-    if (grade != null) result.grade = grade;
-    if (fee != null) result.fee = fee;
-    if (invoice != null) result.invoice = invoice;
-    if (payment != null) result.payment = payment;
-    if (announcement != null) result.announcement = announcement;
-    if (mastery != null) result.mastery = mastery;
-    if (aiUsage != null) result.aiUsage = aiUsage;
-    if (settings != null) result.settings = settings;
-    if (role != null) result.role = role;
-    if (plan != null) result.plan = plan;
-    if (subscription != null) result.subscription = subscription;
-    if (discount != null) result.discount = discount;
-    return result;
-  }
-
-  UpdateData._();
-
-  factory UpdateData.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory UpdateData.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static const $core.Map<$core.int, UpdateData_Row> _UpdateData_RowByTag = {
-    1: UpdateData_Row.user,
-    2: UpdateData_Row.school,
-    4: UpdateData_Row.student,
-    5: UpdateData_Row.guardian,
-    6: UpdateData_Row.department,
-    7: UpdateData_Row.teacher,
-    8: UpdateData_Row.staffMember,
-    9: UpdateData_Row.term,
-    10: UpdateData_Row.classTeacher,
-    13: UpdateData_Row.attendance,
-    14: UpdateData_Row.timetable,
-    16: UpdateData_Row.exam,
-    17: UpdateData_Row.paper,
-    18: UpdateData_Row.grade,
-    19: UpdateData_Row.fee,
-    20: UpdateData_Row.invoice,
-    21: UpdateData_Row.payment,
-    22: UpdateData_Row.announcement,
-    23: UpdateData_Row.mastery,
-    24: UpdateData_Row.aiUsage,
-    25: UpdateData_Row.settings,
-    26: UpdateData_Row.role,
-    28: UpdateData_Row.plan,
-    29: UpdateData_Row.subscription,
-    30: UpdateData_Row.discount,
-    0: UpdateData_Row.notSet
-  };
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'UpdateData',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..oo(0, [
-      1,
-      2,
-      4,
-      5,
-      6,
-      7,
-      8,
-      9,
-      10,
-      13,
-      14,
-      16,
-      17,
-      18,
-      19,
-      20,
-      21,
-      22,
-      23,
-      24,
-      25,
-      26,
-      28,
-      29,
-      30
-    ])
-    ..aOM<UserUpdate>(1, _omitFieldNames ? '' : 'user',
-        subBuilder: UserUpdate.create)
-    ..aOM<SchoolUpdate>(2, _omitFieldNames ? '' : 'school',
-        subBuilder: SchoolUpdate.create)
-    ..aOM<StudentUpdate>(4, _omitFieldNames ? '' : 'student',
-        subBuilder: StudentUpdate.create)
-    ..aOM<GuardianUpdate>(5, _omitFieldNames ? '' : 'guardian',
-        subBuilder: GuardianUpdate.create)
-    ..aOM<DepartmentUpdate>(6, _omitFieldNames ? '' : 'department',
-        subBuilder: DepartmentUpdate.create)
-    ..aOM<TeacherUpdate>(7, _omitFieldNames ? '' : 'teacher',
-        subBuilder: TeacherUpdate.create)
-    ..aOM<StaffUpdate>(8, _omitFieldNames ? '' : 'staffMember',
-        subBuilder: StaffUpdate.create)
-    ..aOM<TermUpdate>(9, _omitFieldNames ? '' : 'term',
-        subBuilder: TermUpdate.create)
-    ..aOM<ClassTeacherUpdate>(10, _omitFieldNames ? '' : 'classTeacher',
-        subBuilder: ClassTeacherUpdate.create)
-    ..aOM<AttendanceUpdate>(13, _omitFieldNames ? '' : 'attendance',
-        subBuilder: AttendanceUpdate.create)
-    ..aOM<TimetableUpdate>(14, _omitFieldNames ? '' : 'timetable',
-        subBuilder: TimetableUpdate.create)
-    ..aOM<ExamUpdate>(16, _omitFieldNames ? '' : 'exam',
-        subBuilder: ExamUpdate.create)
-    ..aOM<PaperUpdate>(17, _omitFieldNames ? '' : 'paper',
-        subBuilder: PaperUpdate.create)
-    ..aOM<GradeUpdate>(18, _omitFieldNames ? '' : 'grade',
-        subBuilder: GradeUpdate.create)
-    ..aOM<FeeUpdate>(19, _omitFieldNames ? '' : 'fee',
-        subBuilder: FeeUpdate.create)
-    ..aOM<InvoiceUpdate>(20, _omitFieldNames ? '' : 'invoice',
-        subBuilder: InvoiceUpdate.create)
-    ..aOM<PaymentUpdate>(21, _omitFieldNames ? '' : 'payment',
-        subBuilder: PaymentUpdate.create)
-    ..aOM<AnnouncementUpdate>(22, _omitFieldNames ? '' : 'announcement',
-        subBuilder: AnnouncementUpdate.create)
-    ..aOM<MasteryUpdate>(23, _omitFieldNames ? '' : 'mastery',
-        subBuilder: MasteryUpdate.create)
-    ..aOM<AiUsageUpdate>(24, _omitFieldNames ? '' : 'aiUsage',
-        subBuilder: AiUsageUpdate.create)
-    ..aOM<SettingsUpdate>(25, _omitFieldNames ? '' : 'settings',
-        subBuilder: SettingsUpdate.create)
-    ..aOM<RoleUpdate>(26, _omitFieldNames ? '' : 'role',
-        subBuilder: RoleUpdate.create)
-    ..aOM<PlanUpdate>(28, _omitFieldNames ? '' : 'plan',
-        subBuilder: PlanUpdate.create)
-    ..aOM<SubscriptionUpdate>(29, _omitFieldNames ? '' : 'subscription',
-        subBuilder: SubscriptionUpdate.create)
-    ..aOM<DiscountUpdate>(30, _omitFieldNames ? '' : 'discount',
-        subBuilder: DiscountUpdate.create)
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  UpdateData clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  UpdateData copyWith(void Function(UpdateData) updates) =>
-      super.copyWith((message) => updates(message as UpdateData)) as UpdateData;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static UpdateData create() => UpdateData._();
-  @$core.override
-  UpdateData createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static UpdateData getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<UpdateData>(create);
-  static UpdateData? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  @$pb.TagNumber(2)
-  @$pb.TagNumber(4)
-  @$pb.TagNumber(5)
-  @$pb.TagNumber(6)
-  @$pb.TagNumber(7)
-  @$pb.TagNumber(8)
-  @$pb.TagNumber(9)
-  @$pb.TagNumber(10)
-  @$pb.TagNumber(13)
-  @$pb.TagNumber(14)
-  @$pb.TagNumber(16)
-  @$pb.TagNumber(17)
-  @$pb.TagNumber(18)
-  @$pb.TagNumber(19)
-  @$pb.TagNumber(20)
-  @$pb.TagNumber(21)
-  @$pb.TagNumber(22)
-  @$pb.TagNumber(23)
-  @$pb.TagNumber(24)
-  @$pb.TagNumber(25)
-  @$pb.TagNumber(26)
-  @$pb.TagNumber(28)
-  @$pb.TagNumber(29)
-  @$pb.TagNumber(30)
-  UpdateData_Row whichRow() => _UpdateData_RowByTag[$_whichOneof(0)]!;
-  @$pb.TagNumber(1)
-  @$pb.TagNumber(2)
-  @$pb.TagNumber(4)
-  @$pb.TagNumber(5)
-  @$pb.TagNumber(6)
-  @$pb.TagNumber(7)
-  @$pb.TagNumber(8)
-  @$pb.TagNumber(9)
-  @$pb.TagNumber(10)
-  @$pb.TagNumber(13)
-  @$pb.TagNumber(14)
-  @$pb.TagNumber(16)
-  @$pb.TagNumber(17)
-  @$pb.TagNumber(18)
-  @$pb.TagNumber(19)
-  @$pb.TagNumber(20)
-  @$pb.TagNumber(21)
-  @$pb.TagNumber(22)
-  @$pb.TagNumber(23)
-  @$pb.TagNumber(24)
-  @$pb.TagNumber(25)
-  @$pb.TagNumber(26)
-  @$pb.TagNumber(28)
-  @$pb.TagNumber(29)
-  @$pb.TagNumber(30)
-  void clearRow() => $_clearField($_whichOneof(0));
-
-  @$pb.TagNumber(1)
-  UserUpdate get user => $_getN(0);
-  @$pb.TagNumber(1)
-  set user(UserUpdate value) => $_setField(1, value);
-  @$pb.TagNumber(1)
-  $core.bool hasUser() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearUser() => $_clearField(1);
-  @$pb.TagNumber(1)
-  UserUpdate ensureUser() => $_ensure(0);
-
-  @$pb.TagNumber(2)
-  SchoolUpdate get school => $_getN(1);
-  @$pb.TagNumber(2)
-  set school(SchoolUpdate value) => $_setField(2, value);
-  @$pb.TagNumber(2)
-  $core.bool hasSchool() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearSchool() => $_clearField(2);
-  @$pb.TagNumber(2)
-  SchoolUpdate ensureSchool() => $_ensure(1);
-
-  @$pb.TagNumber(4)
-  StudentUpdate get student => $_getN(2);
-  @$pb.TagNumber(4)
-  set student(StudentUpdate value) => $_setField(4, value);
-  @$pb.TagNumber(4)
-  $core.bool hasStudent() => $_has(2);
-  @$pb.TagNumber(4)
-  void clearStudent() => $_clearField(4);
-  @$pb.TagNumber(4)
-  StudentUpdate ensureStudent() => $_ensure(2);
-
-  @$pb.TagNumber(5)
-  GuardianUpdate get guardian => $_getN(3);
-  @$pb.TagNumber(5)
-  set guardian(GuardianUpdate value) => $_setField(5, value);
-  @$pb.TagNumber(5)
-  $core.bool hasGuardian() => $_has(3);
-  @$pb.TagNumber(5)
-  void clearGuardian() => $_clearField(5);
-  @$pb.TagNumber(5)
-  GuardianUpdate ensureGuardian() => $_ensure(3);
-
-  @$pb.TagNumber(6)
-  DepartmentUpdate get department => $_getN(4);
-  @$pb.TagNumber(6)
-  set department(DepartmentUpdate value) => $_setField(6, value);
-  @$pb.TagNumber(6)
-  $core.bool hasDepartment() => $_has(4);
-  @$pb.TagNumber(6)
-  void clearDepartment() => $_clearField(6);
-  @$pb.TagNumber(6)
-  DepartmentUpdate ensureDepartment() => $_ensure(4);
-
-  @$pb.TagNumber(7)
-  TeacherUpdate get teacher => $_getN(5);
-  @$pb.TagNumber(7)
-  set teacher(TeacherUpdate value) => $_setField(7, value);
-  @$pb.TagNumber(7)
-  $core.bool hasTeacher() => $_has(5);
-  @$pb.TagNumber(7)
-  void clearTeacher() => $_clearField(7);
-  @$pb.TagNumber(7)
-  TeacherUpdate ensureTeacher() => $_ensure(5);
-
-  @$pb.TagNumber(8)
-  StaffUpdate get staffMember => $_getN(6);
-  @$pb.TagNumber(8)
-  set staffMember(StaffUpdate value) => $_setField(8, value);
-  @$pb.TagNumber(8)
-  $core.bool hasStaffMember() => $_has(6);
-  @$pb.TagNumber(8)
-  void clearStaffMember() => $_clearField(8);
-  @$pb.TagNumber(8)
-  StaffUpdate ensureStaffMember() => $_ensure(6);
-
-  @$pb.TagNumber(9)
-  TermUpdate get term => $_getN(7);
-  @$pb.TagNumber(9)
-  set term(TermUpdate value) => $_setField(9, value);
-  @$pb.TagNumber(9)
-  $core.bool hasTerm() => $_has(7);
-  @$pb.TagNumber(9)
-  void clearTerm() => $_clearField(9);
-  @$pb.TagNumber(9)
-  TermUpdate ensureTerm() => $_ensure(7);
-
-  @$pb.TagNumber(10)
-  ClassTeacherUpdate get classTeacher => $_getN(8);
-  @$pb.TagNumber(10)
-  set classTeacher(ClassTeacherUpdate value) => $_setField(10, value);
-  @$pb.TagNumber(10)
-  $core.bool hasClassTeacher() => $_has(8);
-  @$pb.TagNumber(10)
-  void clearClassTeacher() => $_clearField(10);
-  @$pb.TagNumber(10)
-  ClassTeacherUpdate ensureClassTeacher() => $_ensure(8);
-
-  @$pb.TagNumber(13)
-  AttendanceUpdate get attendance => $_getN(9);
-  @$pb.TagNumber(13)
-  set attendance(AttendanceUpdate value) => $_setField(13, value);
-  @$pb.TagNumber(13)
-  $core.bool hasAttendance() => $_has(9);
-  @$pb.TagNumber(13)
-  void clearAttendance() => $_clearField(13);
-  @$pb.TagNumber(13)
-  AttendanceUpdate ensureAttendance() => $_ensure(9);
-
-  @$pb.TagNumber(14)
-  TimetableUpdate get timetable => $_getN(10);
-  @$pb.TagNumber(14)
-  set timetable(TimetableUpdate value) => $_setField(14, value);
-  @$pb.TagNumber(14)
-  $core.bool hasTimetable() => $_has(10);
-  @$pb.TagNumber(14)
-  void clearTimetable() => $_clearField(14);
-  @$pb.TagNumber(14)
-  TimetableUpdate ensureTimetable() => $_ensure(10);
-
-  @$pb.TagNumber(16)
-  ExamUpdate get exam => $_getN(11);
-  @$pb.TagNumber(16)
-  set exam(ExamUpdate value) => $_setField(16, value);
-  @$pb.TagNumber(16)
-  $core.bool hasExam() => $_has(11);
-  @$pb.TagNumber(16)
-  void clearExam() => $_clearField(16);
-  @$pb.TagNumber(16)
-  ExamUpdate ensureExam() => $_ensure(11);
-
-  @$pb.TagNumber(17)
-  PaperUpdate get paper => $_getN(12);
-  @$pb.TagNumber(17)
-  set paper(PaperUpdate value) => $_setField(17, value);
-  @$pb.TagNumber(17)
-  $core.bool hasPaper() => $_has(12);
-  @$pb.TagNumber(17)
-  void clearPaper() => $_clearField(17);
-  @$pb.TagNumber(17)
-  PaperUpdate ensurePaper() => $_ensure(12);
-
-  @$pb.TagNumber(18)
-  GradeUpdate get grade => $_getN(13);
-  @$pb.TagNumber(18)
-  set grade(GradeUpdate value) => $_setField(18, value);
-  @$pb.TagNumber(18)
-  $core.bool hasGrade() => $_has(13);
-  @$pb.TagNumber(18)
-  void clearGrade() => $_clearField(18);
-  @$pb.TagNumber(18)
-  GradeUpdate ensureGrade() => $_ensure(13);
-
-  @$pb.TagNumber(19)
-  FeeUpdate get fee => $_getN(14);
-  @$pb.TagNumber(19)
-  set fee(FeeUpdate value) => $_setField(19, value);
-  @$pb.TagNumber(19)
-  $core.bool hasFee() => $_has(14);
-  @$pb.TagNumber(19)
-  void clearFee() => $_clearField(19);
-  @$pb.TagNumber(19)
-  FeeUpdate ensureFee() => $_ensure(14);
-
-  @$pb.TagNumber(20)
-  InvoiceUpdate get invoice => $_getN(15);
-  @$pb.TagNumber(20)
-  set invoice(InvoiceUpdate value) => $_setField(20, value);
-  @$pb.TagNumber(20)
-  $core.bool hasInvoice() => $_has(15);
-  @$pb.TagNumber(20)
-  void clearInvoice() => $_clearField(20);
-  @$pb.TagNumber(20)
-  InvoiceUpdate ensureInvoice() => $_ensure(15);
-
-  @$pb.TagNumber(21)
-  PaymentUpdate get payment => $_getN(16);
-  @$pb.TagNumber(21)
-  set payment(PaymentUpdate value) => $_setField(21, value);
-  @$pb.TagNumber(21)
-  $core.bool hasPayment() => $_has(16);
-  @$pb.TagNumber(21)
-  void clearPayment() => $_clearField(21);
-  @$pb.TagNumber(21)
-  PaymentUpdate ensurePayment() => $_ensure(16);
-
-  @$pb.TagNumber(22)
-  AnnouncementUpdate get announcement => $_getN(17);
-  @$pb.TagNumber(22)
-  set announcement(AnnouncementUpdate value) => $_setField(22, value);
-  @$pb.TagNumber(22)
-  $core.bool hasAnnouncement() => $_has(17);
-  @$pb.TagNumber(22)
-  void clearAnnouncement() => $_clearField(22);
-  @$pb.TagNumber(22)
-  AnnouncementUpdate ensureAnnouncement() => $_ensure(17);
-
-  @$pb.TagNumber(23)
-  MasteryUpdate get mastery => $_getN(18);
-  @$pb.TagNumber(23)
-  set mastery(MasteryUpdate value) => $_setField(23, value);
-  @$pb.TagNumber(23)
-  $core.bool hasMastery() => $_has(18);
-  @$pb.TagNumber(23)
-  void clearMastery() => $_clearField(23);
-  @$pb.TagNumber(23)
-  MasteryUpdate ensureMastery() => $_ensure(18);
-
-  @$pb.TagNumber(24)
-  AiUsageUpdate get aiUsage => $_getN(19);
-  @$pb.TagNumber(24)
-  set aiUsage(AiUsageUpdate value) => $_setField(24, value);
-  @$pb.TagNumber(24)
-  $core.bool hasAiUsage() => $_has(19);
-  @$pb.TagNumber(24)
-  void clearAiUsage() => $_clearField(24);
-  @$pb.TagNumber(24)
-  AiUsageUpdate ensureAiUsage() => $_ensure(19);
-
-  @$pb.TagNumber(25)
-  SettingsUpdate get settings => $_getN(20);
-  @$pb.TagNumber(25)
-  set settings(SettingsUpdate value) => $_setField(25, value);
-  @$pb.TagNumber(25)
-  $core.bool hasSettings() => $_has(20);
-  @$pb.TagNumber(25)
-  void clearSettings() => $_clearField(25);
-  @$pb.TagNumber(25)
-  SettingsUpdate ensureSettings() => $_ensure(20);
-
-  @$pb.TagNumber(26)
-  RoleUpdate get role => $_getN(21);
-  @$pb.TagNumber(26)
-  set role(RoleUpdate value) => $_setField(26, value);
-  @$pb.TagNumber(26)
-  $core.bool hasRole() => $_has(21);
-  @$pb.TagNumber(26)
-  void clearRole() => $_clearField(26);
-  @$pb.TagNumber(26)
-  RoleUpdate ensureRole() => $_ensure(21);
-
-  @$pb.TagNumber(28)
-  PlanUpdate get plan => $_getN(22);
-  @$pb.TagNumber(28)
-  set plan(PlanUpdate value) => $_setField(28, value);
-  @$pb.TagNumber(28)
-  $core.bool hasPlan() => $_has(22);
-  @$pb.TagNumber(28)
-  void clearPlan() => $_clearField(28);
-  @$pb.TagNumber(28)
-  PlanUpdate ensurePlan() => $_ensure(22);
-
-  @$pb.TagNumber(29)
-  SubscriptionUpdate get subscription => $_getN(23);
-  @$pb.TagNumber(29)
-  set subscription(SubscriptionUpdate value) => $_setField(29, value);
-  @$pb.TagNumber(29)
-  $core.bool hasSubscription() => $_has(23);
-  @$pb.TagNumber(29)
-  void clearSubscription() => $_clearField(29);
-  @$pb.TagNumber(29)
-  SubscriptionUpdate ensureSubscription() => $_ensure(23);
-
-  @$pb.TagNumber(30)
-  DiscountUpdate get discount => $_getN(24);
-  @$pb.TagNumber(30)
-  set discount(DiscountUpdate value) => $_setField(30, value);
-  @$pb.TagNumber(30)
-  $core.bool hasDiscount() => $_has(24);
-  @$pb.TagNumber(30)
-  void clearDiscount() => $_clearField(30);
-  @$pb.TagNumber(30)
-  DiscountUpdate ensureDiscount() => $_ensure(24);
 }
 
 class UserInsert extends $pb.GeneratedMessage {
@@ -5563,2131 +13442,6 @@ class DiscountInsert extends $pb.GeneratedMessage {
   $core.bool hasUnit() => $_has(6);
   @$pb.TagNumber(7)
   void clearUnit() => $_clearField(7);
-}
-
-class UserUpdate extends $pb.GeneratedMessage {
-  factory UserUpdate({
-    $core.String? phone,
-    $core.String? email,
-    $core.String? name,
-    $core.int? level,
-    $core.int? status,
-  }) {
-    final result = create();
-    if (phone != null) result.phone = phone;
-    if (email != null) result.email = email;
-    if (name != null) result.name = name;
-    if (level != null) result.level = level;
-    if (status != null) result.status = status;
-    return result;
-  }
-
-  UserUpdate._();
-
-  factory UserUpdate.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory UserUpdate.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'UserUpdate',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'phone')
-    ..aOS(2, _omitFieldNames ? '' : 'email')
-    ..aOS(3, _omitFieldNames ? '' : 'name')
-    ..aI(4, _omitFieldNames ? '' : 'level')
-    ..aI(5, _omitFieldNames ? '' : 'status')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  UserUpdate clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  UserUpdate copyWith(void Function(UserUpdate) updates) =>
-      super.copyWith((message) => updates(message as UserUpdate)) as UserUpdate;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static UserUpdate create() => UserUpdate._();
-  @$core.override
-  UserUpdate createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static UserUpdate getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<UserUpdate>(create);
-  static UserUpdate? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get phone => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set phone($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasPhone() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearPhone() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.String get email => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set email($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasEmail() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearEmail() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $core.String get name => $_getSZ(2);
-  @$pb.TagNumber(3)
-  set name($core.String value) => $_setString(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasName() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearName() => $_clearField(3);
-
-  @$pb.TagNumber(4)
-  $core.int get level => $_getIZ(3);
-  @$pb.TagNumber(4)
-  set level($core.int value) => $_setSignedInt32(3, value);
-  @$pb.TagNumber(4)
-  $core.bool hasLevel() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearLevel() => $_clearField(4);
-
-  @$pb.TagNumber(5)
-  $core.int get status => $_getIZ(4);
-  @$pb.TagNumber(5)
-  set status($core.int value) => $_setSignedInt32(4, value);
-  @$pb.TagNumber(5)
-  $core.bool hasStatus() => $_has(4);
-  @$pb.TagNumber(5)
-  void clearStatus() => $_clearField(5);
-}
-
-class SchoolUpdate extends $pb.GeneratedMessage {
-  factory SchoolUpdate({
-    $core.String? name,
-    $core.String? motto,
-    $core.String? phone,
-    $core.String? email,
-    $core.int? county,
-    $core.String? domain,
-    $core.int? established,
-    $core.int? status,
-  }) {
-    final result = create();
-    if (name != null) result.name = name;
-    if (motto != null) result.motto = motto;
-    if (phone != null) result.phone = phone;
-    if (email != null) result.email = email;
-    if (county != null) result.county = county;
-    if (domain != null) result.domain = domain;
-    if (established != null) result.established = established;
-    if (status != null) result.status = status;
-    return result;
-  }
-
-  SchoolUpdate._();
-
-  factory SchoolUpdate.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory SchoolUpdate.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'SchoolUpdate',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'name')
-    ..aOS(2, _omitFieldNames ? '' : 'motto')
-    ..aOS(3, _omitFieldNames ? '' : 'phone')
-    ..aOS(4, _omitFieldNames ? '' : 'email')
-    ..aI(5, _omitFieldNames ? '' : 'county')
-    ..aOS(6, _omitFieldNames ? '' : 'domain')
-    ..aI(7, _omitFieldNames ? '' : 'established')
-    ..aI(8, _omitFieldNames ? '' : 'status')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  SchoolUpdate clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  SchoolUpdate copyWith(void Function(SchoolUpdate) updates) =>
-      super.copyWith((message) => updates(message as SchoolUpdate))
-          as SchoolUpdate;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static SchoolUpdate create() => SchoolUpdate._();
-  @$core.override
-  SchoolUpdate createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static SchoolUpdate getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<SchoolUpdate>(create);
-  static SchoolUpdate? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get name => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set name($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasName() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearName() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.String get motto => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set motto($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasMotto() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearMotto() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $core.String get phone => $_getSZ(2);
-  @$pb.TagNumber(3)
-  set phone($core.String value) => $_setString(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasPhone() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearPhone() => $_clearField(3);
-
-  @$pb.TagNumber(4)
-  $core.String get email => $_getSZ(3);
-  @$pb.TagNumber(4)
-  set email($core.String value) => $_setString(3, value);
-  @$pb.TagNumber(4)
-  $core.bool hasEmail() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearEmail() => $_clearField(4);
-
-  @$pb.TagNumber(5)
-  $core.int get county => $_getIZ(4);
-  @$pb.TagNumber(5)
-  set county($core.int value) => $_setSignedInt32(4, value);
-  @$pb.TagNumber(5)
-  $core.bool hasCounty() => $_has(4);
-  @$pb.TagNumber(5)
-  void clearCounty() => $_clearField(5);
-
-  @$pb.TagNumber(6)
-  $core.String get domain => $_getSZ(5);
-  @$pb.TagNumber(6)
-  set domain($core.String value) => $_setString(5, value);
-  @$pb.TagNumber(6)
-  $core.bool hasDomain() => $_has(5);
-  @$pb.TagNumber(6)
-  void clearDomain() => $_clearField(6);
-
-  @$pb.TagNumber(7)
-  $core.int get established => $_getIZ(6);
-  @$pb.TagNumber(7)
-  set established($core.int value) => $_setSignedInt32(6, value);
-  @$pb.TagNumber(7)
-  $core.bool hasEstablished() => $_has(6);
-  @$pb.TagNumber(7)
-  void clearEstablished() => $_clearField(7);
-
-  @$pb.TagNumber(8)
-  $core.int get status => $_getIZ(7);
-  @$pb.TagNumber(8)
-  set status($core.int value) => $_setSignedInt32(7, value);
-  @$pb.TagNumber(8)
-  $core.bool hasStatus() => $_has(7);
-  @$pb.TagNumber(8)
-  void clearStatus() => $_clearField(8);
-}
-
-class StudentUpdate extends $pb.GeneratedMessage {
-  factory StudentUpdate({
-    $core.String? user,
-    $core.String? name,
-    $core.int? dob,
-    $core.int? gender,
-    $core.String? documents,
-    $core.int? admitted,
-    $core.int? status,
-  }) {
-    final result = create();
-    if (user != null) result.user = user;
-    if (name != null) result.name = name;
-    if (dob != null) result.dob = dob;
-    if (gender != null) result.gender = gender;
-    if (documents != null) result.documents = documents;
-    if (admitted != null) result.admitted = admitted;
-    if (status != null) result.status = status;
-    return result;
-  }
-
-  StudentUpdate._();
-
-  factory StudentUpdate.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory StudentUpdate.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'StudentUpdate',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'user')
-    ..aOS(2, _omitFieldNames ? '' : 'name')
-    ..aI(3, _omitFieldNames ? '' : 'dob')
-    ..aI(4, _omitFieldNames ? '' : 'gender')
-    ..aOS(5, _omitFieldNames ? '' : 'documents')
-    ..aI(6, _omitFieldNames ? '' : 'admitted')
-    ..aI(7, _omitFieldNames ? '' : 'status')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  StudentUpdate clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  StudentUpdate copyWith(void Function(StudentUpdate) updates) =>
-      super.copyWith((message) => updates(message as StudentUpdate))
-          as StudentUpdate;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static StudentUpdate create() => StudentUpdate._();
-  @$core.override
-  StudentUpdate createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static StudentUpdate getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<StudentUpdate>(create);
-  static StudentUpdate? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get user => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set user($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasUser() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearUser() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.String get name => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set name($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasName() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearName() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $core.int get dob => $_getIZ(2);
-  @$pb.TagNumber(3)
-  set dob($core.int value) => $_setSignedInt32(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasDob() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearDob() => $_clearField(3);
-
-  @$pb.TagNumber(4)
-  $core.int get gender => $_getIZ(3);
-  @$pb.TagNumber(4)
-  set gender($core.int value) => $_setSignedInt32(3, value);
-  @$pb.TagNumber(4)
-  $core.bool hasGender() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearGender() => $_clearField(4);
-
-  @$pb.TagNumber(5)
-  $core.String get documents => $_getSZ(4);
-  @$pb.TagNumber(5)
-  set documents($core.String value) => $_setString(4, value);
-  @$pb.TagNumber(5)
-  $core.bool hasDocuments() => $_has(4);
-  @$pb.TagNumber(5)
-  void clearDocuments() => $_clearField(5);
-
-  @$pb.TagNumber(6)
-  $core.int get admitted => $_getIZ(5);
-  @$pb.TagNumber(6)
-  set admitted($core.int value) => $_setSignedInt32(5, value);
-  @$pb.TagNumber(6)
-  $core.bool hasAdmitted() => $_has(5);
-  @$pb.TagNumber(6)
-  void clearAdmitted() => $_clearField(6);
-
-  @$pb.TagNumber(7)
-  $core.int get status => $_getIZ(6);
-  @$pb.TagNumber(7)
-  set status($core.int value) => $_setSignedInt32(6, value);
-  @$pb.TagNumber(7)
-  $core.bool hasStatus() => $_has(6);
-  @$pb.TagNumber(7)
-  void clearStatus() => $_clearField(7);
-}
-
-class GuardianUpdate extends $pb.GeneratedMessage {
-  factory GuardianUpdate({
-    $core.int? relationship,
-    $core.int? role,
-  }) {
-    final result = create();
-    if (relationship != null) result.relationship = relationship;
-    if (role != null) result.role = role;
-    return result;
-  }
-
-  GuardianUpdate._();
-
-  factory GuardianUpdate.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory GuardianUpdate.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'GuardianUpdate',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aI(1, _omitFieldNames ? '' : 'relationship')
-    ..aI(2, _omitFieldNames ? '' : 'role')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  GuardianUpdate clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  GuardianUpdate copyWith(void Function(GuardianUpdate) updates) =>
-      super.copyWith((message) => updates(message as GuardianUpdate))
-          as GuardianUpdate;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static GuardianUpdate create() => GuardianUpdate._();
-  @$core.override
-  GuardianUpdate createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static GuardianUpdate getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<GuardianUpdate>(create);
-  static GuardianUpdate? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.int get relationship => $_getIZ(0);
-  @$pb.TagNumber(1)
-  set relationship($core.int value) => $_setSignedInt32(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasRelationship() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearRelationship() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.int get role => $_getIZ(1);
-  @$pb.TagNumber(2)
-  set role($core.int value) => $_setSignedInt32(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasRole() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearRole() => $_clearField(2);
-}
-
-class DepartmentUpdate extends $pb.GeneratedMessage {
-  factory DepartmentUpdate({
-    $core.String? description,
-  }) {
-    final result = create();
-    if (description != null) result.description = description;
-    return result;
-  }
-
-  DepartmentUpdate._();
-
-  factory DepartmentUpdate.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory DepartmentUpdate.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'DepartmentUpdate',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'description')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  DepartmentUpdate clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  DepartmentUpdate copyWith(void Function(DepartmentUpdate) updates) =>
-      super.copyWith((message) => updates(message as DepartmentUpdate))
-          as DepartmentUpdate;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static DepartmentUpdate create() => DepartmentUpdate._();
-  @$core.override
-  DepartmentUpdate createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static DepartmentUpdate getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<DepartmentUpdate>(create);
-  static DepartmentUpdate? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get description => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set description($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasDescription() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearDescription() => $_clearField(1);
-}
-
-class TeacherUpdate extends $pb.GeneratedMessage {
-  factory TeacherUpdate({
-    $core.int? hired,
-    $core.String? role,
-    $core.String? department,
-    $core.int? status,
-  }) {
-    final result = create();
-    if (hired != null) result.hired = hired;
-    if (role != null) result.role = role;
-    if (department != null) result.department = department;
-    if (status != null) result.status = status;
-    return result;
-  }
-
-  TeacherUpdate._();
-
-  factory TeacherUpdate.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory TeacherUpdate.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'TeacherUpdate',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aI(1, _omitFieldNames ? '' : 'hired')
-    ..aOS(2, _omitFieldNames ? '' : 'role')
-    ..aOS(3, _omitFieldNames ? '' : 'department')
-    ..aI(4, _omitFieldNames ? '' : 'status')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  TeacherUpdate clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  TeacherUpdate copyWith(void Function(TeacherUpdate) updates) =>
-      super.copyWith((message) => updates(message as TeacherUpdate))
-          as TeacherUpdate;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static TeacherUpdate create() => TeacherUpdate._();
-  @$core.override
-  TeacherUpdate createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static TeacherUpdate getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<TeacherUpdate>(create);
-  static TeacherUpdate? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.int get hired => $_getIZ(0);
-  @$pb.TagNumber(1)
-  set hired($core.int value) => $_setSignedInt32(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasHired() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearHired() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.String get role => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set role($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasRole() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearRole() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $core.String get department => $_getSZ(2);
-  @$pb.TagNumber(3)
-  set department($core.String value) => $_setString(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasDepartment() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearDepartment() => $_clearField(3);
-
-  @$pb.TagNumber(4)
-  $core.int get status => $_getIZ(3);
-  @$pb.TagNumber(4)
-  set status($core.int value) => $_setSignedInt32(3, value);
-  @$pb.TagNumber(4)
-  $core.bool hasStatus() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearStatus() => $_clearField(4);
-}
-
-class StaffUpdate extends $pb.GeneratedMessage {
-  factory StaffUpdate({
-    $core.String? idnumber,
-    $core.String? role,
-    $core.String? department,
-    $core.int? status,
-  }) {
-    final result = create();
-    if (idnumber != null) result.idnumber = idnumber;
-    if (role != null) result.role = role;
-    if (department != null) result.department = department;
-    if (status != null) result.status = status;
-    return result;
-  }
-
-  StaffUpdate._();
-
-  factory StaffUpdate.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory StaffUpdate.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'StaffUpdate',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'idnumber')
-    ..aOS(2, _omitFieldNames ? '' : 'role')
-    ..aOS(3, _omitFieldNames ? '' : 'department')
-    ..aI(4, _omitFieldNames ? '' : 'status')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  StaffUpdate clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  StaffUpdate copyWith(void Function(StaffUpdate) updates) =>
-      super.copyWith((message) => updates(message as StaffUpdate))
-          as StaffUpdate;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static StaffUpdate create() => StaffUpdate._();
-  @$core.override
-  StaffUpdate createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static StaffUpdate getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<StaffUpdate>(create);
-  static StaffUpdate? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get idnumber => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set idnumber($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasIdnumber() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearIdnumber() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.String get role => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set role($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasRole() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearRole() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $core.String get department => $_getSZ(2);
-  @$pb.TagNumber(3)
-  set department($core.String value) => $_setString(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasDepartment() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearDepartment() => $_clearField(3);
-
-  @$pb.TagNumber(4)
-  $core.int get status => $_getIZ(3);
-  @$pb.TagNumber(4)
-  set status($core.int value) => $_setSignedInt32(3, value);
-  @$pb.TagNumber(4)
-  $core.bool hasStatus() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearStatus() => $_clearField(4);
-}
-
-class TermUpdate extends $pb.GeneratedMessage {
-  factory TermUpdate({
-    $fixnum.Int64? start,
-    $fixnum.Int64? end,
-  }) {
-    final result = create();
-    if (start != null) result.start = start;
-    if (end != null) result.end = end;
-    return result;
-  }
-
-  TermUpdate._();
-
-  factory TermUpdate.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory TermUpdate.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'TermUpdate',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aInt64(1, _omitFieldNames ? '' : 'start')
-    ..aInt64(2, _omitFieldNames ? '' : 'end')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  TermUpdate clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  TermUpdate copyWith(void Function(TermUpdate) updates) =>
-      super.copyWith((message) => updates(message as TermUpdate)) as TermUpdate;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static TermUpdate create() => TermUpdate._();
-  @$core.override
-  TermUpdate createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static TermUpdate getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<TermUpdate>(create);
-  static TermUpdate? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $fixnum.Int64 get start => $_getI64(0);
-  @$pb.TagNumber(1)
-  set start($fixnum.Int64 value) => $_setInt64(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasStart() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearStart() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $fixnum.Int64 get end => $_getI64(1);
-  @$pb.TagNumber(2)
-  set end($fixnum.Int64 value) => $_setInt64(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasEnd() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearEnd() => $_clearField(2);
-}
-
-class ClassTeacherUpdate extends $pb.GeneratedMessage {
-  factory ClassTeacherUpdate({
-    $core.int? start,
-    $core.int? end,
-  }) {
-    final result = create();
-    if (start != null) result.start = start;
-    if (end != null) result.end = end;
-    return result;
-  }
-
-  ClassTeacherUpdate._();
-
-  factory ClassTeacherUpdate.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory ClassTeacherUpdate.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ClassTeacherUpdate',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aI(1, _omitFieldNames ? '' : 'start')
-    ..aI(2, _omitFieldNames ? '' : 'end')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ClassTeacherUpdate clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ClassTeacherUpdate copyWith(void Function(ClassTeacherUpdate) updates) =>
-      super.copyWith((message) => updates(message as ClassTeacherUpdate))
-          as ClassTeacherUpdate;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static ClassTeacherUpdate create() => ClassTeacherUpdate._();
-  @$core.override
-  ClassTeacherUpdate createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static ClassTeacherUpdate getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ClassTeacherUpdate>(create);
-  static ClassTeacherUpdate? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.int get start => $_getIZ(0);
-  @$pb.TagNumber(1)
-  set start($core.int value) => $_setSignedInt32(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasStart() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearStart() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.int get end => $_getIZ(1);
-  @$pb.TagNumber(2)
-  set end($core.int value) => $_setSignedInt32(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasEnd() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearEnd() => $_clearField(2);
-}
-
-class AttendanceUpdate extends $pb.GeneratedMessage {
-  factory AttendanceUpdate({
-    $core.int? status,
-  }) {
-    final result = create();
-    if (status != null) result.status = status;
-    return result;
-  }
-
-  AttendanceUpdate._();
-
-  factory AttendanceUpdate.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory AttendanceUpdate.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'AttendanceUpdate',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aI(1, _omitFieldNames ? '' : 'status')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  AttendanceUpdate clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  AttendanceUpdate copyWith(void Function(AttendanceUpdate) updates) =>
-      super.copyWith((message) => updates(message as AttendanceUpdate))
-          as AttendanceUpdate;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static AttendanceUpdate create() => AttendanceUpdate._();
-  @$core.override
-  AttendanceUpdate createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static AttendanceUpdate getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<AttendanceUpdate>(create);
-  static AttendanceUpdate? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.int get status => $_getIZ(0);
-  @$pb.TagNumber(1)
-  set status($core.int value) => $_setSignedInt32(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasStatus() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearStatus() => $_clearField(1);
-}
-
-class TimetableUpdate extends $pb.GeneratedMessage {
-  factory TimetableUpdate({
-    $core.String? teacher,
-    $core.int? end,
-  }) {
-    final result = create();
-    if (teacher != null) result.teacher = teacher;
-    if (end != null) result.end = end;
-    return result;
-  }
-
-  TimetableUpdate._();
-
-  factory TimetableUpdate.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory TimetableUpdate.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'TimetableUpdate',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'teacher')
-    ..aI(2, _omitFieldNames ? '' : 'end')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  TimetableUpdate clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  TimetableUpdate copyWith(void Function(TimetableUpdate) updates) =>
-      super.copyWith((message) => updates(message as TimetableUpdate))
-          as TimetableUpdate;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static TimetableUpdate create() => TimetableUpdate._();
-  @$core.override
-  TimetableUpdate createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static TimetableUpdate getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<TimetableUpdate>(create);
-  static TimetableUpdate? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get teacher => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set teacher($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasTeacher() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearTeacher() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.int get end => $_getIZ(1);
-  @$pb.TagNumber(2)
-  set end($core.int value) => $_setSignedInt32(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasEnd() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearEnd() => $_clearField(2);
-}
-
-class ExamUpdate extends $pb.GeneratedMessage {
-  factory ExamUpdate({
-    $core.int? stream,
-    $core.bool? personalized,
-    $core.int? type,
-    $core.int? start,
-    $core.int? end,
-    $core.String? teacher,
-  }) {
-    final result = create();
-    if (stream != null) result.stream = stream;
-    if (personalized != null) result.personalized = personalized;
-    if (type != null) result.type = type;
-    if (start != null) result.start = start;
-    if (end != null) result.end = end;
-    if (teacher != null) result.teacher = teacher;
-    return result;
-  }
-
-  ExamUpdate._();
-
-  factory ExamUpdate.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory ExamUpdate.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ExamUpdate',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aI(1, _omitFieldNames ? '' : 'stream')
-    ..aOB(2, _omitFieldNames ? '' : 'personalized')
-    ..aI(3, _omitFieldNames ? '' : 'type')
-    ..aI(4, _omitFieldNames ? '' : 'start')
-    ..aI(5, _omitFieldNames ? '' : 'end')
-    ..aOS(6, _omitFieldNames ? '' : 'teacher')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ExamUpdate clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ExamUpdate copyWith(void Function(ExamUpdate) updates) =>
-      super.copyWith((message) => updates(message as ExamUpdate)) as ExamUpdate;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static ExamUpdate create() => ExamUpdate._();
-  @$core.override
-  ExamUpdate createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static ExamUpdate getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ExamUpdate>(create);
-  static ExamUpdate? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.int get stream => $_getIZ(0);
-  @$pb.TagNumber(1)
-  set stream($core.int value) => $_setSignedInt32(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasStream() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearStream() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.bool get personalized => $_getBF(1);
-  @$pb.TagNumber(2)
-  set personalized($core.bool value) => $_setBool(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasPersonalized() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearPersonalized() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $core.int get type => $_getIZ(2);
-  @$pb.TagNumber(3)
-  set type($core.int value) => $_setSignedInt32(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasType() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearType() => $_clearField(3);
-
-  @$pb.TagNumber(4)
-  $core.int get start => $_getIZ(3);
-  @$pb.TagNumber(4)
-  set start($core.int value) => $_setSignedInt32(3, value);
-  @$pb.TagNumber(4)
-  $core.bool hasStart() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearStart() => $_clearField(4);
-
-  @$pb.TagNumber(5)
-  $core.int get end => $_getIZ(4);
-  @$pb.TagNumber(5)
-  set end($core.int value) => $_setSignedInt32(4, value);
-  @$pb.TagNumber(5)
-  $core.bool hasEnd() => $_has(4);
-  @$pb.TagNumber(5)
-  void clearEnd() => $_clearField(5);
-
-  @$pb.TagNumber(6)
-  $core.String get teacher => $_getSZ(5);
-  @$pb.TagNumber(6)
-  set teacher($core.String value) => $_setString(5, value);
-  @$pb.TagNumber(6)
-  $core.bool hasTeacher() => $_has(5);
-  @$pb.TagNumber(6)
-  void clearTeacher() => $_clearField(6);
-}
-
-class PaperUpdate extends $pb.GeneratedMessage {
-  factory PaperUpdate({
-    $core.String? invigilator,
-    $fixnum.Int64? start,
-    $fixnum.Int64? end,
-    $core.int? status,
-  }) {
-    final result = create();
-    if (invigilator != null) result.invigilator = invigilator;
-    if (start != null) result.start = start;
-    if (end != null) result.end = end;
-    if (status != null) result.status = status;
-    return result;
-  }
-
-  PaperUpdate._();
-
-  factory PaperUpdate.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory PaperUpdate.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'PaperUpdate',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'invigilator')
-    ..aInt64(2, _omitFieldNames ? '' : 'start')
-    ..aInt64(3, _omitFieldNames ? '' : 'end')
-    ..aI(4, _omitFieldNames ? '' : 'status')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  PaperUpdate clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  PaperUpdate copyWith(void Function(PaperUpdate) updates) =>
-      super.copyWith((message) => updates(message as PaperUpdate))
-          as PaperUpdate;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static PaperUpdate create() => PaperUpdate._();
-  @$core.override
-  PaperUpdate createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static PaperUpdate getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<PaperUpdate>(create);
-  static PaperUpdate? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get invigilator => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set invigilator($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasInvigilator() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearInvigilator() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $fixnum.Int64 get start => $_getI64(1);
-  @$pb.TagNumber(2)
-  set start($fixnum.Int64 value) => $_setInt64(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasStart() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearStart() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $fixnum.Int64 get end => $_getI64(2);
-  @$pb.TagNumber(3)
-  set end($fixnum.Int64 value) => $_setInt64(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasEnd() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearEnd() => $_clearField(3);
-
-  @$pb.TagNumber(4)
-  $core.int get status => $_getIZ(3);
-  @$pb.TagNumber(4)
-  set status($core.int value) => $_setSignedInt32(3, value);
-  @$pb.TagNumber(4)
-  $core.bool hasStatus() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearStatus() => $_clearField(4);
-}
-
-class GradeUpdate extends $pb.GeneratedMessage {
-  factory GradeUpdate({
-    $core.double? score,
-    $core.int? total,
-  }) {
-    final result = create();
-    if (score != null) result.score = score;
-    if (total != null) result.total = total;
-    return result;
-  }
-
-  GradeUpdate._();
-
-  factory GradeUpdate.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory GradeUpdate.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'GradeUpdate',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aD(1, _omitFieldNames ? '' : 'score', fieldType: $pb.PbFieldType.OF)
-    ..aI(2, _omitFieldNames ? '' : 'total')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  GradeUpdate clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  GradeUpdate copyWith(void Function(GradeUpdate) updates) =>
-      super.copyWith((message) => updates(message as GradeUpdate))
-          as GradeUpdate;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static GradeUpdate create() => GradeUpdate._();
-  @$core.override
-  GradeUpdate createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static GradeUpdate getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<GradeUpdate>(create);
-  static GradeUpdate? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.double get score => $_getN(0);
-  @$pb.TagNumber(1)
-  set score($core.double value) => $_setFloat(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasScore() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearScore() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.int get total => $_getIZ(1);
-  @$pb.TagNumber(2)
-  set total($core.int value) => $_setSignedInt32(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasTotal() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearTotal() => $_clearField(2);
-}
-
-class FeeUpdate extends $pb.GeneratedMessage {
-  factory FeeUpdate({
-    $core.String? title,
-    $core.String? description,
-    $core.double? amount,
-    $core.bool? mandatory,
-    $fixnum.Int64? due,
-  }) {
-    final result = create();
-    if (title != null) result.title = title;
-    if (description != null) result.description = description;
-    if (amount != null) result.amount = amount;
-    if (mandatory != null) result.mandatory = mandatory;
-    if (due != null) result.due = due;
-    return result;
-  }
-
-  FeeUpdate._();
-
-  factory FeeUpdate.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory FeeUpdate.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'FeeUpdate',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'title')
-    ..aOS(2, _omitFieldNames ? '' : 'description')
-    ..aD(3, _omitFieldNames ? '' : 'amount', fieldType: $pb.PbFieldType.OF)
-    ..aOB(4, _omitFieldNames ? '' : 'mandatory')
-    ..aInt64(5, _omitFieldNames ? '' : 'due')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  FeeUpdate clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  FeeUpdate copyWith(void Function(FeeUpdate) updates) =>
-      super.copyWith((message) => updates(message as FeeUpdate)) as FeeUpdate;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static FeeUpdate create() => FeeUpdate._();
-  @$core.override
-  FeeUpdate createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static FeeUpdate getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<FeeUpdate>(create);
-  static FeeUpdate? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get title => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set title($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasTitle() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearTitle() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.String get description => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set description($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasDescription() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearDescription() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $core.double get amount => $_getN(2);
-  @$pb.TagNumber(3)
-  set amount($core.double value) => $_setFloat(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasAmount() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearAmount() => $_clearField(3);
-
-  @$pb.TagNumber(4)
-  $core.bool get mandatory => $_getBF(3);
-  @$pb.TagNumber(4)
-  set mandatory($core.bool value) => $_setBool(3, value);
-  @$pb.TagNumber(4)
-  $core.bool hasMandatory() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearMandatory() => $_clearField(4);
-
-  @$pb.TagNumber(5)
-  $fixnum.Int64 get due => $_getI64(4);
-  @$pb.TagNumber(5)
-  set due($fixnum.Int64 value) => $_setInt64(4, value);
-  @$pb.TagNumber(5)
-  $core.bool hasDue() => $_has(4);
-  @$pb.TagNumber(5)
-  void clearDue() => $_clearField(5);
-}
-
-class InvoiceUpdate extends $pb.GeneratedMessage {
-  factory InvoiceUpdate({
-    $core.String? fee,
-    $core.String? description,
-    $core.double? amount,
-    $core.int? status,
-    $fixnum.Int64? due,
-  }) {
-    final result = create();
-    if (fee != null) result.fee = fee;
-    if (description != null) result.description = description;
-    if (amount != null) result.amount = amount;
-    if (status != null) result.status = status;
-    if (due != null) result.due = due;
-    return result;
-  }
-
-  InvoiceUpdate._();
-
-  factory InvoiceUpdate.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory InvoiceUpdate.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'InvoiceUpdate',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'fee')
-    ..aOS(2, _omitFieldNames ? '' : 'description')
-    ..aD(3, _omitFieldNames ? '' : 'amount', fieldType: $pb.PbFieldType.OF)
-    ..aI(4, _omitFieldNames ? '' : 'status')
-    ..aInt64(5, _omitFieldNames ? '' : 'due')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  InvoiceUpdate clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  InvoiceUpdate copyWith(void Function(InvoiceUpdate) updates) =>
-      super.copyWith((message) => updates(message as InvoiceUpdate))
-          as InvoiceUpdate;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static InvoiceUpdate create() => InvoiceUpdate._();
-  @$core.override
-  InvoiceUpdate createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static InvoiceUpdate getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<InvoiceUpdate>(create);
-  static InvoiceUpdate? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get fee => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set fee($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasFee() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearFee() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.String get description => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set description($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasDescription() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearDescription() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $core.double get amount => $_getN(2);
-  @$pb.TagNumber(3)
-  set amount($core.double value) => $_setFloat(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasAmount() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearAmount() => $_clearField(3);
-
-  @$pb.TagNumber(4)
-  $core.int get status => $_getIZ(3);
-  @$pb.TagNumber(4)
-  set status($core.int value) => $_setSignedInt32(3, value);
-  @$pb.TagNumber(4)
-  $core.bool hasStatus() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearStatus() => $_clearField(4);
-
-  @$pb.TagNumber(5)
-  $fixnum.Int64 get due => $_getI64(4);
-  @$pb.TagNumber(5)
-  set due($fixnum.Int64 value) => $_setInt64(4, value);
-  @$pb.TagNumber(5)
-  $core.bool hasDue() => $_has(4);
-  @$pb.TagNumber(5)
-  void clearDue() => $_clearField(5);
-}
-
-class PaymentUpdate extends $pb.GeneratedMessage {
-  factory PaymentUpdate({
-    $core.String? invoice,
-    $core.double? amount,
-    $core.int? method,
-    $core.String? reference,
-    $core.String? recorder,
-    $core.int? date,
-  }) {
-    final result = create();
-    if (invoice != null) result.invoice = invoice;
-    if (amount != null) result.amount = amount;
-    if (method != null) result.method = method;
-    if (reference != null) result.reference = reference;
-    if (recorder != null) result.recorder = recorder;
-    if (date != null) result.date = date;
-    return result;
-  }
-
-  PaymentUpdate._();
-
-  factory PaymentUpdate.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory PaymentUpdate.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'PaymentUpdate',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'invoice')
-    ..aD(2, _omitFieldNames ? '' : 'amount', fieldType: $pb.PbFieldType.OF)
-    ..aI(3, _omitFieldNames ? '' : 'method')
-    ..aOS(4, _omitFieldNames ? '' : 'reference')
-    ..aOS(5, _omitFieldNames ? '' : 'recorder')
-    ..aI(6, _omitFieldNames ? '' : 'date')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  PaymentUpdate clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  PaymentUpdate copyWith(void Function(PaymentUpdate) updates) =>
-      super.copyWith((message) => updates(message as PaymentUpdate))
-          as PaymentUpdate;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static PaymentUpdate create() => PaymentUpdate._();
-  @$core.override
-  PaymentUpdate createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static PaymentUpdate getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<PaymentUpdate>(create);
-  static PaymentUpdate? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get invoice => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set invoice($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasInvoice() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearInvoice() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.double get amount => $_getN(1);
-  @$pb.TagNumber(2)
-  set amount($core.double value) => $_setFloat(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasAmount() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearAmount() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $core.int get method => $_getIZ(2);
-  @$pb.TagNumber(3)
-  set method($core.int value) => $_setSignedInt32(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasMethod() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearMethod() => $_clearField(3);
-
-  @$pb.TagNumber(4)
-  $core.String get reference => $_getSZ(3);
-  @$pb.TagNumber(4)
-  set reference($core.String value) => $_setString(3, value);
-  @$pb.TagNumber(4)
-  $core.bool hasReference() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearReference() => $_clearField(4);
-
-  @$pb.TagNumber(5)
-  $core.String get recorder => $_getSZ(4);
-  @$pb.TagNumber(5)
-  set recorder($core.String value) => $_setString(4, value);
-  @$pb.TagNumber(5)
-  $core.bool hasRecorder() => $_has(4);
-  @$pb.TagNumber(5)
-  void clearRecorder() => $_clearField(5);
-
-  @$pb.TagNumber(6)
-  $core.int get date => $_getIZ(5);
-  @$pb.TagNumber(6)
-  set date($core.int value) => $_setSignedInt32(5, value);
-  @$pb.TagNumber(6)
-  $core.bool hasDate() => $_has(5);
-  @$pb.TagNumber(6)
-  void clearDate() => $_clearField(6);
-}
-
-class AnnouncementUpdate extends $pb.GeneratedMessage {
-  factory AnnouncementUpdate({
-    $core.String? title,
-    $core.String? content,
-    $core.int? grade,
-    $core.int? stream,
-    $core.int? audience,
-  }) {
-    final result = create();
-    if (title != null) result.title = title;
-    if (content != null) result.content = content;
-    if (grade != null) result.grade = grade;
-    if (stream != null) result.stream = stream;
-    if (audience != null) result.audience = audience;
-    return result;
-  }
-
-  AnnouncementUpdate._();
-
-  factory AnnouncementUpdate.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory AnnouncementUpdate.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'AnnouncementUpdate',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'title')
-    ..aOS(2, _omitFieldNames ? '' : 'content')
-    ..aI(3, _omitFieldNames ? '' : 'grade')
-    ..aI(4, _omitFieldNames ? '' : 'stream')
-    ..aI(5, _omitFieldNames ? '' : 'audience')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  AnnouncementUpdate clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  AnnouncementUpdate copyWith(void Function(AnnouncementUpdate) updates) =>
-      super.copyWith((message) => updates(message as AnnouncementUpdate))
-          as AnnouncementUpdate;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static AnnouncementUpdate create() => AnnouncementUpdate._();
-  @$core.override
-  AnnouncementUpdate createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static AnnouncementUpdate getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<AnnouncementUpdate>(create);
-  static AnnouncementUpdate? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get title => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set title($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasTitle() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearTitle() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.String get content => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set content($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasContent() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearContent() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $core.int get grade => $_getIZ(2);
-  @$pb.TagNumber(3)
-  set grade($core.int value) => $_setSignedInt32(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasGrade() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearGrade() => $_clearField(3);
-
-  @$pb.TagNumber(4)
-  $core.int get stream => $_getIZ(3);
-  @$pb.TagNumber(4)
-  set stream($core.int value) => $_setSignedInt32(3, value);
-  @$pb.TagNumber(4)
-  $core.bool hasStream() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearStream() => $_clearField(4);
-
-  @$pb.TagNumber(5)
-  $core.int get audience => $_getIZ(4);
-  @$pb.TagNumber(5)
-  set audience($core.int value) => $_setSignedInt32(4, value);
-  @$pb.TagNumber(5)
-  $core.bool hasAudience() => $_has(4);
-  @$pb.TagNumber(5)
-  void clearAudience() => $_clearField(5);
-}
-
-class MasteryUpdate extends $pb.GeneratedMessage {
-  factory MasteryUpdate({
-    $core.double? score,
-  }) {
-    final result = create();
-    if (score != null) result.score = score;
-    return result;
-  }
-
-  MasteryUpdate._();
-
-  factory MasteryUpdate.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory MasteryUpdate.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'MasteryUpdate',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aD(1, _omitFieldNames ? '' : 'score', fieldType: $pb.PbFieldType.OF)
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  MasteryUpdate clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  MasteryUpdate copyWith(void Function(MasteryUpdate) updates) =>
-      super.copyWith((message) => updates(message as MasteryUpdate))
-          as MasteryUpdate;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static MasteryUpdate create() => MasteryUpdate._();
-  @$core.override
-  MasteryUpdate createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static MasteryUpdate getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<MasteryUpdate>(create);
-  static MasteryUpdate? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.double get score => $_getN(0);
-  @$pb.TagNumber(1)
-  set score($core.double value) => $_setFloat(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasScore() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearScore() => $_clearField(1);
-}
-
-class AiUsageUpdate extends $pb.GeneratedMessage {
-  factory AiUsageUpdate({
-    $core.int? allocated,
-    $core.int? used,
-  }) {
-    final result = create();
-    if (allocated != null) result.allocated = allocated;
-    if (used != null) result.used = used;
-    return result;
-  }
-
-  AiUsageUpdate._();
-
-  factory AiUsageUpdate.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory AiUsageUpdate.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'AiUsageUpdate',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aI(1, _omitFieldNames ? '' : 'allocated')
-    ..aI(2, _omitFieldNames ? '' : 'used')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  AiUsageUpdate clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  AiUsageUpdate copyWith(void Function(AiUsageUpdate) updates) =>
-      super.copyWith((message) => updates(message as AiUsageUpdate))
-          as AiUsageUpdate;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static AiUsageUpdate create() => AiUsageUpdate._();
-  @$core.override
-  AiUsageUpdate createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static AiUsageUpdate getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<AiUsageUpdate>(create);
-  static AiUsageUpdate? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.int get allocated => $_getIZ(0);
-  @$pb.TagNumber(1)
-  set allocated($core.int value) => $_setSignedInt32(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasAllocated() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearAllocated() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.int get used => $_getIZ(1);
-  @$pb.TagNumber(2)
-  set used($core.int value) => $_setSignedInt32(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasUsed() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearUsed() => $_clearField(2);
-}
-
-class SettingsUpdate extends $pb.GeneratedMessage {
-  factory SettingsUpdate({
-    $core.String? data,
-    $core.String? mpesa,
-  }) {
-    final result = create();
-    if (data != null) result.data = data;
-    if (mpesa != null) result.mpesa = mpesa;
-    return result;
-  }
-
-  SettingsUpdate._();
-
-  factory SettingsUpdate.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory SettingsUpdate.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'SettingsUpdate',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'data')
-    ..aOS(2, _omitFieldNames ? '' : 'mpesa')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  SettingsUpdate clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  SettingsUpdate copyWith(void Function(SettingsUpdate) updates) =>
-      super.copyWith((message) => updates(message as SettingsUpdate))
-          as SettingsUpdate;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static SettingsUpdate create() => SettingsUpdate._();
-  @$core.override
-  SettingsUpdate createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static SettingsUpdate getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<SettingsUpdate>(create);
-  static SettingsUpdate? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get data => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set data($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasData() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearData() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.String get mpesa => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set mpesa($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasMpesa() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearMpesa() => $_clearField(2);
-}
-
-class RoleUpdate extends $pb.GeneratedMessage {
-  factory RoleUpdate({
-    $core.String? name,
-    $core.String? description,
-    $core.List<$core.int>? permissions,
-  }) {
-    final result = create();
-    if (name != null) result.name = name;
-    if (description != null) result.description = description;
-    if (permissions != null) result.permissions = permissions;
-    return result;
-  }
-
-  RoleUpdate._();
-
-  factory RoleUpdate.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory RoleUpdate.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'RoleUpdate',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'name')
-    ..aOS(2, _omitFieldNames ? '' : 'description')
-    ..a<$core.List<$core.int>>(
-        3, _omitFieldNames ? '' : 'permissions', $pb.PbFieldType.OY)
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  RoleUpdate clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  RoleUpdate copyWith(void Function(RoleUpdate) updates) =>
-      super.copyWith((message) => updates(message as RoleUpdate)) as RoleUpdate;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static RoleUpdate create() => RoleUpdate._();
-  @$core.override
-  RoleUpdate createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static RoleUpdate getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<RoleUpdate>(create);
-  static RoleUpdate? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get name => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set name($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasName() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearName() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.String get description => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set description($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasDescription() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearDescription() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $core.List<$core.int> get permissions => $_getN(2);
-  @$pb.TagNumber(3)
-  set permissions($core.List<$core.int> value) => $_setBytes(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasPermissions() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearPermissions() => $_clearField(3);
-}
-
-class PlanUpdate extends $pb.GeneratedMessage {
-  factory PlanUpdate({
-    $core.String? name,
-    $core.String? description,
-    $core.double? amount,
-    $core.int? levels,
-    $core.int? status,
-    $core.String? features,
-  }) {
-    final result = create();
-    if (name != null) result.name = name;
-    if (description != null) result.description = description;
-    if (amount != null) result.amount = amount;
-    if (levels != null) result.levels = levels;
-    if (status != null) result.status = status;
-    if (features != null) result.features = features;
-    return result;
-  }
-
-  PlanUpdate._();
-
-  factory PlanUpdate.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory PlanUpdate.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'PlanUpdate',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'name')
-    ..aOS(2, _omitFieldNames ? '' : 'description')
-    ..aD(3, _omitFieldNames ? '' : 'amount', fieldType: $pb.PbFieldType.OF)
-    ..aI(4, _omitFieldNames ? '' : 'levels')
-    ..aI(5, _omitFieldNames ? '' : 'status')
-    ..aOS(6, _omitFieldNames ? '' : 'features')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  PlanUpdate clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  PlanUpdate copyWith(void Function(PlanUpdate) updates) =>
-      super.copyWith((message) => updates(message as PlanUpdate)) as PlanUpdate;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static PlanUpdate create() => PlanUpdate._();
-  @$core.override
-  PlanUpdate createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static PlanUpdate getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<PlanUpdate>(create);
-  static PlanUpdate? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get name => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set name($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasName() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearName() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.String get description => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set description($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasDescription() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearDescription() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $core.double get amount => $_getN(2);
-  @$pb.TagNumber(3)
-  set amount($core.double value) => $_setFloat(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasAmount() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearAmount() => $_clearField(3);
-
-  @$pb.TagNumber(4)
-  $core.int get levels => $_getIZ(3);
-  @$pb.TagNumber(4)
-  set levels($core.int value) => $_setSignedInt32(3, value);
-  @$pb.TagNumber(4)
-  $core.bool hasLevels() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearLevels() => $_clearField(4);
-
-  @$pb.TagNumber(5)
-  $core.int get status => $_getIZ(4);
-  @$pb.TagNumber(5)
-  set status($core.int value) => $_setSignedInt32(4, value);
-  @$pb.TagNumber(5)
-  $core.bool hasStatus() => $_has(4);
-  @$pb.TagNumber(5)
-  void clearStatus() => $_clearField(5);
-
-  @$pb.TagNumber(6)
-  $core.String get features => $_getSZ(5);
-  @$pb.TagNumber(6)
-  set features($core.String value) => $_setString(5, value);
-  @$pb.TagNumber(6)
-  $core.bool hasFeatures() => $_has(5);
-  @$pb.TagNumber(6)
-  void clearFeatures() => $_clearField(6);
-}
-
-class SubscriptionUpdate extends $pb.GeneratedMessage {
-  factory SubscriptionUpdate({
-    $core.String? invoice,
-    $core.double? discount,
-    $core.int? status,
-  }) {
-    final result = create();
-    if (invoice != null) result.invoice = invoice;
-    if (discount != null) result.discount = discount;
-    if (status != null) result.status = status;
-    return result;
-  }
-
-  SubscriptionUpdate._();
-
-  factory SubscriptionUpdate.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory SubscriptionUpdate.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'SubscriptionUpdate',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'invoice')
-    ..aD(2, _omitFieldNames ? '' : 'discount', fieldType: $pb.PbFieldType.OF)
-    ..aI(3, _omitFieldNames ? '' : 'status')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  SubscriptionUpdate clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  SubscriptionUpdate copyWith(void Function(SubscriptionUpdate) updates) =>
-      super.copyWith((message) => updates(message as SubscriptionUpdate))
-          as SubscriptionUpdate;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static SubscriptionUpdate create() => SubscriptionUpdate._();
-  @$core.override
-  SubscriptionUpdate createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static SubscriptionUpdate getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<SubscriptionUpdate>(create);
-  static SubscriptionUpdate? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get invoice => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set invoice($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasInvoice() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearInvoice() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.double get discount => $_getN(1);
-  @$pb.TagNumber(2)
-  set discount($core.double value) => $_setFloat(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasDiscount() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearDiscount() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $core.int get status => $_getIZ(2);
-  @$pb.TagNumber(3)
-  set status($core.int value) => $_setSignedInt32(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasStatus() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearStatus() => $_clearField(3);
-}
-
-class DiscountUpdate extends $pb.GeneratedMessage {
-  factory DiscountUpdate({
-    $core.double? amount,
-    $core.int? unit,
-  }) {
-    final result = create();
-    if (amount != null) result.amount = amount;
-    if (unit != null) result.unit = unit;
-    return result;
-  }
-
-  DiscountUpdate._();
-
-  factory DiscountUpdate.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory DiscountUpdate.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'DiscountUpdate',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aD(1, _omitFieldNames ? '' : 'amount', fieldType: $pb.PbFieldType.OF)
-    ..aI(2, _omitFieldNames ? '' : 'unit')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  DiscountUpdate clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  DiscountUpdate copyWith(void Function(DiscountUpdate) updates) =>
-      super.copyWith((message) => updates(message as DiscountUpdate))
-          as DiscountUpdate;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static DiscountUpdate create() => DiscountUpdate._();
-  @$core.override
-  DiscountUpdate createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static DiscountUpdate getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<DiscountUpdate>(create);
-  static DiscountUpdate? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.double get amount => $_getN(0);
-  @$pb.TagNumber(1)
-  set amount($core.double value) => $_setFloat(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasAmount() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearAmount() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.int get unit => $_getIZ(1);
-  @$pb.TagNumber(2)
-  set unit($core.int value) => $_setSignedInt32(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasUnit() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearUnit() => $_clearField(2);
 }
 
 const $core.bool _omitFieldNames =

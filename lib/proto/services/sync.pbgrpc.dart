@@ -32,13 +32,15 @@ class SyncClient extends $grpc.Client {
 
   SyncClient(super.channel, {super.options, super.interceptors});
 
-  $grpc.ResponseStream<$0.PushAck> pushChanges(
-    $async.Stream<$0.MutationBatch> request, {
+  /// Client streams actions one at a time, server responds to each
+  $grpc.ResponseStream<$0.ActionResponse> pushActions(
+    $async.Stream<$0.ActionRequest> request, {
     $grpc.CallOptions? options,
   }) {
-    return $createStreamingCall(_$pushChanges, request, options: options);
+    return $createStreamingCall(_$pushActions, request, options: options);
   }
 
+  /// Server streams changes to client (UNCHANGED from current)
   $grpc.ResponseStream<$0.SyncDelta> watchChanges(
     $0.WatchRequest request, {
     $grpc.CallOptions? options,
@@ -50,10 +52,11 @@ class SyncClient extends $grpc.Client {
 
   // method descriptors
 
-  static final _$pushChanges = $grpc.ClientMethod<$0.MutationBatch, $0.PushAck>(
-      '/sync.Sync/PushChanges',
-      ($0.MutationBatch value) => value.writeToBuffer(),
-      $0.PushAck.fromBuffer);
+  static final _$pushActions =
+      $grpc.ClientMethod<$0.ActionRequest, $0.ActionResponse>(
+          '/sync.Sync/PushActions',
+          ($0.ActionRequest value) => value.writeToBuffer(),
+          $0.ActionResponse.fromBuffer);
   static final _$watchChanges =
       $grpc.ClientMethod<$0.WatchRequest, $0.SyncDelta>(
           '/sync.Sync/WatchChanges',
@@ -66,13 +69,13 @@ abstract class SyncServiceBase extends $grpc.Service {
   $core.String get $name => 'sync.Sync';
 
   SyncServiceBase() {
-    $addMethod($grpc.ServiceMethod<$0.MutationBatch, $0.PushAck>(
-        'PushChanges',
-        pushChanges,
+    $addMethod($grpc.ServiceMethod<$0.ActionRequest, $0.ActionResponse>(
+        'PushActions',
+        pushActions,
         true,
         true,
-        ($core.List<$core.int> value) => $0.MutationBatch.fromBuffer(value),
-        ($0.PushAck value) => value.writeToBuffer()));
+        ($core.List<$core.int> value) => $0.ActionRequest.fromBuffer(value),
+        ($0.ActionResponse value) => value.writeToBuffer()));
     $addMethod($grpc.ServiceMethod<$0.WatchRequest, $0.SyncDelta>(
         'WatchChanges',
         watchChanges_Pre,
@@ -82,8 +85,8 @@ abstract class SyncServiceBase extends $grpc.Service {
         ($0.SyncDelta value) => value.writeToBuffer()));
   }
 
-  $async.Stream<$0.PushAck> pushChanges(
-      $grpc.ServiceCall call, $async.Stream<$0.MutationBatch> request);
+  $async.Stream<$0.ActionResponse> pushActions(
+      $grpc.ServiceCall call, $async.Stream<$0.ActionRequest> request);
 
   $async.Stream<$0.SyncDelta> watchChanges_Pre(
       $grpc.ServiceCall $call, $async.Future<$0.WatchRequest> $request) async* {
