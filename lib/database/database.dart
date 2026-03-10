@@ -256,13 +256,19 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onUpgrade: (m, from, to) async {
       if (from < 2) {
         await m.addColumn(accounts, accounts.lastSeq);
+      }
+      if (from < 3) {
+        // Logs table schema changed: action-based model replaces mutation-based model.
+        // Drop old logs and recreate — pending sync data is lost but that's acceptable.
+        await m.deleteTable('logs');
+        await m.createTable(logs);
       }
     },
     onCreate: (m) async {

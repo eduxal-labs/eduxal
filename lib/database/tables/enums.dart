@@ -328,67 +328,6 @@ class DiscountUnitConverter extends TypeConverter<DiscountUnit, int> {
 // Log Enums — for the client-only `logs` table
 // ============================================================
 
-/// Which backend table was mutated. Values 0–29 are fixed — do not reorder.
-enum LogTable {
-  users(0),
-  schools(1),
-  owners(2),
-  students(3),
-  guardians(4),
-  departments(5),
-  teachers(6),
-  staff(7),
-  terms(8),
-  classTeachers(9),
-  enrollments(10),
-  subjects(11),
-  attendance(12),
-  timetable(13),
-  lessons(14),
-  exams(15),
-  papers(16),
-  grades(17),
-  fees(18),
-  invoices(19),
-  payments(20),
-  announcements(21),
-  mastery(22),
-  aiusage(23),
-  settings(24),
-  roles(25),
-  scopes(26),
-  plans(27),
-  subscriptions(28),
-  discounts(29);
-
-  const LogTable(this.value);
-  final int value;
-}
-
-class LogTableConverter extends TypeConverter<LogTable, int> {
-  const LogTableConverter();
-  @override
-  LogTable fromSql(int fromDb) =>
-      LogTable.values.firstWhere((e) => e.value == fromDb);
-  @override
-  int toSql(LogTable value) => value.value;
-}
-
-/// The type of mutation recorded in a log entry.
-enum LogOperation {
-  insert, // 0
-  update, // 1
-  delete, // 2
-}
-
-class LogOperationConverter extends TypeConverter<LogOperation, int> {
-  const LogOperationConverter();
-  @override
-  LogOperation fromSql(int fromDb) => LogOperation.values[fromDb];
-  @override
-  int toSql(LogOperation value) => value.index;
-}
-
 /// Whether a log entry is awaiting replay or has permanently failed.
 enum LogStatus {
   pending, // 0
@@ -403,324 +342,121 @@ class LogStatusConverter extends TypeConverter<LogStatus, int> {
   int toSql(LogStatus value) => value.index;
 }
 
-// ============================================================
-// Column Bitset Enums — one per synced table that has updatable columns.
-//
-// Each variant's [bit] is the zero-indexed bit position used to build the
-// `logs.columns` bitmask for UPDATE entries.
-//
-// Setting a bit:   mask |= (1 << XxxColumn.foo.bit);
-// Checking a bit:  mask & (1 << XxxColumn.foo.bit) != 0;
-//
-// Only non-PK, mutable columns are listed. PK columns identify the row and
-// are never changed via an UPDATE.
-// ============================================================
+/// The semantic action type for the action-based sync model.
+///
+/// Each value represents a single, self-contained operation that the client
+/// can push to the server. Values are fixed — do not reorder or renumber.
+enum SyncAction {
+  // Schools
+  createSchool(0),
+  updateSchool(1),
+  deleteSchool(2),
+  // Teachers
+  createTeacher(3),
+  updateTeacher(4),
+  deleteTeacher(5),
+  // Staff
+  createStaff(6),
+  updateStaff(7),
+  deleteStaff(8),
+  // Owners
+  createOwner(9),
+  deleteOwner(10),
+  // Students
+  createStudent(11),
+  updateStudent(12),
+  deleteStudent(13),
+  enrollStudent(14),
+  unenrollStudent(15),
+  // Guardians
+  createGuardian(16),
+  updateGuardian(17),
+  deleteGuardian(18),
+  // Departments
+  createDepartment(19),
+  updateDepartment(20),
+  deleteDepartment(21),
+  // Terms
+  createTerm(22),
+  updateTerm(23),
+  deleteTerm(24),
+  // Classes
+  assignClassTeacher(25),
+  unassignClassTeacher(26),
+  assignSubject(27),
+  unassignSubject(28),
+  createTimetableEntry(29),
+  updateTimetableEntry(30),
+  deleteTimetableEntry(31),
+  // Attendance
+  markAttendance(32),
+  deleteAttendance(33),
+  // Lessons
+  createLesson(34),
+  deleteLesson(35),
+  // Exams
+  createExam(36),
+  updateExam(37),
+  deleteExam(38),
+  createPaper(39),
+  updatePaper(40),
+  deletePaper(41),
+  // Grades
+  markGrades(42),
+  updateGrade(43),
+  deleteGrade(44),
+  updateMastery(45),
+  // Fees
+  createFee(46),
+  updateFee(47),
+  deleteFee(48),
+  createInvoice(49),
+  updateInvoice(50),
+  deleteInvoice(51),
+  // Payments
+  createPayment(52),
+  updatePayment(53),
+  deletePayment(54),
+  approvePayment(55),
+  // Announcements
+  createAnnouncement(56),
+  updateAnnouncement(57),
+  deleteAnnouncement(58),
+  // Roles
+  createRole(59),
+  updateRole(60),
+  deleteRole(61),
+  assignRole(62),
+  unassignRole(63),
+  // Users
+  updateUser(64),
+  deleteUser(65),
+  // Settings
+  updateSettings(66),
+  // Plans
+  createPlan(67),
+  updatePlan(68),
+  deletePlan(69),
+  // AI
+  updateAiUsage(70),
+  // Subscriptions
+  createSubscription(71),
+  updateSubscription(72),
+  deleteSubscription(73),
+  // Discounts
+  createDiscount(74),
+  updateDiscount(75),
+  deleteDiscount(76);
 
-/// Updatable columns of the `users` table.
-enum UsersColumn {
-  phone(0),
-  email(1),
-  name(2),
-  level(3),
-  status(4),
-  updated(5);
-
-  const UsersColumn(this.bit);
-  final int bit;
+  const SyncAction(this.value);
+  final int value;
 }
 
-/// Updatable columns of the `schools` table.
-enum SchoolsColumn {
-  name(0),
-  motto(1),
-  phone(2),
-  email(3),
-  county(4),
-  domain(5),
-  established(6),
-  status(7),
-  updated(8);
-
-  const SchoolsColumn(this.bit);
-  final int bit;
+class SyncActionConverter extends TypeConverter<SyncAction, int> {
+  const SyncActionConverter();
+  @override
+  SyncAction fromSql(int fromDb) =>
+      SyncAction.values.firstWhere((e) => e.value == fromDb);
+  @override
+  int toSql(SyncAction value) => value.value;
 }
-
-/// Updatable columns of the `students` table.
-enum StudentsColumn {
-  user(0),
-  name(1),
-  dob(2),
-  gender(3),
-  documents(4),
-  admitted(5),
-  status(6),
-  updated(7);
-
-  const StudentsColumn(this.bit);
-  final int bit;
-}
-
-/// Updatable columns of the `guardians` table.
-enum GuardiansColumn {
-  relationship(0),
-  role(1),
-  updated(2);
-
-  const GuardiansColumn(this.bit);
-  final int bit;
-}
-
-/// Updatable columns of the `departments` table.
-enum DepartmentsColumn {
-  description(0),
-  updated(1);
-
-  const DepartmentsColumn(this.bit);
-  final int bit;
-}
-
-/// Updatable columns of the `teachers` table.
-enum TeachersColumn {
-  hired(0),
-  role(1),
-  department(2),
-  status(3),
-  updated(4);
-
-  const TeachersColumn(this.bit);
-  final int bit;
-}
-
-/// Updatable columns of the `staff` table.
-enum StaffColumn {
-  idnumber(0),
-  role(1),
-  department(2),
-  status(3),
-  updated(4);
-
-  const StaffColumn(this.bit);
-  final int bit;
-}
-
-/// Updatable columns of the `terms` table.
-enum TermsColumn {
-  start(0),
-  end(1),
-  updated(2);
-
-  const TermsColumn(this.bit);
-  final int bit;
-}
-
-/// Updatable columns of the `class_teachers` table.
-enum ClassTeachersColumn {
-  end(0);
-
-  const ClassTeachersColumn(this.bit);
-  final int bit;
-}
-
-/// Updatable columns of the `subjects` table.
-enum SubjectsColumn {
-  teacher(0);
-
-  const SubjectsColumn(this.bit);
-  final int bit;
-}
-
-/// Updatable columns of the `attendance` table.
-enum AttendanceColumn {
-  status(0),
-  updated(1);
-
-  const AttendanceColumn(this.bit);
-  final int bit;
-}
-
-/// Updatable columns of the `timetable` table.
-enum TimetableColumn {
-  teacher(0),
-  start(1),
-  end(2),
-  updated(3);
-
-  const TimetableColumn(this.bit);
-  final int bit;
-}
-
-/// Updatable columns of the `lessons` table.
-enum LessonsColumn {
-  updated(0);
-
-  const LessonsColumn(this.bit);
-  final int bit;
-}
-
-/// Updatable columns of the `exams` table.
-enum ExamsColumn {
-  stream(0),
-  personalized(1),
-  type(2),
-  start(3),
-  end(4),
-  teacher(5),
-  updated(6);
-
-  const ExamsColumn(this.bit);
-  final int bit;
-}
-
-/// Updatable columns of the `papers` table.
-enum PapersColumn {
-  invigilator(0),
-  start(1),
-  end(2),
-  status(3),
-  updated(4);
-
-  const PapersColumn(this.bit);
-  final int bit;
-}
-
-/// Updatable columns of the `grades` table.
-enum GradesColumn {
-  score(0),
-  total(1),
-  updated(2);
-
-  const GradesColumn(this.bit);
-  final int bit;
-}
-
-/// Updatable columns of the `fees` table.
-enum FeesColumn {
-  title(0),
-  description(1),
-  amount(2),
-  mandatory(3),
-  due(4),
-  updated(5);
-
-  const FeesColumn(this.bit);
-  final int bit;
-}
-
-/// Updatable columns of the `invoices` table.
-enum InvoicesColumn {
-  fee(0),
-  description(1),
-  amount(2),
-  status(3),
-  due(4),
-  updated(5);
-
-  const InvoicesColumn(this.bit);
-  final int bit;
-}
-
-/// Updatable columns of the `payments` table.
-enum PaymentsColumn {
-  amount(0),
-  method(1),
-  reference(2),
-  recorder(3),
-  date(4),
-  updated(5);
-
-  const PaymentsColumn(this.bit);
-  final int bit;
-}
-
-/// Updatable columns of the `announcements` table.
-enum AnnouncementsColumn {
-  title(0),
-  content(1),
-  grade(2),
-  stream(3),
-  audience(4),
-  author(5),
-  updated(6);
-
-  const AnnouncementsColumn(this.bit);
-  final int bit;
-}
-
-/// Updatable columns of the `mastery` table.
-enum MasteryColumn {
-  score(0),
-  updated(1);
-
-  const MasteryColumn(this.bit);
-  final int bit;
-}
-
-/// Updatable columns of the `aiusage` table.
-enum AiusageColumn {
-  allocated(0),
-  used(1),
-  updated(2);
-
-  const AiusageColumn(this.bit);
-  final int bit;
-}
-
-/// Updatable columns of the `settings` table.
-enum SettingsColumn {
-  data(0),
-  mpesa(1),
-  updated(2);
-
-  const SettingsColumn(this.bit);
-  final int bit;
-}
-
-/// Updatable columns of the `roles` table.
-enum RolesColumn {
-  name(0),
-  description(1),
-  permissions(2),
-  updated(3);
-
-  const RolesColumn(this.bit);
-  final int bit;
-}
-
-/// Updatable columns of the `plans` table.
-enum PlansColumn {
-  name(0),
-  description(1),
-  amount(2),
-  levels(3),
-  status(4),
-  features(5),
-  updated(6);
-
-  const PlansColumn(this.bit);
-  final int bit;
-}
-
-/// Updatable columns of the `subscriptions` table.
-enum SubscriptionsColumn {
-  invoice(0),
-  discount(1),
-  status(2),
-  updated(3);
-
-  const SubscriptionsColumn(this.bit);
-  final int bit;
-}
-
-/// Updatable columns of the `discounts` table.
-enum DiscountsColumn {
-  amount(0),
-  unit(1),
-  updated(2);
-
-  const DiscountsColumn(this.bit);
-  final int bit;
-}
-
-// NOTE: OwnersColumn, EnrollmentsColumn, and ScopesColumn are intentionally
-// omitted — these tables have no updatable columns (insert/delete only).
-// A log UPDATE entry will never be generated for them.
