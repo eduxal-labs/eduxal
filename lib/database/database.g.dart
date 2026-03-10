@@ -17107,42 +17107,35 @@ class $LogsTable extends Logs with TableInfo<$LogsTable, LogsData> {
     ),
   );
   @override
-  late final GeneratedColumnWithTypeConverter<LogTable, int> tbl =
+  late final GeneratedColumnWithTypeConverter<SyncAction, int> action =
       GeneratedColumn<int>(
-        'tbl',
+        'action',
         aliasedName,
         false,
         type: DriftSqlType.int,
         requiredDuringInsert: true,
-      ).withConverter<LogTable>($LogsTable.$convertertbl);
+      ).withConverter<SyncAction>($LogsTable.$converteraction);
+  static const VerificationMeta _resourceMeta = const VerificationMeta(
+    'resource',
+  );
   @override
-  late final GeneratedColumnWithTypeConverter<LogOperation, int> op =
-      GeneratedColumn<int>(
-        'op',
-        aliasedName,
-        false,
-        type: DriftSqlType.int,
-        requiredDuringInsert: true,
-      ).withConverter<LogOperation>($LogsTable.$converterop);
-  static const VerificationMeta _rowKeyMeta = const VerificationMeta('rowKey');
-  @override
-  late final GeneratedColumn<String> rowKey = GeneratedColumn<String>(
-    'row_key',
+  late final GeneratedColumn<String> resource = GeneratedColumn<String>(
+    'resource',
     aliasedName,
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _columnsMeta = const VerificationMeta(
-    'columns',
+  static const VerificationMeta _payloadMeta = const VerificationMeta(
+    'payload',
   );
   @override
-  late final GeneratedColumn<int> columns = GeneratedColumn<int>(
-    'columns',
+  late final GeneratedColumn<Uint8List> payload = GeneratedColumn<Uint8List>(
+    'payload',
     aliasedName,
-    true,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
+    false,
+    type: DriftSqlType.blob,
+    requiredDuringInsert: true,
   );
   @override
   late final GeneratedColumnWithTypeConverter<LogStatus, int> status =
@@ -17190,10 +17183,9 @@ class $LogsTable extends Logs with TableInfo<$LogsTable, LogsData> {
   List<GeneratedColumn> get $columns => [
     id,
     account,
-    tbl,
-    op,
-    rowKey,
-    columns,
+    action,
+    resource,
+    payload,
     status,
     attempts,
     error,
@@ -17222,19 +17214,21 @@ class $LogsTable extends Logs with TableInfo<$LogsTable, LogsData> {
     } else if (isInserting) {
       context.missing(_accountMeta);
     }
-    if (data.containsKey('row_key')) {
+    if (data.containsKey('resource')) {
       context.handle(
-        _rowKeyMeta,
-        rowKey.isAcceptableOrUnknown(data['row_key']!, _rowKeyMeta),
+        _resourceMeta,
+        resource.isAcceptableOrUnknown(data['resource']!, _resourceMeta),
       );
     } else if (isInserting) {
-      context.missing(_rowKeyMeta);
+      context.missing(_resourceMeta);
     }
-    if (data.containsKey('columns')) {
+    if (data.containsKey('payload')) {
       context.handle(
-        _columnsMeta,
-        columns.isAcceptableOrUnknown(data['columns']!, _columnsMeta),
+        _payloadMeta,
+        payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta),
       );
+    } else if (isInserting) {
+      context.missing(_payloadMeta);
     }
     if (data.containsKey('attempts')) {
       context.handle(
@@ -17273,26 +17267,20 @@ class $LogsTable extends Logs with TableInfo<$LogsTable, LogsData> {
         DriftSqlType.string,
         data['${effectivePrefix}account'],
       )!,
-      tbl: $LogsTable.$convertertbl.fromSql(
+      action: $LogsTable.$converteraction.fromSql(
         attachedDatabase.typeMapping.read(
           DriftSqlType.int,
-          data['${effectivePrefix}tbl'],
+          data['${effectivePrefix}action'],
         )!,
       ),
-      op: $LogsTable.$converterop.fromSql(
-        attachedDatabase.typeMapping.read(
-          DriftSqlType.int,
-          data['${effectivePrefix}op'],
-        )!,
-      ),
-      rowKey: attachedDatabase.typeMapping.read(
+      resource: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
-        data['${effectivePrefix}row_key'],
+        data['${effectivePrefix}resource'],
       )!,
-      columns: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}columns'],
-      ),
+      payload: attachedDatabase.typeMapping.read(
+        DriftSqlType.blob,
+        data['${effectivePrefix}payload'],
+      )!,
       status: $LogsTable.$converterstatus.fromSql(
         attachedDatabase.typeMapping.read(
           DriftSqlType.int,
@@ -17319,9 +17307,8 @@ class $LogsTable extends Logs with TableInfo<$LogsTable, LogsData> {
     return $LogsTable(attachedDatabase, alias);
   }
 
-  static TypeConverter<LogTable, int> $convertertbl = const LogTableConverter();
-  static TypeConverter<LogOperation, int> $converterop =
-      const LogOperationConverter();
+  static TypeConverter<SyncAction, int> $converteraction =
+      const SyncActionConverter();
   static TypeConverter<LogStatus, int> $converterstatus =
       const LogStatusConverter();
 }
@@ -17330,31 +17317,27 @@ class LogsData extends DataClass implements Insertable<LogsData> {
   /// Auto-incrementing surrogate PK — ensures replay order is preserved.
   final int id;
 
-  /// The account that made this mutation. Mutations are per-account.
+  /// The account that performed this action.
   final String account;
 
-  /// Which of the 30 synced backend tables was mutated.
-  final LogTable tbl;
+  /// The semantic action type (e.g. createSchool, updateTeacher, markAttendance).
+  final SyncAction action;
 
-  /// The type of mutation: Insert, Update, or Delete.
-  final LogOperation op;
+  /// Human-readable display key for the notification UI.
+  /// E.g. school name, user phone, "Attendance 2025-01-15", etc.
+  final String resource;
 
-  /// "|"-delimited primary key values identifying the mutated row.
-  /// Example for a composite PK: "schoolId|2024|1"
-  final String rowKey;
-
-  /// Bitmask of changed columns — only meaningful for [LogOperation.update].
-  /// Each bit position maps to a column via the per-table XxxColumn enum.
-  /// Null for Insert and Delete operations.
-  final int? columns;
+  /// Serialized protobuf action payload (e.g. CreateSchoolPayload bytes).
+  /// Self-contained — the sync engine does NOT read other tables to build the message.
+  final Uint8List payload;
 
   /// Whether this entry is awaiting replay or has permanently failed.
   final LogStatus status;
 
-  /// Number of times the sync engine has attempted to replay this entry.
+  /// Number of times the sync engine has attempted to send this action.
   final int attempts;
 
-  /// Last error message received from the server, if any.
+  /// Human-readable error message from server, if any.
   final String? error;
 
   /// Milliseconds since epoch when this log entry was created.
@@ -17362,10 +17345,9 @@ class LogsData extends DataClass implements Insertable<LogsData> {
   const LogsData({
     required this.id,
     required this.account,
-    required this.tbl,
-    required this.op,
-    required this.rowKey,
-    this.columns,
+    required this.action,
+    required this.resource,
+    required this.payload,
     required this.status,
     required this.attempts,
     this.error,
@@ -17377,15 +17359,10 @@ class LogsData extends DataClass implements Insertable<LogsData> {
     map['id'] = Variable<int>(id);
     map['account'] = Variable<String>(account);
     {
-      map['tbl'] = Variable<int>($LogsTable.$convertertbl.toSql(tbl));
+      map['action'] = Variable<int>($LogsTable.$converteraction.toSql(action));
     }
-    {
-      map['op'] = Variable<int>($LogsTable.$converterop.toSql(op));
-    }
-    map['row_key'] = Variable<String>(rowKey);
-    if (!nullToAbsent || columns != null) {
-      map['columns'] = Variable<int>(columns);
-    }
+    map['resource'] = Variable<String>(resource);
+    map['payload'] = Variable<Uint8List>(payload);
     {
       map['status'] = Variable<int>($LogsTable.$converterstatus.toSql(status));
     }
@@ -17401,12 +17378,9 @@ class LogsData extends DataClass implements Insertable<LogsData> {
     return LogsCompanion(
       id: Value(id),
       account: Value(account),
-      tbl: Value(tbl),
-      op: Value(op),
-      rowKey: Value(rowKey),
-      columns: columns == null && nullToAbsent
-          ? const Value.absent()
-          : Value(columns),
+      action: Value(action),
+      resource: Value(resource),
+      payload: Value(payload),
       status: Value(status),
       attempts: Value(attempts),
       error: error == null && nullToAbsent
@@ -17424,10 +17398,9 @@ class LogsData extends DataClass implements Insertable<LogsData> {
     return LogsData(
       id: serializer.fromJson<int>(json['id']),
       account: serializer.fromJson<String>(json['account']),
-      tbl: serializer.fromJson<LogTable>(json['tbl']),
-      op: serializer.fromJson<LogOperation>(json['op']),
-      rowKey: serializer.fromJson<String>(json['rowKey']),
-      columns: serializer.fromJson<int?>(json['columns']),
+      action: serializer.fromJson<SyncAction>(json['action']),
+      resource: serializer.fromJson<String>(json['resource']),
+      payload: serializer.fromJson<Uint8List>(json['payload']),
       status: serializer.fromJson<LogStatus>(json['status']),
       attempts: serializer.fromJson<int>(json['attempts']),
       error: serializer.fromJson<String?>(json['error']),
@@ -17440,10 +17413,9 @@ class LogsData extends DataClass implements Insertable<LogsData> {
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'account': serializer.toJson<String>(account),
-      'tbl': serializer.toJson<LogTable>(tbl),
-      'op': serializer.toJson<LogOperation>(op),
-      'rowKey': serializer.toJson<String>(rowKey),
-      'columns': serializer.toJson<int?>(columns),
+      'action': serializer.toJson<SyncAction>(action),
+      'resource': serializer.toJson<String>(resource),
+      'payload': serializer.toJson<Uint8List>(payload),
       'status': serializer.toJson<LogStatus>(status),
       'attempts': serializer.toJson<int>(attempts),
       'error': serializer.toJson<String?>(error),
@@ -17454,10 +17426,9 @@ class LogsData extends DataClass implements Insertable<LogsData> {
   LogsData copyWith({
     int? id,
     String? account,
-    LogTable? tbl,
-    LogOperation? op,
-    String? rowKey,
-    Value<int?> columns = const Value.absent(),
+    SyncAction? action,
+    String? resource,
+    Uint8List? payload,
     LogStatus? status,
     int? attempts,
     Value<String?> error = const Value.absent(),
@@ -17465,10 +17436,9 @@ class LogsData extends DataClass implements Insertable<LogsData> {
   }) => LogsData(
     id: id ?? this.id,
     account: account ?? this.account,
-    tbl: tbl ?? this.tbl,
-    op: op ?? this.op,
-    rowKey: rowKey ?? this.rowKey,
-    columns: columns.present ? columns.value : this.columns,
+    action: action ?? this.action,
+    resource: resource ?? this.resource,
+    payload: payload ?? this.payload,
     status: status ?? this.status,
     attempts: attempts ?? this.attempts,
     error: error.present ? error.value : this.error,
@@ -17478,10 +17448,9 @@ class LogsData extends DataClass implements Insertable<LogsData> {
     return LogsData(
       id: data.id.present ? data.id.value : this.id,
       account: data.account.present ? data.account.value : this.account,
-      tbl: data.tbl.present ? data.tbl.value : this.tbl,
-      op: data.op.present ? data.op.value : this.op,
-      rowKey: data.rowKey.present ? data.rowKey.value : this.rowKey,
-      columns: data.columns.present ? data.columns.value : this.columns,
+      action: data.action.present ? data.action.value : this.action,
+      resource: data.resource.present ? data.resource.value : this.resource,
+      payload: data.payload.present ? data.payload.value : this.payload,
       status: data.status.present ? data.status.value : this.status,
       attempts: data.attempts.present ? data.attempts.value : this.attempts,
       error: data.error.present ? data.error.value : this.error,
@@ -17494,10 +17463,9 @@ class LogsData extends DataClass implements Insertable<LogsData> {
     return (StringBuffer('LogsData(')
           ..write('id: $id, ')
           ..write('account: $account, ')
-          ..write('tbl: $tbl, ')
-          ..write('op: $op, ')
-          ..write('rowKey: $rowKey, ')
-          ..write('columns: $columns, ')
+          ..write('action: $action, ')
+          ..write('resource: $resource, ')
+          ..write('payload: $payload, ')
           ..write('status: $status, ')
           ..write('attempts: $attempts, ')
           ..write('error: $error, ')
@@ -17510,10 +17478,9 @@ class LogsData extends DataClass implements Insertable<LogsData> {
   int get hashCode => Object.hash(
     id,
     account,
-    tbl,
-    op,
-    rowKey,
-    columns,
+    action,
+    resource,
+    $driftBlobEquality.hash(payload),
     status,
     attempts,
     error,
@@ -17525,10 +17492,9 @@ class LogsData extends DataClass implements Insertable<LogsData> {
       (other is LogsData &&
           other.id == this.id &&
           other.account == this.account &&
-          other.tbl == this.tbl &&
-          other.op == this.op &&
-          other.rowKey == this.rowKey &&
-          other.columns == this.columns &&
+          other.action == this.action &&
+          other.resource == this.resource &&
+          $driftBlobEquality.equals(other.payload, this.payload) &&
           other.status == this.status &&
           other.attempts == this.attempts &&
           other.error == this.error &&
@@ -17538,10 +17504,9 @@ class LogsData extends DataClass implements Insertable<LogsData> {
 class LogsCompanion extends UpdateCompanion<LogsData> {
   final Value<int> id;
   final Value<String> account;
-  final Value<LogTable> tbl;
-  final Value<LogOperation> op;
-  final Value<String> rowKey;
-  final Value<int?> columns;
+  final Value<SyncAction> action;
+  final Value<String> resource;
+  final Value<Uint8List> payload;
   final Value<LogStatus> status;
   final Value<int> attempts;
   final Value<String?> error;
@@ -17549,10 +17514,9 @@ class LogsCompanion extends UpdateCompanion<LogsData> {
   const LogsCompanion({
     this.id = const Value.absent(),
     this.account = const Value.absent(),
-    this.tbl = const Value.absent(),
-    this.op = const Value.absent(),
-    this.rowKey = const Value.absent(),
-    this.columns = const Value.absent(),
+    this.action = const Value.absent(),
+    this.resource = const Value.absent(),
+    this.payload = const Value.absent(),
     this.status = const Value.absent(),
     this.attempts = const Value.absent(),
     this.error = const Value.absent(),
@@ -17561,26 +17525,24 @@ class LogsCompanion extends UpdateCompanion<LogsData> {
   LogsCompanion.insert({
     this.id = const Value.absent(),
     required String account,
-    required LogTable tbl,
-    required LogOperation op,
-    required String rowKey,
-    this.columns = const Value.absent(),
+    required SyncAction action,
+    required String resource,
+    required Uint8List payload,
     this.status = const Value.absent(),
     this.attempts = const Value.absent(),
     this.error = const Value.absent(),
     required BigInt created,
   }) : account = Value(account),
-       tbl = Value(tbl),
-       op = Value(op),
-       rowKey = Value(rowKey),
+       action = Value(action),
+       resource = Value(resource),
+       payload = Value(payload),
        created = Value(created);
   static Insertable<LogsData> custom({
     Expression<int>? id,
     Expression<String>? account,
-    Expression<int>? tbl,
-    Expression<int>? op,
-    Expression<String>? rowKey,
-    Expression<int>? columns,
+    Expression<int>? action,
+    Expression<String>? resource,
+    Expression<Uint8List>? payload,
     Expression<int>? status,
     Expression<int>? attempts,
     Expression<String>? error,
@@ -17589,10 +17551,9 @@ class LogsCompanion extends UpdateCompanion<LogsData> {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (account != null) 'account': account,
-      if (tbl != null) 'tbl': tbl,
-      if (op != null) 'op': op,
-      if (rowKey != null) 'row_key': rowKey,
-      if (columns != null) 'columns': columns,
+      if (action != null) 'action': action,
+      if (resource != null) 'resource': resource,
+      if (payload != null) 'payload': payload,
       if (status != null) 'status': status,
       if (attempts != null) 'attempts': attempts,
       if (error != null) 'error': error,
@@ -17603,10 +17564,9 @@ class LogsCompanion extends UpdateCompanion<LogsData> {
   LogsCompanion copyWith({
     Value<int>? id,
     Value<String>? account,
-    Value<LogTable>? tbl,
-    Value<LogOperation>? op,
-    Value<String>? rowKey,
-    Value<int?>? columns,
+    Value<SyncAction>? action,
+    Value<String>? resource,
+    Value<Uint8List>? payload,
     Value<LogStatus>? status,
     Value<int>? attempts,
     Value<String?>? error,
@@ -17615,10 +17575,9 @@ class LogsCompanion extends UpdateCompanion<LogsData> {
     return LogsCompanion(
       id: id ?? this.id,
       account: account ?? this.account,
-      tbl: tbl ?? this.tbl,
-      op: op ?? this.op,
-      rowKey: rowKey ?? this.rowKey,
-      columns: columns ?? this.columns,
+      action: action ?? this.action,
+      resource: resource ?? this.resource,
+      payload: payload ?? this.payload,
       status: status ?? this.status,
       attempts: attempts ?? this.attempts,
       error: error ?? this.error,
@@ -17635,17 +17594,16 @@ class LogsCompanion extends UpdateCompanion<LogsData> {
     if (account.present) {
       map['account'] = Variable<String>(account.value);
     }
-    if (tbl.present) {
-      map['tbl'] = Variable<int>($LogsTable.$convertertbl.toSql(tbl.value));
+    if (action.present) {
+      map['action'] = Variable<int>(
+        $LogsTable.$converteraction.toSql(action.value),
+      );
     }
-    if (op.present) {
-      map['op'] = Variable<int>($LogsTable.$converterop.toSql(op.value));
+    if (resource.present) {
+      map['resource'] = Variable<String>(resource.value);
     }
-    if (rowKey.present) {
-      map['row_key'] = Variable<String>(rowKey.value);
-    }
-    if (columns.present) {
-      map['columns'] = Variable<int>(columns.value);
+    if (payload.present) {
+      map['payload'] = Variable<Uint8List>(payload.value);
     }
     if (status.present) {
       map['status'] = Variable<int>(
@@ -17669,10 +17627,9 @@ class LogsCompanion extends UpdateCompanion<LogsData> {
     return (StringBuffer('LogsCompanion(')
           ..write('id: $id, ')
           ..write('account: $account, ')
-          ..write('tbl: $tbl, ')
-          ..write('op: $op, ')
-          ..write('rowKey: $rowKey, ')
-          ..write('columns: $columns, ')
+          ..write('action: $action, ')
+          ..write('resource: $resource, ')
+          ..write('payload: $payload, ')
           ..write('status: $status, ')
           ..write('attempts: $attempts, ')
           ..write('error: $error, ')
@@ -35183,10 +35140,9 @@ typedef $$LogsTableCreateCompanionBuilder =
     LogsCompanion Function({
       Value<int> id,
       required String account,
-      required LogTable tbl,
-      required LogOperation op,
-      required String rowKey,
-      Value<int?> columns,
+      required SyncAction action,
+      required String resource,
+      required Uint8List payload,
       Value<LogStatus> status,
       Value<int> attempts,
       Value<String?> error,
@@ -35196,10 +35152,9 @@ typedef $$LogsTableUpdateCompanionBuilder =
     LogsCompanion Function({
       Value<int> id,
       Value<String> account,
-      Value<LogTable> tbl,
-      Value<LogOperation> op,
-      Value<String> rowKey,
-      Value<int?> columns,
+      Value<SyncAction> action,
+      Value<String> resource,
+      Value<Uint8List> payload,
       Value<LogStatus> status,
       Value<int> attempts,
       Value<String?> error,
@@ -35219,25 +35174,19 @@ class $$LogsTableFilterComposer extends Composer<_$AppDatabase, $LogsTable> {
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnWithTypeConverterFilters<LogTable, LogTable, int> get tbl =>
+  ColumnWithTypeConverterFilters<SyncAction, SyncAction, int> get action =>
       $composableBuilder(
-        column: $table.tbl,
+        column: $table.action,
         builder: (column) => ColumnWithTypeConverterFilters(column),
       );
 
-  ColumnWithTypeConverterFilters<LogOperation, LogOperation, int> get op =>
-      $composableBuilder(
-        column: $table.op,
-        builder: (column) => ColumnWithTypeConverterFilters(column),
-      );
-
-  ColumnFilters<String> get rowKey => $composableBuilder(
-    column: $table.rowKey,
+  ColumnFilters<String> get resource => $composableBuilder(
+    column: $table.resource,
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<int> get columns => $composableBuilder(
-    column: $table.columns,
+  ColumnFilters<Uint8List> get payload => $composableBuilder(
+    column: $table.payload,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -35276,23 +35225,18 @@ class $$LogsTableOrderingComposer extends Composer<_$AppDatabase, $LogsTable> {
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<int> get tbl => $composableBuilder(
-    column: $table.tbl,
+  ColumnOrderings<int> get action => $composableBuilder(
+    column: $table.action,
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<int> get op => $composableBuilder(
-    column: $table.op,
+  ColumnOrderings<String> get resource => $composableBuilder(
+    column: $table.resource,
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get rowKey => $composableBuilder(
-    column: $table.rowKey,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get columns => $composableBuilder(
-    column: $table.columns,
+  ColumnOrderings<Uint8List> get payload => $composableBuilder(
+    column: $table.payload,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -35329,17 +35273,14 @@ class $$LogsTableAnnotationComposer
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
-  GeneratedColumnWithTypeConverter<LogTable, int> get tbl =>
-      $composableBuilder(column: $table.tbl, builder: (column) => column);
+  GeneratedColumnWithTypeConverter<SyncAction, int> get action =>
+      $composableBuilder(column: $table.action, builder: (column) => column);
 
-  GeneratedColumnWithTypeConverter<LogOperation, int> get op =>
-      $composableBuilder(column: $table.op, builder: (column) => column);
+  GeneratedColumn<String> get resource =>
+      $composableBuilder(column: $table.resource, builder: (column) => column);
 
-  GeneratedColumn<String> get rowKey =>
-      $composableBuilder(column: $table.rowKey, builder: (column) => column);
-
-  GeneratedColumn<int> get columns =>
-      $composableBuilder(column: $table.columns, builder: (column) => column);
+  GeneratedColumn<Uint8List> get payload =>
+      $composableBuilder(column: $table.payload, builder: (column) => column);
 
   GeneratedColumnWithTypeConverter<LogStatus, int> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
@@ -35384,10 +35325,9 @@ class $$LogsTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 Value<String> account = const Value.absent(),
-                Value<LogTable> tbl = const Value.absent(),
-                Value<LogOperation> op = const Value.absent(),
-                Value<String> rowKey = const Value.absent(),
-                Value<int?> columns = const Value.absent(),
+                Value<SyncAction> action = const Value.absent(),
+                Value<String> resource = const Value.absent(),
+                Value<Uint8List> payload = const Value.absent(),
                 Value<LogStatus> status = const Value.absent(),
                 Value<int> attempts = const Value.absent(),
                 Value<String?> error = const Value.absent(),
@@ -35395,10 +35335,9 @@ class $$LogsTableTableManager
               }) => LogsCompanion(
                 id: id,
                 account: account,
-                tbl: tbl,
-                op: op,
-                rowKey: rowKey,
-                columns: columns,
+                action: action,
+                resource: resource,
+                payload: payload,
                 status: status,
                 attempts: attempts,
                 error: error,
@@ -35408,10 +35347,9 @@ class $$LogsTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 required String account,
-                required LogTable tbl,
-                required LogOperation op,
-                required String rowKey,
-                Value<int?> columns = const Value.absent(),
+                required SyncAction action,
+                required String resource,
+                required Uint8List payload,
                 Value<LogStatus> status = const Value.absent(),
                 Value<int> attempts = const Value.absent(),
                 Value<String?> error = const Value.absent(),
@@ -35419,10 +35357,9 @@ class $$LogsTableTableManager
               }) => LogsCompanion.insert(
                 id: id,
                 account: account,
-                tbl: tbl,
-                op: op,
-                rowKey: rowKey,
-                columns: columns,
+                action: action,
+                resource: resource,
+                payload: payload,
                 status: status,
                 attempts: attempts,
                 error: error,
