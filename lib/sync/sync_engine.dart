@@ -12,7 +12,6 @@ import '../database/daos/logs_dao.dart';
 import '../proto/services/sync.pb.dart' as sync_pb;
 import '../proto/services/sync.pbgrpc.dart';
 import 'delta_writer.dart';
-import 'log_processor.dart';
 import 'sync_status.dart';
 
 /// A raw [ClientMethod] for WatchChanges that returns unparsed bytes instead
@@ -44,9 +43,9 @@ void _runGuarded(void Function() body) {
 /// database and the remote gRPC server.
 ///
 /// Responsibilities:
-/// - **Outbound (push):** Reads the local `logs` table via [LogProcessor],
-///   builds [MutationBatch] messages, and streams them to the server via
-///   [SyncClient.pushChanges].
+/// - **Outbound (push):** Reads the local `logs` table via [LogsDao],
+///   sends each pending action one-at-a-time as an [ActionRequest] via
+///   [SyncClient.pushActions], and processes the [ActionResponse] for each.
 /// - **Inbound (watch):** Opens a [SyncClient.watchChanges] server-streaming
 ///   call and applies incoming [SyncDelta] messages to the local DB via
 ///   [DeltaWriter].
@@ -68,7 +67,6 @@ class SyncEngine {
 
   late SyncClient _syncClient;
   late DeltaWriter _deltaWriter;
-  late LogProcessor _logProcessor;
 
   // ── Observable sync status ───────────────────────────────────────────────
   /// Current sync status — widgets bind to this via [ValueListenableBuilder].
@@ -80,10 +78,6 @@ class SyncEngine {
   StreamSubscription<dynamic>? _watchSubscription;
 
   // ── Push (outbound) state ────────────────────────────────────────────────
-  StreamController<MutationBatch>? _pushController;
-  ResponseStream<PushAck>? _pushStream;
-  StreamSubscription<PushAck>? _pushSubscription;
-
   /// Safety-net timer that calls [pushNow] periodically to catch any
   /// mutations that were not pushed immediately (e.g. due to transient errors).
   Timer? _pushTimer;
@@ -135,7 +129,6 @@ class SyncEngine {
 
     _syncClient = SyncClient(_channel);
     _deltaWriter = DeltaWriter(db);
-    _logProcessor = LogProcessor(db, _logsDao);
 
     _log('Starting sync for account=$accountId, lastSeq=$lastSeq');
     debugPrint(
@@ -174,21 +167,8 @@ class SyncEngine {
 
     await _watchSubscription?.cancel();
     _watchSubscription = null;
-
-    await _pushSubscription?.cancel();
-    _pushSubscription = null;
-
-    await _pushController?.close();
-    _pushController = null;
-    _pushStream = null;
   }
 
-  /// Push pending local mutations immediately.
-  ///
-  /// This is safe to call from anywhere (services, DAOs, UI) — it is a
-  /// fire-and-forget operation. If sync is not running or the device is
-  /// offline, it returns silently and the mutations remain in the `logs`
-  /// table for the next push cycle.
   /// Schedules a [pushNow] call on the next event-loop turn.
   ///
   /// DAOs call this (via the global `sync.schedulePush()`) after writing log
@@ -214,7 +194,7 @@ class SyncEngine {
     });
   }
 
-  /// Calls [pushNow] and, if zero batches were found, retries once after a
+  /// Calls [pushNow] and, if zero actions were found, retries once after a
   /// short delay. This handles the edge case where an outer `db.transaction()`
   /// wrapper has not yet committed by the time the first [pushNow] runs.
   Future<void> _pushWithRetry() async {
@@ -227,11 +207,11 @@ class SyncEngine {
     }
   }
 
-  /// Pushes pending local mutations immediately.
+  /// Pushes pending local actions immediately.
   ///
-  /// Returns `true` if at least one batch was found and sent, `false` if there
-  /// were no pending mutations. The return value is used by [_pushWithRetry]
-  /// to decide whether a follow-up attempt is needed.
+  /// Returns `true` if at least one action was found and sent, `false` if
+  /// there were no pending actions. The return value is used by
+  /// [_pushWithRetry] to decide whether a follow-up attempt is needed.
   Future<bool> pushNow() async {
     if (!_running) return false;
     // Guard against concurrent pushNow calls (periodic timer + manual trigger).
@@ -239,54 +219,25 @@ class SyncEngine {
     _pushing = true;
 
     try {
-      final batches = await _logProcessor.buildBatches(_accountId);
-      if (batches.isEmpty) {
-        debugPrint('[SyncEngine] pushNow — no pending batches');
+      final pending = await _logsDao.getPendingLogs(_accountId);
+      if (pending.isEmpty) {
+        debugPrint('[SyncEngine] pushNow — no pending actions');
         return false;
       }
 
-      // Cap per cycle to avoid flooding the server. The periodic timer (every
-      // 5 s) will pick up remaining batches on the next tick.
-      const maxPerCycle = 10;
-      final toSend = batches.length > maxPerCycle
-          ? batches.sublist(0, maxPerCycle)
-          : batches;
-
-      _log('Pushing ${toSend.length} of ${batches.length} batch(es)');
+      _log('Pushing ${pending.length} pending action(s)');
       debugPrint(
-        '[SyncEngine] pushNow — sending ${toSend.length} of '
-        '${batches.length} batch(es)',
+        '[SyncEngine] pushNow — sending ${pending.length} action(s)',
       );
-
-      // Ensure the push stream is open. _ensurePushStream has its own
-      // try/catch — if the server is unreachable, _pushController stays null.
-      _ensurePushStream();
-
-      if (_pushController == null || _pushController!.isClosed) {
-        _log('Push stream not available — mutations remain queued');
-        debugPrint('[SyncEngine] Push stream not available — staying queued');
-        if (_running) status.value = SyncStatus.disconnected;
-        return false;
-      }
 
       status.value = SyncStatus.pushing;
 
-      for (var i = 0; i < toSend.length; i++) {
-        if (!_running) break;
-        _pushController!.add(toSend[i]);
-        // Small delay between batches so the server has time to process each
-        // one before the next arrives. Without this, hundreds of batches flood
-        // the HTTP/2 connection and the server terminates it.
-        if (i < toSend.length - 1) {
-          await Future<void>.delayed(const Duration(milliseconds: 50));
-        }
-      }
+      await _pushActions(pending);
 
-      // Revert to idle after sending (acks arrive asynchronously).
       if (_running) status.value = SyncStatus.idle;
       return true;
     } catch (e, st) {
-      // Offline or unexpected error — mutations stay in logs table, will
+      // Offline or unexpected error — actions stay in logs table, will
       // retry on the next pushNow() call or periodic timer tick.
       _log('pushNow error: $e', stackTrace: st);
       debugPrint('[SyncEngine] pushNow error: $e');
@@ -340,6 +291,217 @@ class SyncEngine {
 
     // Also push any pending mutations right away.
     pushNow();
+  }
+
+  // =========================================================================
+  // Push (outbound) — action-based bidirectional stream
+  // =========================================================================
+
+  /// Opens a bidirectional gRPC stream and sends each pending action one at a
+  /// time, waiting for the server's [ActionResponse] before sending the next.
+  ///
+  /// The flow:
+  /// 1. Send the first [ActionRequest].
+  /// 2. Wait for [ActionResponse].
+  /// 3. Process the response (apply rows, delete/mark-failed the log entry).
+  /// 4. Send the next action (if any).
+  /// 5. Close the stream when all actions are sent and acknowledged.
+  Future<void> _pushActions(List<LogsData> pending) async {
+    if (pending.isEmpty) return;
+
+    final requestController = StreamController<sync_pb.ActionRequest>();
+    ResponseStream<sync_pb.ActionResponse>? responseStream;
+
+    try {
+      responseStream = _syncClient.pushActions(
+        requestController.stream,
+        options: _callOptions(),
+      );
+    } catch (e, st) {
+      _log('Failed to open push stream: $e', stackTrace: st);
+      debugPrint('[SyncEngine] Failed to open push stream: $e');
+      await requestController.close();
+      if (_running) status.value = SyncStatus.disconnected;
+      return;
+    }
+
+    // Send the first action to kick off the stream.
+    final first = pending[0];
+    requestController.add(sync_pb.ActionRequest(
+      id: first.id,
+      action: first.action.value,
+      payload: first.payload,
+    ));
+    debugPrint(
+      '[SyncEngine] Sent action #${first.id} '
+      '(${first.action.name}, 1/${pending.length})',
+    );
+
+    int nextIndex = 1;
+
+    try {
+      await for (final response in responseStream) {
+        if (!_running) {
+          debugPrint('[SyncEngine] Push aborted — engine stopped');
+          break;
+        }
+
+        await _processActionResponse(response);
+
+        // Send the next action if there are more.
+        if (nextIndex < pending.length) {
+          final next = pending[nextIndex];
+          requestController.add(sync_pb.ActionRequest(
+            id: next.id,
+            action: next.action.value,
+            payload: next.payload,
+          ));
+          debugPrint(
+            '[SyncEngine] Sent action #${next.id} '
+            '(${next.action.name}, ${nextIndex + 1}/${pending.length})',
+          );
+          nextIndex++;
+        } else {
+          // All actions sent and this was the last response — close the stream.
+          debugPrint('[SyncEngine] All ${pending.length} actions acknowledged');
+          await requestController.close();
+        }
+      }
+    } catch (e, st) {
+      _log('Push stream error: $e', stackTrace: st);
+      debugPrint('[SyncEngine] Push stream error: $e');
+
+      if (e is GrpcError) {
+        debugPrint('[SyncEngine] ── Push GrpcError details ──');
+        debugPrint(
+          '[SyncEngine]   code       : ${e.code} (${e.codeName})',
+        );
+        debugPrint('[SyncEngine]   message    : ${e.message}');
+        debugPrint('[SyncEngine]   details    : ${e.details}');
+        debugPrint('[SyncEngine]   trailers   : ${e.trailers}');
+        debugPrint('[SyncEngine] ── end Push GrpcError details ──');
+
+        if (e.code == StatusCode.unauthenticated) {
+          _log('Unauthenticated on push — stopping sync for token refresh');
+          stop();
+          return;
+        }
+      }
+
+      if (_running) status.value = SyncStatus.disconnected;
+    } finally {
+      // Ensure the controller is closed even if we broke out of the loop.
+      if (!requestController.isClosed) {
+        await requestController.close();
+      }
+    }
+  }
+
+  /// Processes a single [ActionResponse] from the server.
+  ///
+  /// Error codes:
+  /// - 0: ok — delete log, apply returned rows.
+  /// - 1: permission_denied — mark failed, show in notifications.
+  /// - 2: conflict — apply server version, delete log.
+  /// - 3: validation_error — mark failed, user must fix.
+  /// - 4: not_found — mark failed.
+  Future<void> _processActionResponse(sync_pb.ActionResponse response) async {
+    final logId = response.id;
+
+    try {
+      if (response.success) {
+        _log('Action $logId succeeded');
+        debugPrint('[SyncEngine] Action #$logId — success');
+
+        // Apply any returned rows to the local DB (server may have set
+        // timestamps, resolved conflicts, or created related records).
+        for (final row in response.rows) {
+          await _applyActionRow(row);
+        }
+
+        // Delete the log entry — it has been successfully synced.
+        await _logsDao.deleteLog(logId);
+      } else {
+        final errorMsg = response.error.isNotEmpty
+            ? response.error
+            : 'Error code ${response.code}';
+
+        switch (response.code) {
+          case 1: // permission_denied
+            _log('Action $logId: permission denied — $errorMsg');
+            debugPrint(
+              '[SyncEngine] Action #$logId — permission denied: $errorMsg',
+            );
+            await _logsDao.markFailed(logId, errorMsg);
+
+          case 2: // conflict — apply server's version, delete log
+            _log(
+              'Action $logId: conflict — applying server version, '
+              'deleting log',
+            );
+            debugPrint(
+              '[SyncEngine] Action #$logId — conflict, '
+              'applying ${response.rows.length} server row(s)',
+            );
+            for (final row in response.rows) {
+              await _applyActionRow(row);
+            }
+            await _logsDao.deleteLog(logId);
+
+          case 3: // validation_error
+            _log('Action $logId: validation error — $errorMsg');
+            debugPrint(
+              '[SyncEngine] Action #$logId — validation error: $errorMsg',
+            );
+            await _logsDao.markFailed(logId, errorMsg);
+
+          case 4: // not_found
+            _log('Action $logId: not found — $errorMsg');
+            debugPrint(
+              '[SyncEngine] Action #$logId — not found: $errorMsg',
+            );
+            await _logsDao.markFailed(logId, errorMsg);
+
+          default:
+            _log(
+              'Action $logId: unknown error code ${response.code} — $errorMsg',
+            );
+            debugPrint(
+              '[SyncEngine] Action #$logId — unknown code '
+              '${response.code}: $errorMsg',
+            );
+            await _logsDao.markFailed(logId, errorMsg);
+        }
+      }
+
+      // Update lastSeq if the server included file URLs that imply state
+      // changes. (The server may advance seq via ActionResponse.rows.)
+      // Note: ActionResponse does not carry a serverSeq field — seq advances
+      // come through the watch stream exclusively.
+    } catch (e, st) {
+      _log('Error processing response for action $logId: $e', stackTrace: st);
+      debugPrint('[SyncEngine] Error processing action #$logId response: $e');
+    }
+  }
+
+  /// Applies a single [ActionRow] from a push response to the local database.
+  ///
+  /// [ActionRow] has the same shape as [SyncDelta] (minus `seq` and
+  /// `fileUrls`): `table`, `operation`, `rowKey`, `data`. We convert it to a
+  /// [SyncDelta] and reuse the [DeltaWriter]'s existing apply logic.
+  Future<void> _applyActionRow(sync_pb.ActionRow row) async {
+    // Convert ActionRow to SyncDelta for reuse of DeltaWriter logic.
+    final delta = sync_pb.SyncDelta(
+      seq: Int64.ZERO, // Not meaningful for push responses.
+      table: row.table,
+      operation: row.operation,
+      rowKey: row.rowKey,
+      data: row.hasData() ? row.data : null,
+    );
+    await _deltaWriter.apply(delta);
+    // Flush immediately — push response rows should be written right away
+    // rather than waiting for the buffer to fill.
+    await _deltaWriter.flush();
   }
 
   // =========================================================================
@@ -537,202 +699,6 @@ class SyncEngine {
       status.value = SyncStatus.disconnected;
       _scheduleReconnect();
     }
-  }
-
-  // =========================================================================
-  // Push (outbound) — client-streaming with server ack stream
-  // =========================================================================
-
-  /// Ensures the push stream (client-streaming) is open. If it was closed or
-  /// never opened, creates a new one.
-  ///
-  /// The stream setup is wrapped in [_runGuarded] so that transport-level
-  /// errors from `http2` (e.g. assertion failures during connection teardown
-  /// when the server is unreachable) don't crash the isolate.
-  void _ensurePushStream() {
-    if (_pushController != null && !_pushController!.isClosed) return;
-
-    _pushController = StreamController<MutationBatch>();
-
-    try {
-      _pushStream = _syncClient.pushChanges(
-        _pushController!.stream,
-        options: _callOptions(),
-      );
-
-      _pushSubscription = _pushStream!.listen(
-        _onPushAck,
-        onError: _onPushError,
-        onDone: _onPushDone,
-        cancelOnError: false,
-      );
-    } catch (e, st) {
-      _log('Failed to open push stream: $e', stackTrace: st);
-      debugPrint('[SyncEngine] Failed to open push stream: $e');
-      _closePushStream();
-    }
-  }
-
-  /// Handles a [PushAck] from the server.
-  ///
-  /// The server sends one [PushAck] per [MutationBatch]. The ack contains:
-  /// - [PushAck.batchId] — correlates to the batch we sent.
-  /// - [PushAck.success] — whether the batch as a whole succeeded.
-  /// - [PushAck.serverSeq] — the server's latest sequence number after
-  ///   processing this batch. We update our local lastSeq if it advanced.
-  /// - [PushAck.results] — per-mutation results with error codes:
-  ///   - 0 = ok (delete log)
-  ///   - 1 = permission_denied (mark failed, show in notifications)
-  ///   - 2 = conflict (apply server version, delete log)
-  ///   - 3 = validation_error (mark failed, user must fix)
-  ///   - 4 = not_found (mark failed for updates, delete for deletes)
-  Future<void> _onPushAck(PushAck ack) async {
-    try {
-      final batchId = ack.batchId;
-      _log('PushAck received for batch=$batchId success=${ack.success}');
-      debugPrint(
-        '[SyncEngine] PushAck received — batch=$batchId success=${ack.success}',
-      );
-
-      if (ack.success) {
-        // Entire batch succeeded — delete all associated log rows.
-        await _logProcessor.acknowledgeBatch(batchId);
-      } else if (ack.results.isNotEmpty) {
-        // Per-mutation results — process each one individually.
-        final logIds = _logProcessor.logIdsForBatch(batchId);
-
-        for (final result in ack.results) {
-          // result.index is the 0-based position within the batch's mutations.
-          // Map it to the corresponding log ID(s).
-          final mutationIndex = result.index;
-
-          if (result.success || result.code == 0) {
-            // Mutation succeeded — the corresponding log IDs will be cleaned
-            // up when we acknowledge the batch below (for the successful ones).
-            continue;
-          }
-
-          // Find the log ID for this mutation index. The logIds list may not
-          // directly map 1:1 to mutation indices (coalescing combines multiple
-          // logs into one mutation). We handle this conservatively: if we can
-          // resolve the ID, mark it; otherwise mark the whole batch.
-          if (mutationIndex < logIds.length) {
-            final logId = logIds[mutationIndex];
-            await _handleMutationError(logId, result);
-          }
-        }
-
-        // For the successful mutations, we still need to clean up.
-        // Acknowledge the whole batch — the failed ones are already marked.
-        await _logProcessor.acknowledgeBatch(batchId);
-      } else {
-        // Batch-level failure with no per-mutation detail.
-        final errorMsg = ack.error.isNotEmpty
-            ? ack.error
-            : 'Unknown batch error';
-        _log('Batch-level failure: $errorMsg');
-        await _logProcessor.markBatchFailed(batchId, errorMsg);
-      }
-
-      // Update lastSeq if the server advanced it.
-      if (ack.hasServerSeq()) {
-        final serverSeq = ack.serverSeq.toInt();
-        if (serverSeq > _lastSeq) {
-          _lastSeq = serverSeq;
-          await _accountsDao.updateLastSeq(_accountId, _lastSeq);
-        }
-      }
-    } catch (e, st) {
-      _log('Error handling PushAck: $e', stackTrace: st);
-    }
-  }
-
-  /// Handles a per-mutation error based on the server's error code.
-  ///
-  /// Error codes (from AGENT.md §P5):
-  /// - 0: ok — should not reach here (handled above).
-  /// - 1: permission_denied — mark failed, show in notifications.
-  /// - 2: conflict — apply server version, delete log.
-  /// - 3: validation_error — mark failed, user must fix.
-  /// - 4: not_found — mark failed for updates; delete log for deletes.
-  Future<void> _handleMutationError(int logId, MutationResult result) async {
-    final errorMsg = result.error.isNotEmpty
-        ? result.error
-        : 'Error code ${result.code}';
-
-    switch (result.code) {
-      case 1: // permission_denied
-        _log('Mutation $logId: permission denied — $errorMsg');
-        await _logProcessor.markFailed(logId, errorMsg);
-
-      case 2: // conflict
-        // The server version wins. The sync delta stream (watchChanges) will
-        // deliver the server's version of the row. Delete the local log entry
-        // so we don't try to push our stale version again.
-        _log('Mutation $logId: conflict — deleting log, server version wins');
-        await _logsDao.deleteLog(logId);
-
-      case 3: // validation_error
-        _log('Mutation $logId: validation error — $errorMsg');
-        await _logProcessor.markFailed(logId, errorMsg);
-
-      case 4: // not_found
-        // For deletes, the row doesn't exist on server anyway — goal achieved.
-        // For updates, mark as failed since the target row is gone.
-        // We don't have the operation type readily available here, so we
-        // mark it as failed. The user can dismiss it from notifications.
-        _log('Mutation $logId: not found — $errorMsg');
-        await _logProcessor.markFailed(logId, errorMsg);
-
-      default:
-        _log('Mutation $logId: unknown error code ${result.code} — $errorMsg');
-        await _logProcessor.markFailed(logId, errorMsg);
-    }
-  }
-
-  void _onPushError(Object error) {
-    _log('Push stream error: $error');
-    debugPrint('[SyncEngine] Push stream error: $error');
-    if (error is GrpcError) {
-      debugPrint('[SyncEngine] ── Push GrpcError details ──');
-      debugPrint(
-        '[SyncEngine]   code       : ${error.code} (${error.codeName})',
-      );
-      debugPrint('[SyncEngine]   message    : ${error.message}');
-      debugPrint('[SyncEngine]   details    : ${error.details}');
-      debugPrint('[SyncEngine]   trailers   : ${error.trailers}');
-      final pushRawBytes = error.rawResponse is List<int>
-          ? error.rawResponse! as List<int>
-          : null;
-      debugPrint(
-        '[SyncEngine]   rawResponse: ${pushRawBytes != null ? '${pushRawBytes.length} bytes' : 'null (${error.rawResponse.runtimeType})'}',
-      );
-      debugPrint('[SyncEngine] ── end Push GrpcError details ──');
-    }
-
-    if (error is GrpcError && error.code == StatusCode.unauthenticated) {
-      _log('Unauthenticated on push — stopping sync for token refresh');
-      stop();
-      return;
-    }
-
-    // Close the current push stream so the next pushNow() reopens it.
-    _closePushStream();
-  }
-
-  void _onPushDone() {
-    _log('Push stream completed');
-    _closePushStream();
-  }
-
-  /// Tears down the push stream state so that the next [pushNow] call
-  /// creates a fresh stream.
-  void _closePushStream() {
-    _pushSubscription?.cancel();
-    _pushSubscription = null;
-    _pushController?.close();
-    _pushController = null;
-    _pushStream = null;
   }
 
   // =========================================================================
