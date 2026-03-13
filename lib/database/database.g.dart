@@ -10256,6 +10256,470 @@ class PapersCompanion extends UpdateCompanion<Paper> {
   }
 }
 
+class $PaperSubmissionsTable extends PaperSubmissions
+    with TableInfo<$PaperSubmissionsTable, PaperSubmissionData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PaperSubmissionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _schoolMeta = const VerificationMeta('school');
+  @override
+  late final GeneratedColumn<String> school = GeneratedColumn<String>(
+    'school',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _examMeta = const VerificationMeta('exam');
+  @override
+  late final GeneratedColumn<String> exam = GeneratedColumn<String>(
+    'exam',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _studentMeta = const VerificationMeta(
+    'student',
+  );
+  @override
+  late final GeneratedColumn<int> student = GeneratedColumn<int>(
+    'student',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _subjectMeta = const VerificationMeta(
+    'subject',
+  );
+  @override
+  late final GeneratedColumn<int> subject = GeneratedColumn<int>(
+    'subject',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _paperNumMeta = const VerificationMeta(
+    'paperNum',
+  );
+  @override
+  late final GeneratedColumn<int> paperNum = GeneratedColumn<int>(
+    'paper_num',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pathMeta = const VerificationMeta('path');
+  @override
+  late final GeneratedColumn<String> path = GeneratedColumn<String>(
+    'path',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    school,
+    exam,
+    student,
+    subject,
+    paperNum,
+    path,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'paper_submissions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PaperSubmissionData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('school')) {
+      context.handle(
+        _schoolMeta,
+        school.isAcceptableOrUnknown(data['school']!, _schoolMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_schoolMeta);
+    }
+    if (data.containsKey('exam')) {
+      context.handle(
+        _examMeta,
+        exam.isAcceptableOrUnknown(data['exam']!, _examMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_examMeta);
+    }
+    if (data.containsKey('student')) {
+      context.handle(
+        _studentMeta,
+        student.isAcceptableOrUnknown(data['student']!, _studentMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_studentMeta);
+    }
+    if (data.containsKey('subject')) {
+      context.handle(
+        _subjectMeta,
+        subject.isAcceptableOrUnknown(data['subject']!, _subjectMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_subjectMeta);
+    }
+    if (data.containsKey('paper_num')) {
+      context.handle(
+        _paperNumMeta,
+        paperNum.isAcceptableOrUnknown(data['paper_num']!, _paperNumMeta),
+      );
+    }
+    if (data.containsKey('path')) {
+      context.handle(
+        _pathMeta,
+        path.isAcceptableOrUnknown(data['path']!, _pathMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_pathMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {
+    school,
+    exam,
+    student,
+    subject,
+    path,
+  };
+  @override
+  PaperSubmissionData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PaperSubmissionData(
+      school: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}school'],
+      )!,
+      exam: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}exam'],
+      )!,
+      student: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}student'],
+      )!,
+      subject: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}subject'],
+      )!,
+      paperNum: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}paper_num'],
+      ),
+      path: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}path'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $PaperSubmissionsTable createAlias(String alias) {
+    return $PaperSubmissionsTable(attachedDatabase, alias);
+  }
+}
+
+class PaperSubmissionData extends DataClass
+    implements Insertable<PaperSubmissionData> {
+  final String school;
+  final String exam;
+  final int student;
+  final int subject;
+  final int? paperNum;
+  final String path;
+  final int createdAt;
+  const PaperSubmissionData({
+    required this.school,
+    required this.exam,
+    required this.student,
+    required this.subject,
+    this.paperNum,
+    required this.path,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['school'] = Variable<String>(school);
+    map['exam'] = Variable<String>(exam);
+    map['student'] = Variable<int>(student);
+    map['subject'] = Variable<int>(subject);
+    if (!nullToAbsent || paperNum != null) {
+      map['paper_num'] = Variable<int>(paperNum);
+    }
+    map['path'] = Variable<String>(path);
+    map['created_at'] = Variable<int>(createdAt);
+    return map;
+  }
+
+  PaperSubmissionsCompanion toCompanion(bool nullToAbsent) {
+    return PaperSubmissionsCompanion(
+      school: Value(school),
+      exam: Value(exam),
+      student: Value(student),
+      subject: Value(subject),
+      paperNum: paperNum == null && nullToAbsent
+          ? const Value.absent()
+          : Value(paperNum),
+      path: Value(path),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory PaperSubmissionData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PaperSubmissionData(
+      school: serializer.fromJson<String>(json['school']),
+      exam: serializer.fromJson<String>(json['exam']),
+      student: serializer.fromJson<int>(json['student']),
+      subject: serializer.fromJson<int>(json['subject']),
+      paperNum: serializer.fromJson<int?>(json['paperNum']),
+      path: serializer.fromJson<String>(json['path']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'school': serializer.toJson<String>(school),
+      'exam': serializer.toJson<String>(exam),
+      'student': serializer.toJson<int>(student),
+      'subject': serializer.toJson<int>(subject),
+      'paperNum': serializer.toJson<int?>(paperNum),
+      'path': serializer.toJson<String>(path),
+      'createdAt': serializer.toJson<int>(createdAt),
+    };
+  }
+
+  PaperSubmissionData copyWith({
+    String? school,
+    String? exam,
+    int? student,
+    int? subject,
+    Value<int?> paperNum = const Value.absent(),
+    String? path,
+    int? createdAt,
+  }) => PaperSubmissionData(
+    school: school ?? this.school,
+    exam: exam ?? this.exam,
+    student: student ?? this.student,
+    subject: subject ?? this.subject,
+    paperNum: paperNum.present ? paperNum.value : this.paperNum,
+    path: path ?? this.path,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  PaperSubmissionData copyWithCompanion(PaperSubmissionsCompanion data) {
+    return PaperSubmissionData(
+      school: data.school.present ? data.school.value : this.school,
+      exam: data.exam.present ? data.exam.value : this.exam,
+      student: data.student.present ? data.student.value : this.student,
+      subject: data.subject.present ? data.subject.value : this.subject,
+      paperNum: data.paperNum.present ? data.paperNum.value : this.paperNum,
+      path: data.path.present ? data.path.value : this.path,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PaperSubmissionData(')
+          ..write('school: $school, ')
+          ..write('exam: $exam, ')
+          ..write('student: $student, ')
+          ..write('subject: $subject, ')
+          ..write('paperNum: $paperNum, ')
+          ..write('path: $path, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(school, exam, student, subject, paperNum, path, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PaperSubmissionData &&
+          other.school == this.school &&
+          other.exam == this.exam &&
+          other.student == this.student &&
+          other.subject == this.subject &&
+          other.paperNum == this.paperNum &&
+          other.path == this.path &&
+          other.createdAt == this.createdAt);
+}
+
+class PaperSubmissionsCompanion extends UpdateCompanion<PaperSubmissionData> {
+  final Value<String> school;
+  final Value<String> exam;
+  final Value<int> student;
+  final Value<int> subject;
+  final Value<int?> paperNum;
+  final Value<String> path;
+  final Value<int> createdAt;
+  final Value<int> rowid;
+  const PaperSubmissionsCompanion({
+    this.school = const Value.absent(),
+    this.exam = const Value.absent(),
+    this.student = const Value.absent(),
+    this.subject = const Value.absent(),
+    this.paperNum = const Value.absent(),
+    this.path = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PaperSubmissionsCompanion.insert({
+    required String school,
+    required String exam,
+    required int student,
+    required int subject,
+    this.paperNum = const Value.absent(),
+    required String path,
+    required int createdAt,
+    this.rowid = const Value.absent(),
+  }) : school = Value(school),
+       exam = Value(exam),
+       student = Value(student),
+       subject = Value(subject),
+       path = Value(path),
+       createdAt = Value(createdAt);
+  static Insertable<PaperSubmissionData> custom({
+    Expression<String>? school,
+    Expression<String>? exam,
+    Expression<int>? student,
+    Expression<int>? subject,
+    Expression<int>? paperNum,
+    Expression<String>? path,
+    Expression<int>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (school != null) 'school': school,
+      if (exam != null) 'exam': exam,
+      if (student != null) 'student': student,
+      if (subject != null) 'subject': subject,
+      if (paperNum != null) 'paper_num': paperNum,
+      if (path != null) 'path': path,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PaperSubmissionsCompanion copyWith({
+    Value<String>? school,
+    Value<String>? exam,
+    Value<int>? student,
+    Value<int>? subject,
+    Value<int?>? paperNum,
+    Value<String>? path,
+    Value<int>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return PaperSubmissionsCompanion(
+      school: school ?? this.school,
+      exam: exam ?? this.exam,
+      student: student ?? this.student,
+      subject: subject ?? this.subject,
+      paperNum: paperNum ?? this.paperNum,
+      path: path ?? this.path,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (school.present) {
+      map['school'] = Variable<String>(school.value);
+    }
+    if (exam.present) {
+      map['exam'] = Variable<String>(exam.value);
+    }
+    if (student.present) {
+      map['student'] = Variable<int>(student.value);
+    }
+    if (subject.present) {
+      map['subject'] = Variable<int>(subject.value);
+    }
+    if (paperNum.present) {
+      map['paper_num'] = Variable<int>(paperNum.value);
+    }
+    if (path.present) {
+      map['path'] = Variable<String>(path.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PaperSubmissionsCompanion(')
+          ..write('school: $school, ')
+          ..write('exam: $exam, ')
+          ..write('student: $student, ')
+          ..write('subject: $subject, ')
+          ..write('paperNum: $paperNum, ')
+          ..write('path: $path, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $GradesTable extends Grades with TableInfo<$GradesTable, Grade> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -17661,6 +18125,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $LessonsTable lessons = $LessonsTable(this);
   late final $ExamsTable exams = $ExamsTable(this);
   late final $PapersTable papers = $PapersTable(this);
+  late final $PaperSubmissionsTable paperSubmissions = $PaperSubmissionsTable(
+    this,
+  );
   late final $GradesTable grades = $GradesTable(this);
   late final $FeesTable fees = $FeesTable(this);
   late final $InvoicesTable invoices = $InvoicesTable(this);
@@ -17729,6 +18196,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     lessons,
     exams,
     papers,
+    paperSubmissions,
     grades,
     fees,
     invoices,
@@ -29301,6 +29769,254 @@ typedef $$PapersTableProcessedTableManager =
       Paper,
       PrefetchHooks Function({bool school, bool exam})
     >;
+typedef $$PaperSubmissionsTableCreateCompanionBuilder =
+    PaperSubmissionsCompanion Function({
+      required String school,
+      required String exam,
+      required int student,
+      required int subject,
+      Value<int?> paperNum,
+      required String path,
+      required int createdAt,
+      Value<int> rowid,
+    });
+typedef $$PaperSubmissionsTableUpdateCompanionBuilder =
+    PaperSubmissionsCompanion Function({
+      Value<String> school,
+      Value<String> exam,
+      Value<int> student,
+      Value<int> subject,
+      Value<int?> paperNum,
+      Value<String> path,
+      Value<int> createdAt,
+      Value<int> rowid,
+    });
+
+class $$PaperSubmissionsTableFilterComposer
+    extends Composer<_$AppDatabase, $PaperSubmissionsTable> {
+  $$PaperSubmissionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get school => $composableBuilder(
+    column: $table.school,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get exam => $composableBuilder(
+    column: $table.exam,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get student => $composableBuilder(
+    column: $table.student,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get subject => $composableBuilder(
+    column: $table.subject,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get paperNum => $composableBuilder(
+    column: $table.paperNum,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get path => $composableBuilder(
+    column: $table.path,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PaperSubmissionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PaperSubmissionsTable> {
+  $$PaperSubmissionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get school => $composableBuilder(
+    column: $table.school,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get exam => $composableBuilder(
+    column: $table.exam,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get student => $composableBuilder(
+    column: $table.student,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get subject => $composableBuilder(
+    column: $table.subject,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get paperNum => $composableBuilder(
+    column: $table.paperNum,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get path => $composableBuilder(
+    column: $table.path,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PaperSubmissionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PaperSubmissionsTable> {
+  $$PaperSubmissionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get school =>
+      $composableBuilder(column: $table.school, builder: (column) => column);
+
+  GeneratedColumn<String> get exam =>
+      $composableBuilder(column: $table.exam, builder: (column) => column);
+
+  GeneratedColumn<int> get student =>
+      $composableBuilder(column: $table.student, builder: (column) => column);
+
+  GeneratedColumn<int> get subject =>
+      $composableBuilder(column: $table.subject, builder: (column) => column);
+
+  GeneratedColumn<int> get paperNum =>
+      $composableBuilder(column: $table.paperNum, builder: (column) => column);
+
+  GeneratedColumn<String> get path =>
+      $composableBuilder(column: $table.path, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$PaperSubmissionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PaperSubmissionsTable,
+          PaperSubmissionData,
+          $$PaperSubmissionsTableFilterComposer,
+          $$PaperSubmissionsTableOrderingComposer,
+          $$PaperSubmissionsTableAnnotationComposer,
+          $$PaperSubmissionsTableCreateCompanionBuilder,
+          $$PaperSubmissionsTableUpdateCompanionBuilder,
+          (
+            PaperSubmissionData,
+            BaseReferences<
+              _$AppDatabase,
+              $PaperSubmissionsTable,
+              PaperSubmissionData
+            >,
+          ),
+          PaperSubmissionData,
+          PrefetchHooks Function()
+        > {
+  $$PaperSubmissionsTableTableManager(
+    _$AppDatabase db,
+    $PaperSubmissionsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PaperSubmissionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PaperSubmissionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PaperSubmissionsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> school = const Value.absent(),
+                Value<String> exam = const Value.absent(),
+                Value<int> student = const Value.absent(),
+                Value<int> subject = const Value.absent(),
+                Value<int?> paperNum = const Value.absent(),
+                Value<String> path = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PaperSubmissionsCompanion(
+                school: school,
+                exam: exam,
+                student: student,
+                subject: subject,
+                paperNum: paperNum,
+                path: path,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String school,
+                required String exam,
+                required int student,
+                required int subject,
+                Value<int?> paperNum = const Value.absent(),
+                required String path,
+                required int createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => PaperSubmissionsCompanion.insert(
+                school: school,
+                exam: exam,
+                student: student,
+                subject: subject,
+                paperNum: paperNum,
+                path: path,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PaperSubmissionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PaperSubmissionsTable,
+      PaperSubmissionData,
+      $$PaperSubmissionsTableFilterComposer,
+      $$PaperSubmissionsTableOrderingComposer,
+      $$PaperSubmissionsTableAnnotationComposer,
+      $$PaperSubmissionsTableCreateCompanionBuilder,
+      $$PaperSubmissionsTableUpdateCompanionBuilder,
+      (
+        PaperSubmissionData,
+        BaseReferences<
+          _$AppDatabase,
+          $PaperSubmissionsTable,
+          PaperSubmissionData
+        >,
+      ),
+      PaperSubmissionData,
+      PrefetchHooks Function()
+    >;
 typedef $$GradesTableCreateCompanionBuilder =
     GradesCompanion Function({
       required String school,
@@ -35429,6 +36145,8 @@ class $AppDatabaseManager {
       $$ExamsTableTableManager(_db, _db.exams);
   $$PapersTableTableManager get papers =>
       $$PapersTableTableManager(_db, _db.papers);
+  $$PaperSubmissionsTableTableManager get paperSubmissions =>
+      $$PaperSubmissionsTableTableManager(_db, _db.paperSubmissions);
   $$GradesTableTableManager get grades =>
       $$GradesTableTableManager(_db, _db.grades);
   $$FeesTableTableManager get fees => $$FeesTableTableManager(_db, _db.fees);

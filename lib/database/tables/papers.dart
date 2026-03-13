@@ -39,3 +39,23 @@ class Papers extends Table {
         ' REFERENCES teachers(school, user) ON DELETE CASCADE',
   ];
 }
+
+/// Client-only table — stores local file paths for submitted answer images.
+/// Never synced to server (no log entry written). Rows are deleted when the
+/// parent paper or grade row is deleted.
+@DataClassName('PaperSubmissionData')
+class PaperSubmissions extends Table {
+  @override
+  String get tableName => 'paper_submissions';
+
+  TextColumn get school => text()();
+  TextColumn get exam => text()();
+  IntColumn get student => integer()();
+  IntColumn get subject => integer()();
+  IntColumn get paperNum => integer().nullable()();
+  TextColumn get path => text()(); // Absolute local file path
+  IntColumn get createdAt => integer()(); // ms since epoch
+
+  @override
+  Set<Column> get primaryKey => {school, exam, student, subject, path};
+}

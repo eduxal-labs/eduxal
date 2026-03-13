@@ -803,10 +803,7 @@ CREATE INDEX idx_lessons_school_term_date ON lessons(school, year, term, date);
 -- exams: list all exams for a class in a term (PK is a surrogate id); find exams by teacher
 CREATE INDEX idx_exams_school_term_class ON exams(school, year, term, grade, stream);
 CREATE INDEX idx_exams_school_teacher ON exams(school, teacher);
--- Prevents two all-stream exams of the same type for the same grade/term
-CREATE UNIQUE INDEX uq_exams_allstream_type ON exams(school, year, term, grade, type) WHERE stream IS NULL;
--- Prevents two stream-specific exams of the same type for the same class
-CREATE UNIQUE INDEX uq_exams_stream_type ON exams(school, year, term, grade, stream, type) WHERE stream IS NOT NULL;
+
 
 -- papers: list all papers for an exam filtered by status (school+exam covered by PK prefix)
 CREATE INDEX idx_papers_school_exam_status ON papers(school, exam, status);

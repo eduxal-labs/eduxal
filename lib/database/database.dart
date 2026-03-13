@@ -86,6 +86,7 @@ late final AppDatabase db;
     Lessons,
     Exams,
     Papers,
+    PaperSubmissions,
     Grades,
     Fees,
     Invoices,
@@ -176,6 +177,7 @@ class AppDatabase extends _$AppDatabase {
     await transaction(() async {
       // Leaf / deepest-child tables first, parents last.
       // ── Sync / client-only ──
+      await delete(paperSubmissions).go();
       await delete(logs).go();
 
       // ── Grades / mastery (depend on exams, papers, students, enrollments) ──
@@ -256,7 +258,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -269,6 +271,16 @@ class AppDatabase extends _$AppDatabase {
         // Drop old logs and recreate — pending sync data is lost but that's acceptable.
         await m.deleteTable('logs');
         await m.createTable(logs);
+      }
+      if (from < 4) {
+        // Remove overly restrictive unique indexes on exams — the text PK is
+        // sufficient. Multiple exams of the same type per class/term are valid.
+        await customStatement('DROP INDEX IF EXISTS uq_exams_allstream_type');
+        await customStatement('DROP INDEX IF EXISTS uq_exams_stream_type');
+      }
+      if (from < 5) {
+        // Add client-only paper_submissions table for persisting answer image paths.
+        await m.createTable(paperSubmissions);
       }
     },
     onCreate: (m) async {
@@ -619,18 +631,6 @@ class AppDatabase extends _$AppDatabase {
       await customStatement(
         'CREATE UNIQUE INDEX uq_timetable_class_slot'
         ' ON timetable(school, year, term, grade, stream, day, start)',
-      );
-
-      // exams: at most one all-stream exam of a given type per grade/term.
-      await customStatement(
-        'CREATE UNIQUE INDEX uq_exams_allstream_type'
-        ' ON exams(school, year, term, grade, type) WHERE stream IS NULL',
-      );
-
-      // exams: at most one stream-specific exam of a given type per class.
-      await customStatement(
-        'CREATE UNIQUE INDEX uq_exams_stream_type'
-        ' ON exams(school, year, term, grade, stream, type) WHERE stream IS NOT NULL',
       );
 
       // papers: at most one null-paper row per (school, exam, subject).
