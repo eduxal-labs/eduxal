@@ -123,3 +123,5 @@ Internally calls `FileCache.get(FileCache.profilePath(userId))` to check for a c
 
 ## Last Updated
 Task 09 — `add_student_panel.dart` UI polish: compact CTA button, entrance animation, tighter spacing.
+## Last Updated
+Task 04 — Note: `_DateChipPicker` in `exams_grades_screen.dart` has been removed (it was a private widget that called `showDatePicker` — replaced by the new inline `_PaperDateTrigger` + `_PaperSingleCalendar` pattern). No changes to files in `ui/widgets/` directory itself.

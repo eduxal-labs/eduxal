@@ -5,7 +5,7 @@
 
 ## Overview
 
-This directory contains **16 files** — each defining one or more pure Dart classes, sealed types, or enums used across the app. Models here never import `package:drift` directly (though some reference Drift-generated data classes like `UsersData`, `AccountsData`, `SchoolsData` from `database/database.dart`).
+This directory contains **17 files** — each defining one or more pure Dart classes, sealed types, or enums used across the app. Models here never import `package:drift` directly (though some reference Drift-generated data classes like `UsersData`, `AccountsData`, `SchoolsData` from `database/database.dart`).
 
 ## Files
 
@@ -16,6 +16,7 @@ This directory contains **16 files** — each defining one or more pure Dart cla
 | `authenticated.dart` | `Authenticated` | ✅ Complete |
 | `permissions.dart` | `Resource`, `Action`, `Permissions` | ✅ Complete |
 | `curriculum_levels.dart` | `CurriculumLevel`, `kCbcLevels`, `k844Levels`, `levelsFor()`, `subjectLabel()` | ✅ Complete |
+| `exam_group.dart` | `ExamGroup`, `ExamGradeEntry`, `ExamStreamEntry` | ✅ Complete |
 | `grade_analytics.dart` | `StreamStats`, `Trajectory`, `SubjectTeacherEntry`, `GradeStudentRow`, `ClassTeacherHistoryEntry` | ✅ Complete |
 | `membership.dart` | `MembershipRole`, `MembershipEntry` (sealed), `SchoolMembership` | ✅ Complete |
 | `mpesa_config.dart` | `MpesaConfig`, `MpesaEnvironment` | ✅ Complete |
@@ -177,5 +178,12 @@ System dashboard aggregate statistics. All have `static const empty` for initial
 - Models that wrap DB rows provide `fromRows` factory + `toCompanion` converter.
 - No business logic in models — they are data holders with computed getters only.
 
+### Exam Group models — `exam_group.dart`
+Grouping model for the exams UI. Multiple exam rows sharing the same `(school, year, term, type, start, end)` are presented as one logical exam.
+
+- **`ExamGroup`** — Top-level grouping. Fields: `school` (String), `year` (int), `term` (int), `type` (ExamType), `start` (int, days since epoch), `end` (int, days since epoch), `personalized` (bool), `teacher` (UsersData), `grades` (List<ExamGradeEntry>). Computed: `groupKey` (unique string key), `examIds` (all exam row IDs), `uniqueSubjectCount` (from papers), `participatingGrades` (sorted grade indices).
+- **`ExamGradeEntry`** — One grade within a group. Fields: `grade` (int), `streams` (List<ExamStreamEntry>). Computed: `examIds`, `papers` (flattened).
+- **`ExamStreamEntry`** — One exam row + its papers for a specific stream. Fields: `exam` (Exam), `streamCode` (int?), `papers` (List<Paper>).
+
 ## Last Updated
-Task C4 — Updated `AppNotification` for action-based sync model: replaced `LogTable table`, `LogOperation operation`, `String rowKey` fields with `SyncAction action` and `String resource`. Updated `title` getter and `_actionName` helper to map all 77 `SyncAction` values. File count: 17.
+Task EX1 — Added `exam_group.dart` with `ExamGroup`, `ExamGradeEntry`, `ExamStreamEntry` models. File count: 17.

@@ -4,9 +4,9 @@
 
 ## Overview
 
-The Drift database contains **32 tables total**:
+The Drift database contains **33 tables total**:
 - **30 backend-mirrored tables** — exact replicas of the server SQL schema (see `schema.sql`).
-- **2 client-only tables** — `accounts` (session management) and `logs` (offline action queue).
+- **3 client-only tables** — `accounts` (session management), `logs` (offline action queue), and `paper_submissions` (local answer image paths).
 
 All tables are defined in `tables/`, all query logic lives in `daos/`, and the `AppDatabase` class in `database.dart` registers everything.
 
@@ -14,7 +14,7 @@ All tables are defined in `tables/`, all query logic lives in `daos/`, and the `
 
 | File | Status | Description |
 |---|---|---|
-| `database.dart` | ✅ Complete | `AppDatabase` class — registers all 32 tables + all DAOs. Schema version **3**. `MigrationStrategy.onUpgrade` handles: v1→v2 (add `accounts.lastSeq` column), v2→v3 (drop+recreate `logs` table for action-based model). `onCreate` applies triggers + indexes as raw SQL. Singleton accessed via global `db` variable set in `client.dart`'s `initializeClient()`. |
+| `database.dart` | ✅ Complete | `AppDatabase` class — registers all 33 tables + all DAOs. Schema version **5**. `MigrationStrategy.onUpgrade` handles: v1→v2 (add `accounts.lastSeq` column), v2→v3 (drop+recreate `logs` table for action-based model), v3→v4 (drop overly-restrictive unique indexes on exams), v4→v5 (create `paper_submissions` table). `onCreate` applies triggers + indexes as raw SQL. Singleton accessed via global `db` variable set in `client.dart`'s `initializeClient()`. |
 | `database.g.dart` | ✅ Generated | Drift code-gen output — `part of` `database.dart`. Contains all generated data classes (`UsersData`, `SchoolsData`, `AccountsData`, etc.) and table accessors. **Never edit manually.** Regenerate with `dart run build_runner build`. |
 
 ## Subdirectories
@@ -35,6 +35,7 @@ All Drift-generated data classes follow the pattern `{TableName}Data` (singular 
 - `AnnouncementsData`, `MasteryData`, `AiusageData`, `SettingsData`
 - `RolesData`, `ScopesData`, `PlansData`, `SubscriptionsData`
 - `LogsData`
+- `PaperSubmissionData`
 
 Companion classes for inserts/updates: `{TableName}Companion` (e.g. `UsersCompanion`, `AccountsCompanion`).
 
@@ -79,4 +80,4 @@ The `logs` table was redesigned in Task C2 from a mutation-tracking model (`tbl`
 **Added enums:** `SyncAction` (77 values, explicit `int value` per entry) + `SyncActionConverter`.
 
 ## Last Updated
-Task C6 — Incremented `schemaVersion` to 3. Added `onUpgrade` migration for `from < 3` that drops and recreates the `logs` table (action-based model replaces mutation-based model; pending sync data loss is acceptable).
+Task 24 — Added `PaperSubmissions` client-only table (`paper_submissions`) to `lib/database/tables/papers.dart`. Registered in `AppDatabase` (33 tables total). `schemaVersion` incremented to **5**. `onUpgrade` migration for `from < 5` calls `m.createTable(paperSubmissions)`. `deleteAllData()` clears `paperSubmissions` rows first (before `logs`). Table stores local file paths of submitted answer images per student per paper — never synced to server, no log entries written.
