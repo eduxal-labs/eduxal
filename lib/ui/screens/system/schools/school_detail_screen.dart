@@ -1774,6 +1774,8 @@ class _SettingsEditModeState extends State<_SettingsEditMode> {
       if (_hasCurriculum(type)) {
         if (_pendingRemoval == type) {
           // Second tap — confirm removal.
+          // Flush first so other curricula retain their typed values.
+          _flushControllers();
           _curricula.removeWhere((c) => c.type == type);
           _pendingRemoval = null;
           _rebuildControllers();
@@ -1783,6 +1785,8 @@ class _SettingsEditModeState extends State<_SettingsEditMode> {
         }
       } else {
         _pendingRemoval = null;
+        // Flush first so existing curricula retain their typed values.
+        _flushControllers();
         _curricula.add(CurriculumConfig(type: type, grades: []));
         // Keep CBC before 8-4-4.
         _curricula.sort((a, b) => a.type.index_.compareTo(b.type.index_));
@@ -1797,6 +1801,8 @@ class _SettingsEditModeState extends State<_SettingsEditMode> {
   void _addGrade(CurriculumType type, int grade) {
     final ci = _curriculumIndex(type);
     if (ci < 0) return;
+    // Capture in-progress text before structural change.
+    _flushControllers();
     setState(() {
       final grades = List<GradeConfig>.from(_curricula[ci].grades);
       grades.add(GradeConfig(grade: grade, streams: []));
@@ -1811,6 +1817,8 @@ class _SettingsEditModeState extends State<_SettingsEditMode> {
   void _removeGrade(CurriculumType type, int grade) {
     final ci = _curriculumIndex(type);
     if (ci < 0) return;
+    // Capture in-progress text before structural change.
+    _flushControllers();
     setState(() {
       final grades = List<GradeConfig>.from(_curricula[ci].grades)
         ..removeWhere((g) => g.grade == grade);
@@ -1823,6 +1831,8 @@ class _SettingsEditModeState extends State<_SettingsEditMode> {
   void _addStream(CurriculumType type, int gradeIndex) {
     final ci = _curriculumIndex(type);
     if (ci < 0) return;
+    // Capture in-progress text before structural change.
+    _flushControllers();
     final grade = _curricula[ci].grades[gradeIndex];
     final nextCode = grade.streams.isEmpty
         ? 1
@@ -1843,6 +1853,8 @@ class _SettingsEditModeState extends State<_SettingsEditMode> {
   void _removeStream(CurriculumType type, int gradeIndex, int streamIndex) {
     final ci = _curriculumIndex(type);
     if (ci < 0) return;
+    // Capture in-progress text before structural change.
+    _flushControllers();
     final grade = _curricula[ci].grades[gradeIndex];
     setState(() {
       final updatedStreams = List<GradeStream>.from(grade.streams)

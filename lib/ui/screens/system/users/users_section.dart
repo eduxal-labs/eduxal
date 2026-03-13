@@ -662,6 +662,23 @@ class _UsersSectionState extends State<UsersSection> {
               _BulkActionBar(
                 cs: cs,
                 count: _selectedIds.length,
+                filteredCount: filtered.length,
+                allSelected:
+                    filtered.isNotEmpty &&
+                    filtered.every((u) => _selectedIds.contains(u.id)),
+                onSelectAll: () {
+                  setState(() {
+                    final filteredIds = filtered.map((u) => u.id).toSet();
+                    final allCurrentlySelected = filteredIds.every(
+                      (id) => _selectedIds.contains(id),
+                    );
+                    if (allCurrentlySelected) {
+                      _selectedIds.removeAll(filteredIds);
+                    } else {
+                      _selectedIds.addAll(filteredIds);
+                    }
+                  });
+                },
                 onClear: () => setState(() => _selectedIds.clear()),
                 showSuspend: showSuspend,
                 showTrash: showTrash,
@@ -679,8 +696,14 @@ class _UsersSectionState extends State<UsersSection> {
                 searchController: _searchController,
                 filterExpanded: _filterExpanded,
                 hasActiveFilters: _hasActiveFilters,
+                hasUsers: filtered.isNotEmpty,
                 onToggleFilter: () =>
                     setState(() => _filterExpanded = !_filterExpanded),
+                onSelectAll: () {
+                  setState(() {
+                    _selectedIds.addAll(filtered.map((u) => u.id));
+                  });
+                },
                 cs: cs,
               ),
 
@@ -774,6 +797,9 @@ class _BulkActionBar extends StatelessWidget {
   const _BulkActionBar({
     required this.cs,
     required this.count,
+    required this.filteredCount,
+    required this.allSelected,
+    required this.onSelectAll,
     required this.onClear,
     required this.showSuspend,
     required this.showTrash,
@@ -789,6 +815,9 @@ class _BulkActionBar extends StatelessWidget {
 
   final ColorScheme cs;
   final int count;
+  final int filteredCount;
+  final bool allSelected;
+  final VoidCallback onSelectAll;
   final VoidCallback onClear;
   final bool showSuspend;
   final bool showTrash;
@@ -816,7 +845,16 @@ class _BulkActionBar extends StatelessWidget {
             color: cs.onSurfaceVariant,
             tooltip: 'Clear selection',
           ),
-          const SizedBox(width: 8),
+          Checkbox(
+            value: allSelected ? true : null,
+            tristate: true,
+            onChanged: (_) => onSelectAll(),
+            visualDensity: VisualDensity.compact,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(width: 4),
           Text(
             '$count selected',
             style: TextStyle(
@@ -1060,14 +1098,18 @@ class _Toolbar extends StatelessWidget {
     required this.searchController,
     required this.filterExpanded,
     required this.hasActiveFilters,
+    required this.hasUsers,
     required this.onToggleFilter,
+    required this.onSelectAll,
     required this.cs,
   });
 
   final TextEditingController searchController;
   final bool filterExpanded;
   final bool hasActiveFilters;
+  final bool hasUsers;
   final VoidCallback onToggleFilter;
+  final VoidCallback onSelectAll;
   final ColorScheme cs;
 
   @override
@@ -1124,6 +1166,17 @@ class _Toolbar extends StatelessWidget {
           ),
 
           const SizedBox(width: 8),
+
+          // Select all toggle.
+          if (hasUsers) ...[
+            _ToolbarIcon(
+              icon: Icons.checklist_rounded,
+              active: false,
+              onTap: onSelectAll,
+              cs: cs,
+            ),
+            const SizedBox(width: 4),
+          ],
 
           // Filter toggle.
           _ToolbarIcon(

@@ -63,7 +63,7 @@ class _MembersPageBodyState extends State<_MembersPageBody>
     with TickerProviderStateMixin {
   late TabController _tabController;
   late MembersDao _dao;
-  _MemberTab _currentTab = _MemberTab.owners;
+  _MemberTab _currentTab = _MemberTab.departments;
 
   String get _schoolId => widget.schoolContext.membership.school.id;
 
@@ -217,6 +217,7 @@ class _MembersFab extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
 
     return FloatingActionButton.small(
+      heroTag: 'fab_members',
       onPressed: onPressed,
       tooltip: _tooltip,
       elevation: 4,
@@ -3683,6 +3684,7 @@ class _DepartmentDetailScreenState extends State<_DepartmentDetailScreen>
         ),
       ),
       floatingActionButton: FloatingActionButton.small(
+        heroTag: 'fab_dept_detail_assign',
         onPressed: () => _showAssignMember(context),
         tooltip: 'Assign member',
         elevation: 4,

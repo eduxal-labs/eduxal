@@ -375,6 +375,7 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
     if (tab == _kTabPlans) {
       if (!canCreatePlan) return const SizedBox.shrink();
       return FloatingActionButton.small(
+        heroTag: 'fab_system_plans',
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         onPressed: () => openCreatePlan(context, _permissions),
         child: const Icon(Icons.add_rounded, size: 20),
@@ -385,6 +386,7 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
     if (tab == _kTabMembers) {
       if (!canAddMember) return const SizedBox.shrink();
       return FloatingActionButton.small(
+        heroTag: 'fab_system_members',
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         onPressed: () => _onFabAction(_FabAction.addMember),
         child: const Icon(Icons.add_rounded, size: 20),
@@ -421,6 +423,7 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
     // If only one permission is held, FAB taps directly (no expand).
     if (actions.length == 1) {
       return FloatingActionButton.small(
+        heroTag: 'fab_system_single',
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         onPressed: () => _onFabAction(
           canInvite
@@ -458,6 +461,7 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
         }),
         // Main FAB — icon rotates 45° when expanded.
         FloatingActionButton.small(
+          heroTag: 'fab_system_main',
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),

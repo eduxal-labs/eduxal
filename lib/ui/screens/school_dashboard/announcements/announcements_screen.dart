@@ -153,6 +153,7 @@ class _AdminFeedState extends State<_AdminFeed> {
           right: 20,
           bottom: 20,
           child: FloatingActionButton.small(
+            heroTag: 'fab_announcements_compose',
             onPressed: () => _showComposeSheet(
               context,
               dao: _dao,

@@ -106,6 +106,7 @@ class _SchoolRolesBodyState extends State<_SchoolRolesBody> {
               right: 20,
               bottom: 24,
               child: FloatingActionButton.small(
+                heroTag: 'fab_roles_create',
                 onPressed: () => _showCreateSheet(context),
                 backgroundColor: cs.primary,
                 foregroundColor: cs.onPrimary,

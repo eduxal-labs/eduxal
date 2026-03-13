@@ -11,9 +11,6 @@ import '../../../theme/app_theme.dart';
 /// via [Scaffold.openEndDrawer]. The panel is driven by a reactive
 /// [StreamBuilder] on [LogsDao.watchFailedLogs] so the list updates in
 /// real-time without any manual refresh.
-///
-/// **Note (P14):** The "Clear all" action is intentionally omitted until the
-/// project owner confirms what "clear all" should do — see TASKS.md P14.
 class NotificationsPanel extends StatelessWidget {
   const NotificationsPanel({super.key, required this.accountId});
 
@@ -42,7 +39,11 @@ class NotificationsPanel extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _PanelHeader(cs: cs),
-            const Divider(height: 1, thickness: 0.5),
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: cs.outlineVariant.withValues(alpha: 0.4),
+            ),
             Expanded(
               child: StreamBuilder<List<AppNotification>>(
                 stream: logsDao.watchFailedLogs(accountId),
@@ -63,19 +64,17 @@ class NotificationsPanel extends StatelessWidget {
                     return _EmptyState(cs: cs);
                   }
 
-                  return ListView.separated(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  return ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
                     itemCount: notifications.length,
-                    separatorBuilder: (_, _) => Divider(
-                      height: 1,
-                      thickness: 0.5,
-                      indent: 52,
-                      color: cs.outlineVariant.withValues(alpha: 0.65),
-                    ),
                     itemBuilder: (context, i) {
-                      return _NotificationTile(
-                        notification: notifications[i],
-                        cs: cs,
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _NotificationCard(
+                          notification: notifications[i],
+                          cs: cs,
+                          accountId: accountId,
+                        ),
                       );
                     },
                   );
@@ -101,14 +100,14 @@ class _PanelHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 12, 14),
+      padding: const EdgeInsets.fromLTRB(18, 16, 10, 14),
       child: Row(
         children: [
           Text(
-            'Notifications',
+            'Sync Errors',
             style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w400,
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
               color: cs.onSurface,
               letterSpacing: 0.1,
             ),
@@ -172,105 +171,248 @@ class _EmptyState extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Notification tile
+// Notification card — elevated, self-bounded, with retry + delete
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _NotificationTile extends StatelessWidget {
-  const _NotificationTile({required this.notification, required this.cs});
+class _NotificationCard extends StatefulWidget {
+  const _NotificationCard({
+    required this.notification,
+    required this.cs,
+    required this.accountId,
+  });
 
   final AppNotification notification;
   final ColorScheme cs;
+  final String accountId;
+
+  @override
+  State<_NotificationCard> createState() => _NotificationCardState();
+}
+
+class _NotificationCardState extends State<_NotificationCard> {
+  bool _retrying = false;
+  bool _deleting = false;
+
+  ColorScheme get cs => widget.cs;
+  bool get _isDark => cs.brightness == Brightness.dark;
+
+  Future<void> _onRetry() async {
+    if (_retrying || _deleting) return;
+    setState(() => _retrying = true);
+    try {
+      await logsDao.retryLog(widget.notification.logId);
+      // Kick the sync engine so it picks up the re-queued action immediately.
+      client.syncEngine.schedulePush();
+    } finally {
+      if (mounted) setState(() => _retrying = false);
+    }
+  }
+
+  Future<void> _onDelete() async {
+    if (_retrying || _deleting) return;
+    setState(() => _deleting = true);
+    try {
+      await logsDao.deleteLogAndRevert(widget.notification.logId);
+    } finally {
+      if (mounted) setState(() => _deleting = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final n = widget.notification;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: _isDark ? cs.surfaceContainerHigh : cs.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppTheme.kRadius),
+        border: Border.all(
+          color: _isDark
+              ? cs.error.withValues(alpha: 0.22)
+              : cs.error.withValues(alpha: 0.14),
+          width: 1,
+        ),
+        boxShadow: _isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: cs.shadow.withValues(alpha: 0.06),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Action icon.
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: cs.errorContainer.withValues(
-                alpha: cs.brightness == Brightness.dark ? 0.35 : 0.5,
-              ),
-              borderRadius: BorderRadius.circular(AppTheme.kRadius),
-              border: cs.brightness == Brightness.dark
-                  ? Border.all(color: cs.error.withValues(alpha: 0.2), width: 1)
-                  : null,
-            ),
-            child: Icon(
-              _iconForAction(notification.action),
-              size: 16,
-              color: cs.error,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
+          // ── Main content ──────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Title row — action name + action type badge.
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        notification.title,
+                // Action icon container.
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: cs.errorContainer.withValues(
+                      alpha: _isDark ? 0.32 : 0.45,
+                    ),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: cs.error.withValues(alpha: _isDark ? 0.25 : 0.18),
+                      width: 1,
+                    ),
+                  ),
+                  child: Icon(
+                    _iconForAction(n.action),
+                    size: 15,
+                    color: cs.error,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Title row — action name + badge.
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              n.title,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w500,
+                                color: cs.onSurface,
+                                letterSpacing: 0.1,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          _ActionBadge(action: n.action, cs: cs),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      // Error / attempt subtitle.
+                      Text(
+                        n.subtitle,
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: 11,
                           fontWeight: FontWeight.w400,
-                          color: cs.onSurface,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.9),
                           letterSpacing: 0.1,
+                          height: 1.45,
                         ),
-                        maxLines: 1,
+                        maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    _ActionBadge(action: notification.action, cs: cs),
-                  ],
-                ),
-                const SizedBox(height: 3),
-                // Subtitle — error message or attempt count.
-                Text(
-                  notification.subtitle,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w400,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.85),
-                    letterSpacing: 0.1,
-                    height: 1.4,
+                      // Resource key badge.
+                      if (n.resource.isNotEmpty) ...[
+                        const SizedBox(height: 5),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: cs.surfaceContainerHigh.withValues(
+                              alpha: _isDark ? 1.0 : 0.6,
+                            ),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: cs.outlineVariant.withValues(alpha: 0.5),
+                              width: 1,
+                            ),
+                          ),
+                          child: Text(
+                            n.resource,
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w400,
+                              fontFamily: 'monospace',
+                              color: cs.onSurfaceVariant.withValues(
+                                alpha: 0.75,
+                              ),
+                              letterSpacing: 0.4,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 5),
+                      // Timestamp.
+                      Text(
+                        _relativeTime(n.occurred),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w400,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                          letterSpacing: 0.1,
+                        ),
+                      ),
+                    ],
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
-                // Resource identifier.
-                if (notification.resource.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    notification.resource,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w400,
-                      fontFamily: 'monospace',
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                      letterSpacing: 0.3,
+              ],
+            ),
+          ),
+
+          // ── Divider ────────────────────────────────────────────────────────
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: _isDark
+                ? cs.outlineVariant.withValues(alpha: 0.25)
+                : cs.outlineVariant.withValues(alpha: 0.4),
+          ),
+
+          // ── Action row ─────────────────────────────────────────────────────
+          SizedBox(
+            height: 36,
+            child: Row(
+              children: [
+                // Retry button.
+                Expanded(
+                  child: _CardActionButton(
+                    label: 'Retry',
+                    icon: Icons.refresh_rounded,
+                    color: cs.primary,
+                    cs: cs,
+                    loading: _retrying,
+                    disabled: _deleting,
+                    onTap: _onRetry,
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(AppTheme.kRadius - 1),
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                ],
-                const SizedBox(height: 4),
-                // Timestamp.
-                Text(
-                  _relativeTime(notification.occurred),
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w400,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.65),
-                    letterSpacing: 0.1,
+                ),
+                // Vertical divider.
+                VerticalDivider(
+                  width: 1,
+                  thickness: 1,
+                  color: _isDark
+                      ? cs.outlineVariant.withValues(alpha: 0.25)
+                      : cs.outlineVariant.withValues(alpha: 0.4),
+                ),
+                // Delete button.
+                Expanded(
+                  child: _CardActionButton(
+                    label: 'Delete',
+                    icon: Icons.delete_outline_rounded,
+                    color: cs.error,
+                    cs: cs,
+                    loading: _deleting,
+                    disabled: _retrying,
+                    onTap: _onDelete,
+                    borderRadius: BorderRadius.only(
+                      bottomRight: Radius.circular(AppTheme.kRadius - 1),
+                    ),
                   ),
                 ),
               ],
@@ -280,126 +422,75 @@ class _NotificationTile extends StatelessWidget {
       ),
     );
   }
+}
 
-  /// Returns a representative icon for the given [SyncAction] based on its
-  /// domain group (the entity the action targets).
-  static IconData _iconForAction(SyncAction action) => switch (action) {
-    // Schools
-    SyncAction.createSchool ||
-    SyncAction.updateSchool ||
-    SyncAction.deleteSchool => Icons.school_outlined,
-    // Teachers
-    SyncAction.createTeacher ||
-    SyncAction.updateTeacher ||
-    SyncAction.deleteTeacher => Icons.person_outline_rounded,
-    // Staff
-    SyncAction.createStaff ||
-    SyncAction.updateStaff ||
-    SyncAction.deleteStaff => Icons.badge_outlined,
-    // Owners
-    SyncAction.createOwner ||
-    SyncAction.deleteOwner => Icons.admin_panel_settings_outlined,
-    // Students
-    SyncAction.createStudent ||
-    SyncAction.updateStudent ||
-    SyncAction.deleteStudent ||
-    SyncAction.enrollStudent ||
-    SyncAction.unenrollStudent => Icons.face_outlined,
-    // Guardians
-    SyncAction.createGuardian ||
-    SyncAction.updateGuardian ||
-    SyncAction.deleteGuardian => Icons.family_restroom_outlined,
-    // Departments
-    SyncAction.createDepartment ||
-    SyncAction.updateDepartment ||
-    SyncAction.deleteDepartment => Icons.category_outlined,
-    // Terms
-    SyncAction.createTerm ||
-    SyncAction.updateTerm ||
-    SyncAction.deleteTerm => Icons.calendar_month_outlined,
-    // Classes (class teachers, subjects, timetable)
-    SyncAction.assignClassTeacher ||
-    SyncAction.unassignClassTeacher => Icons.class_outlined,
-    SyncAction.assignSubject ||
-    SyncAction.unassignSubject => Icons.book_outlined,
-    SyncAction.createTimetableEntry ||
-    SyncAction.updateTimetableEntry ||
-    SyncAction.deleteTimetableEntry => Icons.table_chart_outlined,
-    // Attendance
-    SyncAction.markAttendance ||
-    SyncAction.deleteAttendance => Icons.checklist_outlined,
-    // Lessons
-    SyncAction.createLesson ||
-    SyncAction.deleteLesson => Icons.menu_book_outlined,
-    // Exams & Papers
-    SyncAction.createExam ||
-    SyncAction.updateExam ||
-    SyncAction.deleteExam => Icons.quiz_outlined,
-    SyncAction.createPaper ||
-    SyncAction.updatePaper ||
-    SyncAction.deletePaper => Icons.description_outlined,
-    // Grades & Mastery
-    SyncAction.markGrades ||
-    SyncAction.updateGrade ||
-    SyncAction.deleteGrade => Icons.grade_outlined,
-    SyncAction.updateMastery => Icons.star_outline_rounded,
-    // Fees & Invoices
-    SyncAction.createFee ||
-    SyncAction.updateFee ||
-    SyncAction.deleteFee => Icons.receipt_outlined,
-    SyncAction.createInvoice ||
-    SyncAction.updateInvoice ||
-    SyncAction.deleteInvoice => Icons.receipt_long_outlined,
-    // Payments
-    SyncAction.createPayment ||
-    SyncAction.updatePayment ||
-    SyncAction.deletePayment ||
-    SyncAction.approvePayment => Icons.payments_outlined,
-    // Announcements
-    SyncAction.createAnnouncement ||
-    SyncAction.updateAnnouncement ||
-    SyncAction.deleteAnnouncement => Icons.campaign_outlined,
-    // Roles & Scopes
-    SyncAction.createRole ||
-    SyncAction.updateRole ||
-    SyncAction.deleteRole => Icons.verified_user_outlined,
-    SyncAction.assignRole ||
-    SyncAction.unassignRole => Icons.lock_outline_rounded,
-    // Users
-    SyncAction.updateUser ||
-    SyncAction.deleteUser => Icons.person_outline_rounded,
-    // Settings
-    SyncAction.updateSettings => Icons.settings_outlined,
-    // Plans
-    SyncAction.createPlan ||
-    SyncAction.updatePlan ||
-    SyncAction.deletePlan => Icons.subscriptions_outlined,
-    // AI
-    SyncAction.updateAiUsage => Icons.auto_awesome_outlined,
-    // Subscriptions
-    SyncAction.createSubscription ||
-    SyncAction.updateSubscription ||
-    SyncAction.deleteSubscription => Icons.card_membership_outlined,
-    // Discounts
-    SyncAction.createDiscount ||
-    SyncAction.updateDiscount ||
-    SyncAction.deleteDiscount => Icons.local_offer_outlined,
-  };
+// ─────────────────────────────────────────────────────────────────────────────
+// Card action button (Retry / Delete)
+// ─────────────────────────────────────────────────────────────────────────────
 
-  /// Returns a human-readable relative time string for [time].
-  static String _relativeTime(DateTime time) {
-    final diff = DateTime.now().difference(time);
-    if (diff.inSeconds < 60) return 'Just now';
-    if (diff.inMinutes < 60) {
-      final m = diff.inMinutes;
-      return '$m ${m == 1 ? 'minute' : 'minutes'} ago';
-    }
-    if (diff.inHours < 24) {
-      final h = diff.inHours;
-      return '$h ${h == 1 ? 'hour' : 'hours'} ago';
-    }
-    final d = diff.inDays;
-    return '$d ${d == 1 ? 'day' : 'days'} ago';
+class _CardActionButton extends StatelessWidget {
+  const _CardActionButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.cs,
+    required this.loading,
+    required this.disabled,
+    required this.onTap,
+    required this.borderRadius,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+  final ColorScheme cs;
+  final bool loading;
+  final bool disabled;
+  final VoidCallback onTap;
+  final BorderRadius borderRadius;
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveAlpha = (loading || disabled) ? 0.38 : 1.0;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: (loading || disabled) ? null : onTap,
+        borderRadius: borderRadius,
+        child: Center(
+          child: loading
+              ? SizedBox(
+                  width: 13,
+                  height: 13,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5,
+                    color: color.withValues(alpha: 0.65),
+                  ),
+                )
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      icon,
+                      size: 13,
+                      color: color.withValues(alpha: effectiveAlpha),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: color.withValues(alpha: effectiveAlpha),
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    );
   }
 }
 
@@ -419,7 +510,7 @@ class _ActionBadge extends StatelessWidget {
     final isDark = cs.brightness == Brightness.dark;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
       decoration: BoxDecoration(
         color: color.withValues(alpha: isDark ? 0.18 : 0.12),
         borderRadius: BorderRadius.circular(4),
@@ -445,9 +536,8 @@ class _ActionBadge extends StatelessWidget {
     if (name.startsWith('create')) return ('Create', const Color(0xFF26A69A));
     if (name.startsWith('update')) return ('Update', const Color(0xFFFFB300));
     if (name.startsWith('delete')) return ('Delete', cs.error);
-    if (name.startsWith('unassign')) {
+    if (name.startsWith('unassign'))
       return ('Unassign', const Color(0xFFAB47BC));
-    }
     if (name.startsWith('assign')) return ('Assign', const Color(0xFF42A5F5));
     if (name.startsWith('unenroll')) return ('Unenroll', cs.error);
     if (name.startsWith('enroll')) return ('Enroll', const Color(0xFF26A69A));
@@ -455,4 +545,102 @@ class _ActionBadge extends StatelessWidget {
     if (name.startsWith('approve')) return ('Approve', const Color(0xFF66BB6A));
     return ('Action', const Color(0xFF90A4AE));
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers — icon mapping & relative time
+// ─────────────────────────────────────────────────────────────────────────────
+
+IconData _iconForAction(SyncAction action) => switch (action) {
+  SyncAction.createSchool ||
+  SyncAction.updateSchool ||
+  SyncAction.deleteSchool => Icons.school_outlined,
+  SyncAction.createTeacher ||
+  SyncAction.updateTeacher ||
+  SyncAction.deleteTeacher => Icons.person_outline_rounded,
+  SyncAction.createStaff ||
+  SyncAction.updateStaff ||
+  SyncAction.deleteStaff => Icons.badge_outlined,
+  SyncAction.createOwner ||
+  SyncAction.deleteOwner => Icons.admin_panel_settings_outlined,
+  SyncAction.createStudent ||
+  SyncAction.updateStudent ||
+  SyncAction.deleteStudent ||
+  SyncAction.enrollStudent ||
+  SyncAction.unenrollStudent => Icons.face_outlined,
+  SyncAction.createGuardian ||
+  SyncAction.updateGuardian ||
+  SyncAction.deleteGuardian => Icons.family_restroom_outlined,
+  SyncAction.createDepartment ||
+  SyncAction.updateDepartment ||
+  SyncAction.deleteDepartment => Icons.category_outlined,
+  SyncAction.createTerm ||
+  SyncAction.updateTerm ||
+  SyncAction.deleteTerm => Icons.calendar_month_outlined,
+  SyncAction.assignClassTeacher ||
+  SyncAction.unassignClassTeacher => Icons.class_outlined,
+  SyncAction.assignSubject || SyncAction.unassignSubject => Icons.book_outlined,
+  SyncAction.createTimetableEntry ||
+  SyncAction.updateTimetableEntry ||
+  SyncAction.deleteTimetableEntry => Icons.table_chart_outlined,
+  SyncAction.markAttendance ||
+  SyncAction.deleteAttendance => Icons.checklist_outlined,
+  SyncAction.createLesson ||
+  SyncAction.deleteLesson => Icons.menu_book_outlined,
+  SyncAction.createExam ||
+  SyncAction.updateExam ||
+  SyncAction.deleteExam => Icons.quiz_outlined,
+  SyncAction.createPaper ||
+  SyncAction.updatePaper ||
+  SyncAction.deletePaper => Icons.description_outlined,
+  SyncAction.markGrades ||
+  SyncAction.updateGrade ||
+  SyncAction.deleteGrade => Icons.grade_outlined,
+  SyncAction.updateMastery => Icons.star_outline_rounded,
+  SyncAction.createFee ||
+  SyncAction.updateFee ||
+  SyncAction.deleteFee => Icons.receipt_outlined,
+  SyncAction.createInvoice ||
+  SyncAction.updateInvoice ||
+  SyncAction.deleteInvoice => Icons.receipt_long_outlined,
+  SyncAction.createPayment ||
+  SyncAction.updatePayment ||
+  SyncAction.deletePayment ||
+  SyncAction.approvePayment => Icons.payments_outlined,
+  SyncAction.createAnnouncement ||
+  SyncAction.updateAnnouncement ||
+  SyncAction.deleteAnnouncement => Icons.campaign_outlined,
+  SyncAction.createRole ||
+  SyncAction.updateRole ||
+  SyncAction.deleteRole => Icons.verified_user_outlined,
+  SyncAction.assignRole ||
+  SyncAction.unassignRole => Icons.lock_outline_rounded,
+  SyncAction.updateUser ||
+  SyncAction.deleteUser => Icons.person_outline_rounded,
+  SyncAction.updateSettings => Icons.settings_outlined,
+  SyncAction.createPlan ||
+  SyncAction.updatePlan ||
+  SyncAction.deletePlan => Icons.subscriptions_outlined,
+  SyncAction.updateAiUsage => Icons.auto_awesome_outlined,
+  SyncAction.createSubscription ||
+  SyncAction.updateSubscription ||
+  SyncAction.deleteSubscription => Icons.card_membership_outlined,
+  SyncAction.createDiscount ||
+  SyncAction.updateDiscount ||
+  SyncAction.deleteDiscount => Icons.local_offer_outlined,
+};
+
+String _relativeTime(DateTime time) {
+  final diff = DateTime.now().difference(time);
+  if (diff.inSeconds < 60) return 'Just now';
+  if (diff.inMinutes < 60) {
+    final m = diff.inMinutes;
+    return '$m ${m == 1 ? 'minute' : 'minutes'} ago';
+  }
+  if (diff.inHours < 24) {
+    final h = diff.inHours;
+    return '$h ${h == 1 ? 'hour' : 'hours'} ago';
+  }
+  final d = diff.inDays;
+  return '$d ${d == 1 ? 'day' : 'days'} ago';
 }

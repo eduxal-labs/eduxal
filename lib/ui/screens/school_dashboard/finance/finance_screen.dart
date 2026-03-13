@@ -1340,6 +1340,7 @@ class _FeesTab extends StatelessWidget {
           right: 20,
           bottom: 20,
           child: FloatingActionButton.small(
+            heroTag: 'fab_finance_fees',
             onPressed: () => _showCreateFeeSheet(
               context,
               dao,
