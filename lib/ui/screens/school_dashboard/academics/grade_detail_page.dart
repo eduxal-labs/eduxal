@@ -487,6 +487,7 @@ class _GradeDetailPageState extends State<GradeDetailPage>
       scale: _fabScaleAnimation,
       alignment: Alignment.center,
       child: FloatingActionButton.small(
+        heroTag: 'fab_grade_detail',
         onPressed: () => _handleFabTap(context),
         tooltip: _fabTooltipForContentTab(_selectedContentIndex),
         elevation: 4,

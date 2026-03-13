@@ -9,16 +9,20 @@ import 'package:flutter/services.dart';
 import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/exams_grades_dao.dart';
+import '../../../../database/daos/members_dao.dart';
 import '../../../../database/daos/subjects_dao.dart';
 import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../database/tables/enums.dart';
 import '../../../../models/active_term_context.dart';
+import '../../../../models/exam_group.dart';
 import '../../../../models/membership.dart';
 import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/active_term_provider.dart';
 import '../../../widgets/animated_save_button.dart';
+import '../../../widgets/edu_tab_bar.dart';
+import 'exam_creation_page.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Entry point
@@ -60,13 +64,17 @@ class _ExamsShell extends StatefulWidget {
 
 class _ExamsShellState extends State<_ExamsShell> {
   _ExamsView _view = _ExamsView.list;
-  ExamWithPapers? _selectedExam;
+  ExamGroup? _selectedGroup;
+  String? _selectedGroupKey;
+  Exam? _selectedExamRow;
   Paper? _selectedPaper;
   SchoolConfig _config = SchoolConfig.defaults();
+  late final ExamsGradesDao _dao;
 
   @override
   void initState() {
     super.initState();
+    _dao = ExamsGradesDao(db);
     _loadConfig();
   }
 
@@ -82,16 +90,18 @@ class _ExamsShellState extends State<_ExamsShell> {
     } catch (_) {}
   }
 
-  void _openExam(ExamWithPapers ep) {
+  void _openExam(ExamGroup group) {
     setState(() {
-      _selectedExam = ep;
+      _selectedGroup = group;
+      _selectedGroupKey = group.groupKey;
       _view = _ExamsView.examDetail;
     });
   }
 
-  void _openPaper(Paper paper) {
+  void _openPaper(Paper paper, Exam exam) {
     setState(() {
       _selectedPaper = paper;
+      _selectedExamRow = exam;
       _view = _ExamsView.paperDetail;
     });
   }
@@ -99,13 +109,16 @@ class _ExamsShellState extends State<_ExamsShell> {
   void _popToExam() {
     setState(() {
       _selectedPaper = null;
+      _selectedExamRow = null;
       _view = _ExamsView.examDetail;
     });
   }
 
   void _popToList() {
     setState(() {
-      _selectedExam = null;
+      _selectedGroup = null;
+      _selectedGroupKey = null;
+      _selectedExamRow = null;
       _selectedPaper = null;
       _view = _ExamsView.list;
     });
@@ -127,18 +140,41 @@ class _ExamsShellState extends State<_ExamsShell> {
         entry: entry,
         onExamTap: _openExam,
       ),
-      _ExamsView.examDetail => _ExamDetailView(
-        exam: _selectedExam!,
-        schoolId: schoolId,
-        year: term.year,
-        term: term.term,
-        config: _config,
-        entry: entry,
-        onBack: _popToList,
-        onPaperTap: _openPaper,
+      _ExamsView.examDetail => StreamBuilder<List<ExamGroup>>(
+        stream: _dao.watchExamGroups(
+          schoolId: schoolId,
+          year: term.year,
+          term: term.term,
+        ),
+        builder: (context, snap) {
+          final groups = snap.data ?? [];
+          final match = groups
+              .where((g) => g.groupKey == _selectedGroupKey)
+              .firstOrNull;
+          if (match != null) _selectedGroup = match;
+          if (_selectedGroup == null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) => _popToList());
+            return const SizedBox.shrink();
+          }
+          return _ExamGroupDetailView(
+            group: _selectedGroup!,
+            schoolId: schoolId,
+            year: term.year,
+            term: term.term,
+            config: _config,
+            entry: entry,
+            onBack: _popToList,
+            onPaperTap: _openPaper,
+            onDeleted: _popToList,
+          );
+        },
       ),
       _ExamsView.paperDetail => _PaperDetailView(
-        exam: _selectedExam!,
+        exam: (
+          exam: _selectedExamRow!,
+          teacher: _selectedGroup!.teacher,
+          papers: const [],
+        ),
         paper: _selectedPaper!,
         schoolId: schoolId,
         year: term.year,
@@ -171,7 +207,7 @@ class _ExamsListView extends StatefulWidget {
   final SchoolContext schoolContext;
   final SchoolConfig config;
   final MembershipEntry entry;
-  final ValueChanged<ExamWithPapers> onExamTap;
+  final ValueChanged<ExamGroup> onExamTap;
 
   @override
   State<_ExamsListView> createState() => _ExamsListViewState();
@@ -186,17 +222,8 @@ class _ExamsListViewState extends State<_ExamsListView> {
     _dao = ExamsGradesDao(db);
   }
 
-  Stream<List<ExamWithPapers>> _buildStream() {
-    final entry = widget.entry;
-    // Teacher view — filter to their own classes.
-    if (entry is TeacherEntry) {
-      return _dao.watchExamsForTerm(
-        schoolId: widget.schoolId,
-        year: widget.year,
-        term: widget.term,
-      );
-    }
-    return _dao.watchExamsForTerm(
+  Stream<List<ExamGroup>> _buildStream() {
+    return _dao.watchExamGroups(
       schoolId: widget.schoolId,
       year: widget.year,
       term: widget.term,
@@ -221,7 +248,7 @@ class _ExamsListViewState extends State<_ExamsListView> {
               : null,
         ),
         Expanded(
-          child: StreamBuilder<List<ExamWithPapers>>(
+          child: StreamBuilder<List<ExamGroup>>(
             stream: _buildStream(),
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting) {
@@ -231,24 +258,17 @@ class _ExamsListViewState extends State<_ExamsListView> {
               }
               final items = snap.data ?? [];
               if (items.isEmpty) {
-                return _EmptyExamsState(
-                  canCreate: _canManage,
-                  onCreate: () => _showCreateExam(context),
-                );
+                return _EmptyExamsState(canCreate: _canManage);
               }
               return ListView.separated(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
                 itemCount: items.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
-                itemBuilder: (context, i) => _ExamCard(
-                  ep: items[i],
+                separatorBuilder: (_, _) => const SizedBox(height: 10),
+                itemBuilder: (context, i) => _ExamGroupCard(
+                  group: items[i],
                   config: widget.config,
                   cs: cs,
-                  canManage: _canManage,
                   onTap: () => widget.onExamTap(items[i]),
-                  onDelete: _canManage
-                      ? () => _confirmDelete(context, items[i].exam)
-                      : null,
                 ),
               );
             },
@@ -264,156 +284,3445 @@ class _ExamsListViewState extends State<_ExamsListView> {
   }
 
   Future<void> _showCreateExam(BuildContext context) async {
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _CreateExamSheet(
-        schoolId: widget.schoolId,
-        year: widget.year,
-        term: widget.term,
-        config: widget.config,
-        entry: widget.entry,
-        dao: _dao,
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ExamCreationPage(
+          schoolId: widget.schoolId,
+          year: widget.year,
+          term: widget.term,
+          config: widget.config,
+          entry: widget.entry,
+        ),
       ),
     );
   }
+}
 
-  Future<void> _confirmDelete(BuildContext context, Exam exam) async {
+// ─────────────────────────────────────────────────────────────────────────────
+// Exam group card
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ExamGroupCard extends StatelessWidget {
+  const _ExamGroupCard({
+    required this.group,
+    required this.config,
+    required this.cs,
+    required this.onTap,
+  });
+  final ExamGroup group;
+  final SchoolConfig config;
+  final ColorScheme cs;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final typeColor = _typeColor(group.type, cs);
+    final typeLabel = _typeLabel(group.type);
+    final startDate = DateTime.fromMillisecondsSinceEpoch(
+      group.start * 86400 * 1000,
+    );
+    final endDate = DateTime.fromMillisecondsSinceEpoch(
+      group.end * 86400 * 1000,
+    );
+    final gradeCount = group.grades.length;
+    final subjCount = group.uniqueSubjectCount;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.20 : 0.40),
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(4),
+        child: InkWell(
+          onTap: onTap,
+          splashFactory: NoSplash.splashFactory,
+          borderRadius: BorderRadius.circular(4),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Row 1: type badge + date range
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: typeColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        typeLabel,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: typeColor,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '${_fmtDate(startDate)} – ${_fmtDate(endDate)}',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+                // Row 2: participating grade chips
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: group.grades
+                      .map(
+                        (g) => _ClassChip(
+                          label: _gradeLabel(g.grade, config),
+                          cs: cs,
+                        ),
+                      )
+                      .toList(),
+                ),
+                // Row 3: meta badges
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    _MetaBadge(
+                      icon: Icons.description_outlined,
+                      label: '$subjCount subj',
+                      cs: cs,
+                    ),
+                    const SizedBox(width: 6),
+                    _MetaBadge(
+                      icon: Icons.school_outlined,
+                      label: '$gradeCount grade${gradeCount == 1 ? '' : 's'}',
+                      cs: cs,
+                    ),
+                    if (group.personalized) ...[
+                      const SizedBox(width: 6),
+                      _MetaBadge(
+                        icon: Icons.person_outline,
+                        label: 'Custom',
+                        cs: cs,
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Exam group detail view — grade tabs, stream sub-tabs, paper content
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ExamGroupDetailView extends StatefulWidget {
+  const _ExamGroupDetailView({
+    required this.group,
+    required this.schoolId,
+    required this.year,
+    required this.term,
+    required this.config,
+    required this.entry,
+    required this.onBack,
+    required this.onPaperTap,
+    required this.onDeleted,
+  });
+  final ExamGroup group;
+  final String schoolId;
+  final int year;
+  final int term;
+  final SchoolConfig config;
+  final MembershipEntry entry;
+  final VoidCallback onBack;
+  final void Function(Paper paper, Exam exam) onPaperTap;
+  final VoidCallback onDeleted;
+
+  @override
+  State<_ExamGroupDetailView> createState() => _ExamGroupDetailViewState();
+}
+
+class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
+    with TickerProviderStateMixin {
+  late TabController _gradeTabController;
+  int _selectedGradeIndex = 0;
+  TabController? _streamTabController;
+  int _selectedStreamIndex = 0;
+  late final ExamsGradesDao _dao;
+  late final MembersDao _membersDao;
+  Map<String, String> _teacherNames = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _dao = ExamsGradesDao(db);
+    _membersDao = MembersDao(db);
+    _gradeTabController =
+        TabController(length: widget.group.grades.length, vsync: this)
+          ..addListener(() {
+            if (_gradeTabController.indexIsChanging) return;
+            _onGradeTabChanged(_gradeTabController.index);
+          });
+    _rebuildStreamTabs();
+    _loadTeacherNames();
+  }
+
+  @override
+  void didUpdateWidget(_ExamGroupDetailView old) {
+    super.didUpdateWidget(old);
+    final g = widget.group;
+    final og = old.group;
+    if (g.groupKey != og.groupKey || g.grades.length != og.grades.length) {
+      _gradeTabController.removeListener(() {});
+      _gradeTabController.dispose();
+      _selectedGradeIndex = _selectedGradeIndex
+          .clamp(0, g.grades.length - 1)
+          .toInt();
+      _gradeTabController =
+          TabController(
+            length: g.grades.length,
+            initialIndex: _selectedGradeIndex,
+            vsync: this,
+          )..addListener(() {
+            if (_gradeTabController.indexIsChanging) return;
+            _onGradeTabChanged(_gradeTabController.index);
+          });
+      _rebuildStreamTabs();
+    }
+  }
+
+  @override
+  void dispose() {
+    _gradeTabController.dispose();
+    _streamTabController?.dispose();
+    super.dispose();
+  }
+
+  void _onGradeTabChanged(int index) {
+    setState(() {
+      _selectedGradeIndex = index;
+      _selectedStreamIndex = 0;
+      _rebuildStreamTabs();
+    });
+  }
+
+  void _rebuildStreamTabs() {
+    _streamTabController?.dispose();
+    _streamTabController = null;
+    final grades = widget.group.grades;
+    if (grades.isEmpty) return;
+    final gradeEntry = grades[_selectedGradeIndex];
+    if (gradeEntry.streams.length > 1) {
+      _streamTabController =
+          TabController(
+            length: gradeEntry.streams.length,
+            vsync: this,
+          )..addListener(() {
+            if (_streamTabController!.indexIsChanging) return;
+            setState(() => _selectedStreamIndex = _streamTabController!.index);
+          });
+    }
+  }
+
+  Future<void> _loadTeacherNames() async {
+    final ids = <String>{};
+    for (final g in widget.group.grades) {
+      for (final s in g.streams) {
+        for (final p in s.papers) {
+          ids.add(p.invigilator);
+        }
+      }
+    }
+    final names = <String, String>{};
+    for (final id in ids) {
+      final user = await _membersDao.findUserById(id);
+      if (user != null) names[id] = user.name;
+    }
+    if (mounted) setState(() => _teacherNames = names);
+  }
+
+  ExamStreamEntry? get _currentStreamEntry {
+    final grades = widget.group.grades;
+    if (grades.isEmpty) return null;
+    final gradeEntry = grades[_selectedGradeIndex];
+    if (gradeEntry.streams.isEmpty) return null;
+    final si = _selectedStreamIndex.clamp(0, gradeEntry.streams.length - 1);
+    return gradeEntry.streams[si];
+  }
+
+  bool get _canManage {
+    final entry = widget.entry;
+    return entry is TeacherEntry || entry is OwnerEntry || entry is StaffEntry;
+  }
+
+  Future<void> _showAddPaper(BuildContext context) async {
+    final streamEntry = _currentStreamEntry;
+    if (streamEntry == null) return;
+    final grades = widget.group.grades;
+    if (grades.isEmpty) return;
+    final gradeEntry = grades[_selectedGradeIndex];
+
+    final isDesktop =
+        MediaQuery.of(context).size.width >= AppTheme.kMobileBreakpoint;
+
+    if (isDesktop) {
+      await showDialog<void>(
+        context: context,
+        barrierColor: Colors.black.withValues(alpha: 0.35),
+        builder: (_) => _CreatePaperSheet(
+          examGroup: widget.group,
+          schoolId: widget.schoolId,
+          examId: streamEntry.exam.id,
+          year: widget.year,
+          term: widget.term,
+          grade: gradeEntry.grade,
+          stream: streamEntry.streamCode,
+          config: widget.config,
+          dao: _dao,
+          subjectsDao: SubjectsDao(db),
+        ),
+      );
+    } else {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => _CreatePaperSheet(
+          examGroup: widget.group,
+          schoolId: widget.schoolId,
+          examId: streamEntry.exam.id,
+          year: widget.year,
+          term: widget.term,
+          grade: gradeEntry.grade,
+          stream: streamEntry.streamCode,
+          config: widget.config,
+          dao: _dao,
+          subjectsDao: SubjectsDao(db),
+        ),
+      );
+    }
+  }
+
+  Future<void> _showAddGradeModal(BuildContext context) async {
+    final width = MediaQuery.of(context).size.width;
+    final isDesktop = width >= 600;
+    if (isDesktop) {
+      await showDialog<void>(
+        context: context,
+        barrierColor: Colors.black.withValues(alpha: 0.45),
+        builder: (_) => _AddGradeToExamDialog(
+          group: widget.group,
+          schoolId: widget.schoolId,
+          year: widget.year,
+          term: widget.term,
+          config: widget.config,
+          dao: _dao,
+          subjectsDao: SubjectsDao(db),
+          membersDao: _membersDao,
+        ),
+      );
+    } else {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => _AddGradeToExamSheet(
+          group: widget.group,
+          schoolId: widget.schoolId,
+          year: widget.year,
+          term: widget.term,
+          config: widget.config,
+          dao: _dao,
+          subjectsDao: SubjectsDao(db),
+          membersDao: _membersDao,
+        ),
+      );
+    }
+  }
+
+  Future<void> _showAddStreamModal(BuildContext context) async {
+    final width = MediaQuery.of(context).size.width;
+    final isDesktop = width >= 600;
+    if (isDesktop) {
+      await showDialog<void>(
+        context: context,
+        barrierColor: Colors.black.withValues(alpha: 0.45),
+        builder: (_) => _AddStreamToExamDialog(
+          group: widget.group,
+          schoolId: widget.schoolId,
+          year: widget.year,
+          term: widget.term,
+          config: widget.config,
+          dao: _dao,
+          subjectsDao: SubjectsDao(db),
+          membersDao: _membersDao,
+        ),
+      );
+    } else {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => _AddStreamToExamSheet(
+          group: widget.group,
+          schoolId: widget.schoolId,
+          year: widget.year,
+          term: widget.term,
+          config: widget.config,
+          dao: _dao,
+          subjectsDao: SubjectsDao(db),
+          membersDao: _membersDao,
+        ),
+      );
+    }
+  }
+
+  Future<void> _confirmDeleteGroup(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => _ConfirmDeleteDialog(
+      builder: (_) => _ConfirmDeleteDialog(
         title: 'Delete Exam',
         message:
-            'This will permanently delete the exam and all its papers and grades. '
-            'This action cannot be undone.',
+            'All papers, grades, and mastery data for this exam will be permanently deleted.',
         confirmLabel: 'Delete Exam',
       ),
     );
     if (confirmed != true || !mounted) return;
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;
-    await _dao.deleteExam(examId: exam.id, accountId: accountId);
+    for (final id in widget.group.examIds) {
+      await _dao.deleteExam(examId: id, accountId: accountId);
+    }
+    widget.onDeleted();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final group = widget.group;
+    final grades = group.grades;
+
+    // Build grade tab labels
+    final gradeTabs = grades
+        .map((g) => EduTab(label: _gradeLabel(g.grade, widget.config)))
+        .toList();
+
+    // Build stream tab labels for the current grade
+    final currentGrade = grades.isNotEmpty ? grades[_selectedGradeIndex] : null;
+    final streams = currentGrade?.streams ?? [];
+    final streamTabs = streams.length > 1
+        ? streams
+              .map(
+                (s) => EduTab(
+                  label: s.streamCode != null
+                      ? _streamLabel(
+                          currentGrade!.grade,
+                          s.streamCode!,
+                          widget.config,
+                        )
+                      : 'All Streams',
+                ),
+              )
+              .toList()
+        : <EduTab>[];
+
+    // Header subtitle
+    final typeLabel = _typeLabel(group.type);
+    final subtitle = '${widget.year} · T${widget.term}';
+
+    return Stack(
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Header row ────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 8, 8, 0),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.chevron_left, size: 22),
+                    onPressed: widget.onBack,
+                    tooltip: 'Back',
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  const SizedBox(width: 2),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          typeLabel,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            color: cs.onSurface,
+                          ),
+                        ),
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (_canManage)
+                    IconButton(
+                      icon: Icon(
+                        Icons.delete_outline_rounded,
+                        size: 18,
+                        color: cs.error.withValues(alpha: 0.6),
+                      ),
+                      onPressed: () => _confirmDeleteGroup(context),
+                      tooltip: 'Delete exam',
+                      visualDensity: VisualDensity.compact,
+                    ),
+                ],
+              ),
+            ),
+            // ── Grade tabs ─────────────────────────────────────────────────
+            if (gradeTabs.isNotEmpty)
+              EduTabBar(
+                controller: _gradeTabController,
+                tabs: gradeTabs,
+                isScrollable: true,
+                padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
+              ),
+            // ── Stream sub-tabs ────────────────────────────────────────────
+            if (streamTabs.isNotEmpty && _streamTabController != null)
+              EduTabBar(
+                controller: _streamTabController!,
+                tabs: streamTabs,
+                isScrollable: true,
+                padding: const EdgeInsets.fromLTRB(16, 2, 16, 4),
+              ),
+            // ── Paper status legend ────────────────────────────────────────
+            if (_currentStreamEntry != null)
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 4, 16, 0),
+                child: _PaperStatusLegend(),
+              ),
+            // ── Paper content area ─────────────────────────────────────────
+            Expanded(
+              child: _currentStreamEntry == null
+                  ? _EmptyPapersTimetableState(cs: cs)
+                  : _PaperContentArea(
+                      streamEntry: _currentStreamEntry!,
+                      schoolId: widget.schoolId,
+                      config: widget.config,
+                      teacherNames: _teacherNames,
+                      dao: _dao,
+                      canManage: _canManage,
+                      onPaperTap: widget.onPaperTap,
+                    ),
+            ),
+          ],
+        ),
+        // ── Expandable FAB (manage-only) ───────────────────────────────────
+        if (_canManage)
+          Positioned(
+            right: 12,
+            bottom: 16,
+            child: _ExpandableFab(
+              paperEnabled: _currentStreamEntry != null,
+              onAddPaper: () => _showAddPaper(context),
+              onAddGrade: () => _showAddGradeModal(context),
+              onAddStream: () => _showAddStreamModal(context),
+            ),
+          ),
+      ],
+    );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Exam card
+// Add Stream to Exam — Dialog (desktop ≥600px)
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _ExamCard extends StatelessWidget {
-  const _ExamCard({
-    required this.ep,
+class _AddStreamToExamDialog extends StatelessWidget {
+  const _AddStreamToExamDialog({
+    required this.group,
+    required this.schoolId,
+    required this.year,
+    required this.term,
     required this.config,
-    required this.cs,
-    required this.canManage,
-    required this.onTap,
-    required this.onDelete,
+    required this.dao,
+    required this.subjectsDao,
+    required this.membersDao,
   });
-  final ExamWithPapers ep;
+
+  final ExamGroup group;
+  final String schoolId;
+  final int year;
+  final int term;
   final SchoolConfig config;
-  final ColorScheme cs;
-  final bool canManage;
-  final VoidCallback onTap;
-  final VoidCallback? onDelete;
+  final ExamsGradesDao dao;
+  final SubjectsDao subjectsDao;
+  final MembersDao membersDao;
 
   @override
   Widget build(BuildContext context) {
-    final exam = ep.exam;
-    final gradeLabel = _gradeLabel(exam.grade, config);
-    final streamLabel = exam.stream != null
-        ? _streamLabel(exam.grade, exam.stream!, config)
-        : 'All Streams';
-    final typeColor = _typeColor(exam.type, cs);
-    final typeLabel = _typeLabel(exam.type);
-    final startDate = DateTime.fromMillisecondsSinceEpoch(
-      exam.start * 86400 * 1000,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark
+                ? const Color(0xFF18222E)
+                : Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: _AddStreamForm(
+              group: group,
+              schoolId: schoolId,
+              year: year,
+              term: term,
+              config: config,
+              dao: dao,
+              subjectsDao: subjectsDao,
+              membersDao: membersDao,
+              onClose: () => Navigator.of(context).pop(),
+            ),
+          ),
+        ),
+      ),
     );
-    final endDate = DateTime.fromMillisecondsSinceEpoch(
-      exam.end * 86400 * 1000,
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Add Stream to Exam — Sheet (mobile <600px)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _AddStreamToExamSheet extends StatelessWidget {
+  const _AddStreamToExamSheet({
+    required this.group,
+    required this.schoolId,
+    required this.year,
+    required this.term,
+    required this.config,
+    required this.dao,
+    required this.subjectsDao,
+    required this.membersDao,
+  });
+
+  final ExamGroup group;
+  final String schoolId;
+  final int year;
+  final int term;
+  final SchoolConfig config;
+  final ExamsGradesDao dao;
+  final SubjectsDao subjectsDao;
+  final MembersDao membersDao;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark
+              ? const Color(0xFF18222E)
+              : Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        child: _AddStreamForm(
+          group: group,
+          schoolId: schoolId,
+          year: year,
+          term: term,
+          config: config,
+          dao: dao,
+          subjectsDao: subjectsDao,
+          membersDao: membersDao,
+          onClose: () => Navigator.of(context).pop(),
+          isSheet: true,
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Add Stream to Exam — Shared Form
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A single-step form for adding missing streams to an existing grade within
+/// an exam group.  The user picks a grade (skipped when only one grade has
+/// missing streams), then picks which missing stream(s) to add, configures
+/// papers per stream, and saves.
+class _AddStreamForm extends StatefulWidget {
+  const _AddStreamForm({
+    required this.group,
+    required this.schoolId,
+    required this.year,
+    required this.term,
+    required this.config,
+    required this.dao,
+    required this.subjectsDao,
+    required this.membersDao,
+    required this.onClose,
+    this.isSheet = false,
+  });
+
+  final ExamGroup group;
+  final String schoolId;
+  final int year;
+  final int term;
+  final SchoolConfig config;
+  final ExamsGradesDao dao;
+  final SubjectsDao subjectsDao;
+  final MembersDao membersDao;
+  final VoidCallback onClose;
+  final bool isSheet;
+
+  @override
+  State<_AddStreamForm> createState() => _AddStreamFormState();
+}
+
+class _AddStreamFormState extends State<_AddStreamForm> {
+  // ── Grade selection ────────────────────────────────────────────────────────
+  // The grade index currently being configured (index into _gradesWithMissing).
+  int _selectedGradeIndex = 0;
+
+  // ── Stream dropdown overlay ────────────────────────────────────────────────
+  // The stream code currently shown in the paper-config area.
+  int? _activeStreamCode; // null = no stream selected yet
+
+  // ── Paper slot state ───────────────────────────────────────────────────────
+  // Slots keyed by stream code; streams with no slots are still saveable (no papers).
+  final Map<int?, List<_GradePaperSlot>> _paperSlots = {};
+
+  // ── Subject / teacher loading ──────────────────────────────────────────────
+  final Map<int?, List<({Subject subject, UsersData teacher})>> _subjects = {};
+  final Map<int?, bool> _loadingSubjects = {};
+  List<({TeachersData teacher, UsersData user})> _teachers = [];
+  bool _teachersLoaded = false;
+
+  // ── Misc ───────────────────────────────────────────────────────────────────
+  bool _saving = false;
+
+  // ── Overlay for stream dropdown ────────────────────────────────────────────
+  OverlayEntry? _streamOverlay;
+  final GlobalKey _streamTriggerKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTeachers();
+    // Auto-select first grade with missing streams
+    final grades = _gradesWithMissing;
+    if (grades.isNotEmpty) {
+      // Auto-select first available stream for that grade
+      final missing = _missingStreamsForGrade(grades[0].grade);
+      if (missing.isNotEmpty) {
+        _activeStreamCode = missing.first;
+        _loadSubjectsForStream(grades[0].grade, missing.first);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _closeStreamOverlay();
+    super.dispose();
+  }
+
+  // ── Data helpers ──────────────────────────────────────────────────────────
+
+  /// Grades that already participate in the exam group AND still have at
+  /// least one stream missing from the group.
+  List<GradeConfig> get _gradesWithMissing {
+    final result = <GradeConfig>[];
+    for (final gradeEntry in widget.group.grades) {
+      final gc = _gradeConfigFor(gradeEntry.grade);
+      if (gc == null) continue;
+      if (_missingStreamsForGrade(gradeEntry.grade).isNotEmpty) {
+        result.add(gc);
+      }
+    }
+    return result;
+  }
+
+  GradeConfig? _gradeConfigFor(int grade) {
+    for (final curriculum in widget.config.curricula) {
+      final gc = curriculum.grades.where((g) => g.grade == grade).firstOrNull;
+      if (gc != null) return gc;
+    }
+    return null;
+  }
+
+  /// Stream codes present in the config but NOT yet in the exam group for
+  /// the given grade.
+  List<int?> _missingStreamsForGrade(int grade) {
+    final gc = _gradeConfigFor(grade);
+    if (gc == null) return [];
+    // Find streams already in the group for this grade
+    final existing = <int?>{};
+    for (final gradeEntry in widget.group.grades) {
+      if (gradeEntry.grade != grade) continue;
+      for (final se in gradeEntry.streams) {
+        existing.add(se.streamCode);
+      }
+    }
+    if (gc.streams.isEmpty) {
+      // No-stream grade — already covered if null is in existing
+      if (existing.contains(null)) return [];
+      return [null];
+    }
+    return gc.streams
+        .map((s) => s.code as int?)
+        .where((c) => !existing.contains(c))
+        .toList();
+  }
+
+  GradeConfig? get _currentGradeConfig {
+    final grades = _gradesWithMissing;
+    if (grades.isEmpty) return null;
+    final idx = _selectedGradeIndex.clamp(0, grades.length - 1);
+    return grades[idx];
+  }
+
+  int? get _currentGrade => _currentGradeConfig?.grade;
+
+  List<int?> get _currentMissingStreams {
+    final grade = _currentGrade;
+    if (grade == null) return [];
+    return _missingStreamsForGrade(grade);
+  }
+
+  String _streamName(int grade, int? streamCode) {
+    if (streamCode == null) return 'All Streams';
+    return _streamLabel(grade, streamCode, widget.config);
+  }
+
+  List<DateTime> get _examDays {
+    final start = DateTime.fromMillisecondsSinceEpoch(
+      widget.group.start * 86400 * 1000,
+      isUtc: true,
+    );
+    final end = DateTime.fromMillisecondsSinceEpoch(
+      widget.group.end * 86400 * 1000,
+      isUtc: true,
+    );
+    final days = <DateTime>[];
+    var d = DateTime(start.year, start.month, start.day);
+    final endLocal = DateTime(end.year, end.month, end.day);
+    while (!d.isAfter(endLocal)) {
+      days.add(d);
+      d = DateTime(d.year, d.month, d.day + 1);
+    }
+    return days;
+  }
+
+  List<_GradePaperSlot> _slotsFor(int? streamCode) =>
+      _paperSlots.putIfAbsent(streamCode, () => []);
+
+  // ── Loading ───────────────────────────────────────────────────────────────
+
+  Future<void> _loadTeachers() async {
+    try {
+      final teachersList = await widget.membersDao
+          .watchTeachers(widget.schoolId)
+          .first;
+      if (!mounted) return;
+      final results = <({TeachersData teacher, UsersData user})>[];
+      for (final t in teachersList) {
+        final user = await widget.membersDao.findUserById(t.user);
+        if (!mounted) return;
+        if (user != null) results.add((teacher: t, user: user));
+      }
+      if (mounted) {
+        setState(() {
+          _teachers = results
+            ..sort((a, b) => a.user.name.compareTo(b.user.name));
+          _teachersLoaded = true;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _teachersLoaded = true);
+    }
+  }
+
+  Future<void> _loadSubjectsForStream(int grade, int? streamCode) async {
+    if (_loadingSubjects[streamCode] == true ||
+        _subjects.containsKey(streamCode)) {
+      return;
+    }
+    setState(() => _loadingSubjects[streamCode] = true);
+    try {
+      final result = streamCode != null
+          ? await widget.subjectsDao.getSubjectsForClass(
+              schoolId: widget.schoolId,
+              year: widget.year,
+              term: widget.term,
+              grade: grade,
+              stream: streamCode,
+            )
+          : <({Subject subject, UsersData teacher})>[];
+      if (mounted) {
+        setState(() {
+          _subjects[streamCode] = result;
+          _loadingSubjects[streamCode] = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingSubjects[streamCode] = false);
+    }
+  }
+
+  // ── Auto-fill ─────────────────────────────────────────────────────────────
+
+  void _autoFillStream(int grade, int? streamCode) {
+    final subjs = _subjects[streamCode] ?? [];
+    if (subjs.isEmpty) return;
+    final days = _examDays;
+    if (days.isEmpty) return;
+
+    final slots = _slotsFor(streamCode);
+    slots.clear();
+
+    int dayIdx = 0;
+    int slotInDay = 0;
+    const maxPerDay = 3;
+    const durationMin = 120;
+
+    for (final s in subjs) {
+      if (dayIdx >= days.length) break;
+      final day = days[dayIdx];
+      final startMin = 8 * 60 + slotInDay * durationMin;
+      final endMin = startMin + durationMin;
+      slots.add(
+        _GradePaperSlot(
+          id: _generateId(),
+          date: day,
+          startTime: TimeOfDay(hour: startMin ~/ 60, minute: startMin % 60),
+          endTime: TimeOfDay(
+            hour: (endMin ~/ 60).clamp(0, 23),
+            minute: endMin % 60,
+          ),
+          subjectCode: s.subject.subject,
+          invigilatorId: s.subject.teacher,
+        ),
+      );
+      slotInDay++;
+      if (slotInDay >= maxPerDay) {
+        slotInDay = 0;
+        dayIdx++;
+      }
+    }
+    setState(() {});
+  }
+
+  void _autoFillAllStreams() {
+    final grade = _currentGrade;
+    if (grade == null) return;
+    for (final streamCode in _currentMissingStreams) {
+      _autoFillStream(grade, streamCode);
+    }
+  }
+
+  // ── Stream overlay ────────────────────────────────────────────────────────
+
+  void _closeStreamOverlay() {
+    _streamOverlay?.remove();
+    _streamOverlay = null;
+  }
+
+  void _toggleStreamOverlay(
+    BuildContext context,
+    ColorScheme cs,
+    bool isDark,
+    Color indigo,
+    int grade,
+    List<int?> streams,
+  ) {
+    if (_streamOverlay != null) {
+      _closeStreamOverlay();
+      return;
+    }
+
+    final renderBox =
+        _streamTriggerKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    final offset = renderBox.localToGlobal(Offset.zero);
+    final size = renderBox.size;
+
+    _streamOverlay = OverlayEntry(
+      builder: (ctx) => GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: _closeStreamOverlay,
+        child: Stack(
+          children: [
+            Positioned(
+              left: offset.dx,
+              top: offset.dy + size.height + 4,
+              width: size.width,
+              child: _StreamDropdownOverlay(
+                streams: streams,
+                current: _activeStreamCode,
+                grade: grade,
+                config: widget.config,
+                cs: cs,
+                isDark: isDark,
+                indigo: indigo,
+                onSelected: (code) {
+                  _closeStreamOverlay();
+                  if (code == null) {
+                    // "Auto-fill all streams" action
+                    _autoFillAllStreams();
+                  } else {
+                    setState(() => _activeStreamCode = code);
+                    _loadSubjectsForStream(grade, code);
+                  }
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
     );
 
-    return Material(
-      color: cs.surfaceContainerLowest,
-      borderRadius: BorderRadius.circular(AppTheme.kRadius),
-      elevation: 2,
-      shadowColor: cs.shadow.withValues(alpha: 0.08),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppTheme.kRadius),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: typeColor.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      typeLabel,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: typeColor,
-                        letterSpacing: 0.4,
+    Overlay.of(context).insert(_streamOverlay!);
+  }
+
+  // ── Save ──────────────────────────────────────────────────────────────────
+
+  Future<void> _save() async {
+    final grade = _currentGrade;
+    if (grade == null) return;
+    final accountId = cache.currentUser?.user.id;
+    if (accountId == null) return;
+
+    // Find the existing exam row for this grade (use first stream's exam as
+    // the template for school/year/term/type/dates/teacher fields).
+    final gradeEntry = widget.group.grades
+        .where((g) => g.grade == grade)
+        .firstOrNull;
+    if (gradeEntry == null) return;
+    final templateExam = gradeEntry.streams.first.exam;
+
+    setState(() => _saving = true);
+    try {
+      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
+      final entries = <ExamBatchEntry>[];
+
+      for (final streamCode in _currentMissingStreams) {
+        // Only include streams the user has configured OR explicitly wants
+        // (even with zero papers — they can add papers later).
+        final examId = _generateId();
+        final exam = ExamsCompanion(
+          id: Value(examId),
+          school: Value(widget.schoolId),
+          year: Value(widget.year),
+          term: Value(widget.term),
+          grade: Value(grade),
+          stream: Value(streamCode),
+          personalized: Value(templateExam.personalized),
+          type: Value(templateExam.type),
+          start: Value(templateExam.start),
+          end: Value(templateExam.end),
+          teacher: Value(templateExam.teacher),
+          created: Value(now),
+          updated: Value(now),
+        );
+
+        final papers = <PapersCompanion>[];
+        for (final slot in _slotsFor(streamCode)) {
+          if (slot.subjectCode == null) continue;
+          final startDt = DateTime(
+            slot.date.year,
+            slot.date.month,
+            slot.date.day,
+            slot.startTime.hour,
+            slot.startTime.minute,
+          );
+          final endDt = DateTime(
+            slot.date.year,
+            slot.date.month,
+            slot.date.day,
+            slot.endTime.hour,
+            slot.endTime.minute,
+          );
+          papers.add(
+            PapersCompanion(
+              school: Value(widget.schoolId),
+              exam: Value(examId),
+              subject: Value(slot.subjectCode!),
+              paper: const Value(null),
+              invigilator: Value(slot.invigilatorId ?? templateExam.teacher),
+              start: Value(BigInt.from(startDt.millisecondsSinceEpoch ~/ 1000)),
+              end: Value(BigInt.from(endDt.millisecondsSinceEpoch ~/ 1000)),
+              status: const Value(PaperStatus.pending),
+              created: Value(now),
+              updated: Value(now),
+            ),
+          );
+        }
+        entries.add((exam: exam, papers: papers));
+      }
+
+      if (entries.isNotEmpty) {
+        await widget.dao.createExamBatch(
+          entries: entries,
+          accountId: accountId,
+        );
+      }
+      if (mounted) widget.onClose();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to add streams: $e')));
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  // ── Build ─────────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final indigo = const Color(0xFF5C6BC0);
+
+    final grades = _gradesWithMissing;
+
+    // Empty state — all streams already included across all participating grades
+    if (grades.isEmpty) {
+      return _buildAllStreamsIncluded(cs, isDark);
+    }
+
+    final gc = _currentGradeConfig!;
+    final grade = gc.grade;
+    final missing = _missingStreamsForGrade(grade);
+    final activeCode = _activeStreamCode;
+    final activeSubjects = activeCode != null
+        ? (_subjects[activeCode] ?? [])
+        : <({Subject subject, UsersData teacher})>[];
+    final isLoading =
+        activeCode != null && _loadingSubjects[activeCode] == true;
+    final activeSlots = activeCode != null
+        ? _slotsFor(activeCode)
+        : <_GradePaperSlot>[];
+
+    // Set count badge: how many streams have ≥1 slot configured
+    final setCount = missing
+        .where((sc) => (_paperSlots[sc] ?? []).isNotEmpty)
+        .length;
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 620),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Drag handle (sheet only)
+          if (widget.isSheet) _buildDragHandle(cs),
+          // Header
+          _buildStreamHeader(cs, isDark, indigo, grade),
+          // Grade selector (only when multiple grades have missing streams)
+          if (grades.length > 1)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+              child: _buildGradeSelector(grades, cs, isDark, indigo),
+            ),
+          // Stream dropdown
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+            child: _buildStreamDropdownTrigger(
+              context,
+              missing,
+              grade,
+              setCount,
+              cs,
+              isDark,
+              indigo,
+            ),
+          ),
+          // Paper slot list for active stream
+          Flexible(
+            child: activeCode == null
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Text(
+                        'Select a stream above to configure papers.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  _ClassChip(label: '$gradeLabel · $streamLabel', cs: cs),
-                  const Spacer(),
-                  if (canManage && onDelete != null)
-                    _IconActionButton(
-                      icon: Icons.delete_outline,
-                      color: cs.error,
-                      onTap: onDelete!,
-                      tooltip: 'Delete',
+                  )
+                : isLoading
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
                     ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Text(
-                '${ep.teacher.name}',
-                style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w500,
-                  color: cs.onSurface,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '${_fmtDate(startDate)} – ${_fmtDate(endDate)}',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  _MetaBadge(
-                    icon: Icons.description_outlined,
-                    label:
-                        '${ep.papers.length} paper${ep.papers.length == 1 ? '' : 's'}',
-                    cs: cs,
+                  )
+                : activeSubjects.isEmpty && activeSlots.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Text(
+                        'No subjects assigned to this class yet.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  )
+                : ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                    shrinkWrap: true,
+                    children: [
+                      ...activeSlots.asMap().entries.map(
+                        (e) => _GradePaperSlotCard(
+                          key: ValueKey(e.value.id),
+                          slot: e.value,
+                          subjects: activeSubjects,
+                          teachers: _teachers,
+                          teachersLoaded: _teachersLoaded,
+                          config: widget.config,
+                          cs: cs,
+                          isDark: isDark,
+                          indigo: indigo,
+                          examDays: _examDays,
+                          onChanged: (_) => setState(() {}),
+                          onRemove: () {
+                            setState(() => activeSlots.remove(e.value));
+                          },
+                        ),
+                      ),
+                      _GradeAddPaperButton(
+                        cs: cs,
+                        isDark: isDark,
+                        indigo: indigo,
+                        onTap: () {
+                          final days = _examDays;
+                          if (days.isEmpty) return;
+                          final slots = _slotsFor(activeCode);
+                          TimeOfDay startTime;
+                          if (slots.isNotEmpty) {
+                            startTime = slots.last.endTime;
+                          } else {
+                            startTime = const TimeOfDay(hour: 8, minute: 0);
+                          }
+                          final endMin =
+                              startTime.hour * 60 + startTime.minute + 120;
+                          final usedSubjects = slots
+                              .map((s) => s.subjectCode)
+                              .toSet();
+                          int? autoSubject;
+                          String? autoInvig;
+                          for (final s in activeSubjects) {
+                            if (!usedSubjects.contains(s.subject.subject)) {
+                              autoSubject = s.subject.subject;
+                              autoInvig = s.subject.teacher;
+                              break;
+                            }
+                          }
+                          setState(() {
+                            slots.add(
+                              _GradePaperSlot(
+                                id: _generateId(),
+                                date: days.first,
+                                startTime: startTime,
+                                endTime: TimeOfDay(
+                                  hour: (endMin ~/ 60).clamp(0, 23),
+                                  minute: endMin % 60,
+                                ),
+                                subjectCode: autoSubject,
+                                invigilatorId: autoInvig,
+                              ),
+                            );
+                          });
+                        },
+                      ),
+                      if (activeSlots.isEmpty && activeSubjects.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8, bottom: 4),
+                          child: TextButton.icon(
+                            onPressed: () => _autoFillStream(grade, activeCode),
+                            icon: const Icon(
+                              Icons.auto_awesome_rounded,
+                              size: 15,
+                            ),
+                            label: const Text('Auto-fill from subjects'),
+                            style: TextButton.styleFrom(
+                              splashFactory: NoSplash.splashFactory,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 8),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  if (exam.personalized)
-                    _MetaBadge(
-                      icon: Icons.person_outline,
-                      label: 'Personalized',
+          ),
+          // Footer
+          _buildStreamFooter(cs, isDark, indigo),
+        ],
+      ),
+    );
+  }
+
+  // ── Sub-builders ──────────────────────────────────────────────────────────
+
+  Widget _buildDragHandle(ColorScheme cs) => Padding(
+    padding: const EdgeInsets.only(top: 10, bottom: 4),
+    child: Center(
+      child: Container(
+        width: 36,
+        height: 4,
+        decoration: BoxDecoration(
+          color: cs.outlineVariant.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+    ),
+  );
+
+  Widget _buildStreamHeader(
+    ColorScheme cs,
+    bool isDark,
+    Color indigo,
+    int grade,
+  ) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 14, 8, 4),
+    child: Row(
+      children: [
+        Text(
+          'Add Stream',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            color: cs.onSurface,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            _gradeLabel(grade, widget.config),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+            ),
+          ),
+        ),
+        const Spacer(),
+        IconButton(
+          icon: Icon(Icons.close_rounded, size: 18, color: cs.onSurfaceVariant),
+          onPressed: widget.onClose,
+          visualDensity: VisualDensity.compact,
+          style: IconButton.styleFrom(splashFactory: NoSplash.splashFactory),
+        ),
+      ],
+    ),
+  );
+
+  Widget _buildAllStreamsIncluded(ColorScheme cs, bool isDark) => Padding(
+    padding: const EdgeInsets.all(32),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          Icons.check_circle_outline_rounded,
+          size: 32,
+          color: const Color(0xFF5C6BC0).withValues(alpha: 0.4),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          'All streams included',
+          style: TextStyle(
+            fontSize: 13.5,
+            fontWeight: FontWeight.w500,
+            color: cs.onSurface,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Every stream for all participating grades is already in this exam.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 12,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+          ),
+        ),
+        const SizedBox(height: 20),
+        TextButton(
+          onPressed: widget.onClose,
+          style: TextButton.styleFrom(splashFactory: NoSplash.splashFactory),
+          child: const Text('Close'),
+        ),
+      ],
+    ),
+  );
+
+  Widget _buildGradeSelector(
+    List<GradeConfig> grades,
+    ColorScheme cs,
+    bool isDark,
+    Color indigo,
+  ) {
+    return Row(
+      children: grades.asMap().entries.map((e) {
+        final isSelected = _selectedGradeIndex == e.key;
+        final label = _gradeLabel(e.value.grade, widget.config);
+        return Padding(
+          padding: const EdgeInsets.only(right: 6),
+          child: GestureDetector(
+            onTap: () {
+              if (_selectedGradeIndex == e.key) return;
+              setState(() {
+                _selectedGradeIndex = e.key;
+                _activeStreamCode = null;
+              });
+              final missing = _missingStreamsForGrade(e.value.grade);
+              if (missing.isNotEmpty) {
+                setState(() => _activeStreamCode = missing.first);
+                _loadSubjectsForStream(e.value.grade, missing.first);
+              }
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 140),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? indigo.withValues(alpha: isDark ? 0.18 : 0.10)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: isSelected
+                      ? indigo.withValues(alpha: 0.55)
+                      : cs.outlineVariant.withValues(
+                          alpha: isDark ? 0.25 : 0.35,
+                        ),
+                  width: 1,
+                ),
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
+                  color: isSelected ? indigo : cs.onSurface,
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildStreamDropdownTrigger(
+    BuildContext context,
+    List<int?> streams,
+    int grade,
+    int setCount,
+    ColorScheme cs,
+    bool isDark,
+    Color indigo,
+  ) {
+    final activeCode = _activeStreamCode;
+    final hasActive = activeCode != null;
+    final label = hasActive ? _streamName(grade, activeCode) : 'Select stream…';
+
+    return GestureDetector(
+      key: _streamTriggerKey,
+      onTap: () =>
+          _toggleStreamOverlay(context, cs, isDark, indigo, grade, streams),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        curve: Curves.easeOutCubic,
+        height: 36,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: hasActive
+              ? indigo.withValues(alpha: isDark ? 0.12 : 0.07)
+              : (isDark
+                    ? const Color(0xFF1E2C3C)
+                    : cs.surfaceContainerHighest.withValues(alpha: 0.55)),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: hasActive
+                ? indigo.withValues(alpha: 0.55)
+                : cs.outlineVariant.withValues(alpha: isDark ? 0.25 : 0.4),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: hasActive ? FontWeight.w500 : FontWeight.w400,
+                color: hasActive ? indigo : cs.onSurfaceVariant,
+              ),
+            ),
+            const Spacer(),
+            if (setCount > 0)
+              Container(
+                margin: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: indigo.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '$setCount set',
+                  style: TextStyle(fontSize: 10.5, color: indigo),
+                ),
+              ),
+            Icon(
+              Icons.unfold_more_rounded,
+              size: 16,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStreamFooter(ColorScheme cs, bool isDark, Color indigo) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Divider(
+          height: 1,
+          thickness: 1,
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.2 : 0.35),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 12, 14),
+          child: Row(
+            children: [
+              const Spacer(),
+              TextButton(
+                onPressed: widget.onClose,
+                style: TextButton.styleFrom(
+                  splashFactory: NoSplash.splashFactory,
+                ),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+                ),
+              ),
+              const SizedBox(width: 8),
+              _GradeConfirmButton(
+                saving: _saving,
+                indigo: indigo,
+                onTap: _save,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stream dropdown overlay (macOS-style inline overlay)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _StreamDropdownOverlay extends StatefulWidget {
+  const _StreamDropdownOverlay({
+    required this.streams,
+    required this.current,
+    required this.grade,
+    required this.config,
+    required this.cs,
+    required this.isDark,
+    required this.indigo,
+    required this.onSelected,
+  });
+
+  final List<int?> streams;
+  final int? current;
+  final int grade;
+  final SchoolConfig config;
+  final ColorScheme cs;
+  final bool isDark;
+  final Color indigo;
+
+  /// Called with null for "auto-fill all streams", or a stream code to select.
+  final ValueChanged<int?> onSelected;
+
+  @override
+  State<_StreamDropdownOverlay> createState() => _StreamDropdownOverlayState();
+}
+
+class _StreamDropdownOverlayState extends State<_StreamDropdownOverlay>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _fade;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 120),
+    );
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic);
+    _scale = Tween<double>(
+      begin: 0.95,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  String _streamName(int? code) {
+    if (code == null) return 'All Streams';
+    return _streamLabel(widget.grade, code, widget.config);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final isDark = widget.isDark;
+    final indigo = widget.indigo;
+
+    return FadeTransition(
+      opacity: _fade,
+      child: ScaleTransition(
+        scale: _scale,
+        alignment: Alignment.topCenter,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E2A3A) : cs.surface,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: cs.outlineVariant.withValues(alpha: isDark ? 0.3 : 0.5),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.10),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Regular stream items
+                ...widget.streams.map((code) {
+                  final isSelected = code == widget.current;
+                  final label = _streamName(code);
+                  return InkWell(
+                    splashFactory: NoSplash.splashFactory,
+                    onTap: () => widget.onSelected(code),
+                    child: Container(
+                      height: 36,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        children: [
+                          Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: isSelected
+                                  ? FontWeight.w500
+                                  : FontWeight.w400,
+                              color: isSelected ? indigo : cs.onSurface,
+                            ),
+                          ),
+                          const Spacer(),
+                          if (isSelected)
+                            Icon(Icons.check_rounded, size: 14, color: indigo),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+                // Divider before special action
+                Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: cs.outlineVariant.withValues(
+                    alpha: isDark ? 0.2 : 0.35,
+                  ),
+                ),
+                // Auto-fill all streams action
+                InkWell(
+                  splashFactory: NoSplash.splashFactory,
+                  // Pass null to signal "auto-fill all"
+                  onTap: () => widget.onSelected(null),
+                  child: Container(
+                    height: 36,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      children: [
+                        Icon(Icons.bolt_rounded, size: 15, color: indigo),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Auto-fill all streams',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: indigo,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Add Grade to Exam — Dialog (desktop ≥600px)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _AddGradeToExamDialog extends StatelessWidget {
+  const _AddGradeToExamDialog({
+    required this.group,
+    required this.schoolId,
+    required this.year,
+    required this.term,
+    required this.config,
+    required this.dao,
+    required this.subjectsDao,
+    required this.membersDao,
+  });
+
+  final ExamGroup group;
+  final String schoolId;
+  final int year;
+  final int term;
+  final SchoolConfig config;
+  final ExamsGradesDao dao;
+  final SubjectsDao subjectsDao;
+  final MembersDao membersDao;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark
+                ? const Color(0xFF18222E)
+                : Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: _AddGradeToExamForm(
+              group: group,
+              schoolId: schoolId,
+              year: year,
+              term: term,
+              config: config,
+              dao: dao,
+              subjectsDao: subjectsDao,
+              membersDao: membersDao,
+              onClose: () => Navigator.of(context).pop(),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Add Grade to Exam — Sheet (mobile <600px)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _AddGradeToExamSheet extends StatelessWidget {
+  const _AddGradeToExamSheet({
+    required this.group,
+    required this.schoolId,
+    required this.year,
+    required this.term,
+    required this.config,
+    required this.dao,
+    required this.subjectsDao,
+    required this.membersDao,
+  });
+
+  final ExamGroup group;
+  final String schoolId;
+  final int year;
+  final int term;
+  final SchoolConfig config;
+  final ExamsGradesDao dao;
+  final SubjectsDao subjectsDao;
+  final MembersDao membersDao;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark
+              ? const Color(0xFF18222E)
+              : Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        child: _AddGradeToExamForm(
+          group: group,
+          schoolId: schoolId,
+          year: year,
+          term: term,
+          config: config,
+          dao: dao,
+          subjectsDao: subjectsDao,
+          membersDao: membersDao,
+          onClose: () => Navigator.of(context).pop(),
+          isSheet: true,
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Add Grade to Exam — Shared Form (two-step)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A two-step form for adding a new grade (+ streams) to an existing exam group.
+///
+/// Step 1: Grade selection + stream toggle checkboxes.
+/// Step 2: Per-stream paper timetable configuration.
+class _AddGradeToExamForm extends StatefulWidget {
+  const _AddGradeToExamForm({
+    required this.group,
+    required this.schoolId,
+    required this.year,
+    required this.term,
+    required this.config,
+    required this.dao,
+    required this.subjectsDao,
+    required this.membersDao,
+    required this.onClose,
+    this.isSheet = false,
+  });
+
+  final ExamGroup group;
+  final String schoolId;
+  final int year;
+  final int term;
+  final SchoolConfig config;
+  final ExamsGradesDao dao;
+  final SubjectsDao subjectsDao;
+  final MembersDao membersDao;
+  final VoidCallback onClose;
+  final bool isSheet;
+
+  @override
+  State<_AddGradeToExamForm> createState() => _AddGradeToExamFormState();
+}
+
+class _AddGradeToExamFormState extends State<_AddGradeToExamForm>
+    with SingleTickerProviderStateMixin {
+  // ── Step management ────────────────────────────────────────────────────────
+  int _step = 0; // 0 = grade+stream, 1 = paper timetable
+
+  // ── Step 1 state ──────────────────────────────────────────────────────────
+  int? _selectedGrade;
+  final Set<int?> _selectedStreams = {}; // null = no-stream grade
+
+  // ── Step 2 state ──────────────────────────────────────────────────────────
+  // Paper slots keyed by stream code (null for no-stream grades)
+  final Map<int?, List<_GradePaperSlot>> _paperSlots = {};
+  // Subjects loaded per stream
+  final Map<int?, List<({Subject subject, UsersData teacher})>> _subjects = {};
+  final Map<int?, bool> _loadingSubjects = {};
+  // Active stream being configured in step 2
+  int _activeStreamTabIndex = 0;
+  // Teachers for invigilator picker
+  List<({TeachersData teacher, UsersData user})> _teachers = [];
+  bool _teachersLoaded = false;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTeachers();
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  /// All grades in the school config that are NOT already in the exam group.
+  List<GradeConfig> get _availableGrades {
+    final existing = widget.group.participatingGrades.toSet();
+    final result = <GradeConfig>[];
+    for (final curriculum in widget.config.curricula) {
+      for (final gc in curriculum.grades) {
+        if (!existing.contains(gc.grade)) result.add(gc);
+      }
+    }
+    return result;
+  }
+
+  /// Stream codes for the selected grade, or [null] in a singleton list if
+  /// the grade has no streams.
+  List<int?> get _streamsForSelected {
+    if (_selectedGrade == null) return [];
+    for (final curriculum in widget.config.curricula) {
+      final gc = curriculum.grades
+          .where((g) => g.grade == _selectedGrade)
+          .firstOrNull;
+      if (gc != null) {
+        if (gc.streams.isEmpty) return [null];
+        return gc.streams.map((s) => s.code as int?).toList();
+      }
+    }
+    return [];
+  }
+
+  String _streamName(int grade, int? streamCode) {
+    if (streamCode == null) return 'All Streams';
+    return _streamLabel(grade, streamCode, widget.config);
+  }
+
+  Future<void> _loadTeachers() async {
+    try {
+      final teachersList = await widget.membersDao
+          .watchTeachers(widget.schoolId)
+          .first;
+      if (!mounted) return;
+      final results = <({TeachersData teacher, UsersData user})>[];
+      for (final t in teachersList) {
+        final user = await widget.membersDao.findUserById(t.user);
+        if (!mounted) return;
+        if (user != null) results.add((teacher: t, user: user));
+      }
+      if (mounted) {
+        setState(() {
+          _teachers = results
+            ..sort((a, b) => a.user.name.compareTo(b.user.name));
+          _teachersLoaded = true;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _teachersLoaded = true);
+    }
+  }
+
+  Future<void> _loadSubjectsForStream(int grade, int? streamCode) async {
+    if (_loadingSubjects[streamCode] == true ||
+        _subjects.containsKey(streamCode)) {
+      return;
+    }
+    setState(() => _loadingSubjects[streamCode] = true);
+    try {
+      final result = streamCode != null
+          ? await widget.subjectsDao.getSubjectsForClass(
+              schoolId: widget.schoolId,
+              year: widget.year,
+              term: widget.term,
+              grade: grade,
+              stream: streamCode,
+            )
+          : <({Subject subject, UsersData teacher})>[];
+      if (mounted) {
+        setState(() {
+          _subjects[streamCode] = result;
+          _loadingSubjects[streamCode] = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingSubjects[streamCode] = false);
+    }
+  }
+
+  List<_GradePaperSlot> _slotsFor(int? streamCode) {
+    return _paperSlots.putIfAbsent(streamCode, () => []);
+  }
+
+  List<DateTime> get _examDays {
+    final start = DateTime.fromMillisecondsSinceEpoch(
+      widget.group.start * 86400 * 1000,
+      isUtc: true,
+    );
+    final end = DateTime.fromMillisecondsSinceEpoch(
+      widget.group.end * 86400 * 1000,
+      isUtc: true,
+    );
+    final days = <DateTime>[];
+    var d = DateTime(start.year, start.month, start.day);
+    final endLocal = DateTime(end.year, end.month, end.day);
+    while (!d.isAfter(endLocal)) {
+      days.add(d);
+      d = DateTime(d.year, d.month, d.day + 1);
+    }
+    return days;
+  }
+
+  void _autoFillStream(int? streamCode) {
+    final grade = _selectedGrade;
+    if (grade == null) return;
+    final subjs = _subjects[streamCode] ?? [];
+    if (subjs.isEmpty) return;
+    final days = _examDays;
+    if (days.isEmpty) return;
+
+    final slots = _slotsFor(streamCode);
+    slots.clear();
+
+    int dayIdx = 0;
+    int slotInDay = 0;
+    const maxPerDay = 3;
+    const durationMin = 120;
+
+    for (final s in subjs) {
+      if (dayIdx >= days.length) break;
+      final day = days[dayIdx];
+      final startMin = 8 * 60 + slotInDay * durationMin;
+      final endMin = startMin + durationMin;
+      slots.add(
+        _GradePaperSlot(
+          id: _generateId(),
+          date: day,
+          startTime: TimeOfDay(hour: startMin ~/ 60, minute: startMin % 60),
+          endTime: TimeOfDay(
+            hour: (endMin ~/ 60).clamp(0, 23),
+            minute: endMin % 60,
+          ),
+          subjectCode: s.subject.subject,
+          invigilatorId: s.subject.teacher,
+        ),
+      );
+      slotInDay++;
+      if (slotInDay >= maxPerDay) {
+        slotInDay = 0;
+        dayIdx++;
+      }
+    }
+    setState(() {});
+  }
+
+  // ── Step transitions ───────────────────────────────────────────────────────
+
+  void _goToStep2() {
+    if (_selectedGrade == null || _selectedStreams.isEmpty) return;
+    // Pre-load subjects for all selected streams
+    for (final sc in _selectedStreams) {
+      _loadSubjectsForStream(_selectedGrade!, sc);
+    }
+    setState(() {
+      _step = 1;
+      _activeStreamTabIndex = 0;
+    });
+  }
+
+  void _goBackToStep1() {
+    setState(() => _step = 0);
+  }
+
+  // ── Save ──────────────────────────────────────────────────────────────────
+
+  Future<void> _save() async {
+    final grade = _selectedGrade;
+    if (grade == null) return;
+    final accountId = cache.currentUser?.user.id;
+    if (accountId == null) return;
+
+    setState(() => _saving = true);
+    try {
+      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
+      final teacherId = widget.group.teacher.id;
+      final entries = <ExamBatchEntry>[];
+
+      for (final streamCode in _selectedStreams) {
+        final examId = _generateId();
+        final exam = ExamsCompanion(
+          id: Value(examId),
+          school: Value(widget.schoolId),
+          year: Value(widget.year),
+          term: Value(widget.term),
+          grade: Value(grade),
+          stream: Value(streamCode),
+          personalized: Value(widget.group.personalized),
+          type: Value(widget.group.type),
+          start: Value(widget.group.start),
+          end: Value(widget.group.end),
+          teacher: Value(teacherId),
+          created: Value(now),
+          updated: Value(now),
+        );
+
+        final papers = <PapersCompanion>[];
+        for (final slot in _slotsFor(streamCode)) {
+          if (slot.subjectCode == null) continue;
+          final startDt = DateTime(
+            slot.date.year,
+            slot.date.month,
+            slot.date.day,
+            slot.startTime.hour,
+            slot.startTime.minute,
+          );
+          final endDt = DateTime(
+            slot.date.year,
+            slot.date.month,
+            slot.date.day,
+            slot.endTime.hour,
+            slot.endTime.minute,
+          );
+          papers.add(
+            PapersCompanion(
+              school: Value(widget.schoolId),
+              exam: Value(examId),
+              subject: Value(slot.subjectCode!),
+              paper: const Value(null),
+              invigilator: Value(slot.invigilatorId ?? teacherId),
+              start: Value(BigInt.from(startDt.millisecondsSinceEpoch ~/ 1000)),
+              end: Value(BigInt.from(endDt.millisecondsSinceEpoch ~/ 1000)),
+              status: const Value(PaperStatus.pending),
+              created: Value(now),
+              updated: Value(now),
+            ),
+          );
+        }
+        entries.add((exam: exam, papers: papers));
+      }
+
+      if (entries.isNotEmpty) {
+        await widget.dao.createExamBatch(
+          entries: entries,
+          accountId: accountId,
+        );
+      }
+      if (mounted) widget.onClose();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to add grade: $e')));
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  // ── Build ─────────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final indigo = const Color(0xFF5C6BC0);
+
+    final available = _availableGrades;
+
+    // Empty state — all grades already included
+    if (available.isEmpty) {
+      return _buildAllGradesIncluded(cs, isDark);
+    }
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 600),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (widget.isSheet) _buildDragHandle(cs),
+          // Header
+          _buildHeader(cs, isDark, indigo),
+          // Step indicator
+          _GradeStepDots(step: _step, indigo: indigo, cs: cs),
+          const SizedBox(height: 8),
+          // Step content
+          Flexible(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              switchInCurve: Curves.easeOutCubic,
+              child: _step == 0
+                  ? _buildStep1(cs, isDark, indigo, available)
+                  : _buildStep2(cs, isDark, indigo),
+            ),
+          ),
+          // Footer
+          _buildFooter(cs, isDark, indigo),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDragHandle(ColorScheme cs) => Padding(
+    padding: const EdgeInsets.only(top: 10, bottom: 4),
+    child: Center(
+      child: Container(
+        width: 36,
+        height: 4,
+        decoration: BoxDecoration(
+          color: cs.outlineVariant.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+    ),
+  );
+
+  Widget _buildHeader(ColorScheme cs, bool isDark, Color indigo) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 14, 8, 4),
+    child: Row(
+      children: [
+        Text(
+          _step == 0 ? 'Add Grade' : 'Paper Timetable',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            color: cs.onSurface,
+          ),
+        ),
+        const Spacer(),
+        IconButton(
+          icon: Icon(Icons.close_rounded, size: 18, color: cs.onSurfaceVariant),
+          onPressed: widget.onClose,
+          visualDensity: VisualDensity.compact,
+          style: IconButton.styleFrom(splashFactory: NoSplash.splashFactory),
+        ),
+      ],
+    ),
+  );
+
+  Widget _buildAllGradesIncluded(ColorScheme cs, bool isDark) => Padding(
+    padding: const EdgeInsets.all(32),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          Icons.check_circle_outline_rounded,
+          size: 32,
+          color: const Color(0xFF5C6BC0).withValues(alpha: 0.4),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          'All grades included',
+          style: TextStyle(
+            fontSize: 13.5,
+            fontWeight: FontWeight.w500,
+            color: cs.onSurface,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'This exam already covers all configured grades.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 12,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+          ),
+        ),
+        const SizedBox(height: 20),
+        TextButton(
+          onPressed: widget.onClose,
+          style: TextButton.styleFrom(splashFactory: NoSplash.splashFactory),
+          child: const Text('Close'),
+        ),
+      ],
+    ),
+  );
+
+  // ── Step 1 ────────────────────────────────────────────────────────────────
+
+  Widget _buildStep1(
+    ColorScheme cs,
+    bool isDark,
+    Color indigo,
+    List<GradeConfig> available,
+  ) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Select grade',
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+            ),
+          ),
+          const SizedBox(height: 6),
+          // Grade option rows
+          ...available.map(
+            (gc) => _buildGradeOptionRow(gc, cs, isDark, indigo),
+          ),
+          if (_selectedGrade != null && _streamsForSelected.length > 1) ...[
+            const SizedBox(height: 14),
+            Text(
+              'Select streams',
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w500,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(height: 6),
+            ..._streamsForSelected.map(
+              (sc) => _buildStreamToggleRow(sc, cs, isDark, indigo),
+            ),
+          ],
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGradeOptionRow(
+    GradeConfig gc,
+    ColorScheme cs,
+    bool isDark,
+    Color indigo,
+  ) {
+    final isSelected = _selectedGrade == gc.grade;
+    final streamCount = gc.streams.length;
+    final label = _gradeLabel(gc.grade, widget.config);
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedGrade = gc.grade;
+          _selectedStreams.clear();
+          // Auto-select all streams (or null if no-stream grade)
+          if (gc.streams.isEmpty) {
+            _selectedStreams.add(null);
+          } else {
+            _selectedStreams.addAll(gc.streams.map((s) => s.code as int?));
+          }
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        curve: Curves.easeOutCubic,
+        margin: const EdgeInsets.only(bottom: 5),
+        height: 36,
+        decoration: BoxDecoration(
+          color: isSelected
+              ? indigo.withValues(alpha: isDark ? 0.18 : 0.10)
+              : (isDark
+                    ? const Color(0xFF1A2536)
+                    : cs.surfaceContainerHighest.withValues(alpha: 0.5)),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: isSelected
+                ? indigo.withValues(alpha: 0.55)
+                : cs.outlineVariant.withValues(alpha: isDark ? 0.25 : 0.35),
+            width: 1,
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
+                color: isSelected ? indigo : cs.onSurface,
+              ),
+            ),
+            const Spacer(),
+            if (streamCount > 0)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '$streamCount ${streamCount == 1 ? "stream" : "streams"}',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStreamToggleRow(
+    int? streamCode,
+    ColorScheme cs,
+    bool isDark,
+    Color indigo,
+  ) {
+    final grade = _selectedGrade!;
+    final isChecked = _selectedStreams.contains(streamCode);
+    final name = _streamName(grade, streamCode);
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          if (isChecked) {
+            _selectedStreams.remove(streamCode);
+          } else {
+            _selectedStreams.add(streamCode);
+          }
+        });
+      },
+      child: Container(
+        height: 32,
+        margin: const EdgeInsets.only(bottom: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        child: Row(
+          children: [
+            // Custom 16×16 checkbox
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 140),
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(
+                color: isChecked ? indigo : Colors.transparent,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: isChecked
+                      ? indigo
+                      : cs.outlineVariant.withValues(alpha: 0.6),
+                  width: 1.5,
+                ),
+              ),
+              child: isChecked
+                  ? const Icon(
+                      Icons.check_rounded,
+                      size: 11,
+                      color: Colors.white,
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 10),
+            Text(
+              name,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isChecked ? FontWeight.w500 : FontWeight.w400,
+                color: cs.onSurface,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Step 2 ────────────────────────────────────────────────────────────────
+
+  Widget _buildStep2(ColorScheme cs, bool isDark, Color indigo) {
+    final grade = _selectedGrade!;
+    final streams = _selectedStreams.toList();
+    final hasMultipleStreams = streams.length > 1;
+    final currentStreamCode = streams.isNotEmpty
+        ? streams[_activeStreamTabIndex.clamp(0, streams.length - 1)]
+        : null;
+    final currentSlots = _slotsFor(currentStreamCode);
+    final currentSubjects = _subjects[currentStreamCode] ?? [];
+    final isLoading = _loadingSubjects[currentStreamCode] == true;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Stream selector (when multiple streams)
+        if (hasMultipleStreams)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            child: _buildStreamDropdown(streams, grade, cs, isDark, indigo),
+          ),
+        // Slots list
+        Flexible(
+          child: isLoading
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                )
+              : currentSubjects.isEmpty && currentSlots.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Text(
+                      'No subjects assigned to this class yet.',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: cs.onSurfaceVariant,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                )
+              : ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  shrinkWrap: true,
+                  children: [
+                    ...currentSlots.asMap().entries.map(
+                      (e) => _GradePaperSlotCard(
+                        key: ValueKey(e.value.id),
+                        slot: e.value,
+                        subjects: currentSubjects,
+                        teachers: _teachers,
+                        teachersLoaded: _teachersLoaded,
+                        config: widget.config,
+                        cs: cs,
+                        isDark: isDark,
+                        indigo: indigo,
+                        examDays: _examDays,
+                        onChanged: (_) => setState(() {}),
+                        onRemove: () {
+                          setState(() => currentSlots.remove(e.value));
+                        },
+                      ),
+                    ),
+                    // Add paper dashed button
+                    _GradeAddPaperButton(
                       cs: cs,
+                      isDark: isDark,
+                      indigo: indigo,
+                      onTap: () {
+                        final days = _examDays;
+                        if (days.isEmpty) return;
+                        final slots = _slotsFor(currentStreamCode);
+                        // Chain from last slot's end time
+                        TimeOfDay startTime;
+                        if (slots.isNotEmpty) {
+                          startTime = slots.last.endTime;
+                        } else {
+                          startTime = const TimeOfDay(hour: 8, minute: 0);
+                        }
+                        final endMin =
+                            startTime.hour * 60 + startTime.minute + 120;
+                        // Auto-assign first unassigned subject
+                        final usedSubjects = slots
+                            .map((s) => s.subjectCode)
+                            .toSet();
+                        int? autoSubject;
+                        String? autoInvig;
+                        for (final s in currentSubjects) {
+                          if (!usedSubjects.contains(s.subject.subject)) {
+                            autoSubject = s.subject.subject;
+                            autoInvig = s.subject.teacher;
+                            break;
+                          }
+                        }
+                        setState(() {
+                          slots.add(
+                            _GradePaperSlot(
+                              id: _generateId(),
+                              date: days.first,
+                              startTime: startTime,
+                              endTime: TimeOfDay(
+                                hour: (endMin ~/ 60).clamp(0, 23),
+                                minute: endMin % 60,
+                              ),
+                              subjectCode: autoSubject,
+                              invigilatorId: autoInvig,
+                            ),
+                          );
+                        });
+                      },
                     ),
-                ],
+                    if (currentSlots.isEmpty && currentSubjects.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8, bottom: 4),
+                        child: TextButton.icon(
+                          onPressed: () => _autoFillStream(currentStreamCode),
+                          icon: const Icon(
+                            Icons.auto_awesome_rounded,
+                            size: 15,
+                          ),
+                          label: const Text('Auto-fill from subjects'),
+                          style: TextButton.styleFrom(
+                            splashFactory: NoSplash.splashFactory,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStreamDropdown(
+    List<int?> streams,
+    int grade,
+    ColorScheme cs,
+    bool isDark,
+    Color indigo,
+  ) {
+    final currentIdx = _activeStreamTabIndex.clamp(0, streams.length - 1);
+    final currentCode = streams[currentIdx];
+    final label = _streamName(grade, currentCode);
+    // Show set count badge
+    final setCounts = streams
+        .where((sc) => (_paperSlots[sc] ?? []).isNotEmpty)
+        .length;
+
+    return GestureDetector(
+      onTap: () async {
+        // Show a simple overlay-style picker
+        final chosen = await showDialog<int?>(
+          context: context,
+          barrierColor: Colors.transparent,
+          builder: (_) => _GradeStreamPickerDialog(
+            streams: streams,
+            current: currentCode,
+            grade: grade,
+            config: widget.config,
+            cs: cs,
+            isDark: isDark,
+          ),
+        );
+        if (chosen == null) return;
+        final idx = streams.indexOf(chosen);
+        if (idx >= 0) setState(() => _activeStreamTabIndex = idx);
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        height: 36,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: isDark
+              ? const Color(0xFF1E2C3C)
+              : cs.surfaceContainerHighest.withValues(alpha: 0.55),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: cs.outlineVariant.withValues(alpha: isDark ? 0.25 : 0.4),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurface,
+              ),
+            ),
+            const Spacer(),
+            if (setCounts > 0)
+              Container(
+                margin: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: indigo.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '$setCounts set',
+                  style: TextStyle(fontSize: 10.5, color: indigo),
+                ),
+              ),
+            Icon(
+              Icons.unfold_more_rounded,
+              size: 16,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Footer ────────────────────────────────────────────────────────────────
+
+  Widget _buildFooter(ColorScheme cs, bool isDark, Color indigo) {
+    final canGoNext = _selectedGrade != null && _selectedStreams.isNotEmpty;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Divider(
+          height: 1,
+          thickness: 1,
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.2 : 0.35),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 12, 14),
+          child: Row(
+            children: [
+              if (_step == 1)
+                IconButton(
+                  icon: const Icon(Icons.chevron_left, size: 22),
+                  onPressed: _goBackToStep1,
+                  visualDensity: VisualDensity.compact,
+                  style: IconButton.styleFrom(
+                    splashFactory: NoSplash.splashFactory,
+                  ),
+                  tooltip: 'Back',
+                ),
+              const Spacer(),
+              TextButton(
+                onPressed: widget.onClose,
+                style: TextButton.styleFrom(
+                  splashFactory: NoSplash.splashFactory,
+                ),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (_step == 0)
+                _GradeNextButton(
+                  enabled: canGoNext,
+                  indigo: indigo,
+                  onTap: _goToStep2,
+                )
+              else
+                _GradeConfirmButton(
+                  saving: _saving,
+                  indigo: indigo,
+                  onTap: _save,
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Step indicator dots
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _GradeStepDots extends StatelessWidget {
+  const _GradeStepDots({
+    required this.step,
+    required this.indigo,
+    required this.cs,
+  });
+
+  final int step;
+  final Color indigo;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [_dot(0), const SizedBox(width: 6), _dot(1)],
+    );
+  }
+
+  Widget _dot(int index) {
+    final isActive = index == step;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 140),
+      width: 8,
+      height: 8,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: isActive ? indigo : Colors.transparent,
+        border: Border.all(
+          color: isActive ? indigo : cs.outlineVariant.withValues(alpha: 0.6),
+          width: 1.5,
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Next button (step 1 → step 2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _GradeNextButton extends StatelessWidget {
+  const _GradeNextButton({
+    required this.enabled,
+    required this.indigo,
+    required this.onTap,
+  });
+
+  final bool enabled;
+  final Color indigo;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        height: 36,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: enabled ? indigo : indigo.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Next',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: enabled ? Colors.white : Colors.white60,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 18,
+              color: enabled ? Colors.white : Colors.white60,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Confirm button (step 2 save)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _GradeConfirmButton extends StatelessWidget {
+  const _GradeConfirmButton({
+    required this.saving,
+    required this.indigo,
+    required this.onTap,
+  });
+
+  final bool saving;
+  final Color indigo;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: (saving || onTap == null) ? null : onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: (saving || onTap == null)
+              ? AppTheme.brandGreen.withValues(alpha: 0.4)
+              : AppTheme.brandGreen,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Center(
+          child: saving
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Icon(Icons.check_rounded, size: 18, color: Colors.white),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Paper slot data class (local to Add Grade / Add Stream modals)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _GradePaperSlot {
+  String id;
+  DateTime date;
+  TimeOfDay startTime;
+  TimeOfDay endTime;
+  int? subjectCode;
+  String? invigilatorId;
+
+  _GradePaperSlot({
+    required this.id,
+    required this.date,
+    this.startTime = const TimeOfDay(hour: 8, minute: 0),
+    this.endTime = const TimeOfDay(hour: 10, minute: 0),
+    this.subjectCode,
+    this.invigilatorId,
+  });
+
+  Duration get duration {
+    final startMin = startTime.hour * 60 + startTime.minute;
+    final endMin = endTime.hour * 60 + endTime.minute;
+    return Duration(minutes: endMin - startMin);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Paper slot card for the Add Grade / Add Stream modals
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _GradePaperSlotCard extends StatefulWidget {
+  const _GradePaperSlotCard({
+    super.key,
+    required this.slot,
+    required this.subjects,
+    required this.teachers,
+    required this.teachersLoaded,
+    required this.config,
+    required this.cs,
+    required this.isDark,
+    required this.indigo,
+    required this.examDays,
+    required this.onChanged,
+    required this.onRemove,
+  });
+
+  final _GradePaperSlot slot;
+  final List<({Subject subject, UsersData teacher})> subjects;
+  final List<({TeachersData teacher, UsersData user})> teachers;
+  final bool teachersLoaded;
+  final SchoolConfig config;
+  final ColorScheme cs;
+  final bool isDark;
+  final Color indigo;
+  final List<DateTime> examDays;
+  final ValueChanged<_GradePaperSlot> onChanged;
+  final VoidCallback onRemove;
+
+  @override
+  State<_GradePaperSlotCard> createState() => _GradePaperSlotCardState();
+}
+
+class _GradePaperSlotCardState extends State<_GradePaperSlotCard> {
+  bool _timeOpen = false;
+  late int _durationMinutes;
+  late final FixedExtentScrollController _startHourCtrl;
+  late final FixedExtentScrollController _startMinCtrl;
+  late final FixedExtentScrollController _durHourCtrl;
+  late final FixedExtentScrollController _durMinCtrl;
+
+  static const _durMinValues = [0, 15, 30, 45];
+
+  @override
+  void initState() {
+    super.initState();
+    final slot = widget.slot;
+    final startMin = slot.startTime.hour * 60 + slot.startTime.minute;
+    final endMin = slot.endTime.hour * 60 + slot.endTime.minute;
+    _durationMinutes = (endMin - startMin).clamp(0, 23 * 60 + 45);
+    _startHourCtrl = FixedExtentScrollController(
+      initialItem: slot.startTime.hour,
+    );
+    _startMinCtrl = FixedExtentScrollController(
+      initialItem: slot.startTime.minute ~/ 5,
+    );
+    _durHourCtrl = FixedExtentScrollController(
+      initialItem: _durationMinutes ~/ 60,
+    );
+    _durMinCtrl = FixedExtentScrollController(
+      initialItem: _durMinValues.indexOf(_durationMinutes % 60).clamp(0, 3),
+    );
+  }
+
+  @override
+  void dispose() {
+    _startHourCtrl.dispose();
+    _startMinCtrl.dispose();
+    _durHourCtrl.dispose();
+    _durMinCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onStartChanged(TimeOfDay newStart) {
+    final startMin = newStart.hour * 60 + newStart.minute;
+    final endMin = startMin + _durationMinutes;
+    widget.slot.startTime = newStart;
+    widget.slot.endTime = TimeOfDay(
+      hour: (endMin ~/ 60).clamp(0, 23),
+      minute: endMin % 60,
+    );
+    widget.onChanged(widget.slot);
+  }
+
+  void _onDurationChanged(int durationMin) {
+    _durationMinutes = durationMin;
+    final startMin =
+        widget.slot.startTime.hour * 60 + widget.slot.startTime.minute;
+    final endMin = startMin + durationMin;
+    widget.slot.endTime = TimeOfDay(
+      hour: (endMin ~/ 60).clamp(0, 23),
+      minute: endMin % 60,
+    );
+    widget.onChanged(widget.slot);
+  }
+
+  String _fmtTod(TimeOfDay t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+  String _fmtDuration(int minutes) {
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    if (m == 0) return '${h}h';
+    if (h == 0) return '${m}m';
+    return '${h}h ${m}m';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final isDark = widget.isDark;
+    final indigo = widget.indigo;
+    final slot = widget.slot;
+
+    final timeSummary =
+        '${_fmtTod(slot.startTime)} · ${_fmtDuration(_durationMinutes)}';
+    final isInvalid = _durationMinutes <= 0;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: isDark
+            ? const Color(0xFF1A2536)
+            : cs.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.25 : 0.4),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Top row: time chip + remove button
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 8, 6),
+            child: Row(
+              children: [
+                // Time trigger chip
+                GestureDetector(
+                  onTap: () => setState(() => _timeOpen = !_timeOpen),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 140),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? const Color(0xFF1E2C3C)
+                          : cs.surfaceContainerHighest.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: _timeOpen
+                            ? indigo.withValues(alpha: 0.6)
+                            : cs.outlineVariant.withValues(
+                                alpha: isDark ? 0.3 : 0.45,
+                              ),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          timeSummary,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w400,
+                            color: isInvalid ? cs.error : cs.onSurface,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        AnimatedRotation(
+                          turns: _timeOpen ? 0.5 : 0,
+                          duration: const Duration(milliseconds: 140),
+                          child: Icon(
+                            Icons.expand_more_rounded,
+                            size: 14,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Date selector
+                const SizedBox(width: 8),
+                _GradeDateChip(
+                  date: slot.date,
+                  examDays: widget.examDays,
+                  cs: cs,
+                  isDark: isDark,
+                  indigo: indigo,
+                  onChanged: (d) {
+                    widget.slot.date = d;
+                    widget.onChanged(widget.slot);
+                    setState(() {});
+                  },
+                ),
+                const Spacer(),
+                // Remove button
+                GestureDetector(
+                  onTap: widget.onRemove,
+                  child: Icon(
+                    Icons.remove_circle_outline_rounded,
+                    size: 16,
+                    color: cs.error.withValues(alpha: 0.55),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Inline time configurator (expandable)
+          AnimatedCrossFade(
+            duration: const Duration(milliseconds: 200),
+            crossFadeState: _timeOpen
+                ? CrossFadeState.showFirst
+                : CrossFadeState.showSecond,
+            firstChild: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+              child: _GradeInlineTimeConfigurator(
+                startTime: slot.startTime,
+                durationMinutes: _durationMinutes,
+                startHourCtrl: _startHourCtrl,
+                startMinCtrl: _startMinCtrl,
+                durHourCtrl: _durHourCtrl,
+                durMinCtrl: _durMinCtrl,
+                isDark: isDark,
+                cs: cs,
+                indigo: indigo,
+                onStartTimeChanged: _onStartChanged,
+                onDurationChanged: _onDurationChanged,
+              ),
+            ),
+            secondChild: const SizedBox.shrink(),
+          ),
+          // Subject selector
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+            child: _GradeSubjectSelector(
+              value: slot.subjectCode,
+              subjects: widget.subjects,
+              config: widget.config,
+              cs: cs,
+              isDark: isDark,
+              indigo: indigo,
+              onChanged: (code, teacherId) {
+                widget.slot.subjectCode = code;
+                widget.slot.invigilatorId = teacherId;
+                widget.onChanged(widget.slot);
+                setState(() {});
+              },
+            ),
+          ),
+          // Invigilator selector
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+            child: _GradeInvigilatorSelector(
+              value: slot.invigilatorId,
+              teachers: widget.teachers,
+              teachersLoaded: widget.teachersLoaded,
+              cs: cs,
+              isDark: isDark,
+              onChanged: (id) {
+                widget.slot.invigilatorId = id;
+                widget.onChanged(widget.slot);
+                setState(() {});
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Date chip — shows exam date, opens a simple picker overlay
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _GradeDateChip extends StatelessWidget {
+  const _GradeDateChip({
+    required this.date,
+    required this.examDays,
+    required this.cs,
+    required this.isDark,
+    required this.indigo,
+    required this.onChanged,
+  });
+
+  final DateTime date;
+  final List<DateTime> examDays;
+  final ColorScheme cs;
+  final bool isDark;
+  final Color indigo;
+  final ValueChanged<DateTime> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final label =
+        '${date.day.toString().padLeft(2, '0')} ${_months[date.month - 1]}';
+    return GestureDetector(
+      onTap: () async {
+        final chosen = await showDialog<DateTime>(
+          context: context,
+          barrierColor: Colors.black.withValues(alpha: 0.3),
+          builder: (_) => _GradeDatePickerDialog(
+            selectedDate: date,
+            examDays: examDays,
+            cs: cs,
+            isDark: isDark,
+            indigo: indigo,
+          ),
+        );
+        if (chosen != null) onChanged(chosen);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        decoration: BoxDecoration(
+          color: isDark
+              ? const Color(0xFF1E2C3C)
+              : cs.surfaceContainerHighest.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: cs.outlineVariant.withValues(alpha: isDark ? 0.3 : 0.45),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.calendar_today_rounded,
+              size: 12,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+            ),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurface,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Date picker dialog for the Add Grade modal
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _GradeDatePickerDialog extends StatelessWidget {
+  const _GradeDatePickerDialog({
+    required this.selectedDate,
+    required this.examDays,
+    required this.cs,
+    required this.isDark,
+    required this.indigo,
+  });
+
+  final DateTime selectedDate;
+  final List<DateTime> examDays;
+  final ColorScheme cs;
+  final bool isDark;
+  final Color indigo;
+
+  static bool _sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 300),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF18222E) : cs.surface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: cs.outlineVariant.withValues(alpha: isDark ? 0.25 : 0.35),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.15),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'Select date',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: examDays.map((day) {
+                  final isSelected = _sameDay(day, selectedDate);
+                  final label =
+                      '${day.day.toString().padLeft(2, '0')} ${_months[day.month - 1]}';
+                  return GestureDetector(
+                    onTap: () => Navigator.of(context).pop(day),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 140),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? indigo
+                            : (isDark
+                                  ? const Color(0xFF1A2536)
+                                  : cs.surfaceContainerHighest.withValues(
+                                      alpha: 0.5,
+                                    )),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: isSelected
+                              ? indigo
+                              : cs.outlineVariant.withValues(
+                                  alpha: isDark ? 0.25 : 0.4,
+                                ),
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          color: isSelected ? Colors.white : cs.onSurface,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
               ),
             ],
           ),
@@ -424,179 +3733,2178 @@ class _ExamCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Exam detail view — papers list + summary stats
+// Inline time configurator for Add Grade modal slots
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _ExamDetailView extends StatefulWidget {
-  const _ExamDetailView({
-    required this.exam,
-    required this.schoolId,
-    required this.year,
-    required this.term,
-    required this.config,
-    required this.entry,
-    required this.onBack,
-    required this.onPaperTap,
+class _GradeInlineTimeConfigurator extends StatefulWidget {
+  const _GradeInlineTimeConfigurator({
+    required this.startTime,
+    required this.durationMinutes,
+    required this.startHourCtrl,
+    required this.startMinCtrl,
+    required this.durHourCtrl,
+    required this.durMinCtrl,
+    required this.isDark,
+    required this.cs,
+    required this.indigo,
+    required this.onStartTimeChanged,
+    required this.onDurationChanged,
   });
-  final ExamWithPapers exam;
-  final String schoolId;
-  final int year;
-  final int term;
-  final SchoolConfig config;
-  final MembershipEntry entry;
-  final VoidCallback onBack;
-  final ValueChanged<Paper> onPaperTap;
+
+  final TimeOfDay startTime;
+  final int durationMinutes;
+  final FixedExtentScrollController startHourCtrl;
+  final FixedExtentScrollController startMinCtrl;
+  final FixedExtentScrollController durHourCtrl;
+  final FixedExtentScrollController durMinCtrl;
+  final bool isDark;
+  final ColorScheme cs;
+  final Color indigo;
+  final ValueChanged<TimeOfDay> onStartTimeChanged;
+  final ValueChanged<int> onDurationChanged;
 
   @override
-  State<_ExamDetailView> createState() => _ExamDetailViewState();
+  State<_GradeInlineTimeConfigurator> createState() =>
+      _GradeInlineTimeConfiguratorState();
 }
 
-class _ExamDetailViewState extends State<_ExamDetailView> {
-  late final ExamsGradesDao _dao;
-  late final SubjectsDao _subjectsDao;
+class _GradeInlineTimeConfiguratorState
+    extends State<_GradeInlineTimeConfigurator> {
+  static const _durMinValues = [0, 15, 30, 45];
+
+  int _startHour = 0;
+  int _startMinIndex = 0; // index into 0..11 (0,5,10,...55)
+  int _durHour = 0;
+  int _durMinIndex = 0; // index into _durMinValues
 
   @override
   void initState() {
     super.initState();
-    _dao = ExamsGradesDao(db);
-    _subjectsDao = SubjectsDao(db);
+    _startHour = widget.startTime.hour;
+    _startMinIndex = (widget.startTime.minute ~/ 5).clamp(0, 11);
+    _durHour = widget.durationMinutes ~/ 60;
+    _durMinIndex = _durMinValues
+        .indexOf(widget.durationMinutes % 60)
+        .clamp(0, 3);
   }
 
-  bool get _canManage {
-    final entry = widget.entry;
-    return entry is TeacherEntry || entry is OwnerEntry || entry is StaffEntry;
+  int get _currentDurationMinutes =>
+      _durHour * 60 + _durMinValues[_durMinIndex];
+
+  void _applyPreset(int minutes) {
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    final mIdx = _durMinValues.indexOf(m).clamp(0, 3);
+    setState(() {
+      _durHour = h;
+      _durMinIndex = mIdx;
+    });
+    widget.durHourCtrl.jumpToItem(h);
+    widget.durMinCtrl.jumpToItem(mIdx);
+    widget.onDurationChanged(minutes);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final isDark = widget.isDark;
+    final indigo = widget.indigo;
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: isDark
+            ? const Color(0xFF1E2C3C)
+            : cs.surfaceContainerHighest.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.2 : 0.35),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Wheel row
+          Row(
+            children: [
+              // Start time column
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Start',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _GradeWheelColumn(
+                          controller: widget.startHourCtrl,
+                          itemCount: 24,
+                          labelBuilder: (i) => i.toString().padLeft(2, '0'),
+                          selectedIndex: _startHour,
+                          cs: cs,
+                          isDark: isDark,
+                          indigo: indigo,
+                          onChanged: (i) {
+                            _startHour = i;
+                            widget.onStartTimeChanged(
+                              TimeOfDay(
+                                hour: _startHour,
+                                minute: _startMinIndex * 5,
+                              ),
+                            );
+                          },
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Text(
+                            ':',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w300,
+                              color: cs.onSurface,
+                            ),
+                          ),
+                        ),
+                        _GradeWheelColumn(
+                          controller: widget.startMinCtrl,
+                          itemCount: 12,
+                          labelBuilder: (i) =>
+                              (i * 5).toString().padLeft(2, '0'),
+                          selectedIndex: _startMinIndex,
+                          cs: cs,
+                          isDark: isDark,
+                          indigo: indigo,
+                          onChanged: (i) {
+                            _startMinIndex = i;
+                            widget.onStartTimeChanged(
+                              TimeOfDay(
+                                hour: _startHour,
+                                minute: _startMinIndex * 5,
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              // Divider
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: SizedBox(
+                  height: 52,
+                  child: VerticalDivider(
+                    width: 1,
+                    color: cs.outlineVariant.withValues(
+                      alpha: isDark ? 0.2 : 0.35,
+                    ),
+                  ),
+                ),
+              ),
+              // Duration column
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Duration',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _GradeWheelColumn(
+                          controller: widget.durHourCtrl,
+                          itemCount: 12,
+                          labelBuilder: (i) => '${i}h',
+                          selectedIndex: _durHour,
+                          cs: cs,
+                          isDark: isDark,
+                          indigo: indigo,
+                          onChanged: (i) {
+                            _durHour = i;
+                            widget.onDurationChanged(_currentDurationMinutes);
+                          },
+                        ),
+                        const SizedBox(width: 4),
+                        _GradeWheelColumn(
+                          controller: widget.durMinCtrl,
+                          itemCount: _durMinValues.length,
+                          labelBuilder: (i) => '${_durMinValues[i]}m',
+                          selectedIndex: _durMinIndex,
+                          cs: cs,
+                          isDark: isDark,
+                          indigo: indigo,
+                          onChanged: (i) {
+                            _durMinIndex = i;
+                            widget.onDurationChanged(_currentDurationMinutes);
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Preset chips
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children:
+                const [
+                  ('30m', 30),
+                  ('1h', 60),
+                  ('1h 30m', 90),
+                  ('2h', 120),
+                  ('2h 30m', 150),
+                  ('3h', 180),
+                ].map<Widget>((p) {
+                  final isSelected = _currentDurationMinutes == p.$2;
+                  return GestureDetector(
+                    onTap: () => _applyPreset(p.$2),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 140),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? indigo.withValues(alpha: 0.18)
+                            : (isDark
+                                  ? const Color(0xFF18222E)
+                                  : cs.surfaceContainerHighest.withValues(
+                                      alpha: 0.4,
+                                    )),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: isSelected
+                              ? indigo.withValues(alpha: 0.5)
+                              : cs.outlineVariant.withValues(
+                                  alpha: isDark ? 0.2 : 0.35,
+                                ),
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        p.$1,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w400,
+                          color: isSelected ? indigo : cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Wheel column widget (32px item extent)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _GradeWheelColumn extends StatelessWidget {
+  const _GradeWheelColumn({
+    required this.controller,
+    required this.itemCount,
+    required this.labelBuilder,
+    required this.selectedIndex,
+    required this.cs,
+    required this.isDark,
+    required this.indigo,
+    required this.onChanged,
+  });
+
+  final FixedExtentScrollController controller;
+  final int itemCount;
+  final String Function(int) labelBuilder;
+  final int selectedIndex;
+  final ColorScheme cs;
+  final bool isDark;
+  final Color indigo;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 44,
+      height: 96,
+      child: ListWheelScrollView.useDelegate(
+        controller: controller,
+        itemExtent: 32,
+        diameterRatio: 1.5,
+        physics: const FixedExtentScrollPhysics(),
+        onSelectedItemChanged: onChanged,
+        childDelegate: ListWheelChildBuilderDelegate(
+          childCount: itemCount,
+          builder: (_, i) {
+            final isSelected = i == selectedIndex;
+            return Center(
+              child: Text(
+                labelBuilder(i),
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
+                  color: isSelected
+                      ? indigo
+                      : cs.onSurfaceVariant.withValues(alpha: 0.7),
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Subject selector for Add Grade modal slots
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _GradeSubjectSelector extends StatelessWidget {
+  const _GradeSubjectSelector({
+    required this.value,
+    required this.subjects,
+    required this.config,
+    required this.cs,
+    required this.isDark,
+    required this.indigo,
+    required this.onChanged,
+  });
+
+  final int? value;
+  final List<({Subject subject, UsersData teacher})> subjects;
+  final SchoolConfig config;
+  final ColorScheme cs;
+  final bool isDark;
+  final Color indigo;
+  final void Function(int? code, String? teacherId) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = value != null
+        ? _subjectLabel(value!, config)
+        : 'Select subject';
+    final hasValue = value != null;
+
+    return GestureDetector(
+      onTap: () async {
+        if (subjects.isEmpty) return;
+        await showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          builder: (_) => _GradeSubjectPickerSheet(
+            subjects: subjects,
+            value: value,
+            config: config,
+            cs: cs,
+            isDark: isDark,
+            indigo: indigo,
+            onSelected: (code, teacherId) {
+              onChanged(code, teacherId);
+              Navigator.of(context).pop();
+            },
+          ),
+        );
+      },
+      child: Container(
+        height: 34,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: isDark
+              ? const Color(0xFF1E2C3C)
+              : cs.surfaceContainerHighest.withValues(alpha: 0.55),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: hasValue
+                ? indigo.withValues(alpha: 0.4)
+                : cs.outlineVariant.withValues(alpha: isDark ? 0.25 : 0.4),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.menu_book_outlined,
+              size: 14,
+              color: hasValue
+                  ? indigo
+                  : cs.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: hasValue ? FontWeight.w500 : FontWeight.w400,
+                  color: hasValue
+                      ? cs.onSurface
+                      : cs.onSurfaceVariant.withValues(alpha: 0.6),
+                ),
+              ),
+            ),
+            Icon(
+              Icons.expand_more_rounded,
+              size: 14,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Subject picker sheet
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _GradeSubjectPickerSheet extends StatelessWidget {
+  const _GradeSubjectPickerSheet({
+    required this.subjects,
+    required this.value,
+    required this.config,
+    required this.cs,
+    required this.isDark,
+    required this.indigo,
+    required this.onSelected,
+  });
+
+  final List<({Subject subject, UsersData teacher})> subjects;
+  final int? value;
+  final SchoolConfig config;
+  final ColorScheme cs;
+  final bool isDark;
+  final Color indigo;
+  final void Function(int code, String? teacherId) onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final sheetBg = isDark ? const Color(0xFF18222E) : cs.surface;
+    return Container(
+      decoration: BoxDecoration(
+        color: sheetBg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+            child: Row(
+              children: [
+                Text(
+                  'Select subject',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: Icon(
+                    Icons.close_rounded,
+                    size: 18,
+                    color: cs.onSurfaceVariant,
+                  ),
+                  onPressed: () => Navigator.of(context).pop(),
+                  visualDensity: VisualDensity.compact,
+                  style: IconButton.styleFrom(
+                    splashFactory: NoSplash.splashFactory,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Divider(
+            height: 1,
+            color: cs.outlineVariant.withValues(alpha: isDark ? 0.2 : 0.3),
+          ),
+          ListView.builder(
+            shrinkWrap: true,
+            itemCount: subjects.length,
+            itemBuilder: (_, i) {
+              final s = subjects[i];
+              final label = _subjectLabel(s.subject.subject, config);
+              final isSelected = s.subject.subject == value;
+              return InkWell(
+                onTap: () => onSelected(s.subject.subject, s.subject.teacher),
+                splashFactory: NoSplash.splashFactory,
+                child: Container(
+                  height: 44,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          label,
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: isSelected
+                                ? FontWeight.w500
+                                : FontWeight.w400,
+                            color: isSelected ? indigo : cs.onSurface,
+                          ),
+                        ),
+                      ),
+                      if (isSelected)
+                        Icon(Icons.check_rounded, size: 16, color: indigo),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          SizedBox(height: MediaQuery.of(context).padding.bottom + 12),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Invigilator selector for Add Grade modal slots
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _GradeInvigilatorSelector extends StatelessWidget {
+  const _GradeInvigilatorSelector({
+    required this.value,
+    required this.teachers,
+    required this.teachersLoaded,
+    required this.cs,
+    required this.isDark,
+    required this.onChanged,
+  });
+
+  final String? value;
+  final List<({TeachersData teacher, UsersData user})> teachers;
+  final bool teachersLoaded;
+  final ColorScheme cs;
+  final bool isDark;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final resolved = value != null
+        ? teachers.where((t) => t.user.id == value).firstOrNull
+        : null;
+    final label =
+        resolved?.user.name ?? (teachersLoaded ? 'No invigilator' : 'Loading…');
+    final hasValue = resolved != null;
+
+    return GestureDetector(
+      onTap: () async {
+        if (!teachersLoaded || teachers.isEmpty) return;
+        await showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          builder: (_) => _GradeInvigilatorPickerSheet(
+            teachers: teachers,
+            value: value,
+            cs: cs,
+            isDark: isDark,
+            sheetBg: isDark ? const Color(0xFF18222E) : cs.surface,
+            onChanged: (id) {
+              onChanged(id);
+              Navigator.of(context).pop();
+            },
+          ),
+        );
+      },
+      child: Container(
+        height: 34,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: isDark
+              ? const Color(0xFF1E2C3C)
+              : cs.surfaceContainerHighest.withValues(alpha: 0.55),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: cs.outlineVariant.withValues(alpha: isDark ? 0.25 : 0.4),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.person_outline_rounded,
+              size: 14,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w400,
+                  color: hasValue
+                      ? cs.onSurface
+                      : cs.onSurfaceVariant.withValues(alpha: 0.55),
+                ),
+              ),
+            ),
+            Icon(
+              Icons.expand_more_rounded,
+              size: 14,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Invigilator picker sheet (reuses the same picker pattern from exam_creation)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _GradeInvigilatorPickerSheet extends StatefulWidget {
+  const _GradeInvigilatorPickerSheet({
+    required this.teachers,
+    required this.value,
+    required this.cs,
+    required this.isDark,
+    required this.sheetBg,
+    required this.onChanged,
+  });
+
+  final List<({TeachersData teacher, UsersData user})> teachers;
+  final String? value;
+  final ColorScheme cs;
+  final bool isDark;
+  final Color sheetBg;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  State<_GradeInvigilatorPickerSheet> createState() =>
+      _GradeInvigilatorPickerSheetState();
+}
+
+class _GradeInvigilatorPickerSheetState
+    extends State<_GradeInvigilatorPickerSheet> {
+  late final TextEditingController _searchCtrl;
+  late List<({TeachersData teacher, UsersData user})> _filtered;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchCtrl = TextEditingController();
+    _filtered = List.of(widget.teachers);
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  void _filter(String q) {
+    final lower = q.trim().toLowerCase();
+    setState(() {
+      _filtered = lower.isEmpty
+          ? List.of(widget.teachers)
+          : widget.teachers
+                .where(
+                  (t) =>
+                      t.user.name.toLowerCase().contains(lower) ||
+                      t.user.phone.toLowerCase().contains(lower),
+                )
+                .toList();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final isDark = widget.isDark;
+    return Container(
+      decoration: BoxDecoration(
+        color: widget.sheetBg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+            child: Row(
+              children: [
+                Text(
+                  'Select invigilator',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: Icon(
+                    Icons.close_rounded,
+                    size: 18,
+                    color: cs.onSurfaceVariant,
+                  ),
+                  onPressed: () => Navigator.of(context).pop(),
+                  visualDensity: VisualDensity.compact,
+                  style: IconButton.styleFrom(
+                    splashFactory: NoSplash.splashFactory,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: TextField(
+              controller: _searchCtrl,
+              onChanged: _filter,
+              style: TextStyle(fontSize: 13, color: cs.onSurface),
+              decoration: InputDecoration(
+                hintText: 'Search by name or phone…',
+                hintStyle: TextStyle(
+                  fontSize: 13,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+                prefixIcon: Icon(
+                  Icons.search_rounded,
+                  size: 16,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+                isDense: true,
+                filled: true,
+                fillColor: isDark
+                    ? const Color(0xFF1A2536)
+                    : cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+              ),
+            ),
+          ),
+          Divider(
+            height: 1,
+            color: cs.outlineVariant.withValues(alpha: isDark ? 0.2 : 0.3),
+          ),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 260),
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: _filtered.length,
+              itemBuilder: (_, i) {
+                final t = _filtered[i];
+                final isSelected = t.user.id == widget.value;
+                return InkWell(
+                  onTap: () => widget.onChanged(t.user.id),
+                  splashFactory: NoSplash.splashFactory,
+                  child: Container(
+                    height: 44,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                t.user.name,
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w500
+                                      : FontWeight.w400,
+                                  color: isSelected
+                                      ? const Color(0xFF5C6BC0)
+                                      : cs.onSurface,
+                                ),
+                              ),
+                              Text(
+                                t.user.phone,
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: cs.onSurfaceVariant.withValues(
+                                    alpha: 0.55,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (isSelected)
+                          const Icon(
+                            Icons.check_rounded,
+                            size: 16,
+                            color: Color(0xFF5C6BC0),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          SizedBox(height: MediaQuery.of(context).padding.bottom + 12),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Dashed "Add Paper" button for the modal
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _GradeAddPaperButton extends StatelessWidget {
+  const _GradeAddPaperButton({
+    required this.cs,
+    required this.isDark,
+    required this.indigo,
+    required this.onTap,
+  });
+
+  final ColorScheme cs;
+  final bool isDark;
+  final Color indigo;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: CustomPaint(
+        painter: _DashedBorderPainter(
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.35 : 0.5),
+          radius: 4,
+        ),
+        child: SizedBox(
+          height: 40,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.add_rounded,
+                size: 16,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Add Paper',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DashedBorderPainter extends CustomPainter {
+  const _DashedBorderPainter({required this.color, required this.radius});
+
+  final Color color;
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+
+    const dashWidth = 5.0;
+    const dashSpace = 4.0;
+
+    final rrect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Radius.circular(radius),
+    );
+    final path = Path()..addRRect(rrect);
+    final metrics = path.computeMetrics();
+
+    for (final metric in metrics) {
+      double distance = 0;
+      while (distance < metric.length) {
+        canvas.drawPath(
+          metric.extractPath(distance, distance + dashWidth),
+          paint,
+        );
+        distance += dashWidth + dashSpace;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedBorderPainter old) =>
+      old.color != color || old.radius != radius;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stream picker dialog (used by the stream dropdown in step 2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _GradeStreamPickerDialog extends StatelessWidget {
+  const _GradeStreamPickerDialog({
+    required this.streams,
+    required this.current,
+    required this.grade,
+    required this.config,
+    required this.cs,
+    required this.isDark,
+  });
+
+  final List<int?> streams;
+  final int? current;
+  final int grade;
+  final SchoolConfig config;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final indigo = const Color(0xFF5C6BC0);
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 240),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E2A3A) : cs.surface,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: cs.outlineVariant.withValues(alpha: isDark ? 0.25 : 0.35),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.15),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: streams.map((sc) {
+              final isSelected = sc == current;
+              final label = sc == null
+                  ? 'All Streams'
+                  : _streamLabel(grade, sc, config);
+              return InkWell(
+                onTap: () => Navigator.of(context).pop(sc),
+                splashFactory: NoSplash.splashFactory,
+                child: Container(
+                  height: 36,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          label,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: isSelected
+                                ? FontWeight.w500
+                                : FontWeight.w400,
+                            color: isSelected ? indigo : cs.onSurface,
+                          ),
+                        ),
+                      ),
+                      if (isSelected)
+                        Icon(Icons.check_rounded, size: 14, color: indigo),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Expandable FAB — Add Paper / Add Grade / Add Stream
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ExpandableFab extends StatefulWidget {
+  const _ExpandableFab({
+    required this.paperEnabled,
+    required this.onAddPaper,
+    required this.onAddGrade,
+    required this.onAddStream,
+  });
+
+  final bool paperEnabled;
+  final VoidCallback onAddPaper;
+  final VoidCallback onAddGrade;
+  final VoidCallback onAddStream;
+
+  @override
+  State<_ExpandableFab> createState() => _ExpandableFabState();
+}
+
+class _ExpandableFabState extends State<_ExpandableFab>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  bool _open = false;
+
+  // Per-option staggered animations (3 options).
+  // Index 0 = Paper (bottom), 1 = Grade, 2 = Stream (top).
+  late final List<Animation<double>> _fades;
+  late final List<Animation<Offset>> _slides;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      duration: const Duration(milliseconds: 200),
+      vsync: this,
+    );
+
+    _fades = List.generate(3, (i) {
+      // Reverse stagger so topmost (index 2) animates first on open.
+      final delay = (2 - i) * 0.08;
+      return CurvedAnimation(
+        parent: _ctrl,
+        curve: Interval(
+          delay,
+          (delay + 0.6).clamp(0.0, 1.0),
+          curve: Curves.easeOutCubic,
+        ),
+      );
+    });
+
+    _slides = List.generate(3, (i) {
+      final delay = (2 - i) * 0.08;
+      final curved = CurvedAnimation(
+        parent: _ctrl,
+        curve: Interval(
+          delay,
+          (delay + 0.6).clamp(0.0, 1.0),
+          curve: Curves.easeOutCubic,
+        ),
+      );
+      return Tween<Offset>(
+        begin: const Offset(0, 0.25),
+        end: Offset.zero,
+      ).animate(curved);
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _toggle() {
+    setState(() => _open = !_open);
+    if (_open) {
+      _ctrl.forward();
+    } else {
+      _ctrl.reverse();
+    }
+  }
+
+  void _close() {
+    if (!_open) return;
+    setState(() => _open = false);
+    _ctrl.reverse();
   }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final exam = widget.exam.exam;
-    final gradeLabel = _gradeLabel(exam.grade, widget.config);
-    final streamLabel = exam.stream != null
-        ? _streamLabel(exam.grade, exam.stream!, widget.config)
-        : 'All Streams';
+    // Heights: pill height ≈ 38, gap = 8. Stack height to fit 3 pills + FAB.
+    const pillH = 38.0;
+    const gap = 8.0;
+    const fabH = 40.0; // FloatingActionButton.small
+    const stackH = 3 * pillH + 3 * gap + fabH;
+
+    // Offsets from bottom for each pill (0 = Paper, 1 = Grade, 2 = Stream).
+    double pillBottom(int i) => fabH + gap + i * (pillH + gap);
+
+    return SizedBox(
+      width: 160,
+      height: stackH,
+      child: Stack(
+        alignment: Alignment.bottomRight,
+        clipBehavior: Clip.none,
+        children: [
+          // Transparent tap-outside-to-close overlay when open.
+          if (_open)
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: _close,
+                behavior: HitTestBehavior.opaque,
+                child: const SizedBox.expand(),
+              ),
+            ),
+
+          // ── Paper pill (index 0, bottom) ───────────────────────────────
+          Positioned(
+            bottom: pillBottom(0),
+            right: 0,
+            child: FadeTransition(
+              opacity: _fades[0],
+              child: SlideTransition(
+                position: _slides[0],
+                child: _FabOptionPill(
+                  icon: Icons.note_add_outlined,
+                  label: 'Paper',
+                  enabled: widget.paperEnabled,
+                  cs: cs,
+                  onTap: () {
+                    _close();
+                    widget.onAddPaper();
+                  },
+                ),
+              ),
+            ),
+          ),
+
+          // ── Grade pill (index 1, middle) ───────────────────────────────
+          Positioned(
+            bottom: pillBottom(1),
+            right: 0,
+            child: FadeTransition(
+              opacity: _fades[1],
+              child: SlideTransition(
+                position: _slides[1],
+                child: _FabOptionPill(
+                  icon: Icons.school_outlined,
+                  label: 'Grade',
+                  enabled: true,
+                  cs: cs,
+                  onTap: () {
+                    _close();
+                    widget.onAddGrade();
+                  },
+                ),
+              ),
+            ),
+          ),
+
+          // ── Stream pill (index 2, top) ─────────────────────────────────
+          Positioned(
+            bottom: pillBottom(2),
+            right: 0,
+            child: FadeTransition(
+              opacity: _fades[2],
+              child: SlideTransition(
+                position: _slides[2],
+                child: _FabOptionPill(
+                  icon: Icons.account_tree_outlined,
+                  label: 'Stream',
+                  enabled: true,
+                  cs: cs,
+                  onTap: () {
+                    _close();
+                    widget.onAddStream();
+                  },
+                ),
+              ),
+            ),
+          ),
+
+          // ── Main FAB ───────────────────────────────────────────────────
+          Positioned(
+            bottom: 0,
+            right: 0,
+            child: AnimatedBuilder(
+              animation: _ctrl,
+              builder: (context, child) {
+                return FloatingActionButton.small(
+                  heroTag: 'fab_exam_detail_main',
+                  onPressed: _toggle,
+                  child: Transform.rotate(
+                    angle: _ctrl.value * (45 * math.pi / 180),
+                    child: const Icon(Icons.add, size: 20),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FabOptionPill extends StatelessWidget {
+  const _FabOptionPill({
+    required this.icon,
+    required this.label,
+    required this.enabled,
+    required this.cs,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool enabled;
+  final ColorScheme cs;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final borderAlpha = brightness == Brightness.dark ? 0.30 : 0.45;
+    final disabledAlpha = 0.35;
+
+    final contentColor = enabled
+        ? cs.onSurface
+        : cs.onSurfaceVariant.withValues(alpha: disabledAlpha);
+
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: cs.outlineVariant.withValues(alpha: borderAlpha),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: contentColor),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w500,
+                color: contentColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Paper content area — wires up the stream entry to the timetable views
+// (expanded in R04; this stub shows the papers list and delegates taps)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PaperContentArea extends StatelessWidget {
+  const _PaperContentArea({
+    required this.streamEntry,
+    required this.schoolId,
+    required this.config,
+    required this.teacherNames,
+    required this.dao,
+    required this.canManage,
+    required this.onPaperTap,
+  });
+  final ExamStreamEntry streamEntry;
+  final String schoolId;
+  final SchoolConfig config;
+  final Map<String, String> teacherNames;
+  final ExamsGradesDao dao;
+  final bool canManage;
+  final void Function(Paper paper, Exam exam) onPaperTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return StreamBuilder<List<Paper>>(
+      stream: dao.watchPapersForExam(
+        schoolId: schoolId,
+        examId: streamEntry.exam.id,
+      ),
+      builder: (context, snap) {
+        final papers = snap.data ?? [];
+        if (papers.isEmpty) {
+          return _EmptyPapersTimetableState(cs: cs);
+        }
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth >= 600) {
+              return _PaperTimetableGrid(
+                papers: papers,
+                exam: streamEntry.exam,
+                config: config,
+                teacherNames: teacherNames,
+                canManage: canManage,
+                onPaperTap: onPaperTap,
+              );
+            } else {
+              return _PaperTimetableMobile(
+                papers: papers,
+                exam: streamEntry.exam,
+                config: config,
+                teacherNames: teacherNames,
+                canManage: canManage,
+                onPaperTap: onPaperTap,
+              );
+            }
+          },
+        );
+      },
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Paper timetable helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+Map<DateTime, List<Paper>> _groupPapersByDate(List<Paper> papers) {
+  final map = <DateTime, List<Paper>>{};
+  for (final p in papers) {
+    final dt = DateTime.fromMillisecondsSinceEpoch(p.start.toInt() * 1000);
+    final day = DateTime(dt.year, dt.month, dt.day);
+    map.putIfAbsent(day, () => []).add(p);
+  }
+  // Sort papers within each day by start time
+  for (final list in map.values) {
+    list.sort((a, b) => a.start.compareTo(b.start));
+  }
+  return map;
+}
+
+List<DateTime> _sortedPaperDates(Map<DateTime, List<Paper>> grouped) {
+  final dates = grouped.keys.toList()..sort();
+  return dates;
+}
+
+List<({String start, String end})> _uniquePaperStartTimes(List<Paper> papers) {
+  final seen = <String>{};
+  final result = <({String start, String end})>[];
+  final sorted = List<Paper>.from(papers)
+    ..sort((a, b) => a.start.compareTo(b.start));
+  for (final p in sorted) {
+    final startDt = DateTime.fromMillisecondsSinceEpoch(p.start.toInt() * 1000);
+    final endDt = DateTime.fromMillisecondsSinceEpoch(p.end.toInt() * 1000);
+    final startStr = _fmtTime(startDt);
+    if (!seen.contains(startStr)) {
+      seen.add(startStr);
+      result.add((start: startStr, end: _fmtTime(endDt)));
+    }
+  }
+  return result;
+}
+
+Paper? _paperAt(
+  Map<DateTime, List<Paper>> grouped,
+  DateTime date,
+  String startTime,
+) {
+  final day = DateTime(date.year, date.month, date.day);
+  final papers = grouped[day] ?? [];
+  for (final p in papers) {
+    final dt = DateTime.fromMillisecondsSinceEpoch(p.start.toInt() * 1000);
+    if (_fmtTime(dt) == startTime) return p;
+  }
+  return null;
+}
+
+String _fmtDayHeader(DateTime d) {
+  const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  final wd = weekdays[d.weekday - 1];
+  return '$wd, ${d.day} ${_months[d.month - 1]}';
+}
+
+String _fmtDayColumn(DateTime d) {
+  const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  final wd = weekdays[d.weekday - 1];
+  return '$wd ${d.day}';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Desktop paper timetable grid (≥600px)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PaperTimetableGrid extends StatelessWidget {
+  const _PaperTimetableGrid({
+    required this.papers,
+    required this.exam,
+    required this.config,
+    required this.teacherNames,
+    required this.canManage,
+    required this.onPaperTap,
+  });
+
+  final List<Paper> papers;
+  final Exam exam;
+  final SchoolConfig config;
+  final Map<String, String> teacherNames;
+  final bool canManage;
+  final void Function(Paper paper, Exam exam) onPaperTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final grouped = _groupPapersByDate(papers);
+    final dates = _sortedPaperDates(grouped);
+    final timeslots = _uniquePaperStartTimes(papers);
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.vertical,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: IntrinsicWidth(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── Header row ──────────────────────────────────────────────
+              _PaperGridHeaderRow(dates: dates, cs: cs),
+              const SizedBox(height: 4),
+              // ── Data rows (one per unique start time) ───────────────────
+              ...timeslots.map((slot) {
+                return _PaperGridRow(
+                  dates: dates,
+                  grouped: grouped,
+                  startTime: slot.start,
+                  endTime: slot.end,
+                  exam: exam,
+                  config: config,
+                  teacherNames: teacherNames,
+                  cs: cs,
+                  onPaperTap: onPaperTap,
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PaperGridHeaderRow extends StatelessWidget {
+  const _PaperGridHeaderRow({required this.dates, required this.cs});
+
+  final List<DateTime> dates;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        // Time gutter placeholder
+        SizedBox(
+          width: 72,
+          child: Text(
+            '',
+            style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+          ),
+        ),
+        ...dates.map((d) => _PaperHeaderCell(date: d, cs: cs)),
+      ],
+    );
+  }
+}
+
+class _PaperHeaderCell extends StatelessWidget {
+  const _PaperHeaderCell({required this.date, required this.cs});
+
+  final DateTime date;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 140,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Text(
+          _fmtDayColumn(date),
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: cs.onSurfaceVariant,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+}
+
+class _PaperGridRow extends StatelessWidget {
+  const _PaperGridRow({
+    required this.dates,
+    required this.grouped,
+    required this.startTime,
+    required this.endTime,
+    required this.exam,
+    required this.config,
+    required this.teacherNames,
+    required this.cs,
+    required this.onPaperTap,
+  });
+
+  final List<DateTime> dates;
+  final Map<DateTime, List<Paper>> grouped;
+  final String startTime;
+  final String endTime;
+  final Exam exam;
+  final SchoolConfig config;
+  final Map<String, String> teacherNames;
+  final ColorScheme cs;
+  final void Function(Paper paper, Exam exam) onPaperTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Time label ─────────────────────────────────────────────────
+          _PaperTimeLabel(startTime: startTime, endTime: endTime, cs: cs),
+          // ── Day cells ──────────────────────────────────────────────────
+          ...dates.map((d) {
+            final paper = _paperAt(grouped, d, startTime);
+            if (paper == null) {
+              return _PaperEmptyCell(cs: cs);
+            }
+            final statusColor = _paperStatusColor(paper.status, cs);
+            final invName = teacherNames[paper.invigilator] ?? '';
+            return _PaperSlotBox(
+              paper: paper,
+              exam: exam,
+              config: config,
+              statusColor: statusColor,
+              invigilatorName: invName,
+              cs: cs,
+              onTap: () => onPaperTap(paper, exam),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaperTimeLabel extends StatelessWidget {
+  const _PaperTimeLabel({
+    required this.startTime,
+    required this.endTime,
+    required this.cs,
+  });
+
+  final String startTime;
+  final String endTime;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 72,
+      child: Padding(
+        padding: const EdgeInsets.only(right: 8, top: 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              startTime,
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w500,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+            Text(
+              endTime,
+              style: TextStyle(
+                fontSize: 9.5,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PaperSlotBox extends StatelessWidget {
+  const _PaperSlotBox({
+    required this.paper,
+    required this.exam,
+    required this.config,
+    required this.statusColor,
+    required this.invigilatorName,
+    required this.cs,
+    required this.onTap,
+  });
+
+  final Paper paper;
+  final Exam exam;
+  final SchoolConfig config;
+  final Color statusColor;
+  final String invigilatorName;
+  final ColorScheme cs;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final subjectName = _subjectLabel(paper.subject, config);
+    final paperLabel = (paper.paper ?? 1) > 1 ? ' · Paper ${paper.paper}' : '';
+    final startDt = DateTime.fromMillisecondsSinceEpoch(
+      paper.start.toInt() * 1000,
+    );
+    final endDt = DateTime.fromMillisecondsSinceEpoch(paper.end.toInt() * 1000);
+    final timeRange = '${_fmtTime(startDt)} – ${_fmtTime(endDt)}';
+
+    return SizedBox(
+      width: 140,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: InkWell(
+          onTap: onTap,
+          splashFactory: NoSplash.splashFactory,
+          borderRadius: BorderRadius.circular(4),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 56),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(4),
+              border: Border(
+                left: BorderSide(color: statusColor, width: 2.5),
+                top: BorderSide(
+                  color: cs.outlineVariant.withValues(alpha: 0.2),
+                ),
+                right: BorderSide(
+                  color: cs.outlineVariant.withValues(alpha: 0.2),
+                ),
+                bottom: BorderSide(
+                  color: cs.outlineVariant.withValues(alpha: 0.2),
+                ),
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(8, 7, 8, 7),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '$subjectName$paperLabel',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  timeRange,
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurfaceVariant,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                if (invigilatorName.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    'Inv: $invigilatorName',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w400,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PaperEmptyCell extends StatelessWidget {
+  const _PaperEmptyCell({required this.cs});
+
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 140,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 56),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: cs.outlineVariant.withValues(alpha: 0.12),
+              width: 1,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Mobile paper timetable (<600px)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PaperTimetableMobile extends StatefulWidget {
+  const _PaperTimetableMobile({
+    required this.papers,
+    required this.exam,
+    required this.config,
+    required this.teacherNames,
+    required this.canManage,
+    required this.onPaperTap,
+  });
+
+  final List<Paper> papers;
+  final Exam exam;
+  final SchoolConfig config;
+  final Map<String, String> teacherNames;
+  final bool canManage;
+  final void Function(Paper paper, Exam exam) onPaperTap;
+
+  @override
+  State<_PaperTimetableMobile> createState() => _PaperTimetableMobileState();
+}
+
+class _PaperTimetableMobileState extends State<_PaperTimetableMobile> {
+  Map<DateTime, List<Paper>> _grouped = {};
+  List<DateTime> _dates = [];
+  int _selectedDayIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _rebuildGroups();
+  }
+
+  @override
+  void didUpdateWidget(_PaperTimetableMobile old) {
+    super.didUpdateWidget(old);
+    if (old.papers != widget.papers) {
+      _rebuildGroups();
+    }
+  }
+
+  void _rebuildGroups() {
+    _grouped = _groupPapersByDate(widget.papers);
+    _dates = _sortedPaperDates(_grouped);
+    _selectedDayIndex = _selectedDayIndex.clamp(
+      0,
+      (_dates.length - 1).clamp(0, 999),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    if (_dates.isEmpty) {
+      return _EmptyPapersTimetableState(cs: cs);
+    }
+
+    final selectedDate = _dates[_selectedDayIndex];
+    final dayPapers = _grouped[selectedDate] ?? [];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SectionHeader(
-          title: _typeLabel(exam.type),
-          subtitle:
-              '$gradeLabel · $streamLabel · ${widget.year} T${widget.term}',
-          leadingAction: _HeaderAction(
-            icon: Icons.arrow_back,
-            label: 'Back',
-            onTap: widget.onBack,
-          ),
-          action: _canManage
-              ? _HeaderAction(
-                  icon: Icons.add,
-                  label: 'Add Paper',
-                  onTap: () => _showAddPaper(context),
-                )
-              : null,
-        ),
-        Expanded(
-          child: StreamBuilder<List<Paper>>(
-            stream: _dao.watchPapersForExam(
-              schoolId: widget.schoolId,
-              examId: exam.id,
-            ),
-            builder: (context, snap) {
-              final papers = snap.data ?? [];
-              return ListView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                children: [
-                  // Exam summary card
-                  _ExamSummaryCard(
-                    exam: exam,
-                    teacher: widget.exam.teacher,
-                    config: widget.config,
-                    cs: cs,
-                  ),
-                  const SizedBox(height: 20),
-                  if (papers.isNotEmpty) ...[
-                    _SubLabel(label: 'Papers', cs: cs),
-                    const SizedBox(height: 10),
-                    ...papers.map(
-                      (p) => Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: _PaperCard(
-                          paper: p,
-                          config: widget.config,
-                          cs: cs,
-                          canManage: _canManage,
-                          schoolId: widget.schoolId,
-                          dao: _dao,
-                          onTap: () => widget.onPaperTap(p),
-                          onDelete: _canManage
-                              ? () => _confirmDeletePaper(context, p)
-                              : null,
-                        ),
-                      ),
-                    ),
-                  ] else ...[
-                    _EmptyPapersState(
-                      canCreate: _canManage,
-                      onCreate: () => _showAddPaper(context),
-                      cs: cs,
-                    ),
-                  ],
-                  const SizedBox(height: 24),
-                  _ClassPerformanceSection(
-                    exam: exam,
-                    schoolId: widget.schoolId,
-                    year: widget.year,
-                    term: widget.term,
-                    config: widget.config,
-                    dao: _dao,
-                  ),
-                ],
+        // ── Day chip selector ────────────────────────────────────────────
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: Row(
+            children: _dates.asMap().entries.map((entry) {
+              final i = entry.key;
+              final d = entry.value;
+              return _PaperDayChip(
+                date: d,
+                isSelected: i == _selectedDayIndex,
+                cs: cs,
+                onTap: () => setState(() => _selectedDayIndex = i),
               );
-            },
+            }).toList(),
           ),
+        ),
+        // ── Day heading ──────────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 6, 20, 8),
+          child: Text(
+            _fmtDayHeader(selectedDate),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurface,
+            ),
+          ),
+        ),
+        // ── Paper list ───────────────────────────────────────────────────
+        Expanded(
+          child: dayPapers.isEmpty
+              ? Center(
+                  child: Text(
+                    'No papers on this day.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                    ),
+                  ),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+                  itemCount: dayPapers.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
+                  itemBuilder: (context, i) {
+                    final p = dayPapers[i];
+                    final statusColor = _paperStatusColor(p.status, cs);
+                    final invName = widget.teacherNames[p.invigilator] ?? '';
+                    return _PaperSlotCard(
+                      paper: p,
+                      exam: widget.exam,
+                      config: widget.config,
+                      cs: cs,
+                      statusColor: statusColor,
+                      invigilatorName: invName,
+                      onTap: () => widget.onPaperTap(p, widget.exam),
+                    );
+                  },
+                ),
         ),
       ],
     );
   }
+}
 
-  Future<void> _showAddPaper(BuildContext context) async {
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _CreatePaperSheet(
-        schoolId: widget.schoolId,
-        examId: widget.exam.exam.id,
-        year: widget.year,
-        term: widget.term,
-        grade: widget.exam.exam.grade,
-        stream: widget.exam.exam.stream,
-        config: widget.config,
-        dao: _dao,
-        subjectsDao: _subjectsDao,
+class _PaperDayChip extends StatelessWidget {
+  const _PaperDayChip({
+    required this.date,
+    required this.isSelected,
+    required this.cs,
+    required this.onTap,
+  });
+
+  final DateTime date;
+  final bool isSelected;
+  final ColorScheme cs;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: isSelected ? cs.primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: isSelected
+                  ? cs.primary
+                  : cs.outlineVariant.withValues(alpha: 0.5),
+              width: 1,
+            ),
+          ),
+          child: Text(
+            _fmtDayColumn(date),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: isSelected ? cs.onPrimary : cs.onSurfaceVariant,
+            ),
+          ),
+        ),
       ),
     );
   }
+}
 
-  Future<void> _confirmDeletePaper(BuildContext context, Paper paper) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => _ConfirmDeleteDialog(
-        title: 'Delete Paper',
-        message: 'All grades for this paper will be permanently deleted.',
-        confirmLabel: 'Delete Paper',
+// ─────────────────────────────────────────────────────────────────────────────
+// Paper status legend
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PaperStatusLegend extends StatelessWidget {
+  const _PaperStatusLegend();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final statuses = PaperStatus.values;
+    return Wrap(
+      spacing: 12,
+      runSpacing: 4,
+      children: statuses.map((s) {
+        final color = _paperStatusColor(s, cs);
+        final label = _paperStatusLabel(s);
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+              ),
+            ),
+          ],
+        );
+      }).toList(),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Paper slot card — used by mobile timetable view + paper content area
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PaperSlotCard extends StatelessWidget {
+  const _PaperSlotCard({
+    required this.paper,
+    required this.exam,
+    required this.config,
+    required this.cs,
+    required this.statusColor,
+    required this.invigilatorName,
+    required this.onTap,
+  });
+  final Paper paper;
+  final Exam exam;
+  final SchoolConfig config;
+  final ColorScheme cs;
+  final Color statusColor;
+  final String invigilatorName;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final subjectName = _subjectLabel(paper.subject, config);
+    final paperLabel = (paper.paper ?? 1) > 1 ? 'Paper ${paper.paper}' : '';
+    final startDt = DateTime.fromMillisecondsSinceEpoch(
+      paper.start.toInt() * 1000,
+    );
+    final endDt = DateTime.fromMillisecondsSinceEpoch(paper.end.toInt() * 1000);
+    final timeRange = '${_fmtTime(startDt)} – ${_fmtTime(endDt)}';
+
+    return InkWell(
+      onTap: onTap,
+      splashFactory: NoSplash.splashFactory,
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        decoration: BoxDecoration(
+          color: statusColor.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(4),
+          border: Border(
+            left: BorderSide(color: statusColor, width: 2.5),
+            top: BorderSide(
+              color: cs.outlineVariant.withValues(alpha: isDark ? 0.15 : 0.30),
+            ),
+            right: BorderSide(
+              color: cs.outlineVariant.withValues(alpha: isDark ? 0.15 : 0.30),
+            ),
+            bottom: BorderSide(
+              color: cs.outlineVariant.withValues(alpha: isDark ? 0.15 : 0.30),
+            ),
+          ),
+        ),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        subjectName,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                      if (paperLabel.isNotEmpty) ...[
+                        const SizedBox(width: 6),
+                        Text(
+                          paperLabel,
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w400,
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    timeRange,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w400,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                  if (invigilatorName.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      'Inv: $invigilatorName',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                _StatusChip(status: paper.status, cs: cs),
+                const SizedBox(height: 4),
+                Icon(
+                  Icons.chevron_right,
+                  size: 16,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
-    if (confirmed != true || !mounted) return;
-    final accountId = cache.currentUser?.user.id;
-    if (accountId == null) return;
-    await _dao.deletePaper(
-      schoolId: widget.schoolId,
-      examId: widget.exam.exam.id,
-      subject: paper.subject,
-      paperNum: paper.paper,
-      accountId: accountId,
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Empty papers timetable state
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _EmptyPapersTimetableState extends StatelessWidget {
+  const _EmptyPapersTimetableState({required this.cs});
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                Icons.event_note_outlined,
+                size: 22,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              'No papers scheduled',
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w500,
+                color: cs.onSurface,
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              'Tap + to add papers for this exam.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -678,7 +5986,7 @@ class _PaperDetailViewState extends State<_PaperDetailView> {
           title: '$subjectLabel$paperLabel',
           subtitle: '$gradeLabel · ${widget.year} T${widget.term}',
           leadingAction: _HeaderAction(
-            icon: Icons.arrow_back,
+            icon: Icons.chevron_left,
             label: 'Back',
             onTap: widget.onBack,
           ),
@@ -767,553 +6075,6 @@ class _PaperDetailViewState extends State<_PaperDetailView> {
       ],
     );
   }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Analytics header — donut + bar chart
-// ─────────────────────────────────────────────────────────────────────────────
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Class Performance Analytics — overall + per-subject + student ranking
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _ClassPerformanceSection extends StatefulWidget {
-  const _ClassPerformanceSection({
-    required this.exam,
-    required this.schoolId,
-    required this.year,
-    required this.term,
-    required this.config,
-    required this.dao,
-  });
-
-  final Exam exam;
-  final String schoolId;
-  final int year;
-  final int term;
-  final SchoolConfig config;
-  final ExamsGradesDao dao;
-
-  @override
-  State<_ClassPerformanceSection> createState() =>
-      _ClassPerformanceSectionState();
-}
-
-class _ClassPerformanceSectionState extends State<_ClassPerformanceSection> {
-  Map<int, PaperAnalytics>? _analytics;
-  List<_StudentRankRow>? _rankings;
-  List<StudentsData>? _enrolled;
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  @override
-  void didUpdateWidget(covariant _ClassPerformanceSection old) {
-    super.didUpdateWidget(old);
-    if (old.exam.id != widget.exam.id) _load();
-  }
-
-  Future<void> _load() async {
-    setState(() => _loading = true);
-
-    final analytics = await widget.dao.computeClassAnalytics(
-      schoolId: widget.schoolId,
-      examId: widget.exam.id,
-    );
-
-    final enrolled = await widget.dao.getEnrolledStudents(
-      schoolId: widget.schoolId,
-      year: widget.year,
-      term: widget.term,
-      grade: widget.exam.grade,
-      stream: widget.exam.stream,
-    );
-
-    // Fetch all grades for this exam to compute student totals
-    final allGrades = await (widget.dao.watchClassGrades(
-      schoolId: widget.schoolId,
-      examId: widget.exam.id,
-    )).first;
-
-    // Build student rankings — sum scores across subjects (subject-level totals
-    // preferred, i.e. paper == null). Fall back to all grades if no
-    // subject-level totals exist.
-    final hasSubjectTotals = allGrades.any((g) => g.paper == null);
-    final relevantGrades = hasSubjectTotals
-        ? allGrades.where((g) => g.paper == null).toList()
-        : allGrades;
-
-    // Group by student
-    final byStudent = <int, List<Grade>>{};
-    for (final g in relevantGrades) {
-      byStudent.putIfAbsent(g.student, () => []).add(g);
-    }
-
-    // Index enrolled students by adm for name resolution
-    final studentMap = {for (final s in enrolled) s.adm: s};
-
-    final rankings = <_StudentRankRow>[];
-    for (final entry in byStudent.entries) {
-      final adm = entry.key;
-      final grades = entry.value;
-      double totalScore = 0;
-      int totalPossible = 0;
-      for (final g in grades) {
-        totalScore += g.score;
-        totalPossible += g.total;
-      }
-      final pct = totalPossible > 0 ? (totalScore / totalPossible) * 100 : 0.0;
-      final student = studentMap[adm];
-      rankings.add(
-        _StudentRankRow(
-          name: student?.name ?? 'Student $adm',
-          adm: adm,
-          totalScore: totalScore,
-          totalPossible: totalPossible,
-          percentage: pct,
-        ),
-      );
-    }
-
-    // Sort by percentage descending
-    rankings.sort((a, b) => b.percentage.compareTo(a.percentage));
-
-    // Assign ranks (ties share the same rank)
-    int currentRank = 1;
-    for (int i = 0; i < rankings.length; i++) {
-      if (i > 0 && rankings[i].percentage < rankings[i - 1].percentage) {
-        currentRank = i + 1;
-      }
-      rankings[i] = rankings[i].copyWith(rank: currentRank);
-    }
-
-    if (!mounted) return;
-    setState(() {
-      _analytics = analytics;
-      _rankings = rankings;
-      _enrolled = enrolled;
-      _loading = false;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    if (_loading) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 24),
-        child: Center(
-          child: SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
-          ),
-        ),
-      );
-    }
-
-    final analytics = _analytics;
-    final rankings = _rankings;
-    final enrolled = _enrolled;
-    if (analytics == null || analytics.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    // Overall class average across all subjects
-    double totalAvg = 0;
-    for (final a in analytics.values) {
-      totalAvg += a.averagePercent;
-    }
-    final overallAvg = totalAvg / analytics.length;
-    final totalGraded = rankings?.length ?? 0;
-    final totalEnrolled = enrolled?.length ?? 0;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _SubLabel(label: 'Class Performance', cs: cs),
-        const SizedBox(height: 12),
-
-        // ── Summary card ──
-        Material(
-          color: cs.surfaceContainerLowest,
-          borderRadius: BorderRadius.circular(AppTheme.kRadius),
-          elevation: 0,
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppTheme.kRadius),
-              border: Border.all(color: cs.outlineVariant, width: 1),
-            ),
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${overallAvg.toStringAsFixed(1)}%',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w300,
-                          color: _pctColor(overallAvg, cs),
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Class Average',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w400,
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(width: 1, height: 40, color: cs.outlineVariant),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '$totalGraded / $totalEnrolled',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w300,
-                          color: cs.onSurface,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Students Graded',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w400,
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '${analytics.length}',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w300,
-                        color: cs.onSurface,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Subjects',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 20),
-
-        // ── Subject performance bars ──
-        _SubLabel(label: 'Subject Performance', cs: cs),
-        const SizedBox(height: 10),
-        ...analytics.entries.map((entry) {
-          final subjectCode = entry.key;
-          final pa = entry.value;
-          final label = _subjectLabel(subjectCode, widget.config);
-          final avg = pa.averagePercent;
-          final barColor = avg >= 75
-              ? AppTheme.brandGreen
-              : avg >= 50
-              ? const Color(0xFFF59E0B)
-              : cs.error;
-
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        label,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w400,
-                          color: cs.onSurface,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${avg.toStringAsFixed(1)}%',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: barColor,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(3),
-                  child: SizedBox(
-                    height: 6,
-                    child: LinearProgressIndicator(
-                      value: (avg / 100).clamp(0.0, 1.0),
-                      backgroundColor: cs.surfaceContainerHighest.withValues(
-                        alpha: 0.5,
-                      ),
-                      valueColor: AlwaysStoppedAnimation(barColor),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }),
-
-        if (rankings != null && rankings.isNotEmpty) ...[
-          const SizedBox(height: 20),
-
-          // ── Student ranking table ──
-          _SubLabel(label: 'Student Ranking', cs: cs),
-          const SizedBox(height: 10),
-          Material(
-            color: cs.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(AppTheme.kRadius),
-            elevation: 0,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(AppTheme.kRadius),
-                border: Border.all(color: cs.outlineVariant, width: 1),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Column(
-                children: [
-                  // Header row
-                  Container(
-                    color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 36,
-                          child: Text(
-                            '#',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              color: cs.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          flex: 3,
-                          child: Text(
-                            'Student',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              color: cs.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                        SizedBox(
-                          width: 60,
-                          child: Text(
-                            'Score',
-                            textAlign: TextAlign.end,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              color: cs.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        SizedBox(
-                          width: 50,
-                          child: Text(
-                            '%',
-                            textAlign: TextAlign.end,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              color: cs.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Data rows
-                  ...List.generate(rankings.length, (i) {
-                    final r = rankings[i];
-                    final isEven = i.isEven;
-                    final pctColor = _pctColor(r.percentage, cs);
-                    return Container(
-                      color: isEven
-                          ? Colors.transparent
-                          : cs.surfaceContainerHighest.withValues(alpha: 0.15),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: 36,
-                            child: Text(
-                              '${r.rank}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: cs.onSurfaceVariant,
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            flex: 3,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  r.name,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w400,
-                                    color: cs.onSurface,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                Text(
-                                  '${r.adm}',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w400,
-                                    color: cs.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          SizedBox(
-                            width: 60,
-                            child: Text(
-                              '${_fmtScore(r.totalScore)}/${r.totalPossible}',
-                              textAlign: TextAlign.end,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w400,
-                                color: cs.onSurface,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          SizedBox(
-                            width: 50,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  '${r.percentage.toStringAsFixed(1)}',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                    color: pctColor,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(2),
-                                  child: SizedBox(
-                                    height: 3,
-                                    width: 50,
-                                    child: LinearProgressIndicator(
-                                      value: (r.percentage / 100).clamp(
-                                        0.0,
-                                        1.0,
-                                      ),
-                                      backgroundColor: cs
-                                          .surfaceContainerHighest
-                                          .withValues(alpha: 0.5),
-                                      valueColor: AlwaysStoppedAnimation(
-                                        pctColor,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-/// Data class for a single row in the student ranking table.
-class _StudentRankRow {
-  const _StudentRankRow({
-    this.rank = 0,
-    required this.name,
-    required this.adm,
-    required this.totalScore,
-    required this.totalPossible,
-    required this.percentage,
-  });
-
-  final int rank;
-  final String name;
-  final int adm;
-  final double totalScore;
-  final int totalPossible;
-  final double percentage;
-
-  _StudentRankRow copyWith({int? rank}) => _StudentRankRow(
-    rank: rank ?? this.rank,
-    name: name,
-    adm: adm,
-    totalScore: totalScore,
-    totalPossible: totalPossible,
-    percentage: percentage,
-  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1407,11 +6168,25 @@ class _AnalyticsHeader extends StatelessWidget {
         : 0.0;
     final avgPct = analytics.averagePercent;
 
-    return Material(
-      color: cs.surfaceContainerLowest,
-      borderRadius: BorderRadius.circular(AppTheme.kRadius),
-      elevation: 2,
-      shadowColor: cs.shadow.withValues(alpha: 0.08),
+    final isDark = cs.brightness == Brightness.dark;
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark
+            ? const Color(0xFF1A2536)
+            : cs.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(AppTheme.kRadius),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.25 : 0.4),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: LayoutBuilder(
@@ -1519,7 +6294,7 @@ class _DonutChart extends StatelessWidget {
                     '${(gradedPct * 100).round()}%',
                     style: TextStyle(
                       fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       color: cs.onSurface,
                     ),
                   ),
@@ -1592,7 +6367,7 @@ class _StatRow extends StatelessWidget {
           value,
           style: TextStyle(
             fontSize: 12,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w500,
             color: cs.onSurface,
           ),
         ),
@@ -1940,6 +6715,26 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet> {
             borderRadius: const BorderRadius.vertical(
               top: Radius.circular(AppTheme.kRadius),
             ),
+            border: Border(
+              left: BorderSide(
+                color: isDark
+                    ? const Color(0xFF2A3848)
+                    : const Color(0xFFDDE1E7),
+                width: 1,
+              ),
+              right: BorderSide(
+                color: isDark
+                    ? const Color(0xFF2A3848)
+                    : const Color(0xFFDDE1E7),
+                width: 1,
+              ),
+              top: BorderSide(
+                color: isDark
+                    ? const Color(0xFF2A3848)
+                    : const Color(0xFFDDE1E7),
+                width: 1,
+              ),
+            ),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Row(
@@ -1951,7 +6746,7 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet> {
                   'Student',
                   style: TextStyle(
                     fontSize: 11,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     color: cs.onSurfaceVariant,
                     letterSpacing: 0.4,
                   ),
@@ -1964,7 +6759,7 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet> {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 11,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     color: cs.onSurfaceVariant,
                     letterSpacing: 0.4,
                   ),
@@ -1974,53 +6769,85 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet> {
             ],
           ),
         ),
-        Material(
-          color: cs.surface,
-          borderRadius: const BorderRadius.vertical(
-            bottom: Radius.circular(AppTheme.kRadius),
-          ),
-          elevation: 2,
-          shadowColor: cs.shadow.withValues(alpha: 0.08),
-          child: ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: widget.students.length,
-            separatorBuilder: (_, __) => Divider(
-              height: 1,
-              color: cs.outlineVariant.withValues(alpha: 0.25),
+        Container(
+          decoration: BoxDecoration(
+            color: cs.surface,
+            borderRadius: const BorderRadius.vertical(
+              bottom: Radius.circular(AppTheme.kRadius),
             ),
-            itemBuilder: (context, i) {
-              final student = widget.students[i];
-              final adm = student.adm;
-              final existingGrade = widget.gradeMap[adm];
-              final isDirty =
-                  _drafts.containsKey(adm) &&
-                  _drafts[adm] !=
-                      (existingGrade != null
-                          ? _fmtScore(existingGrade.score)
-                          : '');
-              final isSaving = _saving[adm] ?? false;
+            border: Border(
+              left: BorderSide(
+                color: isDark
+                    ? const Color(0xFF2A3848)
+                    : const Color(0xFFDDE1E7),
+                width: 1,
+              ),
+              right: BorderSide(
+                color: isDark
+                    ? const Color(0xFF2A3848)
+                    : const Color(0xFFDDE1E7),
+                width: 1,
+              ),
+              bottom: BorderSide(
+                color: isDark
+                    ? const Color(0xFF2A3848)
+                    : const Color(0xFFDDE1E7),
+                width: 1,
+              ),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.06),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: const BorderRadius.vertical(
+              bottom: Radius.circular(AppTheme.kRadius),
+            ),
+            child: ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: widget.students.length,
+              separatorBuilder: (_, _) => Divider(
+                height: 1,
+                color: cs.outlineVariant.withValues(alpha: 0.25),
+              ),
+              itemBuilder: (context, i) {
+                final student = widget.students[i];
+                final adm = student.adm;
+                final existingGrade = widget.gradeMap[adm];
+                final isDirty =
+                    _drafts.containsKey(adm) &&
+                    _drafts[adm] !=
+                        (existingGrade != null
+                            ? _fmtScore(existingGrade.score)
+                            : '');
+                final isSaving = _saving[adm] ?? false;
 
-              return _SpreadsheetRow(
-                student: student,
-                controller: _controllers[adm]!,
-                focusNode: _focusNodes[adm]!,
-                existingGrade: existingGrade,
-                maxScore: _maxScore,
-                isDirty: isDirty,
-                isSaving: isSaving,
-                canGrade: widget.canGrade,
-                cs: cs,
-                onChanged: (v) {
-                  setState(() => _drafts[adm] = v);
-                },
-                onSave: () => _saveRow(adm, _controllers[adm]!.text),
-                onSubmitted: (_) {
-                  _saveRow(adm, _controllers[adm]!.text);
-                  _focusNext(i);
-                },
-              );
-            },
+                return _SpreadsheetRow(
+                  student: student,
+                  controller: _controllers[adm]!,
+                  focusNode: _focusNodes[adm]!,
+                  existingGrade: existingGrade,
+                  maxScore: _maxScore,
+                  isDirty: isDirty,
+                  isSaving: isSaving,
+                  canGrade: widget.canGrade,
+                  cs: cs,
+                  onChanged: (v) {
+                    setState(() => _drafts[adm] = v);
+                  },
+                  onSave: () => _saveRow(adm, _controllers[adm]!.text),
+                  onSubmitted: (_) {
+                    _saveRow(adm, _controllers[adm]!.text);
+                    _focusNext(i);
+                  },
+                );
+              },
+            ),
           ),
         ),
       ],
@@ -2242,105 +7069,124 @@ class _GradeListState extends State<_GradeList> {
   Widget build(BuildContext context) {
     final cs = widget.cs;
 
-    return Material(
-      color: cs.surface,
-      borderRadius: BorderRadius.circular(AppTheme.kRadius),
-      elevation: 2,
-      shadowColor: cs.shadow.withValues(alpha: 0.08),
-      child: ListView.separated(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: widget.students.length,
-        separatorBuilder: (_, __) => Divider(
-          height: 1,
-          color: cs.outlineVariant.withValues(alpha: 0.25),
+    final isDark = cs.brightness == Brightness.dark;
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(AppTheme.kRadius),
+        border: Border.all(
+          color: isDark ? const Color(0xFF2A3848) : const Color(0xFFDDE1E7),
+          width: 1,
         ),
-        itemBuilder: (context, i) {
-          final student = widget.students[i];
-          final grade = widget.gradeMap[student.adm];
-          final pct = grade != null && grade.total > 0
-              ? (grade.score / grade.total) * 100
-              : null;
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppTheme.kRadius),
+        child: ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: widget.students.length,
+          separatorBuilder: (_, _) => Divider(
+            height: 1,
+            color: cs.outlineVariant.withValues(alpha: 0.25),
+          ),
+          itemBuilder: (context, i) {
+            final student = widget.students[i];
+            final grade = widget.gradeMap[student.adm];
+            final pct = grade != null && grade.total > 0
+                ? (grade.score / grade.total) * 100
+                : null;
 
-          return InkWell(
-            onTap: widget.canGrade
-                ? () => _openGradeEntry(context, student)
-                : null,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          student.name,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w400,
-                            color: cs.onSurface,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Adm: ${student.adm}',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w400,
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (grade != null) ...[
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          '${_fmtScore(grade.score)} / ${grade.total}',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                            color: cs.onSurface,
-                          ),
-                        ),
-                        if (pct != null)
+            return InkWell(
+              onTap: widget.canGrade
+                  ? () => _openGradeEntry(context, student)
+                  : null,
+              splashFactory: NoSplash.splashFactory,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 13,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
-                            '${pct.toStringAsFixed(1)}%',
+                            student.name,
                             style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w500,
-                              color: _pctColor(pct, cs),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w400,
+                              color: cs.onSurface,
                             ),
                           ),
-                      ],
-                    ),
-                  ] else ...[
-                    Text(
-                      widget.canGrade ? 'Tap to grade' : 'Not graded',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Adm: ${student.adm}',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w400,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
+                    if (grade != null) ...[
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '${_fmtScore(grade.score)} / ${grade.total}',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                              color: cs.onSurface,
+                            ),
+                          ),
+                          if (pct != null)
+                            Text(
+                              '${pct.toStringAsFixed(1)}%',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w500,
+                                color: _pctColor(pct, cs),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ] else ...[
+                      Text(
+                        widget.canGrade ? 'Tap to grade' : 'Not graded',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ],
+                    if (widget.canGrade)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 10),
+                        child: Icon(
+                          Icons.chevron_right,
+                          size: 18,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.35),
+                        ),
+                      ),
                   ],
-                  if (widget.canGrade)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 10),
-                      child: Icon(
-                        Icons.chevron_right,
-                        size: 18,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.35),
-                      ),
-                    ),
-                ],
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -2439,8 +7285,10 @@ class _MobileGradeEntrySheetState extends State<_MobileGradeEntrySheet> {
       ),
       child: Container(
         decoration: BoxDecoration(
-          color: cs.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          color: cs.brightness == Brightness.dark
+              ? const Color(0xFF18222E)
+              : cs.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
         ),
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
         child: Form(
@@ -2534,7 +7382,7 @@ class _MobileGradeEntrySheetState extends State<_MobileGradeEntrySheet> {
                   foregroundColor: cs.onPrimary,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.kRadius),
+                    borderRadius: BorderRadius.circular(4),
                   ),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
@@ -2564,311 +7412,16 @@ class _MobileGradeEntrySheetState extends State<_MobileGradeEntrySheet> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Create exam sheet
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _CreateExamSheet extends StatefulWidget {
-  const _CreateExamSheet({
-    required this.schoolId,
-    required this.year,
-    required this.term,
-    required this.config,
-    required this.entry,
-    required this.dao,
-  });
-  final String schoolId;
-  final int year;
-  final int term;
-  final SchoolConfig config;
-  final MembershipEntry entry;
-  final ExamsGradesDao dao;
-
-  @override
-  State<_CreateExamSheet> createState() => _CreateExamSheetState();
-}
-
-class _CreateExamSheetState extends State<_CreateExamSheet> {
-  final _formKey = GlobalKey<FormState>();
-  bool _saving = false;
-
-  ExamType _type = ExamType.exam;
-  int? _selectedGrade;
-  int? _selectedStream; // null = all streams
-  bool _allStreams = true;
-  bool _personalized = false;
-  DateTime _startDate = DateTime.now();
-  DateTime _endDate = DateTime.now().add(const Duration(days: 7));
-
-  List<GradeConfig> get _grades {
-    if (widget.config.isEmpty) return [];
-    final all = <GradeConfig>[];
-    for (final c in widget.config.curricula) {
-      all.addAll(c.grades);
-    }
-    return all..sort((a, b) => a.grade.compareTo(b.grade));
-  }
-
-  List<GradeStream> get _streams {
-    if (_selectedGrade == null) return [];
-    for (final c in widget.config.curricula) {
-      final gc = c.grades.where((g) => g.grade == _selectedGrade).firstOrNull;
-      if (gc != null) return gc.streams;
-    }
-    return [];
-  }
-
-  Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_selectedGrade == null) return;
-    final accountId = cache.currentUser?.user.id;
-    if (accountId == null) return;
-
-    final teacherId = widget.entry is TeacherEntry
-        ? (widget.entry as TeacherEntry).teacher.user
-        : accountId;
-
-    setState(() => _saving = true);
-    try {
-      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
-      final examId = _generateId();
-      final startDays = _startDate.millisecondsSinceEpoch ~/ (86400 * 1000);
-      final endDays = _endDate.millisecondsSinceEpoch ~/ (86400 * 1000);
-
-      await widget.dao.createExam(
-        exam: ExamsCompanion(
-          id: Value(examId),
-          school: Value(widget.schoolId),
-          year: Value(widget.year),
-          term: Value(widget.term),
-          grade: Value(_selectedGrade!),
-          stream: Value(_allStreams ? null : _selectedStream),
-          personalized: Value(_personalized),
-          type: Value(_type),
-          start: Value(startDays),
-          end: Value(endDays),
-          teacher: Value(teacherId),
-          created: Value(now),
-          updated: Value(now),
-        ),
-        accountId: accountId,
-      );
-      if (mounted) Navigator.of(context).pop();
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: cs.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: cs.outlineVariant,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'New Exam / Assessment',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                // Type selector
-                _FieldLabel(label: 'Type', cs: cs),
-                const SizedBox(height: 6),
-                _SegmentedRow<ExamType>(
-                  options: ExamType.values,
-                  selected: _type,
-                  labelOf: (t) => switch (t) {
-                    ExamType.exam => 'Exam',
-                    ExamType.assignment => 'Assignment',
-                    ExamType.assessment => 'Assessment',
-                  },
-                  onSelected: (t) => setState(() => _type = t),
-                  cs: cs,
-                ),
-                const SizedBox(height: 16),
-                // Grade selector
-                _FieldLabel(label: 'Grade', cs: cs),
-                const SizedBox(height: 6),
-                DropdownButtonFormField<int>(
-                  value: _selectedGrade,
-                  decoration: _inputDeco(cs, label: 'Select grade'),
-                  items: _grades.map((g) {
-                    final label = _gradeLabel(g.grade, widget.config);
-                    return DropdownMenuItem(value: g.grade, child: Text(label));
-                  }).toList(),
-                  onChanged: (v) => setState(() {
-                    _selectedGrade = v;
-                    _selectedStream = null;
-                    _allStreams = true;
-                  }),
-                  validator: (v) => v == null ? 'Select a grade' : null,
-                ),
-                const SizedBox(height: 16),
-                // Stream
-                if (_streams.isNotEmpty) ...[
-                  _FieldLabel(label: 'Stream', cs: cs),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: _allStreams,
-                        onChanged: (v) =>
-                            setState(() => _allStreams = v ?? true),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'All streams',
-                        style: TextStyle(fontSize: 13.5, color: cs.onSurface),
-                      ),
-                    ],
-                  ),
-                  if (!_allStreams) ...[
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<int>(
-                      value: _selectedStream,
-                      decoration: _inputDeco(cs, label: 'Select stream'),
-                      items: _streams.map((s) {
-                        return DropdownMenuItem(
-                          value: s.code,
-                          child: Text(s.name),
-                        );
-                      }).toList(),
-                      onChanged: (v) => setState(() => _selectedStream = v),
-                      validator: (v) =>
-                          !_allStreams && v == null ? 'Select a stream' : null,
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                ],
-                // Personalized
-                Row(
-                  children: [
-                    Checkbox(
-                      value: _personalized,
-                      onChanged: (v) =>
-                          setState(() => _personalized = v ?? false),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Personalized exam',
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              color: cs.onSurface,
-                            ),
-                          ),
-                          Text(
-                            'Different questions per student',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              color: cs.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                // Date range
-                Row(
-                  children: [
-                    Expanded(
-                      child: _DatePickerField(
-                        label: 'Start date',
-                        date: _startDate,
-                        cs: cs,
-                        onPicked: (d) => setState(() => _startDate = d),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _DatePickerField(
-                        label: 'End date',
-                        date: _endDate,
-                        cs: cs,
-                        onPicked: (d) => setState(() => _endDate = d),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: _saving ? null : _save,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: cs.primary,
-                    foregroundColor: cs.onPrimary,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppTheme.kRadius),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  child: _saving
-                      ? SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 1.5,
-                            color: cs.onPrimary,
-                          ),
-                        )
-                      : const Text(
-                          'Create Exam',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w500,
-                            fontSize: 14,
-                          ),
-                        ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Create paper sheet
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _CreatePaperSheet — adaptive dialog (desktop) / bottom sheet (mobile)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _CreatePaperSheet extends StatefulWidget {
   const _CreatePaperSheet({
+    required this.examGroup,
     required this.schoolId,
     required this.examId,
     required this.year,
@@ -2879,6 +7432,8 @@ class _CreatePaperSheet extends StatefulWidget {
     required this.dao,
     required this.subjectsDao,
   });
+
+  final ExamGroup examGroup;
   final String schoolId;
   final String examId;
   final int year;
@@ -2894,27 +7449,67 @@ class _CreatePaperSheet extends StatefulWidget {
 }
 
 class _CreatePaperSheetState extends State<_CreatePaperSheet> {
-  final _formKey = GlobalKey<FormState>();
+  // ── Data ──────────────────────────────────────────────────────────────────
+  List<Subject> _subjects = [];
+  bool _loadingSubjects = true;
+
+  // ── Form state ────────────────────────────────────────────────────────────
+  int? _selectedSubject;
+  bool _multiPaper = false;
+  int _paperNumber = 1; // 1–3 wheel
+  bool _calendarOpen = false;
+  bool _timeOpen = false;
+  DateTime _selectedDate = DateTime.now();
+  int _startHour = 8;
+  int _startMinIndex = 0; // index into 0..11 (0,5,10,...55)
+  int _durationMinutes = 120; // default 2 h
   bool _saving = false;
 
-  int? _selectedSubject;
-  int? _paperNumber; // null = single paper
-  bool _multiPaper = false;
-  DateTime _startTime = DateTime.now();
-  DateTime _endTime = DateTime.now().add(const Duration(hours: 2));
-  // Subjects assigned for this class in this term, keyed by subject code.
-  // We store just the Subject row; teacher name resolved separately.
-  List<Subject> _subjects = [];
+  // ── Wheel controllers ─────────────────────────────────────────────────────
+  late final FixedExtentScrollController _paperNumCtrl;
+  late final FixedExtentScrollController _startHourCtrl;
+  late final FixedExtentScrollController _startMinCtrl;
+  late final FixedExtentScrollController _durHourCtrl;
+  late final FixedExtentScrollController _durMinCtrl;
+
+  static const _durMinValues = [0, 15, 30, 45];
+
+  // ── Subject overlay ───────────────────────────────────────────────────────
+  OverlayEntry? _subjectOverlay;
+  final _subjectTriggerKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
+    // Initialise with exam group's first day as default date.
+    final groupStartEpochDays = widget.examGroup.start;
+    _selectedDate = DateTime.fromMillisecondsSinceEpoch(
+      groupStartEpochDays * 86400 * 1000,
+    );
+    _paperNumCtrl = FixedExtentScrollController(initialItem: 0);
+    _startHourCtrl = FixedExtentScrollController(initialItem: _startHour);
+    _startMinCtrl = FixedExtentScrollController(initialItem: _startMinIndex);
+    final durH = _durationMinutes ~/ 60;
+    final durMIdx = _durMinValues.indexOf(_durationMinutes % 60).clamp(0, 3);
+    _durHourCtrl = FixedExtentScrollController(initialItem: durH);
+    _durMinCtrl = FixedExtentScrollController(initialItem: durMIdx);
     _loadSubjects();
   }
 
+  @override
+  void dispose() {
+    _closeSubjectOverlay();
+    _paperNumCtrl.dispose();
+    _startHourCtrl.dispose();
+    _startMinCtrl.dispose();
+    _durHourCtrl.dispose();
+    _durMinCtrl.dispose();
+    super.dispose();
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
   Future<void> _loadSubjects() async {
-    // getSubjectsForTerm returns ALL subjects for the term; filter to this
-    // grade (and stream when set) in Dart.
     final allSubs = await widget.subjectsDao.getSubjectsForTerm(
       schoolId: widget.schoolId,
       year: widget.year,
@@ -2927,16 +7522,179 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
               (widget.stream == null || s.stream == widget.stream),
         )
         .toList();
-    if (mounted) setState(() => _subjects = filtered);
+    if (mounted) {
+      setState(() {
+        _subjects = filtered;
+        _loadingSubjects = false;
+      });
+    }
   }
 
+  int get _durHourValue => _durationMinutes ~/ 60;
+  int get _durMinIndex =>
+      _durMinValues.indexOf(_durationMinutes % 60).clamp(0, 3);
+
+  DateTime get _startDateTime => DateTime(
+    _selectedDate.year,
+    _selectedDate.month,
+    _selectedDate.day,
+    _startHour,
+    _startMinIndex * 5,
+  );
+
+  DateTime get _endDateTime =>
+      _startDateTime.add(Duration(minutes: _durationMinutes));
+
+  String _fmtTimeTrigger() {
+    final sh = _startHour.toString().padLeft(2, '0');
+    final sm = (_startMinIndex * 5).toString().padLeft(2, '0');
+    final eh = _endDateTime.hour.toString().padLeft(2, '0');
+    final em = _endDateTime.minute.toString().padLeft(2, '0');
+    final dh = _durHourValue;
+    final dm = _durMinValues[_durMinIndex];
+    final durLabel = dm == 0 ? '${dh}h' : '${dh}h ${dm}m';
+    return '$sh:$sm – $eh:$em · $durLabel';
+  }
+
+  bool get _isOutOfRange {
+    final groupStart = DateTime.fromMillisecondsSinceEpoch(
+      widget.examGroup.start * 86400 * 1000,
+    );
+    final groupEnd = DateTime.fromMillisecondsSinceEpoch(
+      widget.examGroup.end * 86400 * 1000,
+    );
+    final d = _selectedDate;
+    final dayOnly = DateTime(d.year, d.month, d.day);
+    final rangeStart = DateTime(
+      groupStart.year,
+      groupStart.month,
+      groupStart.day,
+    );
+    final rangeEnd = DateTime(groupEnd.year, groupEnd.month, groupEnd.day);
+    return dayOnly.isBefore(rangeStart) || dayOnly.isAfter(rangeEnd);
+  }
+
+  void _applyDurationPreset(int minutes) {
+    setState(() => _durationMinutes = minutes);
+    _durHourCtrl.jumpToItem(minutes ~/ 60);
+    _durMinCtrl.jumpToItem(_durMinValues.indexOf(minutes % 60).clamp(0, 3));
+  }
+
+  // ── Subject overlay ───────────────────────────────────────────────────────
+
+  void _closeSubjectOverlay() {
+    _subjectOverlay?.remove();
+    _subjectOverlay = null;
+  }
+
+  void _toggleSubjectOverlay(
+    BuildContext context,
+    ColorScheme cs,
+    bool isDark,
+    Color indigo,
+  ) {
+    if (_subjectOverlay != null) {
+      _closeSubjectOverlay();
+      return;
+    }
+
+    final renderBox =
+        _subjectTriggerKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    final offset = renderBox.localToGlobal(Offset.zero);
+    final size = renderBox.size;
+
+    // Decide whether to open above or below.
+    final screenHeight = MediaQuery.of(context).size.height;
+    final spaceBelow = screenHeight - (offset.dy + size.height);
+    final openAbove = spaceBelow < 200;
+
+    _subjectOverlay = OverlayEntry(
+      builder: (ctx) => GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: _closeSubjectOverlay,
+        child: Stack(
+          children: [
+            Positioned(
+              left: offset.dx,
+              top: openAbove ? null : offset.dy + size.height + 4,
+              bottom: openAbove ? screenHeight - offset.dy + 4 : null,
+              width: size.width,
+              child: _SubjectMenuOverlay(
+                subjects: _subjects,
+                selected: _selectedSubject,
+                config: widget.config,
+                cs: cs,
+                isDark: isDark,
+                indigo: indigo,
+                onSelected: (code) {
+                  _closeSubjectOverlay();
+                  setState(() => _selectedSubject = code);
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    Overlay.of(context).insert(_subjectOverlay!);
+  }
+
+  // ── Out-of-range extension ────────────────────────────────────────────────
+
+  Future<void> _extendExamRange(BuildContext context) async {
+    final accountId = cache.currentUser?.user.id;
+    if (accountId == null) return;
+    final group = widget.examGroup;
+
+    final groupStartDt = DateTime.fromMillisecondsSinceEpoch(
+      group.start * 86400 * 1000,
+    );
+    final groupEndDt = DateTime.fromMillisecondsSinceEpoch(
+      group.end * 86400 * 1000,
+    );
+    final d = _selectedDate;
+    final selDay = DateTime(d.year, d.month, d.day);
+    final gsDay = DateTime(
+      groupStartDt.year,
+      groupStartDt.month,
+      groupStartDt.day,
+    );
+    final geDays = DateTime(groupEndDt.year, groupEndDt.month, groupEndDt.day);
+
+    final newStart = selDay.isBefore(gsDay) ? selDay : gsDay;
+    final newEnd = selDay.isAfter(geDays) ? selDay : geDays;
+
+    // Convert back to days-since-epoch
+    final newStartDays = newStart.millisecondsSinceEpoch ~/ (86400 * 1000);
+    final newEndDays = newEnd.millisecondsSinceEpoch ~/ (86400 * 1000);
+
+    try {
+      await widget.dao.updateExamGroupDateRange(
+        schoolId: widget.schoolId,
+        year: widget.year,
+        term: widget.term,
+        type: group.type,
+        oldStart: group.start,
+        oldEnd: group.end,
+        newStart: newStartDays,
+        newEnd: newEndDays,
+        accountId: accountId,
+      );
+    } catch (_) {
+      // Silently ignore — the date is still usable.
+    }
+  }
+
+  // ── Save ──────────────────────────────────────────────────────────────────
+
   Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
     if (_selectedSubject == null) return;
+    if (_durationMinutes <= 0) return;
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;
 
-    // Find the invigilator — use the subject's assigned teacher or fall back.
     final subjectRow = _subjects
         .where((s) => s.subject == _selectedSubject)
         .firstOrNull;
@@ -2945,7 +7703,6 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
     setState(() => _saving = true);
     try {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
-
       await widget.dao.createPaper(
         paper: PapersCompanion(
           school: Value(widget.schoolId),
@@ -2953,8 +7710,10 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
           subject: Value(_selectedSubject!),
           paper: Value(_multiPaper ? _paperNumber : null),
           invigilator: Value(invigilatorId),
-          start: Value(BigInt.from(_startTime.millisecondsSinceEpoch ~/ 1000)),
-          end: Value(BigInt.from(_endTime.millisecondsSinceEpoch ~/ 1000)),
+          start: Value(
+            BigInt.from(_startDateTime.millisecondsSinceEpoch ~/ 1000),
+          ),
+          end: Value(BigInt.from(_endDateTime.millisecondsSinceEpoch ~/ 1000)),
           status: const Value(PaperStatus.pending),
           created: Value(now),
           updated: Value(now),
@@ -2967,9 +7726,66 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
     }
   }
 
+  // ── Build ─────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final indigo = const Color(0xFF5C7CFA);
+    final isDesktop =
+        MediaQuery.of(context).size.width >= AppTheme.kMobileBreakpoint;
+
+    final gradeLabel = _gradeLabel(widget.grade, widget.config);
+    final streamLabel = widget.stream != null
+        ? _streamLabel(widget.grade, widget.stream!, widget.config)
+        : null;
+    final subtitle = streamLabel != null
+        ? '$gradeLabel · $streamLabel'
+        : gradeLabel;
+
+    final sheetBg = isDark ? const Color(0xFF18222E) : cs.surface;
+
+    Widget content = _buildContent(
+      context,
+      cs: cs,
+      isDark: isDark,
+      indigo: indigo,
+      subtitle: subtitle,
+      sheetBg: sheetBg,
+      isSheet: !isDesktop,
+    );
+
+    if (isDesktop) {
+      return Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: Container(
+              decoration: BoxDecoration(
+                color: sheetBg,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
+                    blurRadius: 32,
+                    offset: const Offset(0, 12),
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.06),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: content,
+            ),
+          ),
+        ),
+      );
+    }
 
     return Padding(
       padding: EdgeInsets.only(
@@ -2977,161 +7793,1385 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
       ),
       child: Container(
         decoration: BoxDecoration(
-          color: cs.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          color: sheetBg,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
         ),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+        child: content,
+      ),
+    );
+  }
+
+  Widget _buildContent(
+    BuildContext context, {
+    required ColorScheme cs,
+    required bool isDark,
+    required Color indigo,
+    required String subtitle,
+    required Color sheetBg,
+    required bool isSheet,
+  }) {
+    final borderColor = cs.outlineVariant.withValues(
+      alpha: isDark ? 0.25 : 0.4,
+    );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // ── Header ──────────────────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 8, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (isSheet)
                 Center(
                   child: Container(
-                    width: 36,
-                    height: 4,
+                    width: 32,
+                    height: 3.5,
+                    margin: const EdgeInsets.only(bottom: 14),
                     decoration: BoxDecoration(
-                      color: cs.outlineVariant,
+                      color: cs.outlineVariant.withValues(
+                        alpha: isDark ? 0.4 : 0.5,
+                      ),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  'Add Paper',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                _FieldLabel(label: 'Subject', cs: cs),
-                const SizedBox(height: 6),
-                _subjects.isEmpty
-                    ? Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: cs.surfaceContainerHighest.withValues(
-                            alpha: 0.5,
-                          ),
-                          borderRadius: BorderRadius.circular(AppTheme.kRadius),
-                        ),
-                        child: Text(
-                          'No subjects assigned to this class yet.',
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'New Paper',
                           style: TextStyle(
-                            fontSize: 13,
-                            color: cs.onSurfaceVariant,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            color: cs.onSurface,
                           ),
                         ),
-                      )
-                    : DropdownButtonFormField<int>(
-                        value: _selectedSubject,
-                        decoration: _inputDeco(cs, label: 'Select subject'),
-                        items: _subjects.map((s) {
-                          final label = _subjectLabel(s.subject, widget.config);
-                          return DropdownMenuItem(
-                            value: s.subject,
-                            child: Text(label),
-                          );
-                        }).toList(),
-                        onChanged: (v) => setState(() => _selectedSubject = v),
-                        validator: (v) => v == null ? 'Select a subject' : null,
-                      ),
-                const SizedBox(height: 16),
-                // Multi-paper toggle
-                Row(
-                  children: [
-                    Checkbox(
-                      value: _multiPaper,
-                      onChanged: (v) => setState(() {
-                        _multiPaper = v ?? false;
-                        _paperNumber = _multiPaper ? 1 : null;
-                      }),
-                      visualDensity: VisualDensity.compact,
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Multiple papers (e.g. Paper 1, 2, 3)',
-                      style: TextStyle(fontSize: 13.5, color: cs.onSurface),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.close_rounded,
+                      size: 18,
+                      color: cs.onSurfaceVariant,
                     ),
-                  ],
-                ),
-                if (_multiPaper) ...[
-                  const SizedBox(height: 10),
-                  TextFormField(
-                    initialValue: '${_paperNumber ?? 1}',
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: _inputDeco(cs, label: 'Paper number'),
-                    onChanged: (v) =>
-                        setState(() => _paperNumber = int.tryParse(v)),
-                    validator: (v) {
-                      if (!_multiPaper) return null;
-                      final n = int.tryParse(v ?? '');
-                      if (n == null || n < 1) return 'Enter paper number ≥ 1';
-                      return null;
-                    },
+                    style: IconButton.styleFrom(
+                      splashFactory: NoSplash.splashFactory,
+                    ),
+                    onPressed: () => Navigator.of(context).pop(),
+                    tooltip: 'Close',
                   ),
                 ],
-                const SizedBox(height: 16),
-                // Date/time range
-                Row(
-                  children: [
-                    Expanded(
-                      child: _DatePickerField(
-                        label: 'Start',
-                        date: _startTime,
-                        cs: cs,
-                        onPicked: (d) => setState(() => _startTime = d),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _DatePickerField(
-                        label: 'End',
-                        date: _endTime,
-                        cs: cs,
-                        onPicked: (d) => setState(() => _endTime = d),
-                      ),
-                    ),
-                  ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        Divider(height: 1, thickness: 1, color: borderColor),
+        // ── Body ────────────────────────────────────────────────────────────
+        Flexible(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Subject selector
+                _buildSubjectRow(
+                  context,
+                  cs: cs,
+                  isDark: isDark,
+                  indigo: indigo,
                 ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: (_saving || _subjects.isEmpty) ? null : _save,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: cs.primary,
-                    foregroundColor: cs.onPrimary,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppTheme.kRadius),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                const SizedBox(height: 14),
+                // Multi-paper + paper number wheel
+                _buildPaperNumberRow(cs: cs, isDark: isDark, indigo: indigo),
+                const SizedBox(height: 14),
+                // Date picker
+                _buildDateRow(context, cs: cs, isDark: isDark, indigo: indigo),
+                const SizedBox(height: 14),
+                // Out-of-range warning
+                if (_isOutOfRange)
+                  _buildOutOfRangeWarning(
+                    context,
+                    cs: cs,
+                    isDark: isDark,
+                    indigo: indigo,
                   ),
-                  child: _saving
-                      ? SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 1.5,
-                            color: cs.onPrimary,
-                          ),
-                        )
-                      : const Text(
-                          'Add Paper',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w500,
-                            fontSize: 14,
-                          ),
-                        ),
+                if (_isOutOfRange) const SizedBox(height: 14),
+                // Time picker
+                _buildTimeRow(cs: cs, isDark: isDark, indigo: indigo),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        ),
+        // ── Footer ──────────────────────────────────────────────────────────
+        Divider(height: 1, thickness: 1, color: borderColor),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 12, 14),
+          child: Row(
+            children: [
+              const Spacer(),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: TextButton.styleFrom(
+                  splashFactory: NoSplash.splashFactory,
+                ),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+                ),
+              ),
+              const SizedBox(width: 8),
+              _GradeConfirmButton(
+                saving: _saving,
+                indigo: indigo,
+                onTap: (_selectedSubject == null || _saving) ? null : _save,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Subject row ───────────────────────────────────────────────────────────
+
+  Widget _buildSubjectRow(
+    BuildContext context, {
+    required ColorScheme cs,
+    required bool isDark,
+    required Color indigo,
+  }) {
+    final hasSubject = _selectedSubject != null;
+    final label = hasSubject
+        ? _subjectLabel(_selectedSubject!, widget.config)
+        : (_loadingSubjects ? 'Loading…' : 'Select subject…');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Subject',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+            letterSpacing: 0.4,
+          ),
+        ),
+        const SizedBox(height: 6),
+        GestureDetector(
+          key: _subjectTriggerKey,
+          onTap: (_loadingSubjects || _subjects.isEmpty)
+              ? null
+              : () => _toggleSubjectOverlay(context, cs, isDark, indigo),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            curve: Curves.easeOutCubic,
+            height: 38,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: hasSubject
+                  ? indigo.withValues(alpha: isDark ? 0.12 : 0.07)
+                  : (isDark
+                        ? const Color(0xFF1E2C3C)
+                        : cs.surfaceContainerHighest.withValues(alpha: 0.55)),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: hasSubject
+                    ? indigo.withValues(alpha: 0.55)
+                    : cs.outlineVariant.withValues(alpha: isDark ? 0.25 : 0.4),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.menu_book_outlined,
+                  size: 16,
+                  color: hasSubject
+                      ? indigo
+                      : cs.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: hasSubject
+                          ? FontWeight.w500
+                          : FontWeight.w400,
+                      color: hasSubject ? indigo : cs.onSurfaceVariant,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Icon(
+                  Icons.unfold_more_rounded,
+                  size: 16,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
                 ),
               ],
             ),
           ),
         ),
+        if (!_loadingSubjects && _subjects.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              'No subjects assigned to this class yet.',
+              style: TextStyle(
+                fontSize: 11.5,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  // ── Paper number row ──────────────────────────────────────────────────────
+
+  Widget _buildPaperNumberRow({
+    required ColorScheme cs,
+    required bool isDark,
+    required Color indigo,
+  }) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 140),
+      curve: Curves.easeOutCubic,
+      height: 42,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: isDark
+            ? const Color(0xFF1E2C3C)
+            : cs.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.2 : 0.35),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          // Checkbox
+          SizedBox(
+            width: 20,
+            height: 20,
+            child: Checkbox(
+              value: _multiPaper,
+              onChanged: (v) {
+                setState(() {
+                  _multiPaper = v ?? false;
+                  if (!_multiPaper) _paperNumber = 1;
+                });
+              },
+              visualDensity: VisualDensity.compact,
+              activeColor: indigo,
+              side: BorderSide(
+                color: cs.outlineVariant.withValues(alpha: isDark ? 0.5 : 0.6),
+              ),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Multiple papers',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurface,
+            ),
+          ),
+          const Spacer(),
+          // Paper number wheel (only when _multiPaper)
+          AnimatedSize(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            child: _multiPaper
+                ? SizedBox(
+                    width: 72,
+                    height: 36,
+                    child: _PaperNumberWheel(
+                      controller: _paperNumCtrl,
+                      selected: _paperNumber,
+                      cs: cs,
+                      isDark: isDark,
+                      indigo: indigo,
+                      onChanged: (n) => setState(() => _paperNumber = n),
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Date row ──────────────────────────────────────────────────────────────
+
+  Widget _buildDateRow(
+    BuildContext context, {
+    required ColorScheme cs,
+    required bool isDark,
+    required Color indigo,
+  }) {
+    final groupStart = DateTime.fromMillisecondsSinceEpoch(
+      widget.examGroup.start * 86400 * 1000,
+    );
+    final groupEnd = DateTime.fromMillisecondsSinceEpoch(
+      widget.examGroup.end * 86400 * 1000,
+    );
+
+    final d = _selectedDate;
+    final dateLabel =
+        '${_kDayNamesShort[d.weekday % 7]}, ${d.day} ${_kMonthsShort[d.month - 1]} ${d.year}';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Trigger
+        GestureDetector(
+          onTap: () => setState(() => _calendarOpen = !_calendarOpen),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            curve: Curves.easeOutCubic,
+            height: 38,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: _calendarOpen
+                  ? indigo.withValues(alpha: isDark ? 0.14 : 0.08)
+                  : (isDark
+                        ? const Color(0xFF1E2C3C)
+                        : cs.surfaceContainerHighest.withValues(alpha: 0.55)),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: _calendarOpen
+                    ? indigo.withValues(alpha: 0.5)
+                    : cs.outlineVariant.withValues(alpha: isDark ? 0.25 : 0.4),
+                width: 1,
+              ),
+              boxShadow: _calendarOpen
+                  ? [
+                      BoxShadow(
+                        color: indigo.withValues(alpha: 0.08),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.calendar_today_rounded,
+                  size: 15,
+                  color: _calendarOpen
+                      ? indigo
+                      : cs.onSurfaceVariant.withValues(alpha: 0.55),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    dateLabel,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      color: _calendarOpen ? indigo : cs.onSurface,
+                    ),
+                  ),
+                ),
+                AnimatedRotation(
+                  turns: _calendarOpen ? 0.5 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 18,
+                    color: _calendarOpen
+                        ? indigo
+                        : cs.onSurfaceVariant.withValues(alpha: 0.55),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // Inline calendar
+        AnimatedCrossFade(
+          duration: const Duration(milliseconds: 200),
+          crossFadeState: _calendarOpen
+              ? CrossFadeState.showSecond
+              : CrossFadeState.showFirst,
+          firstChild: const SizedBox.shrink(),
+          secondChild: Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: _PaperSingleCalendar(
+              selected: _selectedDate,
+              groupStart: groupStart,
+              groupEnd: groupEnd,
+              cs: cs,
+              isDark: isDark,
+              indigo: indigo,
+              onSelected: (d) {
+                setState(() {
+                  _selectedDate = d;
+                  _calendarOpen = false;
+                });
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Out-of-range warning ──────────────────────────────────────────────────
+
+  Widget _buildOutOfRangeWarning(
+    BuildContext context, {
+    required ColorScheme cs,
+    required bool isDark,
+    required Color indigo,
+  }) {
+    const amber = Color(0xFFFFA726);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: amber.withValues(alpha: isDark ? 0.12 : 0.08),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: amber.withValues(alpha: isDark ? 0.35 : 0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.warning_amber_rounded,
+            size: 16,
+            color: amber.withValues(alpha: 0.85),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Date is outside the exam period.',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                color: isDark
+                    ? amber.withValues(alpha: 0.8)
+                    : const Color(0xFFB35A00),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () => _extendExamRange(context),
+            child: Text(
+              'Extend Period',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: indigo,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Time row ──────────────────────────────────────────────────────────────
+
+  Widget _buildTimeRow({
+    required ColorScheme cs,
+    required bool isDark,
+    required Color indigo,
+  }) {
+    final timeLabel = _fmtTimeTrigger();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Trigger chip
+        GestureDetector(
+          onTap: () => setState(() => _timeOpen = !_timeOpen),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            curve: Curves.easeOutCubic,
+            height: 38,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: _timeOpen
+                  ? indigo.withValues(alpha: isDark ? 0.14 : 0.08)
+                  : (isDark
+                        ? const Color(0xFF1E2C3C)
+                        : cs.surfaceContainerHighest.withValues(alpha: 0.55)),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: _timeOpen
+                    ? indigo.withValues(alpha: 0.5)
+                    : cs.outlineVariant.withValues(alpha: isDark ? 0.25 : 0.4),
+                width: 1,
+              ),
+              boxShadow: _timeOpen
+                  ? [
+                      BoxShadow(
+                        color: indigo.withValues(alpha: 0.08),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.schedule_rounded,
+                  size: 15,
+                  color: _timeOpen
+                      ? indigo
+                      : cs.onSurfaceVariant.withValues(alpha: 0.55),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    timeLabel,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      color: _timeOpen ? indigo : cs.onSurface,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ),
+                AnimatedRotation(
+                  turns: _timeOpen ? 0.5 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 18,
+                    color: _timeOpen
+                        ? indigo
+                        : cs.onSurfaceVariant.withValues(alpha: 0.55),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // Inline time configurator
+        AnimatedCrossFade(
+          duration: const Duration(milliseconds: 200),
+          crossFadeState: _timeOpen
+              ? CrossFadeState.showSecond
+              : CrossFadeState.showFirst,
+          firstChild: const SizedBox.shrink(),
+          secondChild: Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: _InlineTimeConfigurator(
+              startHour: _startHour,
+              startMinIndex: _startMinIndex,
+              durationMinutes: _durationMinutes,
+              startHourCtrl: _startHourCtrl,
+              startMinCtrl: _startMinCtrl,
+              durHourCtrl: _durHourCtrl,
+              durMinCtrl: _durMinCtrl,
+              cs: cs,
+              isDark: isDark,
+              indigo: indigo,
+              onStartChanged: (h, mIdx) {
+                setState(() {
+                  _startHour = h;
+                  _startMinIndex = mIdx;
+                });
+              },
+              onDurationChanged: (minutes) {
+                setState(() => _durationMinutes = minutes);
+              },
+              onPreset: _applyDurationPreset,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _SubjectMenuOverlay — macOS-style inline overlay for subject selection
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SubjectMenuOverlay extends StatefulWidget {
+  const _SubjectMenuOverlay({
+    required this.subjects,
+    required this.selected,
+    required this.config,
+    required this.cs,
+    required this.isDark,
+    required this.indigo,
+    required this.onSelected,
+  });
+
+  final List<Subject> subjects;
+  final int? selected;
+  final SchoolConfig config;
+  final ColorScheme cs;
+  final bool isDark;
+  final Color indigo;
+  final ValueChanged<int> onSelected;
+
+  @override
+  State<_SubjectMenuOverlay> createState() => _SubjectMenuOverlayState();
+}
+
+class _SubjectMenuOverlayState extends State<_SubjectMenuOverlay>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _fade;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 120),
+    );
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic);
+    _scale = Tween<double>(
+      begin: 0.95,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final isDark = widget.isDark;
+    final indigo = widget.indigo;
+
+    return FadeTransition(
+      opacity: _fade,
+      child: ScaleTransition(
+        scale: _scale,
+        alignment: Alignment.topCenter,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E2A3A) : cs.surface,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: cs.outlineVariant.withValues(alpha: isDark ? 0.3 : 0.5),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.10),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: widget.subjects.map((s) {
+                final isSelected = s.subject == widget.selected;
+                final label = _subjectLabel(s.subject, widget.config);
+                return InkWell(
+                  splashFactory: NoSplash.splashFactory,
+                  onTap: () => widget.onSelected(s.subject),
+                  child: Container(
+                    height: 36,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: isSelected
+                                  ? FontWeight.w500
+                                  : FontWeight.w400,
+                              color: isSelected ? indigo : cs.onSurface,
+                            ),
+                          ),
+                        ),
+                        if (isSelected)
+                          Icon(Icons.check_rounded, size: 14, color: indigo),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _PaperNumberWheel — compact 1/2/3 wheel for paper number selection
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PaperNumberWheel extends StatelessWidget {
+  const _PaperNumberWheel({
+    required this.controller,
+    required this.selected,
+    required this.cs,
+    required this.isDark,
+    required this.indigo,
+    required this.onChanged,
+  });
+
+  final FixedExtentScrollController controller;
+  final int selected;
+  final ColorScheme cs;
+  final bool isDark;
+  final Color indigo;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark
+            ? const Color(0xFF18222E)
+            : cs.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.2 : 0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            'P',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
+          ),
+          const SizedBox(width: 2),
+          SizedBox(
+            width: 32,
+            child: ListWheelScrollView(
+              controller: controller,
+              itemExtent: 30,
+              diameterRatio: 1.5,
+              physics: const FixedExtentScrollPhysics(),
+              onSelectedItemChanged: (i) => onChanged(i + 1),
+              children: List.generate(3, (i) {
+                final isSelected = (i + 1) == selected;
+                return Center(
+                  child: Text(
+                    '${i + 1}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: isSelected ? indigo : cs.onSurface,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _PaperSingleCalendar — inline single-date calendar
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PaperSingleCalendar extends StatefulWidget {
+  const _PaperSingleCalendar({
+    required this.selected,
+    required this.groupStart,
+    required this.groupEnd,
+    required this.cs,
+    required this.isDark,
+    required this.indigo,
+    required this.onSelected,
+  });
+
+  final DateTime selected;
+  final DateTime groupStart;
+  final DateTime groupEnd;
+  final ColorScheme cs;
+  final bool isDark;
+  final Color indigo;
+  final ValueChanged<DateTime> onSelected;
+
+  @override
+  State<_PaperSingleCalendar> createState() => _PaperSingleCalendarState();
+}
+
+class _PaperSingleCalendarState extends State<_PaperSingleCalendar> {
+  late DateTime _month; // first day of visible month
+
+  @override
+  void initState() {
+    super.initState();
+    _month = DateTime(widget.selected.year, widget.selected.month);
+  }
+
+  void _prevMonth() =>
+      setState(() => _month = DateTime(_month.year, _month.month - 1));
+  void _nextMonth() =>
+      setState(() => _month = DateTime(_month.year, _month.month + 1));
+
+  bool _sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  bool _inExamRange(DateTime d) {
+    final gs = DateTime(
+      widget.groupStart.year,
+      widget.groupStart.month,
+      widget.groupStart.day,
+    );
+    final ge = DateTime(
+      widget.groupEnd.year,
+      widget.groupEnd.month,
+      widget.groupEnd.day,
+    );
+    final day = DateTime(d.year, d.month, d.day);
+    return !day.isBefore(gs) && !day.isAfter(ge);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final isDark = widget.isDark;
+    final indigo = widget.indigo;
+
+    final firstWeekday = _month.weekday % 7; // 0=Sun
+    final daysInMonth = DateTime(_month.year, _month.month + 1, 0).day;
+    final totalCells = firstWeekday + daysInMonth;
+    final rows = (totalCells / 7).ceil();
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: isDark
+            ? const Color(0xFF1A2536)
+            : cs.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.2 : 0.35),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          // Month navigation
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left_rounded, size: 18),
+                onPressed: _prevMonth,
+                style: IconButton.styleFrom(
+                  splashFactory: NoSplash.splashFactory,
+                ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                color: cs.onSurfaceVariant,
+              ),
+              Expanded(
+                child: Text(
+                  '${_kFullMonthNames[_month.month - 1]} ${_month.year}',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right_rounded, size: 18),
+                onPressed: _nextMonth,
+                style: IconButton.styleFrom(
+                  splashFactory: NoSplash.splashFactory,
+                ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                color: cs.onSurfaceVariant,
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          // Weekday headers
+          Row(
+            children: const ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
+                .map(
+                  (d) => Expanded(
+                    child: Center(
+                      child: Text(
+                        d,
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w500,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+          const SizedBox(height: 4),
+          // Day grid
+          for (int r = 0; r < rows; r++)
+            Row(
+              children: List.generate(7, (col) {
+                final cellIndex = r * 7 + col;
+                final dayNum = cellIndex - firstWeekday + 1;
+                if (dayNum < 1 || dayNum > daysInMonth) {
+                  return const Expanded(child: SizedBox(height: 32));
+                }
+                final day = DateTime(_month.year, _month.month, dayNum);
+                final isSelected = _sameDay(day, widget.selected);
+                final inRange = _inExamRange(day);
+
+                return Expanded(
+                  child: GestureDetector(
+                    onTap: () => widget.onSelected(day),
+                    child: Container(
+                      height: 32,
+                      margin: const EdgeInsets.all(1),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? indigo
+                            : (inRange
+                                  ? indigo.withValues(
+                                      alpha: isDark ? 0.14 : 0.08,
+                                    )
+                                  : Colors.transparent),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Center(
+                        child: Text(
+                          '$dayNum',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: isSelected
+                                ? FontWeight.w500
+                                : FontWeight.w400,
+                            color: isSelected
+                                ? Colors.white
+                                : (inRange
+                                      ? indigo
+                                      : cs.onSurface.withValues(alpha: 0.85)),
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _InlineTimeConfigurator — two-column wheel time picker with presets
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _InlineTimeConfigurator extends StatefulWidget {
+  const _InlineTimeConfigurator({
+    required this.startHour,
+    required this.startMinIndex,
+    required this.durationMinutes,
+    required this.startHourCtrl,
+    required this.startMinCtrl,
+    required this.durHourCtrl,
+    required this.durMinCtrl,
+    required this.cs,
+    required this.isDark,
+    required this.indigo,
+    required this.onStartChanged,
+    required this.onDurationChanged,
+    required this.onPreset,
+  });
+
+  final int startHour;
+  final int startMinIndex;
+  final int durationMinutes;
+  final FixedExtentScrollController startHourCtrl;
+  final FixedExtentScrollController startMinCtrl;
+  final FixedExtentScrollController durHourCtrl;
+  final FixedExtentScrollController durMinCtrl;
+  final ColorScheme cs;
+  final bool isDark;
+  final Color indigo;
+  final void Function(int hour, int minIndex) onStartChanged;
+  final ValueChanged<int> onDurationChanged;
+  final ValueChanged<int> onPreset;
+
+  @override
+  State<_InlineTimeConfigurator> createState() =>
+      _InlineTimeConfiguratorState();
+}
+
+class _InlineTimeConfiguratorState extends State<_InlineTimeConfigurator> {
+  static const _durMinValues = [0, 15, 30, 45];
+
+  late int _startHour;
+  late int _startMinIndex;
+  late int _durationMinutes;
+
+  @override
+  void initState() {
+    super.initState();
+    _startHour = widget.startHour;
+    _startMinIndex = widget.startMinIndex;
+    _durationMinutes = widget.durationMinutes;
+  }
+
+  int get _durHour => _durationMinutes ~/ 60;
+  int get _durMinIdx =>
+      _durMinValues.indexOf(_durationMinutes % 60).clamp(0, 3);
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final isDark = widget.isDark;
+    final indigo = widget.indigo;
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: isDark
+            ? const Color(0xFF1E2C3C)
+            : cs.surfaceContainerHighest.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.2 : 0.35),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Wheel row
+          Row(
+            children: [
+              // Start time
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Start Time',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _CompactWheelColumn(
+                          controller: widget.startHourCtrl,
+                          itemCount: 24,
+                          labelBuilder: (i) => i.toString().padLeft(2, '0'),
+                          selectedIndex: _startHour,
+                          cs: cs,
+                          isDark: isDark,
+                          indigo: indigo,
+                          onChanged: (i) {
+                            _startHour = i;
+                            widget.onStartChanged(_startHour, _startMinIndex);
+                          },
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Text(
+                            ':',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w300,
+                              color: cs.onSurface,
+                            ),
+                          ),
+                        ),
+                        _CompactWheelColumn(
+                          controller: widget.startMinCtrl,
+                          itemCount: 12,
+                          labelBuilder: (i) =>
+                              (i * 5).toString().padLeft(2, '0'),
+                          selectedIndex: _startMinIndex,
+                          cs: cs,
+                          isDark: isDark,
+                          indigo: indigo,
+                          onChanged: (i) {
+                            _startMinIndex = i;
+                            widget.onStartChanged(_startHour, _startMinIndex);
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              // Divider
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: SizedBox(
+                  height: 52,
+                  child: VerticalDivider(
+                    width: 1,
+                    color: cs.outlineVariant.withValues(
+                      alpha: isDark ? 0.2 : 0.35,
+                    ),
+                  ),
+                ),
+              ),
+              // Duration
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Duration',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _CompactWheelColumn(
+                          controller: widget.durHourCtrl,
+                          itemCount: 12,
+                          labelBuilder: (i) => '${i}h',
+                          selectedIndex: _durHour,
+                          cs: cs,
+                          isDark: isDark,
+                          indigo: indigo,
+                          onChanged: (i) {
+                            final newDur = i * 60 + _durMinValues[_durMinIdx];
+                            _durationMinutes = newDur;
+                            widget.onDurationChanged(newDur);
+                          },
+                        ),
+                        const SizedBox(width: 4),
+                        _CompactWheelColumn(
+                          controller: widget.durMinCtrl,
+                          itemCount: _durMinValues.length,
+                          labelBuilder: (i) => '${_durMinValues[i]}m',
+                          selectedIndex: _durMinIdx,
+                          cs: cs,
+                          isDark: isDark,
+                          indigo: indigo,
+                          onChanged: (i) {
+                            final newDur = _durHour * 60 + _durMinValues[i];
+                            _durationMinutes = newDur;
+                            widget.onDurationChanged(newDur);
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Preset chips
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children:
+                const [
+                  ('30m', 30),
+                  ('1h', 60),
+                  ('1h 30m', 90),
+                  ('2h', 120),
+                  ('2h 30m', 150),
+                  ('3h', 180),
+                ].map<Widget>((p) {
+                  final isSelected = _durationMinutes == p.$2;
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() => _durationMinutes = p.$2);
+                      widget.onPreset(p.$2);
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 140),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? indigo.withValues(alpha: 0.18)
+                            : (isDark
+                                  ? const Color(0xFF18222E)
+                                  : cs.surfaceContainerHighest.withValues(
+                                      alpha: 0.4,
+                                    )),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: isSelected
+                              ? indigo.withValues(alpha: 0.5)
+                              : cs.outlineVariant.withValues(
+                                  alpha: isDark ? 0.2 : 0.35,
+                                ),
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        p.$1,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w400,
+                          color: isSelected ? indigo : cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _CompactWheelColumn — 32px itemExtent wheel, 1.5 diameterRatio
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CompactWheelColumn extends StatelessWidget {
+  const _CompactWheelColumn({
+    required this.controller,
+    required this.itemCount,
+    required this.labelBuilder,
+    required this.selectedIndex,
+    required this.cs,
+    required this.isDark,
+    required this.indigo,
+    required this.onChanged,
+  });
+
+  final FixedExtentScrollController controller;
+  final int itemCount;
+  final String Function(int) labelBuilder;
+  final int selectedIndex;
+  final ColorScheme cs;
+  final bool isDark;
+  final Color indigo;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 40,
+      height: 80,
+      decoration: BoxDecoration(
+        color: isDark
+            ? const Color(0xFF18222E)
+            : cs.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.15 : 0.25),
+          width: 1,
+        ),
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Highlight band
+          Positioned(
+            top: 24,
+            left: 0,
+            right: 0,
+            child: Container(
+              height: 32,
+              decoration: BoxDecoration(
+                color: indigo.withValues(alpha: isDark ? 0.18 : 0.1),
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+          ),
+          ListWheelScrollView.useDelegate(
+            controller: controller,
+            itemExtent: 32,
+            diameterRatio: 1.5,
+            physics: const FixedExtentScrollPhysics(),
+            onSelectedItemChanged: onChanged,
+            childDelegate: ListWheelChildBuilderDelegate(
+              builder: (ctx, i) {
+                if (i < 0 || i >= itemCount) return null;
+                final isSelected = i == selectedIndex;
+                return Center(
+                  child: Text(
+                    labelBuilder(i),
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: isSelected
+                          ? FontWeight.w500
+                          : FontWeight.w400,
+                      color: isSelected ? indigo : cs.onSurface,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                );
+              },
+              childCount: itemCount,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -3259,24 +9299,31 @@ class _MetaBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          icon,
-          size: 13,
-          color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w400,
-            color: cs.onSurfaceVariant,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 13,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
           ),
-        ),
-      ],
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -3304,192 +9351,10 @@ class _StatusChip extends StatelessWidget {
         label,
         style: TextStyle(
           fontSize: 11.5,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w500,
           color: color,
           letterSpacing: 0.3,
         ),
-      ),
-    );
-  }
-}
-
-class _SubLabel extends StatelessWidget {
-  const _SubLabel({required this.label, required this.cs});
-  final String label;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label.toUpperCase(),
-      style: TextStyle(
-        fontSize: 10.5,
-        fontWeight: FontWeight.w600,
-        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-        letterSpacing: 0.8,
-      ),
-    );
-  }
-}
-
-class _IconActionButton extends StatelessWidget {
-  const _IconActionButton({
-    required this.icon,
-    required this.color,
-    required this.onTap,
-    required this.tooltip,
-  });
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-  final String tooltip;
-
-  @override
-  Widget build(BuildContext context) {
-    return IconButton(
-      onPressed: onTap,
-      icon: Icon(icon, size: 18),
-      tooltip: tooltip,
-      style: IconButton.styleFrom(
-        foregroundColor: color,
-        minimumSize: const Size(32, 32),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
-    );
-  }
-}
-
-class _SegmentedRow<T> extends StatelessWidget {
-  const _SegmentedRow({
-    required this.options,
-    required this.selected,
-    required this.labelOf,
-    required this.onSelected,
-    required this.cs,
-  });
-  final List<T> options;
-  final T selected;
-  final String Function(T) labelOf;
-  final ValueChanged<T> onSelected;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: options.map((opt) {
-        final isSelected = opt == selected;
-        return Expanded(
-          child: GestureDetector(
-            onTap: () => onSelected(opt),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              margin: EdgeInsets.only(right: opt == options.last ? 0 : 4),
-              padding: const EdgeInsets.symmetric(vertical: 9),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? cs.primary
-                    : cs.surfaceContainerHighest.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(AppTheme.kRadius),
-              ),
-              child: Text(
-                labelOf(opt),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w500,
-                  color: isSelected ? cs.onPrimary : cs.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-}
-
-class _DatePickerField extends StatelessWidget {
-  const _DatePickerField({
-    required this.label,
-    required this.date,
-    required this.cs,
-    required this.onPicked,
-  });
-  final String label;
-  final DateTime date;
-  final ColorScheme cs;
-  final ValueChanged<DateTime> onPicked;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () async {
-        final picked = await showDatePicker(
-          context: context,
-          initialDate: date,
-          firstDate: DateTime(2020),
-          lastDate: DateTime(2050),
-        );
-        if (picked != null) onPicked(picked);
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(AppTheme.kRadius),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w500,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    _fmtDate(date),
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w400,
-                      color: cs.onSurface,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.calendar_today_outlined,
-              size: 16,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _FieldLabel extends StatelessWidget {
-  const _FieldLabel({required this.label, required this.cs});
-  final String label;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: TextStyle(
-        fontSize: 11.5,
-        fontWeight: FontWeight.w500,
-        color: cs.onSurfaceVariant,
-        letterSpacing: 0.2,
       ),
     );
   }
@@ -3537,329 +9402,58 @@ class _ConfirmDeleteDialog extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Summary cards
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _ExamSummaryCard extends StatelessWidget {
-  const _ExamSummaryCard({
-    required this.exam,
-    required this.teacher,
-    required this.config,
-    required this.cs,
-  });
-  final Exam exam;
-  final UsersData teacher;
-  final SchoolConfig config;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    final startDate = DateTime.fromMillisecondsSinceEpoch(
-      exam.start * 86400 * 1000,
-    );
-    final endDate = DateTime.fromMillisecondsSinceEpoch(
-      exam.end * 86400 * 1000,
-    );
-    return Material(
-      color: cs.surfaceContainerLowest,
-      borderRadius: BorderRadius.circular(AppTheme.kRadius),
-      elevation: 2,
-      shadowColor: cs.shadow.withValues(alpha: 0.08),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _typeColor(exam.type, cs).withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    _typeLabel(exam.type),
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: _typeColor(exam.type, cs),
-                      letterSpacing: 0.4,
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                if (exam.personalized)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: cs.tertiary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      'Personalized',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: cs.tertiary,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            _InfoRow(icon: Icons.person_outline, label: teacher.name, cs: cs),
-            const SizedBox(height: 4),
-            _InfoRow(
-              icon: Icons.date_range_outlined,
-              label: '${_fmtDate(startDate)} – ${_fmtDate(endDate)}',
-              cs: cs,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.icon, required this.label, required this.cs});
-  final IconData icon;
-  final String label;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 14, color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w400,
-              color: cs.onSurfaceVariant,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _PaperCard extends StatelessWidget {
-  const _PaperCard({
-    required this.paper,
-    required this.config,
-    required this.cs,
-    required this.canManage,
-    required this.schoolId,
-    required this.dao,
-    required this.onTap,
-    required this.onDelete,
-  });
-  final Paper paper;
-  final SchoolConfig config;
-  final ColorScheme cs;
-  final bool canManage;
-  final String schoolId;
-  final ExamsGradesDao dao;
-  final VoidCallback onTap;
-  final VoidCallback? onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final subjectLabel = _subjectLabel(paper.subject, config);
-    final paperLabel = paper.paper != null ? ' · Paper ${paper.paper}' : '';
-    final startDt = DateTime.fromMillisecondsSinceEpoch(
-      paper.start.toInt() * 1000,
-    );
-    final endDt = DateTime.fromMillisecondsSinceEpoch(paper.end.toInt() * 1000);
-
-    return Material(
-      color: cs.surfaceContainerLowest,
-      borderRadius: BorderRadius.circular(AppTheme.kRadius),
-      elevation: 2,
-      shadowColor: cs.shadow.withValues(alpha: 0.08),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppTheme.kRadius),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '$subjectLabel$paperLabel',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: cs.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '${_fmtDate(startDt)} · ${_fmtTime(startDt)} – ${_fmtTime(endDt)}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              _StatusChip(status: paper.status, cs: cs),
-              const SizedBox(width: 6),
-              Icon(
-                Icons.chevron_right,
-                size: 18,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.35),
-              ),
-              if (canManage && onDelete != null)
-                _IconActionButton(
-                  icon: Icons.delete_outline,
-                  color: cs.error,
-                  onTap: onDelete!,
-                  tooltip: 'Delete paper',
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Empty / no-data states
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _EmptyExamsState extends StatelessWidget {
-  const _EmptyExamsState({required this.canCreate, required this.onCreate});
+  const _EmptyExamsState({required this.canCreate});
   final bool canCreate;
-  final VoidCallback onCreate;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(40),
+        padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 56,
-              height: 56,
+              width: 52,
+              height: 52,
               decoration: BoxDecoration(
-                color: cs.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(AppTheme.kRadius),
+                color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
                 Icons.assignment_outlined,
-                size: 26,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.35),
+                size: 22,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.3),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
             Text(
               'No exams this term',
               style: TextStyle(
-                fontSize: 15,
+                fontSize: 13.5,
                 fontWeight: FontWeight.w500,
                 color: cs.onSurface,
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 5),
             Text(
               canCreate
-                  ? 'Create an exam or assessment to get started.'
+                  ? 'Tap + to create your first exam.'
                   : 'Exams created by teachers will appear here.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.5),
               ),
             ),
-            if (canCreate) ...[
-              const SizedBox(height: 20),
-              ElevatedButton.icon(
-                onPressed: onCreate,
-                icon: const Icon(Icons.add, size: 16),
-                label: const Text('New Exam'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: cs.primary,
-                  foregroundColor: cs.onPrimary,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.kRadius),
-                  ),
-                ),
-              ),
-            ],
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _EmptyPapersState extends StatelessWidget {
-  const _EmptyPapersState({
-    required this.canCreate,
-    required this.onCreate,
-    required this.cs,
-  });
-  final bool canCreate;
-  final VoidCallback onCreate;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(AppTheme.kRadius),
-      ),
-      child: Column(
-        children: [
-          Icon(
-            Icons.description_outlined,
-            size: 28,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.3),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            canCreate
-                ? 'No papers yet — add a paper to start grading.'
-                : 'No papers have been added.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
-          ),
-          if (canCreate) ...[
-            const SizedBox(height: 12),
-            TextButton.icon(
-              onPressed: onCreate,
-              icon: const Icon(Icons.add, size: 15),
-              label: const Text('Add Paper'),
-            ),
-          ],
-        ],
       ),
     );
   }
@@ -3948,6 +9542,20 @@ String _typeLabel(ExamType type) => switch (type) {
   ExamType.assessment => 'Assessment',
 };
 
+Color _paperStatusColor(PaperStatus status, ColorScheme cs) => switch (status) {
+  PaperStatus.pending => cs.onSurfaceVariant.withValues(alpha: 0.3),
+  PaperStatus.progress => const Color(0xFF42A5F5),
+  PaperStatus.done => const Color(0xFFFFA726),
+  PaperStatus.marked => const Color(0xFF66BB6A),
+};
+
+String _paperStatusLabel(PaperStatus status) => switch (status) {
+  PaperStatus.pending => 'Pending',
+  PaperStatus.progress => 'In Progress',
+  PaperStatus.done => 'Done',
+  PaperStatus.marked => 'Marked',
+};
+
 Color _typeColor(ExamType type, ColorScheme cs) => switch (type) {
   ExamType.exam => cs.primary,
   ExamType.assignment => const Color(0xFFF59E0B),
@@ -3985,33 +9593,60 @@ const _months = [
   'Dec',
 ];
 
-InputDecoration _inputDeco(ColorScheme cs, {String? label}) => InputDecoration(
-  labelText: label,
-  labelStyle: TextStyle(
-    fontSize: 13,
-    fontWeight: FontWeight.w400,
-    color: cs.onSurfaceVariant,
-  ),
-  filled: true,
-  fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-  isDense: true,
-  border: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(AppTheme.kRadius),
-    borderSide: BorderSide.none,
-  ),
-  focusedBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(AppTheme.kRadius),
-    borderSide: BorderSide(color: cs.primary, width: 1.5),
-  ),
-  errorBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(AppTheme.kRadius),
-    borderSide: BorderSide(color: cs.error, width: 1.5),
-  ),
-  focusedErrorBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(AppTheme.kRadius),
-    borderSide: BorderSide(color: cs.error, width: 1.5),
-  ),
-);
+// Short month names (alias for calendar widgets)
+const _kMonthsShort = _months;
+
+// Full month names for calendar header
+const _kFullMonthNames = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
+// Short weekday names starting Sunday (index = weekday % 7)
+const _kDayNamesShort = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+InputDecoration _inputDeco(ColorScheme cs, {String? label}) {
+  final isDark = cs.brightness == Brightness.dark;
+  return InputDecoration(
+    labelText: label,
+    labelStyle: TextStyle(
+      fontSize: 13,
+      fontWeight: FontWeight.w400,
+      color: cs.onSurfaceVariant,
+    ),
+    filled: true,
+    fillColor: isDark
+        ? const Color(0xFF1E2C3C)
+        : cs.surfaceContainerHighest.withValues(alpha: 0.55),
+    isDense: true,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: BorderSide.none,
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: BorderSide(color: cs.primary, width: 1.5),
+    ),
+    errorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: BorderSide(color: cs.error, width: 1.5),
+    ),
+    focusedErrorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: BorderSide(color: cs.error, width: 1.5),
+    ),
+  );
+}
 
 /// Generates a simple time-based unique id.
 String _generateId() {

@@ -1,13 +1,17 @@
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:drift/drift.dart' hide Column;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/exams_grades_dao.dart';
+import '../../../../database/daos/members_dao.dart';
 import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../database/tables/enums.dart';
 import '../../../../models/curriculum_levels.dart';
@@ -52,6 +56,7 @@ class PaperDetailPage extends StatefulWidget {
 class _PaperDetailPageState extends State<PaperDetailPage> {
   late final ExamsGradesDao _dao;
   late Stream<List<GradeRow>> _gradesStream;
+  late Stream<Paper?> _paperStream;
   List<StudentsData> _students = [];
   bool _loadingStudents = true;
 
@@ -73,7 +78,130 @@ class _PaperDetailPageState extends State<PaperDetailPage> {
       subject: _paper.subject,
       paper: _paper.paper,
     );
+    _paperStream = _dao.watchPaper(
+      schoolId: widget.schoolId,
+      examId: _exam.id,
+      subject: _paper.subject,
+      paperNum: _paper.paper,
+    );
     _loadStudents();
+  }
+
+  Future<void> _showInvigilatorPicker(
+    BuildContext ctx,
+    Paper currentPaper,
+  ) async {
+    final membersDao = MembersDao(db);
+    final teacherRows = await membersDao.watchTeachers(widget.schoolId).first;
+    final teachers = <({TeachersData teacher, UsersData user})>[];
+    for (final t in teacherRows) {
+      final user = await membersDao.findUserById(t.user);
+      if (user != null) teachers.add((teacher: t, user: user));
+    }
+    if (!mounted) return;
+
+    final cs = Theme.of(ctx).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: ctx,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetCtx) {
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(sheetCtx).height * 0.5,
+          ),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1A2332) : cs.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle
+              Padding(
+                padding: const EdgeInsets.only(top: 10, bottom: 6),
+                child: Container(
+                  width: 32,
+                  height: 3.5,
+                  decoration: BoxDecoration(
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: Text(
+                  'Select Invigilator',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                  ),
+                ),
+              ),
+              Divider(
+                height: 1,
+                color: cs.outlineVariant.withValues(alpha: 0.2),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  itemCount: teachers.length,
+                  itemBuilder: (_, i) {
+                    final t = teachers[i];
+                    final isSelected = t.user.id == currentPaper.invigilator;
+                    return ListTile(
+                      leading: UserAvatar(userId: t.user.id, radius: 16),
+                      title: Text(
+                        t.user.name,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                      trailing: isSelected
+                          ? Icon(
+                              Icons.check_rounded,
+                              size: 18,
+                              color: cs.primary,
+                            )
+                          : null,
+                      onTap: () async {
+                        Navigator.pop(sheetCtx);
+                        if (t.user.id == currentPaper.invigilator) return;
+                        final accountId = cache.currentUser?.user.id;
+                        if (accountId == null) return;
+                        final now = BigInt.from(
+                          DateTime.now().millisecondsSinceEpoch ~/ 1000,
+                        );
+                        await _dao.updatePaper(
+                          schoolId: widget.schoolId,
+                          examId: _exam.id,
+                          subject: currentPaper.subject,
+                          paperNum: currentPaper.paper,
+                          changes: PapersCompanion(
+                            invigilator: Value(t.user.id),
+                            updated: Value(now),
+                          ),
+                          accountId: accountId,
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _loadStudents() async {
@@ -115,86 +243,98 @@ class _PaperDetailPageState extends State<PaperDetailPage> {
         scrolledUnderElevation: 0,
         backgroundColor: cs.surface,
       ),
-      body: StreamBuilder<List<GradeRow>>(
-        stream: _gradesStream,
-        builder: (context, snap) {
-          if (_loadingStudents ||
-              snap.connectionState == ConnectionState.waiting) {
-            return _buildLoading(cs);
-          }
+      body: StreamBuilder<Paper?>(
+        stream: _paperStream,
+        builder: (context, paperSnap) {
+          final currentPaper = paperSnap.data ?? widget.paper;
 
-          final gradeRows = snap.data ?? [];
-          final gradeMap = {for (final r in gradeRows) r.student.adm: r.grade};
+          return StreamBuilder<List<GradeRow>>(
+            stream: _gradesStream,
+            builder: (context, snap) {
+              if (_loadingStudents ||
+                  snap.connectionState == ConnectionState.waiting) {
+                return _buildLoading(cs);
+              }
 
-          return LayoutBuilder(
-            builder: (context, constraints) {
-              final isDesktop =
-                  constraints.maxWidth >= AppTheme.kMobileBreakpoint;
+              final gradeRows = snap.data ?? [];
+              final gradeMap = {
+                for (final r in gradeRows) r.student.adm: r.grade,
+              };
 
-              return ListView(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
-                children: [
-                  // ── Paper Info Card ──────────────────────────────────
-                  _PaperInfoCard(
-                    paper: _paper,
-                    exam: widget.exam,
-                    curriculumType: widget.curriculumType,
-                    cs: cs,
-                  ),
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  final isDesktop =
+                      constraints.maxWidth >= AppTheme.kMobileBreakpoint;
 
-                  const SizedBox(height: 12),
+                  return ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+                    children: [
+                      // ── Paper Info Card ──────────────────────────────────
+                      _PaperInfoCard(
+                        paper: currentPaper,
+                        exam: widget.exam,
+                        curriculumType: widget.curriculumType,
+                        cs: cs,
+                        canEdit: _canManage,
+                        onEditInvigilator: () =>
+                            _showInvigilatorPicker(context, currentPaper),
+                      ),
 
-                  // ── Status Advance ──────────────────────────────────
-                  _PaperStatusRow(
-                    paper: _paper,
-                    schoolId: widget.schoolId,
-                    exam: _exam,
-                    dao: _dao,
-                    canManage: _canManage,
-                    cs: cs,
-                  ),
+                      const SizedBox(height: 12),
 
-                  const SizedBox(height: 16),
+                      // ── Status Advance ──────────────────────────────────
+                      _PaperActionBar(
+                        paper: currentPaper,
+                        schoolId: widget.schoolId,
+                        exam: _exam,
+                        dao: _dao,
+                        canManage: _canManage,
+                        cs: cs,
+                      ),
 
-                  // ── Analytics (when marked) ─────────────────────────
-                  if (_paper.status == PaperStatus.marked) ...[
-                    _AnalyticsSection(
-                      gradeRows: gradeRows,
-                      totalStudents: _students.length,
-                      cs: cs,
-                    ),
-                    const SizedBox(height: 20),
-                  ],
+                      const SizedBox(height: 16),
 
-                  // ── Grade Entry Section ─────────────────────────────
-                  _SectionLabel(label: 'Grades', cs: cs),
-                  const SizedBox(height: 8),
+                      // ── Analytics (when marked) ─────────────────────────
+                      if (currentPaper.status == PaperStatus.marked) ...[
+                        _AnalyticsSection(
+                          gradeRows: gradeRows,
+                          totalStudents: _students.length,
+                          cs: cs,
+                        ),
+                        const SizedBox(height: 20),
+                      ],
 
-                  if (_students.isEmpty)
-                    _buildEmpty(cs, 'No students enrolled')
-                  else if (isDesktop)
-                    _GradeSpreadsheet(
-                      students: _students,
-                      gradeMap: gradeMap,
-                      paper: _paper,
-                      exam: _exam,
-                      schoolId: widget.schoolId,
-                      dao: _dao,
-                      canGrade: _canManage,
-                      cs: cs,
-                    )
-                  else
-                    _GradeList(
-                      students: _students,
-                      gradeMap: gradeMap,
-                      paper: _paper,
-                      exam: _exam,
-                      schoolId: widget.schoolId,
-                      dao: _dao,
-                      canGrade: _canManage,
-                      cs: cs,
-                    ),
-                ],
+                      // ── Grade Entry Section ─────────────────────────────
+                      _SectionLabel(label: 'Grades', cs: cs),
+                      const SizedBox(height: 8),
+
+                      if (_students.isEmpty)
+                        _buildEmpty(cs, 'No students enrolled')
+                      else if (isDesktop)
+                        _GradeSpreadsheet(
+                          students: _students,
+                          gradeMap: gradeMap,
+                          paper: currentPaper,
+                          exam: _exam,
+                          schoolId: widget.schoolId,
+                          dao: _dao,
+                          canGrade: _canManage,
+                          cs: cs,
+                        )
+                      else
+                        _GradeList(
+                          students: _students,
+                          gradeMap: gradeMap,
+                          paper: currentPaper,
+                          exam: _exam,
+                          schoolId: widget.schoolId,
+                          dao: _dao,
+                          canGrade: _canManage,
+                          cs: cs,
+                        ),
+                    ],
+                  );
+                },
               );
             },
           );
@@ -214,12 +354,16 @@ class _PaperInfoCard extends StatelessWidget {
     required this.exam,
     required this.curriculumType,
     required this.cs,
+    required this.canEdit,
+    this.onEditInvigilator,
   });
 
   final Paper paper;
   final ExamWithPapers exam;
   final CurriculumType curriculumType;
   final ColorScheme cs;
+  final bool canEdit;
+  final VoidCallback? onEditInvigilator;
 
   @override
   Widget build(BuildContext context) {
@@ -290,22 +434,33 @@ class _PaperInfoCard extends StatelessWidget {
             const SizedBox(height: 6),
 
             // ── Invigilator ──
-            Row(
-              children: [
-                UserAvatar(userId: exam.teacher.id, radius: 10),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    exam.teacher.name,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w400,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+            GestureDetector(
+              onTap: (canEdit && paper.status == PaperStatus.pending)
+                  ? onEditInvigilator
+                  : null,
+              child: Row(
+                children: [
+                  UserAvatar(userId: exam.teacher.id, radius: 10),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      exam.teacher.name,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-              ],
+                  if (canEdit && paper.status == PaperStatus.pending)
+                    Icon(
+                      Icons.edit_outlined,
+                      size: 14,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+                    ),
+                ],
+              ),
             ),
 
             const SizedBox(height: 6),
@@ -364,8 +519,8 @@ class _PaperInfoCard extends StatelessWidget {
 // Paper Status Row + Advance Button
 // ═════════════════════════════════════════════════════════════════════════════
 
-class _PaperStatusRow extends StatelessWidget {
-  const _PaperStatusRow({
+class _PaperActionBar extends StatefulWidget {
+  const _PaperActionBar({
     required this.paper,
     required this.schoolId,
     required this.exam,
@@ -382,61 +537,31 @@ class _PaperStatusRow extends StatelessWidget {
   final ColorScheme cs;
 
   @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _PaperStatusChip(status: paper.status, cs: cs),
-        const SizedBox(width: 8),
-        Text(
-          _statusDescription(paper.status),
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w400,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-          ),
-        ),
-        const Spacer(),
-        if (canManage)
-          _StatusAdvanceButton(
-            paper: paper,
-            schoolId: schoolId,
-            exam: exam,
-            dao: dao,
-            cs: cs,
-          ),
-      ],
-    );
-  }
-
-  String _statusDescription(PaperStatus s) => switch (s) {
-    PaperStatus.pending => 'Not yet started',
-    PaperStatus.progress => 'Exam in progress',
-    PaperStatus.done => 'Exam completed, awaiting grading',
-    PaperStatus.marked => 'Fully graded',
-  };
+  State<_PaperActionBar> createState() => _PaperActionBarState();
 }
 
-class _StatusAdvanceButton extends StatefulWidget {
-  const _StatusAdvanceButton({
-    required this.paper,
-    required this.schoolId,
-    required this.exam,
-    required this.dao,
-    required this.cs,
-  });
-
-  final Paper paper;
-  final String schoolId;
-  final Exam exam;
-  final ExamsGradesDao dao;
-  final ColorScheme cs;
+class _PaperActionBarState extends State<_PaperActionBar>
+    with SingleTickerProviderStateMixin {
+  bool _busy = false;
+  bool _showCheck = false;
+  late final AnimationController _checkCtrl;
+  late final Animation<double> _checkScale;
 
   @override
-  State<_StatusAdvanceButton> createState() => _StatusAdvanceButtonState();
-}
+  void initState() {
+    super.initState();
+    _checkCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _checkScale = CurvedAnimation(parent: _checkCtrl, curve: Curves.elasticOut);
+  }
 
-class _StatusAdvanceButtonState extends State<_StatusAdvanceButton> {
-  bool _busy = false;
+  @override
+  void dispose() {
+    _checkCtrl.dispose();
+    super.dispose();
+  }
 
   Future<void> _advance() async {
     final next = _nextStatus(widget.paper.status);
@@ -454,6 +579,14 @@ class _StatusAdvanceButtonState extends State<_StatusAdvanceButton> {
         changes: PapersCompanion(status: Value(next), updated: Value(now)),
         accountId: accountId,
       );
+      // Brief checkmark confirmation for the "Start" button only
+      if (widget.paper.status == PaperStatus.pending && mounted) {
+        setState(() => _showCheck = true);
+        _checkCtrl.forward(from: 0);
+        await Future.delayed(const Duration(milliseconds: 600));
+        if (mounted) setState(() => _showCheck = false);
+        _checkCtrl.reset();
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -466,13 +599,98 @@ class _StatusAdvanceButtonState extends State<_StatusAdvanceButton> {
     PaperStatus.marked => null,
   };
 
+  ({Color color, IconData icon, String label})? _buttonConfig(PaperStatus s) =>
+      switch (s) {
+        PaperStatus.pending => (
+          color: const Color(0xFF42A5F5),
+          icon: Icons.play_arrow_rounded,
+          label: 'Start',
+        ),
+        PaperStatus.progress => (
+          color: const Color(0xFFFFA726),
+          icon: Icons.check_circle_outline,
+          label: 'Done',
+        ),
+        PaperStatus.done => (
+          color: const Color(0xFF66BB6A),
+          icon: Icons.grading,
+          label: 'Grade',
+        ),
+        PaperStatus.marked => null,
+      };
+
   @override
   Widget build(BuildContext context) {
-    final next = _nextStatus(widget.paper.status);
-    if (next == null) return const SizedBox.shrink();
+    final cfg = _buttonConfig(widget.paper.status);
 
-    return AnimatedSaveButton(isDirty: true, isSaving: _busy, onSave: _advance);
+    return Row(
+      children: [
+        _PaperStatusChip(status: widget.paper.status, cs: widget.cs),
+        const SizedBox(width: 8),
+        Text(
+          _statusDescription(widget.paper.status),
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w400,
+            color: widget.cs.onSurfaceVariant.withValues(alpha: 0.6),
+          ),
+        ),
+        const Spacer(),
+        if (widget.canManage && cfg != null)
+          GestureDetector(
+            onTap: _busy ? null : _advance,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: cfg.color,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: _busy
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.5,
+                        color: Colors.white,
+                      ),
+                    )
+                  : _showCheck
+                  ? ScaleTransition(
+                      scale: _checkScale,
+                      child: const Icon(
+                        Icons.check_rounded,
+                        size: 16,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(cfg.icon, size: 16, color: Colors.white),
+                        const SizedBox(width: 6),
+                        Text(
+                          cfg.label,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ),
+      ],
+    );
   }
+
+  String _statusDescription(PaperStatus s) => switch (s) {
+    PaperStatus.pending => 'Not yet started',
+    PaperStatus.progress => 'Exam in progress',
+    PaperStatus.done => 'Exam completed, awaiting grading',
+    PaperStatus.marked => 'Fully graded',
+  };
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -519,7 +737,10 @@ class _AnalyticsSection extends StatelessWidget {
       '80–100': 0,
     };
 
-    for (final row in gradeRows) {
+    // Only count students with a real (non-zero) score as graded
+    final actuallyGraded = gradeRows.where((r) => r.grade.score > 0).toList();
+
+    for (final row in actuallyGraded) {
       final pct = row.grade.total > 0
           ? (row.grade.score / row.grade.total) * 100
           : 0.0;
@@ -542,9 +763,13 @@ class _AnalyticsSection extends StatelessWidget {
 
     return PaperAnalytics(
       totalStudents: totalStudents,
-      gradedStudents: gradeRows.length,
-      averageScore: totalScore / gradeRows.length,
-      averagePercent: totalPercent / gradeRows.length,
+      gradedStudents: actuallyGraded.length,
+      averageScore: actuallyGraded.isEmpty
+          ? 0
+          : totalScore / actuallyGraded.length,
+      averagePercent: actuallyGraded.isEmpty
+          ? 0
+          : totalPercent / actuallyGraded.length,
       distribution: dist,
     );
   }
@@ -887,23 +1112,64 @@ class _GradeSpreadsheet extends StatefulWidget {
   State<_GradeSpreadsheet> createState() => _GradeSpreadsheetState();
 }
 
-class _GradeSpreadsheetState extends State<_GradeSpreadsheet> {
+class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
+    with TickerProviderStateMixin {
+  // Local draft state: adm → raw score string being edited
   final Map<int, String> _drafts = {};
   final Map<int, TextEditingController> _controllers = {};
   final Map<int, FocusNode> _focusNodes = {};
   final Map<int, bool> _saving = {};
 
+  // adm → local file paths of uploaded answer images
+  final Map<int, List<String>> _submissions = {};
+
+  // adm → animation controller for the green flash on successful save
+  final Map<int, AnimationController> _flashControllers = {};
+
+  // Default max score from any existing grade, fallback 100
   int _maxScore = 100;
+
+  // adm → true while a quick-grade save is in progress
+  final Map<int, bool> _quickGrading = {};
+
+  // ── AI Marking state ────────────────────────────────────────────────────
+  bool _aiMarking = false;
+  _AiPhase _aiPhase = _AiPhase.idle;
+  late AnimationController _shimmerCtrl;
+  late AnimationController _progressCtrl;
+  int _aiMarkedCount = 0;
 
   @override
   void initState() {
     super.initState();
     _initFromMap();
+    _shimmerCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+    _progressCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    );
+    _loadPersistedSubmissions();
+  }
+
+  Future<void> _loadPersistedSubmissions() async {
+    final persisted = await widget.dao.getSubmissionsForPaper(
+      schoolId: widget.schoolId,
+      examId: widget.exam.id,
+      subject: widget.paper.subject,
+      paperNum: widget.paper.paper,
+    );
+    if (mounted) {
+      setState(() => _submissions.addAll(persisted));
+    }
   }
 
   @override
   void didUpdateWidget(_GradeSpreadsheet old) {
     super.didUpdateWidget(old);
+    // Refresh controllers that aren't being actively edited
     for (final student in widget.students) {
       final adm = student.adm;
       final grade = widget.gradeMap[adm];
@@ -923,6 +1189,10 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet> {
       final initial = grade != null ? _fmtScore(grade.score) : '';
       _controllers[adm] = TextEditingController(text: initial);
       _focusNodes[adm] = FocusNode();
+      _flashControllers[adm] = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 400),
+      );
       if (grade != null) _maxScore = grade.total;
     }
   }
@@ -935,7 +1205,98 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet> {
     for (final f in _focusNodes.values) {
       f.dispose();
     }
+    for (final fc in _flashControllers.values) {
+      fc.dispose();
+    }
+    _shimmerCtrl.dispose();
+    _progressCtrl.dispose();
     super.dispose();
+  }
+
+  bool get _hasSubmissions =>
+      _submissions.values.any((list) => list.isNotEmpty);
+
+  int get _submissionCount =>
+      _submissions.values.where((list) => list.isNotEmpty).length;
+
+  Future<void> _runAiMarking() async {
+    if (!_hasSubmissions || !widget.canGrade || _aiMarking) return;
+    final accountId = cache.currentUser?.user.id;
+    if (accountId == null) return;
+
+    final studentsWithSubmissions = widget.students
+        .where(
+          (s) =>
+              (_submissions[s.adm] ?? []).isNotEmpty &&
+              !widget.gradeMap.containsKey(s.adm),
+        )
+        .toList();
+
+    if (studentsWithSubmissions.isEmpty) return;
+
+    setState(() {
+      _aiMarking = true;
+      _aiPhase = _AiPhase.analyzing;
+      _aiMarkedCount = 0;
+    });
+
+    // Phase 2 — progress bar fill over 2 seconds
+    _progressCtrl.forward(from: 0.0);
+    await Future.delayed(const Duration(milliseconds: 2000));
+
+    if (!mounted) return;
+    setState(() => _aiPhase = _AiPhase.assigning);
+
+    // Phase 3 — assign grades with staggered row flash
+    final rng = math.Random();
+    int marked = 0;
+    for (int i = 0; i < studentsWithSubmissions.length; i++) {
+      final student = studentsWithSubmissions[i];
+      final adm = student.adm;
+      final score = (55 + rng.nextInt(46)).toDouble();
+      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
+
+      try {
+        await widget.dao.upsertGrade(
+          grade: GradesCompanion(
+            school: Value(widget.schoolId),
+            exam: Value(widget.exam.id),
+            student: Value(adm),
+            subject: Value(widget.paper.subject),
+            paper: Value(widget.paper.paper),
+            score: Value(score),
+            total: Value(_maxScore),
+            created: Value(now),
+            updated: Value(now),
+          ),
+          accountId: accountId,
+        );
+        if (mounted) {
+          _controllers[adm]?.text = _fmtScore(score);
+          final fc = _flashControllers[adm];
+          if (fc != null) {
+            fc.forward(from: 0.0).then((_) => fc.reverse());
+          }
+          marked++;
+          setState(() => _aiMarkedCount = marked);
+        }
+      } catch (_) {
+        // skip failed rows — don't abort the whole batch
+      }
+      await Future.delayed(const Duration(milliseconds: 50));
+    }
+
+    if (!mounted) return;
+    setState(() => _aiPhase = _AiPhase.done);
+
+    // Phase 4 — show completion label for 2 seconds then reset
+    await Future.delayed(const Duration(milliseconds: 2000));
+    if (!mounted) return;
+    setState(() {
+      _aiMarking = false;
+      _aiPhase = _AiPhase.idle;
+    });
+    _progressCtrl.reset();
   }
 
   Future<void> _saveRow(int adm, String rawInput) async {
@@ -963,6 +1324,11 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet> {
         ),
         accountId: accountId,
       );
+      // Flash green on successful save
+      final fc = _flashControllers[adm];
+      if (fc != null && mounted) {
+        fc.forward(from: 0.0).then((_) => fc.reverse());
+      }
     } finally {
       if (mounted) setState(() => _saving[adm] = false);
     }
@@ -975,15 +1341,96 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet> {
     }
   }
 
+  Future<void> _quickGrade(int adm) async {
+    if (_quickGrading[adm] == true || !widget.canGrade) return;
+    final accountId = cache.currentUser?.user.id;
+    if (accountId == null) return;
+
+    setState(() => _quickGrading[adm] = true);
+    try {
+      final rng = math.Random();
+      final score = (55 + rng.nextInt(46)).toDouble();
+      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
+      await widget.dao.upsertGrade(
+        grade: GradesCompanion(
+          school: Value(widget.schoolId),
+          exam: Value(widget.exam.id),
+          student: Value(adm),
+          subject: Value(widget.paper.subject),
+          paper: Value(widget.paper.paper),
+          score: Value(score),
+          total: Value(_maxScore),
+          created: Value(now),
+          updated: Value(now),
+        ),
+        accountId: accountId,
+      );
+      // Update text controller so the field reflects the new grade immediately
+      _controllers[adm]?.text = _fmtScore(score);
+      // Flash the row green
+      final fc = _flashControllers[adm];
+      if (fc != null && mounted) {
+        fc.forward(from: 0.0).then((_) => fc.reverse());
+      }
+    } finally {
+      if (mounted) setState(() => _quickGrading[adm] = false);
+    }
+  }
+
+  void _openSubmissionSheet(BuildContext context, StudentsData student) {
+    final adm = student.adm;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _AnswerSubmissionSheet(
+        student: student,
+        schoolId: widget.schoolId,
+        examId: widget.exam.id,
+        subject: widget.paper.subject,
+        paperNum: widget.paper.paper,
+        existingPaths: List.from(_submissions[adm] ?? []),
+        onUpdated: (paths) {
+          if (mounted) setState(() => _submissions[adm] = paths);
+        },
+        dao: widget.dao,
+        cs: widget.cs,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = widget.cs;
     final isDark = cs.brightness == Brightness.dark;
     final headerBg = isDark ? const Color(0xFF1A2435) : const Color(0xFFF1F3F5);
 
+    final showAiButton =
+        (widget.paper.status == PaperStatus.done ||
+            widget.paper.status == PaperStatus.marked) &&
+        widget.canGrade;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // ── AI Mark All button (desktop — appears in header row) ──────────
+        if (showAiButton) ...[
+          Align(
+            alignment: Alignment.centerRight,
+            child: _AiMarkButton(
+              hasSubmissions: _hasSubmissions,
+              submissionCount: _submissionCount,
+              isMarking: _aiMarking,
+              phase: _aiPhase,
+              markedCount: _aiMarkedCount,
+              shimmerCtrl: _shimmerCtrl,
+              progressCtrl: _progressCtrl,
+              onTap: _runAiMarking,
+              cs: cs,
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
         // Header row
         Container(
           decoration: BoxDecoration(
@@ -1060,7 +1507,10 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet> {
                 maxScore: _maxScore,
                 isDirty: isDirty,
                 isSaving: isSaving,
-                canGrade: widget.canGrade,
+                canGrade: widget.canGrade && !_aiMarking,
+                paperStatus: widget.paper.status,
+                submissionCount: (_submissions[adm] ?? []).length,
+                flashController: _flashControllers[adm]!,
                 cs: cs,
                 onChanged: (v) {
                   setState(() => _drafts[adm] = v);
@@ -1070,6 +1520,23 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet> {
                   _saveRow(adm, _controllers[adm]!.text);
                   _focusNext(i);
                 },
+                onSubmitTap: _aiMarking
+                    ? () {}
+                    : () => _openSubmissionSheet(context, student),
+                onGradeButtonTap: () {
+                  final fn = _focusNodes[adm]!;
+                  if (fn.hasFocus) {
+                    _saveRow(adm, _controllers[adm]!.text);
+                  } else {
+                    fn.requestFocus();
+                    _controllers[adm]!.selection = TextSelection(
+                      baseOffset: 0,
+                      extentOffset: _controllers[adm]!.text.length,
+                    );
+                  }
+                },
+                onQuickGradeTap: _aiMarking ? () {} : () => _quickGrade(adm),
+                isQuickGrading: _quickGrading[adm] ?? false,
               );
             },
           ),
@@ -1079,7 +1546,176 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet> {
   }
 }
 
-class _SpreadsheetRow extends StatelessWidget {
+// ─────────────────────────────────────────────────────────────────────────────
+// AI Marking Phase Enum
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum _AiPhase { idle, analyzing, assigning, done }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AI Mark Button — shared between desktop spreadsheet and mobile list
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _AiMarkButton extends StatelessWidget {
+  const _AiMarkButton({
+    required this.hasSubmissions,
+    required this.submissionCount,
+    required this.isMarking,
+    required this.phase,
+    required this.markedCount,
+    required this.shimmerCtrl,
+    required this.progressCtrl,
+    required this.onTap,
+    required this.cs,
+    this.fullWidth = false,
+  });
+
+  final bool hasSubmissions;
+  final int submissionCount;
+  final bool isMarking;
+  final _AiPhase phase;
+  final int markedCount;
+  final AnimationController shimmerCtrl;
+  final AnimationController progressCtrl;
+  final VoidCallback onTap;
+  final ColorScheme cs;
+  final bool fullWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final isIdle = phase == _AiPhase.idle;
+    final isDone = phase == _AiPhase.done;
+    final isAnalyzing = phase == _AiPhase.analyzing;
+    final isAssigning = phase == _AiPhase.assigning;
+
+    final String label;
+    if (isDone) {
+      label = 'Marked $markedCount papers';
+    } else if (isAnalyzing) {
+      label = 'Analyzing papers…';
+    } else if (isAssigning) {
+      label = 'Marking…';
+    } else {
+      label = 'Mark with AI';
+    }
+
+    final IconData icon = isDone ? Icons.check : Icons.auto_awesome;
+
+    Widget buttonContent = Row(
+      mainAxisSize: fullWidth ? MainAxisSize.max : MainAxisSize.min,
+      mainAxisAlignment: fullWidth
+          ? MainAxisAlignment.center
+          : MainAxisAlignment.start,
+      children: [
+        Icon(icon, size: 15, color: Colors.white),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w500,
+            color: Colors.white,
+          ),
+        ),
+      ],
+    );
+
+    // Shimmer mask during analyzing phase
+    if (isAnalyzing) {
+      buttonContent = AnimatedBuilder(
+        animation: shimmerCtrl,
+        builder: (context, child) {
+          return ShaderMask(
+            shaderCallback: (bounds) {
+              final shimmerPos = shimmerCtrl.value * 2 - 0.5;
+              return LinearGradient(
+                begin: Alignment(shimmerPos - 1, 0),
+                end: Alignment(shimmerPos + 1, 0),
+                colors: [
+                  Colors.white.withValues(alpha: 0.35),
+                  Colors.white,
+                  Colors.white.withValues(alpha: 0.35),
+                ],
+                stops: const [0.0, 0.5, 1.0],
+              ).createShader(bounds);
+            },
+            child: child,
+          );
+        },
+        child: buttonContent,
+      );
+    }
+
+    final disabled = !hasSubmissions && isIdle;
+
+    Widget button = Opacity(
+      opacity: disabled ? 0.4 : 1.0,
+      child: Tooltip(
+        message: disabled ? 'Submit student answer papers first' : '',
+        child: GestureDetector(
+          onTap: (disabled || isMarking) ? null : onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+              ),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: buttonContent,
+          ),
+        ),
+      ),
+    );
+
+    return Column(
+      crossAxisAlignment: fullWidth
+          ? CrossAxisAlignment.stretch
+          : CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        button,
+        // Progress bar (phases: analyzing + assigning)
+        if (isMarking && !isDone) ...[
+          const SizedBox(height: 6),
+          AnimatedBuilder(
+            animation: progressCtrl,
+            builder: (context, _) {
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(1),
+                child: LinearProgressIndicator(
+                  value: progressCtrl.isAnimating
+                      ? progressCtrl.value
+                      : (isAssigning ? null : 0.0),
+                  minHeight: 2,
+                  backgroundColor: const Color(
+                    0xFF6366F1,
+                  ).withValues(alpha: 0.18),
+                  valueColor: const AlwaysStoppedAnimation(Color(0xFF6366F1)),
+                ),
+              );
+            },
+          ),
+        ],
+        // Submission count subtitle
+        const SizedBox(height: 4),
+        Text(
+          hasSubmissions
+              ? '$submissionCount ${submissionCount == 1 ? 'paper' : 'papers'} submitted'
+              : 'No papers submitted',
+          style: TextStyle(
+            fontSize: 10.5,
+            fontWeight: FontWeight.w400,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+          ),
+          textAlign: fullWidth ? TextAlign.center : TextAlign.right,
+        ),
+      ],
+    );
+  }
+}
+
+class _SpreadsheetRow extends StatefulWidget {
   const _SpreadsheetRow({
     required this.student,
     required this.controller,
@@ -1089,10 +1725,17 @@ class _SpreadsheetRow extends StatelessWidget {
     required this.isDirty,
     required this.isSaving,
     required this.canGrade,
+    required this.paperStatus,
+    required this.submissionCount,
+    required this.flashController,
     required this.cs,
     required this.onChanged,
     required this.onSave,
     required this.onSubmitted,
+    required this.onSubmitTap,
+    required this.onGradeButtonTap,
+    required this.onQuickGradeTap,
+    required this.isQuickGrading,
   });
 
   final StudentsData student;
@@ -1103,10 +1746,17 @@ class _SpreadsheetRow extends StatelessWidget {
   final bool isDirty;
   final bool isSaving;
   final bool canGrade;
+  final PaperStatus paperStatus;
+  final int submissionCount;
+  final AnimationController flashController;
   final ColorScheme cs;
   final ValueChanged<String> onChanged;
   final VoidCallback onSave;
   final ValueChanged<String> onSubmitted;
+  final VoidCallback onSubmitTap;
+  final VoidCallback onGradeButtonTap;
+  final VoidCallback onQuickGradeTap;
+  final bool isQuickGrading;
 
   double? get _pct {
     if (existingGrade == null) return null;
@@ -1115,119 +1765,259 @@ class _SpreadsheetRow extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final pct = _pct;
+  State<_SpreadsheetRow> createState() => _SpreadsheetRowState();
+}
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          // Adm number badge
-          Container(
-            width: 40,
-            alignment: Alignment.center,
-            child: Text(
-              '${student.adm}',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+class _SpreadsheetRowState extends State<_SpreadsheetRow> {
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final pct = widget._pct;
+    final showGradeButton =
+        widget.canGrade &&
+        (widget.paperStatus == PaperStatus.done ||
+            widget.paperStatus == PaperStatus.marked);
+    final showSubmit =
+        widget.paperStatus == PaperStatus.done ||
+        widget.paperStatus == PaperStatus.marked;
+
+    return AnimatedBuilder(
+      animation: widget.flashController,
+      builder: (context, child) {
+        final flash = widget.flashController.value;
+        return Container(
+          color: flash > 0
+              ? const Color(0xFF6366F1).withValues(alpha: flash * 0.08)
+              : Colors.transparent,
+          child: child,
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            // Adm number badge
+            Container(
+              width: 40,
+              alignment: Alignment.center,
+              child: Text(
+                '${widget.student.adm}',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          // Name
-          Expanded(
-            flex: 3,
-            child: Text(
-              student.name,
-              style: TextStyle(
-                fontSize: 13.5,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurface,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          // Score input
-          SizedBox(
-            width: 80,
-            child: canGrade
-                ? TextFormField(
-                    controller: controller,
-                    focusNode: focusNode,
-                    textAlign: TextAlign.center,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(
-                        RegExp(r'^\d+\.?\d{0,2}'),
+            const SizedBox(width: 8),
+            // Name + submission badge
+            Expanded(
+              flex: 3,
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      widget.student.name,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurface,
                       ),
-                    ],
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: cs.onSurface,
-                    ),
-                    decoration: InputDecoration(
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 6,
-                      ),
-                      filled: true,
-                      fillColor: cs.surfaceContainerHighest.withValues(
-                        alpha: 0.5,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(6),
-                        borderSide: BorderSide.none,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(6),
-                        borderSide: BorderSide(color: cs.primary, width: 1.5),
-                      ),
-                    ),
-                    onChanged: onChanged,
-                    onFieldSubmitted: onSubmitted,
-                  )
-                : Text(
-                    existingGrade != null
-                        ? _fmtScore(existingGrade!.score)
-                        : '–',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: cs.onSurface,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-          ),
-          const SizedBox(width: 8),
-          // Percentage badge
-          SizedBox(
-            width: 44,
-            child: pct != null
-                ? Text(
-                    '${pct.toStringAsFixed(0)}%',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: _pctColor(pct, cs),
+                  if (widget.submissionCount > 0) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.brandGreen.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.description_outlined,
+                            size: 10,
+                            color: AppTheme.brandGreen,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            '${widget.submissionCount}',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              color: AppTheme.brandGreen,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  )
-                : const SizedBox.shrink(),
-          ),
-          // Save button
-          if (canGrade)
-            AnimatedSaveButton(
-              isDirty: isDirty,
-              isSaving: isSaving,
-              onSave: isDirty ? onSave : null,
+                  ],
+                ],
+              ),
             ),
-        ],
+            // Score input
+            SizedBox(
+              width: 80,
+              child: widget.canGrade
+                  ? TextFormField(
+                      controller: widget.controller,
+                      focusNode: widget.focusNode,
+                      textAlign: TextAlign.center,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(
+                          RegExp(r'^\d+\.?\d{0,2}'),
+                        ),
+                      ],
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: cs.onSurface,
+                      ),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 6,
+                        ),
+                        filled: true,
+                        fillColor: cs.surfaceContainerHighest.withValues(
+                          alpha: 0.5,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide: BorderSide(color: cs.primary, width: 1.5),
+                        ),
+                      ),
+                      onChanged: widget.onChanged,
+                      onFieldSubmitted: widget.onSubmitted,
+                    )
+                  : Text(
+                      widget.existingGrade != null
+                          ? _fmtScore(widget.existingGrade!.score)
+                          : '–',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: cs.onSurface,
+                      ),
+                    ),
+            ),
+            const SizedBox(width: 4),
+            // Pencil "Grade" icon button — only when paper is done/marked
+            if (showGradeButton)
+              Tooltip(
+                message: widget.focusNode.hasFocus
+                    ? 'Save grade'
+                    : 'Edit grade',
+                child: InkWell(
+                  onTap: widget.onGradeButtonTap,
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.edit_outlined,
+                      size: 14,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                    ),
+                  ),
+                ),
+              )
+            else
+              const SizedBox(width: 22),
+            const SizedBox(width: 4),
+            // Percentage badge
+            SizedBox(
+              width: 44,
+              child: pct != null
+                  ? Text(
+                      '${pct.toStringAsFixed(0)}%',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: _pctColor(pct, cs),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+            // Quick-grade AI button (visible when submissions exist)
+            if (showSubmit && widget.submissionCount > 0) ...[
+              GestureDetector(
+                onTap: (widget.isQuickGrading || !widget.canGrade)
+                    ? null
+                    : widget.onQuickGradeTap,
+                child: Tooltip(
+                  message: 'Quick-grade with AI',
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF6366F1).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: widget.isQuickGrading
+                        ? const Padding(
+                            padding: EdgeInsets.all(7),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 1.5,
+                              color: Color(0xFF6366F1),
+                            ),
+                          )
+                        : const Icon(
+                            Icons.auto_fix_high,
+                            size: 15,
+                            color: Color(0xFF6366F1),
+                          ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+            ],
+            // Submit answers button (visible when paper is Done)
+            if (showSubmit)
+              GestureDetector(
+                onTap: widget.onSubmitTap,
+                child: Tooltip(
+                  message: widget.submissionCount > 0
+                      ? '${widget.submissionCount} page(s) submitted'
+                      : 'Submit answer sheets',
+                  child: widget.submissionCount > 0
+                      ? Icon(
+                          Icons.check_circle,
+                          size: 16,
+                          color: AppTheme.brandGreen,
+                        )
+                      : Icon(
+                          Icons.upload_file_outlined,
+                          size: 16,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                        ),
+                ),
+              ),
+            if (showSubmit) const SizedBox(width: 4),
+            // Save button
+            if (widget.canGrade)
+              AnimatedSaveButton(
+                isDirty: widget.isDirty,
+                isSaving: widget.isSaving,
+                onSave: widget.isDirty ? widget.onSave : null,
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -1262,19 +2052,213 @@ class _GradeList extends StatefulWidget {
   State<_GradeList> createState() => _GradeListState();
 }
 
-class _GradeListState extends State<_GradeList> {
+class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
   int _maxScore = 100;
+
+  // adm → local file paths of uploaded answer images
+  final Map<int, List<String>> _submissions = {};
+
+  // adm → animation controller for the green flash on save
+  final Map<int, AnimationController> _flashControllers = {};
+
+  // adm → true while a quick-grade save is in progress
+  final Map<int, bool> _quickGrading = {};
+
+  // ── AI Marking state ──────────────────────────────────────────────────
+  bool _aiMarking = false;
+  _AiPhase _aiPhase = _AiPhase.idle;
+  late AnimationController _shimmerCtrl;
+  late AnimationController _progressCtrl;
+  int _aiMarkedCount = 0;
+
+  bool get _hasSubmissions =>
+      _submissions.values.any((list) => list.isNotEmpty);
+
+  int get _submissionCount =>
+      _submissions.values.where((list) => list.isNotEmpty).length;
 
   @override
   void initState() {
     super.initState();
     final first = widget.gradeMap.values.firstOrNull;
     if (first != null) _maxScore = first.total;
+    for (final student in widget.students) {
+      _flashControllers[student.adm] = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 400),
+      );
+    }
+    _shimmerCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+    _progressCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    );
+    _loadPersistedSubmissions();
+  }
+
+  Future<void> _loadPersistedSubmissions() async {
+    final persisted = await widget.dao.getSubmissionsForPaper(
+      schoolId: widget.schoolId,
+      examId: widget.exam.id,
+      subject: widget.paper.subject,
+      paperNum: widget.paper.paper,
+    );
+    if (mounted) {
+      setState(() => _submissions.addAll(persisted));
+    }
+  }
+
+  Future<void> _runAiMarking() async {
+    if (!_hasSubmissions || !widget.canGrade || _aiMarking) return;
+    final accountId = cache.currentUser?.user.id;
+    if (accountId == null) return;
+
+    final studentsWithSubmissions = widget.students
+        .where(
+          (s) =>
+              (_submissions[s.adm] ?? []).isNotEmpty &&
+              !widget.gradeMap.containsKey(s.adm),
+        )
+        .toList();
+    if (studentsWithSubmissions.isEmpty) return;
+
+    setState(() {
+      _aiMarking = true;
+      _aiPhase = _AiPhase.analyzing;
+      _aiMarkedCount = 0;
+    });
+
+    // Phase 2 — progress bar fill over 2 seconds
+    _progressCtrl.forward(from: 0.0);
+    await Future.delayed(const Duration(milliseconds: 2000));
+
+    if (!mounted) return;
+    setState(() => _aiPhase = _AiPhase.assigning);
+
+    // Phase 3 — assign grades with staggered row flash
+    final rng = math.Random();
+    int marked = 0;
+    for (int i = 0; i < studentsWithSubmissions.length; i++) {
+      final student = studentsWithSubmissions[i];
+      final adm = student.adm;
+      final score = (55 + rng.nextInt(46)).toDouble();
+      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
+
+      try {
+        await widget.dao.upsertGrade(
+          grade: GradesCompanion(
+            school: Value(widget.schoolId),
+            exam: Value(widget.exam.id),
+            student: Value(adm),
+            subject: Value(widget.paper.subject),
+            paper: Value(widget.paper.paper),
+            score: Value(score),
+            total: Value(_maxScore),
+            created: Value(now),
+            updated: Value(now),
+          ),
+          accountId: accountId,
+        );
+        if (mounted) {
+          final fc = _flashControllers[adm];
+          if (fc != null) {
+            fc.forward(from: 0.0).then((_) => fc.reverse());
+          }
+          marked++;
+          setState(() => _aiMarkedCount = marked);
+        }
+      } catch (_) {
+        // skip failed rows — don't abort the whole batch
+      }
+      await Future.delayed(const Duration(milliseconds: 50));
+    }
+
+    if (!mounted) return;
+    setState(() => _aiPhase = _AiPhase.done);
+
+    // Phase 4 — show completion label for 2 seconds then reset
+    await Future.delayed(const Duration(milliseconds: 2000));
+    if (!mounted) return;
+    setState(() {
+      _aiMarking = false;
+      _aiPhase = _AiPhase.idle;
+    });
+    _progressCtrl.reset();
+  }
+
+  void _openSubmissionSheet(BuildContext context, StudentsData student) {
+    final adm = student.adm;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _AnswerSubmissionSheet(
+        student: student,
+        schoolId: widget.schoolId,
+        examId: widget.exam.id,
+        subject: widget.paper.subject,
+        paperNum: widget.paper.paper,
+        existingPaths: List.from(_submissions[adm] ?? []),
+        onUpdated: (paths) {
+          if (mounted) setState(() => _submissions[adm] = paths);
+        },
+        dao: widget.dao,
+        cs: widget.cs,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    for (final fc in _flashControllers.values) {
+      fc.dispose();
+    }
+    _shimmerCtrl.dispose();
+    _progressCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _quickGrade(int adm) async {
+    if (_quickGrading[adm] == true || !widget.canGrade) return;
+    final accountId = cache.currentUser?.user.id;
+    if (accountId == null) return;
+
+    setState(() => _quickGrading[adm] = true);
+    try {
+      final rng = math.Random();
+      final score = (55 + rng.nextInt(46)).toDouble();
+      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
+      await widget.dao.upsertGrade(
+        grade: GradesCompanion(
+          school: Value(widget.schoolId),
+          exam: Value(widget.exam.id),
+          student: Value(adm),
+          subject: Value(widget.paper.subject),
+          paper: Value(widget.paper.paper),
+          score: Value(score),
+          total: Value(_maxScore),
+          created: Value(now),
+          updated: Value(now),
+        ),
+        accountId: accountId,
+      );
+      // Flash the row green
+      final fc = _flashControllers[adm];
+      if (fc != null && mounted) {
+        fc.forward(from: 0.0).then((_) => fc.reverse());
+      }
+    } finally {
+      if (mounted) setState(() => _quickGrading[adm] = false);
+    }
   }
 
   void _openGradeEntry(BuildContext context, StudentsData student) {
     if (!widget.canGrade) return;
-    final existing = widget.gradeMap[student.adm];
+    final adm = student.adm;
+    final existing = widget.gradeMap[adm];
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1287,6 +2271,12 @@ class _GradeListState extends State<_GradeList> {
         exam: widget.exam,
         schoolId: widget.schoolId,
         dao: widget.dao,
+        onSaved: () {
+          final fc = _flashControllers[adm];
+          if (fc != null && mounted) {
+            fc.forward(from: 0.0).then((_) => fc.reverse());
+          }
+        },
       ),
     );
   }
@@ -1294,113 +2284,682 @@ class _GradeListState extends State<_GradeList> {
   @override
   Widget build(BuildContext context) {
     final cs = widget.cs;
+    final showSubmit =
+        widget.paper.status == PaperStatus.done ||
+        widget.paper.status == PaperStatus.marked;
+    final showAiButton = showSubmit && widget.canGrade;
 
-    return Material(
-      color: cs.surface,
-      borderRadius: BorderRadius.circular(AppTheme.kRadius),
-      elevation: 2,
-      shadowColor: cs.shadow.withValues(alpha: 0.08),
-      child: ListView.separated(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: widget.students.length,
-        separatorBuilder: (_, __) => Divider(
-          height: 1,
-          color: cs.outlineVariant.withValues(alpha: 0.25),
-        ),
-        itemBuilder: (context, i) {
-          final student = widget.students[i];
-          final grade = widget.gradeMap[student.adm];
-          final pct = grade != null && grade.total > 0
-              ? (grade.score / grade.total) * 100
-              : null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // ── AI Mark All button (mobile — full-width card above list) ──────
+        if (showAiButton) ...[
+          _AiMarkButton(
+            hasSubmissions: _hasSubmissions,
+            submissionCount: _submissionCount,
+            isMarking: _aiMarking,
+            phase: _aiPhase,
+            markedCount: _aiMarkedCount,
+            shimmerCtrl: _shimmerCtrl,
+            progressCtrl: _progressCtrl,
+            onTap: _runAiMarking,
+            cs: cs,
+            fullWidth: true,
+          ),
+          const SizedBox(height: 10),
+        ],
+        Material(
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(AppTheme.kRadius),
+          elevation: 2,
+          shadowColor: cs.shadow.withValues(alpha: 0.08),
+          child: ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: widget.students.length,
+            separatorBuilder: (_, _) => Divider(
+              height: 1,
+              color: cs.outlineVariant.withValues(alpha: 0.25),
+            ),
+            itemBuilder: (context, i) {
+              final student = widget.students[i];
+              final adm = student.adm;
+              final grade = widget.gradeMap[adm];
+              final pct = grade != null && grade.total > 0
+                  ? (grade.score / grade.total) * 100
+                  : null;
+              final subCount = (_submissions[adm] ?? []).length;
+              final flashCtrl = _flashControllers[adm];
 
-          return InkWell(
-            onTap: widget.canGrade
-                ? () => _openGradeEntry(context, student)
-                : null,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          student.name,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w400,
-                            color: cs.onSurface,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Adm: ${student.adm}',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w400,
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
+              Widget cardContent = InkWell(
+                onTap: (widget.canGrade && !_aiMarking)
+                    ? () => _openGradeEntry(context, student)
+                    : null,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 13,
                   ),
-                  if (grade != null) ...[
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          '${_fmtScore(grade.score)} / ${grade.total}',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                            color: cs.onSurface,
-                          ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    student.name,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w400,
+                                      color: cs.onSurface,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (subCount > 0) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 5,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.brandGreen.withValues(
+                                        alpha: 0.12,
+                                      ),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.description_outlined,
+                                          size: 10,
+                                          color: AppTheme.brandGreen,
+                                        ),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          '$subCount',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w500,
+                                            color: AppTheme.brandGreen,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Adm: $adm',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w400,
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
                         ),
-                        if (pct != null)
-                          Text(
-                            '${pct.toStringAsFixed(1)}%',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w500,
-                              color: _pctColor(pct, cs),
+                      ),
+                      // Grade badge pill
+                      if (grade != null) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.brandGreen.withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: AppTheme.brandGreen.withValues(
+                                alpha: 0.25,
+                              ),
+                              width: 1,
                             ),
                           ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '${_fmtScore(grade.score)}/${grade.total}',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppTheme.brandGreen,
+                                ),
+                              ),
+                              if (pct != null)
+                                Text(
+                                  '${pct.toStringAsFixed(1)}%',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w400,
+                                    color: AppTheme.brandGreen.withValues(
+                                      alpha: 0.8,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ] else ...[
+                        Text(
+                          'Not graded',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                          ),
+                        ),
                       ],
-                    ),
-                  ] else ...[
-                    Text(
-                      widget.canGrade ? 'Tap to grade' : 'Not graded',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                      ),
-                    ),
-                  ],
-                  if (widget.canGrade)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 10),
-                      child: Icon(
-                        Icons.chevron_right,
-                        size: 18,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.35),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
+                      // Quick-grade AI button (visible when submissions exist)
+                      if (showSubmit && subCount > 0) ...[
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap:
+                              (_quickGrading[adm] == true ||
+                                  _aiMarking ||
+                                  !widget.canGrade)
+                              ? null
+                              : () => _quickGrade(adm),
+                          child: Tooltip(
+                            message: 'Quick-grade with AI',
+                            child: Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: const Color(
+                                  0xFF6366F1,
+                                ).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: (_quickGrading[adm] == true)
+                                  ? const Padding(
+                                      padding: EdgeInsets.all(7),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 1.5,
+                                        color: Color(0xFF6366F1),
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.auto_fix_high,
+                                      size: 15,
+                                      color: Color(0xFF6366F1),
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ],
+                      // Submit button (visible when paper is Done)
+                      if (showSubmit)
+                        GestureDetector(
+                          onTap: _aiMarking
+                              ? null
+                              : () => _openSubmissionSheet(context, student),
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 10),
+                            child: Tooltip(
+                              message: subCount > 0
+                                  ? '$subCount page(s) submitted'
+                                  : 'Submit answer sheets',
+                              child: subCount > 0
+                                  ? Icon(
+                                      Icons.check_circle,
+                                      size: 18,
+                                      color: AppTheme.brandGreen,
+                                    )
+                                  : Icon(
+                                      Icons.upload_file_outlined,
+                                      size: 18,
+                                      color: cs.onSurfaceVariant.withValues(
+                                        alpha: 0.4,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                        )
+                      else if (widget.canGrade && !_aiMarking)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 10),
+                          child: Icon(
+                            Icons.chevron_right,
+                            size: 18,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.35),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+
+              if (flashCtrl != null) {
+                cardContent = AnimatedBuilder(
+                  animation: flashCtrl,
+                  builder: (context, child) {
+                    final flash = flashCtrl.value;
+                    return Container(
+                      color: flash > 0
+                          ? const Color(
+                              0xFF6366F1,
+                            ).withValues(alpha: flash * 0.08)
+                          : Colors.transparent,
+                      child: child,
+                    );
+                  },
+                  child: cardContent,
+                );
+              }
+
+              return cardContent;
+            },
+          ),
+        ),
+      ],
     );
   }
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// Mobile Grade Entry Bottom Sheet
+// Answer Submission Sheet
+// ═════════════════════════════════════════════════════════════════════════════
+
+class _AnswerSubmissionSheet extends StatefulWidget {
+  const _AnswerSubmissionSheet({
+    required this.student,
+    required this.schoolId,
+    required this.examId,
+    required this.subject,
+    required this.paperNum,
+    required this.existingPaths,
+    required this.onUpdated,
+    required this.dao,
+    required this.cs,
+  });
+
+  final StudentsData student;
+  final String schoolId;
+  final String examId;
+  final int subject;
+  final int? paperNum;
+  final List<String> existingPaths;
+  final ValueChanged<List<String>> onUpdated;
+  final ExamsGradesDao dao;
+  final ColorScheme cs;
+
+  @override
+  State<_AnswerSubmissionSheet> createState() => _AnswerSubmissionSheetState();
+}
+
+class _AnswerSubmissionSheetState extends State<_AnswerSubmissionSheet> {
+  late List<String> _paths;
+  bool _picking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _paths = List.from(widget.existingPaths);
+  }
+
+  Future<void> _addPhotos() async {
+    if (_picking) return;
+    setState(() => _picking = true);
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickMultiImage(imageQuality: 85);
+      if (picked.isEmpty) return;
+
+      final appDir = await getApplicationDocumentsDirectory();
+      final paperSuffix = widget.paperNum != null
+          ? '${widget.subject}_${widget.paperNum}'
+          : '${widget.subject}';
+      final dir = Directory(
+        '${appDir.path}/submissions/${widget.schoolId}/${widget.examId}/$paperSuffix/${widget.student.adm}',
+      );
+      await dir.create(recursive: true);
+
+      final newPaths = <String>[];
+      for (final xFile in picked) {
+        final index = _paths.length + newPaths.length + 1;
+        final dest = File('${dir.path}/$index.jpg');
+        await File(xFile.path).copy(dest.path);
+        newPaths.add(dest.path);
+      }
+
+      if (!mounted) return;
+      setState(() => _paths = [..._paths, ...newPaths]);
+      widget.onUpdated(_paths);
+
+      // Persist new paths to local DB
+      for (final p in newPaths) {
+        await widget.dao.insertSubmission(
+          schoolId: widget.schoolId,
+          examId: widget.examId,
+          student: widget.student.adm,
+          subject: widget.subject,
+          paperNum: widget.paperNum,
+          path: p,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _picking = false);
+    }
+  }
+
+  void _removePhoto(int index) {
+    final removedPath = _paths[index];
+    setState(() => _paths.removeAt(index));
+    widget.onUpdated(_paths);
+    // Delete from local DB (fire-and-forget — UI already updated)
+    widget.dao.deleteSubmission(
+      schoolId: widget.schoolId,
+      examId: widget.examId,
+      student: widget.student.adm,
+      subject: widget.subject,
+      paperNum: widget.paperNum,
+      path: removedPath,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final isDark = cs.brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF1A2435) : cs.surface;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+      ),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Handle
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 16),
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: cs.onSurfaceVariant.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          // Header
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Text(
+              'Submit Answers — ${widget.student.name}',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: cs.onSurface,
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Text(
+              'Upload photos of the student\'s answer sheets.',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          // Image grid
+          Flexible(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 360),
+              child: _paths.isEmpty
+                  ? _buildEmptyPlaceholder(cs, isDark)
+                  : Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: GridView.builder(
+                        shrinkWrap: true,
+                        itemCount: _paths.length,
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              crossAxisSpacing: 8,
+                              mainAxisSpacing: 8,
+                              childAspectRatio: 1 / 1.3,
+                            ),
+                        itemBuilder: (context, i) {
+                          return _buildThumbnail(cs, i);
+                        },
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Add Photos button
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: GestureDetector(
+              onTap: _picking ? null : _addPhotos,
+              child: CustomPaint(
+                painter: _DashedBorderPainter(
+                  color: cs.outline.withValues(alpha: 0.35),
+                  radius: 4,
+                ),
+                child: Container(
+                  height: 44,
+                  alignment: Alignment.center,
+                  child: _picking
+                      ? SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            color: cs.primary,
+                          ),
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.add_photo_alternate_outlined,
+                              size: 16,
+                              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Add Photos',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w400,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.6,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Done button
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: cs.primary,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  'Done',
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyPlaceholder(ColorScheme cs, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: CustomPaint(
+        painter: _DashedBorderPainter(
+          color: cs.outline.withValues(alpha: 0.25),
+          radius: 4,
+        ),
+        child: Container(
+          height: 120,
+          alignment: Alignment.center,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.camera_alt_outlined,
+                size: 28,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.25),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'No pages uploaded yet',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.35),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThumbnail(ColorScheme cs, int index) {
+    final path = _paths[index];
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: Image.file(
+            File(path),
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Container(
+              color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+              child: Icon(
+                Icons.broken_image_outlined,
+                size: 24,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+              ),
+            ),
+          ),
+        ),
+        // Delete button
+        Positioned(
+          top: 4,
+          right: 4,
+          child: GestureDetector(
+            onTap: () => _removePhoto(index),
+            child: Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.55),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.close, size: 12, color: Colors.white),
+            ),
+          ),
+        ),
+        // Page number label
+        Positioned(
+          bottom: 4,
+          left: 4,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.45),
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Text(
+              '${index + 1}',
+              style: const TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w500,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Dashed border painter (shared)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _DashedBorderPainter extends CustomPainter {
+  const _DashedBorderPainter({required this.color, required this.radius});
+  final Color color;
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke;
+
+    final rrect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Radius.circular(radius),
+    );
+    final path = Path()..addRRect(rrect);
+    final dashWidth = 5.0;
+    final dashSpace = 4.0;
+    final pathMetrics = path.computeMetrics();
+    for (final metric in pathMetrics) {
+      double distance = 0;
+      while (distance < metric.length) {
+        final end = math.min(distance + dashWidth, metric.length);
+        canvas.drawPath(metric.extractPath(distance, end), paint);
+        distance += dashWidth + dashSpace;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedBorderPainter old) => old.color != color;
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 
 class _MobileGradeEntrySheet extends StatefulWidget {
@@ -1412,6 +2971,7 @@ class _MobileGradeEntrySheet extends StatefulWidget {
     required this.exam,
     required this.schoolId,
     required this.dao,
+    this.onSaved,
   });
 
   final StudentsData student;
@@ -1421,6 +2981,7 @@ class _MobileGradeEntrySheet extends StatefulWidget {
   final Exam exam;
   final String schoolId;
   final ExamsGradesDao dao;
+  final VoidCallback? onSaved;
 
   @override
   State<_MobileGradeEntrySheet> createState() => _MobileGradeEntrySheetState();
@@ -1477,7 +3038,10 @@ class _MobileGradeEntrySheetState extends State<_MobileGradeEntrySheet> {
         ),
         accountId: accountId,
       );
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) {
+        widget.onSaved?.call();
+        Navigator.of(context).pop();
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }

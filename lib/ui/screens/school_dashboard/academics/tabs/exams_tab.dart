@@ -1,10 +1,15 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../../../../../database/database.dart';
 import '../../../../../database/daos/academics_dao.dart';
 import '../../../../../database/daos/exams_grades_dao.dart' show ExamWithPapers;
 import '../../../../../database/tables/enums.dart';
+import '../../../../../models/membership.dart';
+import '../../../../../models/school_config.dart';
 import '../../../../../models/school_context.dart';
+import '../../exams/exam_creation_page.dart';
 import '../exam_detail_page.dart';
 
 /// Exams tab — shows all exams for a specific stream within a grade, with
@@ -13,8 +18,10 @@ import '../exam_detail_page.dart';
 /// Each exam card shows the type badge, date range, teacher name, paper count,
 /// and optional personalized / grade-wide labels.
 ///
-/// Tapping a card navigates to `ExamDetailPage` (Task 13 — placeholder until
-/// that widget exists).
+/// Tapping a card navigates to `ExamDetailPage`.
+///
+/// A FAB is shown for users who can manage exams (teacher, owner, staff),
+/// pushing `ExamCreationPage` with the current grade and stream pre-selected.
 class ExamsTab extends StatefulWidget {
   const ExamsTab({
     super.key,
@@ -46,6 +53,9 @@ class _ExamsTabState extends State<ExamsTab>
   late final AcademicsDao _dao;
   late Stream<List<ExamWithPapers>> _stream;
 
+  SchoolConfig _config = SchoolConfig.defaults();
+  bool _configLoaded = false;
+
   // ── Filter state ───────────────────────────────────────────────────────────
 
   /// null = All types
@@ -62,6 +72,7 @@ class _ExamsTabState extends State<ExamsTab>
     super.initState();
     _dao = AcademicsDao(db);
     _stream = _buildStream();
+    _loadConfig();
   }
 
   @override
@@ -86,6 +97,20 @@ class _ExamsTabState extends State<ExamsTab>
     );
   }
 
+  Future<void> _loadConfig() async {
+    final row = await (db.select(
+      db.settings,
+    )..where((s) => s.school.equals(widget.schoolId))).getSingleOrNull();
+    if (row == null || !mounted) return;
+    try {
+      final decoded = Map<String, dynamic>.from(jsonDecode(row.data) as Map);
+      setState(() {
+        _config = SchoolConfig.fromJson(decoded);
+        _configLoaded = true;
+      });
+    } catch (_) {}
+  }
+
   List<ExamWithPapers> _applyFilters(List<ExamWithPapers> items) {
     return items.where((ep) {
       if (_typeFilter != null && ep.exam.type != _typeFilter) return false;
@@ -97,6 +122,29 @@ class _ExamsTabState extends State<ExamsTab>
     }).toList();
   }
 
+  bool get _canManage {
+    final entry = widget.schoolContext.currentEntry.value;
+    return entry is TeacherEntry || entry is OwnerEntry || entry is StaffEntry;
+  }
+
+  // ── Navigation ─────────────────────────────────────────────────────────────
+
+  Future<void> _showCreateExam(BuildContext context) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ExamCreationPage(
+          schoolId: widget.schoolId,
+          year: widget.year,
+          term: widget.term,
+          config: _config,
+          entry: widget.schoolContext.currentEntry.value,
+          preselectedGrade: widget.grade,
+          preselectedStream: widget.streamCode,
+        ),
+      ),
+    );
+  }
+
   // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
@@ -104,39 +152,57 @@ class _ExamsTabState extends State<ExamsTab>
     super.build(context);
     final cs = Theme.of(context).colorScheme;
 
-    return StreamBuilder<List<ExamWithPapers>>(
-      stream: _stream,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting &&
-            !snapshot.hasData) {
-          return _buildLoading(cs);
-        }
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      floatingActionButton: _canManage && _configLoaded
+          ? FloatingActionButton.small(
+              heroTag: 'fab_academics_exams',
+              onPressed: () => _showCreateExam(context),
+              tooltip: 'New Exam',
+              elevation: 4,
+              highlightElevation: 6,
+              backgroundColor: cs.primary,
+              foregroundColor: cs.onPrimary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.add_rounded, size: 20),
+            )
+          : null,
+      body: StreamBuilder<List<ExamWithPapers>>(
+        stream: _stream,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting &&
+              !snapshot.hasData) {
+            return _buildLoading(cs);
+          }
 
-        final allItems = snapshot.data ?? [];
-        final filtered = _applyFilters(allItems);
+          final allItems = snapshot.data ?? [];
+          final filtered = _applyFilters(allItems);
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ── Filter rows ──────────────────────────────────────────────
-            _buildFilterSection(cs),
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── Filter rows ──────────────────────────────────────────
+              _buildFilterSection(cs),
 
-            // ── Divider ──────────────────────────────────────────────────
-            Container(
-              height: 1,
-              margin: const EdgeInsets.only(bottom: 2),
-              color: cs.outline.withValues(alpha: 0.05),
-            ),
+              // ── Divider ──────────────────────────────────────────────
+              Container(
+                height: 1,
+                margin: const EdgeInsets.only(bottom: 2),
+                color: cs.outline.withValues(alpha: 0.05),
+              ),
 
-            // ── List / empty ─────────────────────────────────────────────
-            Expanded(
-              child: filtered.isEmpty
-                  ? _buildEmpty(cs, allItems.isEmpty)
-                  : _buildList(cs, filtered),
-            ),
-          ],
-        );
-      },
+              // ── List / empty ─────────────────────────────────────────
+              Expanded(
+                child: filtered.isEmpty
+                    ? _buildEmpty(cs, allItems.isEmpty)
+                    : _buildList(cs, filtered),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -272,19 +338,7 @@ class _ExamsTabState extends State<ExamsTab>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                icon,
-                size: 22,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.3),
-              ),
-            ),
+            Icon(icon, size: 40, color: cs.outlineVariant),
             const SizedBox(height: 18),
             Text(
               isGloballyEmpty ? 'No exams this term' : 'No matching exams',
@@ -306,6 +360,28 @@ class _ExamsTabState extends State<ExamsTab>
                 color: cs.onSurfaceVariant.withValues(alpha: 0.5),
               ),
             ),
+            if (isGloballyEmpty && _canManage && _configLoaded) ...[
+              const SizedBox(height: 18),
+              OutlinedButton.icon(
+                onPressed: () => _showCreateExam(context),
+                icon: const Icon(Icons.add_rounded, size: 16),
+                label: const Text('Create Exam'),
+                style: OutlinedButton.styleFrom(
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  side: BorderSide(color: cs.outline.withValues(alpha: 0.3)),
+                ),
+              ),
+            ],
           ],
         ),
       ),
