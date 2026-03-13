@@ -1,1178 +1,942 @@
 # EduXal — Task Board
 
 > Tasks are ordered by dependency and priority. Execute top-to-bottom.
-> Server tasks are in `LEDGER_TASKS.md` — complete those first before starting client tasks.
+> Server tasks are in `../ledger/TASKS.md` — complete those first before starting client tasks.
+> Proto changes are done on the server side; the client only regenerates Dart stubs from `../ledger/protos/`.
 
 ---
 
-### Task C0: Commit current client state
-
-**Files to create/modify:** None (git operations only)
-**Context files to read (if needed):** None
-**Depends on:** Nothing
+### Task C00: Commit current uncommitted progress in meaningful chunks
 
 **Specification:**
 
-Create meaningful, chunked git commits of the current dirty working tree in the `eduxal` repo.
-Run `git status` first to see all 157+ uncommitted changes. Group the commits logically:
+Before starting the schema restructuring, all uncommitted work must be committed in logical, meaningful chunks. There are 33 changed/new files spanning multiple domains. Commit them in this order:
 
-1. `chore: update android build config and assets` — `android/`
-2. `chore: update iOS config and assets` — `ios/`
-3. `chore: update project config` — `pubspec.yaml`, `pubspec.lock`, root-level config files
-4. `feat: database layer (tables, DAOs, enums, converters)` — `lib/database/`
-5. `feat: domain models` — `lib/models/`
-6. `feat: services layer` — `lib/services/`
-7. `feat: sync engine (pre-redesign snapshot)` — `lib/sync/`
-8. `feat: proto stubs` — `lib/proto/`
-9. `feat: core utilities and cache` — `lib/core/`, `lib/cache/`
-10. `feat: UI layer (screens, widgets, theme)` — `lib/ui/`
-11. `feat: client entry point` — `lib/client.dart`, `lib/main.dart`
-12. `docs: update AGENT.md and TASKS.md` — `AGENT.md`, `TASKS.md`, `CONVERSATION_CONTEXT.md`
+#### Commit 1: `db: add PaperSubmissions table and remove overly restrictive exam indexes`
 
-Use `git add <paths>` + `git commit -m "<message>"` for each group. Skip any group that has no changes. Do NOT use `git add .`.
-
-**Update after completion:**
-- [x] Update any relevant `CONTEXT.md` files if they exist
-- [x] Mark this task `[x]`
-
----
-
-### Task C1: Regenerate Dart proto stubs from new `sync.proto`
-
-**Files to create/modify:**
-- `lib/proto/services/sync.pb.dart` (regenerated)
-- `lib/proto/services/sync.pbgrpc.dart` (regenerated)
-- `lib/proto/services/sync.pbenum.dart` (regenerated)
-- `lib/proto/services/sync.pbjson.dart` (regenerated)
-
-**Context files to read (if needed):** `generate.sh`
-**Depends on:** Server Task L1 (new `sync.proto` must exist at `../ledger/protos/services/sync.proto`)
-
-**Specification:**
-
-Run the proto generation script:
-```bash
-cd /home/abdihakim/Documents/GITHUB/eduxal-labs/eduxal
-bash generate.sh
+Stage and commit:
+```
+lib/database/tables/papers.dart
+lib/database/database.dart
+lib/database/database.g.dart
+schema.sql
 ```
 
-This runs `protoc` against `../ledger/protos/services/sync.proto` and outputs Dart files to `lib/proto/services/`.
+This commit covers:
+- New `PaperSubmissions` client-only table for storing answer image file paths
+- Registration of `PaperSubmissions` in `AppDatabase` tables list and `deleteAllData`
+- Schema version bump (3 → 5) with migration steps: dropping `uq_exams_allstream_type` and `uq_exams_stream_type` unique indexes, creating `paper_submissions` table
+- Updated `schema.sql` removing those same unique indexes
+- Regenerated `database.g.dart`
 
-After generation, verify the new files contain:
-- `ActionRequest` class (not `MutationBatch`)
-- `ActionResponse` class (not `PushAck`)
-- `ActionRow` class
-- `SyncClient` with `pushActions` method (not `pushChanges`)
-- `WatchRequest`, `SyncDelta`, `FileUrl` — unchanged
-- All 77 `*Payload` message classes (`CreateSchoolPayload`, etc.)
-- `AttendanceRecord`, `GradeRecord` helper messages
-- `InsertData` oneof with all 30 `*Insert` messages — unchanged
+#### Commit 2: `feat: add exam batch creation, paper watching, and subject class queries`
 
-Run `dart analyze lib/proto/services/sync.pb.dart 2>&1 | head -20` to verify the generated code is valid.
+Stage and commit:
+```
+lib/database/daos/exams_grades_dao.dart
+lib/database/daos/exams_grades_dao.g.dart
+lib/database/daos/subjects_dao.dart
+lib/models/exam_group.dart
+```
+
+This commit covers:
+- `ExamBatchEntry` typedef and `createExamBatch` for multi-grade exam creation
+- `watchPaper` single-paper reactive stream
+- Paper analytics and grade management additions in `ExamsGradesDao`
+- `getSubjectsForClass` query in `SubjectsDao`
+- New `ExamGroup` domain model for grouping exam rows by shared attributes
+
+#### Commit 3: `feat: add log retry/revert support and sync engine robustness`
+
+Stage and commit:
+```
+lib/database/daos/logs_dao.dart
+lib/sync/delta_writer.dart
+lib/sync/sync_engine.dart
+```
+
+This commit covers:
+- `retryLog` and `deleteAndRevertLog` methods in `LogsDao` for failed action management
+- `DeltaWriter`: FK-safe flushing (PRAGMA foreign_keys OFF/ON), improved null parsing, unknown table fallback logging
+- `SyncEngine`: exponential backoff with jitter on reconnect, adaptive push interval, flush timer for idle delta batches, guard flag preventing duplicate reconnects
+
+#### Commit 4: `ui: overhaul exams/grades screen, paper detail, and exam creation`
+
+Stage and commit:
+```
+lib/ui/screens/school_dashboard/exams/exams_grades_screen.dart
+lib/ui/screens/school_dashboard/exams/exam_creation_page.dart
+lib/ui/screens/school_dashboard/academics/paper_detail_page.dart
+lib/ui/screens/school_dashboard/academics/tabs/exams_tab.dart
+lib/ui/screens/school_dashboard/academics/grade_detail_page.dart
+```
+
+This commit covers:
+- Major overhaul of exams/grades screen (11k+ line diff)
+- New exam creation page with multi-grade support
+- Enhanced paper detail page with answer submission and grading
+- Updated exams tab and grade detail page
+
+#### Commit 5: `ui: enhance notifications, system dashboard, and member screens`
+
+Stage and commit:
+```
+lib/ui/screens/notifications/notifications_page.dart
+lib/ui/screens/system/notifications/notifications_panel.dart
+lib/ui/screens/system/schools/school_detail_screen.dart
+lib/ui/screens/system/system_dashboard_screen.dart
+lib/ui/screens/system/users/users_section.dart
+lib/ui/screens/school_dashboard/members/members_page.dart
+lib/ui/screens/school_dashboard/announcements/announcements_screen.dart
+lib/ui/screens/school_dashboard/finance/finance_screen.dart
+lib/ui/screens/school_dashboard/roles/school_roles_screen.dart
+```
+
+This commit covers:
+- Overhauled notifications page with retry/revert actions for failed logs
+- Enhanced system notifications panel
+- System dashboard and school detail additions
+- Users section improvements
+- Minor fixes/additions to members, announcements, finance, and roles screens
+
+#### Commit 6: `docs: update CONTEXT.md files and AGENT.md`
+
+Stage and commit:
+```
+AGENT.md
+lib/database/CONTEXT.md
+lib/database/daos/CONTEXT.md
+lib/models/CONTEXT.md
+lib/ui/screens/school_dashboard/CONTEXT.md
+lib/ui/widgets/CONTEXT.md
+```
+
+This commit covers:
+- Updated AGENT.md with latest architectural decisions
+- Updated all CONTEXT.md files to reflect new files and changed exports
+
+#### Commit 7: `chore: update dependencies`
+
+Stage and commit:
+```
+pubspec.lock
+```
+
+This commit covers:
+- Updated dependency lock file
+
+#### After all commits, stage and commit the current TASKS.md separately:
+
+#### Commit 8: `docs: add schema restructuring v2 task list`
+
+Stage and commit:
+```
+TASKS.md
+```
+
+**Execution notes:**
+- Use `git add <files> && git commit -m "<message>"` for each chunk.
+- Do NOT use `git add .` — stage only the listed files per commit.
+- Verify each commit with `git log --oneline -1` after committing.
+- If any file has unsaved buffer changes, save before staging.
 
 **Update after completion:**
-- [x] Mark this task `[x]`
+- [ ] Mark this task `[x]`
 
 ---
 
-### Task C2: Update `logs` table and enums for action-based model
+## Context: What Changed and Why
 
-**Files to create/modify:**
-- `lib/database/tables/logs.dart`
-- `lib/database/tables/enums.dart`
+These tasks implement the "Schema Restructuring v2" changes on the Flutter/Drift client side.
+The server `TASKS.md` covers migration SQL, proto file edits, and Rust code updates.
+The client tasks below cover Drift table definitions, DAOs, models, services, sync engine, enums, and AGENT.md updates.
 
-**Context files to read (if needed):** `lib/database/CONTEXT.md` (if exists)
-**Depends on:** Task C1
+### Summary of all changes:
+
+1. **`subjects` table renamed to `subject_teachers`** — was a junction table mapping teachers to subjects in a class.
+2. **New global `subjects` table** — auto-incrementing integer PK, stores the subject catalog (e.g. "Mathematics", "English"). Replaces `CbcSubject`/`EightFourFourSubject` enum-to-int mapping. System/Super-only.
+3. **New global `topics` table** — auto-inc PK, unique on `(subject, grade, name)`. Grade-specific subdivisions of a subject. System/Super-only.
+4. **New `streams` table** — per-school, per-grade stream definitions. Replaces grades/streams from old `settings.data` JSON.
+5. **New `mpesa` table** — per-school M-Pesa Daraja API config. PK = school id. Replaces old `settings.mpesa` JSON.
+6. **`settings` table removed** — no longer needed.
+7. **New `exam_grades` junction table** — replaces `exams.grade` + `exams.stream`. No NULL streams.
+8. **`exams` table modified** — `grade`/`stream` columns removed, `name` column added.
+9. **`papers` table modified** — optional `topic` column added (FK → `topics.id`).
+10. **`mastery` table modified** — `grade` column removed, `subject`/`topic` now FK to new global tables.
+11. **All `subject smallint` columns** across ~6 tables changed to `subject integer` referencing `subjects.id`.
+12. **New `Resource.subjects` (index 18)** in the permission model.
+13. **New `SyncAction` values** for subjects, topics, streams, mpesa, exam_grades.
+14. **Migration approach:** No incremental migration — clean database restart. Update initial schema code in place.
+
+---
+
+### Task C01: Regenerate Dart proto stubs from updated server protos
+
+**Files to create/modify:** `lib/proto/` (generated files)
+**Context files to read:** `../ledger/protos/services/sync.proto`, `../ledger/protos/types/role.proto`
 
 **Specification:**
 
-**`lib/database/tables/enums.dart` changes:**
+After the server proto files are updated (server Tasks S04–S07), regenerate Dart stubs:
 
-1. **Add** the `SyncAction` enum (77 values) and its `TypeConverter`. Place it after the existing `LogStatus` enum. Values from CONVERSATION_CONTEXT §5g:
+```sh
+protoc --dart_out=grpc:lib/proto \
+  -I../ledger/protos \
+  ../ledger/protos/services/sync.proto \
+  ../ledger/protos/services/authentication.proto \
+  ../ledger/protos/types/role.proto \
+  ../ledger/protos/types/user.proto \
+  ../ledger/protos/types/member.proto \
+  ../ledger/protos/types/verification.proto
+```
+
+Verify the generated files compile. Key changes to expect in generated code:
+- `SubjectInsert` renamed to `SubjectTeacherInsert` (oneof field 12)
+- New `SubjectInsert`, `TopicInsert`, `StreamInsert`, `MpesaInsert`, `ExamGradeInsert` messages
+- `ExamInsert` no longer has `grade`/`stream`, has `name` instead
+- `PaperInsert` has new `topic` field
+- `MasteryInsert` no longer has `grade`
+- `SettingsInsert` removed (field 25 reserved)
+- New oneof fields 31–35 in `InsertData`
+- New payload messages for all new actions
+- `Resource` enum has `SUBJECTS = 18`
+- `ExamGradeEntry` helper message
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+
+---
+
+### Task C02: Rename `subjects.dart` → `subject_teachers.dart` and update Drift table
+
+**Files to create/modify:** `lib/database/tables/subject_teachers.dart` (new), delete `lib/database/tables/subjects.dart` (old)
+**Context files to read:** `lib/database/tables/subjects.dart`
+
+**Specification:**
+
+1. Delete `lib/database/tables/subjects.dart`.
+2. Create `lib/database/tables/subject_teachers.dart`:
 
 ```dart
-enum SyncAction {
-  // Schools
-  createSchool(0),
-  updateSchool(1),
-  deleteSchool(2),
-  // Teachers
-  createTeacher(3),
-  updateTeacher(4),
-  deleteTeacher(5),
-  // Staff
-  createStaff(6),
-  updateStaff(7),
-  deleteStaff(8),
-  // Owners
-  createOwner(9),
-  deleteOwner(10),
-  // Students
-  createStudent(11),
-  updateStudent(12),
-  deleteStudent(13),
-  enrollStudent(14),
-  unenrollStudent(15),
-  // Guardians
-  createGuardian(16),
-  updateGuardian(17),
-  deleteGuardian(18),
-  // Departments
-  createDepartment(19),
-  updateDepartment(20),
-  deleteDepartment(21),
-  // Terms
-  createTerm(22),
-  updateTerm(23),
-  deleteTerm(24),
-  // Classes
-  assignClassTeacher(25),
-  unassignClassTeacher(26),
-  assignSubject(27),
-  unassignSubject(28),
-  createTimetableEntry(29),
-  updateTimetableEntry(30),
-  deleteTimetableEntry(31),
-  // Attendance
-  markAttendance(32),
-  deleteAttendance(33),
-  // Lessons
-  createLesson(34),
-  deleteLesson(35),
-  // Exams
-  createExam(36),
-  updateExam(37),
-  deleteExam(38),
-  createPaper(39),
-  updatePaper(40),
-  deletePaper(41),
-  // Grades
-  markGrades(42),
-  updateGrade(43),
-  deleteGrade(44),
-  updateMastery(45),
-  // Fees
-  createFee(46),
-  updateFee(47),
-  deleteFee(48),
-  createInvoice(49),
-  updateInvoice(50),
-  deleteInvoice(51),
-  // Payments
-  createPayment(52),
-  updatePayment(53),
-  deletePayment(54),
-  approvePayment(55),
-  // Announcements
-  createAnnouncement(56),
-  updateAnnouncement(57),
-  deleteAnnouncement(58),
-  // Roles
-  createRole(59),
-  updateRole(60),
-  deleteRole(61),
-  assignRole(62),
-  unassignRole(63),
-  // Users
-  updateUser(64),
-  deleteUser(65),
-  // Settings
-  updateSettings(66),
-  // Plans
-  createPlan(67),
-  updatePlan(68),
-  deletePlan(69),
-  // AI
-  updateAiUsage(70),
-  // Subscriptions
-  createSubscription(71),
-  updateSubscription(72),
-  deleteSubscription(73),
-  // Discounts
-  createDiscount(74),
-  updateDiscount(75),
-  deleteDiscount(76);
+import 'package:drift/drift.dart';
+import 'schools.dart';
 
-  const SyncAction(this.value);
-  final int value;
-}
+class SubjectTeachers extends Table {
+  @override
+  String get tableName => 'subject_teachers';
 
-class SyncActionConverter extends TypeConverter<SyncAction, int> {
-  const SyncActionConverter();
+  TextColumn get school =>
+      text().references(Schools, #id, onDelete: KeyAction.cascade)();
+  IntColumn get year => integer()();
+  IntColumn get term => integer()();
+  IntColumn get grade => integer()();
+  IntColumn get stream => integer()();
+  IntColumn get subject => integer()(); // FK → subjects.id (was smallint enum)
+  TextColumn get teacher => text()();
+  Int64Column get created => int64()();
+
   @override
-  SyncAction fromSql(int fromDb) =>
-      SyncAction.values.firstWhere((e) => e.value == fromDb);
+  Set<Column> get primaryKey => {school, year, term, grade, stream, subject};
+
   @override
-  int toSql(SyncAction value) => value.value;
+  List<String> get customConstraints => [
+    'FOREIGN KEY (school, year, term)'
+        ' REFERENCES terms(school, year, term) ON DELETE CASCADE',
+    'FOREIGN KEY (school, teacher)'
+        ' REFERENCES teachers(school, user) ON DELETE CASCADE',
+    'FOREIGN KEY (subject)'
+        ' REFERENCES subjects(id) ON DELETE CASCADE',
+  ];
 }
 ```
 
-2. **Remove** these enums and their converters (no longer needed):
-   - `LogTable` enum + `LogTableConverter` (lines ~332–374)
-   - `LogOperation` enum + `LogOperationConverter` (lines ~378–389)
-   - All `*Column` bitset enums (lines ~420–end): `UsersColumn`, `SchoolsColumn`, `StudentsColumn`, `GuardiansColumn`, `DepartmentsColumn`, `TeachersColumn`, `StaffColumn`, `TermsColumn`, `ClassTeachersColumn`, `SubjectsColumn`, `AttendanceColumn`, `TimetableColumn`, `LessonsColumn`, `ExamsColumn`, `PapersColumn`, `GradesColumn`, `FeesColumn`, `InvoicesColumn`, `PaymentsColumn`, `AnnouncementsColumn`, `MasteryColumn`, `AiusageColumn`, `SettingsColumn`, `RolesColumn`, `PlansColumn`, `SubscriptionsColumn`, `DiscountsColumn`
+**Update after completion:**
+- [ ] Update `lib/database/CONTEXT.md` if it exists
+- [ ] Mark this task `[x]`
 
-3. **Keep** these enums:
-   - `LogStatus` enum + `LogStatusConverter` — still needed (pending/failed)
-   - All non-log domain enums (`AppThemeMode`, `UserLevel`, `UserStatus`, `SchoolStatus`, `StudentStatus`, `Gender`, `GuardianRelationship`, `GuardianRole`, `TeacherStatus`, `StaffStatus`, `AttendanceStatus`, `ExamType`, `PaperStatus`, `PaymentMethod`, `PaymentStatus`, `Audience`, `PlanStatus`, `InvoiceStatus`, `DiscountUnit`, `SubscriptionStatus`, `Resource`, `Action`)
+---
 
-**`lib/database/tables/logs.dart` changes:**
+### Task C03: Create new `subjects.dart` Drift table (global catalog)
 
-Replace the entire table definition with the new schema:
+**Files to create:** `lib/database/tables/subjects.dart`
+
+**Specification:**
+
+```dart
+import 'package:drift/drift.dart';
+import 'curriculum_subjects.dart';
+
+/// Global subject catalog. Populated by System/Super users only.
+/// NOT the same as the old `subjects` table (which is now `subject_teachers`).
+class Subjects extends Table {
+  @override
+  String get tableName => 'subjects';
+
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text()();
+  IntColumn get curriculum =>
+      integer().map(const CurriculumTypeConverter())();
+  Int64Column get created => int64()();
+  Int64Column get updated => int64()();
+}
+```
+
+Note: The `CurriculumTypeConverter` already exists in `curriculum_subjects.dart`.
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+
+---
+
+### Task C04: Create `topics.dart` Drift table
+
+**Files to create:** `lib/database/tables/topics.dart`
+
+**Specification:**
+
+```dart
+import 'package:drift/drift.dart';
+import 'subjects.dart';
+
+/// Global topic catalog. Grade-specific subdivisions of a subject.
+/// Populated by System/Super users only.
+class Topics extends Table {
+  @override
+  String get tableName => 'topics';
+
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get subject =>
+      integer().references(Subjects, #id, onDelete: KeyAction.cascade)();
+  IntColumn get grade => integer()();
+  TextColumn get name => text()();
+  Int64Column get created => int64()();
+  Int64Column get updated => int64()();
+
+  @override
+  List<String> get customConstraints => [
+    'UNIQUE (subject, grade, name)',
+  ];
+}
+```
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+
+---
+
+### Task C05: Create `streams.dart` Drift table
+
+**Files to create:** `lib/database/tables/streams.dart`
+
+**Specification:**
+
+```dart
+import 'package:drift/drift.dart';
+import 'schools.dart';
+
+/// Per-school stream definitions. Links a named stream to a grade.
+class Streams extends Table {
+  @override
+  String get tableName => 'streams';
+
+  TextColumn get school =>
+      text().references(Schools, #id, onDelete: KeyAction.cascade)();
+  IntColumn get grade => integer()();
+  IntColumn get stream => integer()();
+  TextColumn get name => text()();
+  Int64Column get created => int64()();
+  Int64Column get updated => int64()();
+
+  @override
+  Set<Column> get primaryKey => {school, grade, stream};
+}
+```
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+
+---
+
+### Task C06: Create `mpesa.dart` Drift table
+
+**Files to create:** `lib/database/tables/mpesa.dart`
+
+**Specification:**
+
+```dart
+import 'package:drift/drift.dart';
+import 'schools.dart';
+
+/// M-Pesa environment mode.
+enum MpesaEnv {
+  sandbox, // 0
+  production, // 1
+}
+
+class MpesaEnvConverter extends TypeConverter<MpesaEnv, int> {
+  const MpesaEnvConverter();
+  @override
+  MpesaEnv fromSql(int fromDb) => MpesaEnv.values[fromDb];
+  @override
+  int toSql(MpesaEnv value) => value.index;
+}
+
+/// Per-school M-Pesa Daraja API integration configuration.
+class Mpesa extends Table {
+  @override
+  String get tableName => 'mpesa';
+
+  TextColumn get school =>
+      text().references(Schools, #id, onDelete: KeyAction.cascade)();
+  TextColumn get consumerKey => text()();
+  TextColumn get consumerSecret => text()();
+  TextColumn get passkey => text()();
+  TextColumn get shortcode => text()();
+  IntColumn get env =>
+      integer().map(const MpesaEnvConverter()).withDefault(const Constant(0))();
+  Int64Column get created => int64()();
+  Int64Column get updated => int64()();
+
+  @override
+  Set<Column> get primaryKey => {school};
+}
+```
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+
+---
+
+### Task C07: Create `exam_grades.dart` Drift table
+
+**Files to create:** `lib/database/tables/exam_grades.dart`
+
+**Specification:**
+
+```dart
+import 'package:drift/drift.dart';
+import 'exams.dart';
+
+/// Junction table: which grades and streams participate in an exam.
+/// No NULL streams — if exam spans all streams, one row per stream.
+class ExamGrades extends Table {
+  @override
+  String get tableName => 'exam_grades';
+
+  TextColumn get exam =>
+      text().references(Exams, #id, onDelete: KeyAction.cascade)();
+  IntColumn get grade => integer()();
+  IntColumn get stream => integer()();
+
+  @override
+  Set<Column> get primaryKey => {exam, grade, stream};
+}
+```
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+
+---
+
+### Task C08: Update `exams.dart` — add `name`, remove `grade` and `stream`
+
+**Files to modify:** `lib/database/tables/exams.dart`
+**Context files to read:** `lib/database/tables/exams.dart`
+
+**Specification:**
+
+Replace the current `Exams` table definition:
 
 ```dart
 import 'package:drift/drift.dart';
 import 'enums.dart';
-import 'accounts.dart';
+import 'schools.dart';
 
-/// Client-only offline action queue — not synced to the server directly.
-///
-/// Every local action (create, update, delete, assign, etc.) produces one row here.
-/// The sync engine sends these one-at-a-time to the server via gRPC stream.
-/// Successfully synced rows are DELETED (never marked as synced).
-@DataClassName('LogsData')
-class Logs extends Table {
+class Exams extends Table {
   @override
-  String get tableName => 'logs';
+  String get tableName => 'exams';
 
-  /// Auto-incrementing surrogate PK — ensures replay order is preserved.
-  IntColumn get id => integer().autoIncrement()();
-
-  /// The account that performed this action.
-  TextColumn get account =>
-      text().references(Accounts, #id, onDelete: KeyAction.cascade)();
-
-  /// The semantic action type (e.g. createSchool, updateTeacher, markAttendance).
-  IntColumn get action => integer().map(const SyncActionConverter())();
-
-  /// Human-readable display key for the notification UI.
-  /// E.g. school name, user phone, "Attendance 2025-01-15", etc.
-  TextColumn get resource => text()();
-
-  /// Serialized protobuf action payload (e.g. CreateSchoolPayload bytes).
-  /// Self-contained — the sync engine does NOT read other tables to build the message.
-  BlobColumn get payload => blob()();
-
-  /// Whether this entry is awaiting replay or has permanently failed.
-  IntColumn get status => integer()
-      .map(const LogStatusConverter())
-      .withDefault(const Constant(0))();
-
-  /// Number of times the sync engine has attempted to send this action.
-  IntColumn get attempts => integer().withDefault(const Constant(0))();
-
-  /// Human-readable error message from server, if any.
-  TextColumn get error => text().nullable()();
-
-  /// Milliseconds since epoch when this log entry was created.
+  TextColumn get id => text()();
+  TextColumn get school =>
+      text().references(Schools, #id, onDelete: KeyAction.cascade)();
+  TextColumn get name => text()();
+  IntColumn get year => integer()();
+  IntColumn get term => integer()();
+  BoolColumn get personalized => boolean().withDefault(const Constant(false))();
+  IntColumn get type => integer().map(const ExamTypeConverter())();
+  IntColumn get start => integer()(); // days since epoch
+  IntColumn get end => integer()(); // days since epoch
+  TextColumn get teacher => text()();
   Int64Column get created => int64()();
+  Int64Column get updated => int64()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => [
+    'CHECK (start < end)',
+    'FOREIGN KEY (school, year, term)'
+        ' REFERENCES terms(school, year, term) ON DELETE CASCADE',
+    'FOREIGN KEY (school, teacher)'
+        ' REFERENCES teachers(school, user) ON DELETE CASCADE',
+  ];
 }
 ```
 
-After modifying both files, run `dart analyze lib/database/tables/logs.dart lib/database/tables/enums.dart 2>&1 | head -20` to check for immediate issues. Expect errors from files that import the removed enums — those will be fixed in subsequent tasks.
-
-**IMPORTANT:** The `AppDatabase` class in `lib/database/database.dart` has a `schemaVersion` that must be incremented and a migration added for the `logs` table schema change. But Drift generates the schema from the table class, so the code generation step (`dart run build_runner build`) will handle the DDL. The migration strategy in `database.dart` should drop and recreate `logs` on upgrade (data loss in logs is acceptable — they are transient).
+Key changes: `grade` and `stream` columns removed, `name` column added.
 
 **Update after completion:**
-- [x] Update `lib/database/CONTEXT.md` if it exists — note logs table schema change, SyncAction enum addition, removed enums
-- [x] Mark this task `[x]`
-
-✅ **DONE**
+- [ ] Mark this task `[x]`
 
 ---
 
-### Task C3: Update `logs_dao.dart` for new schema
+### Task C09: Update `papers.dart` — add optional `topic`
 
-**Files to create/modify:** `lib/database/daos/logs_dao.dart`
-**Context files to read (if needed):** None — current file inlined in task
-**Depends on:** Task C2
+**Files to modify:** `lib/database/tables/papers.dart`
+**Context files to read:** `lib/database/tables/papers.dart`
 
 **Specification:**
 
-Rewrite `logs_dao.dart` to work with the new `logs` table schema. The DAO becomes simpler because there is no coalescing, no column bitmask collapsing, no supersede-with-delete logic.
+Add a nullable `topic` column to the `Papers` table and add the FK constraint.
 
-**New `logs_dao.dart`:**
+After `paper` column:
+```dart
+  IntColumn get topic => integer().nullable()(); // FK → topics.id
+```
+
+Add to `customConstraints` list:
+```dart
+    'FOREIGN KEY (subject) REFERENCES subjects(id) ON DELETE CASCADE',
+    'FOREIGN KEY (topic) REFERENCES topics(id) ON DELETE SET NULL',
+```
+
+Also change `subject` column — it was `integer()` already but had no FK. Now it FKs to `subjects.id`. Remove the old implicit subject usage and ensure the FK is in customConstraints.
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+
+---
+
+### Task C10: Update `mastery.dart` — remove `grade`, FK to subjects and topics
+
+**Files to modify:** `lib/database/tables/mastery.dart`
+**Context files to read:** `lib/database/tables/mastery.dart`
+
+**Specification:**
+
+Replace entirely:
 
 ```dart
 import 'package:drift/drift.dart';
+import 'schools.dart';
+import 'subjects.dart';
+import 'topics.dart';
 
-import '../database.dart';
-import '../tables/enums.dart';
-import '../tables/logs.dart';
-import '../../models/app_notification.dart';
+class Mastery extends Table {
+  @override
+  String get tableName => 'mastery';
 
-part 'logs_dao.g.dart';
+  TextColumn get school =>
+      text().references(Schools, #id, onDelete: KeyAction.cascade)();
+  IntColumn get student => integer()();
+  IntColumn get subject =>
+      integer().references(Subjects, #id, onDelete: KeyAction.cascade)();
+  IntColumn get topic =>
+      integer().references(Topics, #id, onDelete: KeyAction.cascade)();
+  RealColumn get score => real()();
+  Int64Column get created => int64()();
+  Int64Column get updated => int64()();
 
-@DriftAccessor(tables: [Logs])
-class LogsDao extends DatabaseAccessor<AppDatabase> with _$LogsDaoMixin {
-  LogsDao(super.db);
+  @override
+  Set<Column> get primaryKey => {school, student, subject, topic};
 
-  // ─────────────────────────────────────────────────────────────────────
-  // Writes — enqueueing actions
-  // ─────────────────────────────────────────────────────────────────────
-
-  /// Appends a new action log entry to the queue.
-  ///
-  /// The caller provides:
-  /// - [LogsCompanion.action] — SyncAction enum value
-  /// - [LogsCompanion.resource] — human-readable display key
-  /// - [LogsCompanion.payload] — serialized proto payload bytes
-  /// - [LogsCompanion.created] — milliseconds since epoch
-  Future<void> insertLog(LogsCompanion log) {
-    return into(logs).insert(log);
-  }
-
-  // ─────────────────────────────────────────────────────────────────────
-  // Reads — sync engine consumption
-  // ─────────────────────────────────────────────────────────────────────
-
-  /// Returns all pending entries for [accountId], oldest first.
-  Future<List<LogsData>> getPendingLogs(String accountId) {
-    return (select(logs)
-          ..where(
-            (t) =>
-                t.account.equals(accountId) &
-                t.status.equalsValue(LogStatus.pending),
-          )
-          ..orderBy([(t) => OrderingTerm.asc(t.id)]))
-        .get();
-  }
-
-  /// Returns all failed entries for [accountId].
-  Future<List<LogsData>> getFailedLogs(String accountId) {
-    return (select(logs)
-          ..where(
-            (t) =>
-                t.account.equals(accountId) &
-                t.status.equalsValue(LogStatus.failed),
-          ))
-        .get();
-  }
-
-  /// Emits all failed log entries as [AppNotification] objects,
-  /// ordered by created descending, whenever the logs table changes.
-  Stream<List<AppNotification>> watchFailedLogs(String accountId) {
-    return (select(logs)
-          ..where(
-            (t) =>
-                t.account.equals(accountId) &
-                t.status.equalsValue(LogStatus.failed),
-          )
-          ..orderBy([(t) => OrderingTerm.desc(t.created)]))
-        .watch()
-        .map(
-          (rows) => rows
-              .map(
-                (row) => AppNotification(
-                  logId: row.id,
-                  action: row.action,
-                  resource: row.resource,
-                  errorMessage: row.error,
-                  attempts: row.attempts,
-                  occurred: DateTime.fromMillisecondsSinceEpoch(
-                    row.created.toInt(),
-                  ),
-                ),
-              )
-              .toList(),
-        );
-  }
-
-  /// Reactive count of failed entries for [accountId].
-  Stream<int> watchFailedLogCount(String accountId) {
-    final countExpr = logs.id.count();
-    final query = selectOnly(logs)
-      ..addColumns([countExpr])
-      ..where(
-        logs.account.equals(accountId) &
-            logs.status.equalsValue(LogStatus.failed),
-      );
-    return query.watchSingle().map((row) => row.read(countExpr) ?? 0);
-  }
-
-  // ─────────────────────────────────────────────────────────────────────
-  // Deletes — after successful sync
-  // ─────────────────────────────────────────────────────────────────────
-
-  /// Deletes a single log entry by [id] after successful sync.
-  Future<void> deleteLog(int id) {
-    return (delete(logs)..where((t) => t.id.equals(id))).go();
-  }
-
-  /// Deletes multiple log entries by their [ids].
-  Future<void> deleteLogs(List<int> ids) {
-    if (ids.isEmpty) return Future.value();
-    return (delete(logs)..where((t) => t.id.isIn(ids))).go();
-  }
-
-  // ─────────────────────────────────────────────────────────────────────
-  // Error tracking
-  // ─────────────────────────────────────────────────────────────────────
-
-  /// Marks a log entry as failed and records the error message.
-  Future<void> markFailed(int id, String error) {
-    return customStatement(
-      'UPDATE logs SET status = ?, error = ?, attempts = attempts + 1 WHERE id = ?',
-      [LogStatus.failed.index, error, id],
-    );
-  }
+  @override
+  List<String> get customConstraints => [
+    'FOREIGN KEY (school, student)'
+        ' REFERENCES students(school, adm) ON DELETE CASCADE',
+  ];
 }
 ```
 
-**Removed methods (no longer needed):**
-- `collapseUpdateLogs` — no more column bitmask coalescing
-- `supersedWithDelete` — no more delete-supersedes-insert logic
+Key: `grade` column removed. PK is now `(school, student, subject, topic)`.
 
 **Update after completion:**
-- [x] Mark this task `[x]`
-
-✅ **DONE**
+- [ ] Mark this task `[x]`
 
 ---
 
-### Task C4: Update `app_notification.dart` for action-based display
+### Task C11: Update `grades.dart` — change subject type, add FK
 
-**Files to create/modify:** `lib/models/app_notification.dart`
-**Context files to read (if needed):** None
-**Depends on:** Task C2
+**Files to modify:** `lib/database/tables/grades.dart`
+**Context files to read:** `lib/database/tables/grades.dart`
 
 **Specification:**
 
-Replace the current `AppNotification` model to use `SyncAction` + `resource` instead of `LogTable` + `LogOperation` + `rowKey`.
+The `subject` column type stays `integer()` (it was already integer in Drift even when schema said smallint). Add a FK constraint to the customConstraints:
 
 ```dart
-import '../database/tables/enums.dart';
-
-/// A thin display model wrapping a failed log row from the offline action queue.
-class AppNotification {
-  const AppNotification({
-    required this.logId,
-    required this.action,
-    required this.resource,
-    required this.errorMessage,
-    required this.attempts,
-    required this.occurred,
-  });
-
-  /// The auto-incremented primary key of the logs row.
-  final int logId;
-
-  /// Which action failed.
-  final SyncAction action;
-
-  /// Human-readable resource identifier (school name, user phone, etc.).
-  final String resource;
-
-  /// The error message returned by the server on the last attempt.
-  final String? errorMessage;
-
-  /// How many times the sync engine has attempted this action.
-  final int attempts;
-
-  /// When this log entry was originally created.
-  final DateTime occurred;
-
-  /// Human-readable title for the notification row.
-  /// Example: "Sync failed — Create Teacher"
-  String get title => 'Sync failed \u2014 ${_actionName(action)}';
-
-  /// Human-readable subtitle.
-  String get subtitle => (errorMessage != null && errorMessage!.isNotEmpty)
-      ? errorMessage!
-      : 'Attempt $attempts';
-
-  static String _actionName(SyncAction action) => switch (action) {
-    SyncAction.createSchool => 'Create School',
-    SyncAction.updateSchool => 'Update School',
-    SyncAction.deleteSchool => 'Delete School',
-    SyncAction.createTeacher => 'Create Teacher',
-    SyncAction.updateTeacher => 'Update Teacher',
-    SyncAction.deleteTeacher => 'Delete Teacher',
-    SyncAction.createStaff => 'Create Staff',
-    SyncAction.updateStaff => 'Update Staff',
-    SyncAction.deleteStaff => 'Delete Staff',
-    SyncAction.createOwner => 'Create Owner',
-    SyncAction.deleteOwner => 'Delete Owner',
-    SyncAction.createStudent => 'Create Student',
-    SyncAction.updateStudent => 'Update Student',
-    SyncAction.deleteStudent => 'Delete Student',
-    SyncAction.enrollStudent => 'Enroll Student',
-    SyncAction.unenrollStudent => 'Unenroll Student',
-    SyncAction.createGuardian => 'Create Guardian',
-    SyncAction.updateGuardian => 'Update Guardian',
-    SyncAction.deleteGuardian => 'Delete Guardian',
-    SyncAction.createDepartment => 'Create Department',
-    SyncAction.updateDepartment => 'Update Department',
-    SyncAction.deleteDepartment => 'Delete Department',
-    SyncAction.createTerm => 'Create Term',
-    SyncAction.updateTerm => 'Update Term',
-    SyncAction.deleteTerm => 'Delete Term',
-    SyncAction.assignClassTeacher => 'Assign Class Teacher',
-    SyncAction.unassignClassTeacher => 'Unassign Class Teacher',
-    SyncAction.assignSubject => 'Assign Subject',
-    SyncAction.unassignSubject => 'Unassign Subject',
-    SyncAction.createTimetableEntry => 'Create Timetable Entry',
-    SyncAction.updateTimetableEntry => 'Update Timetable Entry',
-    SyncAction.deleteTimetableEntry => 'Delete Timetable Entry',
-    SyncAction.markAttendance => 'Mark Attendance',
-    SyncAction.deleteAttendance => 'Delete Attendance',
-    SyncAction.createLesson => 'Create Lesson',
-    SyncAction.deleteLesson => 'Delete Lesson',
-    SyncAction.createExam => 'Create Exam',
-    SyncAction.updateExam => 'Update Exam',
-    SyncAction.deleteExam => 'Delete Exam',
-    SyncAction.createPaper => 'Create Paper',
-    SyncAction.updatePaper => 'Update Paper',
-    SyncAction.deletePaper => 'Delete Paper',
-    SyncAction.markGrades => 'Mark Grades',
-    SyncAction.updateGrade => 'Update Grade',
-    SyncAction.deleteGrade => 'Delete Grade',
-    SyncAction.updateMastery => 'Update Mastery',
-    SyncAction.createFee => 'Create Fee',
-    SyncAction.updateFee => 'Update Fee',
-    SyncAction.deleteFee => 'Delete Fee',
-    SyncAction.createInvoice => 'Create Invoice',
-    SyncAction.updateInvoice => 'Update Invoice',
-    SyncAction.deleteInvoice => 'Delete Invoice',
-    SyncAction.createPayment => 'Create Payment',
-    SyncAction.updatePayment => 'Update Payment',
-    SyncAction.deletePayment => 'Delete Payment',
-    SyncAction.approvePayment => 'Approve Payment',
-    SyncAction.createAnnouncement => 'Create Announcement',
-    SyncAction.updateAnnouncement => 'Update Announcement',
-    SyncAction.deleteAnnouncement => 'Delete Announcement',
-    SyncAction.createRole => 'Create Role',
-    SyncAction.updateRole => 'Update Role',
-    SyncAction.deleteRole => 'Delete Role',
-    SyncAction.assignRole => 'Assign Role',
-    SyncAction.unassignRole => 'Unassign Role',
-    SyncAction.updateUser => 'Update User',
-    SyncAction.deleteUser => 'Delete User',
-    SyncAction.updateSettings => 'Update Settings',
-    SyncAction.createPlan => 'Create Plan',
-    SyncAction.updatePlan => 'Update Plan',
-    SyncAction.deletePlan => 'Delete Plan',
-    SyncAction.updateAiUsage => 'Update AI Usage',
-    SyncAction.createSubscription => 'Create Subscription',
-    SyncAction.updateSubscription => 'Update Subscription',
-    SyncAction.deleteSubscription => 'Delete Subscription',
-    SyncAction.createDiscount => 'Create Discount',
-    SyncAction.updateDiscount => 'Update Discount',
-    SyncAction.deleteDiscount => 'Delete Discount',
-  };
-}
+    'FOREIGN KEY (subject) REFERENCES subjects(id) ON DELETE CASCADE',
 ```
 
-After writing, search for any UI files that reference the old `AppNotification` fields (`table`, `operation`, `rowKey`) and note them — they'll need minor updates in Task C10.
-
 **Update after completion:**
-- [x] Mark this task `[x]`
-
-✅ **DONE**
+- [ ] Mark this task `[x]`
 
 ---
 
-### Task C5: Run Drift code generation
+### Task C12: Update `lessons.dart` and `timetable.dart` — update FK references
 
-**Files to create/modify:** All `*.g.dart` files in `lib/database/`
-**Context files to read (if needed):** None
-**Depends on:** Tasks C2, C3
+**Files to modify:** `lib/database/tables/lessons.dart`, `lib/database/tables/timetable.dart`
+**Context files to read:** Both files
 
 **Specification:**
 
-Run the Drift code generator to regenerate all `*.g.dart` files after the `logs` table and enum changes:
+In both files, find any FK reference to `subjects(...)` and change to `subject_teachers(...)`.
 
-```bash
-cd /home/abdihakim/Documents/GITHUB/eduxal-labs/eduxal
+In `lessons.dart`, the custom constraint:
+```dart
+'FOREIGN KEY (school, year, term, grade, stream, subject) REFERENCES subject_teachers(school, year, term, grade, stream, subject) ON DELETE RESTRICT'
+```
+
+In `timetable.dart`, the custom constraint:
+```dart
+'FOREIGN KEY (school, year, term, grade, stream, subject, teacher) REFERENCES subject_teachers(school, year, term, grade, stream, subject, teacher) ON DELETE CASCADE ON UPDATE CASCADE'
+```
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+
+---
+
+### Task C13: Delete `settings.dart` Drift table
+
+**Files to delete:** `lib/database/tables/settings.dart`
+
+**Specification:**
+
+Delete the file entirely. The `settings` table is removed from the schema.
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+
+---
+
+### Task C14: Update `enums.dart` — add new SyncAction values, add MpesaEnv reference
+
+**Files to modify:** `lib/database/tables/enums.dart`
+**Context files to read:** `lib/database/tables/enums.dart`
+
+**Specification:**
+
+1. In the `SyncAction` enum, mark value 66 (`updateSettings`) as deprecated and add new values at the end:
+
+```dart
+  // Settings — DEPRECATED (table removed)
+  @Deprecated('Settings table removed in schema v2')
+  updateSettings(66),
+```
+
+Add new values after `deleteDiscount(76)`:
+
+```dart
+  // Subjects (global catalog)
+  createSubject(77),
+  updateSubject(78),
+  deleteSubject(79),
+  // Topics (global catalog)
+  createTopic(80),
+  updateTopic(81),
+  deleteTopic(82),
+  // Streams (per-school)
+  createStream(83),
+  updateStream(84),
+  deleteStream(85),
+  // M-Pesa (per-school)
+  createMpesa(86),
+  updateMpesa(87),
+  deleteMpesa(88),
+  // Exam Grades (junction)
+  addExamGrade(89),
+  removeExamGrade(90);
+```
+
+Total enum values: 91 (0–90).
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+
+---
+
+### Task C15: Update `database.dart` — register new tables, remove Settings
+
+**Files to modify:** `lib/database/database.dart`
+**Context files to read:** `lib/database/database.dart`
+
+**Specification:**
+
+1. Add imports for new table files:
+   - `tables/subject_teachers.dart`
+   - `tables/topics.dart`
+   - `tables/streams.dart`
+   - `tables/mpesa.dart`
+   - `tables/exam_grades.dart`
+
+2. Remove import for `tables/settings.dart`.
+
+3. In the `@DriftDatabase(tables: [...])` annotation:
+   - Remove `Settings`
+   - Replace old `Subjects` with `SubjectTeachers`
+   - Add: `Subjects` (the new global one), `Topics`, `Streams`, `Mpesa`, `ExamGrades`
+
+4. Update `MigrationStrategy.onCreate`:
+   - Remove any raw SQL for `settings` indexes/triggers
+   - Remove the `exams_stream_consistency_check` trigger
+   - Update `grades_enrollment_check` trigger to JOIN through `exam_grades`
+   - Update `grades_enrollment_check_update` trigger similarly
+   - Add unique index: `CREATE UNIQUE INDEX uq_subjects_name_curriculum ON subjects(name, curriculum)`
+   - Add unique index: `CREATE UNIQUE INDEX uq_topics_subject_grade_name ON topics(subject, grade, name)`
+   - Add index: `CREATE INDEX idx_topics_subject ON topics(subject)`
+   - Add index: `CREATE INDEX idx_streams_school ON streams(school, grade)`
+   - Add index: `CREATE INDEX idx_exam_grades_grade ON exam_grades(grade, stream)`
+   - Rename `subjects_class_teacher_idx` → `subject_teachers_class_teacher_idx` referencing `subject_teachers`
+   - Rename `idx_subjects_school_teacher` → `idx_subject_teachers_school_teacher` referencing `subject_teachers`
+   - Update `papers_within_exam_range` trigger if it references `exams.grade`/`exams.stream`
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+
+---
+
+### Task C16: Update `delta_writer.dart` — handle new/renamed InsertData variants
+
+**Files to modify:** `lib/sync/delta_writer.dart`
+**Context files to read:** `lib/sync/delta_writer.dart`
+
+**Specification:**
+
+After proto stubs are regenerated (Task C01), update the `DeltaWriter` to handle:
+
+1. Renamed: `InsertData.subject` (old) → `InsertData.subjectTeacher` (new, field 12 of oneof). The `SubjectTeacherInsert` maps to the `subject_teachers` table.
+
+2. Removed: `InsertData.settings` (field 25) — remove the case that handled `SettingsInsert`.
+
+3. New cases to add:
+   - `InsertData.subjectCatalog` (field 31) → upsert into `subjects` table
+   - `InsertData.topic` (field 32) → upsert into `topics` table
+   - `InsertData.stream` (field 33) → upsert into `streams` table
+   - `InsertData.mpesa` (field 34) → upsert into `mpesa` table
+   - `InsertData.examGrade` (field 35) → upsert into `exam_grades` table
+
+4. Update the `ExamInsert` handler — no longer has `grade`/`stream` fields, now has `name`.
+
+5. Update the `PaperInsert` handler — now has optional `topic` field.
+
+6. Update the `MasteryInsert` handler — no longer has `grade` field.
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+
+---
+
+### Task C17: Update `curriculum_subjects.dart` — deprecate enum-to-int approach
+
+**Files to modify:** `lib/database/tables/curriculum_subjects.dart`
+
+**Specification:**
+
+The `CbcSubject` and `EightFourFourSubject` enums are no longer used as database column values — subjects are now rows in the `subjects` table with auto-inc integer IDs. However, these enums and their labels may still be useful as a reference/seed list.
+
+1. Add a comment at the top of the file:
+```dart
+// NOTE: CbcSubject and EightFourFourSubject enums are no longer used as
+// database column values. Subjects are now rows in the global `subjects` table.
+// These enums are retained as a reference for seeding the subjects table
+// and for label display. The CurriculumType enum and its converter ARE still
+// actively used by the new `subjects` table.
+```
+
+2. Keep `CurriculumType` and `CurriculumTypeConverter` — these are actively used.
+3. Keep `CbcSubject` and `EightFourFourSubject` with their labels — useful for seeding.
+4. Keep `KenyaCounty` and its converter — unrelated to this change, still used.
+5. Remove `CbcSubjectConverter` and `EightFourFourSubjectConverter` — no longer needed since subjects are no longer stored as enum int values.
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+
+---
+
+### Task C18: Update models — `permissions.dart` add `Resource.subjects`
+
+**Files to modify:** `lib/models/permissions.dart`
+**Context files to read:** `lib/models/permissions.dart`
+
+**Specification:**
+
+Add `subjects` to the `Resource` enum at index 18 (after `ai`):
+
+```dart
+enum Resource {
+  users,        // 0
+  schools,      // 1
+  owners,       // 2
+  teachers,     // 3
+  staff,        // 4
+  students,     // 5
+  departments,  // 6
+  classes,      // 7
+  attendance,   // 8
+  lessons,      // 9
+  exams,        // 10
+  grades,       // 11
+  fees,         // 12
+  payments,     // 13
+  announcements,// 14
+  roles,        // 15
+  plans,        // 16
+  ai,           // 17
+  subjects,     // 18  — global subject/topic catalog
+}
+```
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+
+---
+
+### Task C19: Update DAOs — rename and add new DAOs as needed
+
+**Files to modify:** Relevant DAO files in `lib/database/daos/`
+**Context files to read:** `lib/database/daos/` directory listing
+
+**Specification:**
+
+1. Find any DAO that references the old `Subjects` Drift table (the class, not the table name) and update to `SubjectTeachers`.
+
+2. Find any DAO that references `Settings` and remove those methods.
+
+3. Find any DAO query referencing `exams.grade` or `exams.stream` and update to JOIN through `exam_grades`.
+
+4. Find any DAO query referencing `mastery.grade` and remove that column from the query.
+
+5. Add DAO methods for new tables if needed:
+   - `subjects` (global catalog): `watchSubjects()`, `watchSubjectsByCurriculum(CurriculumType)`, insert/update/delete
+   - `topics`: `watchTopicsBySubjectAndGrade(int subjectId, int grade)`, insert/update/delete
+   - `streams`: `watchStreamsBySchoolAndGrade(String schoolId, int grade)`, insert/update/delete
+   - `mpesa`: `watchMpesa(String schoolId)`, insert/update/delete
+   - `exam_grades`: CRUD as part of exam operations
+
+These can be added to existing domain-grouped DAOs or new ones as appropriate.
+
+**Update after completion:**
+- [ ] Update relevant `CONTEXT.md` files
+- [ ] Mark this task `[x]`
+
+---
+
+### Task C20: Update `AGENT.md` — reflect all schema changes
+
+**Files to modify:** `AGENT.md`
+
+**Specification:**
+
+Update the following sections:
+
+1. **§5 Database Design** — mention the new tables (`subjects`, `topics`, `streams`, `mpesa`, `exam_grades`) and the rename (`subjects` → `subject_teachers`). Note `settings` table is removed.
+
+2. **§7a SyncAction Enum** — update to show 91 values (0–90) including the new ones. Mark `updateSettings(66)` as deprecated.
+
+3. **§4 Folder Structure** — no structural change needed, but note new table files.
+
+4. **§13 Division of Labour** — no change needed.
+
+5. **§17a Resource & Action Design** — add `Resource.subjects` (index 18) to the Resource table:
+   | 19 | Subjects | `subjects`, `topics` | System/Super-only catalog management |
+
+   Add to Action Context Per Resource table:
+   | Subjects | Create, Read, Update, Delete |
+
+6. **§14 gRPC Proto Files** — update `sync.pb.dart` and `sync.pbgrpc.dart` notes to reflect new Insert messages, renamed `SubjectTeacherInsert`, removed `SettingsInsert`, new payload messages.
+
+7. **§12 Pending / Undecided Items** — no new items from this change.
+
+8. **§2 Tech Stack** — no change.
+
+9. **§5.1 Overview** — update table count: the total is now 30 backend tables minus `settings` (29) plus `subjects`, `topics`, `streams`, `mpesa`, `exam_grades` = **34 synced backend tables** plus 2 client-only (`accounts`, `logs`). Update the count accordingly.
+
+10. **§16 Sync Strategy - Current Network Boundary** — no change (sync actions are already covered).
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+
+---
+
+### Task C21: Run `build_runner` and fix compilation errors
+
+**Specification:**
+
+```sh
 dart run build_runner build --delete-conflicting-outputs
 ```
 
-This may take a few minutes. After completion:
-1. Check for errors: `dart analyze lib/database/ 2>&1 | head -40`
-2. Verify the generated `LogsCompanion` class now has `action`, `resource`, `payload` fields (not `tbl`, `op`, `rowKey`, `columns`)
-3. Verify `SyncAction` and `SyncActionConverter` are accessible from generated code
+Fix any compilation errors:
+- Missing imports due to renamed/deleted files
+- Type mismatches from changed column types
+- References to removed `Settings` table/data class
+- References to old `SubjectsData` (now `SubjectTeachersData`)
+- References to removed `exams.grade`/`exams.stream`/`mastery.grade`
 
-If there are errors due to other files still referencing removed enums (`LogTable`, `LogOperation`, column bitset enums), that's expected — those files will be updated in subsequent tasks.
-
-**Update after completion:**
-- [x] Mark this task `[x]`
-
-✅ **DONE**
-
----
-
-### Task C6: Update `database.dart` — migration for logs table
-
-**Files to create/modify:** `lib/database/database.dart`
-**Context files to read (if needed):** Read current `lib/database/database.dart` to see existing migration strategy
-**Depends on:** Task C5
-
-**Specification:**
-
-Increment `schemaVersion` by 1 in `AppDatabase`. Add a migration step that drops and recreates the `logs` table. Log data is transient (pending sync actions) so data loss is acceptable.
-
-In the `MigrationStrategy`:
-```dart
-onUpgrade: (migrator, from, to) async {
-  // ... existing migrations ...
-  if (from < NEW_VERSION) {
-    // Logs table schema changed: action-based model replaces mutation-based model.
-    // Drop old logs and recreate — pending sync data is lost but that's acceptable.
-    await migrator.deleteTable('logs');
-    await migrator.createTable(logs);
-  }
-},
+After fixing:
+```sh
+flutter analyze
 ```
 
-Also update `onCreate` if the raw SQL for logs indexes/triggers needs changing (the old `logs` table had no special indexes beyond the autoincrement PK, so this should be minimal).
-
-Run `dart analyze lib/database/database.dart 2>&1 | head -20` to verify.
-
-**Update after completion:**
-- [x] Mark this task `[x]`
-
-✅ **DONE**
-
----
-
-### Task C7: Rewrite `sync_engine.dart` — action-based push flow
-
-**Files to create/modify:** `lib/sync/sync_engine.dart`
-**Context files to read (if needed):** Read current `lib/sync/sync_engine.dart` to understand the watch loop (KEEP) and push loop (REPLACE)
-**Depends on:** Tasks C1, C3, C5
-
-**Specification:**
-
-Rewrite the push side of `sync_engine.dart`. The watch side stays.
-
-**Push flow — what to remove:**
-- All references to `LogProcessor` / `log_processor.dart`
-- Batch-based push logic (`MutationBatch`, batch tracking, mutation result mapping)
-- Any `import` of `log_processor.dart`
-
-**Push flow — new implementation:**
-
-The push loop reads pending log entries one at a time (oldest first) and sends each as an `ActionRequest` via the gRPC bidirectional stream. It waits for the `ActionResponse` before sending the next action.
-
-```dart
-// Pseudocode for the new push loop:
-Future<void> _pushActions(String accountId, String accessToken) async {
-  final logsDao = _db.logsDao;
-  final pending = await logsDao.getPendingLogs(accountId);
-  if (pending.isEmpty) return;
-
-  // Open bidirectional stream
-  final requestController = StreamController<ActionRequest>();
-  final responseStream = _syncClient.pushActions(
-    requestController.stream,
-    options: CallOptions(metadata: {'authorization': 'Bearer $accessToken'}),
-  );
-
-  int nextIndex = 0;
-
-  // Listen for responses
-  await for (final response in responseStream) {
-    // Process the response for the current action
-    if (response.success) {
-      // Apply returned rows to local DB via delta_writer
-      for (final row in response.rows) {
-        await _applyActionRow(row);
-      }
-      // Delete the log entry
-      await logsDao.deleteLog(response.id);
-    } else {
-      // Map error code to action
-      switch (response.code) {
-        case 1: // permission_denied
-          await logsDao.markFailed(response.id, response.error);
-        case 2: // conflict — apply server's version, delete log
-          for (final row in response.rows) {
-            await _applyActionRow(row);
-          }
-          await logsDao.deleteLog(response.id);
-        case 3: // validation_error
-          await logsDao.markFailed(response.id, response.error);
-        case 4: // not_found
-          await logsDao.markFailed(response.id, response.error);
-        default:
-          await logsDao.markFailed(response.id, response.error);
-      }
-    }
-
-    // Send the next action (if any)
-    nextIndex++;
-    if (nextIndex < pending.length) {
-      final next = pending[nextIndex];
-      requestController.add(ActionRequest(
-        id: next.id,
-        action: next.action.value,
-        payload: next.payload,
-      ));
-    } else {
-      await requestController.close();
-    }
-  }
-}
-```
-
-Send the first action to kick off the stream, then send subsequent actions only after receiving each response.
-
-**`_applyActionRow` method:**
-Reuse the existing `DeltaWriter` logic. An `ActionRow` is structurally similar to a `SyncDelta` — it has `table`, `operation`, `row_key`, and `data` (InsertData). Write a thin adapter that converts `ActionRow` to the format `DeltaWriter` expects, or call the delta writer's internal methods directly.
-
-**Watch flow — keep as-is:**
-The watch side of `sync_engine.dart` should remain unchanged. It already uses `WatchRequest`/`SyncDelta` which are not changing.
-
-**Update after completion:**
-- [x] Mark this task `[x]`
-
-✅ **DONE**
-
----
-
-### Task C8: Delete `log_processor.dart`
-
-**Files to create/modify:**
-- `lib/sync/log_processor.dart` — DELETE entirely
-- Any file that imports `log_processor.dart` — remove the import
-
-**Context files to read (if needed):** None
-**Depends on:** Task C7
-
-**Specification:**
-
-Delete `lib/sync/log_processor.dart` (2097 lines). This file contained:
-- Batch building logic
-- FK dependency ordering (`kTableInsertPriority`)
-- Invitation pairing
-- Coalescing/collapsing mutations
-- Column bitmask OR-ing
-- All of which are eliminated by the action-based model
-
-Search for any remaining imports:
-```bash
-grep -rn "log_processor" lib/
-```
-
-Remove all `import` statements referencing this file. If any code still calls `LogProcessor`, it should have been replaced in Task C7.
-
-**Update after completion:**
-- [x] Mark this task `[x]`
-
-✅ **DONE**
-
----
-
-### Task C9: Update DAOs — schools_dao.dart, members_dao.dart
-
-**Files to create/modify:**
-- `lib/database/daos/schools_dao.dart`
-- `lib/database/daos/members_dao.dart`
-
-**Context files to read (if needed):** Read these DAO files to see which methods write `LogsCompanion` entries
-**Depends on:** Tasks C2, C5
-
-**Specification:**
-
-Update every method that creates a `LogsCompanion` to use the new action-based format.
-
-**Pattern — old:**
-```dart
-await into(db.logs).insert(LogsCompanion(
-  account: Value(accountId),
-  tbl: Value(LogTable.schools),
-  op: Value(LogOperation.insert),
-  rowKey: Value(schoolId),
-  columns: const Value.absent(),
-  created: Value(BigInt.from(DateTime.now().millisecondsSinceEpoch)),
-));
-```
-
-**Pattern — new:**
-```dart
-final payload = CreateSchoolPayload(
-  id: schoolId,
-  name: name,
-  // ... all fields
-);
-await into(db.logs).insert(LogsCompanion(
-  account: Value(accountId),
-  action: Value(SyncAction.createSchool),
-  resource: Value(name),  // human-readable display key
-  payload: Value(payload.writeToBuffer()),
-  created: Value(BigInt.from(DateTime.now().millisecondsSinceEpoch)),
-));
-```
-
-**`schools_dao.dart` (5 LogsCompanion calls):**
-For each method that logs:
-1. Import the appropriate `*Payload` class from `lib/proto/services/sync.pb.dart`
-2. Build the payload proto message with all the data the method already has
-3. Write the new `LogsCompanion` with `action`, `resource`, and `payload`
-
-- `createSchool` → `SyncAction.createSchool`, `CreateSchoolPayload`, resource = school name
-- `updateSchool` → `SyncAction.updateSchool`, `UpdateSchoolPayload`, resource = school name or ID
-
-**`members_dao.dart` (21 LogsCompanion calls):**
-This is the largest DAO to update. Methods include:
-- `createTeacher` → `SyncAction.createTeacher`, `CreateTeacherPayload`
-- `updateTeacher` → `SyncAction.updateTeacher`, `UpdateTeacherPayload`
-- `deleteTeacher` → `SyncAction.deleteTeacher`, `DeleteTeacherPayload`
-- Same pattern for staff, owner, guardian CRUD
-- Resource display key = user phone or name
-
-For create-member methods (invitation pattern), the payload includes the user's phone and name (which the method already has as parameters). The server will handle the user lookup/creation.
-
-**Update after completion:**
-- [x] Mark this task `[x]`
-
-✅ **DONE**
-
----
-
-### Task C10: Update DAOs — accounts_dao.dart, departments_dao.dart, terms_dao.dart, subjects_dao.dart, enrollments_dao.dart
-
-**Files to create/modify:**
-- `lib/database/daos/accounts_dao.dart` (3 LogsCompanion calls)
-- `lib/database/daos/departments_dao.dart` (5 LogsCompanion calls)
-- `lib/database/daos/terms_dao.dart` (3 LogsCompanion calls)
-- `lib/database/daos/subjects_dao.dart` (6 LogsCompanion calls)
-- `lib/database/daos/enrollments_dao.dart` (3 LogsCompanion calls)
-
-**Context files to read (if needed):** Read each DAO to see current `LogsCompanion` patterns
-**Depends on:** Tasks C2, C5
-
-**Specification:**
-
-Same pattern as Task C9. For each DAO:
-
-**`accounts_dao.dart`:**
-- `updateName` / `updateEmail` / `updateStatus` → `SyncAction.updateUser`, `UpdateUserPayload`
-- Resource = user name or phone
-
-**`departments_dao.dart`:**
-- `create` → `SyncAction.createDepartment`, `CreateDepartmentPayload`, resource = dept name
-- `update` → `SyncAction.updateDepartment`, `UpdateDepartmentPayload`
-- `delete` → `SyncAction.deleteDepartment`, `DeleteDepartmentPayload`
-- `assignTeacherDept` / `assignStaffDept` → These update the teacher/staff record's department field. Use `SyncAction.updateTeacher` / `SyncAction.updateStaff` with the appropriate `Update*Payload`.
-
-**`terms_dao.dart`:**
-- `createTerm` → `SyncAction.createTerm`, `CreateTermPayload`
-- `updateTerm` → `SyncAction.updateTerm`, `UpdateTermPayload`
-- `deleteTerm` → `SyncAction.deleteTerm`, `DeleteTermPayload`
-- Resource = "Year YYYY Term T"
-
-**`subjects_dao.dart`:**
-- `assignSubject` → `SyncAction.assignSubject`, `AssignSubjectPayload`
-- `unassignSubject` → `SyncAction.unassignSubject`, `UnassignSubjectPayload`
-- `assignClassTeacher` → `SyncAction.assignClassTeacher`, `AssignClassTeacherPayload`
-- `unassignClassTeacher` → `SyncAction.unassignClassTeacher`, `UnassignClassTeacherPayload`
-- Plus any create/update methods
-- Resource = subject name or class description
-
-**`enrollments_dao.dart`:**
-- `enroll` → `SyncAction.enrollStudent`, `EnrollStudentPayload`
-- `unenroll` → `SyncAction.unenrollStudent`, `UnenrollStudentPayload`
-- Plus other logged methods
-- Resource = student name or ADM
-
-**Update after completion:**
-- [x] Mark this task `[x]`
-
-✅ **DONE**
-
----
-
-### Task C11: Update DAOs — exams_grades_dao.dart, finance_dao.dart
-
-**Files to create/modify:**
-- `lib/database/daos/exams_grades_dao.dart` (11 LogsCompanion calls)
-- `lib/database/daos/finance_dao.dart` (9 LogsCompanion calls)
-
-**Context files to read (if needed):** Read each DAO to see current `LogsCompanion` patterns
-**Depends on:** Tasks C2, C5
-
-**Specification:**
-
-**`exams_grades_dao.dart` (11 log calls):**
-- `createExam` → `SyncAction.createExam`, `CreateExamPayload`
-- `updateExam` → `SyncAction.updateExam`, `UpdateExamPayload`
-- `deleteExam` → `SyncAction.deleteExam`, `DeleteExamPayload`
-- `createPaper` → `SyncAction.createPaper`, `CreatePaperPayload`
-- `updatePaper` → `SyncAction.updatePaper`, `UpdatePaperPayload`
-- `deletePaper` → `SyncAction.deletePaper`, `DeletePaperPayload`
-- `markGrades` → `SyncAction.markGrades`, `MarkGradesPayload` (includes `repeated GradeRecord`)
-- `updateGrade` → `SyncAction.updateGrade`, `UpdateGradePayload`
-- `deleteGrade` → `SyncAction.deleteGrade`, `DeleteGradePayload`
-- `updateMastery` (if logged) → `SyncAction.updateMastery`, `UpdateMasteryPayload`
-
-For `markGrades`: the payload's `records` field is a `repeated GradeRecord`. Build one `GradeRecord` per student grade being marked, then wrap in `MarkGradesPayload`.
-
-**`finance_dao.dart` (9 log calls):**
-- `createFee` → `SyncAction.createFee`, `CreateFeePayload`
-- `updateFee` → `SyncAction.updateFee`, `UpdateFeePayload`
-- `deleteFee` → `SyncAction.deleteFee`, `DeleteFeePayload`
-- `createInvoice` → `SyncAction.createInvoice`, `CreateInvoicePayload`
-- `updateInvoice` → `SyncAction.updateInvoice`, `UpdateInvoicePayload`
-- `deleteInvoice` → `SyncAction.deleteInvoice`, `DeleteInvoicePayload`
-- `createPayment` → `SyncAction.createPayment`, `CreatePaymentPayload`
-- `updatePayment` → `SyncAction.updatePayment`, `UpdatePaymentPayload`
-- `deletePayment` → `SyncAction.deletePayment`, `DeletePaymentPayload`
-
-**Update after completion:**
-- [x] Mark this task `[x]`
-
-✅ **DONE**
-
----
-
-### Task C12: Update DAOs — attendance_dao.dart, timetable_dao.dart, announcements_dao.dart, roles_dao.dart, plans_dao.dart, settings_dao.dart
-
-**Files to create/modify:**
-- `lib/database/daos/attendance_dao.dart` (3 LogsCompanion calls)
-- `lib/database/daos/timetable_dao.dart` (6 LogsCompanion calls)
-- `lib/database/daos/announcements_dao.dart` (3 LogsCompanion calls)
-- `lib/database/daos/roles_dao.dart` (5 LogsCompanion calls)
-- `lib/database/daos/plans_dao.dart` (5 LogsCompanion calls)
-- `lib/database/daos/settings_dao.dart` (2 LogsCompanion calls)
-
-**Context files to read (if needed):** Read each DAO
-**Depends on:** Tasks C2, C5
-
-**Specification:**
-
-**`attendance_dao.dart`:**
-- `mark` → `SyncAction.markAttendance`, `MarkAttendancePayload` (includes `repeated AttendanceRecord`)
-- `delete` → `SyncAction.deleteAttendance`, `DeleteAttendancePayload`
-
-For `mark`: build one `AttendanceRecord` per student, wrap in `MarkAttendancePayload`.
-
-**`timetable_dao.dart`:**
-- `createEntry` → `SyncAction.createTimetableEntry`, `CreateTimetableEntryPayload`
-- `updateEntry` → `SyncAction.updateTimetableEntry`, `UpdateTimetableEntryPayload`
-- `deleteEntry` → `SyncAction.deleteTimetableEntry`, `DeleteTimetableEntryPayload`
-
-**`announcements_dao.dart`:**
-- `create` → `SyncAction.createAnnouncement`, `CreateAnnouncementPayload`
-- `update` → `SyncAction.updateAnnouncement`, `UpdateAnnouncementPayload`
-- `delete` → `SyncAction.deleteAnnouncement`, `DeleteAnnouncementPayload`
-
-**`roles_dao.dart`:**
-- `createRole` → `SyncAction.createRole`, `CreateRolePayload`
-- `updateRole` → `SyncAction.updateRole`, `UpdateRolePayload`
-- `deleteRole` → `SyncAction.deleteRole`, `DeleteRolePayload`
-- `assignRole` → `SyncAction.assignRole`, `AssignRolePayload`
-- `unassignRole` → `SyncAction.unassignRole`, `UnassignRolePayload`
-
-**`plans_dao.dart`:**
-- `createPlan` → `SyncAction.createPlan`, `CreatePlanPayload`
-- `updatePlan` → `SyncAction.updatePlan`, `UpdatePlanPayload`
-- `deletePlan` → `SyncAction.deletePlan`, `DeletePlanPayload`
-- Plus subscription/discount methods if they exist in this DAO
-
-**`settings_dao.dart`:**
-- `updateSettings` → `SyncAction.updateSettings`, `UpdateSettingsPayload`
-
-**Update after completion:**
-- [x] Mark this task `[x]`
-
-✅ **DONE**
-
----
-
-### Task C13: Fix UI references to old AppNotification fields
-
-**Files to create/modify:** Any UI files that reference `AppNotification.table`, `AppNotification.operation`, or `AppNotification.rowKey`
-**Context files to read (if needed):** None — search with grep
-**Depends on:** Task C4
-
-**Specification:**
-
-Search for all UI references to the old `AppNotification` fields:
-```bash
-grep -rn "\.table\b\|\.operation\b\|\.rowKey\b" lib/ui/
-grep -rn "AppNotification" lib/ui/
-```
-
-Update any widgets that display notification details to use `.action` and `.resource` instead.
-
-The `title` and `subtitle` getters on `AppNotification` already provide the formatted display strings, so most UI code should just work. If any widget was accessing `.table` or `.operation` directly (e.g. for filtering or icons), update it to use `.action` (a `SyncAction` value).
-
-**Update after completion:**
-- [x] Mark this task `[x]`
-
-✅ **DONE**
-
----
-
-### Task C14: Update `delta_writer.dart` if needed
-
-**Files to create/modify:** `lib/sync/delta_writer.dart`
-**Context files to read (if needed):** Read current `delta_writer.dart` to check if it references any removed types
-**Depends on:** Task C1
-
-**Specification:**
-
-The `SyncDelta` message format is unchanged, so `delta_writer.dart` should mostly work as-is. However, check for:
-
-1. Any imports of removed proto types (`MutationBatch`, `Mutation`, `PushAck`, `MutationResult`, `UpdateData`)
-2. Any references to `LogTable`, `LogOperation`, or column bitset enums from `enums.dart`
-3. The `ActionRow` type from push responses also needs to be handled — add a method that converts `ActionRow` to the format the delta writer expects (or reuse the existing `SyncDelta` processing path)
-
-If the file compiles cleanly after Tasks C1 and C2 with no changes needed, just verify and mark complete.
-
-Add a helper method for processing `ActionRow` from push responses:
-```dart
-/// Applies a single ActionRow (from push response) to the local database.
-/// ActionRow has the same shape as SyncDelta: table, operation, row_key, data.
-Future<void> applyActionRow(ActionRow row) async {
-  // Reuse the same logic as processDelta but with ActionRow fields
-  if (row.operation == 0) {
-    // Upsert
-    await _upsertRow(row.table, row.rowKey, row.data);
-  } else if (row.operation == 2) {
-    // Delete
-    await _deleteRow(row.table, row.rowKey);
-  }
-}
-```
-
-**Update after completion:**
-- [x] Mark this task `[x]`
-
-✅ **DONE** — Verified: `delta_writer.dart` compiles cleanly with zero errors. No references to removed types (`MutationBatch`, `Mutation`, `PushAck`, `MutationResult`, `UpdateData`, `LogTable`, `LogOperation`, column bitset enums). The `ActionRow` handling is already implemented in `sync_engine.dart`'s `_applyActionRow` method which converts `ActionRow` → `SyncDelta` and delegates to `DeltaWriter`. No changes needed.
-
----
-
-### Task C15: Update seeder for action-based logging
-
-**Files to create/modify:** `lib/core/seeder.dart`
-**Context files to read (if needed):** Read current `lib/core/seeder.dart` to understand the `_log()` helper
-**Depends on:** Tasks C2, C5
-
-**Specification:**
-
-The seeder (~2200 lines) creates demo data by writing directly to the local DB and creating log entries for sync. Update it for the action-based model:
-
-1. **Find the `_log()` helper function** — it currently creates `LogsCompanion(tbl, op, rowKey, columns)`. Replace it with a new helper:
-
-```dart
-Future<void> _log(SyncAction action, String resource, GeneratedMessage payload) async {
-  await _db.logsDao.insertLog(LogsCompanion(
-    account: Value(_accountId),
-    action: Value(action),
-    resource: Value(resource),
-    payload: Value(Uint8List.fromList(payload.writeToBuffer())),
-    created: Value(BigInt.from(DateTime.now().millisecondsSinceEpoch)),
-  ));
-}
-```
-
-2. **Update every `_log()` call site** throughout the seeder. Each call currently passes `LogTable`, `LogOperation`, `rowKey`, and optionally `columns`. Replace with `SyncAction`, display string, and the appropriate `*Payload` proto message.
-
-3. **Sequential creation:** The CONVERSATION_CONTEXT specifies the seeder should create data sequentially (simulating human actions) rather than in batches. If the seeder currently uses `Future.wait()` or parallel inserts for independent rows, convert them to sequential `await` calls. This is important because the action-based model sends actions one-at-a-time in creation order.
-
-4. **Import** `package:protobuf/protobuf.dart` for `GeneratedMessage` and the proto payload classes from `lib/proto/services/sync.pb.dart`.
-
-The seeder is large so this is a significant update. Focus on correctness: every log call must build the correct `*Payload` with all fields that the server will need to recreate the row.
-
-**Update after completion:**
-- [x] Mark this task `[x]`
-
-✅ **DONE** — Rewrote `_log()` helper to accept `SyncAction`, `resource` string, and `GeneratedMessage` payload. Updated all ~31 call sites plus the inline invoice-update log. Added imports for `dart:typed_data`, `fixnum`, `protobuf`, and `sync.pb.dart`. Attendance and grades now batch records per class/stream/date into single `MarkAttendancePayload` / `MarkGradesPayload` payloads. Removed all references to `LogTable`, `LogOperation`, `InvoicesColumn`. File compiles cleanly with zero errors or warnings.
-
----
-
-### Task C16: Full build + analysis
-
-**Files to create/modify:** None (verification only)
-**Context files to read (if needed):** None
-**Depends on:** All previous tasks
-
-**Specification:**
-
-1. Run Drift code generation one final time:
-   ```bash
-   dart run build_runner build --delete-conflicting-outputs
-   ```
-
-2. Run full analysis:
-   ```bash
-   dart analyze lib/
-   ```
-
-3. Fix any remaining compile errors. Common issues:
-   - Lingering imports of `LogTable`, `LogOperation`, or column bitset enums
-   - Missing imports of `SyncAction` or proto payload classes
-   - Type mismatches in `LogsCompanion` constructor calls
-
-4. Search for any remaining references to removed types:
-   ```bash
-   grep -rn "LogTable\|LogOperation\|LogProcessor\|MutationBatch\|PushAck\|UpdateData" lib/ --include="*.dart" | grep -v ".g.dart" | grep -v "proto/"
-   ```
-
-5. Verify no `log_processor.dart` references remain:
-   ```bash
-   grep -rn "log_processor" lib/
-   ```
-
-**Update after completion:**
-- [x] Mark this task `[x]`
-
-✅ **DONE** — Drift code generation succeeded (250 outputs). Full `dart analyze lib/` reports 0 errors, 5 pre-existing warnings (all UI unused parameters), 36 info-level lint hints. Fixed two missed DAOs (`users_dao.dart` and `school_scopes_dao.dart`) that still referenced `LogTable`, `LogOperation`, `UsersColumn`, and `RolesColumn` — converted all log calls to action-based `SyncAction`/payload model. Verified zero references to `LogTable`, `LogOperation`, `LogProcessor`, `MutationBatch`, `PushAck` remain in non-generated, non-proto Dart files. No `log_processor.dart` code references remain (only CONTEXT.md documentation).
-
----
-
-### Task C17: Commit the sync redesign
-
-**Files to create/modify:** None (git operations only)
-**Context files to read (if needed):** None
-**Depends on:** Task C16
-
-**Specification:**
-
-Create structured commits for the sync redesign:
-
-1. `proto: regenerate Dart stubs for action-based sync` — `lib/proto/`
-2. `db: redesign logs table and enums for action-based model` — `lib/database/tables/logs.dart`, `lib/database/tables/enums.dart`, `lib/database/database.dart`
-3. `db: rewrite logs_dao for action-based model` — `lib/database/daos/logs_dao.dart`
-4. `model: update AppNotification for action-based display` — `lib/models/app_notification.dart`
-5. `sync: rewrite sync engine push flow for action-based model` — `lib/sync/sync_engine.dart`
-6. `sync: delete log_processor (replaced by action-based model)` — delete `lib/sync/log_processor.dart`
-7. `sync: update delta_writer for action row handling` — `lib/sync/delta_writer.dart`
-8. `db: update DAOs for action-based logging` — all modified DAO files
-9. `feat: update seeder for action-based logging` — `lib/core/seeder.dart`
-10. `ui: fix notification display for action-based model` — UI files
-11. `chore: regenerate Drift code` — all `*.g.dart` files
-
-Use `git add <paths>` + `git commit -m "<message>"` for each group.
+Ensure zero errors. Warnings about the deprecated `updateSettings` are acceptable.
 
 **Update after completion:**
 - [ ] Mark this task `[x]`
 
 ---
 
-### Task C18: Update AGENT.md for action-based sync model
+### Task C22: Update `client.dart` and services — remove settings references
 
-**Files to create/modify:** `AGENT.md`
-**Context files to read (if needed):** `CONVERSATION_CONTEXT.md`
-**Depends on:** Task C17
+**Files to modify:** `lib/client.dart`, any service file referencing settings
+**Context files to read:** `lib/client.dart`
 
 **Specification:**
 
-Update `AGENT.md` to reflect the sync redesign:
-
-1. **§7 (The `logs` Table):** Replace the old schema with the new one (action/resource/payload). Remove all column bitset documentation. Remove LogTable/LogOperation/LogStatus enums (keep LogStatus, add SyncAction).
-
-2. **§7a (Client-Side Batch Ordering):** DELETE this entire section — FK ordering is gone.
-
-3. **Update §15 (Known Code Issues):** Remove I1 and I2 (delta_writer and log_processor compile errors) — both are resolved by the redesign.
-
-4. **Update §5 (Database Design):** Note that the `logs` table now stores action payloads as blobs, not table/operation/rowKey.
-
-5. **Add a new section** documenting the SyncAction enum (77 values) and the action-based push flow.
-
-6. **Update §14 (gRPC Proto Files):** Reflect the new `sync.proto` structure — `PushActions` replaces `PushChanges`, `ActionRequest`/`ActionResponse` replace `MutationBatch`/`PushAck`.
+1. Search for any reference to `Settings`, `SettingsData`, `UpdateSettingsPayload`, or `settings` table across all service files.
+2. Remove those references.
+3. If `client.dart` or any service exposes a `updateSettings` method, remove it.
 
 **Update after completion:**
 - [ ] Mark this task `[x]`
+
+---
+
+### Task C23: Update `schema.sql` — apply all changes to the client reference schema
+
+**Files to modify:** `schema.sql` (project root)
+
+**Specification:**
+
+The `schema.sql` at the project root serves as the client-side reference for the database schema. Apply ALL the same changes that were applied to the server migration SQL:
+
+1. Add `subjects` (global catalog) and `topics` tables
+2. Rename old `subjects` → `subject_teachers`, change subject column type
+3. Add `streams`, `mpesa` tables
+4. Remove `settings` table
+5. Modify `exams` — add `name`, remove `grade`/`stream`
+6. Add `exam_grades` junction table
+7. Modify `papers` — add `topic`, change `subject` type
+8. Modify `grades` — change `subject` type, add FK
+9. Modify `mastery` — remove `grade`, change `subject`/`topic` types, add FKs
+10. Modify `lessons`/`timetable` — change `subject` type, update FK refs
+11. Update all affected triggers
+12. Update all affected indexes
+
+This file must match the server migration SQL exactly (minus client-only `accounts` and `logs` tables which stay as-is).
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+
+---
