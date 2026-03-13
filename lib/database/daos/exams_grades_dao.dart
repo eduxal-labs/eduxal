@@ -1,8 +1,11 @@
+import 'dart:math' as math;
+
 import 'package:drift/drift.dart';
 import 'package:fixnum/fixnum.dart' as fixnum;
 
 import '../database.dart';
 import '../tables/enums.dart';
+import '../../models/exam_group.dart';
 import '../tables/exams.dart';
 import '../tables/grades.dart';
 import '../tables/logs.dart';
@@ -30,6 +33,10 @@ typedef GradeRow = ({Grade grade, StudentsData student});
 
 /// An exam row together with its papers.
 typedef ExamWithPapers = ({Exam exam, List<Paper> papers, UsersData teacher});
+
+/// A single exam to create, with its optional papers.
+/// Used by [ExamsGradesDao.createExamBatch] for multi-grade batch creation.
+typedef ExamBatchEntry = ({ExamsCompanion exam, List<PapersCompanion> papers});
 
 /// Analytics snapshot for a single paper — used to drive charts.
 class PaperAnalytics {
@@ -67,6 +74,7 @@ class PaperAnalytics {
   tables: [
     Exams,
     Papers,
+    PaperSubmissions,
     Grades,
     Mastery,
     Students,
@@ -368,6 +376,24 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         .getSingleOrNull();
   }
 
+  /// Watches a single paper row, emitting null if it is deleted.
+  Stream<Paper?> watchPaper({
+    required String schoolId,
+    required String examId,
+    required int subject,
+    required int? paperNum,
+  }) {
+    final query = select(papers)
+      ..where(
+        (p) =>
+            p.school.equals(schoolId) &
+            p.exam.equals(examId) &
+            p.subject.equals(subject) &
+            (paperNum == null ? p.paper.isNull() : p.paper.equals(paperNum)),
+      );
+    return query.watchSingleOrNull();
+  }
+
   /// Returns all papers for [examId].
   Future<List<Paper>> getPapersForExam({
     required String schoolId,
@@ -589,6 +615,82 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
           created: Value(now),
         ),
       );
+    });
+    sync.schedulePush();
+  }
+
+  /// Creates [entries] exams (and their papers) in one transaction.
+  /// Writes one [SyncAction.createExam] log per exam and one
+  /// [SyncAction.createPaper] log per paper.
+  ///
+  /// This is the data-layer backbone of the multi-grade creation UI, which
+  /// fans out a single form submission into N exam rows (one per selected
+  /// grade+stream) and optionally M paper rows per exam.
+  Future<void> createExamBatch({
+    required List<ExamBatchEntry> entries,
+    required String accountId,
+  }) async {
+    await transaction(() async {
+      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+      for (final entry in entries) {
+        // 1. Insert the exam row
+        await into(exams).insert(entry.exam);
+
+        // 2. Write createExam log
+        final e = entry.exam;
+        final examPayload = sync_pb.CreateExamPayload(
+          id: e.id.value,
+          school: e.school.value,
+          year: e.year.value,
+          term: e.term.value,
+          grade: e.grade.value,
+          type: e.type.value.index,
+          start: e.start.value,
+          end: e.end.value,
+          teacher: e.teacher.value,
+          personalized: e.personalized.present ? e.personalized.value : false,
+        );
+        if (e.stream.present && e.stream.value != null) {
+          examPayload.stream = e.stream.value!;
+        }
+        await into(logs).insert(
+          LogsCompanion(
+            account: Value(accountId),
+            action: Value(SyncAction.createExam),
+            resource: Value('Exam ${e.id.value}'),
+            payload: Value(examPayload.writeToBuffer()),
+            created: Value(now),
+          ),
+        );
+
+        // 3. Insert each paper + its log
+        for (final p in entry.papers) {
+          await into(papers).insert(p);
+          final paperPayload = sync_pb.CreatePaperPayload(
+            school: p.school.value,
+            exam: p.exam.value,
+            subject: p.subject.value,
+            invigilator: p.invigilator.value,
+            start: fixnum.Int64(p.start.value.toInt()),
+            end: fixnum.Int64(p.end.value.toInt()),
+          );
+          if (p.paper.present && p.paper.value != null) {
+            paperPayload.paper = p.paper.value!;
+          }
+          final paperLabel = (p.paper.present && p.paper.value != null)
+              ? 'Paper ${p.paper.value}'
+              : 'Paper';
+          await into(logs).insert(
+            LogsCompanion(
+              account: Value(accountId),
+              action: Value(SyncAction.createPaper),
+              resource: Value(paperLabel),
+              payload: Value(paperPayload.writeToBuffer()),
+              created: Value(now),
+            ),
+          );
+        }
+      }
     });
     sync.schedulePush();
   }
@@ -1146,5 +1248,387 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
       );
     }
     return result;
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Exam group methods
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /// Emits all exams for a term, grouped by (type, start, end) into
+  /// [ExamGroup] objects. Sorted by start date descending (most recent first).
+  Stream<List<ExamGroup>> watchExamGroups({
+    required String schoolId,
+    required int year,
+    required int term,
+  }) {
+    // Watch all exams for the term
+    final examStream =
+        (select(exams)
+              ..where(
+                (e) =>
+                    e.school.equals(schoolId) &
+                    e.year.equals(year) &
+                    e.term.equals(term),
+              )
+              ..orderBy([(e) => OrderingTerm.desc(e.start)]))
+            .watch();
+
+    return examStream.asyncMap((examList) async {
+      // Group exams by (type, start, end) key
+      final groups = <String, List<Exam>>{};
+      for (final exam in examList) {
+        final key = '${exam.type.index}|${exam.start}|${exam.end}';
+        (groups[key] ??= []).add(exam);
+      }
+
+      final result = <ExamGroup>[];
+      for (final group in groups.values) {
+        // Get teacher from first exam in group
+        final firstExam = group.first;
+        final teacherUser =
+            await (select(users)
+                  ..where((u) => u.id.equals(firstExam.teacher))
+                  ..limit(1))
+                .getSingleOrNull();
+        if (teacherUser == null) continue;
+
+        // Group by grade
+        final gradeMap = <int, List<Exam>>{};
+        for (final exam in group) {
+          (gradeMap[exam.grade] ??= []).add(exam);
+        }
+
+        final gradeEntries = <ExamGradeEntry>[];
+        for (final entry in gradeMap.entries) {
+          final streamEntries = <ExamStreamEntry>[];
+          for (final exam in entry.value) {
+            final paperList =
+                await (select(papers)
+                      ..where(
+                        (p) =>
+                            p.school.equals(schoolId) & p.exam.equals(exam.id),
+                      )
+                      ..orderBy([
+                        (p) => OrderingTerm.asc(p.subject),
+                        (p) => OrderingTerm.asc(p.paper),
+                      ]))
+                    .get();
+            streamEntries.add(
+              ExamStreamEntry(
+                exam: exam,
+                streamCode: exam.stream,
+                papers: paperList,
+              ),
+            );
+          }
+          gradeEntries.add(
+            ExamGradeEntry(grade: entry.key, streams: streamEntries),
+          );
+        }
+
+        // Sort grades ascending
+        gradeEntries.sort((a, b) => a.grade.compareTo(b.grade));
+
+        result.add(
+          ExamGroup(
+            school: schoolId,
+            year: year,
+            term: term,
+            type: firstExam.type,
+            start: firstExam.start,
+            end: firstExam.end,
+            personalized: firstExam.personalized,
+            teacher: teacherUser,
+            grades: gradeEntries,
+          ),
+        );
+      }
+
+      // Sort by start descending (most recent first)
+      result.sort((a, b) => b.start.compareTo(a.start));
+      return result;
+    });
+  }
+
+  /// Updates the date range for ALL exam rows in a group atomically.
+  /// Used when extending an exam's date range — all rows sharing the
+  /// same (type, oldStart, oldEnd) must stay in sync.
+  Future<void> updateExamGroupDateRange({
+    required String schoolId,
+    required int year,
+    required int term,
+    required ExamType type,
+    required int oldStart,
+    required int oldEnd,
+    required int newStart,
+    required int newEnd,
+    required String accountId,
+  }) async {
+    await transaction(() async {
+      // Find all exam IDs matching the group
+      final matching =
+          await (select(exams)..where(
+                (e) =>
+                    e.school.equals(schoolId) &
+                    e.year.equals(year) &
+                    e.term.equals(term) &
+                    e.type.equals(type.index) &
+                    e.start.equals(oldStart) &
+                    e.end.equals(oldEnd),
+              ))
+              .get();
+
+      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+      for (final exam in matching) {
+        final changes = ExamsCompanion(
+          start: Value(newStart),
+          end: Value(newEnd),
+          updated: Value(now),
+        );
+        await (update(
+          exams,
+        )..where((e) => e.id.equals(exam.id))).write(changes);
+
+        // Write an updateExam log per row
+        final payload = sync_pb.UpdateExamPayload(
+          id: exam.id,
+          start: newStart,
+          end: newEnd,
+        );
+        await into(logs).insert(
+          LogsCompanion(
+            account: Value(accountId),
+            action: Value(SyncAction.updateExam),
+            resource: Value('Exam ${exam.id}'),
+            payload: Value(payload.writeToBuffer()),
+            created: Value(now),
+          ),
+        );
+      }
+    });
+    sync.schedulePush();
+  }
+
+  /// Adds a new grade to an existing exam group by creating a new exam row
+  /// (one per stream if streams are specified, or one with stream=null)
+  /// and optionally its papers. Returns the created exam IDs.
+  Future<List<String>> addGradeToExamGroup({
+    required ExamGroup group,
+    required int grade,
+    required List<int?> streams, // null = all streams, or list of stream codes
+    required List<PapersCompanion> papers, // papers for each stream
+    required String teacherId,
+    required String accountId,
+  }) async {
+    final ids = <String>[];
+    await transaction(() async {
+      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+      for (final streamCode in streams) {
+        final examId = _generateExamId();
+        ids.add(examId);
+
+        final examCompanion = ExamsCompanion(
+          id: Value(examId),
+          school: Value(group.school),
+          year: Value(group.year),
+          term: Value(group.term),
+          grade: Value(grade),
+          stream: Value(streamCode),
+          personalized: Value(group.personalized),
+          type: Value(group.type),
+          start: Value(group.start),
+          end: Value(group.end),
+          teacher: Value(teacherId),
+          created: Value(now),
+          updated: Value(now),
+        );
+        await into(exams).insert(examCompanion);
+
+        final examPayload = sync_pb.CreateExamPayload(
+          id: examId,
+          school: group.school,
+          year: group.year,
+          term: group.term,
+          grade: grade,
+          type: group.type.index,
+          start: group.start,
+          end: group.end,
+          teacher: teacherId,
+          personalized: group.personalized,
+        );
+        if (streamCode != null) {
+          examPayload.stream = streamCode;
+        }
+        await into(logs).insert(
+          LogsCompanion(
+            account: Value(accountId),
+            action: Value(SyncAction.createExam),
+            resource: Value('Exam $examId'),
+            payload: Value(examPayload.writeToBuffer()),
+            created: Value(now),
+          ),
+        );
+
+        // Insert papers for this stream's exam
+        final streamPapers = papers
+            .where((p) => p.exam.value == examId)
+            .toList();
+        for (final p in streamPapers) {
+          await into(this.papers).insert(p);
+          final paperPayload = sync_pb.CreatePaperPayload(
+            school: p.school.value,
+            exam: p.exam.value,
+            subject: p.subject.value,
+            invigilator: p.invigilator.value,
+            start: fixnum.Int64(p.start.value.toInt()),
+            end: fixnum.Int64(p.end.value.toInt()),
+          );
+          if (p.paper.present && p.paper.value != null) {
+            paperPayload.paper = p.paper.value!;
+          }
+          await into(logs).insert(
+            LogsCompanion(
+              account: Value(accountId),
+              action: Value(SyncAction.createPaper),
+              resource: Value('Paper'),
+              payload: Value(paperPayload.writeToBuffer()),
+              created: Value(now),
+            ),
+          );
+        }
+      }
+    });
+    sync.schedulePush();
+    return ids;
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Paper Submissions (client-only, never synced)
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /// Returns all submission rows for a given paper + student, ordered by
+  /// [PaperSubmissions.createdAt] ascending.
+  Future<List<PaperSubmissionData>> getSubmissionsForStudent({
+    required String schoolId,
+    required String examId,
+    required int student,
+    required int subject,
+    required int? paperNum,
+  }) {
+    final query = select(paperSubmissions)
+      ..where(
+        (s) =>
+            s.school.equals(schoolId) &
+            s.exam.equals(examId) &
+            s.student.equals(student) &
+            s.subject.equals(subject) &
+            (paperNum == null
+                ? s.paperNum.isNull()
+                : s.paperNum.equals(paperNum)),
+      )
+      ..orderBy([(s) => OrderingTerm.asc(s.createdAt)]);
+    return query.get();
+  }
+
+  /// Returns all submission rows for an entire paper (all students),
+  /// keyed by student admission number.
+  Future<Map<int, List<String>>> getSubmissionsForPaper({
+    required String schoolId,
+    required String examId,
+    required int subject,
+    required int? paperNum,
+  }) async {
+    final query = select(paperSubmissions)
+      ..where(
+        (s) =>
+            s.school.equals(schoolId) &
+            s.exam.equals(examId) &
+            s.subject.equals(subject) &
+            (paperNum == null
+                ? s.paperNum.isNull()
+                : s.paperNum.equals(paperNum)),
+      )
+      ..orderBy([(s) => OrderingTerm.asc(s.createdAt)]);
+    final rows = await query.get();
+    final result = <int, List<String>>{};
+    for (final row in rows) {
+      result.putIfAbsent(row.student, () => []).add(row.path);
+    }
+    return result;
+  }
+
+  /// Inserts a new submission path row. Silently replaces on conflict.
+  Future<void> insertSubmission({
+    required String schoolId,
+    required String examId,
+    required int student,
+    required int subject,
+    required int? paperNum,
+    required String path,
+  }) {
+    return into(paperSubmissions).insertOnConflictUpdate(
+      PaperSubmissionsCompanion.insert(
+        school: schoolId,
+        exam: examId,
+        student: student,
+        subject: subject,
+        paperNum: Value(paperNum),
+        path: path,
+        createdAt: DateTime.now().millisecondsSinceEpoch,
+      ),
+    );
+  }
+
+  /// Deletes a single submission path for a student.
+  Future<void> deleteSubmission({
+    required String schoolId,
+    required String examId,
+    required int student,
+    required int subject,
+    required int? paperNum,
+    required String path,
+  }) {
+    return (delete(paperSubmissions)..where(
+          (s) =>
+              s.school.equals(schoolId) &
+              s.exam.equals(examId) &
+              s.student.equals(student) &
+              s.subject.equals(subject) &
+              (paperNum == null
+                  ? s.paperNum.isNull()
+                  : s.paperNum.equals(paperNum)) &
+              s.path.equals(path),
+        ))
+        .go();
+  }
+
+  /// Deletes all submission paths for a specific student + paper combination.
+  Future<void> clearSubmissionsForStudent({
+    required String schoolId,
+    required String examId,
+    required int student,
+    required int subject,
+    required int? paperNum,
+  }) {
+    return (delete(paperSubmissions)..where(
+          (s) =>
+              s.school.equals(schoolId) &
+              s.exam.equals(examId) &
+              s.student.equals(student) &
+              s.subject.equals(subject) &
+              (paperNum == null
+                  ? s.paperNum.isNull()
+                  : s.paperNum.equals(paperNum)),
+        ))
+        .go();
+  }
+
+  String _generateExamId() {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final rand = math.Random()
+        .nextInt(0xFFFF)
+        .toRadixString(16)
+        .padLeft(4, '0');
+    return 'ex_${now.toRadixString(36)}_$rand';
   }
 }
