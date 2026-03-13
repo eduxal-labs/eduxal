@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 
 import '../database/database.dart';
 import '../database/tables/enums.dart';
@@ -37,15 +38,39 @@ class DeltaWriter {
   }
 
   /// Flush all buffered deltas to the database in a single transaction.
+  ///
+  /// Foreign key enforcement is temporarily disabled for the duration of the
+  /// flush. The server streams deltas in `seq` order (chronological), NOT in
+  /// FK-dependency order — so a `subjects` row referencing a `teachers` row
+  /// may arrive before the teacher itself. Disabling FK checks lets the
+  /// entire batch settle; once all deltas are applied the data is consistent.
+  ///
+  /// This mirrors the approach used by [AppDatabase.deleteAllData].
   Future<void> flush() async {
     if (_buffer.isEmpty) return;
     final batch = List<SyncDelta>.from(_buffer);
     _buffer.clear();
-    await _db.transaction(() async {
-      for (final delta in batch) {
-        await _applySingle(delta);
-      }
-    });
+    await _db.customStatement('PRAGMA foreign_keys = OFF');
+    try {
+      await _db.transaction(() async {
+        for (final delta in batch) {
+          try {
+            await _applySingle(delta);
+          } catch (e, st) {
+            debugPrint(
+              '[DeltaWriter] ⚠ Error applying delta: '
+              'table=${delta.table}, op=${delta.operation}, '
+              'key=${delta.rowKey}, hasData=${delta.hasData()} — $e',
+            );
+            debugPrint('[DeltaWriter]   stack: $st');
+            // Continue with remaining deltas — don't let one bad row
+            // kill the entire batch.
+          }
+        }
+      });
+    } finally {
+      await _db.customStatement('PRAGMA foreign_keys = ON');
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -56,9 +81,11 @@ class DeltaWriter {
 
   int _parseInt(String s) => int.parse(s);
 
-  int? _parseIntNullable(String s) => s == 'null' ? null : int.parse(s);
+  int? _parseIntNullable(String s) =>
+      (s.isEmpty || s == 'null') ? null : int.parse(s);
 
-  String? _parseStringNullable(String s) => s == 'null' ? null : s;
+  String? _parseStringNullable(String s) =>
+      (s.isEmpty || s == 'null') ? null : s;
 
   /// Returns the current time as seconds since Unix epoch, as BigInt.
   /// Used as a local approximation for server-managed timestamps.
@@ -132,6 +159,11 @@ class DeltaWriter {
         await _applySubscriptions(delta);
       case 30:
         await _applyDiscounts(delta);
+      default:
+        debugPrint(
+          '[DeltaWriter] ⚠ UNKNOWN table=${delta.table}, '
+          'op=${delta.operation}, key=${delta.rowKey} — SKIPPED',
+        );
     }
   }
 
@@ -493,6 +525,12 @@ class DeltaWriter {
 
   Future<void> _applySubjects(SyncDelta delta) async {
     final k = _parseKey(delta.rowKey);
+    debugPrint(
+      '[DeltaWriter] _applySubjects — op=${delta.operation}, '
+      'key=${delta.rowKey}, parts=${k.length}, '
+      'hasData=${delta.hasData()}, '
+      'hasSubject=${delta.hasData() ? delta.data.hasSubject() : "N/A"}',
+    );
     if (delta.operation == 2) {
       await (_db.delete(_db.subjects)..where(
             (t) =>
@@ -506,7 +544,20 @@ class DeltaWriter {
           .go();
       return;
     }
+    if (!delta.hasData() || !delta.data.hasSubject()) {
+      debugPrint(
+        '[DeltaWriter] ⚠ _applySubjects — delta has NO subject data! '
+        'hasData=${delta.hasData()}',
+      );
+      return;
+    }
     final row = delta.data.subject;
+    debugPrint(
+      '[DeltaWriter] _applySubjects — inserting: '
+      'school=${k[0]}, year=${k[1]}, term=${k[2]}, '
+      'grade=${k[3]}, stream=${k[4]}, subject=${k[5]}, '
+      'teacher=${row.teacher}',
+    );
     final now = _now();
     await _db
         .into(_db.subjects)
@@ -522,6 +573,7 @@ class DeltaWriter {
             created: Value(now),
           ),
         );
+    debugPrint('[DeltaWriter] _applySubjects — INSERT OK');
   }
 
   // ---------------------------------------------------------------------------

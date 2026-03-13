@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as dev;
+import 'dart:math';
 
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter/foundation.dart';
@@ -39,6 +40,9 @@ void _runGuarded(void Function() body) {
   });
 }
 
+/// Random instance for adding jitter to backoff delays.
+final _random = Random();
+
 /// Top-level orchestrator for bidirectional sync between the local Drift
 /// database and the remote gRPC server.
 ///
@@ -49,8 +53,8 @@ void _runGuarded(void Function() body) {
 /// - **Inbound (watch):** Opens a [SyncClient.watchChanges] server-streaming
 ///   call and applies incoming [SyncDelta] messages to the local DB via
 ///   [DeltaWriter].
-/// - **Reconnection:** Exponential backoff on watch stream errors, up to
-///   [_maxReconnectDelay].
+/// - **Reconnection:** Exponential backoff with jitter on watch stream errors,
+///   up to [_maxReconnectDelay].
 /// - **Token expiry:** If the server responds with [StatusCode.unauthenticated],
 ///   sync stops and the caller (client.dart) is expected to handle token
 ///   refresh and restart sync.
@@ -77,10 +81,26 @@ class SyncEngine {
   // ── Watch (inbound) state ────────────────────────────────────────────────
   StreamSubscription<dynamic>? _watchSubscription;
 
+  /// Timer that flushes the DeltaWriter buffer after a short idle period.
+  /// This ensures that small batches (< [DeltaWriter._batchSize]) are written
+  /// to SQLite promptly rather than sitting in memory indefinitely.
+  Timer? _flushTimer;
+
   // ── Push (outbound) state ────────────────────────────────────────────────
   /// Safety-net timer that calls [pushNow] periodically to catch any
   /// mutations that were not pushed immediately (e.g. due to transient errors).
+  /// The interval increases when push fails (server unreachable) and resets
+  /// to [_basePushInterval] on success.
   Timer? _pushTimer;
+
+  /// Base push interval when connected.
+  static const _basePushInterval = Duration(seconds: 5);
+
+  /// Maximum push interval when server is unreachable.
+  static const _maxPushInterval = Duration(seconds: 60);
+
+  /// Current push interval — increases on failure, resets on success.
+  Duration _currentPushInterval = _basePushInterval;
 
   // ── Session state ────────────────────────────────────────────────────────
   bool _running = false;
@@ -96,6 +116,13 @@ class SyncEngine {
   int _reconnectAttempts = 0;
   Timer? _reconnectTimer;
   static const _maxReconnectDelay = Duration(seconds: 30);
+
+  /// Guard flag to prevent [_onWatchDone] from scheduling a redundant
+  /// reconnect when [_onWatchError] has already handled the failure.
+  /// Set to `true` by [_onWatchError] before it cancels the subscription
+  /// (which triggers [_onWatchDone]). Reset to `false` by [_onWatchDone]
+  /// after checking it.
+  bool _errorHandledReconnect = false;
 
   /// Whether the sync engine is currently running.
   bool get isRunning => _running;
@@ -113,8 +140,7 @@ class SyncEngine {
   /// If already running, the previous session is stopped first. After start:
   /// 1. Any pending local mutations are pushed immediately.
   /// 2. A server-streaming watch is opened to receive inbound deltas.
-  /// 3. A periodic timer pushes pending mutations every 5 seconds as a
-  ///    safety net.
+  /// 3. A periodic timer pushes pending mutations as a safety net.
   Future<void> start({
     required String accountId,
     required String accessToken,
@@ -126,6 +152,9 @@ class SyncEngine {
     _accountId = accountId;
     _accessToken = accessToken;
     _lastSeq = lastSeq;
+    _reconnectAttempts = 0;
+    _errorHandledReconnect = false;
+    _currentPushInterval = _basePushInterval;
 
     _syncClient = SyncClient(_channel);
     _deltaWriter = DeltaWriter(db);
@@ -149,8 +178,8 @@ class SyncEngine {
     debugPrint('[SyncEngine] Opening watch stream...');
     _runGuarded(_startWatch);
 
-    // Periodic push safety net every 5 seconds.
-    _pushTimer = Timer.periodic(const Duration(seconds: 5), (_) => pushNow());
+    // Periodic push safety net.
+    _startPushTimer();
   }
 
   /// Stop sync entirely. Cancels all streams, timers, and subscriptions.
@@ -164,6 +193,18 @@ class SyncEngine {
 
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
+
+    _flushTimer?.cancel();
+    _flushTimer = null;
+
+    _errorHandledReconnect = false;
+
+    // Flush any remaining buffered deltas before tearing down the stream.
+    if (!_deltaWriter.bufferIsEmpty) {
+      debugPrint('[SyncEngine] stop: flushing remaining buffered deltas');
+      await _deltaWriter.flush();
+      await _accountsDao.updateLastSeq(_accountId, _lastSeq);
+    }
 
     await _watchSubscription?.cancel();
     _watchSubscription = null;
@@ -226,13 +267,14 @@ class SyncEngine {
       }
 
       _log('Pushing ${pending.length} pending action(s)');
-      debugPrint(
-        '[SyncEngine] pushNow — sending ${pending.length} action(s)',
-      );
+      debugPrint('[SyncEngine] pushNow — sending ${pending.length} action(s)');
 
       status.value = SyncStatus.pushing;
 
       await _pushActions(pending);
+
+      // Push succeeded — reset push interval to base.
+      _resetPushInterval();
 
       if (_running) status.value = SyncStatus.idle;
       return true;
@@ -241,6 +283,10 @@ class SyncEngine {
       // retry on the next pushNow() call or periodic timer tick.
       _log('pushNow error: $e', stackTrace: st);
       debugPrint('[SyncEngine] pushNow error: $e');
+
+      // Back off the push timer since the server is likely unreachable.
+      _backOffPushInterval();
+
       if (_running) status.value = SyncStatus.idle;
       return false;
     } finally {
@@ -277,12 +323,14 @@ class SyncEngine {
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     _reconnectAttempts = 0;
+    _errorHandledReconnect = false;
 
-    // Restart the periodic push safety-net timer. On mobile the OS may have
-    // killed the previous Timer.periodic while the app was suspended, so it
-    // would never fire again even though _running is still true.
-    _pushTimer?.cancel();
-    _pushTimer = Timer.periodic(const Duration(seconds: 5), (_) => pushNow());
+    // Reset push interval and restart the periodic push safety-net timer.
+    // On mobile the OS may have killed the previous Timer.periodic while
+    // the app was suspended, so it would never fire again even though
+    // _running is still true.
+    _currentPushInterval = _basePushInterval;
+    _startPushTimer();
 
     // Reopen the watch stream immediately.
     _watchSubscription?.cancel();
@@ -291,6 +339,48 @@ class SyncEngine {
 
     // Also push any pending mutations right away.
     pushNow();
+  }
+
+  // =========================================================================
+  // Push timer management
+  // =========================================================================
+
+  /// Starts (or restarts) the periodic push timer with [_currentPushInterval].
+  void _startPushTimer() {
+    _pushTimer?.cancel();
+    _pushTimer = Timer.periodic(_currentPushInterval, (_) => pushNow());
+  }
+
+  /// Resets the push interval back to [_basePushInterval] and restarts the
+  /// timer. Called when a push succeeds or a watch delta confirms connectivity.
+  void _resetPushInterval() {
+    if (_currentPushInterval != _basePushInterval) {
+      debugPrint(
+        '[SyncEngine] Push interval reset to '
+        '${_basePushInterval.inSeconds}s (was ${_currentPushInterval.inSeconds}s)',
+      );
+      _currentPushInterval = _basePushInterval;
+      if (_running) _startPushTimer();
+    }
+  }
+
+  /// Doubles the push interval (up to [_maxPushInterval]) and restarts the
+  /// timer. Called when a push fails due to the server being unreachable.
+  void _backOffPushInterval() {
+    final next = Duration(
+      milliseconds: min(
+        (_currentPushInterval.inMilliseconds * 2),
+        _maxPushInterval.inMilliseconds,
+      ),
+    );
+    if (next != _currentPushInterval) {
+      debugPrint(
+        '[SyncEngine] Push interval backed off to '
+        '${next.inSeconds}s (was ${_currentPushInterval.inSeconds}s)',
+      );
+      _currentPushInterval = next;
+      if (_running) _startPushTimer();
+    }
   }
 
   // =========================================================================
@@ -327,11 +417,13 @@ class SyncEngine {
 
     // Send the first action to kick off the stream.
     final first = pending[0];
-    requestController.add(sync_pb.ActionRequest(
-      id: first.id,
-      action: first.action.value,
-      payload: first.payload,
-    ));
+    requestController.add(
+      sync_pb.ActionRequest(
+        id: first.id,
+        action: first.action.value,
+        payload: first.payload,
+      ),
+    );
     debugPrint(
       '[SyncEngine] Sent action #${first.id} '
       '(${first.action.name}, 1/${pending.length})',
@@ -351,11 +443,13 @@ class SyncEngine {
         // Send the next action if there are more.
         if (nextIndex < pending.length) {
           final next = pending[nextIndex];
-          requestController.add(sync_pb.ActionRequest(
-            id: next.id,
-            action: next.action.value,
-            payload: next.payload,
-          ));
+          requestController.add(
+            sync_pb.ActionRequest(
+              id: next.id,
+              action: next.action.value,
+              payload: next.payload,
+            ),
+          );
           debugPrint(
             '[SyncEngine] Sent action #${next.id} '
             '(${next.action.name}, ${nextIndex + 1}/${pending.length})',
@@ -373,9 +467,7 @@ class SyncEngine {
 
       if (e is GrpcError) {
         debugPrint('[SyncEngine] ── Push GrpcError details ──');
-        debugPrint(
-          '[SyncEngine]   code       : ${e.code} (${e.codeName})',
-        );
+        debugPrint('[SyncEngine]   code       : ${e.code} (${e.codeName})');
         debugPrint('[SyncEngine]   message    : ${e.message}');
         debugPrint('[SyncEngine]   details    : ${e.details}');
         debugPrint('[SyncEngine]   trailers   : ${e.trailers}');
@@ -457,9 +549,7 @@ class SyncEngine {
 
           case 4: // not_found
             _log('Action $logId: not found — $errorMsg');
-            debugPrint(
-              '[SyncEngine] Action #$logId — not found: $errorMsg',
-            );
+            debugPrint('[SyncEngine] Action #$logId — not found: $errorMsg');
             await _logsDao.markFailed(logId, errorMsg);
 
           default:
@@ -529,10 +619,10 @@ class SyncEngine {
       final rawStream = ResponseStream<List<int>>(rawCall);
 
       _watchSubscription = rawStream.listen(
-        (List<int> rawBytes) {
+        (List<int> rawBytes) async {
           try {
             final delta = sync_pb.SyncDelta.fromBuffer(rawBytes);
-            _onDelta(delta);
+            await _onDelta(delta);
           } catch (e, st) {
             debugPrint('[SyncEngine] ── PROTO PARSE FAILURE ──');
             debugPrint('[SyncEngine]   error: $e');
@@ -583,7 +673,8 @@ class SyncEngine {
 
   Future<void> _onDelta(SyncDelta delta) async {
     try {
-      // First delta confirms the connection is truly alive — reset backoff.
+      // First delta confirms the connection is truly alive — reset backoff
+      // for both watch reconnect and push timer.
       if (_reconnectAttempts > 0) {
         debugPrint(
           '[SyncEngine] Connection confirmed by delta — '
@@ -591,6 +682,8 @@ class SyncEngine {
         );
         _reconnectAttempts = 0;
       }
+      _resetPushInterval();
+
       if (_running) {
         if (status.value == SyncStatus.disconnected) {
           debugPrint(
@@ -601,9 +694,33 @@ class SyncEngine {
           status.value = SyncStatus.pulling;
         }
       }
-      await _deltaWriter.apply(delta);
+      debugPrint(
+        '[SyncEngine] ← delta seq=${delta.seq}, '
+        'table=${delta.table}, op=${delta.operation}, '
+        'key=${delta.rowKey}, hasData=${delta.hasData()}',
+      );
 
       final seq = delta.seq.toInt();
+
+      // The server sends a sentinel delta (table=0, hasData=false) at the
+      // end of the historical backfill to communicate the current head seq.
+      // Don't buffer it — just flush any pending deltas and record the seq.
+      if (delta.table == 0) {
+        debugPrint('[SyncEngine] Received end-of-backfill sentinel (seq=$seq)');
+        if (seq > _lastSeq) _lastSeq = seq;
+        _flushTimer?.cancel();
+        _flushTimer = null;
+        if (!_deltaWriter.bufferIsEmpty) {
+          debugPrint('[SyncEngine] Flushing buffered deltas after sentinel');
+          await _deltaWriter.flush();
+        }
+        await _accountsDao.updateLastSeq(_accountId, _lastSeq);
+        if (_running) status.value = SyncStatus.idle;
+        return;
+      }
+
+      await _deltaWriter.apply(delta);
+
       if (seq > _lastSeq) {
         _lastSeq = seq;
       }
@@ -613,6 +730,29 @@ class SyncEngine {
       if (_deltaWriter.bufferIsEmpty) {
         await _accountsDao.updateLastSeq(_accountId, _lastSeq);
         if (_running) status.value = SyncStatus.idle;
+        _flushTimer?.cancel();
+        _flushTimer = null;
+      } else {
+        // Buffer is not full yet — schedule a flush so small batches
+        // (fewer than _batchSize deltas) don't sit in memory forever.
+        // Each new delta resets the timer so rapid-fire deltas during
+        // initial sync are still batched efficiently.
+        _flushTimer?.cancel();
+        _flushTimer = Timer(const Duration(milliseconds: 500), () async {
+          if (!_running) return;
+          try {
+            debugPrint(
+              '[SyncEngine] Flush timer fired — flushing '
+              '${_deltaWriter.bufferIsEmpty ? 0 : "remaining"} buffered deltas',
+            );
+            await _deltaWriter.flush();
+            await _accountsDao.updateLastSeq(_accountId, _lastSeq);
+            if (_running) status.value = SyncStatus.idle;
+          } catch (e, st) {
+            _log('Flush timer error: $e', stackTrace: st);
+            debugPrint('[SyncEngine] Flush timer error: $e');
+          }
+        });
       }
     } catch (e, st) {
       _log('Error applying delta seq=${delta.seq}: $e', stackTrace: st);
@@ -681,6 +821,12 @@ class SyncEngine {
       }
     }
 
+    // Mark that _onWatchError is handling the reconnect. This prevents
+    // _onWatchDone (which fires after we cancel the subscription below)
+    // from scheduling a redundant second reconnect that would double-
+    // increment the backoff counter.
+    _errorHandledReconnect = true;
+
     // For any other error, schedule a reconnection attempt.
     debugPrint('[SyncEngine] Watch error — will reconnect');
     _watchSubscription?.cancel();
@@ -689,10 +835,31 @@ class SyncEngine {
     _scheduleReconnect();
   }
 
-  void _onWatchDone() {
+  Future<void> _onWatchDone() async {
     _log('Watch stream completed');
     debugPrint('[SyncEngine] Watch stream completed (onDone)');
     _watchSubscription = null;
+
+    // Flush any remaining buffered deltas so they are not lost when the
+    // stream ends (e.g. server closes after backfill, or clean shutdown).
+    _flushTimer?.cancel();
+    _flushTimer = null;
+    if (!_deltaWriter.bufferIsEmpty) {
+      debugPrint('[SyncEngine] onDone: flushing remaining buffered deltas');
+      await _deltaWriter.flush();
+      await _accountsDao.updateLastSeq(_accountId, _lastSeq);
+    }
+
+    // If _onWatchError already scheduled a reconnect for this stream failure,
+    // skip — otherwise we'd double-increment the backoff counter and replace
+    // the timer that _onWatchError just set.
+    if (_errorHandledReconnect) {
+      debugPrint(
+        '[SyncEngine] onDone: skipping reconnect (already handled by onError)',
+      );
+      _errorHandledReconnect = false;
+      return;
+    }
 
     if (_running) {
       debugPrint('[SyncEngine] Watch ended while running — will reconnect');
@@ -702,7 +869,7 @@ class SyncEngine {
   }
 
   // =========================================================================
-  // Reconnection — exponential backoff
+  // Reconnection — exponential backoff with jitter
   // =========================================================================
 
   void _scheduleReconnect() {
@@ -712,11 +879,11 @@ class SyncEngine {
     _reconnectAttempts++;
 
     _log(
-      'Scheduling reconnect in ${delay.inSeconds}s '
+      'Scheduling reconnect in ${delay.inMilliseconds}ms '
       '(attempt $_reconnectAttempts)',
     );
     debugPrint(
-      '[SyncEngine] Reconnect scheduled in ${delay.inSeconds}s '
+      '[SyncEngine] Reconnect scheduled in ${delay.inMilliseconds}ms '
       '(attempt $_reconnectAttempts)',
     );
 
@@ -724,20 +891,32 @@ class SyncEngine {
     _reconnectTimer = Timer(delay, () {
       if (_running) {
         debugPrint('[SyncEngine] Reconnect timer fired — reopening watch...');
+        _errorHandledReconnect = false;
         _watchSubscription?.cancel();
         _watchSubscription = null;
         _runGuarded(_startWatch);
+        // Push any pending mutations that accumulated while the server was
+        // unreachable. Without this, actions would sit in the logs table until
+        // the next _pushTimer tick (which may be up to 60s away due to backoff).
+        pushNow();
       }
     });
   }
 
+  /// Computes the reconnect delay using exponential backoff with jitter.
+  ///
+  /// Base delay doubles each attempt: 1s, 2s, 4s, 8s, 16s, capped at
+  /// [_maxReconnectDelay] (30s). Random jitter of ±20% is applied to
+  /// prevent thundering herd when multiple clients reconnect simultaneously.
   Duration _reconnectDelay() {
-    // Exponential backoff: 1s, 2s, 4s, 8s, 16s, 30s, 30s, ...
-    final seconds = (1 << _reconnectAttempts).clamp(
+    final baseSeconds = (1 << _reconnectAttempts).clamp(
       1,
       _maxReconnectDelay.inSeconds,
     );
-    return Duration(seconds: seconds);
+    // Apply ±20% jitter: multiply by a factor in [0.8, 1.2].
+    final jitter = 0.8 + _random.nextDouble() * 0.4;
+    final ms = (baseSeconds * 1000 * jitter).round();
+    return Duration(milliseconds: ms);
   }
 
   // =========================================================================
