@@ -29,7 +29,7 @@ All tables are defined in `tables/`, all query logic lives in `daos/`, and the `
 All Drift-generated data classes follow the pattern `{TableName}Data` (singular of table class name):
 - `UsersData`, `SchoolsData`, `AccountsData`, `StudentsData`, `TeachersData`, `StaffData`
 - `OwnersData`, `GuardiansData`, `DepartmentsData`, `TermsData` (alias: `Term`)
-- `SubjectsData`, `EnrollmentsData`, `ClassTeachersData`, `AttendanceData`
+- `SubjectTeachersData`, `EnrollmentsData`, `ClassTeachersData`, `AttendanceData`
 - `TimetableData`, `LessonsData`, `ExamsData`, `PapersData`, `GradesData`
 - `FeesData`, `InvoicesData`, `PaymentsData`, `DiscountsData`
 - `AnnouncementsData`, `MasteryData`, `AiusageData`, `SettingsData`
@@ -80,4 +80,4 @@ The `logs` table was redesigned in Task C2 from a mutation-tracking model (`tbl`
 **Added enums:** `SyncAction` (77 values, explicit `int value` per entry) + `SyncActionConverter`.
 
 ## Last Updated
-Task 24 — Added `PaperSubmissions` client-only table (`paper_submissions`) to `lib/database/tables/papers.dart`. Registered in `AppDatabase` (33 tables total). `schemaVersion` incremented to **5**. `onUpgrade` migration for `from < 5` calls `m.createTable(paperSubmissions)`. `deleteAllData()` clears `paperSubmissions` rows first (before `logs`). Table stores local file paths of submitted answer images per student per paper — never synced to server, no log entries written.
+Task C02 — Renamed `subjects.dart` → `subject_teachers.dart`. Drift table class `Subjects` → `SubjectTeachers`, generated data class `SubjectsData` → `SubjectTeachersData`. Added FK on `subject` → `subjects(id) ON DELETE CASCADE`. Old `subjects.dart` deleted.

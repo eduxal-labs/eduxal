@@ -77,23 +77,32 @@ Navigation items vary by role (determined by `currentEntry.role`):
 - **Depends on:** `models/` (domain models, `SchoolContext`, `ActiveTermContext`, `Result`, `MembershipEntry`, etc.), `services/` (`Authentication`, `MemberCreationService`, `MemberManagementService`), `database/daos/` (global DAO singletons from `client.dart` for reactive streams), `core/` (constants, `grpc_errors.dart` for `toFriendlyMessage()`), `cache/file_cache.dart` (serving cached images), `client.dart` (global `client`, `cache`, DAO singletons).
 - **Depended on by:** `main.dart` (imports `SplashScreen`, `AppTheme`).
 
-## UI Design Guidelines (from AGENT.md §21)
+## UI Design Guidelines
 
-- **Aesthetic:** Clean, minimal, thin, and modern. No heavy, bold, or outdated elements.
-- **Typography:** Thin/light font weights (`w300`/`w400` for body, `w500` max for headings). Avoid `w600` or `bold` unless strictly necessary.
-- **Shapes & Borders:** Rigid, sharp, or very slightly blunted corners. `BorderRadius.circular(4)` or `0`. Absolutely no pill shapes (`24` or `50` radius).
-- **Borders:** Prefer thin, crisp borders (1px) over heavy shadows or thick fills.
-- **Elevation:** Subtle elevation (shadows) and slight color shifts/tints to separate layers. No flat UI, but no heavy shadows either.
-- **General:** Maximize whitespace. Keep the UI feeling airy, precise, and architectural.
+All design tokens are codified in `AppTheme` (`lib/ui/theme/app_theme.dart`) and documented in AGENT.md §21. Use the constants directly — do not hardcode values.
 
-### UI/UX Design Mandate (from TASKS.md conventions)
+### Key Tokens
 
-- Elements should feel slim and dense, not "spongy", doughy, or bloated.
-- Absolutely NO borders on most elements — use subtle elevation and color shifts instead.
-- "In-between" corners — neither perfectly sharp nor pill-shaped (typically `BorderRadius.circular(8)` to `12` for cards/containers).
-- Generous whitespace. Solid, precise, and architectural feel.
+| Token / Helper | Value | Use |
+|---|---|---|
+| `AppTheme.kModalRadius` | `12.0` | Modal/dialog containers, bottom sheets |
+| `AppTheme.kCardRadius` | `8.0` | Cards, inputs, buttons |
+| `AppTheme.kChipRadius` | `4.0` | Chips, badges, small tags |
+| `AppTheme.modalShadow(isDark)` | dual box-shadow | All dialogs and sheets |
+| `AppTheme.tableRowDivider(isDark, cs)` | `0.5 px` divider | Between rows in data-table lists |
+| `AppTheme.modalBg(isDark, cs)` | `#18222E` / `cs.surface` | Modal container background |
+| `AppTheme.nestedBg(isDark, cs)` | `#1A2536` / `cs.surfaceContainerHighest` | Nested sections inside modals |
+| `AppTheme.overlayBg(isDark, cs)` | `#1E2A3A` / `cs.surface` | Dropdown/popover background |
+| `AppTheme.borderColor(isDark, cs)` | `#2A3848` / `cs.outlineVariant@0.6` | Container/card borders |
 
-> **Note:** There is a slight tension between AGENT.md §21 (says `BorderRadius.circular(4)` or `0`, thin borders) and the TASKS.md mandate (says `8`-`12`, no borders). The TASKS.md mandate reflects the most recent design decisions and should take precedence for new UI work. When in doubt, follow the TASKS.md mandate: subtle elevation over borders, `8`-`12` radius for containers, no pill shapes.
+### Summary Rules
+- Typography: `w300`/`w400` body, `w500` max headings. Never `w600`/`bold`.
+- Radii: `kModalRadius(12)` for dialogs, `kCardRadius(8)` for cards/inputs, `kChipRadius(4)` for tags. Never `0` or `≥ 20`.
+- Spacing: `12–16 px` internal padding, `6–8 px` between items. Never `20–32 px`.
+- Back button: always `Icons.chevron_left_rounded` (size 22–24). Never `Icons.arrow_back`.
+- Action buttons: always animated (`AnimatedSaveButton` pattern — scale, check flash, loading spinner).
+- Lists: data-table style (rows + thin dividers), not card-based. Reference: `_GradeSpreadsheet` in `paper_detail_page.dart`.
+- Gold-standard reference widget: `lib/ui/widgets/create_term_modal.dart` (`_CreateTermDialog`).
 
 ## Conventions
 
@@ -105,4 +114,11 @@ Navigation items vary by role (determined by `currentEntry.role`):
 - All tab surfaces in the app use `EduTabBar`, whether icon-only or text-label mode.
 
 ## Last Updated
-Task P3 — Migrated all permission-related UI call sites from string-based `permissions.can('resource.action')` API to typed `permissions.can(Resource.xxx, Action.yyy)` API. Seven files updated in `screens/system/`: `system_dashboard_screen.dart`, `members/members_section.dart`, `plans/plans_section.dart`, `roles/role_detail_screen.dart`, `roles/role_detail_sheet.dart`, `schools/school_detail_screen.dart`, `users/user_detail_sheet.dart`. Each file now imports `permissions.dart` (with `show Action, Resource`) and hides Flutter's `Action` from `material.dart` to avoid name conflict. String-to-typed mapping: `'scopes.create'` → `Resource.roles, Action.assign`; `'scopes.delete'` → `Resource.roles, Action.unassign`; `'settings.update'` → `Resource.schools, Action.update`; all other strings mapped directly (e.g. `'plans.update'` → `Resource.plans, Action.update`).
+Task U03 — Back button standardisation complete. Replaced all remaining `Icons.arrow_back` and `Icons.arrow_back_rounded` usages with `Icons.chevron_left_rounded` across `lib/ui/`. Affected files:
+- `lib/ui/screens/school_dashboard/school_dashboard_screen.dart` — `_FullSidebar` back button (`Icons.arrow_back` → `Icons.chevron_left_rounded`) and `_IconRail` back button (`Icons.arrow_back` → `Icons.chevron_left_rounded`).
+- `lib/ui/screens/school_dashboard/academics/grade_detail_page.dart` — `_SubjectTeacherPickerSheetState` step-back icon (`Icons.arrow_back_rounded` → `Icons.chevron_left_rounded`).
+
+No instances of `Icons.arrow_back_ios` or `Icons.arrow_back_ios_new` were found. All sizes were ≤ 18 (below the 22 threshold) and were kept as-is per spec.
+
+Previous: Task U01 — Codified design tokens into `AppTheme` (`kModalRadius`, `kCardRadius`, `kChipRadius`, `modalShadow`, `tableRowDivider`, `modalBg`, `nestedBg`, `overlayBg`, `borderColor`). Updated AGENT.md §21 with comprehensive design guidelines. Removed tension note between old §21 and TASKS.md mandate — `AppTheme` constants are now the single source of truth.
+- Tasks U09 + U10 (TRACK C — Dialog & Modal Cleanup): Complete sweep of all `Radius.circular(20)` bottom sheet and dialog container radii reduced to `Radius.circular(12)` per `AppTheme.kModalRadius`. Files changed: `school_roles_screen.dart` (U09 full rework + border fix), `school_role_detail_screen.dart`, `system/roles/create_role_sheet.dart`, `system/roles/role_detail_screen.dart`, `system/roles/role_detail_sheet.dart`, `system/schools/create_school_sheet.dart`, `system/schools/school_detail_screen.dart` (2 locations), `system/users/invite_user_sheet.dart`, `system/users/user_detail_sheet.dart`, `system/members/members_section.dart` (3 locations), `system/plans/plans_section.dart`, `system/notifications/notifications_panel.dart`, `academics/grade_detail_page.dart`, `academics/paper_detail_page.dart`. Member creation widgets verified clean. All files compile: 0 errors.

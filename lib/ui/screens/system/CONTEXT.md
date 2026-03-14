@@ -12,7 +12,7 @@ This directory contains **1 shell screen file** and **8 subdirectories**, each r
 ### `system_dashboard_screen.dart`
 - **Status:** ✅ Complete
 - **Widget:** `SystemDashboardScreen` (StatefulWidget)
-- **Purpose:** Responsive shell for system-wide administration. Similar layout pattern to the school dashboard — sidebar on desktop, tabs/navigation on mobile.
+- **Purpose:** Responsive shell for system-wide administration. Uses a single `Scaffold` with a `LayoutBuilder` that tracks an `_isMobile` state flag. Crossing the `kMobileBreakpoint` (600px) schedules a state update via `addPostFrameCallback` but does **not** tear down the widget tree — `_buildMobileBody()` and `_buildDesktopBody()` return body content (not separate `Scaffold`s), composed into one persistent `Scaffold` in `_buildLayout()`. This ensures that any `Navigator.push`-based detail pages (role detail, school detail, notifications, etc.) survive a window resize across the breakpoint.
 - **Key responsibilities:**
   - Hosts all system-scoped sections (stats, users, schools, plans, roles).
   - Computes `SystemPermissions` for the current user and provides them to child sections.
@@ -39,41 +39,47 @@ This directory contains **1 shell screen file** and **8 subdirectories**, each r
 ### `users/`
 | File | Widget | Status | Description |
 |---|---|---|---|
-| `users_section.dart` | `UsersSection` | ✅ Complete | List of all users in the system. Search/filter by name, phone, status. Each row shows name, phone, level badge, status badge. |
+| `users_section.dart` | `UsersSection` | ✅ Complete | List of all users in the system. Search/filter by name, phone, status, level. Two-column data table: **User** (avatar with `StatusIndicator` overlay — star for super, dot for normal/system, color = status — + name + phone) and **Joined** (relative date). No level/status badge columns — level and status are communicated entirely through the `StatusIndicator` on the avatar. Desktop actions: Edit level (bottom sheet with `_ActionTile` options for Normal/System/Super with subtitles), Edit status (bottom sheet with Active/Suspended options + current indicator), Delete, Purge (super only). Mobile: three-dot via `EduDataTable`. Bulk selection removed — individual row actions only. |
 | `user_detail_sheet.dart` | `UserDetailSheet` | ✅ Complete | Slide-over/dialog showing user details — name, phone, email, level, status, created/updated timestamps. Edit actions for level and status changes. |
 | `invite_user_sheet.dart` | `InviteUserSheet` | ✅ Complete | Form to invite a new user by phone number. Phone-first pattern — checks if user exists, creates with `status = invited` if not. |
 
+**Key private widgets:** `_ActionTile` (reusable option tile with icon, label, subtitle, chevron — used in both level and status sheets), `_UserIdentityCell`, `_Toolbar`, `_ToolbarIcon`, `_FilterPanel`, `_FilterRow`, `_FilterChip`, `_ListShimmer`
+
 **Data source:** `UsersDao.watchAllUsers()`
-**Dependencies:** `database/daos/users_dao.dart`, `database/tables/enums.dart` (`UserLevel`, `UserStatus`), `core/extensions.dart` (`toKenyanPhone()`)
+**Dependencies:** `database/daos/users_dao.dart`, `database/tables/enums.dart` (`UserLevel`, `UserStatus`), `ui/widgets/status_indicator.dart` (`StatusIndicator`), `ui/widgets/user_avatar.dart`, `core/extensions.dart` (`toKenyanPhone()`)
 
 ---
 
 ### `schools/`
 | File | Widget | Status | Description |
 |---|---|---|---|
-| `schools_section.dart` | `SchoolsSection` | ✅ Complete | List of all schools. Each row shows school name, motto, status badge, county. Search/filter support. |
+| `schools_section.dart` | `SchoolsSection` | ✅ Complete | List of all schools rendered via `EduDataTable<SchoolsData>`. Two-column layout: **School** (logo with `SchoolStatusDot` overlay on bottom-right — color = status — + name + motto) and **Joined** (relative date). No status badge column — status is communicated through the colored dot on the logo. Desktop actions: View details, Edit status (bottom sheet with Trial/Active/Suspended/Cancelled/Trash options), Trash (if not deleted), Purge (super only). Mobile: three-dot. Search/filter toolbar preserved. |
 | `school_detail_screen.dart` | `SchoolDetailScreen` | ✅ Complete | Full detail view for a school — name, motto, phone, email, county, domain, established date, status. Edit actions. |
 | `create_school_sheet.dart` | `CreateSchoolSheet` | ✅ Complete | Form to create a new school. Fields: name, motto, phone, email, county. Creates school row + settings row in a transaction. |
 
+**Key private widgets:** `_SchoolIdentityCell` (logo with `SchoolStatusDot` + name + motto), `_SchoolLogo`, `_Toolbar`, `_ToolbarIcon`, `_FilterPanel`, `_ListShimmer`
+
 **Data source:** `SchoolsDao.watchAllSchools()`, `SchoolsDao.getSchoolById(id)`
-**Dependencies:** `database/daos/schools_dao.dart`, `database/daos/settings_dao.dart`, `database/tables/enums.dart` (`SchoolStatus`)
+**Dependencies:** `database/daos/schools_dao.dart`, `database/daos/settings_dao.dart`, `database/tables/enums.dart` (`SchoolStatus`), `ui/widgets/status_indicator.dart` (`SchoolStatusDot`)
 
 ---
 
 ### `members/`
 | File | Widget | Status | Description |
 |---|---|---|---|
-| `members_section.dart` | `MembersSection` | ✅ Complete | System-wide view of members across all schools. Shows aggregated counts or a searchable list of owners/teachers/staff/students/guardians across the platform. |
+| `members_section.dart` | `MembersSection` | ✅ Complete | System-wide view of users with `level = system` or `level = super_`. Two-column layout: **Member** (avatar with `StatusIndicator` overlay + name + phone subtitle) and **Level** (plain muted text "System" or "Super" — no badge/chip). No status badge column — status communicated through `StatusIndicator` dot/star color on avatar. Desktop actions: View roles, Edit status (bottom sheet with Suspend/Restore/Trash options via `_StatusActionTile`), Remove (demotes to Normal), Purge (super only). Mobile: three-dot. Tap opens `_MemberRolesSheet`. Unused action methods removed. |
 
-**Data source:** Various DAOs — `MembersDao` queries without school scope, or aggregate counts.
-**Dependencies:** `database/daos/members_dao.dart`
+**Key private widgets:** `_MemberIdentityCell` (avatar + status indicator + name + phone), `_MemberLevelCell` (plain text), `_StatusActionTile`, `_MemberRolesSheet`, `_AssignRoleSheet`, `AddMemberSheet`, `_Toolbar`, `_ListShimmer`
+
+**Data source:** `UsersDao.watchSystemMembers()`
+**Dependencies:** `database/daos/users_dao.dart`, `database/tables/enums.dart` (`UserLevel`, `UserStatus`), `ui/widgets/status_indicator.dart`, `ui/widgets/user_avatar.dart`, `models/permissions.dart`, `models/system_permissions.dart`
 
 ---
 
 ### `plans/`
 | File | Widget | Status | Description |
 |---|---|---|---|
-| `plans_section.dart` | `PlansSection` | ✅ Complete | Subscription plan management. List of plans with name, description, amount, status, grade levels (bitmask decoded via `gradeLabel()`), features. Create/edit/delete plan actions. |
+| `plans_section.dart` | `PlansSection` | ✅ Complete | Subscription plan management rendered via `EduDataTable<Plan>`. Each row: plan icon (32×32 tinted) + name (13px w500) + price `KES x` (12px muted) + grade levels badge + `_PlanStatusBadge`. Desktop actions: Edit (opens `_PlanDetailSheet`), Delete, Purge (super only). Mobile: three-dot. Existing `_PlanDetailSheet` and `openCreatePlan` unchanged. |
 
 **Data source:** `PlansDao.watchAllPlans()`
 **Dependencies:** `database/daos/plans_dao.dart`, `database/tables/enums.dart` (`PlanStatus`), `models/plan_features.dart` (`kPlanFeatures`, `gradeLabel()`, `GradeLevel`)
@@ -83,13 +89,15 @@ This directory contains **1 shell screen file** and **8 subdirectories**, each r
 ### `roles/`
 | File | Widget | Status | Description |
 |---|---|---|---|
-| `roles_section.dart` | `RolesSection` | ✅ Complete | System-level roles management. List of roles where `school IS NULL`. Each card shows role name, description, permission count. |
+| `roles_section.dart` | `RolesSection` | ✅ Complete | System-level roles management rendered via `EduDataTable<Role>`. Three-column layout: **Role** (flex: 2 — compact 28×28 icon + name only), **Description** (flex: 3 — dedicated column for description text or "—"), **Permissions** (flex: 1 — descriptive label "5 perms" / "1 perm" / "—" in plain text, no chip). Desktop actions: View (pushes `RoleDetailScreen`), Delete. Mobile: three-dot. |
 | `role_detail_screen.dart` | `RoleDetailScreen` | ✅ Complete | Full role detail page with 2 tabs: Permissions (toggle chips grouped by resource — `resource.action` format) and Assigned Users (users with this system-scoped role via `scopes` table). Assign/unassign actions. |
 | `role_detail_sheet.dart` | `RoleDetailSheet` | ✅ Complete | Compact sheet version of role detail for quick viewing. |
 | `create_role_sheet.dart` | `CreateRoleSheet` | ✅ Complete | Form to create a new system role — name, description, initial permissions. |
 
+**Key private widgets:** `_RoleIdentityCell` (28×28 tinted icon + name), `_RoleDescriptionCell`, `_RolePermissionsBadge` (plain text count), `_Toolbar`, `_ListShimmer`
+
 **Data source:** `RolesDao.watchSystemRoles()`, `RolesDao.watchRoleById(id)`, `RolesDao.watchSystemScopes(userId)`
-**Dependencies:** `database/daos/roles_dao.dart`, `models/system_permissions.dart` (`SystemPermissions`, `RolePermissions`), `ui/widgets/edu_tab_bar.dart`
+**Dependencies:** `database/daos/roles_dao.dart`, `models/system_permissions.dart` (`SystemPermissions`, `RolePermissions`), `models/permissions.dart`, `ui/widgets/edu_tab_bar.dart`
 
 ---
 
@@ -142,4 +150,12 @@ For `UserLevel.super_` and `UserLevel.system` users, all permissions are granted
 - Permission gating uses `SystemPermissions.can(action)` — never raw `UserLevel` checks in UI code (except `canSeeDeleted` which is level-specific by design).
 
 ## Last Updated
-Task 03 — Removed Notifications tab from both mobile (7→6 tabs) and desktop (6→5 tabs). Added profile avatar with sync-failure badge count (`logsDao.watchFailedLogCount`), `SyncIndicator` widget, and `_UserMenuAnchor` overlay (Account / Notifications / Logout) to both mobile and desktop top-bar rows. Notifications action navigates to standalone `NotificationsPage`. Removed `notifications_section.dart` import from the shell (section files in `notifications/` subdirectory remain intact for potential reuse).
+- **UI Redesign — Badge-free data tables with status indicators.** All four data sections (`users_section.dart`, `schools_section.dart`, `roles_section.dart`, `members_section.dart`) redesigned:
+  - **`users_section.dart`:** Removed `_LevelBadge` and `_UserStatusBadge` columns. Status/level now communicated entirely via `StatusIndicator` overlay on avatar (star=super, dot=normal/system, color=status). Replaced 3-column layout (User/Level/Status) with 2-column (User/Joined). Added `_ActionTile` widget for clean bottom sheet options with icon, label, subtitle, and chevron. `_showLevelActions` redesigned with Normal/System/Super options + "Currently {level}" indicator. `_showStatusActions` redesigned with Active/Suspended options + colored status dot indicator. Removed all bulk selection: `_selectedIds`, `_allUsers`, `_BulkActionBar`, `_PurgeDialog`, all `_bulk*` methods. Toolbar simplified (removed select-all icon).
+  - **`schools_section.dart`:** Removed `_SchoolStatusBadge` column. Status now communicated via `SchoolStatusDot` overlay on `_SchoolLogo` (positioned bottom-right). Replaced 2-column layout (School/Status) with (School/Joined). Added `_showStatusActions` bottom sheet with Trial/Active/Suspended/Cancelled/Trash options. Added "Edit status" action to row actions.
+  - **`roles_section.dart`:** Expanded from 2 columns to 3: Role (flex:2, cleaner 28×28 icon + name only), Description (flex:3, dedicated column), Permissions (flex:1, descriptive "5 perms" text instead of bare number in chip). Added `_RoleDescriptionCell`. Simplified `_RolePermissionsBadge` to plain text.
+  - **`members_section.dart`:** Identity cell subtitle changed from level label to phone number. Replaced Status badge column with Level column (plain muted text "System"/"Super"). Added `_showStatusActions` bottom sheet with Suspend/Restore/Trash options. Added `_StatusActionTile` widget. Removed all unused methods (`_elevateMember`, `_suspendMember`, `_trashMember`, `_demoteMember`, `_restoreMember`). Added `_MemberLevelCell` widget.
+  - All 4 files compile with 0 errors, 0 warnings. `flutter analyze` clean (info-only lints).
+- Task U04 — Data-table migration (superseded by redesign above, changes preserved).
+- Task X01 — Fixed window resize ejecting user from current page.
+- Task 03 — Removed Notifications tab. Added profile avatar with sync-failure badge, SyncIndicator, and UserMenuAnchor overlay.

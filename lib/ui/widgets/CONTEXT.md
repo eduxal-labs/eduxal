@@ -5,12 +5,14 @@
 
 ## Overview
 
-This directory contains **13 files** and **1 subdirectory** (`member_creation/`). These are the shared building blocks that enforce visual consistency across the app — tab bars, term selectors, avatars, save buttons, status indicators, sync indicators, progress bars, trajectory indicators, stat badges, and member creation flows.
+This directory contains **14 files** and **1 subdirectory** (`member_creation/`). These are the shared building blocks that enforce visual consistency across the app — tab bars, term selectors, avatars, save buttons, action buttons, status indicators, sync indicators, progress bars, trajectory indicators, stat badges, and member creation flows.
 
 ## Files
 
 | File | Key Exports | Status | Description |
 |---|---|---|---|
+| `edu_data_table.dart` | `EduDataTable<T>`, `EduDataTableAction<T>` | ✅ Complete | Reusable data-table-style list widget. Renders items as rows separated by 0.5 px dividers with hover highlights. On desktop (≥600px), per-row action buttons appear inline as 28×28 icon buttons that fade in on row hover. On mobile (<600px), a single `Icons.more_vert` (18px) button opens a modal bottom sheet with action rows. Supports an optional header row, empty state (icon + title + subtitle), row tap navigation, and `AnimatedContainer`-based hover background (100ms). All styling uses `AppTheme` design tokens (kModalRadius, kCardRadius, tableRowDivider, modalBg). Destructive actions render in `cs.error`. |
+| `animated_action_button.dart` | `AnimatedActionButton` | ✅ Complete | Compact icon button with animated feedback for mutation actions. Cycles through three internal states: **idle** → **busy** (14×14 spinner) → **done** (check flash with `Curves.elasticOut` scale) → **idle**. Default size 32×32, `BorderRadius.circular(6)`. Accepts `icon`, `onTap` (`Future<void> Function()`), optional `tooltip`, `color`, `backgroundColor`, `size`, `iconSize`, `showCheckOnSuccess`. Errors revert to idle silently. Set `showCheckOnSuccess: false` for destructive actions where the item disappears immediately. Applied to: trash/purge/status-change buttons in `_SchoolRowState`, edit/delete buttons in `_RoleRowState`, delete AppBar button in `_RoleDetailScreenState`, unassign button in `_AssignedRow`, and remove buttons in `_DeptAllItem` / `_DeptMemberRow`. |
 | `active_term_provider.dart` | `ActiveTermProvider` | ✅ Complete | `InheritedNotifier` that provides `ActiveTermContext` to the widget tree. Screens access via `ActiveTermProvider.of(context)`. |
 | `thin_progress_bar.dart` | `ThinProgressBar` | ✅ Complete | A thin, color-coded horizontal progress bar for percentage visualization (exam scores, mastery levels, attendance rates). Height defaults to 6px. Auto-colors via `percentageColor()` from `academic_utils.dart` or accepts an override. Animates width changes with a 300ms ease-out `TweenAnimationBuilder`. Accepts `percent`, `height`, `color`, `backgroundColor`, `borderRadius`, `width`. |
 | `trajectory_indicator.dart` | `TrajectoryIndicator` | ✅ Complete | Compact trajectory indicator showing direction + label in the trajectory's color. Supports `compact` mode (icon only, 16px default) and full mode (icon + 4px gap + label text, 12px default). Maps `Trajectory` enum values: improving → green trending_up, declining → red trending_down, stable → amber trending_flat, insufficientData → grey help_outline. |
@@ -122,6 +124,4 @@ Internally calls `FileCache.get(FileCache.profilePath(userId))` to check for a c
 - Widgets never import services or DAOs directly for business logic — they receive callbacks or data via constructor parameters. Exception: `CreateTermModal` and member creation panels which instantiate service calls directly (they are self-contained mini-flows, not pure presentational widgets).
 
 ## Last Updated
-Task 09 — `add_student_panel.dart` UI polish: compact CTA button, entrance animation, tighter spacing.
-## Last Updated
-Task 04 — Note: `_DateChipPicker` in `exams_grades_screen.dart` has been removed (it was a private widget that called `showDatePicker` — replaced by the new inline `_PaperDateTrigger` + `_PaperSingleCalendar` pattern). No changes to files in `ui/widgets/` directory itself.
+Task U11 — Added `animated_action_button.dart`: `AnimatedActionButton` compact icon button with idle→busy→done animation states. Applied to mutation buttons in `schools_section.dart`, `roles_section.dart`, `role_detail_screen.dart`, and `members_page.dart`. Refactored `_AssignedRow` to use `Future<void> Function()` callback and removed manual `_unassigningIds` state tracking.

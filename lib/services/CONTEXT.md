@@ -5,7 +5,7 @@
 
 ## Overview
 
-This directory contains **2 service files**. Services sit between the UI and the data layer (DAOs + gRPC). They:
+This directory contains **4 service files**. Services sit between the UI and the data layer (DAOs + gRPC). They:
 - Combine multiple DAO calls into transactional operations.
 - Map between proto types and domain models.
 - Write to the `logs` table alongside every synced-table mutation.
@@ -19,6 +19,7 @@ This directory contains **2 service files**. Services sit between the UI and the
 | `authentication.dart` | `Authentication` | Login, verify, setup, refresh, change phone | ✅ Complete |
 | `members.dart` | `MemberCreationService` | Phone-first member creation (owners, teachers, staff, students, guardians) + profile image saving | ✅ Complete |
 | `member_management.dart` | `MemberManagementService` | Post-creation lifecycle: edit fields, change status, remove members (all types) | ✅ Complete |
+| `file_upload.dart` | `FileUploadService` | Answer-sheet image upload via signed HTTP PUT URLs. Stubbed until `Files` gRPC proto stubs are generated. | ✅ Stubbed (F01) |
 
 ## Key Methods by Service
 
@@ -104,6 +105,45 @@ Handles the phone-first member creation flow for all school member types + profi
 
 **Dependencies:** `database/daos/members_dao.dart`, `database/daos/logs_dao.dart`, `database/daos/users_dao.dart`, `database/database.dart`, `database/tables/enums.dart`, `models/result.dart`, `cache/file_cache.dart`, `core/extensions.dart` (for `toKenyanPhone()`), `client.dart` (for global DAOs).
 
+---
+
+### `FileUploadService` — `file_upload.dart`
+
+Handles uploading student answer-sheet images to remote object storage (S3-compatible signed URLs).
+
+**Constructor:** `FileUploadService(ClientChannel channel)`
+
+**Upload flow (once proto stubs exist):**
+1. Call `Files.GetAnswerSheetUploadUrls` on the server → obtain signed HTTP PUT URLs (one per file).
+2. HTTP PUT each local file to its URL using `dart:io` `HttpClient`.
+3. Return `Ok(fileNumbers)` or `Err(message)`.
+
+Until the proto stubs are generated, `_getUploadUrls` is **stubbed** (returns mock entries after a 150ms delay). The HTTP PUT logic and entire public API are fully wired so the UI works as-is and the stub can be swapped for real gRPC without touching any call sites.
+
+| Method | Signature | Description |
+|---|---|---|
+| `uploadAnswerSheets` | `Future<Result<List<int>, String>> uploadAnswerSheets({required String schoolId, required String examId, required int subject, required int? paper, required int studentAdm, required List<String> localPaths, required String accessToken})` | Upload all local paths for a student's paper. Returns assigned file numbers on success. |
+| `getAnswerSheetUrls` | `Future<Result<List<AnswerSheetFile>, String>> getAnswerSheetUrls({required String schoolId, required String examId, required int subject, required int? paper, required int studentAdm, required String accessToken})` | Fetch read URLs for a student's existing uploaded sheets. Stubbed — returns `Ok([])` until proto exists. |
+
+**Domain types (same file):**
+- `AnswerSheetFile` — `{int fileNumber, String readUrl}`. Returned by `getAnswerSheetUrls`.
+
+**Internal types (private):**
+- `_UploadEntry` — pairs a server-assigned file number with a signed PUT URL.
+
+**Dependencies:** `dart:io` (HttpClient for HTTP PUT), `grpc` package (ClientChannel — held for future gRPC stub), `models/result.dart`.
+
+**Registered on `Client`:**
+```dart
+late final fileUpload = FileUploadService(_channel);  // in client.dart
+```
+
+**TODO items (clearly marked in source with `// TODO:`):**
+- `_getUploadUrls` — replace stub with `Files.GetAnswerSheetUploadUrls` gRPC call.
+- `getAnswerSheetUrls` — replace stub with `Files.GetAnswerSheetReadUrls` gRPC call.
+
+---
+
 ## Planned Services (Not Yet Created)
 
 | Future file | Domain | Blocked by |
@@ -126,4 +166,4 @@ Handles the phone-first member creation flow for all school member types + profi
 - `client.dart` is the only file that holds the gRPC `ClientChannel`. Services receive the channel (or a service client) via constructor injection.
 
 ## Last Updated
-Task 07 — Wire `pushNow()` into services and DAOs that write logs. All DAO mutation methods that write to the `logs` table now call `sync.pushNow()` (fire-and-forget) after the transaction completes. The `members.dart` service's `saveUserProfileImage`, `saveStudentImage`, and `_purgeDeletedUser` methods (which write directly to `db.logs`) also trigger `sync.pushNow()`. No changes needed in `member_management.dart` since it delegates all mutations to `MembersDao` methods which now handle the push internally. UI code that calls DAOs directly also benefits automatically from the DAO-level push.
+Tasks F01 + F02 — Added `file_upload.dart` (`FileUploadService`). Handles answer-sheet image upload via signed HTTP PUT URLs. The `_getUploadUrls` stub (returns mock entries, 150ms delay) will be replaced with a real `Files.GetAnswerSheetUploadUrls` gRPC call once the proto stubs are generated. `FileUploadService` is registered as `client.fileUpload` (lazy getter) in `client.dart`. `_AnswerSubmissionSheetState` in `paper_detail_page.dart` triggers `_uploadPendingFiles()` (fire-and-forget) after each local save, and thumbnail overlays show per-file upload status icons (`_UploadStatus` enum: pending/uploading/done/failed) via `_buildUploadStatusIcon`.

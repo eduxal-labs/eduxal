@@ -5,10 +5,10 @@
 
 ## Overview
 
-This directory contains **33 files**: 32 table definition files (one per table) and 1 shared enums file.
+This directory contains **35 files**: 34 table definition files (one per table) and 1 shared enums file.
 
-The 32 tables break down as:
-- **30 backend-mirrored tables** — exact replicas of the server schema defined in `schema.sql`.
+The 34 tables break down as:
+- **32 backend-mirrored tables** — exact replicas of the server schema defined in `schema.sql`.
 - **2 client-only tables** — `accounts` (session/auth) and `logs` (offline mutation queue).
 
 ## Files
@@ -43,8 +43,10 @@ The 32 tables break down as:
 | `settings.dart` | `Settings` | `SettingsData` | `school` (TEXT) | ✅ Complete |
 | `staff.dart` | `Staff` | `StaffData` | `school`, `user` | ✅ Complete |
 | `students.dart` | `Students` | `StudentsData` | `school`, `adm` | ✅ Complete |
-| `subjects.dart` | `Subjects` | `SubjectsData` | `school`, `year`, `term`, `grade`, `stream`, `subject` | ✅ Complete |
+| `streams.dart` | `Streams` | `StreamsData` | `school`, `grade`, `stream` | ✅ Complete |
+| `subject_teachers.dart` | `SubjectTeachers` | `SubjectTeachersData` | `school`, `year`, `term`, `grade`, `stream`, `subject` | ✅ Complete |
 | `subscriptions.dart` | `Subscriptions` | `SubscriptionsData` | `id` (TEXT) | ✅ Complete |
+| `topics.dart` | `Topics` | `TopicsData` | `id` (INTEGER AUTOINCREMENT) | ✅ Complete |
 | `teachers.dart` | `Teachers` | `TeachersData` | `school`, `user` | ✅ Complete |
 | `terms.dart` | `Terms` | `Term` | `school`, `year`, `term` | ✅ Complete |
 | `timetable.dart` | `Timetable` | `TimetableData` | `id` (TEXT) | ✅ Complete |
@@ -101,7 +103,7 @@ Used for the `logs.columns` bitmask on UPDATE entries. One enum per synced table
 | `StaffColumn` | `staff` | idnumber(0), role(1), department(2), status(3), updated(4) |
 | `TermsColumn` | `terms` | start(0), end(1), updated(2) |
 | `ClassTeachersColumn` | `class_teachers` | end(0) |
-| `SubjectsColumn` | `subjects` | teacher(0) |
+| `SubjectTeachersColumn` | `subject_teachers` | teacher(0) |
 | `AttendanceColumn` | `attendance` | status(0), updated(1) |
 | `TimetableColumn` | `timetable` | teacher(0), start(1), end(2), updated(3) |
 | `LessonsColumn` | `lessons` | updated(0) |
@@ -157,4 +159,4 @@ These are referenced by `lib/models/curriculum_levels.dart` and `lib/models/scho
 - Boolean columns use `BoolColumn` (Drift maps to INTEGER 0/1 automatically).
 
 ## Last Updated
-Task 02 — Added `last_seq` (bigint, client default 0) column to `accounts` table for server sync sequence tracking.
+Task C05 — Created `streams.dart`. New `Streams` table: per-school stream definitions, linking a named stream to a grade. PK: `school`, `grade`, `stream` (composite). FK: `school → schools(id) ON DELETE CASCADE`.
