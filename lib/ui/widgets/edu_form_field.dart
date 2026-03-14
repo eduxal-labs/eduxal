@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 
 /// Standard form text field following the EduXal design system.
@@ -15,10 +16,17 @@ class EduFormField extends StatelessWidget {
     this.keyboardType,
     this.prefixText,
     this.maxLines = 1,
+    this.minLines,
     this.obscureText = false,
     this.suffix,
     this.onChanged,
     this.enabled = true,
+    this.validator,
+    this.autofocus = false,
+    this.textCapitalization = TextCapitalization.none,
+    this.inputFormatters,
+    this.focusNode,
+    this.onFieldSubmitted,
   });
 
   final TextEditingController controller;
@@ -28,10 +36,17 @@ class EduFormField extends StatelessWidget {
   final TextInputType? keyboardType;
   final String? prefixText;
   final int maxLines;
+  final int? minLines;
   final bool obscureText;
   final Widget? suffix;
   final ValueChanged<String>? onChanged;
   final bool enabled;
+  final String? Function(String?)? validator;
+  final bool autofocus;
+  final TextCapitalization textCapitalization;
+  final List<TextInputFormatter>? inputFormatters;
+  final FocusNode? focusNode;
+  final ValueChanged<String>? onFieldSubmitted;
 
   @override
   Widget build(BuildContext context) {
@@ -60,9 +75,16 @@ class EduFormField extends StatelessWidget {
           controller: controller,
           keyboardType: keyboardType,
           maxLines: maxLines,
+          minLines: minLines,
           obscureText: obscureText,
           onChanged: onChanged,
           enabled: enabled,
+          validator: validator,
+          autofocus: autofocus,
+          textCapitalization: textCapitalization,
+          inputFormatters: inputFormatters,
+          focusNode: focusNode,
+          onFieldSubmitted: onFieldSubmitted,
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w400,

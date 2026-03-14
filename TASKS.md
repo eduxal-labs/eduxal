@@ -1154,7 +1154,7 @@ Shared widgets:
 
 ---
 
-### Task 702: Ensure all forms use `EduFormField` consistently
+### Task 702: Ensure all forms use `EduFormField` consistently [x]
 **Files to create/modify:** Same files as Task 701
 **Context files to read:** `lib/ui/widgets/CONTEXT.md`
 **Depends on:** Task 101, Task 701

@@ -18,6 +18,7 @@ import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
 import '../../../widgets/animated_action_button.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
+import '../../../widgets/edu_form_field.dart';
 import '../../../widgets/edu_data_table.dart';
 import '../../../widgets/edu_sheet.dart';
 import '../../../widgets/edu_tab_bar.dart';
@@ -5183,7 +5184,6 @@ class _CreateDepartmentSheetState extends State<_CreateDepartmentSheet> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final isDark = cs.brightness == Brightness.dark;
 
     return SafeArea(
       child: Padding(
@@ -5220,37 +5220,22 @@ class _CreateDepartmentSheetState extends State<_CreateDepartmentSheet> {
                 ),
               ),
               const SizedBox(height: 16),
-              TextFormField(
+              EduFormField(
                 controller: _nameCtrl,
+                label: 'Department name',
+                hint: 'e.g. Mathematics',
                 autofocus: true,
-                style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurface,
-                ),
-                decoration: _deptInputDeco(
-                  cs: cs,
-                  isDark: isDark,
-                  hint: 'Department name',
-                ),
-                validator: (v) =>
-                    v == null || v.trim().isEmpty ? 'Name required' : null,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'Enter a name';
+                  return null;
+                },
               ),
               const SizedBox(height: 10),
-              TextFormField(
+              EduFormField(
                 controller: _descCtrl,
-                style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurface,
-                ),
-                decoration: _deptInputDeco(
-                  cs: cs,
-                  isDark: isDark,
-                  hint: 'Description (optional)',
-                ),
+                label: 'Description',
+                hint: 'Optional',
                 maxLines: 2,
-                minLines: 1,
               ),
               const SizedBox(height: 18),
               SizedBox(
@@ -5293,47 +5278,6 @@ class _CreateDepartmentSheetState extends State<_CreateDepartmentSheet> {
       ),
     );
   }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Helper — department input decoration
-// ─────────────────────────────────────────────────────────────────────────────
-
-InputDecoration _deptInputDeco({
-  required ColorScheme cs,
-  required bool isDark,
-  required String hint,
-}) {
-  return InputDecoration(
-    hintText: hint,
-    hintStyle: TextStyle(
-      fontSize: 13,
-      fontWeight: FontWeight.w400,
-      color: cs.onSurfaceVariant.withValues(alpha: 0.4),
-    ),
-    filled: true,
-    fillColor: isDark
-        ? cs.surfaceContainerHighest.withValues(alpha: 0.4)
-        : cs.surfaceContainerHighest.withValues(alpha: 0.3),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(6),
-      borderSide: BorderSide(color: cs.outline.withValues(alpha: 0.2)),
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(6),
-      borderSide: BorderSide(color: cs.outline.withValues(alpha: 0.2)),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(6),
-      borderSide: BorderSide(color: cs.primary, width: 1),
-    ),
-    errorBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(6),
-      borderSide: BorderSide(color: cs.error.withValues(alpha: 0.5)),
-    ),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-    isDense: true,
-  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -7,6 +7,7 @@ import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
 import '../../../widgets/active_term_provider.dart';
+import '../../../widgets/edu_form_field.dart';
 import '../../../widgets/edu_sheet.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
 
@@ -295,47 +296,14 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
           children: [
             Form(
               key: formKey,
-              child: TextFormField(
+              child: EduFormField(
                 controller: nameCtrl,
+                label: 'Stream name',
+                hint: 'e.g. East, West',
                 autofocus: true,
-                style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurface,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'e.g. Green, Blue, North, A',
-                  hintStyle: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                  ),
-                  filled: true,
-                  fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(6),
-                    borderSide: BorderSide(
-                      color: cs.outline.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(6),
-                    borderSide: BorderSide(
-                      color: cs.outline.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(6),
-                    borderSide: BorderSide(color: cs.primary, width: 1),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  isDense: true,
-                ),
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Name required';
+                  if (v == null || v.trim().isEmpty)
+                    return 'Enter a stream name';
                   if (existingStreams.any(
                     (s) => s.name.toLowerCase() == v.trim().toLowerCase(),
                   )) {

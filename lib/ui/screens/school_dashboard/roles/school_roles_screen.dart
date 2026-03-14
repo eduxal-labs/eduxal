@@ -14,6 +14,7 @@ import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/animated_save_button.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
+import '../../../widgets/edu_form_field.dart';
 import '../../../widgets/edu_data_table.dart';
 import '../../../widgets/edu_sheet.dart';
 import 'school_role_detail_screen.dart';
@@ -745,17 +746,16 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
           // ── Name field ─────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: TextFormField(
+            child: EduFormField(
               controller: _nameCtrl,
+              label: 'Role name',
+              hint: 'e.g. Registrar',
               autofocus: true,
               textCapitalization: TextCapitalization.words,
               onChanged: (_) => setState(() {}),
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w400),
-              decoration: _inputDeco(cs, 'Role name (e.g. Registrar)'),
               validator: (v) {
-                if (v == null || v.trim().isEmpty) {
+                if (v == null || v.trim().isEmpty)
                   return 'Role name is required';
-                }
                 return null;
               },
             ),
@@ -766,11 +766,11 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
           // ── Description field ──────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: TextFormField(
+            child: EduFormField(
               controller: _descCtrl,
+              label: 'Description',
+              hint: 'Optional',
               maxLines: 2,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w400),
-              decoration: _inputDeco(cs, 'Description (optional)'),
             ),
           ),
 
@@ -1030,38 +1030,3 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-InputDecoration _inputDeco(ColorScheme cs, String hint) {
-  return InputDecoration(
-    hintText: hint,
-    hintStyle: TextStyle(
-      fontSize: 13.5,
-      fontWeight: FontWeight.w400,
-      color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-    ),
-    filled: true,
-    fillColor: cs.surfaceContainerHighest,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(AppTheme.kRadius),
-      borderSide: BorderSide.none,
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(AppTheme.kRadius),
-      borderSide: BorderSide.none,
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(AppTheme.kRadius),
-      borderSide: BorderSide(color: cs.primary, width: 1.5),
-    ),
-    errorBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(AppTheme.kRadius),
-      borderSide: BorderSide(color: cs.error, width: 1),
-    ),
-    focusedErrorBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(AppTheme.kRadius),
-      borderSide: BorderSide(color: cs.error, width: 1.5),
-    ),
-  );
-}

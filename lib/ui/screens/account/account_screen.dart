@@ -14,6 +14,7 @@ import '../../../core/grpc_errors.dart';
 import '../../../models/result.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/edu_confirm_dialog.dart';
+import '../../widgets/edu_form_field.dart';
 import '../../widgets/edu_sheet.dart';
 import '../../widgets/user_avatar.dart';
 import '../auth/login_screen.dart';
@@ -210,17 +211,12 @@ class _AccountScreenState extends State<AccountScreen>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                TextFormField(
+                EduFormField(
                   controller: controller,
+                  label: 'Display name',
+                  hint: 'Your name',
                   autofocus: true,
                   textCapitalization: TextCapitalization.words,
-                  decoration: InputDecoration(
-                    labelText: 'Display name',
-                    hintText: 'Your name',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppTheme.kRadius),
-                    ),
-                  ),
                   validator: (value) {
                     final trimmed = value?.trim() ?? '';
                     if (trimmed.length < 2) {
@@ -237,9 +233,7 @@ class _AccountScreenState extends State<AccountScreen>
                       backgroundColor: AppTheme.brandGreen,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(
-                          AppTheme.kRadius,
-                        ),
+                        borderRadius: BorderRadius.circular(AppTheme.kRadius),
                       ),
                     ),
                     onPressed: () async {
@@ -279,20 +273,15 @@ class _AccountScreenState extends State<AccountScreen>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                TextFormField(
+                EduFormField(
                   controller: controller,
+                  label: 'Email address',
+                  hint: 'you@example.com',
                   autofocus: true,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(
-                    labelText: 'Email address',
-                    hintText: 'you@example.com',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppTheme.kRadius),
-                    ),
-                  ),
                   validator: (value) {
                     final trimmed = value?.trim() ?? '';
-                    if (trimmed.isEmpty) return null; // nullable
+                    if (trimmed.isEmpty) return null;
                     if (!trimmed.contains('@') || !trimmed.contains('.')) {
                       return 'Enter a valid email address';
                     }
@@ -307,9 +296,7 @@ class _AccountScreenState extends State<AccountScreen>
                       backgroundColor: AppTheme.brandGreen,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(
-                          AppTheme.kRadius,
-                        ),
+                        borderRadius: BorderRadius.circular(AppTheme.kRadius),
                       ),
                     ),
                     onPressed: () async {
