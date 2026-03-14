@@ -932,7 +932,7 @@ Apply the same data table overhaul to schools:
 ## TRACK 6 — School Dashboard Data Tables Overhaul
 ## ═══════════════════════════════════════════════════════════════════════════
 
-### Task 601: Overhaul Members page — all member tabs (Departments, Owners, Teachers, Staff, Students, Guardians)
+### Task 601: Overhaul Members page — all member tabs (Departments, Owners, Teachers, Staff, Students, Guardians) [x]
 **Files to create/modify:** `lib/ui/screens/school_dashboard/members/members_page.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** Task 201, Task 101
@@ -1014,7 +1014,7 @@ The members page is ~5400 lines and has 6 tabs. Only the Departments tab current
 
 ---
 
-### Task 602: Overhaul Academics page data tables (grades, streams, subjects, teachers, students tabs)
+### Task 602: Overhaul Academics page data tables (grades, streams, subjects, teachers, students tabs) [x]
 **Files to create/modify:** `lib/ui/screens/school_dashboard/academics/academics_screen.dart`, `lib/ui/screens/school_dashboard/academics/tabs/students_tab.dart`, `lib/ui/screens/school_dashboard/academics/tabs/teachers_tab.dart`, `lib/ui/screens/school_dashboard/academics/tabs/subjects_tab.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** Task 201, Task 101, Task 401 (for subject fix)
@@ -1042,7 +1042,7 @@ The members page is ~5400 lines and has 6 tabs. Only the Departments tab current
 
 ---
 
-### Task 603: Overhaul Exams & Grades page data tables
+### Task 603: Overhaul Exams & Grades page data tables [x]
 **Files to create/modify:** `lib/ui/screens/school_dashboard/exams/exams_grades_screen.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** Task 201, Task 101
@@ -1063,12 +1063,12 @@ The members page is ~5400 lines and has 6 tabs. Only the Departments tab current
 
 **Update after completion:**
 - [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: `git commit -m "ui: overhaul exams and grades data tables"`
 
 ---
 
-### Task 604: Overhaul School Roles page data table
+### Task 604: Overhaul School Roles page data table ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/roles/school_roles_screen.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** Task 201, Task 101
@@ -1091,7 +1091,7 @@ The members page is ~5400 lines and has 6 tabs. Only the Departments tab current
 
 **Update after completion:**
 - [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: `git commit -m "ui: overhaul school roles data table"`
 
 ---

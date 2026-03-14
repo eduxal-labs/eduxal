@@ -47,6 +47,10 @@ class _StudentsTabState extends State<StudentsTab>
   late final AcademicsDao _dao;
   late Stream<List<GradeStudentRow>> _stream;
 
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+  Timer? _debounce;
+
   @override
   bool get wantKeepAlive => true;
 
@@ -55,6 +59,7 @@ class _StudentsTabState extends State<StudentsTab>
     super.initState();
     _dao = AcademicsDao(db);
     _stream = _buildStream();
+    _searchController.addListener(_onSearchChanged);
   }
 
   @override
@@ -69,6 +74,21 @@ class _StudentsTabState extends State<StudentsTab>
     }
   }
 
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 200), () {
+      if (mounted) setState(() => _searchQuery = _searchController.text);
+    });
+  }
+
   Stream<List<GradeStudentRow>> _buildStream() {
     return _dao.watchStudentsForGrade(
       schoolId: widget.schoolId,
@@ -77,6 +97,16 @@ class _StudentsTabState extends State<StudentsTab>
       grade: widget.grade,
       stream: widget.streamCode,
     );
+  }
+
+  List<GradeStudentRow> _filterRows(List<GradeStudentRow> rows) {
+    if (_searchQuery.isEmpty) return rows;
+    final query = _searchQuery.toLowerCase();
+    return rows.where((row) {
+      final nameMatch = row.student.name.toLowerCase().contains(query);
+      final admMatch = row.student.adm.toString().contains(query);
+      return nameMatch || admMatch;
+    }).toList();
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
@@ -100,7 +130,8 @@ class _StudentsTabState extends State<StudentsTab>
           return _buildEmpty(cs);
         }
 
-        return _buildList(cs, rows);
+        final filtered = _filterRows(rows);
+        return _buildList(cs, rows.length, filtered);
       },
     );
   }
@@ -171,41 +202,82 @@ class _StudentsTabState extends State<StudentsTab>
 
   // ── Student list ───────────────────────────────────────────────────────────
 
-  Widget _buildList(ColorScheme cs, List<GradeStudentRow> rows) {
+  Widget _buildList(
+    ColorScheme cs,
+    int totalCount,
+    List<GradeStudentRow> rows,
+  ) {
     final isDark = cs.brightness == Brightness.dark;
+    final showingFiltered =
+        _searchQuery.isNotEmpty && rows.length != totalCount;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // ── Search toolbar ─────────────────────────────────────────────
+        _SearchToolbar(controller: _searchController, cs: cs),
+
+        // ── Count header ───────────────────────────────────────────────
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-          child: _buildHeader(cs, rows.length),
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+          child: Text(
+            showingFiltered
+                ? '${rows.length} of $totalCount student${totalCount == 1 ? '' : 's'}'
+                : '$totalCount student${totalCount == 1 ? '' : 's'}',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
+          ),
         ),
         AppTheme.tableRowDivider(isDark, cs),
+
+        // ── List ───────────────────────────────────────────────────────
         Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.only(bottom: 24),
-            itemCount: rows.length * 2 - 1,
-            itemBuilder: (context, index) {
-              if (index.isOdd) {
-                return AppTheme.tableRowDivider(isDark, cs);
-              }
-              return _buildStudentItem(cs, rows[index ~/ 2], isDark);
-            },
-          ),
+          child: rows.isEmpty
+              ? _buildNoResults(cs)
+              : ListView.builder(
+                  padding: const EdgeInsets.only(bottom: 24),
+                  itemCount: rows.length * 2 - 1,
+                  itemBuilder: (context, index) {
+                    if (index.isOdd) {
+                      return AppTheme.tableRowDivider(isDark, cs);
+                    }
+                    return _buildStudentItem(cs, rows[index ~/ 2], isDark);
+                  },
+                ),
         ),
       ],
     );
   }
 
-  // ── Header ─────────────────────────────────────────────────────────────────
+  // ── No search results ──────────────────────────────────────────────────────
 
-  Widget _buildHeader(ColorScheme cs, int count) {
-    return Text(
-      '$count student${count == 1 ? '' : 's'}',
-      style: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w400,
-        color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+  Widget _buildNoResults(ColorScheme cs) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.search_off_rounded,
+              size: 28,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.25),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'No students match "$_searchQuery"',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -237,6 +309,92 @@ class _StudentsTabState extends State<StudentsTab>
           studentAdm: row.student.adm,
           curriculumType: widget.curriculumType,
           schoolContext: widget.schoolContext,
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Search toolbar ──────────────────────────────────────────────────────────
+
+class _SearchToolbar extends StatelessWidget {
+  const _SearchToolbar({required this.controller, required this.cs});
+
+  final TextEditingController controller;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = cs.brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: SizedBox(
+        height: 36,
+        child: TextField(
+          controller: controller,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+            color: cs.onSurface,
+          ),
+          decoration: InputDecoration(
+            hintText: 'Search by name or ADM no…',
+            hintStyle: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+            ),
+            prefixIcon: Icon(
+              Icons.search_rounded,
+              size: 18,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
+            prefixIconConstraints: const BoxConstraints(
+              minWidth: 36,
+              minHeight: 36,
+            ),
+            suffixIcon: ValueListenableBuilder<TextEditingValue>(
+              valueListenable: controller,
+              builder: (_, value, __) {
+                if (value.text.isEmpty) return const SizedBox.shrink();
+                return GestureDetector(
+                  onTap: () => controller.clear(),
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 16,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                  ),
+                );
+              },
+            ),
+            suffixIconConstraints: const BoxConstraints(
+              minWidth: 36,
+              minHeight: 36,
+            ),
+            filled: true,
+            fillColor: cs.surfaceContainerHighest.withValues(
+              alpha: isDark ? 0.4 : 0.5,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              borderSide: BorderSide(
+                color: cs.outlineVariant.withValues(alpha: isDark ? 0.2 : 0.3),
+                width: 0.5,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              borderSide: BorderSide(color: cs.primary, width: 1),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 0,
+            ),
+          ),
         ),
       ),
     );

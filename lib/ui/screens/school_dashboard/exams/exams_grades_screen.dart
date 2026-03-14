@@ -21,6 +21,7 @@ import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/active_term_provider.dart';
 import '../../../widgets/animated_save_button.dart';
+import '../../../widgets/edu_filter_toolbar.dart';
 import '../../../widgets/edu_tab_bar.dart';
 import 'exam_creation_page.dart';
 
@@ -283,10 +284,23 @@ class _ExamsListView extends StatefulWidget {
 class _ExamsListViewState extends State<_ExamsListView> {
   late final ExamsGradesDao _dao;
 
+  // ── Search & filter state ──────────────────────────────────────────────
+  final _searchCtrl = TextEditingController();
+  bool _showSearch = false;
+  bool _showFilters = false;
+  String _searchQuery = '';
+  final Set<ExamType> _activeTypeFilters = {};
+
   @override
   void initState() {
     super.initState();
     _dao = ExamsGradesDao(db);
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   Stream<List<ExamGroup>> _buildStream() {
@@ -295,6 +309,48 @@ class _ExamsListViewState extends State<_ExamsListView> {
       year: widget.year,
       term: widget.term,
     );
+  }
+
+  /// Extract a display name from an [ExamGroup].
+  /// Uses the name from the first exam row in the group.
+  String _examGroupName(ExamGroup group) {
+    if (group.grades.isNotEmpty && group.grades.first.streams.isNotEmpty) {
+      return group.grades.first.streams.first.exam.name;
+    }
+    return _typeLabel(group.type);
+  }
+
+  /// Filter [items] by the current search query and active type filters.
+  List<ExamGroup> _applyFilters(List<ExamGroup> items) {
+    var filtered = items;
+
+    // Apply type filter
+    if (_activeTypeFilters.isNotEmpty) {
+      filtered = filtered
+          .where((g) => _activeTypeFilters.contains(g.type))
+          .toList();
+    }
+
+    // Apply search query
+    if (_searchQuery.isNotEmpty) {
+      final lower = _searchQuery.toLowerCase();
+      filtered = filtered.where((g) {
+        final name = _examGroupName(g).toLowerCase();
+        return name.contains(lower);
+      }).toList();
+    }
+
+    return filtered;
+  }
+
+  void _toggleTypeFilter(ExamType type) {
+    setState(() {
+      if (_activeTypeFilters.contains(type)) {
+        _activeTypeFilters.remove(type);
+      } else {
+        _activeTypeFilters.add(type);
+      }
+    });
   }
 
   @override
@@ -317,6 +373,32 @@ class _ExamsListViewState extends State<_ExamsListView> {
             title: 'Exams & Assessments',
             subtitle: '${widget.year} · Term ${widget.term}',
           ),
+          // ── Search + filter toolbar ──────────────────────────────────
+          EduFilterToolbar(
+            searchController: _searchCtrl,
+            searchHint: 'Search exams…',
+            showSearch: _showSearch,
+            onToggleSearch: () {
+              setState(() {
+                _showSearch = !_showSearch;
+                if (!_showSearch) {
+                  _searchCtrl.clear();
+                  _searchQuery = '';
+                }
+              });
+            },
+            onSearchChanged: (v) => setState(() => _searchQuery = v),
+            showFilters: _showFilters,
+            onToggleFilters: () => setState(() => _showFilters = !_showFilters),
+            filters: ExamType.values.map((t) {
+              return EduFilterChipData(
+                label: _typeLabel(t),
+                isSelected: _activeTypeFilters.contains(t),
+                onTap: () => _toggleTypeFilter(t),
+                activeColor: _typeColor(t, cs),
+              );
+            }).toList(),
+          ),
           Expanded(
             child: StreamBuilder<List<ExamGroup>>(
               stream: _buildStream(),
@@ -326,9 +408,33 @@ class _ExamsListViewState extends State<_ExamsListView> {
                     child: CircularProgressIndicator(strokeWidth: 1.5),
                   );
                 }
-                final items = snap.data ?? [];
-                if (items.isEmpty) {
+                final allItems = snap.data ?? [];
+                if (allItems.isEmpty) {
                   return _EmptyExamsState(canCreate: _canManage);
+                }
+                final items = _applyFilters(allItems);
+                if (items.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.search_off_rounded,
+                          size: 40,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'No matching exams',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
                 }
                 final isDark = Theme.of(context).brightness == Brightness.dark;
                 return ListView.builder(

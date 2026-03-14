@@ -17,6 +17,7 @@ import '../../../../models/result.dart';
 import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
 import '../../../widgets/animated_action_button.dart';
+import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_data_table.dart';
 import '../../../widgets/edu_tab_bar.dart';
 import '../../../widgets/status_indicator.dart';
@@ -247,11 +248,20 @@ class _DepartmentsTab extends StatefulWidget {
 
 class _DepartmentsTabState extends State<_DepartmentsTab> {
   late final DepartmentsDao _dao;
+  final _searchCtrl = TextEditingController();
+  String _query = '';
+  bool _showSearch = false;
 
   @override
   void initState() {
     super.initState();
     _dao = DepartmentsDao(db);
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -267,8 +277,8 @@ class _DepartmentsTabState extends State<_DepartmentsTab> {
             child: CircularProgressIndicator(strokeWidth: 1.5),
           );
         }
-        final depts = snap.data!;
-        if (depts.isEmpty) {
+        final allDepts = snap.data!;
+        if (allDepts.isEmpty) {
           return const _EmptyTab(
             icon: Icons.domain_outlined,
             label: 'No departments',
@@ -276,9 +286,29 @@ class _DepartmentsTabState extends State<_DepartmentsTab> {
           );
         }
 
+        // Apply search filter
+        final depts = _query.isEmpty
+            ? allDepts
+            : allDepts.where((d) {
+                final q = _query.toLowerCase();
+                return d.name.toLowerCase().contains(q) ||
+                    (d.description?.toLowerCase().contains(q) ?? false);
+              }).toList();
+
         return EduDataTable<Department>(
           items: depts,
           padding: const EdgeInsets.only(top: 4, bottom: 80),
+          searchController: _searchCtrl,
+          searchHint: 'Search departments…',
+          showSearch: _showSearch,
+          onToggleSearch: () => setState(() {
+            _showSearch = !_showSearch;
+            if (!_showSearch) {
+              _searchCtrl.clear();
+              _query = '';
+            }
+          }),
+          onSearchChanged: (v) => setState(() => _query = v.trim()),
           onItemTap: (dept) {
             Navigator.of(context).push(
               MaterialPageRoute(
@@ -381,56 +411,15 @@ class _DepartmentsTabState extends State<_DepartmentsTab> {
     BuildContext context,
     Department dept,
   ) async {
-    final cs = Theme.of(context).colorScheme;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: cs.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        title: Text(
-          'Delete "${dept.name}"?',
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-            color: cs.onSurface,
-          ),
-        ),
-        content: Text(
-          'This department will be permanently removed.',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w400,
-            color: cs.onSurfaceVariant,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(
-              'Delete',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: cs.error,
-              ),
-            ),
-          ),
-        ],
-      ),
+      title: 'Delete "${dept.name}"?',
+      message: 'This department will be permanently removed.',
+      confirmLabel: 'Delete',
+      isDestructive: true,
     );
 
-    if (confirmed == true && context.mounted) {
+    if (confirmed && context.mounted) {
       final user = cache.currentUser?.user;
       if (user != null) {
         await _dao.deleteDepartment(
@@ -447,16 +436,44 @@ class _DepartmentsTabState extends State<_DepartmentsTab> {
 // Owners tab
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _OwnersTab extends StatelessWidget {
+class _OwnersTab extends StatefulWidget {
   const _OwnersTab({required this.schoolId, required this.dao});
 
   final String schoolId;
   final MembersDao dao;
 
   @override
+  State<_OwnersTab> createState() => _OwnersTabState();
+}
+
+class _OwnersTabState extends State<_OwnersTab> {
+  final _searchCtrl = TextEditingController();
+  String _query = '';
+  bool _showSearch = false;
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  /// Batch-load all users for a list of owner records in one pass.
+  Future<Map<String, UsersData>> _batchLoadUsers(
+    List<OwnersData> owners,
+  ) async {
+    final map = <String, UsersData>{};
+    final ids = owners.map((o) => o.user).toSet();
+    for (final id in ids) {
+      final u = await widget.dao.findUserById(id);
+      if (u != null) map[id] = u;
+    }
+    return map;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<OwnersData>>(
-      stream: dao.watchOwners(schoolId),
+      stream: widget.dao.watchOwners(widget.schoolId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting &&
             !snapshot.hasData) {
@@ -470,11 +487,45 @@ class _OwnersTab extends StatelessWidget {
             hint: 'Tap + to add a school owner.',
           );
         }
-        return _FlatMemberList(
-          itemCount: owners.length,
-          itemBuilder: (context, i) {
-            final owner = owners[i];
-            return _OwnerRow(schoolId: schoolId, owner: owner);
+        return FutureBuilder<Map<String, UsersData>>(
+          future: _batchLoadUsers(owners),
+          builder: (context, usersSnap) {
+            final userMap = usersSnap.data ?? {};
+
+            // Apply search filter using resolved user data
+            final filtered = _query.isEmpty
+                ? owners
+                : owners.where((o) {
+                    final q = _query.toLowerCase();
+                    final u = userMap[o.user];
+                    if (u == null) return false;
+                    return u.name.toLowerCase().contains(q) ||
+                        u.phone.toLowerCase().contains(q);
+                  }).toList();
+
+            return _FlatMemberList(
+              searchController: _searchCtrl,
+              searchHint: 'Search owners…',
+              showSearch: _showSearch,
+              onToggleSearch: () => setState(() {
+                _showSearch = !_showSearch;
+                if (!_showSearch) {
+                  _searchCtrl.clear();
+                  _query = '';
+                }
+              }),
+              onSearchChanged: (v) => setState(() => _query = v.trim()),
+              itemCount: filtered.length,
+              itemBuilder: (context, i) {
+                final owner = filtered[i];
+                final user = userMap[owner.user];
+                return _OwnerRow(
+                  schoolId: widget.schoolId,
+                  owner: owner,
+                  user: user,
+                );
+              },
+            );
           },
         );
       },
@@ -483,40 +534,39 @@ class _OwnersTab extends StatelessWidget {
 }
 
 class _OwnerRow extends StatelessWidget {
-  const _OwnerRow({required this.schoolId, required this.owner});
+  const _OwnerRow({
+    required this.schoolId,
+    required this.owner,
+    required this.user,
+  });
   final String schoolId;
   final OwnersData owner;
+  final UsersData? user;
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<UsersData?>(
-      future: MembersDao(db).findUserById(owner.user),
-      builder: (context, snap) {
-        final user = snap.data;
-        return _UserDataRow(
-          userId: owner.user,
-          name: user?.name ?? '…',
-          subtitle: user?.phone ?? '',
-          status: user?.status,
-          level: user?.level,
-          onTap: () => _openDetail(context, user),
-          actions: user == null
-              ? const []
-              : [
-                  _RowAction(
-                    icon: Icons.open_in_new_rounded,
-                    label: 'View',
-                    onTap: () => _openDetail(context, user),
-                  ),
-                  _RowAction(
-                    icon: Icons.person_remove_outlined,
-                    label: 'Remove',
-                    isDestructive: true,
-                    onTap: () => _confirmRemoveOwner(context, user),
-                  ),
-                ],
-        );
-      },
+    return _UserDataRow(
+      userId: owner.user,
+      name: user?.name ?? '…',
+      subtitle: user?.phone ?? '',
+      status: user?.status,
+      level: user?.level,
+      onTap: () => _openDetail(context, user),
+      actions: user == null
+          ? const []
+          : [
+              _RowAction(
+                icon: Icons.open_in_new_rounded,
+                label: 'View',
+                onTap: () => _openDetail(context, user),
+              ),
+              _RowAction(
+                icon: Icons.person_remove_outlined,
+                label: 'Remove',
+                isDestructive: true,
+                onTap: () => _confirmRemoveOwner(context, user!),
+              ),
+            ],
     );
   }
 
@@ -569,57 +619,14 @@ class _OwnerRow extends StatelessWidget {
   }
 
   Future<void> _confirmRemoveOwner(BuildContext context, UsersData user) async {
-    final cs = Theme.of(context).colorScheme;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: cs.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-        ),
-        title: Text(
-          'Remove "${user.name}"?',
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-            color: cs.onSurface,
-          ),
-        ),
-        content: Text(
-          'This will remove the owner from this school.',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w400,
-            color: cs.onSurfaceVariant,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(
-              'Remove',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: cs.error,
-              ),
-            ),
-          ),
-        ],
-      ),
+      title: 'Remove "${user.name}"?',
+      message: 'This will remove the owner from this school.',
+      confirmLabel: 'Remove',
+      isDestructive: true,
     );
-    if (confirmed != true || !context.mounted) return;
+    if (!confirmed || !context.mounted) return;
     final service = MemberManagementService(MembersDao(db));
     final result = await service.removeOwner(
       schoolId: schoolId,
@@ -640,16 +647,43 @@ class _OwnerRow extends StatelessWidget {
 // Teachers tab
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _TeachersTab extends StatelessWidget {
+class _TeachersTab extends StatefulWidget {
   const _TeachersTab({required this.schoolId, required this.dao});
 
   final String schoolId;
   final MembersDao dao;
 
   @override
+  State<_TeachersTab> createState() => _TeachersTabState();
+}
+
+class _TeachersTabState extends State<_TeachersTab> {
+  final _searchCtrl = TextEditingController();
+  String _query = '';
+  bool _showSearch = false;
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<Map<String, UsersData>> _batchLoadUsers(
+    List<TeachersData> teachers,
+  ) async {
+    final map = <String, UsersData>{};
+    final ids = teachers.map((t) => t.user).toSet();
+    for (final id in ids) {
+      final u = await widget.dao.findUserById(id);
+      if (u != null) map[id] = u;
+    }
+    return map;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<TeachersData>>(
-      stream: dao.watchTeachers(schoolId),
+      stream: widget.dao.watchTeachers(widget.schoolId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting &&
             !snapshot.hasData) {
@@ -663,11 +697,46 @@ class _TeachersTab extends StatelessWidget {
             hint: 'Tap + to add a teacher.',
           );
         }
-        return _FlatMemberList(
-          itemCount: list.length,
-          itemBuilder: (context, i) {
-            final t = list[i];
-            return _TeacherRow(schoolId: schoolId, teacher: t);
+        return FutureBuilder<Map<String, UsersData>>(
+          future: _batchLoadUsers(list),
+          builder: (context, usersSnap) {
+            final userMap = usersSnap.data ?? {};
+
+            final filtered = _query.isEmpty
+                ? list
+                : list.where((t) {
+                    final q = _query.toLowerCase();
+                    final u = userMap[t.user];
+                    if (u == null) return false;
+                    return u.name.toLowerCase().contains(q) ||
+                        u.phone.toLowerCase().contains(q) ||
+                        (t.department?.toLowerCase().contains(q) ?? false) ||
+                        (t.role?.toLowerCase().contains(q) ?? false);
+                  }).toList();
+
+            return _FlatMemberList(
+              searchController: _searchCtrl,
+              searchHint: 'Search teachers…',
+              showSearch: _showSearch,
+              onToggleSearch: () => setState(() {
+                _showSearch = !_showSearch;
+                if (!_showSearch) {
+                  _searchCtrl.clear();
+                  _query = '';
+                }
+              }),
+              onSearchChanged: (v) => setState(() => _query = v.trim()),
+              itemCount: filtered.length,
+              itemBuilder: (context, i) {
+                final t = filtered[i];
+                final user = userMap[t.user];
+                return _TeacherRow(
+                  schoolId: widget.schoolId,
+                  teacher: t,
+                  user: user,
+                );
+              },
+            );
           },
         );
       },
@@ -676,79 +745,76 @@ class _TeachersTab extends StatelessWidget {
 }
 
 class _TeacherRow extends StatelessWidget {
-  const _TeacherRow({required this.schoolId, required this.teacher});
+  const _TeacherRow({
+    required this.schoolId,
+    required this.teacher,
+    required this.user,
+  });
   final String schoolId;
   final TeachersData teacher;
+  final UsersData? user;
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<UsersData?>(
-      future: MembersDao(db).findUserById(teacher.user),
-      builder: (context, snap) {
-        final user = snap.data;
-        final parts = <String>[];
-        if (teacher.department != null) parts.add(teacher.department!);
-        if (teacher.role != null) parts.add(teacher.role!);
+    final parts = <String>[];
+    if (teacher.department != null) parts.add(teacher.department!);
+    if (teacher.role != null) parts.add(teacher.role!);
 
-        return _UserDataRow(
-          userId: teacher.user,
-          name: user?.name ?? '…',
-          subtitle: parts.isNotEmpty
-              ? parts.join('  ·  ')
-              : (user?.phone ?? ''),
-          status: user?.status,
-          level: user?.level,
-          trailing: teacher.status != TeacherStatus.active
-              ? _SmallChip(
-                  label: teacher.status.name,
-                  cs: Theme.of(context).colorScheme,
-                )
-              : null,
-          onTap: () {
-            if (user == null) return;
-            final w = MediaQuery.sizeOf(context).width;
-            if (w >= 600) {
-              _showTeacherSideSheet(context, user);
-            } else {
-              _showTeacherBottomSheet(context, user);
-            }
-          },
-          actions: user == null
-              ? const []
-              : [
-                  _RowAction(
-                    icon: Icons.open_in_new_rounded,
-                    label: 'View',
-                    onTap: () {
-                      final w = MediaQuery.sizeOf(context).width;
-                      if (w >= 600) {
-                        _showTeacherSideSheet(context, user);
-                      } else {
-                        _showTeacherBottomSheet(context, user);
-                      }
-                    },
-                  ),
-                  _RowAction(
-                    icon: Icons.edit_outlined,
-                    label: 'Edit',
-                    onTap: () {
-                      final w = MediaQuery.sizeOf(context).width;
-                      if (w >= 600) {
-                        _showTeacherSideSheet(context, user);
-                      } else {
-                        _showTeacherBottomSheet(context, user);
-                      }
-                    },
-                  ),
-                  _RowAction(
-                    icon: Icons.person_remove_outlined,
-                    label: 'Remove',
-                    isDestructive: true,
-                    onTap: () => _confirmRemove(context, user),
-                  ),
-                ],
-        );
+    return _UserDataRow(
+      userId: teacher.user,
+      name: user?.name ?? '…',
+      subtitle: parts.isNotEmpty ? parts.join('  ·  ') : (user?.phone ?? ''),
+      status: user?.status,
+      level: user?.level,
+      trailing: teacher.status != TeacherStatus.active
+          ? _SmallChip(
+              label: teacher.status.name,
+              cs: Theme.of(context).colorScheme,
+            )
+          : null,
+      onTap: () {
+        if (user == null) return;
+        final w = MediaQuery.sizeOf(context).width;
+        if (w >= 600) {
+          _showTeacherSideSheet(context, user!);
+        } else {
+          _showTeacherBottomSheet(context, user!);
+        }
       },
+      actions: user == null
+          ? const []
+          : [
+              _RowAction(
+                icon: Icons.open_in_new_rounded,
+                label: 'View',
+                onTap: () {
+                  final w = MediaQuery.sizeOf(context).width;
+                  if (w >= 600) {
+                    _showTeacherSideSheet(context, user!);
+                  } else {
+                    _showTeacherBottomSheet(context, user!);
+                  }
+                },
+              ),
+              _RowAction(
+                icon: Icons.edit_outlined,
+                label: 'Edit',
+                onTap: () {
+                  final w = MediaQuery.sizeOf(context).width;
+                  if (w >= 600) {
+                    _showTeacherSideSheet(context, user!);
+                  } else {
+                    _showTeacherBottomSheet(context, user!);
+                  }
+                },
+              ),
+              _RowAction(
+                icon: Icons.person_remove_outlined,
+                label: 'Remove',
+                isDestructive: true,
+                onTap: () => _confirmRemove(context, user!),
+              ),
+            ],
     );
   }
 
@@ -793,57 +859,14 @@ class _TeacherRow extends StatelessWidget {
   }
 
   Future<void> _confirmRemove(BuildContext context, UsersData user) async {
-    final cs = Theme.of(context).colorScheme;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: cs.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-        ),
-        title: Text(
-          'Remove "${user.name}"?',
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-            color: cs.onSurface,
-          ),
-        ),
-        content: Text(
-          'This will remove the teacher from this school.',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w400,
-            color: cs.onSurfaceVariant,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(
-              'Remove',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: cs.error,
-              ),
-            ),
-          ),
-        ],
-      ),
+      title: 'Remove "${user.name}"?',
+      message: 'This will remove the teacher from this school.',
+      confirmLabel: 'Remove',
+      isDestructive: true,
     );
-    if (confirmed != true || !context.mounted) return;
+    if (!confirmed || !context.mounted) return;
     final service = MemberManagementService(MembersDao(db));
     final result = await service.removeTeacher(
       schoolId: schoolId,
@@ -864,16 +887,43 @@ class _TeacherRow extends StatelessWidget {
 // Staff tab
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _StaffTab extends StatelessWidget {
+class _StaffTab extends StatefulWidget {
   const _StaffTab({required this.schoolId, required this.dao});
 
   final String schoolId;
   final MembersDao dao;
 
   @override
+  State<_StaffTab> createState() => _StaffTabState();
+}
+
+class _StaffTabState extends State<_StaffTab> {
+  final _searchCtrl = TextEditingController();
+  String _query = '';
+  bool _showSearch = false;
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<Map<String, UsersData>> _batchLoadUsers(
+    List<StaffData> staffList,
+  ) async {
+    final map = <String, UsersData>{};
+    final ids = staffList.map((s) => s.user).toSet();
+    for (final id in ids) {
+      final u = await widget.dao.findUserById(id);
+      if (u != null) map[id] = u;
+    }
+    return map;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<StaffData>>(
-      stream: dao.watchStaff(schoolId),
+      stream: widget.dao.watchStaff(widget.schoolId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting &&
             !snapshot.hasData) {
@@ -887,11 +937,46 @@ class _StaffTab extends StatelessWidget {
             hint: 'Tap + to add a staff member.',
           );
         }
-        return _FlatMemberList(
-          itemCount: list.length,
-          itemBuilder: (context, i) {
-            final s = list[i];
-            return _StaffRow(schoolId: schoolId, member: s);
+        return FutureBuilder<Map<String, UsersData>>(
+          future: _batchLoadUsers(list),
+          builder: (context, usersSnap) {
+            final userMap = usersSnap.data ?? {};
+
+            final filtered = _query.isEmpty
+                ? list
+                : list.where((s) {
+                    final q = _query.toLowerCase();
+                    final u = userMap[s.user];
+                    if (u == null) return false;
+                    return u.name.toLowerCase().contains(q) ||
+                        u.phone.toLowerCase().contains(q) ||
+                        (s.department?.toLowerCase().contains(q) ?? false) ||
+                        (s.role?.toLowerCase().contains(q) ?? false);
+                  }).toList();
+
+            return _FlatMemberList(
+              searchController: _searchCtrl,
+              searchHint: 'Search staff…',
+              showSearch: _showSearch,
+              onToggleSearch: () => setState(() {
+                _showSearch = !_showSearch;
+                if (!_showSearch) {
+                  _searchCtrl.clear();
+                  _query = '';
+                }
+              }),
+              onSearchChanged: (v) => setState(() => _query = v.trim()),
+              itemCount: filtered.length,
+              itemBuilder: (context, i) {
+                final s = filtered[i];
+                final user = userMap[s.user];
+                return _StaffRow(
+                  schoolId: widget.schoolId,
+                  member: s,
+                  user: user,
+                );
+              },
+            );
           },
         );
       },
@@ -900,79 +985,76 @@ class _StaffTab extends StatelessWidget {
 }
 
 class _StaffRow extends StatelessWidget {
-  const _StaffRow({required this.schoolId, required this.member});
+  const _StaffRow({
+    required this.schoolId,
+    required this.member,
+    required this.user,
+  });
   final String schoolId;
   final StaffData member;
+  final UsersData? user;
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<UsersData?>(
-      future: MembersDao(db).findUserById(member.user),
-      builder: (context, snap) {
-        final user = snap.data;
-        final parts = <String>[];
-        if (member.department != null) parts.add(member.department!);
-        if (member.role != null) parts.add(member.role!);
+    final parts = <String>[];
+    if (member.department != null) parts.add(member.department!);
+    if (member.role != null) parts.add(member.role!);
 
-        return _UserDataRow(
-          userId: member.user,
-          name: user?.name ?? '…',
-          subtitle: parts.isNotEmpty
-              ? parts.join('  ·  ')
-              : (user?.phone ?? ''),
-          status: user?.status,
-          level: user?.level,
-          trailing: member.status != StaffStatus.active
-              ? _SmallChip(
-                  label: member.status.name,
-                  cs: Theme.of(context).colorScheme,
-                )
-              : null,
-          onTap: () {
-            if (user == null) return;
-            final w = MediaQuery.sizeOf(context).width;
-            if (w >= 600) {
-              _showStaffSideSheet(context, user);
-            } else {
-              _showStaffBottomSheet(context, user);
-            }
-          },
-          actions: user == null
-              ? const []
-              : [
-                  _RowAction(
-                    icon: Icons.open_in_new_rounded,
-                    label: 'View',
-                    onTap: () {
-                      final w = MediaQuery.sizeOf(context).width;
-                      if (w >= 600) {
-                        _showStaffSideSheet(context, user);
-                      } else {
-                        _showStaffBottomSheet(context, user);
-                      }
-                    },
-                  ),
-                  _RowAction(
-                    icon: Icons.edit_outlined,
-                    label: 'Edit',
-                    onTap: () {
-                      final w = MediaQuery.sizeOf(context).width;
-                      if (w >= 600) {
-                        _showStaffSideSheet(context, user);
-                      } else {
-                        _showStaffBottomSheet(context, user);
-                      }
-                    },
-                  ),
-                  _RowAction(
-                    icon: Icons.person_remove_outlined,
-                    label: 'Remove',
-                    isDestructive: true,
-                    onTap: () => _confirmRemove(context, user),
-                  ),
-                ],
-        );
+    return _UserDataRow(
+      userId: member.user,
+      name: user?.name ?? '…',
+      subtitle: parts.isNotEmpty ? parts.join('  ·  ') : (user?.phone ?? ''),
+      status: user?.status,
+      level: user?.level,
+      trailing: member.status != StaffStatus.active
+          ? _SmallChip(
+              label: member.status.name,
+              cs: Theme.of(context).colorScheme,
+            )
+          : null,
+      onTap: () {
+        if (user == null) return;
+        final w = MediaQuery.sizeOf(context).width;
+        if (w >= 600) {
+          _showStaffSideSheet(context, user!);
+        } else {
+          _showStaffBottomSheet(context, user!);
+        }
       },
+      actions: user == null
+          ? const []
+          : [
+              _RowAction(
+                icon: Icons.open_in_new_rounded,
+                label: 'View',
+                onTap: () {
+                  final w = MediaQuery.sizeOf(context).width;
+                  if (w >= 600) {
+                    _showStaffSideSheet(context, user!);
+                  } else {
+                    _showStaffBottomSheet(context, user!);
+                  }
+                },
+              ),
+              _RowAction(
+                icon: Icons.edit_outlined,
+                label: 'Edit',
+                onTap: () {
+                  final w = MediaQuery.sizeOf(context).width;
+                  if (w >= 600) {
+                    _showStaffSideSheet(context, user!);
+                  } else {
+                    _showStaffBottomSheet(context, user!);
+                  }
+                },
+              ),
+              _RowAction(
+                icon: Icons.person_remove_outlined,
+                label: 'Remove',
+                isDestructive: true,
+                onTap: () => _confirmRemove(context, user!),
+              ),
+            ],
     );
   }
 
@@ -1017,57 +1099,14 @@ class _StaffRow extends StatelessWidget {
   }
 
   Future<void> _confirmRemove(BuildContext context, UsersData user) async {
-    final cs = Theme.of(context).colorScheme;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: cs.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-        ),
-        title: Text(
-          'Remove "${user.name}"?',
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-            color: cs.onSurface,
-          ),
-        ),
-        content: Text(
-          'This will remove the staff member from this school.',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w400,
-            color: cs.onSurfaceVariant,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(
-              'Remove',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: cs.error,
-              ),
-            ),
-          ),
-        ],
-      ),
+      title: 'Remove "${user.name}"?',
+      message: 'This will remove the staff member from this school.',
+      confirmLabel: 'Remove',
+      isDestructive: true,
     );
-    if (confirmed != true || !context.mounted) return;
+    if (!confirmed || !context.mounted) return;
     final service = MemberManagementService(MembersDao(db));
     final result = await service.removeStaff(
       schoolId: schoolId,
@@ -1088,16 +1127,31 @@ class _StaffRow extends StatelessWidget {
 // Students tab
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _StudentsTab extends StatelessWidget {
+class _StudentsTab extends StatefulWidget {
   const _StudentsTab({required this.schoolId, required this.dao});
 
   final String schoolId;
   final MembersDao dao;
 
   @override
+  State<_StudentsTab> createState() => _StudentsTabState();
+}
+
+class _StudentsTabState extends State<_StudentsTab> {
+  final _searchCtrl = TextEditingController();
+  String _query = '';
+  bool _showSearch = false;
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<StudentsData>>(
-      stream: dao.watchAllStudents(schoolId),
+      stream: widget.dao.watchAllStudents(widget.schoolId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting &&
             !snapshot.hasData) {
@@ -1111,11 +1165,32 @@ class _StudentsTab extends StatelessWidget {
             hint: 'Tap + to add a student.',
           );
         }
+
+        // Apply search filter by name or admission number
+        final filtered = _query.isEmpty
+            ? list
+            : list.where((s) {
+                final q = _query.toLowerCase();
+                return s.name.toLowerCase().contains(q) ||
+                    s.adm.toString().contains(q);
+              }).toList();
+
         return _FlatMemberList(
-          itemCount: list.length,
+          searchController: _searchCtrl,
+          searchHint: 'Search by name or ADM…',
+          showSearch: _showSearch,
+          onToggleSearch: () => setState(() {
+            _showSearch = !_showSearch;
+            if (!_showSearch) {
+              _searchCtrl.clear();
+              _query = '';
+            }
+          }),
+          onSearchChanged: (v) => setState(() => _query = v.trim()),
+          itemCount: filtered.length,
           itemBuilder: (context, i) {
-            final s = list[i];
-            return _StudentRow(schoolId: schoolId, student: s);
+            final s = filtered[i];
+            return _StudentRow(schoolId: widget.schoolId, student: s);
           },
         );
       },
@@ -1235,57 +1310,14 @@ class _StudentRow extends StatelessWidget {
   }
 
   Future<void> _confirmDelete(BuildContext context) async {
-    final cs = Theme.of(context).colorScheme;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: cs.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-        ),
-        title: Text(
-          'Delete "${student.name}"?',
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-            color: cs.onSurface,
-          ),
-        ),
-        content: Text(
-          'This will permanently delete the student record.',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w400,
-            color: cs.onSurfaceVariant,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(
-              'Delete',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: cs.error,
-              ),
-            ),
-          ),
-        ],
-      ),
+      title: 'Delete "${student.name}"?',
+      message: 'This will permanently delete the student record.',
+      confirmLabel: 'Delete',
+      isDestructive: true,
     );
-    if (confirmed != true || !context.mounted) return;
+    if (!confirmed || !context.mounted) return;
     final service = MemberManagementService(MembersDao(db));
     final result = await service.changeStudentStatus(
       schoolId: schoolId,
@@ -1307,16 +1339,31 @@ class _StudentRow extends StatelessWidget {
 // Guardians tab
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _GuardiansTab extends StatelessWidget {
+class _GuardiansTab extends StatefulWidget {
   const _GuardiansTab({required this.schoolId, required this.dao});
 
   final String schoolId;
   final MembersDao dao;
 
   @override
+  State<_GuardiansTab> createState() => _GuardiansTabState();
+}
+
+class _GuardiansTabState extends State<_GuardiansTab> {
+  final _searchCtrl = TextEditingController();
+  String _query = '';
+  bool _showSearch = false;
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<({UsersData user, int wardCount})>>(
-      stream: dao.watchUniqueGuardians(schoolId),
+      stream: widget.dao.watchUniqueGuardians(widget.schoolId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting &&
             !snapshot.hasData) {
@@ -1330,12 +1377,33 @@ class _GuardiansTab extends StatelessWidget {
             hint: 'Link a guardian from a student\'s profile, or tap +.',
           );
         }
+
+        // Apply search filter by name or phone
+        final filtered = _query.isEmpty
+            ? list
+            : list.where((item) {
+                final q = _query.toLowerCase();
+                return item.user.name.toLowerCase().contains(q) ||
+                    item.user.phone.toLowerCase().contains(q);
+              }).toList();
+
         return _FlatMemberList(
-          itemCount: list.length,
+          searchController: _searchCtrl,
+          searchHint: 'Search by name or phone…',
+          showSearch: _showSearch,
+          onToggleSearch: () => setState(() {
+            _showSearch = !_showSearch;
+            if (!_showSearch) {
+              _searchCtrl.clear();
+              _query = '';
+            }
+          }),
+          onSearchChanged: (v) => setState(() => _query = v.trim()),
+          itemCount: filtered.length,
           itemBuilder: (context, i) {
-            final item = list[i];
+            final item = filtered[i];
             return _UniqueGuardianRow(
-              schoolId: schoolId,
+              schoolId: widget.schoolId,
               user: item.user,
               wardCount: item.wardCount,
             );
@@ -1969,21 +2037,133 @@ class _SmallChip extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _FlatMemberList extends StatelessWidget {
-  const _FlatMemberList({required this.itemCount, required this.itemBuilder});
+  const _FlatMemberList({
+    required this.itemCount,
+    required this.itemBuilder,
+    this.searchController,
+    this.searchHint,
+    this.showSearch = false,
+    this.onToggleSearch,
+    this.onSearchChanged,
+  });
 
   final int itemCount;
   final Widget Function(BuildContext, int) itemBuilder;
+  final TextEditingController? searchController;
+  final String? searchHint;
+  final bool showSearch;
+  final VoidCallback? onToggleSearch;
+  final ValueChanged<String>? onSearchChanged;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cs = Theme.of(context).colorScheme;
 
-    return ListView.separated(
-      padding: const EdgeInsets.only(top: 4, bottom: 80),
-      itemCount: itemCount,
-      separatorBuilder: (_, _) => AppTheme.tableRowDivider(isDark, cs),
-      itemBuilder: itemBuilder,
+    return Column(
+      children: [
+        // ── Search toolbar ─────────────────────────────────────────────
+        if (searchController != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: Row(
+              children: [
+                if (showSearch) ...[
+                  Expanded(
+                    child: SizedBox(
+                      height: 36,
+                      child: TextField(
+                        controller: searchController,
+                        onChanged: onSearchChanged,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: cs.onSurface,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: searchHint ?? 'Search…',
+                          hintStyle: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                          ),
+                          prefixIcon: Icon(
+                            Icons.search_rounded,
+                            size: 18,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                          ),
+                          prefixIconConstraints: const BoxConstraints(
+                            minWidth: 36,
+                          ),
+                          filled: true,
+                          fillColor: isDark
+                              ? cs.surfaceContainerHighest.withValues(
+                                  alpha: 0.3,
+                                )
+                              : cs.surfaceContainerHighest.withValues(
+                                  alpha: 0.5,
+                                ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.kCardRadius,
+                            ),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 0,
+                          ),
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      iconSize: 18,
+                      icon: Icon(
+                        Icons.close_rounded,
+                        color: cs.onSurfaceVariant,
+                      ),
+                      tooltip: 'Close search',
+                      onPressed: onToggleSearch,
+                    ),
+                  ),
+                ] else ...[
+                  const Spacer(),
+                  SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      iconSize: 18,
+                      icon: Icon(
+                        Icons.search_rounded,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                      ),
+                      tooltip: 'Search',
+                      onPressed: onToggleSearch,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+
+        // ── List content ───────────────────────────────────────────────
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.only(top: 4, bottom: 80),
+            itemCount: itemCount,
+            separatorBuilder: (_, _) => AppTheme.tableRowDivider(isDark, cs),
+            itemBuilder: itemBuilder,
+          ),
+        ),
+      ],
     );
   }
 }
