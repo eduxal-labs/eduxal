@@ -28,7 +28,7 @@ import '../../../widgets/user_avatar.dart';
 // Student Detail Page — thin wrapper that opens StudentDetailSheet
 // ─────────────────────────────────────────────────────────────────────────────
 
-class StudentDetailPage extends StatelessWidget {
+class StudentDetailPage extends StatefulWidget {
   const StudentDetailPage({
     super.key,
     required this.initialStudent,
@@ -39,15 +39,55 @@ class StudentDetailPage extends StatelessWidget {
   final String schoolId;
 
   @override
+  State<StudentDetailPage> createState() => _StudentDetailPageState();
+}
+
+class _StudentDetailPageState extends State<StudentDetailPage>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _entranceController;
+  late final Animation<double> _fadeIn;
+  late final Animation<Offset> _slideUp;
+
+  @override
+  void initState() {
+    super.initState();
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    );
+    _fadeIn = CurvedAnimation(
+      parent: _entranceController,
+      curve: Curves.easeOut,
+    );
+    _slideUp = Tween<Offset>(begin: const Offset(0, 0.03), end: Offset.zero)
+        .animate(
+          CurvedAnimation(parent: _entranceController, curve: Curves.easeOut),
+        );
+    _entranceController.forward();
+  }
+
+  @override
+  void dispose() {
+    _entranceController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F1720) : cs.surface,
-      body: StudentDetailSheet(
-        initialStudent: initialStudent,
-        schoolId: schoolId,
+      body: SlideTransition(
+        position: _slideUp,
+        child: FadeTransition(
+          opacity: _fadeIn,
+          child: StudentDetailSheet(
+            initialStudent: widget.initialStudent,
+            schoolId: widget.schoolId,
+          ),
+        ),
       ),
     );
   }

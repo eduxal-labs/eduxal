@@ -1179,7 +1179,7 @@ After Task 701, go through all form-containing sheets/dialogs and ensure:
 ## TRACK 8 — Inner Pages & Detail Screens Consistency
 ## ═══════════════════════════════════════════════════════════════════════════
 
-### Task 801: Ensure all detail screens have consistent entrance animations and layout
+### Task 801: Ensure all detail screens have consistent entrance animations and layout [x]
 **Files to create/modify:** All detail/inner page screens
 **Context files to read:** `lib/ui/CONTEXT.md`
 **Depends on:** Task 101
@@ -1209,7 +1209,7 @@ Every detail screen (pushed via `Navigator.push`) should have:
 
 **Update after completion:**
 - [ ] Update `lib/ui/screens/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: `git commit -m "ui: standardize entrance animations and layouts across all detail screens"`
 
 ---

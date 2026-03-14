@@ -52,13 +52,17 @@ class StudentGradePage extends StatefulWidget {
 }
 
 class _StudentGradePageState extends State<StudentGradePage>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final TabController _tabController;
   late final MembersDao _membersDao;
   late final ExamsGradesDao _examsGradesDao;
 
   late Stream<StudentsData?> _studentStream;
   late Stream<Trajectory> _trajectoryStream;
+
+  late final AnimationController _entranceController;
+  late final Animation<double> _fadeIn;
+  late final Animation<Offset> _slideUp;
 
   static const _tabs = <EduTab>[
     EduTab(label: 'Overview'),
@@ -70,6 +74,20 @@ class _StudentGradePageState extends State<StudentGradePage>
   @override
   void initState() {
     super.initState();
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    );
+    _fadeIn = CurvedAnimation(
+      parent: _entranceController,
+      curve: Curves.easeOut,
+    );
+    _slideUp = Tween<Offset>(begin: const Offset(0, 0.03), end: Offset.zero)
+        .animate(
+          CurvedAnimation(parent: _entranceController, curve: Curves.easeOut),
+        );
+    _entranceController.forward();
+
     _tabController = TabController(length: _tabs.length, vsync: this);
     _membersDao = MembersDao(db);
     _examsGradesDao = ExamsGradesDao(db);
@@ -82,6 +100,7 @@ class _StudentGradePageState extends State<StudentGradePage>
 
   @override
   void dispose() {
+    _entranceController.dispose();
     _tabController.dispose();
     super.dispose();
   }
@@ -162,91 +181,98 @@ class _StudentGradePageState extends State<StudentGradePage>
         scrolledUnderElevation: 0,
         backgroundColor: cs.surface,
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // ── Student header card ──────────────────────────────────────────
-          Container(
-            color: cs.surface,
-            child: StreamBuilder<StudentsData?>(
-              stream: _studentStream,
-              builder: (context, snapshot) {
-                final student = snapshot.data;
-                if (student == null) {
-                  return const SizedBox(height: 60);
-                }
-                return _buildHeaderCard(cs, isDark, student);
-              },
-            ),
-          ),
-
-          // ── Trajectory banner ────────────────────────────────────────────
-          StreamBuilder<Trajectory>(
-            stream: _trajectoryStream,
-            builder: (context, snapshot) {
-              final trajectory = snapshot.data ?? Trajectory.insufficientData;
-              return _buildTrajectoryBanner(cs, isDark, trajectory);
-            },
-          ),
-
-          // ── Content tabs ─────────────────────────────────────────────────
-          Container(
-            color: cs.surface,
-            child: EduTabBar(
-              controller: _tabController,
-              tabs: _tabs,
-              isScrollable: true,
-              padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
-            ),
-          ),
-
-          // ── Divider ──────────────────────────────────────────────────────
-          Container(
-            height: 1,
-            color: cs.outline.withValues(alpha: isDark ? 0.08 : 0.06),
-          ),
-
-          // ── Tab content ──────────────────────────────────────────────────
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                StudentOverviewTab(
-                  schoolId: widget.schoolId,
-                  year: widget.year,
-                  term: widget.term,
-                  grade: widget.grade,
-                  streamCode: widget.streamCode,
-                  studentAdm: widget.studentAdm,
-                  curriculumType: widget.curriculumType,
+      body: SlideTransition(
+        position: _slideUp,
+        child: FadeTransition(
+          opacity: _fadeIn,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── Student header card ──────────────────────────────────────────
+              Container(
+                color: cs.surface,
+                child: StreamBuilder<StudentsData?>(
+                  stream: _studentStream,
+                  builder: (context, snapshot) {
+                    final student = snapshot.data;
+                    if (student == null) {
+                      return const SizedBox(height: 60);
+                    }
+                    return _buildHeaderCard(cs, isDark, student);
+                  },
                 ),
-                StudentMasteryTab(
-                  schoolId: widget.schoolId,
-                  studentAdm: widget.studentAdm,
-                  grade: widget.grade,
-                  curriculumType: widget.curriculumType,
+              ),
+
+              // ── Trajectory banner ────────────────────────────────────────────
+              StreamBuilder<Trajectory>(
+                stream: _trajectoryStream,
+                builder: (context, snapshot) {
+                  final trajectory =
+                      snapshot.data ?? Trajectory.insufficientData;
+                  return _buildTrajectoryBanner(cs, isDark, trajectory);
+                },
+              ),
+
+              // ── Content tabs ─────────────────────────────────────────────────
+              Container(
+                color: cs.surface,
+                child: EduTabBar(
+                  controller: _tabController,
+                  tabs: _tabs,
+                  isScrollable: true,
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
                 ),
-                StudentExamsTab(
-                  schoolId: widget.schoolId,
-                  year: widget.year,
-                  term: widget.term,
-                  grade: widget.grade,
-                  streamCode: widget.streamCode,
-                  studentAdm: widget.studentAdm,
-                  curriculumType: widget.curriculumType,
+              ),
+
+              // ── Divider ──────────────────────────────────────────────────────
+              Container(
+                height: 1,
+                color: cs.outline.withValues(alpha: isDark ? 0.08 : 0.06),
+              ),
+
+              // ── Tab content ──────────────────────────────────────────────────
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    StudentOverviewTab(
+                      schoolId: widget.schoolId,
+                      year: widget.year,
+                      term: widget.term,
+                      grade: widget.grade,
+                      streamCode: widget.streamCode,
+                      studentAdm: widget.studentAdm,
+                      curriculumType: widget.curriculumType,
+                    ),
+                    StudentMasteryTab(
+                      schoolId: widget.schoolId,
+                      studentAdm: widget.studentAdm,
+                      grade: widget.grade,
+                      curriculumType: widget.curriculumType,
+                    ),
+                    StudentExamsTab(
+                      schoolId: widget.schoolId,
+                      year: widget.year,
+                      term: widget.term,
+                      grade: widget.grade,
+                      streamCode: widget.streamCode,
+                      studentAdm: widget.studentAdm,
+                      curriculumType: widget.curriculumType,
+                    ),
+                    StudentAttendanceTab(
+                      schoolId: widget.schoolId,
+                      year: widget.year,
+                      term: widget.term,
+                      grade: widget.grade,
+                      streamCode: widget.streamCode,
+                      studentAdm: widget.studentAdm,
+                    ),
+                  ],
                 ),
-                StudentAttendanceTab(
-                  schoolId: widget.schoolId,
-                  year: widget.year,
-                  term: widget.term,
-                  grade: widget.grade,
-                  streamCode: widget.streamCode,
-                  studentAdm: widget.studentAdm,
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
