@@ -52,7 +52,7 @@ class SubjectTeacherEntry {
     required this.gradeMasteryAverage,
   });
 
-  final Subject subject;
+  final SubjectTeacher subject;
   final int streamCode;
   final String streamName;
   final UsersData teacher;

@@ -115,6 +115,70 @@ class AppTheme {
   );
 
   // ─────────────────────────────────────────────────────────────────────────
+  // Design tokens — modal, card, chip radii
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Modal / dialog container radius.
+  static const double kModalRadius = 12.0;
+
+  /// Card / input / button radius.
+  static const double kCardRadius = 8.0;
+
+  /// Chip / badge / small element radius.
+  static const double kChipRadius = 4.0;
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Design tokens — shadows
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Standard modal shadow — dual box-shadow (large diffuse + small tight).
+  /// Use in all dialogs, modals, and bottom sheets.
+  static List<BoxShadow> modalShadow(bool isDark) => [
+    BoxShadow(
+      color: Colors.black.withValues(alpha: isDark ? 0.50 : 0.14),
+      blurRadius: isDark ? 40 : 24,
+      offset: const Offset(0, 10),
+    ),
+    BoxShadow(
+      color: Colors.black.withValues(alpha: isDark ? 0.22 : 0.05),
+      blurRadius: 6,
+      offset: const Offset(0, 2),
+    ),
+  ];
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Design tokens — data table
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Thin divider used between rows in data-table-style lists.
+  static Divider tableRowDivider(bool isDark, ColorScheme cs) => Divider(
+    height: 1,
+    thickness: 0.5,
+    color: cs.outlineVariant.withValues(alpha: isDark ? 0.15 : 0.1),
+  );
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Design tokens — contextual dark-mode colors
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Background for modal/dialog containers.
+  static Color modalBg(bool isDark, ColorScheme cs) =>
+      isDark ? const Color(0xFF18222E) : cs.surface;
+
+  /// Background for nested content sections inside a modal.
+  static Color nestedBg(bool isDark, ColorScheme cs) =>
+      isDark ? const Color(0xFF1A2536) : cs.surfaceContainerHighest;
+
+  /// Background for overlay surfaces (e.g. dropdown, popover).
+  static Color overlayBg(bool isDark, ColorScheme cs) =>
+      isDark ? const Color(0xFF1E2A3A) : cs.surface;
+
+  /// Border/divider colour for containers and cards.
+  static Color borderColor(bool isDark, ColorScheme cs) => isDark
+      ? const Color(0xFF2A3848)
+      : cs.outlineVariant.withValues(alpha: 0.6);
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Theme mode mapping
   // ─────────────────────────────────────────────────────────────────────────
 

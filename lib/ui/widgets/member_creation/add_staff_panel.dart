@@ -328,7 +328,7 @@ class _StyledInput extends StatelessWidget {
     required this.prefixIcon,
     required this.isDark,
     required this.cs,
-    this.keyboardType,
+    this.keyboardType, // ignore: unused_element_parameter
   });
 
   final TextEditingController controller;
