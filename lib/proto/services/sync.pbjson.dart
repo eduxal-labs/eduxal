@@ -1126,42 +1126,60 @@ final $typed_data.Uint8List deleteLessonPayloadDescriptor = $convert.base64Decod
     'c3RyZWFtGAUgASgFUgZzdHJlYW0SEgoEZGF0ZRgGIAEoBVIEZGF0ZRIYCgdzdWJqZWN0GAcgAS'
     'gFUgdzdWJqZWN0EhgKB3RlYWNoZXIYCCABKAlSB3RlYWNoZXI=');
 
+@$core.Deprecated('Use examGradeEntryDescriptor instead')
+const ExamGradeEntry$json = {
+  '1': 'ExamGradeEntry',
+  '2': [
+    {'1': 'grade', '3': 1, '4': 1, '5': 5, '10': 'grade'},
+    {'1': 'stream', '3': 2, '4': 1, '5': 5, '10': 'stream'},
+  ],
+};
+
+/// Descriptor for `ExamGradeEntry`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List examGradeEntryDescriptor = $convert.base64Decode(
+    'Cg5FeGFtR3JhZGVFbnRyeRIUCgVncmFkZRgBIAEoBVIFZ3JhZGUSFgoGc3RyZWFtGAIgASgFUg'
+    'ZzdHJlYW0=');
+
 @$core.Deprecated('Use createExamPayloadDescriptor instead')
 const CreateExamPayload$json = {
   '1': 'CreateExamPayload',
   '2': [
     {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
     {'1': 'school', '3': 2, '4': 1, '5': 9, '10': 'school'},
-    {'1': 'year', '3': 3, '4': 1, '5': 5, '10': 'year'},
-    {'1': 'term', '3': 4, '4': 1, '5': 5, '10': 'term'},
-    {'1': 'grade', '3': 5, '4': 1, '5': 5, '10': 'grade'},
-    {'1': 'stream', '3': 6, '4': 1, '5': 5, '9': 0, '10': 'stream', '17': true},
-    {'1': 'personalized', '3': 7, '4': 1, '5': 8, '10': 'personalized'},
-    {'1': 'type', '3': 8, '4': 1, '5': 5, '10': 'type'},
-    {'1': 'start', '3': 9, '4': 1, '5': 5, '10': 'start'},
-    {'1': 'end', '3': 10, '4': 1, '5': 5, '10': 'end'},
-    {'1': 'teacher', '3': 11, '4': 1, '5': 9, '10': 'teacher'},
-  ],
-  '8': [
-    {'1': '_stream'},
+    {'1': 'name', '3': 3, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'year', '3': 4, '4': 1, '5': 5, '10': 'year'},
+    {'1': 'term', '3': 5, '4': 1, '5': 5, '10': 'term'},
+    {'1': 'personalized', '3': 6, '4': 1, '5': 8, '10': 'personalized'},
+    {'1': 'type', '3': 7, '4': 1, '5': 5, '10': 'type'},
+    {'1': 'start', '3': 8, '4': 1, '5': 5, '10': 'start'},
+    {'1': 'end', '3': 9, '4': 1, '5': 5, '10': 'end'},
+    {'1': 'teacher', '3': 10, '4': 1, '5': 9, '10': 'teacher'},
+    {
+      '1': 'grades',
+      '3': 11,
+      '4': 3,
+      '5': 11,
+      '6': '.sync.ExamGradeEntry',
+      '10': 'grades'
+    },
   ],
 };
 
 /// Descriptor for `CreateExamPayload`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List createExamPayloadDescriptor = $convert.base64Decode(
     'ChFDcmVhdGVFeGFtUGF5bG9hZBIOCgJpZBgBIAEoCVICaWQSFgoGc2Nob29sGAIgASgJUgZzY2'
-    'hvb2wSEgoEeWVhchgDIAEoBVIEeWVhchISCgR0ZXJtGAQgASgFUgR0ZXJtEhQKBWdyYWRlGAUg'
-    'ASgFUgVncmFkZRIbCgZzdHJlYW0YBiABKAVIAFIGc3RyZWFtiAEBEiIKDHBlcnNvbmFsaXplZB'
-    'gHIAEoCFIMcGVyc29uYWxpemVkEhIKBHR5cGUYCCABKAVSBHR5cGUSFAoFc3RhcnQYCSABKAVS'
-    'BXN0YXJ0EhAKA2VuZBgKIAEoBVIDZW5kEhgKB3RlYWNoZXIYCyABKAlSB3RlYWNoZXJCCQoHX3'
-    'N0cmVhbQ==');
+    'hvb2wSEgoEbmFtZRgDIAEoCVIEbmFtZRISCgR5ZWFyGAQgASgFUgR5ZWFyEhIKBHRlcm0YBSAB'
+    'KAVSBHRlcm0SIgoMcGVyc29uYWxpemVkGAYgASgIUgxwZXJzb25hbGl6ZWQSEgoEdHlwZRgHIA'
+    'EoBVIEdHlwZRIUCgVzdGFydBgIIAEoBVIFc3RhcnQSEAoDZW5kGAkgASgFUgNlbmQSGAoHdGVh'
+    'Y2hlchgKIAEoCVIHdGVhY2hlchIsCgZncmFkZXMYCyADKAsyFC5zeW5jLkV4YW1HcmFkZUVudH'
+    'J5UgZncmFkZXM=');
 
 @$core.Deprecated('Use updateExamPayloadDescriptor instead')
 const UpdateExamPayload$json = {
   '1': 'UpdateExamPayload',
   '2': [
     {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
-    {'1': 'stream', '3': 2, '4': 1, '5': 5, '9': 0, '10': 'stream', '17': true},
+    {'1': 'name', '3': 2, '4': 1, '5': 9, '9': 0, '10': 'name', '17': true},
     {
       '1': 'personalized',
       '3': 3,
@@ -1185,7 +1203,7 @@ const UpdateExamPayload$json = {
     },
   ],
   '8': [
-    {'1': '_stream'},
+    {'1': '_name'},
     {'1': '_personalized'},
     {'1': '_type'},
     {'1': '_start'},
@@ -1196,12 +1214,11 @@ const UpdateExamPayload$json = {
 
 /// Descriptor for `UpdateExamPayload`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List updateExamPayloadDescriptor = $convert.base64Decode(
-    'ChFVcGRhdGVFeGFtUGF5bG9hZBIOCgJpZBgBIAEoCVICaWQSGwoGc3RyZWFtGAIgASgFSABSBn'
-    'N0cmVhbYgBARInCgxwZXJzb25hbGl6ZWQYAyABKAhIAVIMcGVyc29uYWxpemVkiAEBEhcKBHR5'
-    'cGUYBCABKAVIAlIEdHlwZYgBARIZCgVzdGFydBgFIAEoBUgDUgVzdGFydIgBARIVCgNlbmQYBi'
-    'ABKAVIBFIDZW5kiAEBEh0KB3RlYWNoZXIYByABKAlIBVIHdGVhY2hlcogBAUIJCgdfc3RyZWFt'
-    'Qg8KDV9wZXJzb25hbGl6ZWRCBwoFX3R5cGVCCAoGX3N0YXJ0QgYKBF9lbmRCCgoIX3RlYWNoZX'
-    'I=');
+    'ChFVcGRhdGVFeGFtUGF5bG9hZBIOCgJpZBgBIAEoCVICaWQSFwoEbmFtZRgCIAEoCUgAUgRuYW'
+    '1liAEBEicKDHBlcnNvbmFsaXplZBgDIAEoCEgBUgxwZXJzb25hbGl6ZWSIAQESFwoEdHlwZRgE'
+    'IAEoBUgCUgR0eXBliAEBEhkKBXN0YXJ0GAUgASgFSANSBXN0YXJ0iAEBEhUKA2VuZBgGIAEoBU'
+    'gEUgNlbmSIAQESHQoHdGVhY2hlchgHIAEoCUgFUgd0ZWFjaGVyiAEBQgcKBV9uYW1lQg8KDV9w'
+    'ZXJzb25hbGl6ZWRCBwoFX3R5cGVCCAoGX3N0YXJ0QgYKBF9lbmRCCgoIX3RlYWNoZXI=');
 
 @$core.Deprecated('Use deleteExamPayloadDescriptor instead')
 const DeleteExamPayload$json = {
@@ -1226,9 +1243,11 @@ const CreatePaperPayload$json = {
     {'1': 'invigilator', '3': 5, '4': 1, '5': 9, '10': 'invigilator'},
     {'1': 'start', '3': 6, '4': 1, '5': 3, '10': 'start'},
     {'1': 'end', '3': 7, '4': 1, '5': 3, '10': 'end'},
+    {'1': 'topic', '3': 8, '4': 1, '5': 5, '9': 1, '10': 'topic', '17': true},
   ],
   '8': [
     {'1': '_paper'},
+    {'1': '_topic'},
   ],
 };
 
@@ -1237,7 +1256,8 @@ final $typed_data.Uint8List createPaperPayloadDescriptor = $convert.base64Decode
     'ChJDcmVhdGVQYXBlclBheWxvYWQSFgoGc2Nob29sGAEgASgJUgZzY2hvb2wSEgoEZXhhbRgCIA'
     'EoCVIEZXhhbRIYCgdzdWJqZWN0GAMgASgFUgdzdWJqZWN0EhkKBXBhcGVyGAQgASgFSABSBXBh'
     'cGVyiAEBEiAKC2ludmlnaWxhdG9yGAUgASgJUgtpbnZpZ2lsYXRvchIUCgVzdGFydBgGIAEoA1'
-    'IFc3RhcnQSEAoDZW5kGAcgASgDUgNlbmRCCAoGX3BhcGVy');
+    'IFc3RhcnQSEAoDZW5kGAcgASgDUgNlbmQSGQoFdG9waWMYCCABKAVIAVIFdG9waWOIAQFCCAoG'
+    'X3BhcGVyQggKBl90b3BpYw==');
 
 @$core.Deprecated('Use updatePaperPayloadDescriptor instead')
 const UpdatePaperPayload$json = {
@@ -1259,6 +1279,7 @@ const UpdatePaperPayload$json = {
     {'1': 'start', '3': 6, '4': 1, '5': 3, '9': 2, '10': 'start', '17': true},
     {'1': 'end', '3': 7, '4': 1, '5': 3, '9': 3, '10': 'end', '17': true},
     {'1': 'status', '3': 8, '4': 1, '5': 5, '9': 4, '10': 'status', '17': true},
+    {'1': 'topic', '3': 9, '4': 1, '5': 5, '9': 5, '10': 'topic', '17': true},
   ],
   '8': [
     {'1': '_paper'},
@@ -1266,6 +1287,7 @@ const UpdatePaperPayload$json = {
     {'1': '_start'},
     {'1': '_end'},
     {'1': '_status'},
+    {'1': '_topic'},
   ],
 };
 
@@ -1275,8 +1297,8 @@ final $typed_data.Uint8List updatePaperPayloadDescriptor = $convert.base64Decode
     'EoCVIEZXhhbRIYCgdzdWJqZWN0GAMgASgFUgdzdWJqZWN0EhkKBXBhcGVyGAQgASgFSABSBXBh'
     'cGVyiAEBEiUKC2ludmlnaWxhdG9yGAUgASgJSAFSC2ludmlnaWxhdG9yiAEBEhkKBXN0YXJ0GA'
     'YgASgDSAJSBXN0YXJ0iAEBEhUKA2VuZBgHIAEoA0gDUgNlbmSIAQESGwoGc3RhdHVzGAggASgF'
-    'SARSBnN0YXR1c4gBAUIICgZfcGFwZXJCDgoMX2ludmlnaWxhdG9yQggKBl9zdGFydEIGCgRfZW'
-    '5kQgkKB19zdGF0dXM=');
+    'SARSBnN0YXR1c4gBARIZCgV0b3BpYxgJIAEoBUgFUgV0b3BpY4gBAUIICgZfcGFwZXJCDgoMX2'
+    'ludmlnaWxhdG9yQggKBl9zdGFydEIGCgRfZW5kQgkKB19zdGF0dXNCCAoGX3RvcGlj');
 
 @$core.Deprecated('Use deletePaperPayloadDescriptor instead')
 const DeletePaperPayload$json = {
@@ -1396,18 +1418,17 @@ const UpdateMasteryPayload$json = {
   '2': [
     {'1': 'school', '3': 1, '4': 1, '5': 9, '10': 'school'},
     {'1': 'student', '3': 2, '4': 1, '5': 5, '10': 'student'},
-    {'1': 'grade', '3': 3, '4': 1, '5': 5, '10': 'grade'},
-    {'1': 'subject', '3': 4, '4': 1, '5': 5, '10': 'subject'},
-    {'1': 'topic', '3': 5, '4': 1, '5': 5, '10': 'topic'},
-    {'1': 'score', '3': 6, '4': 1, '5': 2, '10': 'score'},
+    {'1': 'subject', '3': 3, '4': 1, '5': 5, '10': 'subject'},
+    {'1': 'topic', '3': 4, '4': 1, '5': 5, '10': 'topic'},
+    {'1': 'score', '3': 5, '4': 1, '5': 2, '10': 'score'},
   ],
 };
 
 /// Descriptor for `UpdateMasteryPayload`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List updateMasteryPayloadDescriptor = $convert.base64Decode(
     'ChRVcGRhdGVNYXN0ZXJ5UGF5bG9hZBIWCgZzY2hvb2wYASABKAlSBnNjaG9vbBIYCgdzdHVkZW'
-    '50GAIgASgFUgdzdHVkZW50EhQKBWdyYWRlGAMgASgFUgVncmFkZRIYCgdzdWJqZWN0GAQgASgF'
-    'UgdzdWJqZWN0EhQKBXRvcGljGAUgASgFUgV0b3BpYxIUCgVzY29yZRgGIAEoAlIFc2NvcmU=');
+    '50GAIgASgFUgdzdHVkZW50EhgKB3N1YmplY3QYAyABKAVSB3N1YmplY3QSFAoFdG9waWMYBCAB'
+    'KAVSBXRvcGljEhQKBXNjb3JlGAUgASgCUgVzY29yZQ==');
 
 @$core.Deprecated('Use createFeePayloadDescriptor instead')
 const CreateFeePayload$json = {
@@ -1962,25 +1983,292 @@ const DeleteUserPayload$json = {
 final $typed_data.Uint8List deleteUserPayloadDescriptor =
     $convert.base64Decode('ChFEZWxldGVVc2VyUGF5bG9hZBIOCgJpZBgBIAEoCVICaWQ=');
 
-@$core.Deprecated('Use updateSettingsPayloadDescriptor instead')
-const UpdateSettingsPayload$json = {
-  '1': 'UpdateSettingsPayload',
+@$core.Deprecated('Use createSubjectPayloadDescriptor instead')
+const CreateSubjectPayload$json = {
+  '1': 'CreateSubjectPayload',
   '2': [
-    {'1': 'school', '3': 1, '4': 1, '5': 9, '10': 'school'},
-    {'1': 'data', '3': 2, '4': 1, '5': 9, '9': 0, '10': 'data', '17': true},
-    {'1': 'mpesa', '3': 3, '4': 1, '5': 9, '9': 1, '10': 'mpesa', '17': true},
-  ],
-  '8': [
-    {'1': '_data'},
-    {'1': '_mpesa'},
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'curriculum', '3': 2, '4': 1, '5': 5, '10': 'curriculum'},
   ],
 };
 
-/// Descriptor for `UpdateSettingsPayload`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List updateSettingsPayloadDescriptor = $convert.base64Decode(
-    'ChVVcGRhdGVTZXR0aW5nc1BheWxvYWQSFgoGc2Nob29sGAEgASgJUgZzY2hvb2wSFwoEZGF0YR'
-    'gCIAEoCUgAUgRkYXRhiAEBEhkKBW1wZXNhGAMgASgJSAFSBW1wZXNhiAEBQgcKBV9kYXRhQggK'
-    'Bl9tcGVzYQ==');
+/// Descriptor for `CreateSubjectPayload`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List createSubjectPayloadDescriptor = $convert.base64Decode(
+    'ChRDcmVhdGVTdWJqZWN0UGF5bG9hZBISCgRuYW1lGAEgASgJUgRuYW1lEh4KCmN1cnJpY3VsdW'
+    '0YAiABKAVSCmN1cnJpY3VsdW0=');
+
+@$core.Deprecated('Use updateSubjectPayloadDescriptor instead')
+const UpdateSubjectPayload$json = {
+  '1': 'UpdateSubjectPayload',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 5, '10': 'id'},
+    {'1': 'name', '3': 2, '4': 1, '5': 9, '9': 0, '10': 'name', '17': true},
+    {
+      '1': 'curriculum',
+      '3': 3,
+      '4': 1,
+      '5': 5,
+      '9': 1,
+      '10': 'curriculum',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_name'},
+    {'1': '_curriculum'},
+  ],
+};
+
+/// Descriptor for `UpdateSubjectPayload`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List updateSubjectPayloadDescriptor = $convert.base64Decode(
+    'ChRVcGRhdGVTdWJqZWN0UGF5bG9hZBIOCgJpZBgBIAEoBVICaWQSFwoEbmFtZRgCIAEoCUgAUg'
+    'RuYW1liAEBEiMKCmN1cnJpY3VsdW0YAyABKAVIAVIKY3VycmljdWx1bYgBAUIHCgVfbmFtZUIN'
+    'CgtfY3VycmljdWx1bQ==');
+
+@$core.Deprecated('Use deleteSubjectPayloadDescriptor instead')
+const DeleteSubjectPayload$json = {
+  '1': 'DeleteSubjectPayload',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 5, '10': 'id'},
+  ],
+};
+
+/// Descriptor for `DeleteSubjectPayload`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List deleteSubjectPayloadDescriptor = $convert
+    .base64Decode('ChREZWxldGVTdWJqZWN0UGF5bG9hZBIOCgJpZBgBIAEoBVICaWQ=');
+
+@$core.Deprecated('Use createTopicPayloadDescriptor instead')
+const CreateTopicPayload$json = {
+  '1': 'CreateTopicPayload',
+  '2': [
+    {'1': 'subject', '3': 1, '4': 1, '5': 5, '10': 'subject'},
+    {'1': 'grade', '3': 2, '4': 1, '5': 5, '10': 'grade'},
+    {'1': 'name', '3': 3, '4': 1, '5': 9, '10': 'name'},
+  ],
+};
+
+/// Descriptor for `CreateTopicPayload`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List createTopicPayloadDescriptor = $convert.base64Decode(
+    'ChJDcmVhdGVUb3BpY1BheWxvYWQSGAoHc3ViamVjdBgBIAEoBVIHc3ViamVjdBIUCgVncmFkZR'
+    'gCIAEoBVIFZ3JhZGUSEgoEbmFtZRgDIAEoCVIEbmFtZQ==');
+
+@$core.Deprecated('Use updateTopicPayloadDescriptor instead')
+const UpdateTopicPayload$json = {
+  '1': 'UpdateTopicPayload',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 5, '10': 'id'},
+    {
+      '1': 'subject',
+      '3': 2,
+      '4': 1,
+      '5': 5,
+      '9': 0,
+      '10': 'subject',
+      '17': true
+    },
+    {'1': 'grade', '3': 3, '4': 1, '5': 5, '9': 1, '10': 'grade', '17': true},
+    {'1': 'name', '3': 4, '4': 1, '5': 9, '9': 2, '10': 'name', '17': true},
+  ],
+  '8': [
+    {'1': '_subject'},
+    {'1': '_grade'},
+    {'1': '_name'},
+  ],
+};
+
+/// Descriptor for `UpdateTopicPayload`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List updateTopicPayloadDescriptor = $convert.base64Decode(
+    'ChJVcGRhdGVUb3BpY1BheWxvYWQSDgoCaWQYASABKAVSAmlkEh0KB3N1YmplY3QYAiABKAVIAF'
+    'IHc3ViamVjdIgBARIZCgVncmFkZRgDIAEoBUgBUgVncmFkZYgBARIXCgRuYW1lGAQgASgJSAJS'
+    'BG5hbWWIAQFCCgoIX3N1YmplY3RCCAoGX2dyYWRlQgcKBV9uYW1l');
+
+@$core.Deprecated('Use deleteTopicPayloadDescriptor instead')
+const DeleteTopicPayload$json = {
+  '1': 'DeleteTopicPayload',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 5, '10': 'id'},
+  ],
+};
+
+/// Descriptor for `DeleteTopicPayload`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List deleteTopicPayloadDescriptor =
+    $convert.base64Decode('ChJEZWxldGVUb3BpY1BheWxvYWQSDgoCaWQYASABKAVSAmlk');
+
+@$core.Deprecated('Use createStreamPayloadDescriptor instead')
+const CreateStreamPayload$json = {
+  '1': 'CreateStreamPayload',
+  '2': [
+    {'1': 'school', '3': 1, '4': 1, '5': 9, '10': 'school'},
+    {'1': 'grade', '3': 2, '4': 1, '5': 5, '10': 'grade'},
+    {'1': 'stream', '3': 3, '4': 1, '5': 5, '10': 'stream'},
+    {'1': 'name', '3': 4, '4': 1, '5': 9, '10': 'name'},
+  ],
+};
+
+/// Descriptor for `CreateStreamPayload`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List createStreamPayloadDescriptor = $convert.base64Decode(
+    'ChNDcmVhdGVTdHJlYW1QYXlsb2FkEhYKBnNjaG9vbBgBIAEoCVIGc2Nob29sEhQKBWdyYWRlGA'
+    'IgASgFUgVncmFkZRIWCgZzdHJlYW0YAyABKAVSBnN0cmVhbRISCgRuYW1lGAQgASgJUgRuYW1l');
+
+@$core.Deprecated('Use updateStreamPayloadDescriptor instead')
+const UpdateStreamPayload$json = {
+  '1': 'UpdateStreamPayload',
+  '2': [
+    {'1': 'school', '3': 1, '4': 1, '5': 9, '10': 'school'},
+    {'1': 'grade', '3': 2, '4': 1, '5': 5, '10': 'grade'},
+    {'1': 'stream', '3': 3, '4': 1, '5': 5, '10': 'stream'},
+    {'1': 'name', '3': 4, '4': 1, '5': 9, '9': 0, '10': 'name', '17': true},
+  ],
+  '8': [
+    {'1': '_name'},
+  ],
+};
+
+/// Descriptor for `UpdateStreamPayload`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List updateStreamPayloadDescriptor = $convert.base64Decode(
+    'ChNVcGRhdGVTdHJlYW1QYXlsb2FkEhYKBnNjaG9vbBgBIAEoCVIGc2Nob29sEhQKBWdyYWRlGA'
+    'IgASgFUgVncmFkZRIWCgZzdHJlYW0YAyABKAVSBnN0cmVhbRIXCgRuYW1lGAQgASgJSABSBG5h'
+    'bWWIAQFCBwoFX25hbWU=');
+
+@$core.Deprecated('Use deleteStreamPayloadDescriptor instead')
+const DeleteStreamPayload$json = {
+  '1': 'DeleteStreamPayload',
+  '2': [
+    {'1': 'school', '3': 1, '4': 1, '5': 9, '10': 'school'},
+    {'1': 'grade', '3': 2, '4': 1, '5': 5, '10': 'grade'},
+    {'1': 'stream', '3': 3, '4': 1, '5': 5, '10': 'stream'},
+  ],
+};
+
+/// Descriptor for `DeleteStreamPayload`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List deleteStreamPayloadDescriptor = $convert.base64Decode(
+    'ChNEZWxldGVTdHJlYW1QYXlsb2FkEhYKBnNjaG9vbBgBIAEoCVIGc2Nob29sEhQKBWdyYWRlGA'
+    'IgASgFUgVncmFkZRIWCgZzdHJlYW0YAyABKAVSBnN0cmVhbQ==');
+
+@$core.Deprecated('Use createMpesaPayloadDescriptor instead')
+const CreateMpesaPayload$json = {
+  '1': 'CreateMpesaPayload',
+  '2': [
+    {'1': 'school', '3': 1, '4': 1, '5': 9, '10': 'school'},
+    {'1': 'consumer_key', '3': 2, '4': 1, '5': 9, '10': 'consumerKey'},
+    {'1': 'consumer_secret', '3': 3, '4': 1, '5': 9, '10': 'consumerSecret'},
+    {'1': 'passkey', '3': 4, '4': 1, '5': 9, '10': 'passkey'},
+    {'1': 'shortcode', '3': 5, '4': 1, '5': 9, '10': 'shortcode'},
+    {'1': 'env', '3': 6, '4': 1, '5': 5, '10': 'env'},
+  ],
+};
+
+/// Descriptor for `CreateMpesaPayload`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List createMpesaPayloadDescriptor = $convert.base64Decode(
+    'ChJDcmVhdGVNcGVzYVBheWxvYWQSFgoGc2Nob29sGAEgASgJUgZzY2hvb2wSIQoMY29uc3VtZX'
+    'Jfa2V5GAIgASgJUgtjb25zdW1lcktleRInCg9jb25zdW1lcl9zZWNyZXQYAyABKAlSDmNvbnN1'
+    'bWVyU2VjcmV0EhgKB3Bhc3NrZXkYBCABKAlSB3Bhc3NrZXkSHAoJc2hvcnRjb2RlGAUgASgJUg'
+    'lzaG9ydGNvZGUSEAoDZW52GAYgASgFUgNlbnY=');
+
+@$core.Deprecated('Use updateMpesaPayloadDescriptor instead')
+const UpdateMpesaPayload$json = {
+  '1': 'UpdateMpesaPayload',
+  '2': [
+    {'1': 'school', '3': 1, '4': 1, '5': 9, '10': 'school'},
+    {
+      '1': 'consumer_key',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'consumerKey',
+      '17': true
+    },
+    {
+      '1': 'consumer_secret',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '9': 1,
+      '10': 'consumerSecret',
+      '17': true
+    },
+    {
+      '1': 'passkey',
+      '3': 4,
+      '4': 1,
+      '5': 9,
+      '9': 2,
+      '10': 'passkey',
+      '17': true
+    },
+    {
+      '1': 'shortcode',
+      '3': 5,
+      '4': 1,
+      '5': 9,
+      '9': 3,
+      '10': 'shortcode',
+      '17': true
+    },
+    {'1': 'env', '3': 6, '4': 1, '5': 5, '9': 4, '10': 'env', '17': true},
+  ],
+  '8': [
+    {'1': '_consumer_key'},
+    {'1': '_consumer_secret'},
+    {'1': '_passkey'},
+    {'1': '_shortcode'},
+    {'1': '_env'},
+  ],
+};
+
+/// Descriptor for `UpdateMpesaPayload`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List updateMpesaPayloadDescriptor = $convert.base64Decode(
+    'ChJVcGRhdGVNcGVzYVBheWxvYWQSFgoGc2Nob29sGAEgASgJUgZzY2hvb2wSJgoMY29uc3VtZX'
+    'Jfa2V5GAIgASgJSABSC2NvbnN1bWVyS2V5iAEBEiwKD2NvbnN1bWVyX3NlY3JldBgDIAEoCUgB'
+    'Ug5jb25zdW1lclNlY3JldIgBARIdCgdwYXNza2V5GAQgASgJSAJSB3Bhc3NrZXmIAQESIQoJc2'
+    'hvcnRjb2RlGAUgASgJSANSCXNob3J0Y29kZYgBARIVCgNlbnYYBiABKAVIBFIDZW52iAEBQg8K'
+    'DV9jb25zdW1lcl9rZXlCEgoQX2NvbnN1bWVyX3NlY3JldEIKCghfcGFzc2tleUIMCgpfc2hvcn'
+    'Rjb2RlQgYKBF9lbnY=');
+
+@$core.Deprecated('Use deleteMpesaPayloadDescriptor instead')
+const DeleteMpesaPayload$json = {
+  '1': 'DeleteMpesaPayload',
+  '2': [
+    {'1': 'school', '3': 1, '4': 1, '5': 9, '10': 'school'},
+  ],
+};
+
+/// Descriptor for `DeleteMpesaPayload`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List deleteMpesaPayloadDescriptor =
+    $convert.base64Decode(
+        'ChJEZWxldGVNcGVzYVBheWxvYWQSFgoGc2Nob29sGAEgASgJUgZzY2hvb2w=');
+
+@$core.Deprecated('Use addExamGradePayloadDescriptor instead')
+const AddExamGradePayload$json = {
+  '1': 'AddExamGradePayload',
+  '2': [
+    {'1': 'exam', '3': 1, '4': 1, '5': 9, '10': 'exam'},
+    {'1': 'grade', '3': 2, '4': 1, '5': 5, '10': 'grade'},
+    {'1': 'stream', '3': 3, '4': 1, '5': 5, '10': 'stream'},
+  ],
+};
+
+/// Descriptor for `AddExamGradePayload`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List addExamGradePayloadDescriptor = $convert.base64Decode(
+    'ChNBZGRFeGFtR3JhZGVQYXlsb2FkEhIKBGV4YW0YASABKAlSBGV4YW0SFAoFZ3JhZGUYAiABKA'
+    'VSBWdyYWRlEhYKBnN0cmVhbRgDIAEoBVIGc3RyZWFt');
+
+@$core.Deprecated('Use removeExamGradePayloadDescriptor instead')
+const RemoveExamGradePayload$json = {
+  '1': 'RemoveExamGradePayload',
+  '2': [
+    {'1': 'exam', '3': 1, '4': 1, '5': 9, '10': 'exam'},
+    {'1': 'grade', '3': 2, '4': 1, '5': 5, '10': 'grade'},
+    {'1': 'stream', '3': 3, '4': 1, '5': 5, '10': 'stream'},
+  ],
+};
+
+/// Descriptor for `RemoveExamGradePayload`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List removeExamGradePayloadDescriptor =
+    $convert.base64Decode(
+        'ChZSZW1vdmVFeGFtR3JhZGVQYXlsb2FkEhIKBGV4YW0YASABKAlSBGV4YW0SFAoFZ3JhZGUYAi'
+        'ABKAVSBWdyYWRlEhYKBnN0cmVhbRgDIAEoBVIGc3RyZWFt');
 
 @$core.Deprecated('Use createPlanPayloadDescriptor instead')
 const CreatePlanPayload$json = {
@@ -2375,13 +2663,13 @@ const InsertData$json = {
       '10': 'enrollment'
     },
     {
-      '1': 'subject',
+      '1': 'subject_teacher',
       '3': 12,
       '4': 1,
       '5': 11,
-      '6': '.sync.SubjectInsert',
+      '6': '.sync.SubjectTeacherInsert',
       '9': 0,
-      '10': 'subject'
+      '10': 'subjectTeacher'
     },
     {
       '1': 'attendance',
@@ -2492,15 +2780,6 @@ const InsertData$json = {
       '10': 'aiUsage'
     },
     {
-      '1': 'settings',
-      '3': 25,
-      '4': 1,
-      '5': 11,
-      '6': '.sync.SettingsInsert',
-      '9': 0,
-      '10': 'settings'
-    },
-    {
       '1': 'role',
       '3': 26,
       '4': 1,
@@ -2545,6 +2824,51 @@ const InsertData$json = {
       '9': 0,
       '10': 'discount'
     },
+    {
+      '1': 'subject_catalog',
+      '3': 31,
+      '4': 1,
+      '5': 11,
+      '6': '.sync.SubjectInsert',
+      '9': 0,
+      '10': 'subjectCatalog'
+    },
+    {
+      '1': 'topic',
+      '3': 32,
+      '4': 1,
+      '5': 11,
+      '6': '.sync.TopicInsert',
+      '9': 0,
+      '10': 'topic'
+    },
+    {
+      '1': 'stream',
+      '3': 33,
+      '4': 1,
+      '5': 11,
+      '6': '.sync.StreamInsert',
+      '9': 0,
+      '10': 'stream'
+    },
+    {
+      '1': 'mpesa',
+      '3': 34,
+      '4': 1,
+      '5': 11,
+      '6': '.sync.MpesaInsert',
+      '9': 0,
+      '10': 'mpesa'
+    },
+    {
+      '1': 'exam_grade',
+      '3': 35,
+      '4': 1,
+      '5': 11,
+      '6': '.sync.ExamGradeInsert',
+      '9': 0,
+      '10': 'examGrade'
+    },
   ],
   '8': [
     {'1': 'row'},
@@ -2563,23 +2887,27 @@ final $typed_data.Uint8List insertDataDescriptor = $convert.base64Decode(
     'J0SABSC3N0YWZmTWVtYmVyEiYKBHRlcm0YCSABKAsyEC5zeW5jLlRlcm1JbnNlcnRIAFIEdGVy'
     'bRI/Cg1jbGFzc190ZWFjaGVyGAogASgLMhguc3luYy5DbGFzc1RlYWNoZXJJbnNlcnRIAFIMY2'
     'xhc3NUZWFjaGVyEjgKCmVucm9sbG1lbnQYCyABKAsyFi5zeW5jLkVucm9sbG1lbnRJbnNlcnRI'
-    'AFIKZW5yb2xsbWVudBIvCgdzdWJqZWN0GAwgASgLMhMuc3luYy5TdWJqZWN0SW5zZXJ0SABSB3'
-    'N1YmplY3QSOAoKYXR0ZW5kYW5jZRgNIAEoCzIWLnN5bmMuQXR0ZW5kYW5jZUluc2VydEgAUgph'
-    'dHRlbmRhbmNlEjUKCXRpbWV0YWJsZRgOIAEoCzIVLnN5bmMuVGltZXRhYmxlSW5zZXJ0SABSCX'
-    'RpbWV0YWJsZRIsCgZsZXNzb24YDyABKAsyEi5zeW5jLkxlc3Nvbkluc2VydEgAUgZsZXNzb24S'
-    'JgoEZXhhbRgQIAEoCzIQLnN5bmMuRXhhbUluc2VydEgAUgRleGFtEikKBXBhcGVyGBEgASgLMh'
-    'Euc3luYy5QYXBlckluc2VydEgAUgVwYXBlchIpCgVncmFkZRgSIAEoCzIRLnN5bmMuR3JhZGVJ'
-    'bnNlcnRIAFIFZ3JhZGUSIwoDZmVlGBMgASgLMg8uc3luYy5GZWVJbnNlcnRIAFIDZmVlEi8KB2'
-    'ludm9pY2UYFCABKAsyEy5zeW5jLkludm9pY2VJbnNlcnRIAFIHaW52b2ljZRIvCgdwYXltZW50'
-    'GBUgASgLMhMuc3luYy5QYXltZW50SW5zZXJ0SABSB3BheW1lbnQSPgoMYW5ub3VuY2VtZW50GB'
-    'YgASgLMhguc3luYy5Bbm5vdW5jZW1lbnRJbnNlcnRIAFIMYW5ub3VuY2VtZW50Ei8KB21hc3Rl'
-    'cnkYFyABKAsyEy5zeW5jLk1hc3RlcnlJbnNlcnRIAFIHbWFzdGVyeRIwCghhaV91c2FnZRgYIA'
-    'EoCzITLnN5bmMuQWlVc2FnZUluc2VydEgAUgdhaVVzYWdlEjIKCHNldHRpbmdzGBkgASgLMhQu'
-    'c3luYy5TZXR0aW5nc0luc2VydEgAUghzZXR0aW5ncxImCgRyb2xlGBogASgLMhAuc3luYy5Sb2'
-    'xlSW5zZXJ0SABSBHJvbGUSKQoFc2NvcGUYGyABKAsyES5zeW5jLlNjb3BlSW5zZXJ0SABSBXNj'
-    'b3BlEiYKBHBsYW4YHCABKAsyEC5zeW5jLlBsYW5JbnNlcnRIAFIEcGxhbhI+CgxzdWJzY3JpcH'
-    'Rpb24YHSABKAsyGC5zeW5jLlN1YnNjcmlwdGlvbkluc2VydEgAUgxzdWJzY3JpcHRpb24SMgoI'
-    'ZGlzY291bnQYHiABKAsyFC5zeW5jLkRpc2NvdW50SW5zZXJ0SABSCGRpc2NvdW50QgUKA3Jvdw'
+    'AFIKZW5yb2xsbWVudBJFCg9zdWJqZWN0X3RlYWNoZXIYDCABKAsyGi5zeW5jLlN1YmplY3RUZW'
+    'FjaGVySW5zZXJ0SABSDnN1YmplY3RUZWFjaGVyEjgKCmF0dGVuZGFuY2UYDSABKAsyFi5zeW5j'
+    'LkF0dGVuZGFuY2VJbnNlcnRIAFIKYXR0ZW5kYW5jZRI1Cgl0aW1ldGFibGUYDiABKAsyFS5zeW'
+    '5jLlRpbWV0YWJsZUluc2VydEgAUgl0aW1ldGFibGUSLAoGbGVzc29uGA8gASgLMhIuc3luYy5M'
+    'ZXNzb25JbnNlcnRIAFIGbGVzc29uEiYKBGV4YW0YECABKAsyEC5zeW5jLkV4YW1JbnNlcnRIAF'
+    'IEZXhhbRIpCgVwYXBlchgRIAEoCzIRLnN5bmMuUGFwZXJJbnNlcnRIAFIFcGFwZXISKQoFZ3Jh'
+    'ZGUYEiABKAsyES5zeW5jLkdyYWRlSW5zZXJ0SABSBWdyYWRlEiMKA2ZlZRgTIAEoCzIPLnN5bm'
+    'MuRmVlSW5zZXJ0SABSA2ZlZRIvCgdpbnZvaWNlGBQgASgLMhMuc3luYy5JbnZvaWNlSW5zZXJ0'
+    'SABSB2ludm9pY2USLwoHcGF5bWVudBgVIAEoCzITLnN5bmMuUGF5bWVudEluc2VydEgAUgdwYX'
+    'ltZW50Ej4KDGFubm91bmNlbWVudBgWIAEoCzIYLnN5bmMuQW5ub3VuY2VtZW50SW5zZXJ0SABS'
+    'DGFubm91bmNlbWVudBIvCgdtYXN0ZXJ5GBcgASgLMhMuc3luYy5NYXN0ZXJ5SW5zZXJ0SABSB2'
+    '1hc3RlcnkSMAoIYWlfdXNhZ2UYGCABKAsyEy5zeW5jLkFpVXNhZ2VJbnNlcnRIAFIHYWlVc2Fn'
+    'ZRImCgRyb2xlGBogASgLMhAuc3luYy5Sb2xlSW5zZXJ0SABSBHJvbGUSKQoFc2NvcGUYGyABKA'
+    'syES5zeW5jLlNjb3BlSW5zZXJ0SABSBXNjb3BlEiYKBHBsYW4YHCABKAsyEC5zeW5jLlBsYW5J'
+    'bnNlcnRIAFIEcGxhbhI+CgxzdWJzY3JpcHRpb24YHSABKAsyGC5zeW5jLlN1YnNjcmlwdGlvbk'
+    'luc2VydEgAUgxzdWJzY3JpcHRpb24SMgoIZGlzY291bnQYHiABKAsyFC5zeW5jLkRpc2NvdW50'
+    'SW5zZXJ0SABSCGRpc2NvdW50Ej4KD3N1YmplY3RfY2F0YWxvZxgfIAEoCzITLnN5bmMuU3Viam'
+    'VjdEluc2VydEgAUg5zdWJqZWN0Q2F0YWxvZxIpCgV0b3BpYxggIAEoCzIRLnN5bmMuVG9waWNJ'
+    'bnNlcnRIAFIFdG9waWMSLAoGc3RyZWFtGCEgASgLMhIuc3luYy5TdHJlYW1JbnNlcnRIAFIGc3'
+    'RyZWFtEikKBW1wZXNhGCIgASgLMhEuc3luYy5NcGVzYUluc2VydEgAUgVtcGVzYRI2CgpleGFt'
+    'X2dyYWRlGCMgASgLMhUuc3luYy5FeGFtR3JhZGVJbnNlcnRIAFIJZXhhbUdyYWRlQgUKA3Jvdw'
     '==');
 
 @$core.Deprecated('Use userInsertDescriptor instead')
@@ -2887,9 +3215,9 @@ final $typed_data.Uint8List enrollmentInsertDescriptor = $convert.base64Decode(
     'VSBHllYXISEgoEdGVybRgDIAEoBVIEdGVybRIUCgVncmFkZRgEIAEoBVIFZ3JhZGUSFgoGc3Ry'
     'ZWFtGAUgASgFUgZzdHJlYW0SGAoHc3R1ZGVudBgGIAEoBVIHc3R1ZGVudA==');
 
-@$core.Deprecated('Use subjectInsertDescriptor instead')
-const SubjectInsert$json = {
-  '1': 'SubjectInsert',
+@$core.Deprecated('Use subjectTeacherInsertDescriptor instead')
+const SubjectTeacherInsert$json = {
+  '1': 'SubjectTeacherInsert',
   '2': [
     {'1': 'school', '3': 1, '4': 1, '5': 9, '10': 'school'},
     {'1': 'year', '3': 2, '4': 1, '5': 5, '10': 'year'},
@@ -2901,12 +3229,12 @@ const SubjectInsert$json = {
   ],
 };
 
-/// Descriptor for `SubjectInsert`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List subjectInsertDescriptor = $convert.base64Decode(
-    'Cg1TdWJqZWN0SW5zZXJ0EhYKBnNjaG9vbBgBIAEoCVIGc2Nob29sEhIKBHllYXIYAiABKAVSBH'
-    'llYXISEgoEdGVybRgDIAEoBVIEdGVybRIUCgVncmFkZRgEIAEoBVIFZ3JhZGUSFgoGc3RyZWFt'
-    'GAUgASgFUgZzdHJlYW0SGAoHc3ViamVjdBgGIAEoBVIHc3ViamVjdBIYCgd0ZWFjaGVyGAcgAS'
-    'gJUgd0ZWFjaGVy');
+/// Descriptor for `SubjectTeacherInsert`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List subjectTeacherInsertDescriptor = $convert.base64Decode(
+    'ChRTdWJqZWN0VGVhY2hlckluc2VydBIWCgZzY2hvb2wYASABKAlSBnNjaG9vbBISCgR5ZWFyGA'
+    'IgASgFUgR5ZWFyEhIKBHRlcm0YAyABKAVSBHRlcm0SFAoFZ3JhZGUYBCABKAVSBWdyYWRlEhYK'
+    'BnN0cmVhbRgFIAEoBVIGc3RyZWFtEhgKB3N1YmplY3QYBiABKAVSB3N1YmplY3QSGAoHdGVhY2'
+    'hlchgHIAEoCVIHdGVhY2hlcg==');
 
 @$core.Deprecated('Use attendanceInsertDescriptor instead')
 const AttendanceInsert$json = {
@@ -2983,28 +3311,24 @@ const ExamInsert$json = {
   '2': [
     {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
     {'1': 'school', '3': 2, '4': 1, '5': 9, '10': 'school'},
-    {'1': 'year', '3': 3, '4': 1, '5': 5, '10': 'year'},
-    {'1': 'term', '3': 4, '4': 1, '5': 5, '10': 'term'},
-    {'1': 'grade', '3': 5, '4': 1, '5': 5, '10': 'grade'},
-    {'1': 'stream', '3': 6, '4': 1, '5': 5, '9': 0, '10': 'stream', '17': true},
-    {'1': 'personalized', '3': 7, '4': 1, '5': 8, '10': 'personalized'},
-    {'1': 'type', '3': 8, '4': 1, '5': 5, '10': 'type'},
-    {'1': 'start', '3': 9, '4': 1, '5': 5, '10': 'start'},
-    {'1': 'end', '3': 10, '4': 1, '5': 5, '10': 'end'},
-    {'1': 'teacher', '3': 11, '4': 1, '5': 9, '10': 'teacher'},
-  ],
-  '8': [
-    {'1': '_stream'},
+    {'1': 'name', '3': 3, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'year', '3': 4, '4': 1, '5': 5, '10': 'year'},
+    {'1': 'term', '3': 5, '4': 1, '5': 5, '10': 'term'},
+    {'1': 'personalized', '3': 6, '4': 1, '5': 8, '10': 'personalized'},
+    {'1': 'type', '3': 7, '4': 1, '5': 5, '10': 'type'},
+    {'1': 'start', '3': 8, '4': 1, '5': 5, '10': 'start'},
+    {'1': 'end', '3': 9, '4': 1, '5': 5, '10': 'end'},
+    {'1': 'teacher', '3': 10, '4': 1, '5': 9, '10': 'teacher'},
   ],
 };
 
 /// Descriptor for `ExamInsert`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List examInsertDescriptor = $convert.base64Decode(
     'CgpFeGFtSW5zZXJ0Eg4KAmlkGAEgASgJUgJpZBIWCgZzY2hvb2wYAiABKAlSBnNjaG9vbBISCg'
-    'R5ZWFyGAMgASgFUgR5ZWFyEhIKBHRlcm0YBCABKAVSBHRlcm0SFAoFZ3JhZGUYBSABKAVSBWdy'
-    'YWRlEhsKBnN0cmVhbRgGIAEoBUgAUgZzdHJlYW2IAQESIgoMcGVyc29uYWxpemVkGAcgASgIUg'
-    'xwZXJzb25hbGl6ZWQSEgoEdHlwZRgIIAEoBVIEdHlwZRIUCgVzdGFydBgJIAEoBVIFc3RhcnQS'
-    'EAoDZW5kGAogASgFUgNlbmQSGAoHdGVhY2hlchgLIAEoCVIHdGVhY2hlckIJCgdfc3RyZWFt');
+    'RuYW1lGAMgASgJUgRuYW1lEhIKBHllYXIYBCABKAVSBHllYXISEgoEdGVybRgFIAEoBVIEdGVy'
+    'bRIiCgxwZXJzb25hbGl6ZWQYBiABKAhSDHBlcnNvbmFsaXplZBISCgR0eXBlGAcgASgFUgR0eX'
+    'BlEhQKBXN0YXJ0GAggASgFUgVzdGFydBIQCgNlbmQYCSABKAVSA2VuZBIYCgd0ZWFjaGVyGAog'
+    'ASgJUgd0ZWFjaGVy');
 
 @$core.Deprecated('Use paperInsertDescriptor instead')
 const PaperInsert$json = {
@@ -3014,13 +3338,15 @@ const PaperInsert$json = {
     {'1': 'exam', '3': 2, '4': 1, '5': 9, '10': 'exam'},
     {'1': 'subject', '3': 3, '4': 1, '5': 5, '10': 'subject'},
     {'1': 'paper', '3': 4, '4': 1, '5': 5, '9': 0, '10': 'paper', '17': true},
-    {'1': 'invigilator', '3': 5, '4': 1, '5': 9, '10': 'invigilator'},
-    {'1': 'start', '3': 6, '4': 1, '5': 3, '10': 'start'},
-    {'1': 'end', '3': 7, '4': 1, '5': 3, '10': 'end'},
-    {'1': 'status', '3': 8, '4': 1, '5': 5, '10': 'status'},
+    {'1': 'topic', '3': 5, '4': 1, '5': 5, '9': 1, '10': 'topic', '17': true},
+    {'1': 'invigilator', '3': 6, '4': 1, '5': 9, '10': 'invigilator'},
+    {'1': 'start', '3': 7, '4': 1, '5': 3, '10': 'start'},
+    {'1': 'end', '3': 8, '4': 1, '5': 3, '10': 'end'},
+    {'1': 'status', '3': 9, '4': 1, '5': 5, '10': 'status'},
   ],
   '8': [
     {'1': '_paper'},
+    {'1': '_topic'},
   ],
 };
 
@@ -3028,8 +3354,9 @@ const PaperInsert$json = {
 final $typed_data.Uint8List paperInsertDescriptor = $convert.base64Decode(
     'CgtQYXBlckluc2VydBIWCgZzY2hvb2wYASABKAlSBnNjaG9vbBISCgRleGFtGAIgASgJUgRleG'
     'FtEhgKB3N1YmplY3QYAyABKAVSB3N1YmplY3QSGQoFcGFwZXIYBCABKAVIAFIFcGFwZXKIAQES'
-    'IAoLaW52aWdpbGF0b3IYBSABKAlSC2ludmlnaWxhdG9yEhQKBXN0YXJ0GAYgASgDUgVzdGFydB'
-    'IQCgNlbmQYByABKANSA2VuZBIWCgZzdGF0dXMYCCABKAVSBnN0YXR1c0IICgZfcGFwZXI=');
+    'GQoFdG9waWMYBSABKAVIAVIFdG9waWOIAQESIAoLaW52aWdpbGF0b3IYBiABKAlSC2ludmlnaW'
+    'xhdG9yEhQKBXN0YXJ0GAcgASgDUgVzdGFydBIQCgNlbmQYCCABKANSA2VuZBIWCgZzdGF0dXMY'
+    'CSABKAVSBnN0YXR1c0IICgZfcGFwZXJCCAoGX3RvcGlj');
 
 @$core.Deprecated('Use gradeInsertDescriptor instead')
 const GradeInsert$json = {
@@ -3219,18 +3546,17 @@ const MasteryInsert$json = {
   '2': [
     {'1': 'school', '3': 1, '4': 1, '5': 9, '10': 'school'},
     {'1': 'student', '3': 2, '4': 1, '5': 5, '10': 'student'},
-    {'1': 'grade', '3': 3, '4': 1, '5': 5, '10': 'grade'},
-    {'1': 'subject', '3': 4, '4': 1, '5': 5, '10': 'subject'},
-    {'1': 'topic', '3': 5, '4': 1, '5': 5, '10': 'topic'},
-    {'1': 'score', '3': 6, '4': 1, '5': 2, '10': 'score'},
+    {'1': 'subject', '3': 3, '4': 1, '5': 5, '10': 'subject'},
+    {'1': 'topic', '3': 4, '4': 1, '5': 5, '10': 'topic'},
+    {'1': 'score', '3': 5, '4': 1, '5': 2, '10': 'score'},
   ],
 };
 
 /// Descriptor for `MasteryInsert`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List masteryInsertDescriptor = $convert.base64Decode(
     'Cg1NYXN0ZXJ5SW5zZXJ0EhYKBnNjaG9vbBgBIAEoCVIGc2Nob29sEhgKB3N0dWRlbnQYAiABKA'
-    'VSB3N0dWRlbnQSFAoFZ3JhZGUYAyABKAVSBWdyYWRlEhgKB3N1YmplY3QYBCABKAVSB3N1Ympl'
-    'Y3QSFAoFdG9waWMYBSABKAVSBXRvcGljEhQKBXNjb3JlGAYgASgCUgVzY29yZQ==');
+    'VSB3N0dWRlbnQSGAoHc3ViamVjdBgDIAEoBVIHc3ViamVjdBIUCgV0b3BpYxgEIAEoBVIFdG9w'
+    'aWMSFAoFc2NvcmUYBSABKAJSBXNjb3Jl');
 
 @$core.Deprecated('Use aiUsageInsertDescriptor instead')
 const AiUsageInsert$json = {
@@ -3251,23 +3577,87 @@ final $typed_data.Uint8List aiUsageInsertDescriptor = $convert.base64Decode(
     'VSB3N0dWRlbnQSEgoEeWVhchgDIAEoBVIEeWVhchISCgR0ZXJtGAQgASgFUgR0ZXJtEhwKCWFs'
     'bG9jYXRlZBgFIAEoBVIJYWxsb2NhdGVkEhIKBHVzZWQYBiABKAVSBHVzZWQ=');
 
-@$core.Deprecated('Use settingsInsertDescriptor instead')
-const SettingsInsert$json = {
-  '1': 'SettingsInsert',
+@$core.Deprecated('Use subjectInsertDescriptor instead')
+const SubjectInsert$json = {
+  '1': 'SubjectInsert',
   '2': [
-    {'1': 'school', '3': 1, '4': 1, '5': 9, '10': 'school'},
-    {'1': 'data', '3': 2, '4': 1, '5': 9, '10': 'data'},
-    {'1': 'mpesa', '3': 3, '4': 1, '5': 9, '9': 0, '10': 'mpesa', '17': true},
-  ],
-  '8': [
-    {'1': '_mpesa'},
+    {'1': 'id', '3': 1, '4': 1, '5': 5, '10': 'id'},
+    {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'curriculum', '3': 3, '4': 1, '5': 5, '10': 'curriculum'},
   ],
 };
 
-/// Descriptor for `SettingsInsert`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List settingsInsertDescriptor = $convert.base64Decode(
-    'Cg5TZXR0aW5nc0luc2VydBIWCgZzY2hvb2wYASABKAlSBnNjaG9vbBISCgRkYXRhGAIgASgJUg'
-    'RkYXRhEhkKBW1wZXNhGAMgASgJSABSBW1wZXNhiAEBQggKBl9tcGVzYQ==');
+/// Descriptor for `SubjectInsert`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List subjectInsertDescriptor = $convert.base64Decode(
+    'Cg1TdWJqZWN0SW5zZXJ0Eg4KAmlkGAEgASgFUgJpZBISCgRuYW1lGAIgASgJUgRuYW1lEh4KCm'
+    'N1cnJpY3VsdW0YAyABKAVSCmN1cnJpY3VsdW0=');
+
+@$core.Deprecated('Use topicInsertDescriptor instead')
+const TopicInsert$json = {
+  '1': 'TopicInsert',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 5, '10': 'id'},
+    {'1': 'subject', '3': 2, '4': 1, '5': 5, '10': 'subject'},
+    {'1': 'grade', '3': 3, '4': 1, '5': 5, '10': 'grade'},
+    {'1': 'name', '3': 4, '4': 1, '5': 9, '10': 'name'},
+  ],
+};
+
+/// Descriptor for `TopicInsert`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List topicInsertDescriptor = $convert.base64Decode(
+    'CgtUb3BpY0luc2VydBIOCgJpZBgBIAEoBVICaWQSGAoHc3ViamVjdBgCIAEoBVIHc3ViamVjdB'
+    'IUCgVncmFkZRgDIAEoBVIFZ3JhZGUSEgoEbmFtZRgEIAEoCVIEbmFtZQ==');
+
+@$core.Deprecated('Use streamInsertDescriptor instead')
+const StreamInsert$json = {
+  '1': 'StreamInsert',
+  '2': [
+    {'1': 'school', '3': 1, '4': 1, '5': 9, '10': 'school'},
+    {'1': 'grade', '3': 2, '4': 1, '5': 5, '10': 'grade'},
+    {'1': 'stream', '3': 3, '4': 1, '5': 5, '10': 'stream'},
+    {'1': 'name', '3': 4, '4': 1, '5': 9, '10': 'name'},
+  ],
+};
+
+/// Descriptor for `StreamInsert`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List streamInsertDescriptor = $convert.base64Decode(
+    'CgxTdHJlYW1JbnNlcnQSFgoGc2Nob29sGAEgASgJUgZzY2hvb2wSFAoFZ3JhZGUYAiABKAVSBW'
+    'dyYWRlEhYKBnN0cmVhbRgDIAEoBVIGc3RyZWFtEhIKBG5hbWUYBCABKAlSBG5hbWU=');
+
+@$core.Deprecated('Use mpesaInsertDescriptor instead')
+const MpesaInsert$json = {
+  '1': 'MpesaInsert',
+  '2': [
+    {'1': 'school', '3': 1, '4': 1, '5': 9, '10': 'school'},
+    {'1': 'consumer_key', '3': 2, '4': 1, '5': 9, '10': 'consumerKey'},
+    {'1': 'consumer_secret', '3': 3, '4': 1, '5': 9, '10': 'consumerSecret'},
+    {'1': 'passkey', '3': 4, '4': 1, '5': 9, '10': 'passkey'},
+    {'1': 'shortcode', '3': 5, '4': 1, '5': 9, '10': 'shortcode'},
+    {'1': 'env', '3': 6, '4': 1, '5': 5, '10': 'env'},
+  ],
+};
+
+/// Descriptor for `MpesaInsert`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List mpesaInsertDescriptor = $convert.base64Decode(
+    'CgtNcGVzYUluc2VydBIWCgZzY2hvb2wYASABKAlSBnNjaG9vbBIhCgxjb25zdW1lcl9rZXkYAi'
+    'ABKAlSC2NvbnN1bWVyS2V5EicKD2NvbnN1bWVyX3NlY3JldBgDIAEoCVIOY29uc3VtZXJTZWNy'
+    'ZXQSGAoHcGFzc2tleRgEIAEoCVIHcGFzc2tleRIcCglzaG9ydGNvZGUYBSABKAlSCXNob3J0Y2'
+    '9kZRIQCgNlbnYYBiABKAVSA2Vudg==');
+
+@$core.Deprecated('Use examGradeInsertDescriptor instead')
+const ExamGradeInsert$json = {
+  '1': 'ExamGradeInsert',
+  '2': [
+    {'1': 'exam', '3': 1, '4': 1, '5': 9, '10': 'exam'},
+    {'1': 'grade', '3': 2, '4': 1, '5': 5, '10': 'grade'},
+    {'1': 'stream', '3': 3, '4': 1, '5': 5, '10': 'stream'},
+  ],
+};
+
+/// Descriptor for `ExamGradeInsert`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List examGradeInsertDescriptor = $convert.base64Decode(
+    'Cg9FeGFtR3JhZGVJbnNlcnQSEgoEZXhhbRgBIAEoCVIEZXhhbRIUCgVncmFkZRgCIAEoBVIFZ3'
+    'JhZGUSFgoGc3RyZWFtGAMgASgFUgZzdHJlYW0=');
 
 @$core.Deprecated('Use roleInsertDescriptor instead')
 const RoleInsert$json = {

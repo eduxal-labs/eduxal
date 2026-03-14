@@ -431,7 +431,9 @@ enum SyncAction {
   // Users
   updateUser(64),
   deleteUser(65),
-  // Settings
+  // Settings — DEPRECATED (table removed)
+  // ignore: deprecated_member_use_from_same_package
+  @Deprecated('Settings table removed in schema v2')
   updateSettings(66),
   // Plans
   createPlan(67),
@@ -446,7 +448,26 @@ enum SyncAction {
   // Discounts
   createDiscount(74),
   updateDiscount(75),
-  deleteDiscount(76);
+  deleteDiscount(76),
+  // Subjects (global catalog)
+  createSubject(77),
+  updateSubject(78),
+  deleteSubject(79),
+  // Topics (global catalog)
+  createTopic(80),
+  updateTopic(81),
+  deleteTopic(82),
+  // Streams (per-school)
+  createStream(83),
+  updateStream(84),
+  deleteStream(85),
+  // M-Pesa (per-school)
+  createMpesa(86),
+  updateMpesa(87),
+  deleteMpesa(88),
+  // Exam Grades (junction)
+  addExamGrade(89),
+  removeExamGrade(90);
 
   const SyncAction(this.value);
   final int value;

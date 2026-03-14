@@ -4712,32 +4712,99 @@ class DeleteLessonPayload extends $pb.GeneratedMessage {
   void clearTeacher() => $_clearField(8);
 }
 
+/// Helper for CreateExamPayload
+class ExamGradeEntry extends $pb.GeneratedMessage {
+  factory ExamGradeEntry({
+    $core.int? grade,
+    $core.int? stream,
+  }) {
+    final result = create();
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
+    return result;
+  }
+
+  ExamGradeEntry._();
+
+  factory ExamGradeEntry.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ExamGradeEntry.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ExamGradeEntry',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aI(1, _omitFieldNames ? '' : 'grade')
+    ..aI(2, _omitFieldNames ? '' : 'stream')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ExamGradeEntry clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ExamGradeEntry copyWith(void Function(ExamGradeEntry) updates) =>
+      super.copyWith((message) => updates(message as ExamGradeEntry))
+          as ExamGradeEntry;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ExamGradeEntry create() => ExamGradeEntry._();
+  @$core.override
+  ExamGradeEntry createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ExamGradeEntry getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ExamGradeEntry>(create);
+  static ExamGradeEntry? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get grade => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set grade($core.int value) => $_setSignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasGrade() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearGrade() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get stream => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set stream($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasStream() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearStream() => $_clearField(2);
+}
+
 class CreateExamPayload extends $pb.GeneratedMessage {
   factory CreateExamPayload({
     $core.String? id,
     $core.String? school,
+    $core.String? name,
     $core.int? year,
     $core.int? term,
-    $core.int? grade,
-    $core.int? stream,
     $core.bool? personalized,
     $core.int? type,
     $core.int? start,
     $core.int? end,
     $core.String? teacher,
+    $core.Iterable<ExamGradeEntry>? grades,
   }) {
     final result = create();
     if (id != null) result.id = id;
     if (school != null) result.school = school;
+    if (name != null) result.name = name;
     if (year != null) result.year = year;
     if (term != null) result.term = term;
-    if (grade != null) result.grade = grade;
-    if (stream != null) result.stream = stream;
     if (personalized != null) result.personalized = personalized;
     if (type != null) result.type = type;
     if (start != null) result.start = start;
     if (end != null) result.end = end;
     if (teacher != null) result.teacher = teacher;
+    if (grades != null) result.grades.addAll(grades);
     return result;
   }
 
@@ -4756,15 +4823,16 @@ class CreateExamPayload extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'id')
     ..aOS(2, _omitFieldNames ? '' : 'school')
-    ..aI(3, _omitFieldNames ? '' : 'year')
-    ..aI(4, _omitFieldNames ? '' : 'term')
-    ..aI(5, _omitFieldNames ? '' : 'grade')
-    ..aI(6, _omitFieldNames ? '' : 'stream')
-    ..aOB(7, _omitFieldNames ? '' : 'personalized')
-    ..aI(8, _omitFieldNames ? '' : 'type')
-    ..aI(9, _omitFieldNames ? '' : 'start')
-    ..aI(10, _omitFieldNames ? '' : 'end')
-    ..aOS(11, _omitFieldNames ? '' : 'teacher')
+    ..aOS(3, _omitFieldNames ? '' : 'name')
+    ..aI(4, _omitFieldNames ? '' : 'year')
+    ..aI(5, _omitFieldNames ? '' : 'term')
+    ..aOB(6, _omitFieldNames ? '' : 'personalized')
+    ..aI(7, _omitFieldNames ? '' : 'type')
+    ..aI(8, _omitFieldNames ? '' : 'start')
+    ..aI(9, _omitFieldNames ? '' : 'end')
+    ..aOS(10, _omitFieldNames ? '' : 'teacher')
+    ..pPM<ExamGradeEntry>(11, _omitFieldNames ? '' : 'grades',
+        subBuilder: ExamGradeEntry.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4805,91 +4873,85 @@ class CreateExamPayload extends $pb.GeneratedMessage {
   void clearSchool() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $core.int get year => $_getIZ(2);
+  $core.String get name => $_getSZ(2);
   @$pb.TagNumber(3)
-  set year($core.int value) => $_setSignedInt32(2, value);
+  set name($core.String value) => $_setString(2, value);
   @$pb.TagNumber(3)
-  $core.bool hasYear() => $_has(2);
+  $core.bool hasName() => $_has(2);
   @$pb.TagNumber(3)
-  void clearYear() => $_clearField(3);
+  void clearName() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $core.int get term => $_getIZ(3);
+  $core.int get year => $_getIZ(3);
   @$pb.TagNumber(4)
-  set term($core.int value) => $_setSignedInt32(3, value);
+  set year($core.int value) => $_setSignedInt32(3, value);
   @$pb.TagNumber(4)
-  $core.bool hasTerm() => $_has(3);
+  $core.bool hasYear() => $_has(3);
   @$pb.TagNumber(4)
-  void clearTerm() => $_clearField(4);
+  void clearYear() => $_clearField(4);
 
   @$pb.TagNumber(5)
-  $core.int get grade => $_getIZ(4);
+  $core.int get term => $_getIZ(4);
   @$pb.TagNumber(5)
-  set grade($core.int value) => $_setSignedInt32(4, value);
+  set term($core.int value) => $_setSignedInt32(4, value);
   @$pb.TagNumber(5)
-  $core.bool hasGrade() => $_has(4);
+  $core.bool hasTerm() => $_has(4);
   @$pb.TagNumber(5)
-  void clearGrade() => $_clearField(5);
+  void clearTerm() => $_clearField(5);
 
   @$pb.TagNumber(6)
-  $core.int get stream => $_getIZ(5);
+  $core.bool get personalized => $_getBF(5);
   @$pb.TagNumber(6)
-  set stream($core.int value) => $_setSignedInt32(5, value);
+  set personalized($core.bool value) => $_setBool(5, value);
   @$pb.TagNumber(6)
-  $core.bool hasStream() => $_has(5);
+  $core.bool hasPersonalized() => $_has(5);
   @$pb.TagNumber(6)
-  void clearStream() => $_clearField(6);
+  void clearPersonalized() => $_clearField(6);
 
   @$pb.TagNumber(7)
-  $core.bool get personalized => $_getBF(6);
+  $core.int get type => $_getIZ(6);
   @$pb.TagNumber(7)
-  set personalized($core.bool value) => $_setBool(6, value);
+  set type($core.int value) => $_setSignedInt32(6, value);
   @$pb.TagNumber(7)
-  $core.bool hasPersonalized() => $_has(6);
+  $core.bool hasType() => $_has(6);
   @$pb.TagNumber(7)
-  void clearPersonalized() => $_clearField(7);
+  void clearType() => $_clearField(7);
 
   @$pb.TagNumber(8)
-  $core.int get type => $_getIZ(7);
+  $core.int get start => $_getIZ(7);
   @$pb.TagNumber(8)
-  set type($core.int value) => $_setSignedInt32(7, value);
+  set start($core.int value) => $_setSignedInt32(7, value);
   @$pb.TagNumber(8)
-  $core.bool hasType() => $_has(7);
+  $core.bool hasStart() => $_has(7);
   @$pb.TagNumber(8)
-  void clearType() => $_clearField(8);
+  void clearStart() => $_clearField(8);
 
   @$pb.TagNumber(9)
-  $core.int get start => $_getIZ(8);
+  $core.int get end => $_getIZ(8);
   @$pb.TagNumber(9)
-  set start($core.int value) => $_setSignedInt32(8, value);
+  set end($core.int value) => $_setSignedInt32(8, value);
   @$pb.TagNumber(9)
-  $core.bool hasStart() => $_has(8);
+  $core.bool hasEnd() => $_has(8);
   @$pb.TagNumber(9)
-  void clearStart() => $_clearField(9);
+  void clearEnd() => $_clearField(9);
 
   @$pb.TagNumber(10)
-  $core.int get end => $_getIZ(9);
+  $core.String get teacher => $_getSZ(9);
   @$pb.TagNumber(10)
-  set end($core.int value) => $_setSignedInt32(9, value);
+  set teacher($core.String value) => $_setString(9, value);
   @$pb.TagNumber(10)
-  $core.bool hasEnd() => $_has(9);
+  $core.bool hasTeacher() => $_has(9);
   @$pb.TagNumber(10)
-  void clearEnd() => $_clearField(10);
+  void clearTeacher() => $_clearField(10);
 
   @$pb.TagNumber(11)
-  $core.String get teacher => $_getSZ(10);
-  @$pb.TagNumber(11)
-  set teacher($core.String value) => $_setString(10, value);
-  @$pb.TagNumber(11)
-  $core.bool hasTeacher() => $_has(10);
-  @$pb.TagNumber(11)
-  void clearTeacher() => $_clearField(11);
+  $pb.PbList<ExamGradeEntry> get grades => $_getList(10);
 }
 
 class UpdateExamPayload extends $pb.GeneratedMessage {
   factory UpdateExamPayload({
     $core.String? id,
-    $core.int? stream,
+    $core.String? name,
     $core.bool? personalized,
     $core.int? type,
     $core.int? start,
@@ -4898,7 +4960,7 @@ class UpdateExamPayload extends $pb.GeneratedMessage {
   }) {
     final result = create();
     if (id != null) result.id = id;
-    if (stream != null) result.stream = stream;
+    if (name != null) result.name = name;
     if (personalized != null) result.personalized = personalized;
     if (type != null) result.type = type;
     if (start != null) result.start = start;
@@ -4921,7 +4983,7 @@ class UpdateExamPayload extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'id')
-    ..aI(2, _omitFieldNames ? '' : 'stream')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
     ..aOB(3, _omitFieldNames ? '' : 'personalized')
     ..aI(4, _omitFieldNames ? '' : 'type')
     ..aI(5, _omitFieldNames ? '' : 'start')
@@ -4958,13 +5020,13 @@ class UpdateExamPayload extends $pb.GeneratedMessage {
   void clearId() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $core.int get stream => $_getIZ(1);
+  $core.String get name => $_getSZ(1);
   @$pb.TagNumber(2)
-  set stream($core.int value) => $_setSignedInt32(1, value);
+  set name($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
-  $core.bool hasStream() => $_has(1);
+  $core.bool hasName() => $_has(1);
   @$pb.TagNumber(2)
-  void clearStream() => $_clearField(2);
+  void clearName() => $_clearField(2);
 
   @$pb.TagNumber(3)
   $core.bool get personalized => $_getBF(2);
@@ -5075,6 +5137,7 @@ class CreatePaperPayload extends $pb.GeneratedMessage {
     $core.String? invigilator,
     $fixnum.Int64? start,
     $fixnum.Int64? end,
+    $core.int? topic,
   }) {
     final result = create();
     if (school != null) result.school = school;
@@ -5084,6 +5147,7 @@ class CreatePaperPayload extends $pb.GeneratedMessage {
     if (invigilator != null) result.invigilator = invigilator;
     if (start != null) result.start = start;
     if (end != null) result.end = end;
+    if (topic != null) result.topic = topic;
     return result;
   }
 
@@ -5107,6 +5171,7 @@ class CreatePaperPayload extends $pb.GeneratedMessage {
     ..aOS(5, _omitFieldNames ? '' : 'invigilator')
     ..aInt64(6, _omitFieldNames ? '' : 'start')
     ..aInt64(7, _omitFieldNames ? '' : 'end')
+    ..aI(8, _omitFieldNames ? '' : 'topic')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -5190,6 +5255,15 @@ class CreatePaperPayload extends $pb.GeneratedMessage {
   $core.bool hasEnd() => $_has(6);
   @$pb.TagNumber(7)
   void clearEnd() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.int get topic => $_getIZ(7);
+  @$pb.TagNumber(8)
+  set topic($core.int value) => $_setSignedInt32(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasTopic() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearTopic() => $_clearField(8);
 }
 
 class UpdatePaperPayload extends $pb.GeneratedMessage {
@@ -5202,6 +5276,7 @@ class UpdatePaperPayload extends $pb.GeneratedMessage {
     $fixnum.Int64? start,
     $fixnum.Int64? end,
     $core.int? status,
+    $core.int? topic,
   }) {
     final result = create();
     if (school != null) result.school = school;
@@ -5212,6 +5287,7 @@ class UpdatePaperPayload extends $pb.GeneratedMessage {
     if (start != null) result.start = start;
     if (end != null) result.end = end;
     if (status != null) result.status = status;
+    if (topic != null) result.topic = topic;
     return result;
   }
 
@@ -5236,6 +5312,7 @@ class UpdatePaperPayload extends $pb.GeneratedMessage {
     ..aInt64(6, _omitFieldNames ? '' : 'start')
     ..aInt64(7, _omitFieldNames ? '' : 'end')
     ..aI(8, _omitFieldNames ? '' : 'status')
+    ..aI(9, _omitFieldNames ? '' : 'topic')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -5328,6 +5405,15 @@ class UpdatePaperPayload extends $pb.GeneratedMessage {
   $core.bool hasStatus() => $_has(7);
   @$pb.TagNumber(8)
   void clearStatus() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.int get topic => $_getIZ(8);
+  @$pb.TagNumber(9)
+  set topic($core.int value) => $_setSignedInt32(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasTopic() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearTopic() => $_clearField(9);
 }
 
 class DeletePaperPayload extends $pb.GeneratedMessage {
@@ -5827,7 +5913,6 @@ class UpdateMasteryPayload extends $pb.GeneratedMessage {
   factory UpdateMasteryPayload({
     $core.String? school,
     $core.int? student,
-    $core.int? grade,
     $core.int? subject,
     $core.int? topic,
     $core.double? score,
@@ -5835,7 +5920,6 @@ class UpdateMasteryPayload extends $pb.GeneratedMessage {
     final result = create();
     if (school != null) result.school = school;
     if (student != null) result.student = student;
-    if (grade != null) result.grade = grade;
     if (subject != null) result.subject = subject;
     if (topic != null) result.topic = topic;
     if (score != null) result.score = score;
@@ -5857,10 +5941,9 @@ class UpdateMasteryPayload extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'school')
     ..aI(2, _omitFieldNames ? '' : 'student')
-    ..aI(3, _omitFieldNames ? '' : 'grade')
-    ..aI(4, _omitFieldNames ? '' : 'subject')
-    ..aI(5, _omitFieldNames ? '' : 'topic')
-    ..aD(6, _omitFieldNames ? '' : 'score', fieldType: $pb.PbFieldType.OF)
+    ..aI(3, _omitFieldNames ? '' : 'subject')
+    ..aI(4, _omitFieldNames ? '' : 'topic')
+    ..aD(5, _omitFieldNames ? '' : 'score', fieldType: $pb.PbFieldType.OF)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -5901,40 +5984,31 @@ class UpdateMasteryPayload extends $pb.GeneratedMessage {
   void clearStudent() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $core.int get grade => $_getIZ(2);
+  $core.int get subject => $_getIZ(2);
   @$pb.TagNumber(3)
-  set grade($core.int value) => $_setSignedInt32(2, value);
+  set subject($core.int value) => $_setSignedInt32(2, value);
   @$pb.TagNumber(3)
-  $core.bool hasGrade() => $_has(2);
+  $core.bool hasSubject() => $_has(2);
   @$pb.TagNumber(3)
-  void clearGrade() => $_clearField(3);
+  void clearSubject() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $core.int get subject => $_getIZ(3);
+  $core.int get topic => $_getIZ(3);
   @$pb.TagNumber(4)
-  set subject($core.int value) => $_setSignedInt32(3, value);
+  set topic($core.int value) => $_setSignedInt32(3, value);
   @$pb.TagNumber(4)
-  $core.bool hasSubject() => $_has(3);
+  $core.bool hasTopic() => $_has(3);
   @$pb.TagNumber(4)
-  void clearSubject() => $_clearField(4);
+  void clearTopic() => $_clearField(4);
 
   @$pb.TagNumber(5)
-  $core.int get topic => $_getIZ(4);
+  $core.double get score => $_getN(4);
   @$pb.TagNumber(5)
-  set topic($core.int value) => $_setSignedInt32(4, value);
+  set score($core.double value) => $_setFloat(4, value);
   @$pb.TagNumber(5)
-  $core.bool hasTopic() => $_has(4);
+  $core.bool hasScore() => $_has(4);
   @$pb.TagNumber(5)
-  void clearTopic() => $_clearField(5);
-
-  @$pb.TagNumber(6)
-  $core.double get score => $_getN(5);
-  @$pb.TagNumber(6)
-  set score($core.double value) => $_setFloat(5, value);
-  @$pb.TagNumber(6)
-  $core.bool hasScore() => $_has(5);
-  @$pb.TagNumber(6)
-  void clearScore() => $_clearField(6);
+  void clearScore() => $_clearField(5);
 }
 
 class CreateFeePayload extends $pb.GeneratedMessage {
@@ -7851,56 +7925,478 @@ class DeleteUserPayload extends $pb.GeneratedMessage {
   void clearId() => $_clearField(1);
 }
 
-class UpdateSettingsPayload extends $pb.GeneratedMessage {
-  factory UpdateSettingsPayload({
-    $core.String? school,
-    $core.String? data,
-    $core.String? mpesa,
+class CreateSubjectPayload extends $pb.GeneratedMessage {
+  factory CreateSubjectPayload({
+    $core.String? name,
+    $core.int? curriculum,
   }) {
     final result = create();
-    if (school != null) result.school = school;
-    if (data != null) result.data = data;
-    if (mpesa != null) result.mpesa = mpesa;
+    if (name != null) result.name = name;
+    if (curriculum != null) result.curriculum = curriculum;
     return result;
   }
 
-  UpdateSettingsPayload._();
+  CreateSubjectPayload._();
 
-  factory UpdateSettingsPayload.fromBuffer($core.List<$core.int> data,
+  factory CreateSubjectPayload.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromBuffer(data, registry);
-  factory UpdateSettingsPayload.fromJson($core.String json,
+  factory CreateSubjectPayload.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'UpdateSettingsPayload',
+      _omitMessageNames ? '' : 'CreateSubjectPayload',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'school')
-    ..aOS(2, _omitFieldNames ? '' : 'data')
-    ..aOS(3, _omitFieldNames ? '' : 'mpesa')
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..aI(2, _omitFieldNames ? '' : 'curriculum')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  UpdateSettingsPayload clone() => deepCopy();
+  CreateSubjectPayload clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  UpdateSettingsPayload copyWith(
-          void Function(UpdateSettingsPayload) updates) =>
-      super.copyWith((message) => updates(message as UpdateSettingsPayload))
-          as UpdateSettingsPayload;
+  CreateSubjectPayload copyWith(void Function(CreateSubjectPayload) updates) =>
+      super.copyWith((message) => updates(message as CreateSubjectPayload))
+          as CreateSubjectPayload;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static UpdateSettingsPayload create() => UpdateSettingsPayload._();
+  static CreateSubjectPayload create() => CreateSubjectPayload._();
   @$core.override
-  UpdateSettingsPayload createEmptyInstance() => create();
+  CreateSubjectPayload createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
-  static UpdateSettingsPayload getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<UpdateSettingsPayload>(create);
-  static UpdateSettingsPayload? _defaultInstance;
+  static CreateSubjectPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateSubjectPayload>(create);
+  static CreateSubjectPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get curriculum => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set curriculum($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCurriculum() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCurriculum() => $_clearField(2);
+}
+
+class UpdateSubjectPayload extends $pb.GeneratedMessage {
+  factory UpdateSubjectPayload({
+    $core.int? id,
+    $core.String? name,
+    $core.int? curriculum,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (name != null) result.name = name;
+    if (curriculum != null) result.curriculum = curriculum;
+    return result;
+  }
+
+  UpdateSubjectPayload._();
+
+  factory UpdateSubjectPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdateSubjectPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateSubjectPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aI(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
+    ..aI(3, _omitFieldNames ? '' : 'curriculum')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateSubjectPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateSubjectPayload copyWith(void Function(UpdateSubjectPayload) updates) =>
+      super.copyWith((message) => updates(message as UpdateSubjectPayload))
+          as UpdateSubjectPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateSubjectPayload create() => UpdateSubjectPayload._();
+  @$core.override
+  UpdateSubjectPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdateSubjectPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateSubjectPayload>(create);
+  static UpdateSubjectPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get id => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set id($core.int value) => $_setSignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get name => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set name($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearName() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get curriculum => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set curriculum($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasCurriculum() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearCurriculum() => $_clearField(3);
+}
+
+class DeleteSubjectPayload extends $pb.GeneratedMessage {
+  factory DeleteSubjectPayload({
+    $core.int? id,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    return result;
+  }
+
+  DeleteSubjectPayload._();
+
+  factory DeleteSubjectPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteSubjectPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteSubjectPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aI(1, _omitFieldNames ? '' : 'id')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteSubjectPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteSubjectPayload copyWith(void Function(DeleteSubjectPayload) updates) =>
+      super.copyWith((message) => updates(message as DeleteSubjectPayload))
+          as DeleteSubjectPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteSubjectPayload create() => DeleteSubjectPayload._();
+  @$core.override
+  DeleteSubjectPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteSubjectPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteSubjectPayload>(create);
+  static DeleteSubjectPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get id => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set id($core.int value) => $_setSignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+}
+
+class CreateTopicPayload extends $pb.GeneratedMessage {
+  factory CreateTopicPayload({
+    $core.int? subject,
+    $core.int? grade,
+    $core.String? name,
+  }) {
+    final result = create();
+    if (subject != null) result.subject = subject;
+    if (grade != null) result.grade = grade;
+    if (name != null) result.name = name;
+    return result;
+  }
+
+  CreateTopicPayload._();
+
+  factory CreateTopicPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CreateTopicPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateTopicPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aI(1, _omitFieldNames ? '' : 'subject')
+    ..aI(2, _omitFieldNames ? '' : 'grade')
+    ..aOS(3, _omitFieldNames ? '' : 'name')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateTopicPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateTopicPayload copyWith(void Function(CreateTopicPayload) updates) =>
+      super.copyWith((message) => updates(message as CreateTopicPayload))
+          as CreateTopicPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreateTopicPayload create() => CreateTopicPayload._();
+  @$core.override
+  CreateTopicPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CreateTopicPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateTopicPayload>(create);
+  static CreateTopicPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get subject => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set subject($core.int value) => $_setSignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSubject() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSubject() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get grade => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set grade($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasGrade() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearGrade() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get name => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set name($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasName() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearName() => $_clearField(3);
+}
+
+class UpdateTopicPayload extends $pb.GeneratedMessage {
+  factory UpdateTopicPayload({
+    $core.int? id,
+    $core.int? subject,
+    $core.int? grade,
+    $core.String? name,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (subject != null) result.subject = subject;
+    if (grade != null) result.grade = grade;
+    if (name != null) result.name = name;
+    return result;
+  }
+
+  UpdateTopicPayload._();
+
+  factory UpdateTopicPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdateTopicPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateTopicPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aI(1, _omitFieldNames ? '' : 'id')
+    ..aI(2, _omitFieldNames ? '' : 'subject')
+    ..aI(3, _omitFieldNames ? '' : 'grade')
+    ..aOS(4, _omitFieldNames ? '' : 'name')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateTopicPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateTopicPayload copyWith(void Function(UpdateTopicPayload) updates) =>
+      super.copyWith((message) => updates(message as UpdateTopicPayload))
+          as UpdateTopicPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateTopicPayload create() => UpdateTopicPayload._();
+  @$core.override
+  UpdateTopicPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdateTopicPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateTopicPayload>(create);
+  static UpdateTopicPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get id => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set id($core.int value) => $_setSignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get subject => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set subject($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSubject() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSubject() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get grade => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set grade($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasGrade() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearGrade() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get name => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set name($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasName() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearName() => $_clearField(4);
+}
+
+class DeleteTopicPayload extends $pb.GeneratedMessage {
+  factory DeleteTopicPayload({
+    $core.int? id,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    return result;
+  }
+
+  DeleteTopicPayload._();
+
+  factory DeleteTopicPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteTopicPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteTopicPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aI(1, _omitFieldNames ? '' : 'id')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteTopicPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteTopicPayload copyWith(void Function(DeleteTopicPayload) updates) =>
+      super.copyWith((message) => updates(message as DeleteTopicPayload))
+          as DeleteTopicPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteTopicPayload create() => DeleteTopicPayload._();
+  @$core.override
+  DeleteTopicPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteTopicPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteTopicPayload>(create);
+  static DeleteTopicPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get id => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set id($core.int value) => $_setSignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+}
+
+class CreateStreamPayload extends $pb.GeneratedMessage {
+  factory CreateStreamPayload({
+    $core.String? school,
+    $core.int? grade,
+    $core.int? stream,
+    $core.String? name,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
+    if (name != null) result.name = name;
+    return result;
+  }
+
+  CreateStreamPayload._();
+
+  factory CreateStreamPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CreateStreamPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateStreamPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aI(2, _omitFieldNames ? '' : 'grade')
+    ..aI(3, _omitFieldNames ? '' : 'stream')
+    ..aOS(4, _omitFieldNames ? '' : 'name')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateStreamPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateStreamPayload copyWith(void Function(CreateStreamPayload) updates) =>
+      super.copyWith((message) => updates(message as CreateStreamPayload))
+          as CreateStreamPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreateStreamPayload create() => CreateStreamPayload._();
+  @$core.override
+  CreateStreamPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CreateStreamPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateStreamPayload>(create);
+  static CreateStreamPayload? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get school => $_getSZ(0);
@@ -7912,22 +8408,638 @@ class UpdateSettingsPayload extends $pb.GeneratedMessage {
   void clearSchool() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $core.String get data => $_getSZ(1);
+  $core.int get grade => $_getIZ(1);
   @$pb.TagNumber(2)
-  set data($core.String value) => $_setString(1, value);
+  set grade($core.int value) => $_setSignedInt32(1, value);
   @$pb.TagNumber(2)
-  $core.bool hasData() => $_has(1);
+  $core.bool hasGrade() => $_has(1);
   @$pb.TagNumber(2)
-  void clearData() => $_clearField(2);
+  void clearGrade() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $core.String get mpesa => $_getSZ(2);
+  $core.int get stream => $_getIZ(2);
   @$pb.TagNumber(3)
-  set mpesa($core.String value) => $_setString(2, value);
+  set stream($core.int value) => $_setSignedInt32(2, value);
   @$pb.TagNumber(3)
-  $core.bool hasMpesa() => $_has(2);
+  $core.bool hasStream() => $_has(2);
   @$pb.TagNumber(3)
-  void clearMpesa() => $_clearField(3);
+  void clearStream() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get name => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set name($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasName() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearName() => $_clearField(4);
+}
+
+class UpdateStreamPayload extends $pb.GeneratedMessage {
+  factory UpdateStreamPayload({
+    $core.String? school,
+    $core.int? grade,
+    $core.int? stream,
+    $core.String? name,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
+    if (name != null) result.name = name;
+    return result;
+  }
+
+  UpdateStreamPayload._();
+
+  factory UpdateStreamPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdateStreamPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateStreamPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aI(2, _omitFieldNames ? '' : 'grade')
+    ..aI(3, _omitFieldNames ? '' : 'stream')
+    ..aOS(4, _omitFieldNames ? '' : 'name')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateStreamPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateStreamPayload copyWith(void Function(UpdateStreamPayload) updates) =>
+      super.copyWith((message) => updates(message as UpdateStreamPayload))
+          as UpdateStreamPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateStreamPayload create() => UpdateStreamPayload._();
+  @$core.override
+  UpdateStreamPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdateStreamPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateStreamPayload>(create);
+  static UpdateStreamPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get grade => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set grade($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasGrade() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearGrade() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get stream => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set stream($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasStream() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearStream() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get name => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set name($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasName() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearName() => $_clearField(4);
+}
+
+class DeleteStreamPayload extends $pb.GeneratedMessage {
+  factory DeleteStreamPayload({
+    $core.String? school,
+    $core.int? grade,
+    $core.int? stream,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
+    return result;
+  }
+
+  DeleteStreamPayload._();
+
+  factory DeleteStreamPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteStreamPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteStreamPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aI(2, _omitFieldNames ? '' : 'grade')
+    ..aI(3, _omitFieldNames ? '' : 'stream')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteStreamPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteStreamPayload copyWith(void Function(DeleteStreamPayload) updates) =>
+      super.copyWith((message) => updates(message as DeleteStreamPayload))
+          as DeleteStreamPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteStreamPayload create() => DeleteStreamPayload._();
+  @$core.override
+  DeleteStreamPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteStreamPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteStreamPayload>(create);
+  static DeleteStreamPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get grade => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set grade($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasGrade() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearGrade() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get stream => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set stream($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasStream() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearStream() => $_clearField(3);
+}
+
+class CreateMpesaPayload extends $pb.GeneratedMessage {
+  factory CreateMpesaPayload({
+    $core.String? school,
+    $core.String? consumerKey,
+    $core.String? consumerSecret,
+    $core.String? passkey,
+    $core.String? shortcode,
+    $core.int? env,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (consumerKey != null) result.consumerKey = consumerKey;
+    if (consumerSecret != null) result.consumerSecret = consumerSecret;
+    if (passkey != null) result.passkey = passkey;
+    if (shortcode != null) result.shortcode = shortcode;
+    if (env != null) result.env = env;
+    return result;
+  }
+
+  CreateMpesaPayload._();
+
+  factory CreateMpesaPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CreateMpesaPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateMpesaPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'consumerKey')
+    ..aOS(3, _omitFieldNames ? '' : 'consumerSecret')
+    ..aOS(4, _omitFieldNames ? '' : 'passkey')
+    ..aOS(5, _omitFieldNames ? '' : 'shortcode')
+    ..aI(6, _omitFieldNames ? '' : 'env')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateMpesaPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateMpesaPayload copyWith(void Function(CreateMpesaPayload) updates) =>
+      super.copyWith((message) => updates(message as CreateMpesaPayload))
+          as CreateMpesaPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CreateMpesaPayload create() => CreateMpesaPayload._();
+  @$core.override
+  CreateMpesaPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CreateMpesaPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateMpesaPayload>(create);
+  static CreateMpesaPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get consumerKey => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set consumerKey($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasConsumerKey() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearConsumerKey() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get consumerSecret => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set consumerSecret($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasConsumerSecret() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearConsumerSecret() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get passkey => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set passkey($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasPasskey() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearPasskey() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get shortcode => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set shortcode($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasShortcode() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearShortcode() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get env => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set env($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasEnv() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearEnv() => $_clearField(6);
+}
+
+class UpdateMpesaPayload extends $pb.GeneratedMessage {
+  factory UpdateMpesaPayload({
+    $core.String? school,
+    $core.String? consumerKey,
+    $core.String? consumerSecret,
+    $core.String? passkey,
+    $core.String? shortcode,
+    $core.int? env,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (consumerKey != null) result.consumerKey = consumerKey;
+    if (consumerSecret != null) result.consumerSecret = consumerSecret;
+    if (passkey != null) result.passkey = passkey;
+    if (shortcode != null) result.shortcode = shortcode;
+    if (env != null) result.env = env;
+    return result;
+  }
+
+  UpdateMpesaPayload._();
+
+  factory UpdateMpesaPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UpdateMpesaPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateMpesaPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'consumerKey')
+    ..aOS(3, _omitFieldNames ? '' : 'consumerSecret')
+    ..aOS(4, _omitFieldNames ? '' : 'passkey')
+    ..aOS(5, _omitFieldNames ? '' : 'shortcode')
+    ..aI(6, _omitFieldNames ? '' : 'env')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateMpesaPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateMpesaPayload copyWith(void Function(UpdateMpesaPayload) updates) =>
+      super.copyWith((message) => updates(message as UpdateMpesaPayload))
+          as UpdateMpesaPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UpdateMpesaPayload create() => UpdateMpesaPayload._();
+  @$core.override
+  UpdateMpesaPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UpdateMpesaPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateMpesaPayload>(create);
+  static UpdateMpesaPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get consumerKey => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set consumerKey($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasConsumerKey() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearConsumerKey() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get consumerSecret => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set consumerSecret($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasConsumerSecret() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearConsumerSecret() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get passkey => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set passkey($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasPasskey() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearPasskey() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get shortcode => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set shortcode($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasShortcode() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearShortcode() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get env => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set env($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasEnv() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearEnv() => $_clearField(6);
+}
+
+class DeleteMpesaPayload extends $pb.GeneratedMessage {
+  factory DeleteMpesaPayload({
+    $core.String? school,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    return result;
+  }
+
+  DeleteMpesaPayload._();
+
+  factory DeleteMpesaPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteMpesaPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteMpesaPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteMpesaPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteMpesaPayload copyWith(void Function(DeleteMpesaPayload) updates) =>
+      super.copyWith((message) => updates(message as DeleteMpesaPayload))
+          as DeleteMpesaPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteMpesaPayload create() => DeleteMpesaPayload._();
+  @$core.override
+  DeleteMpesaPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteMpesaPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteMpesaPayload>(create);
+  static DeleteMpesaPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+}
+
+class AddExamGradePayload extends $pb.GeneratedMessage {
+  factory AddExamGradePayload({
+    $core.String? exam,
+    $core.int? grade,
+    $core.int? stream,
+  }) {
+    final result = create();
+    if (exam != null) result.exam = exam;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
+    return result;
+  }
+
+  AddExamGradePayload._();
+
+  factory AddExamGradePayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory AddExamGradePayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AddExamGradePayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'exam')
+    ..aI(2, _omitFieldNames ? '' : 'grade')
+    ..aI(3, _omitFieldNames ? '' : 'stream')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AddExamGradePayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AddExamGradePayload copyWith(void Function(AddExamGradePayload) updates) =>
+      super.copyWith((message) => updates(message as AddExamGradePayload))
+          as AddExamGradePayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static AddExamGradePayload create() => AddExamGradePayload._();
+  @$core.override
+  AddExamGradePayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static AddExamGradePayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<AddExamGradePayload>(create);
+  static AddExamGradePayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get exam => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set exam($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasExam() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearExam() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get grade => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set grade($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasGrade() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearGrade() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get stream => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set stream($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasStream() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearStream() => $_clearField(3);
+}
+
+class RemoveExamGradePayload extends $pb.GeneratedMessage {
+  factory RemoveExamGradePayload({
+    $core.String? exam,
+    $core.int? grade,
+    $core.int? stream,
+  }) {
+    final result = create();
+    if (exam != null) result.exam = exam;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
+    return result;
+  }
+
+  RemoveExamGradePayload._();
+
+  factory RemoveExamGradePayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory RemoveExamGradePayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RemoveExamGradePayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'exam')
+    ..aI(2, _omitFieldNames ? '' : 'grade')
+    ..aI(3, _omitFieldNames ? '' : 'stream')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RemoveExamGradePayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RemoveExamGradePayload copyWith(
+          void Function(RemoveExamGradePayload) updates) =>
+      super.copyWith((message) => updates(message as RemoveExamGradePayload))
+          as RemoveExamGradePayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static RemoveExamGradePayload create() => RemoveExamGradePayload._();
+  @$core.override
+  RemoveExamGradePayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static RemoveExamGradePayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<RemoveExamGradePayload>(create);
+  static RemoveExamGradePayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get exam => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set exam($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasExam() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearExam() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get grade => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set grade($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasGrade() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearGrade() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get stream => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set stream($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasStream() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearStream() => $_clearField(3);
 }
 
 class CreatePlanPayload extends $pb.GeneratedMessage {
@@ -9076,7 +10188,7 @@ enum InsertData_Row {
   term,
   classTeacher,
   enrollment,
-  subject,
+  subjectTeacher,
   attendance,
   timetable,
   lesson,
@@ -9089,12 +10201,16 @@ enum InsertData_Row {
   announcement,
   mastery,
   aiUsage,
-  settings,
   role,
   scope,
   plan,
   subscription,
   discount,
+  subjectCatalog,
+  topic,
+  stream,
+  mpesa,
+  examGrade,
   notSet
 }
 
@@ -9111,7 +10227,7 @@ class InsertData extends $pb.GeneratedMessage {
     TermInsert? term,
     ClassTeacherInsert? classTeacher,
     EnrollmentInsert? enrollment,
-    SubjectInsert? subject,
+    SubjectTeacherInsert? subjectTeacher,
     AttendanceInsert? attendance,
     TimetableInsert? timetable,
     LessonInsert? lesson,
@@ -9124,12 +10240,16 @@ class InsertData extends $pb.GeneratedMessage {
     AnnouncementInsert? announcement,
     MasteryInsert? mastery,
     AiUsageInsert? aiUsage,
-    SettingsInsert? settings,
     RoleInsert? role,
     ScopeInsert? scope,
     PlanInsert? plan,
     SubscriptionInsert? subscription,
     DiscountInsert? discount,
+    SubjectInsert? subjectCatalog,
+    TopicInsert? topic,
+    StreamInsert? stream,
+    MpesaInsert? mpesa,
+    ExamGradeInsert? examGrade,
   }) {
     final result = create();
     if (user != null) result.user = user;
@@ -9143,7 +10263,7 @@ class InsertData extends $pb.GeneratedMessage {
     if (term != null) result.term = term;
     if (classTeacher != null) result.classTeacher = classTeacher;
     if (enrollment != null) result.enrollment = enrollment;
-    if (subject != null) result.subject = subject;
+    if (subjectTeacher != null) result.subjectTeacher = subjectTeacher;
     if (attendance != null) result.attendance = attendance;
     if (timetable != null) result.timetable = timetable;
     if (lesson != null) result.lesson = lesson;
@@ -9156,12 +10276,16 @@ class InsertData extends $pb.GeneratedMessage {
     if (announcement != null) result.announcement = announcement;
     if (mastery != null) result.mastery = mastery;
     if (aiUsage != null) result.aiUsage = aiUsage;
-    if (settings != null) result.settings = settings;
     if (role != null) result.role = role;
     if (scope != null) result.scope = scope;
     if (plan != null) result.plan = plan;
     if (subscription != null) result.subscription = subscription;
     if (discount != null) result.discount = discount;
+    if (subjectCatalog != null) result.subjectCatalog = subjectCatalog;
+    if (topic != null) result.topic = topic;
+    if (stream != null) result.stream = stream;
+    if (mpesa != null) result.mpesa = mpesa;
+    if (examGrade != null) result.examGrade = examGrade;
     return result;
   }
 
@@ -9186,7 +10310,7 @@ class InsertData extends $pb.GeneratedMessage {
     9: InsertData_Row.term,
     10: InsertData_Row.classTeacher,
     11: InsertData_Row.enrollment,
-    12: InsertData_Row.subject,
+    12: InsertData_Row.subjectTeacher,
     13: InsertData_Row.attendance,
     14: InsertData_Row.timetable,
     15: InsertData_Row.lesson,
@@ -9199,12 +10323,16 @@ class InsertData extends $pb.GeneratedMessage {
     22: InsertData_Row.announcement,
     23: InsertData_Row.mastery,
     24: InsertData_Row.aiUsage,
-    25: InsertData_Row.settings,
     26: InsertData_Row.role,
     27: InsertData_Row.scope,
     28: InsertData_Row.plan,
     29: InsertData_Row.subscription,
     30: InsertData_Row.discount,
+    31: InsertData_Row.subjectCatalog,
+    32: InsertData_Row.topic,
+    33: InsertData_Row.stream,
+    34: InsertData_Row.mpesa,
+    35: InsertData_Row.examGrade,
     0: InsertData_Row.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -9236,12 +10364,16 @@ class InsertData extends $pb.GeneratedMessage {
       22,
       23,
       24,
-      25,
       26,
       27,
       28,
       29,
-      30
+      30,
+      31,
+      32,
+      33,
+      34,
+      35
     ])
     ..aOM<UserInsert>(1, _omitFieldNames ? '' : 'user',
         subBuilder: UserInsert.create)
@@ -9265,8 +10397,8 @@ class InsertData extends $pb.GeneratedMessage {
         subBuilder: ClassTeacherInsert.create)
     ..aOM<EnrollmentInsert>(11, _omitFieldNames ? '' : 'enrollment',
         subBuilder: EnrollmentInsert.create)
-    ..aOM<SubjectInsert>(12, _omitFieldNames ? '' : 'subject',
-        subBuilder: SubjectInsert.create)
+    ..aOM<SubjectTeacherInsert>(12, _omitFieldNames ? '' : 'subjectTeacher',
+        subBuilder: SubjectTeacherInsert.create)
     ..aOM<AttendanceInsert>(13, _omitFieldNames ? '' : 'attendance',
         subBuilder: AttendanceInsert.create)
     ..aOM<TimetableInsert>(14, _omitFieldNames ? '' : 'timetable',
@@ -9291,8 +10423,6 @@ class InsertData extends $pb.GeneratedMessage {
         subBuilder: MasteryInsert.create)
     ..aOM<AiUsageInsert>(24, _omitFieldNames ? '' : 'aiUsage',
         subBuilder: AiUsageInsert.create)
-    ..aOM<SettingsInsert>(25, _omitFieldNames ? '' : 'settings',
-        subBuilder: SettingsInsert.create)
     ..aOM<RoleInsert>(26, _omitFieldNames ? '' : 'role',
         subBuilder: RoleInsert.create)
     ..aOM<ScopeInsert>(27, _omitFieldNames ? '' : 'scope',
@@ -9303,6 +10433,16 @@ class InsertData extends $pb.GeneratedMessage {
         subBuilder: SubscriptionInsert.create)
     ..aOM<DiscountInsert>(30, _omitFieldNames ? '' : 'discount',
         subBuilder: DiscountInsert.create)
+    ..aOM<SubjectInsert>(31, _omitFieldNames ? '' : 'subjectCatalog',
+        subBuilder: SubjectInsert.create)
+    ..aOM<TopicInsert>(32, _omitFieldNames ? '' : 'topic',
+        subBuilder: TopicInsert.create)
+    ..aOM<StreamInsert>(33, _omitFieldNames ? '' : 'stream',
+        subBuilder: StreamInsert.create)
+    ..aOM<MpesaInsert>(34, _omitFieldNames ? '' : 'mpesa',
+        subBuilder: MpesaInsert.create)
+    ..aOM<ExamGradeInsert>(35, _omitFieldNames ? '' : 'examGrade',
+        subBuilder: ExamGradeInsert.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -9347,12 +10487,16 @@ class InsertData extends $pb.GeneratedMessage {
   @$pb.TagNumber(22)
   @$pb.TagNumber(23)
   @$pb.TagNumber(24)
-  @$pb.TagNumber(25)
   @$pb.TagNumber(26)
   @$pb.TagNumber(27)
   @$pb.TagNumber(28)
   @$pb.TagNumber(29)
   @$pb.TagNumber(30)
+  @$pb.TagNumber(31)
+  @$pb.TagNumber(32)
+  @$pb.TagNumber(33)
+  @$pb.TagNumber(34)
+  @$pb.TagNumber(35)
   InsertData_Row whichRow() => _InsertData_RowByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(1)
   @$pb.TagNumber(2)
@@ -9378,12 +10522,16 @@ class InsertData extends $pb.GeneratedMessage {
   @$pb.TagNumber(22)
   @$pb.TagNumber(23)
   @$pb.TagNumber(24)
-  @$pb.TagNumber(25)
   @$pb.TagNumber(26)
   @$pb.TagNumber(27)
   @$pb.TagNumber(28)
   @$pb.TagNumber(29)
   @$pb.TagNumber(30)
+  @$pb.TagNumber(31)
+  @$pb.TagNumber(32)
+  @$pb.TagNumber(33)
+  @$pb.TagNumber(34)
+  @$pb.TagNumber(35)
   void clearRow() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -9508,15 +10656,15 @@ class InsertData extends $pb.GeneratedMessage {
   EnrollmentInsert ensureEnrollment() => $_ensure(10);
 
   @$pb.TagNumber(12)
-  SubjectInsert get subject => $_getN(11);
+  SubjectTeacherInsert get subjectTeacher => $_getN(11);
   @$pb.TagNumber(12)
-  set subject(SubjectInsert value) => $_setField(12, value);
+  set subjectTeacher(SubjectTeacherInsert value) => $_setField(12, value);
   @$pb.TagNumber(12)
-  $core.bool hasSubject() => $_has(11);
+  $core.bool hasSubjectTeacher() => $_has(11);
   @$pb.TagNumber(12)
-  void clearSubject() => $_clearField(12);
+  void clearSubjectTeacher() => $_clearField(12);
   @$pb.TagNumber(12)
-  SubjectInsert ensureSubject() => $_ensure(11);
+  SubjectTeacherInsert ensureSubjectTeacher() => $_ensure(11);
 
   @$pb.TagNumber(13)
   AttendanceInsert get attendance => $_getN(12);
@@ -9650,71 +10798,115 @@ class InsertData extends $pb.GeneratedMessage {
   @$pb.TagNumber(24)
   AiUsageInsert ensureAiUsage() => $_ensure(23);
 
-  @$pb.TagNumber(25)
-  SettingsInsert get settings => $_getN(24);
-  @$pb.TagNumber(25)
-  set settings(SettingsInsert value) => $_setField(25, value);
-  @$pb.TagNumber(25)
-  $core.bool hasSettings() => $_has(24);
-  @$pb.TagNumber(25)
-  void clearSettings() => $_clearField(25);
-  @$pb.TagNumber(25)
-  SettingsInsert ensureSettings() => $_ensure(24);
-
   @$pb.TagNumber(26)
-  RoleInsert get role => $_getN(25);
+  RoleInsert get role => $_getN(24);
   @$pb.TagNumber(26)
   set role(RoleInsert value) => $_setField(26, value);
   @$pb.TagNumber(26)
-  $core.bool hasRole() => $_has(25);
+  $core.bool hasRole() => $_has(24);
   @$pb.TagNumber(26)
   void clearRole() => $_clearField(26);
   @$pb.TagNumber(26)
-  RoleInsert ensureRole() => $_ensure(25);
+  RoleInsert ensureRole() => $_ensure(24);
 
   @$pb.TagNumber(27)
-  ScopeInsert get scope => $_getN(26);
+  ScopeInsert get scope => $_getN(25);
   @$pb.TagNumber(27)
   set scope(ScopeInsert value) => $_setField(27, value);
   @$pb.TagNumber(27)
-  $core.bool hasScope() => $_has(26);
+  $core.bool hasScope() => $_has(25);
   @$pb.TagNumber(27)
   void clearScope() => $_clearField(27);
   @$pb.TagNumber(27)
-  ScopeInsert ensureScope() => $_ensure(26);
+  ScopeInsert ensureScope() => $_ensure(25);
 
   @$pb.TagNumber(28)
-  PlanInsert get plan => $_getN(27);
+  PlanInsert get plan => $_getN(26);
   @$pb.TagNumber(28)
   set plan(PlanInsert value) => $_setField(28, value);
   @$pb.TagNumber(28)
-  $core.bool hasPlan() => $_has(27);
+  $core.bool hasPlan() => $_has(26);
   @$pb.TagNumber(28)
   void clearPlan() => $_clearField(28);
   @$pb.TagNumber(28)
-  PlanInsert ensurePlan() => $_ensure(27);
+  PlanInsert ensurePlan() => $_ensure(26);
 
   @$pb.TagNumber(29)
-  SubscriptionInsert get subscription => $_getN(28);
+  SubscriptionInsert get subscription => $_getN(27);
   @$pb.TagNumber(29)
   set subscription(SubscriptionInsert value) => $_setField(29, value);
   @$pb.TagNumber(29)
-  $core.bool hasSubscription() => $_has(28);
+  $core.bool hasSubscription() => $_has(27);
   @$pb.TagNumber(29)
   void clearSubscription() => $_clearField(29);
   @$pb.TagNumber(29)
-  SubscriptionInsert ensureSubscription() => $_ensure(28);
+  SubscriptionInsert ensureSubscription() => $_ensure(27);
 
   @$pb.TagNumber(30)
-  DiscountInsert get discount => $_getN(29);
+  DiscountInsert get discount => $_getN(28);
   @$pb.TagNumber(30)
   set discount(DiscountInsert value) => $_setField(30, value);
   @$pb.TagNumber(30)
-  $core.bool hasDiscount() => $_has(29);
+  $core.bool hasDiscount() => $_has(28);
   @$pb.TagNumber(30)
   void clearDiscount() => $_clearField(30);
   @$pb.TagNumber(30)
-  DiscountInsert ensureDiscount() => $_ensure(29);
+  DiscountInsert ensureDiscount() => $_ensure(28);
+
+  @$pb.TagNumber(31)
+  SubjectInsert get subjectCatalog => $_getN(29);
+  @$pb.TagNumber(31)
+  set subjectCatalog(SubjectInsert value) => $_setField(31, value);
+  @$pb.TagNumber(31)
+  $core.bool hasSubjectCatalog() => $_has(29);
+  @$pb.TagNumber(31)
+  void clearSubjectCatalog() => $_clearField(31);
+  @$pb.TagNumber(31)
+  SubjectInsert ensureSubjectCatalog() => $_ensure(29);
+
+  @$pb.TagNumber(32)
+  TopicInsert get topic => $_getN(30);
+  @$pb.TagNumber(32)
+  set topic(TopicInsert value) => $_setField(32, value);
+  @$pb.TagNumber(32)
+  $core.bool hasTopic() => $_has(30);
+  @$pb.TagNumber(32)
+  void clearTopic() => $_clearField(32);
+  @$pb.TagNumber(32)
+  TopicInsert ensureTopic() => $_ensure(30);
+
+  @$pb.TagNumber(33)
+  StreamInsert get stream => $_getN(31);
+  @$pb.TagNumber(33)
+  set stream(StreamInsert value) => $_setField(33, value);
+  @$pb.TagNumber(33)
+  $core.bool hasStream() => $_has(31);
+  @$pb.TagNumber(33)
+  void clearStream() => $_clearField(33);
+  @$pb.TagNumber(33)
+  StreamInsert ensureStream() => $_ensure(31);
+
+  @$pb.TagNumber(34)
+  MpesaInsert get mpesa => $_getN(32);
+  @$pb.TagNumber(34)
+  set mpesa(MpesaInsert value) => $_setField(34, value);
+  @$pb.TagNumber(34)
+  $core.bool hasMpesa() => $_has(32);
+  @$pb.TagNumber(34)
+  void clearMpesa() => $_clearField(34);
+  @$pb.TagNumber(34)
+  MpesaInsert ensureMpesa() => $_ensure(32);
+
+  @$pb.TagNumber(35)
+  ExamGradeInsert get examGrade => $_getN(33);
+  @$pb.TagNumber(35)
+  set examGrade(ExamGradeInsert value) => $_setField(35, value);
+  @$pb.TagNumber(35)
+  $core.bool hasExamGrade() => $_has(33);
+  @$pb.TagNumber(35)
+  void clearExamGrade() => $_clearField(35);
+  @$pb.TagNumber(35)
+  ExamGradeInsert ensureExamGrade() => $_ensure(33);
 }
 
 class UserInsert extends $pb.GeneratedMessage {
@@ -10957,8 +12149,8 @@ class EnrollmentInsert extends $pb.GeneratedMessage {
   void clearStudent() => $_clearField(6);
 }
 
-class SubjectInsert extends $pb.GeneratedMessage {
-  factory SubjectInsert({
+class SubjectTeacherInsert extends $pb.GeneratedMessage {
+  factory SubjectTeacherInsert({
     $core.String? school,
     $core.int? year,
     $core.int? term,
@@ -10978,17 +12170,17 @@ class SubjectInsert extends $pb.GeneratedMessage {
     return result;
   }
 
-  SubjectInsert._();
+  SubjectTeacherInsert._();
 
-  factory SubjectInsert.fromBuffer($core.List<$core.int> data,
+  factory SubjectTeacherInsert.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromBuffer(data, registry);
-  factory SubjectInsert.fromJson($core.String json,
+  factory SubjectTeacherInsert.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'SubjectInsert',
+      _omitMessageNames ? '' : 'SubjectTeacherInsert',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'school')
@@ -11001,23 +12193,23 @@ class SubjectInsert extends $pb.GeneratedMessage {
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  SubjectInsert clone() => deepCopy();
+  SubjectTeacherInsert clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  SubjectInsert copyWith(void Function(SubjectInsert) updates) =>
-      super.copyWith((message) => updates(message as SubjectInsert))
-          as SubjectInsert;
+  SubjectTeacherInsert copyWith(void Function(SubjectTeacherInsert) updates) =>
+      super.copyWith((message) => updates(message as SubjectTeacherInsert))
+          as SubjectTeacherInsert;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static SubjectInsert create() => SubjectInsert._();
+  static SubjectTeacherInsert create() => SubjectTeacherInsert._();
   @$core.override
-  SubjectInsert createEmptyInstance() => create();
+  SubjectTeacherInsert createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
-  static SubjectInsert getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<SubjectInsert>(create);
-  static SubjectInsert? _defaultInstance;
+  static SubjectTeacherInsert getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SubjectTeacherInsert>(create);
+  static SubjectTeacherInsert? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get school => $_getSZ(0);
@@ -11525,10 +12717,9 @@ class ExamInsert extends $pb.GeneratedMessage {
   factory ExamInsert({
     $core.String? id,
     $core.String? school,
+    $core.String? name,
     $core.int? year,
     $core.int? term,
-    $core.int? grade,
-    $core.int? stream,
     $core.bool? personalized,
     $core.int? type,
     $core.int? start,
@@ -11538,10 +12729,9 @@ class ExamInsert extends $pb.GeneratedMessage {
     final result = create();
     if (id != null) result.id = id;
     if (school != null) result.school = school;
+    if (name != null) result.name = name;
     if (year != null) result.year = year;
     if (term != null) result.term = term;
-    if (grade != null) result.grade = grade;
-    if (stream != null) result.stream = stream;
     if (personalized != null) result.personalized = personalized;
     if (type != null) result.type = type;
     if (start != null) result.start = start;
@@ -11565,15 +12755,14 @@ class ExamInsert extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'id')
     ..aOS(2, _omitFieldNames ? '' : 'school')
-    ..aI(3, _omitFieldNames ? '' : 'year')
-    ..aI(4, _omitFieldNames ? '' : 'term')
-    ..aI(5, _omitFieldNames ? '' : 'grade')
-    ..aI(6, _omitFieldNames ? '' : 'stream')
-    ..aOB(7, _omitFieldNames ? '' : 'personalized')
-    ..aI(8, _omitFieldNames ? '' : 'type')
-    ..aI(9, _omitFieldNames ? '' : 'start')
-    ..aI(10, _omitFieldNames ? '' : 'end')
-    ..aOS(11, _omitFieldNames ? '' : 'teacher')
+    ..aOS(3, _omitFieldNames ? '' : 'name')
+    ..aI(4, _omitFieldNames ? '' : 'year')
+    ..aI(5, _omitFieldNames ? '' : 'term')
+    ..aOB(6, _omitFieldNames ? '' : 'personalized')
+    ..aI(7, _omitFieldNames ? '' : 'type')
+    ..aI(8, _omitFieldNames ? '' : 'start')
+    ..aI(9, _omitFieldNames ? '' : 'end')
+    ..aOS(10, _omitFieldNames ? '' : 'teacher')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -11613,85 +12802,76 @@ class ExamInsert extends $pb.GeneratedMessage {
   void clearSchool() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $core.int get year => $_getIZ(2);
+  $core.String get name => $_getSZ(2);
   @$pb.TagNumber(3)
-  set year($core.int value) => $_setSignedInt32(2, value);
+  set name($core.String value) => $_setString(2, value);
   @$pb.TagNumber(3)
-  $core.bool hasYear() => $_has(2);
+  $core.bool hasName() => $_has(2);
   @$pb.TagNumber(3)
-  void clearYear() => $_clearField(3);
+  void clearName() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $core.int get term => $_getIZ(3);
+  $core.int get year => $_getIZ(3);
   @$pb.TagNumber(4)
-  set term($core.int value) => $_setSignedInt32(3, value);
+  set year($core.int value) => $_setSignedInt32(3, value);
   @$pb.TagNumber(4)
-  $core.bool hasTerm() => $_has(3);
+  $core.bool hasYear() => $_has(3);
   @$pb.TagNumber(4)
-  void clearTerm() => $_clearField(4);
+  void clearYear() => $_clearField(4);
 
   @$pb.TagNumber(5)
-  $core.int get grade => $_getIZ(4);
+  $core.int get term => $_getIZ(4);
   @$pb.TagNumber(5)
-  set grade($core.int value) => $_setSignedInt32(4, value);
+  set term($core.int value) => $_setSignedInt32(4, value);
   @$pb.TagNumber(5)
-  $core.bool hasGrade() => $_has(4);
+  $core.bool hasTerm() => $_has(4);
   @$pb.TagNumber(5)
-  void clearGrade() => $_clearField(5);
+  void clearTerm() => $_clearField(5);
 
   @$pb.TagNumber(6)
-  $core.int get stream => $_getIZ(5);
+  $core.bool get personalized => $_getBF(5);
   @$pb.TagNumber(6)
-  set stream($core.int value) => $_setSignedInt32(5, value);
+  set personalized($core.bool value) => $_setBool(5, value);
   @$pb.TagNumber(6)
-  $core.bool hasStream() => $_has(5);
+  $core.bool hasPersonalized() => $_has(5);
   @$pb.TagNumber(6)
-  void clearStream() => $_clearField(6);
+  void clearPersonalized() => $_clearField(6);
 
   @$pb.TagNumber(7)
-  $core.bool get personalized => $_getBF(6);
+  $core.int get type => $_getIZ(6);
   @$pb.TagNumber(7)
-  set personalized($core.bool value) => $_setBool(6, value);
+  set type($core.int value) => $_setSignedInt32(6, value);
   @$pb.TagNumber(7)
-  $core.bool hasPersonalized() => $_has(6);
+  $core.bool hasType() => $_has(6);
   @$pb.TagNumber(7)
-  void clearPersonalized() => $_clearField(7);
+  void clearType() => $_clearField(7);
 
   @$pb.TagNumber(8)
-  $core.int get type => $_getIZ(7);
+  $core.int get start => $_getIZ(7);
   @$pb.TagNumber(8)
-  set type($core.int value) => $_setSignedInt32(7, value);
+  set start($core.int value) => $_setSignedInt32(7, value);
   @$pb.TagNumber(8)
-  $core.bool hasType() => $_has(7);
+  $core.bool hasStart() => $_has(7);
   @$pb.TagNumber(8)
-  void clearType() => $_clearField(8);
+  void clearStart() => $_clearField(8);
 
   @$pb.TagNumber(9)
-  $core.int get start => $_getIZ(8);
+  $core.int get end => $_getIZ(8);
   @$pb.TagNumber(9)
-  set start($core.int value) => $_setSignedInt32(8, value);
+  set end($core.int value) => $_setSignedInt32(8, value);
   @$pb.TagNumber(9)
-  $core.bool hasStart() => $_has(8);
+  $core.bool hasEnd() => $_has(8);
   @$pb.TagNumber(9)
-  void clearStart() => $_clearField(9);
+  void clearEnd() => $_clearField(9);
 
   @$pb.TagNumber(10)
-  $core.int get end => $_getIZ(9);
+  $core.String get teacher => $_getSZ(9);
   @$pb.TagNumber(10)
-  set end($core.int value) => $_setSignedInt32(9, value);
+  set teacher($core.String value) => $_setString(9, value);
   @$pb.TagNumber(10)
-  $core.bool hasEnd() => $_has(9);
+  $core.bool hasTeacher() => $_has(9);
   @$pb.TagNumber(10)
-  void clearEnd() => $_clearField(10);
-
-  @$pb.TagNumber(11)
-  $core.String get teacher => $_getSZ(10);
-  @$pb.TagNumber(11)
-  set teacher($core.String value) => $_setString(10, value);
-  @$pb.TagNumber(11)
-  $core.bool hasTeacher() => $_has(10);
-  @$pb.TagNumber(11)
-  void clearTeacher() => $_clearField(11);
+  void clearTeacher() => $_clearField(10);
 }
 
 class PaperInsert extends $pb.GeneratedMessage {
@@ -11700,6 +12880,7 @@ class PaperInsert extends $pb.GeneratedMessage {
     $core.String? exam,
     $core.int? subject,
     $core.int? paper,
+    $core.int? topic,
     $core.String? invigilator,
     $fixnum.Int64? start,
     $fixnum.Int64? end,
@@ -11710,6 +12891,7 @@ class PaperInsert extends $pb.GeneratedMessage {
     if (exam != null) result.exam = exam;
     if (subject != null) result.subject = subject;
     if (paper != null) result.paper = paper;
+    if (topic != null) result.topic = topic;
     if (invigilator != null) result.invigilator = invigilator;
     if (start != null) result.start = start;
     if (end != null) result.end = end;
@@ -11734,10 +12916,11 @@ class PaperInsert extends $pb.GeneratedMessage {
     ..aOS(2, _omitFieldNames ? '' : 'exam')
     ..aI(3, _omitFieldNames ? '' : 'subject')
     ..aI(4, _omitFieldNames ? '' : 'paper')
-    ..aOS(5, _omitFieldNames ? '' : 'invigilator')
-    ..aInt64(6, _omitFieldNames ? '' : 'start')
-    ..aInt64(7, _omitFieldNames ? '' : 'end')
-    ..aI(8, _omitFieldNames ? '' : 'status')
+    ..aI(5, _omitFieldNames ? '' : 'topic')
+    ..aOS(6, _omitFieldNames ? '' : 'invigilator')
+    ..aInt64(7, _omitFieldNames ? '' : 'start')
+    ..aInt64(8, _omitFieldNames ? '' : 'end')
+    ..aI(9, _omitFieldNames ? '' : 'status')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -11796,40 +12979,49 @@ class PaperInsert extends $pb.GeneratedMessage {
   void clearPaper() => $_clearField(4);
 
   @$pb.TagNumber(5)
-  $core.String get invigilator => $_getSZ(4);
+  $core.int get topic => $_getIZ(4);
   @$pb.TagNumber(5)
-  set invigilator($core.String value) => $_setString(4, value);
+  set topic($core.int value) => $_setSignedInt32(4, value);
   @$pb.TagNumber(5)
-  $core.bool hasInvigilator() => $_has(4);
+  $core.bool hasTopic() => $_has(4);
   @$pb.TagNumber(5)
-  void clearInvigilator() => $_clearField(5);
+  void clearTopic() => $_clearField(5);
 
   @$pb.TagNumber(6)
-  $fixnum.Int64 get start => $_getI64(5);
+  $core.String get invigilator => $_getSZ(5);
   @$pb.TagNumber(6)
-  set start($fixnum.Int64 value) => $_setInt64(5, value);
+  set invigilator($core.String value) => $_setString(5, value);
   @$pb.TagNumber(6)
-  $core.bool hasStart() => $_has(5);
+  $core.bool hasInvigilator() => $_has(5);
   @$pb.TagNumber(6)
-  void clearStart() => $_clearField(6);
+  void clearInvigilator() => $_clearField(6);
 
   @$pb.TagNumber(7)
-  $fixnum.Int64 get end => $_getI64(6);
+  $fixnum.Int64 get start => $_getI64(6);
   @$pb.TagNumber(7)
-  set end($fixnum.Int64 value) => $_setInt64(6, value);
+  set start($fixnum.Int64 value) => $_setInt64(6, value);
   @$pb.TagNumber(7)
-  $core.bool hasEnd() => $_has(6);
+  $core.bool hasStart() => $_has(6);
   @$pb.TagNumber(7)
-  void clearEnd() => $_clearField(7);
+  void clearStart() => $_clearField(7);
 
   @$pb.TagNumber(8)
-  $core.int get status => $_getIZ(7);
+  $fixnum.Int64 get end => $_getI64(7);
   @$pb.TagNumber(8)
-  set status($core.int value) => $_setSignedInt32(7, value);
+  set end($fixnum.Int64 value) => $_setInt64(7, value);
   @$pb.TagNumber(8)
-  $core.bool hasStatus() => $_has(7);
+  $core.bool hasEnd() => $_has(7);
   @$pb.TagNumber(8)
-  void clearStatus() => $_clearField(8);
+  void clearEnd() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.int get status => $_getIZ(8);
+  @$pb.TagNumber(9)
+  set status($core.int value) => $_setSignedInt32(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasStatus() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearStatus() => $_clearField(9);
 }
 
 class GradeInsert extends $pb.GeneratedMessage {
@@ -12573,7 +13765,6 @@ class MasteryInsert extends $pb.GeneratedMessage {
   factory MasteryInsert({
     $core.String? school,
     $core.int? student,
-    $core.int? grade,
     $core.int? subject,
     $core.int? topic,
     $core.double? score,
@@ -12581,7 +13772,6 @@ class MasteryInsert extends $pb.GeneratedMessage {
     final result = create();
     if (school != null) result.school = school;
     if (student != null) result.student = student;
-    if (grade != null) result.grade = grade;
     if (subject != null) result.subject = subject;
     if (topic != null) result.topic = topic;
     if (score != null) result.score = score;
@@ -12603,10 +13793,9 @@ class MasteryInsert extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'school')
     ..aI(2, _omitFieldNames ? '' : 'student')
-    ..aI(3, _omitFieldNames ? '' : 'grade')
-    ..aI(4, _omitFieldNames ? '' : 'subject')
-    ..aI(5, _omitFieldNames ? '' : 'topic')
-    ..aD(6, _omitFieldNames ? '' : 'score', fieldType: $pb.PbFieldType.OF)
+    ..aI(3, _omitFieldNames ? '' : 'subject')
+    ..aI(4, _omitFieldNames ? '' : 'topic')
+    ..aD(5, _omitFieldNames ? '' : 'score', fieldType: $pb.PbFieldType.OF)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -12647,40 +13836,31 @@ class MasteryInsert extends $pb.GeneratedMessage {
   void clearStudent() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $core.int get grade => $_getIZ(2);
+  $core.int get subject => $_getIZ(2);
   @$pb.TagNumber(3)
-  set grade($core.int value) => $_setSignedInt32(2, value);
+  set subject($core.int value) => $_setSignedInt32(2, value);
   @$pb.TagNumber(3)
-  $core.bool hasGrade() => $_has(2);
+  $core.bool hasSubject() => $_has(2);
   @$pb.TagNumber(3)
-  void clearGrade() => $_clearField(3);
+  void clearSubject() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $core.int get subject => $_getIZ(3);
+  $core.int get topic => $_getIZ(3);
   @$pb.TagNumber(4)
-  set subject($core.int value) => $_setSignedInt32(3, value);
+  set topic($core.int value) => $_setSignedInt32(3, value);
   @$pb.TagNumber(4)
-  $core.bool hasSubject() => $_has(3);
+  $core.bool hasTopic() => $_has(3);
   @$pb.TagNumber(4)
-  void clearSubject() => $_clearField(4);
+  void clearTopic() => $_clearField(4);
 
   @$pb.TagNumber(5)
-  $core.int get topic => $_getIZ(4);
+  $core.double get score => $_getN(4);
   @$pb.TagNumber(5)
-  set topic($core.int value) => $_setSignedInt32(4, value);
+  set score($core.double value) => $_setFloat(4, value);
   @$pb.TagNumber(5)
-  $core.bool hasTopic() => $_has(4);
+  $core.bool hasScore() => $_has(4);
   @$pb.TagNumber(5)
-  void clearTopic() => $_clearField(5);
-
-  @$pb.TagNumber(6)
-  $core.double get score => $_getN(5);
-  @$pb.TagNumber(6)
-  set score($core.double value) => $_setFloat(5, value);
-  @$pb.TagNumber(6)
-  $core.bool hasScore() => $_has(5);
-  @$pb.TagNumber(6)
-  void clearScore() => $_clearField(6);
+  void clearScore() => $_clearField(5);
 }
 
 class AiUsageInsert extends $pb.GeneratedMessage {
@@ -12797,55 +13977,226 @@ class AiUsageInsert extends $pb.GeneratedMessage {
   void clearUsed() => $_clearField(6);
 }
 
-class SettingsInsert extends $pb.GeneratedMessage {
-  factory SettingsInsert({
-    $core.String? school,
-    $core.String? data,
-    $core.String? mpesa,
+class SubjectInsert extends $pb.GeneratedMessage {
+  factory SubjectInsert({
+    $core.int? id,
+    $core.String? name,
+    $core.int? curriculum,
   }) {
     final result = create();
-    if (school != null) result.school = school;
-    if (data != null) result.data = data;
-    if (mpesa != null) result.mpesa = mpesa;
+    if (id != null) result.id = id;
+    if (name != null) result.name = name;
+    if (curriculum != null) result.curriculum = curriculum;
     return result;
   }
 
-  SettingsInsert._();
+  SubjectInsert._();
 
-  factory SettingsInsert.fromBuffer($core.List<$core.int> data,
+  factory SubjectInsert.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromBuffer(data, registry);
-  factory SettingsInsert.fromJson($core.String json,
+  factory SubjectInsert.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'SettingsInsert',
+      _omitMessageNames ? '' : 'SubjectInsert',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'school')
-    ..aOS(2, _omitFieldNames ? '' : 'data')
-    ..aOS(3, _omitFieldNames ? '' : 'mpesa')
+    ..aI(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
+    ..aI(3, _omitFieldNames ? '' : 'curriculum')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  SettingsInsert clone() => deepCopy();
+  SubjectInsert clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  SettingsInsert copyWith(void Function(SettingsInsert) updates) =>
-      super.copyWith((message) => updates(message as SettingsInsert))
-          as SettingsInsert;
+  SubjectInsert copyWith(void Function(SubjectInsert) updates) =>
+      super.copyWith((message) => updates(message as SubjectInsert))
+          as SubjectInsert;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static SettingsInsert create() => SettingsInsert._();
+  static SubjectInsert create() => SubjectInsert._();
   @$core.override
-  SettingsInsert createEmptyInstance() => create();
+  SubjectInsert createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
-  static SettingsInsert getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<SettingsInsert>(create);
-  static SettingsInsert? _defaultInstance;
+  static SubjectInsert getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SubjectInsert>(create);
+  static SubjectInsert? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get id => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set id($core.int value) => $_setSignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get name => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set name($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearName() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get curriculum => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set curriculum($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasCurriculum() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearCurriculum() => $_clearField(3);
+}
+
+class TopicInsert extends $pb.GeneratedMessage {
+  factory TopicInsert({
+    $core.int? id,
+    $core.int? subject,
+    $core.int? grade,
+    $core.String? name,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (subject != null) result.subject = subject;
+    if (grade != null) result.grade = grade;
+    if (name != null) result.name = name;
+    return result;
+  }
+
+  TopicInsert._();
+
+  factory TopicInsert.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory TopicInsert.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'TopicInsert',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aI(1, _omitFieldNames ? '' : 'id')
+    ..aI(2, _omitFieldNames ? '' : 'subject')
+    ..aI(3, _omitFieldNames ? '' : 'grade')
+    ..aOS(4, _omitFieldNames ? '' : 'name')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  TopicInsert clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  TopicInsert copyWith(void Function(TopicInsert) updates) =>
+      super.copyWith((message) => updates(message as TopicInsert))
+          as TopicInsert;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static TopicInsert create() => TopicInsert._();
+  @$core.override
+  TopicInsert createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static TopicInsert getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<TopicInsert>(create);
+  static TopicInsert? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get id => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set id($core.int value) => $_setSignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get subject => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set subject($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSubject() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSubject() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get grade => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set grade($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasGrade() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearGrade() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get name => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set name($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasName() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearName() => $_clearField(4);
+}
+
+class StreamInsert extends $pb.GeneratedMessage {
+  factory StreamInsert({
+    $core.String? school,
+    $core.int? grade,
+    $core.int? stream,
+    $core.String? name,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
+    if (name != null) result.name = name;
+    return result;
+  }
+
+  StreamInsert._();
+
+  factory StreamInsert.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory StreamInsert.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'StreamInsert',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aI(2, _omitFieldNames ? '' : 'grade')
+    ..aI(3, _omitFieldNames ? '' : 'stream')
+    ..aOS(4, _omitFieldNames ? '' : 'name')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  StreamInsert clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  StreamInsert copyWith(void Function(StreamInsert) updates) =>
+      super.copyWith((message) => updates(message as StreamInsert))
+          as StreamInsert;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static StreamInsert create() => StreamInsert._();
+  @$core.override
+  StreamInsert createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static StreamInsert getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<StreamInsert>(create);
+  static StreamInsert? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get school => $_getSZ(0);
@@ -12857,22 +14208,223 @@ class SettingsInsert extends $pb.GeneratedMessage {
   void clearSchool() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $core.String get data => $_getSZ(1);
+  $core.int get grade => $_getIZ(1);
   @$pb.TagNumber(2)
-  set data($core.String value) => $_setString(1, value);
+  set grade($core.int value) => $_setSignedInt32(1, value);
   @$pb.TagNumber(2)
-  $core.bool hasData() => $_has(1);
+  $core.bool hasGrade() => $_has(1);
   @$pb.TagNumber(2)
-  void clearData() => $_clearField(2);
+  void clearGrade() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $core.String get mpesa => $_getSZ(2);
+  $core.int get stream => $_getIZ(2);
   @$pb.TagNumber(3)
-  set mpesa($core.String value) => $_setString(2, value);
+  set stream($core.int value) => $_setSignedInt32(2, value);
   @$pb.TagNumber(3)
-  $core.bool hasMpesa() => $_has(2);
+  $core.bool hasStream() => $_has(2);
   @$pb.TagNumber(3)
-  void clearMpesa() => $_clearField(3);
+  void clearStream() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get name => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set name($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasName() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearName() => $_clearField(4);
+}
+
+class MpesaInsert extends $pb.GeneratedMessage {
+  factory MpesaInsert({
+    $core.String? school,
+    $core.String? consumerKey,
+    $core.String? consumerSecret,
+    $core.String? passkey,
+    $core.String? shortcode,
+    $core.int? env,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (consumerKey != null) result.consumerKey = consumerKey;
+    if (consumerSecret != null) result.consumerSecret = consumerSecret;
+    if (passkey != null) result.passkey = passkey;
+    if (shortcode != null) result.shortcode = shortcode;
+    if (env != null) result.env = env;
+    return result;
+  }
+
+  MpesaInsert._();
+
+  factory MpesaInsert.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory MpesaInsert.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'MpesaInsert',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'consumerKey')
+    ..aOS(3, _omitFieldNames ? '' : 'consumerSecret')
+    ..aOS(4, _omitFieldNames ? '' : 'passkey')
+    ..aOS(5, _omitFieldNames ? '' : 'shortcode')
+    ..aI(6, _omitFieldNames ? '' : 'env')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MpesaInsert clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MpesaInsert copyWith(void Function(MpesaInsert) updates) =>
+      super.copyWith((message) => updates(message as MpesaInsert))
+          as MpesaInsert;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MpesaInsert create() => MpesaInsert._();
+  @$core.override
+  MpesaInsert createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static MpesaInsert getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<MpesaInsert>(create);
+  static MpesaInsert? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get consumerKey => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set consumerKey($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasConsumerKey() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearConsumerKey() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get consumerSecret => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set consumerSecret($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasConsumerSecret() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearConsumerSecret() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get passkey => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set passkey($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasPasskey() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearPasskey() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get shortcode => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set shortcode($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasShortcode() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearShortcode() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get env => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set env($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasEnv() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearEnv() => $_clearField(6);
+}
+
+class ExamGradeInsert extends $pb.GeneratedMessage {
+  factory ExamGradeInsert({
+    $core.String? exam,
+    $core.int? grade,
+    $core.int? stream,
+  }) {
+    final result = create();
+    if (exam != null) result.exam = exam;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
+    return result;
+  }
+
+  ExamGradeInsert._();
+
+  factory ExamGradeInsert.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ExamGradeInsert.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ExamGradeInsert',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'exam')
+    ..aI(2, _omitFieldNames ? '' : 'grade')
+    ..aI(3, _omitFieldNames ? '' : 'stream')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ExamGradeInsert clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ExamGradeInsert copyWith(void Function(ExamGradeInsert) updates) =>
+      super.copyWith((message) => updates(message as ExamGradeInsert))
+          as ExamGradeInsert;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ExamGradeInsert create() => ExamGradeInsert._();
+  @$core.override
+  ExamGradeInsert createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ExamGradeInsert getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ExamGradeInsert>(create);
+  static ExamGradeInsert? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get exam => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set exam($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasExam() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearExam() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get grade => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set grade($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasGrade() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearGrade() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get stream => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set stream($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasStream() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearStream() => $_clearField(3);
 }
 
 class RoleInsert extends $pb.GeneratedMessage {

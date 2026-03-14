@@ -42,6 +42,8 @@ class Resource extends $pb.ProtobufEnum {
   static const Resource ROLES = Resource._(15, _omitEnumNames ? '' : 'ROLES');
   static const Resource PLANS = Resource._(16, _omitEnumNames ? '' : 'PLANS');
   static const Resource AI = Resource._(17, _omitEnumNames ? '' : 'AI');
+  static const Resource SUBJECTS =
+      Resource._(18, _omitEnumNames ? '' : 'SUBJECTS');
 
   static const $core.List<Resource> values = <Resource>[
     USERS,
@@ -62,10 +64,11 @@ class Resource extends $pb.ProtobufEnum {
     ROLES,
     PLANS,
     AI,
+    SUBJECTS,
   ];
 
   static final $core.List<Resource?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 17);
+      $pb.ProtobufEnum.$_initByValueList(values, 18);
   static Resource? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

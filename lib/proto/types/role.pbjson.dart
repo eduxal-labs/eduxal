@@ -36,6 +36,7 @@ const Resource$json = {
     {'1': 'ROLES', '2': 15},
     {'1': 'PLANS', '2': 16},
     {'1': 'AI', '2': 17},
+    {'1': 'SUBJECTS', '2': 18},
   ],
 };
 
@@ -45,7 +46,7 @@ final $typed_data.Uint8List resourceDescriptor = $convert.base64Decode(
     'VSUxADEgkKBVNUQUZGEAQSDAoIU1RVREVOVFMQBRIPCgtERVBBUlRNRU5UUxAGEgsKB0NMQVNT'
     'RVMQBxIOCgpBVFRFTkRBTkNFEAgSCwoHTEVTU09OUxAJEgkKBUVYQU1TEAoSCgoGR1JBREVTEA'
     'sSCAoERkVFUxAMEgwKCFBBWU1FTlRTEA0SEQoNQU5OT1VOQ0VNRU5UUxAOEgkKBVJPTEVTEA8S'
-    'CQoFUExBTlMQEBIGCgJBSRAR');
+    'CQoFUExBTlMQEBIGCgJBSRAREgwKCFNVQkpFQ1RTEBI=');
 
 @$core.Deprecated('Use actionDescriptor instead')
 const Action$json = {

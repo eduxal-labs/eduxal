@@ -40,7 +40,8 @@ enum Resource {
   announcements,
   roles,
   plans,
-  ai;
+  ai,
+  subjects;
 
   /// Human-readable label for UI display.
   String get label => switch (this) {
@@ -62,6 +63,7 @@ enum Resource {
     Resource.roles => 'Roles',
     Resource.plans => 'Plans',
     Resource.ai => 'AI',
+    Resource.subjects => 'Subjects',
   };
 
   /// The actions that are relevant for this resource in the UI.
@@ -154,6 +156,12 @@ enum Resource {
       Action.delete,
     ],
     Resource.ai => [Action.read, Action.update],
+    Resource.subjects => [
+      Action.create,
+      Action.read,
+      Action.update,
+      Action.delete,
+    ],
   };
 }
 
@@ -449,8 +457,10 @@ Resource? _resourceFromName(String name) {
     'classes' => Resource.classes,
     'class_teachers' => Resource.classes,
     'classteachers' => Resource.classes,
-    'subjects' => Resource.classes,
+    'subject_teachers' => Resource.classes,
     'timetable' => Resource.classes,
+    'subjects' => Resource.subjects,
+    'topics' => Resource.subjects,
     'attendance' => Resource.attendance,
     'lessons' => Resource.lessons,
     'exams' => Resource.exams,
