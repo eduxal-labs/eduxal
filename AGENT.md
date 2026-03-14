@@ -73,7 +73,7 @@ Each significant directory in `lib/` has a `CONTEXT.md` file that serves as a li
 
 See the existing `CONTEXT.md` files for the standard format. Every `CONTEXT.md` must include a `## Last Updated` line noting which task last modified it.
 
-> **Schema reference:** `schema.sql` is located at `eduxal/schema.sql`. It defines all 30 backend tables, triggers, and indexes. Read it when working on database layer tasks.
+> **Schema reference:** `schema.sql` is located at `eduxal/schema.sql`. It defines the backend tables, triggers, and indexes. Read it when working on database layer tasks. Note: schema v2 adds `subjects`, `topics`, `streams`, `mpesa`, `exam_grades` and removes `settings`. The old `subjects` table is renamed to `subject_teachers`.
 
 ---
 
@@ -196,7 +196,14 @@ lib/
 
 ### 5.1 Overview
 
-The Drift database contains **all 30 backend schema tables** exactly mirrored from the server SQL schema, plus **2 client-only tables**: `accounts` and `logs`.
+The Drift database contains **34 synced backend schema tables** exactly mirrored from the server SQL schema, plus **2 client-only tables**: `accounts` and `logs`.
+
+Schema v2 changes (applied in task group C):
+- **Removed:** `settings` table (school config now handled separately)
+- **Renamed:** old `subjects` table (subject-teacher assignments) → `subject_teachers`
+- **New global catalog tables:** `subjects` (id, name, curriculum), `topics` (subject subdivisions by grade)
+- **New per-school tables:** `streams` (named stream definitions), `mpesa` (Daraja API config)
+- **New junction table:** `exam_grades` (which grades/streams participate in an exam)
 
 The `logs` table uses an **action-based model**: each row stores a `SyncAction` enum value and a serialized protobuf payload (`blob`). The payload is self-contained — the sync engine does NOT read other tables to build the push message. See §7 for full details.
 
@@ -291,7 +298,7 @@ This is the **offline action queue**. Every local mutation produces one log entr
 CREATE TABLE logs (
     id        INTEGER  PRIMARY KEY AUTOINCREMENT,
     account   TEXT     NOT NULL,      -- FK → accounts.id (actions are per-account)
-    action    SMALLINT NOT NULL,      -- SyncAction enum (77 values, see §7a)
+    action    SMALLINT NOT NULL,      -- SyncAction enum (91 values, see §7a)
     resource  TEXT     NOT NULL,      -- Human-readable display key (school name, user phone, etc.)
     payload   BLOB     NOT NULL,      -- Serialized protobuf action message (self-contained)
     status    SMALLINT NOT NULL DEFAULT 0, -- LogStatus enum: 0=Pending, 1=Failed
@@ -304,7 +311,7 @@ CREATE TABLE logs (
 **Key rules:**
 - **Synced log rows are DELETED** — they are not marked as synced. The table only contains work yet to be done.
 - `status = Failed` rows are kept and shown in the notifications UI. The sync engine retries with exponential backoff (1s→2s→4s→8s→30s max, 5 attempts max before permanent failure).
-- The `logs` table only tracks mutations to the **30 synced backend tables**. The `accounts` and `logs` tables themselves are never logged.
+- The `logs` table only tracks mutations to the **34 synced backend tables**. The `accounts` and `logs` tables themselves are never logged.
 - The `payload` is a protobuf-serialized action message (e.g. `CreateSchoolPayload`, `UpdateTeacherPayload`) captured at action time. The sync engine does NOT read other tables to build the push message — the payload is self-contained.
 - The `resource` field is for display only (notifications UI) — it is not used for data lookup or deduplication.
 - Actions are sent **sequentially in creation order** (by `id`). The client waits for the server's ack before sending the next action.
@@ -326,7 +333,7 @@ Server responses include per-action error codes:
 
 ---
 
-## 7a. The `SyncAction` Enum (77 Values)
+## 7a. The `SyncAction` Enum (91 Values)
 
 Each value represents a single, self-contained operation that the client can push to the server. Values are fixed — do not reorder or renumber. Defined in `lib/database/tables/enums.dart`.
 
@@ -349,7 +356,7 @@ enum SyncAction {
   createDepartment(19), updateDepartment(20), deleteDepartment(21),
   // Terms
   createTerm(22), updateTerm(23), deleteTerm(24),
-  // Classes (class_teachers, subjects, timetable)
+  // Classes (class_teachers, subject_teachers, timetable)
   assignClassTeacher(25), unassignClassTeacher(26),
   assignSubject(27), unassignSubject(28),
   createTimetableEntry(29), updateTimetableEntry(30), deleteTimetableEntry(31),
@@ -374,7 +381,8 @@ enum SyncAction {
   assignRole(62), unassignRole(63),
   // Users
   updateUser(64), deleteUser(65),
-  // Settings
+  // Settings — DEPRECATED (table removed in schema v2; value retained for wire compat)
+  @Deprecated('Settings table removed in schema v2')
   updateSettings(66),
   // Plans
   createPlan(67), updatePlan(68), deletePlan(69),
@@ -383,7 +391,17 @@ enum SyncAction {
   // Subscriptions
   createSubscription(71), updateSubscription(72), deleteSubscription(73),
   // Discounts
-  createDiscount(74), updateDiscount(75), deleteDiscount(76);
+  createDiscount(74), updateDiscount(75), deleteDiscount(76),
+  // Subjects (global catalog — System/Super only)
+  createSubject(77), updateSubject(78), deleteSubject(79),
+  // Topics (global catalog — System/Super only)
+  createTopic(80), updateTopic(81), deleteTopic(82),
+  // Streams (per-school)
+  createStream(83), updateStream(84), deleteStream(85),
+  // M-Pesa (per-school)
+  createMpesa(86), updateMpesa(87), deleteMpesa(88),
+  // Exam Grades (junction: exam ↔ grade+stream)
+  addExamGrade(89), removeExamGrade(90);
 
   const SyncAction(this.value);
   final int value;
@@ -509,7 +527,7 @@ These must be resolved before the relevant code is written. Do not guess — ask
 | P4 | ~~Token expiry source~~ | ✅ **Closed** — access token: `+3 days`; refresh token: `+30 days`. Constants in `core/constants.dart`. Reactive Unauthorized expiry handled in sync engine. |
 | P5 | ~~Failed log retry logic~~ | ✅ **Closed** — Per-action error codes from server: 0=ok (delete log), 1=permission_denied (mark failed, show in notifications), 2=conflict (apply server version, delete log), 3=validation_error (mark failed, user must fix), 4=not_found (mark failed for updates, delete for deletes). Exponential backoff: 1s→2s→4s→8s→30s max. Max 5 retry attempts before permanent failure. |
 | P6 | ~~Missing relationship/table~~ — project owner mentioned a table or relationship they could not remember. | ✅ **Closed** — Owner does not recall at this time. Not blocking any current work. Will be reopened if/when the owner remembers. |
-| P7 | ~~Permission key taxonomy~~ | ✅ **Closed** — Permissions use a structured Resource/Action bitmask model (not JSON string keys). 18 logical Resources and 9 Actions defined in §17a below. `roles.permissions` column changes from `text` to `blob` (binary bitmask). The client represents this as `Permissions` class with `Map<Resource, int>` where `int` is a u16 action bitmask. See §17a for full Resource/Action tables. |
+| P7 | ~~Permission key taxonomy~~ | ✅ **Closed** — Permissions use a structured Resource/Action bitmask model (not JSON string keys). 19 logical Resources and 9 Actions defined in §17a below. `roles.permissions` column changes from `text` to `blob` (binary bitmask). The client represents this as `Permissions` class with `Map<Resource, int>` where `int` is a u16 action bitmask. See §17a for full Resource/Action tables. |
 | P8 | ~~Curriculum focus~~ | ✅ **Closed** — Only PP1 & PP2 (CBC level index 0) are removed. All other CBC levels (1–6) and all 8-4-4 levels (0–3) remain available. Demo pitch focuses on secondary (Senior Secondary CBC + Forms 3-4) but the app supports all remaining levels for schools that need them. |
 | P9 | ~~File sync via S3~~ | ✅ **Closed** — Files (profile images, school logos, student photos) sync via the same push/watch streams as data. Client logs a data action on the parent record (users/students/schools). Server detects file-bearing records and returns presigned PUT URLs in `ActionResponse.file_urls`. Client uploads to S3 via PUT URL. Server notifies other clients via `SyncDelta.file_urls` with GET URLs. No separate file sync endpoint or new log columns needed. `FileUrl` proto message carries `path`, `put_url`, `get_url`, `expiry`. |
 
@@ -535,7 +553,7 @@ These must be resolved before the relevant code is written. Do not guess — ask
 | `lib/proto/services/authentication.pbgrpc.dart` | ✅ Generated | login, verify, setup, refresh — all unary |
 | `lib/proto/services/authentication.pb.dart` | ✅ Generated | Login, Verify, Verified, Authenticated, Setup, Refresh message types |
 | `lib/proto/services/sync.pbgrpc.dart` | ✅ Generated | `SyncClient` with `pushActions` (bidirectional streaming: client sends `ActionRequest`, server returns `ActionResponse`) and `watchChanges` (server-streaming). |
-| `lib/proto/services/sync.pb.dart` | ✅ Generated | `ActionRequest` (action enum + oneof payload with 77 `*Payload` messages), `ActionResponse` (success/failure + `ActionRow` with server data), `WatchRequest`, `SyncDelta` (with `InsertData data`), `FileUrl`, `InsertData` (oneof, 30 `*Insert` messages), `AttendanceRecord`, `GradeRecord` helper messages. |
+| `lib/proto/services/sync.pb.dart` | ✅ Generated | `ActionRequest` (action enum + oneof payload with 91 `*Payload` messages — includes new `CreateSubjectPayload`, `UpdateSubjectPayload`, `DeleteSubjectPayload`, `CreateTopicPayload`, `UpdateTopicPayload`, `DeleteTopicPayload`, `CreateStreamPayload`, `UpdateStreamPayload`, `DeleteStreamPayload`, `CreateMpesaPayload`, `UpdateMpesaPayload`, `DeleteMpesaPayload`, `AddExamGradePayload`, `RemoveExamGradePayload`; `UpdateSettingsPayload` retained for wire compat but deprecated), `ActionResponse` (success/failure + `ActionRow` with server data), `WatchRequest`, `SyncDelta` (with `InsertData data`), `FileUrl`, `InsertData` (oneof, 35 `*Insert` messages — includes new `SubjectInsert`, `TopicInsert`, `StreamInsert`, `MpesaInsert`, `ExamGradeInsert`; old `SubjectsInsert` renamed to `SubjectTeacherInsert`; `SettingsInsert` removed), `AttendanceRecord`, `GradeRecord` helper messages. |
 | `lib/proto/types/user.pb.dart` | ✅ Generated | User, Update message types; Level and Status enums |
 | `lib/proto/types/verification.pb.dart` | ✅ Generated | Verification message type; Purpose enum |
 | `lib/proto/types/role.pb.dart` | ✅ Generated | Resource enum, Action enum, Permission message, Role message, Assignment message. |
@@ -741,21 +759,21 @@ Single reactive stream assembling all five membership tables + schools. The UI b
 
 Bits 9-15 are reserved for future expansion.
 
-### Resource Enum (18 logical resources)
+### Resource Enum (19 logical resources)
 
 | # | Resource | Covers tables | Notable non-CRUD actions |
 |---|---|---|---|
 | 1 | Users | `users` | Level/status changes |
-| 2 | Schools | `schools`, `settings` | |
+| 2 | Schools | `schools` | |
 | 3 | Owners | `owners` | |
 | 4 | Teachers | `teachers` | |
 | 5 | Staff | `staff` | |
 | 6 | Students | `students`, `guardians` | Assign (enroll → `enrollments`), Unassign (unenroll) |
 | 7 | Departments | `departments` | |
-| 8 | Classes | `class_teachers`, `subjects`, `timetable` | Assign (teacher→subject, teacher→class, timetable entry), Unassign |
+| 8 | Classes | `class_teachers`, `subject_teachers`, `timetable` | Assign (teacher→subject, teacher→class, timetable entry), Unassign |
 | 9 | Attendance | `attendance` | Mark |
 | 10 | Lessons | `lessons` | |
-| 11 | Exams | `exams`, `papers` | |
+| 11 | Exams | `exams`, `papers`, `exam_grades` | |
 | 12 | Grades | `grades`, `mastery` | Mark |
 | 13 | Fees | `fees`, `invoices` | |
 | 14 | Payments | `payments` | Approve |
@@ -763,6 +781,7 @@ Bits 9-15 are reserved for future expansion.
 | 16 | Roles | `roles`, `scopes` | Assign (role→user), Unassign (revoke) |
 | 17 | Plans | `plans`, `subscriptions`, `discounts` | |
 | 18 | AI | `aiusage` | |
+| 19 | Subjects | `subjects`, `topics`, `streams`, `mpesa` | System/Super-only catalog + per-school config |
 
 ### Permissions Storage Format
 
@@ -772,7 +791,7 @@ Bits 9-15 are reserved for future expansion.
 
 ```dart
 // lib/models/permissions.dart
-enum Resource { users, schools, owners, teachers, staff, students, departments, classes, attendance, lessons, exams, grades, fees, payments, announcements, roles, plans, ai }
+enum Resource { users, schools, owners, teachers, staff, students, departments, classes, attendance, lessons, exams, grades, fees, payments, announcements, roles, plans, ai, subjects }
 
 enum Action { create, read, update, delete, purge, assign, unassign, mark, approve }
 
@@ -808,6 +827,7 @@ class Permissions {
 | Roles | Create, Read, Update, Delete, Assign, Unassign |
 | Plans | Create, Read, Update, Delete |
 | AI | Read, Update |
+| Subjects | Create, Read, Update, Delete |
 
 ### Three-Tier Permission Model
 
@@ -931,8 +951,67 @@ Stream<T> watchXxx(String schoolId, MembershipEntry entry, SchoolPermissions per
 
 ## 21. UI Design Guidelines
 
-- **Aesthetic:** Clean, minimal, thin, and modern UI. Absolutely no heavy, bold, or outdated elements.
-- **Typography:** Use thin/light font weights (e.g., `w300` or `w400` for body, `w500` max for headings). Avoid `w600` or `bold` unless strictly necessary for hierarchy.
-- **Shapes & Borders:** Rigid, sharp, or very slightly blunted corners. Use `BorderRadius.circular(4)` or `0` for a sharp, modern, boxy look. Absolutely no pill shapes (`24` or `50` radius).
-- **Borders:** Prefer thin, crisp borders (1px) over heavy shadows or thick fills.
-- **General:** Maximize whitespace. Keep the UI feeling airy, precise, and architectural.
+### Aesthetic
+Clean, minimal, and modern. No heavy, bold, or outdated elements. The gold-standard reference widget is `lib/ui/widgets/create_term_modal.dart` (`_CreateTermDialog`).
+
+### Typography
+- Body text: `w300` or `w400`.
+- Headings / labels: `w500` max.
+- Never use `w600` or `FontWeight.bold` unless strictly required for critical hierarchy.
+
+### Border Radius
+Three tiers — all codified as constants in `AppTheme`:
+
+| Token | Value | Use |
+|---|---|---|
+| `AppTheme.kModalRadius` | `12.0` | Modal/dialog containers, bottom sheets |
+| `AppTheme.kCardRadius` | `8.0` | Cards, inputs, buttons |
+| `AppTheme.kChipRadius` | `4.0` | Chips, badges, small tags |
+
+Never use `0` (too sharp) or `≥ 20` (pill-shaped) for general UI elements.
+
+### Elevation & Shadows
+Use the dual box-shadow pattern (`AppTheme.modalShadow(isDark)`) for all dialogs and sheets:
+- Large diffuse shadow: `blurRadius 24/40`, `offset (0, 10)`, low alpha.
+- Small tight shadow: `blurRadius 6`, `offset (0, 2)`, very low alpha.
+
+No heavy drop shadows on cards or list rows. Use subtle color shifts (surface staircase) to separate layers.
+
+### Spacing & Density
+- Internal padding: `12–16 px`.
+- Gap between items: `6–8 px`.
+- Never use `20–32 px` internal padding — that feels bloated.
+
+### Icon Buttons Over Text Buttons
+- Prefer `IconButton` (28×28 or 36×36) with tooltips over full-text action buttons.
+- Standard iconography: save → green check, delete → red trash (`Icons.delete_outline_rounded`), edit → pencil.
+
+### Action Button Animations
+Every mutation button must have visible feedback:
+- **Press:** Scale `0.95 → 1.0`, `100 ms`.
+- **Success:** Brief checkmark flash (`300 ms` elastic out) or color pulse.
+- **Loading:** `16×16` `CircularProgressIndicator(strokeWidth: 1.5)`.
+- Use the `AnimatedSaveButton` pattern as the standard.
+
+### Back Button
+Always use `Icons.chevron_left_rounded` (size `22–24`). Never `Icons.arrow_back` or any `arrow_back_*` variant.
+
+### Dark Mode Colors
+All contextual dark-mode colors are exposed as static helpers on `AppTheme`:
+
+| Helper | Dark value | Light value |
+|---|---|---|
+| `AppTheme.modalBg(isDark, cs)` | `Color(0xFF18222E)` | `cs.surface` |
+| `AppTheme.nestedBg(isDark, cs)` | `Color(0xFF1A2536)` | `cs.surfaceContainerHighest` |
+| `AppTheme.overlayBg(isDark, cs)` | `Color(0xFF1E2A3A)` | `cs.surface` |
+| `AppTheme.borderColor(isDark, cs)` | `Color(0xFF2A3848)` | `cs.outlineVariant @ 0.6` |
+
+### Data Table List Style
+All list views use the data-table pattern (not card-based lists):
+- Items separated by `AppTheme.tableRowDivider(isDark, cs)` — `0.5 px` thin divider.
+- Row height: `48–56 px` standard; up to `64 px` with subtitle.
+- Hover highlight: `cs.primary.withValues(alpha: 0.04)` via `InkWell`.
+- No per-item card/elevation — rows flow on a continuous surface.
+- **Desktop (≥ 600 px):** Inline icon action buttons, `28×28`.
+- **Mobile (< 600 px):** Single `Icons.more_vert` (18 px) opens a bottom sheet with action rows.
+- Reference implementation: `_GradeSpreadsheet` in `paper_detail_page.dart`.

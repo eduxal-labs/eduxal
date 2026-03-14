@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Add pub-cache bin to PATH so protoc-gen-dart is found
+export PATH="$PATH:$HOME/.pub-cache/bin"
+
 # Output directory
 OUT_DIR="lib/proto"
 
@@ -8,6 +11,5 @@ protoc --dart_out=grpc:$OUT_DIR /usr/include/google/protobuf/timestamp.proto /us
 
 # Generate services and types
 protoc --dart_out=grpc:$OUT_DIR -I../ledger/protos ../ledger/protos/services/*.proto ../ledger/protos/types/*.proto
-
 
 echo "Proto generation complete!"
