@@ -166,4 +166,4 @@ late final fileUpload = FileUploadService(_channel);  // in client.dart
 - `client.dart` is the only file that holds the gRPC `ClientChannel`. Services receive the channel (or a service client) via constructor injection.
 
 ## Last Updated
-Tasks F01 + F02 — Added `file_upload.dart` (`FileUploadService`). Handles answer-sheet image upload via signed HTTP PUT URLs. The `_getUploadUrls` stub (returns mock entries, 150ms delay) will be replaced with a real `Files.GetAnswerSheetUploadUrls` gRPC call once the proto stubs are generated. `FileUploadService` is registered as `client.fileUpload` (lazy getter) in `client.dart`. `_AnswerSubmissionSheetState` in `paper_detail_page.dart` triggers `_uploadPendingFiles()` (fire-and-forget) after each local save, and thumbnail overlays show per-file upload status icons (`_UploadStatus` enum: pending/uploading/done/failed) via `_buildUploadStatusIcon`.
+Task 1001 — No service changes during UI overhaul tracks. All 4 service files remain current.

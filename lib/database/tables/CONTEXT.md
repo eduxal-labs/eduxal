@@ -159,4 +159,4 @@ These are referenced by `lib/models/curriculum_levels.dart` and `lib/models/scho
 - Boolean columns use `BoolColumn` (Drift maps to INTEGER 0/1 automatically).
 
 ## Last Updated
-Task C05 — Created `streams.dart`. New `Streams` table: per-school stream definitions, linking a named stream to a grade. PK: `school`, `grade`, `stream` (composite). FK: `school → schools(id) ON DELETE CASCADE`.
+Task 1001 — No table definition changes during UI overhaul tracks. All 35 files (34 table + 1 enums) remain current.

@@ -66,4 +66,4 @@ UI (screens/widgets) → Services → DAOs → Drift (SQLite)
 - Every local mutation to a synced table writes a corresponding row to the `logs` table.
 
 ## Last Updated
-Task 06 — Integrate `SyncEngine` into `client.dart`.
+Task 1001 — Updated to reflect UI overhaul (Tracks 1–10). No structural changes to `lib/` top-level layout — all changes were within existing subdirectories (`ui/`, `models/`, `database/`, `services/`, `core/`).

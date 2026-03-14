@@ -80,4 +80,4 @@ The `logs` table was redesigned in Task C2 from a mutation-tracking model (`tbl`
 **Added enums:** `SyncAction` (77 values, explicit `int value` per entry) + `SyncActionConverter`.
 
 ## Last Updated
-Task C02 — Renamed `subjects.dart` → `subject_teachers.dart`. Drift table class `Subjects` → `SubjectTeachers`, generated data class `SubjectsData` → `SubjectTeachersData`. Added FK on `subject` → `subjects(id) ON DELETE CASCADE`. Old `subjects.dart` deleted.
+Task 1001 — No database schema changes during UI overhaul tracks. Schema version remains at 5. All 33 tables current.

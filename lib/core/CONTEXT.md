@@ -248,4 +248,4 @@ Populates the local Drift database with a realistic Kenyan secondary school for 
 - `applicationId = "com.eduxal.app"`, `android:label = "EduXal"` (set in Task 12)
 
 ## Last Updated
-Tasks 1–4 (seeder expansion + sync indicator) — Expanded seeder from 4 focus grades to 14 (full CBC Grades 1–12 + 8-4-4 Form 3/4). Removed sub-Form-3 8-4-4 grade configs from settings seed. Added per-level CBC subject sets. Fixed attendance/lessons date clamping to `min(today, termEnd)`. Added `debugPrint` diagnostics for attendance/lesson day counts. Updated `_studentDob` with age mappings for all 14 grade levels. Added `_cbcArtsSubjects` for Arts & Sports Science pathway (Grade 12).
+Task 1001 — No core utility changes during UI overhaul tracks. All 6 files remain current.

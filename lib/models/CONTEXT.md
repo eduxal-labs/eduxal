@@ -186,4 +186,4 @@ Grouping model for the exams UI. Multiple exam rows sharing the same `(school, y
 - **`ExamStreamEntry`** — One exam row + its papers for a specific stream. Fields: `exam` (Exam), `streamCode` (int?), `papers` (List<Paper>).
 
 ## Last Updated
-Task EX1 — Added `exam_group.dart` with `ExamGroup`, `ExamGradeEntry`, `ExamStreamEntry` models. File count: 17.
+Task 1001 — No structural changes to models during UI overhaul tracks. All 17 model files remain as-is. File count: 17.

@@ -221,7 +221,4 @@ All gRPC calls attach the access token via metadata when needed (e.g. `refresh` 
 - The proto `Authenticated.profile` field (write URL) is **always discarded** after immediate use — never stored in DB or cache.
 
 ## Last Updated
-Task S1 — Updated proto documentation to reflect `InsertData` / `UpdateData` split replacing old `RowData`. Documented all 30 `*Insert` and 25 `*Update` messages with their field inventories. Updated mapping table to show `DeltaWriter` uses `*Insert` messages (PK from rowKey, timestamps local) and `LogProcessor` uses both `*Insert` and `*Update`.
-
-### Previous: Task 01
-Generated sync service stubs (`sync.pb.dart`, `sync.pbgrpc.dart`, `sync.pbenum.dart`, `sync.pbjson.dart`), role type stubs (`role.pb.dart`, `role.pbenum.dart`, `role.pbjson.dart`), and member type stubs (`member.pb.dart`, `member.pbenum.dart`, `member.pbjson.dart`).
+Task 1001 — No proto changes during UI overhaul tracks. All generated stubs remain current.

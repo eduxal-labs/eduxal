@@ -79,4 +79,4 @@ Uses `dart:io`'s `HttpClient` (not `package:http`) for HTTP GET. Collects all by
 - New entity types that need cached files should add a static path helper method to `FileCache` and document the path pattern here.
 
 ## Last Updated
-Initial creation — project restructuring for agent workflow.
+Task 1001 — No cache changes during UI overhaul tracks. `FileCache` API unchanged.

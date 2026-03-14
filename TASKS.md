@@ -1279,7 +1279,7 @@ Add `UserAvatar` anywhere it's missing from the above list.
 ## TRACK 10 — Final Polish & Context Updates
 ## ═══════════════════════════════════════════════════════════════════════════
 
-### Task 1001: Update all CONTEXT.md files to reflect changes
+### Task 1001: Update all CONTEXT.md files to reflect changes [x]
 **Files to create/modify:** All `CONTEXT.md` files
 **Context files to read:** All
 **Depends on:** All previous tasks
@@ -1305,13 +1305,23 @@ For each:
 - Update the `## Last Updated` section
 - Note any breaking changes or new patterns
 
+**Progress:**
+- [x] `lib/CONTEXT.md` — Updated `## Last Updated` to Task 1001
+- [x] `lib/ui/CONTEXT.md` — Updated `## Last Updated` to Task 1001
+- [x] `lib/ui/screens/CONTEXT.md`
+- [x] `lib/ui/screens/system/CONTEXT.md`
+- [x] `lib/ui/screens/school_dashboard/CONTEXT.md`
+- [x] `lib/ui/widgets/CONTEXT.md`
+- [x] `lib/database/daos/CONTEXT.md`
+- [x] `lib/models/CONTEXT.md`
+
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Orchestrator: `git commit -m "docs: update all CONTEXT.md files to reflect UI overhaul changes"`
+- [x] Mark this task `[x]` (when all 8 files are done)
+- [x] Orchestrator: `git commit -m "docs: update all CONTEXT.md files to reflect UI overhaul changes"`
 
 ---
 
-### Task 1002: Final compilation check and lint cleanup
+### Task 1002: Final compilation check and lint cleanup [x]
 **Files to create/modify:** Any files with errors
 **Context files to read:** None
 **Depends on:** All previous tasks
@@ -1325,8 +1335,8 @@ For each:
 4. Fix any unused import warnings that were introduced.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Orchestrator: `git commit -m "chore: fix compilation errors and lint cleanup after UI overhaul"`
+- [x] Mark this task `[x]`
+- [x] Orchestrator: `git commit -m "chore: fix compilation errors and lint cleanup after UI overhaul"`
 
 ---
 
