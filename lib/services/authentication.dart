@@ -180,7 +180,10 @@ class Authentication {
   Future<Result<domain.Authenticated, GrpcError>> refresh() async {
     try {
       final request = proto_auth.Refresh(refreshToken: refreshToken);
-      final proto = await _client.refresh(request);
+      final proto = await _client.refresh(
+        request,
+        options: CallOptions(timeout: const Duration(seconds: 5)),
+      );
       final mapped = _mapProtoAuthenticated(proto);
 
       // Fire-and-forget: re-download profile image on token refresh in case

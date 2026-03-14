@@ -10,7 +10,7 @@ import 'package:protobuf/protobuf.dart' show GeneratedMessage;
 import '../database/database.dart';
 import '../database/tables/enums.dart';
 import '../database/tables/curriculum_subjects.dart';
-import '../models/school_config.dart';
+
 import '../proto/services/sync.pb.dart' as sync_pb;
 
 // ============================================================
@@ -79,7 +79,7 @@ class Seeder {
       await database.delete(database.owners).go();
       await database.delete(database.departments).go();
       await database.delete(database.terms).go();
-      await database.delete(database.settings).go();
+
       await database.delete(database.plans).go();
       await database.delete(database.exams).go();
       await database.delete(database.schools).go();
@@ -811,7 +811,6 @@ class _SeederImpl {
 
   Future<void> _seedAll() async {
     await _seedSchool();
-    await _seedSettings();
     await _seedDepartments();
     await _seedTeachers();
     await _seedStaff();
@@ -963,156 +962,6 @@ class _SeederImpl {
         domain: _profile.domain,
         established: established,
         ownerId: _userId,
-      ),
-    );
-  }
-
-  // ── Settings ────────────────────────────────────────────────
-
-  Future<void> _seedSettings() async {
-    final cbcGrades = <GradeConfig>[
-      // CBC Lower Primary (level 1) — Grades 1–3
-      GradeConfig(
-        grade: 3,
-        streams: const [
-          GradeStream(name: 'Sunrise', code: 0),
-          GradeStream(name: 'Starlight', code: 1),
-        ],
-      ),
-      GradeConfig(
-        grade: 4,
-        streams: const [
-          GradeStream(name: 'Sunrise', code: 0),
-          GradeStream(name: 'Starlight', code: 1),
-        ],
-      ),
-      GradeConfig(
-        grade: 5,
-        streams: const [
-          GradeStream(name: 'Sunrise', code: 0),
-          GradeStream(name: 'Starlight', code: 1),
-        ],
-      ),
-      // CBC Upper Primary (level 2) — Grades 4–6
-      GradeConfig(
-        grade: 6,
-        streams: const [
-          GradeStream(name: 'Sunrise', code: 0),
-          GradeStream(name: 'Starlight', code: 1),
-        ],
-      ),
-      GradeConfig(
-        grade: 7,
-        streams: const [
-          GradeStream(name: 'Sunrise', code: 0),
-          GradeStream(name: 'Starlight', code: 1),
-        ],
-      ),
-      GradeConfig(
-        grade: 8,
-        streams: const [
-          GradeStream(name: 'Sunrise', code: 0),
-          GradeStream(name: 'Starlight', code: 1),
-        ],
-      ),
-      // CBC Junior Secondary (level 3) — Grades 7–9
-      GradeConfig(
-        grade: 9,
-        streams: const [
-          GradeStream(name: 'Alpha', code: 0),
-          GradeStream(name: 'Beta', code: 1),
-        ],
-      ),
-      GradeConfig(
-        grade: 10,
-        streams: const [
-          GradeStream(name: 'Alpha', code: 0),
-          GradeStream(name: 'Beta', code: 1),
-        ],
-      ),
-      GradeConfig(
-        grade: 11,
-        streams: const [
-          GradeStream(name: 'Alpha', code: 0),
-          GradeStream(name: 'Beta', code: 1),
-        ],
-      ),
-      // CBC Senior Secondary — Grade 10 (STEM, level 4)
-      GradeConfig(
-        grade: 12,
-        streams: const [
-          GradeStream(name: 'Alpha', code: 0),
-          GradeStream(name: 'Beta', code: 1),
-          GradeStream(name: 'Gamma', code: 2),
-        ],
-      ),
-      // CBC Senior Secondary — Grade 11 (Social Sciences, level 5)
-      GradeConfig(
-        grade: 13,
-        streams: const [
-          GradeStream(name: 'Alpha', code: 0),
-          GradeStream(name: 'Beta', code: 1),
-        ],
-      ),
-      // CBC Senior Secondary — Grade 12 (Arts & Sports Science, level 6)
-      GradeConfig(
-        grade: 14,
-        streams: const [
-          GradeStream(name: 'Alpha', code: 0),
-          GradeStream(name: 'Beta', code: 1),
-        ],
-      ),
-    ];
-
-    // 8-4-4: Only Form 3 and Form 4 remain (everything below is phased out)
-    final eightFourFourGrades = <GradeConfig>[
-      // 8-4-4 Form 3 (level 3) with demo data
-      GradeConfig(
-        grade: 43,
-        streams: const [
-          GradeStream(name: 'East', code: 0),
-          GradeStream(name: 'West', code: 1),
-          GradeStream(name: 'North', code: 2),
-        ],
-      ),
-      // 8-4-4 Form 4 (level 3) with demo data
-      GradeConfig(
-        grade: 44,
-        streams: const [
-          GradeStream(name: 'East', code: 0),
-          GradeStream(name: 'West', code: 1),
-          GradeStream(name: 'North', code: 2),
-        ],
-      ),
-    ];
-
-    final config = SchoolConfig(
-      curricula: [
-        CurriculumConfig(type: CurriculumType.cbc, grades: cbcGrades),
-        CurriculumConfig(
-          type: CurriculumType.eightFourFour,
-          grades: eightFourFourGrades,
-        ),
-      ],
-    );
-
-    await _db
-        .into(_db.settings)
-        .insert(
-          SettingsCompanion.insert(
-            school: _schoolId,
-            data: jsonEncode(config.toJson()),
-            mpesa: const Value(null),
-            created: _pastSec(365 * 7),
-            updated: _nowSec,
-          ),
-        );
-    await _log(
-      SyncAction.updateSettings,
-      _profile.name,
-      sync_pb.UpdateSettingsPayload(
-        school: _schoolId,
-        data: jsonEncode(config.toJson()),
       ),
     );
   }
@@ -1526,9 +1375,9 @@ class _SeederImpl {
           final teacherId = _teacherUserIds[subIdx % _teacherUserIds.length];
 
           await _db
-              .into(_db.subjects)
+              .into(_db.subjectTeachers)
               .insert(
-                SubjectsCompanion.insert(
+                SubjectTeachersCompanion.insert(
                   school: _schoolId,
                   year: year,
                   term: term,
@@ -1883,10 +1732,9 @@ class _SeederImpl {
           ExamsCompanion.insert(
             id: examId,
             school: _schoolId,
+            name: name,
             year: year,
             term: term,
-            grade: gc.grade,
-            stream: const Value(null), // all streams
             personalized: const Value(false),
             type: type,
             start: examStartDays,
@@ -1902,9 +1750,9 @@ class _SeederImpl {
       sync_pb.CreateExamPayload(
         id: examId,
         school: _schoolId,
+        name: name,
         year: year,
         term: term,
-        grade: gc.grade,
         personalized: false,
         type: type.index,
         start: examStartDays,
@@ -1912,6 +1760,19 @@ class _SeederImpl {
         teacher: teacherId,
       ),
     );
+
+    // Register all streams for this grade as exam_grades entries.
+    for (var si = 0; si < gc.streamNames.length; si++) {
+      await _db
+          .into(_db.examGrades)
+          .insertOnConflictUpdate(
+            ExamGradesCompanion.insert(
+              exam: examId,
+              grade: gc.grade,
+              stream: si,
+            ),
+          );
+    }
 
     // Create papers for each subject
     for (final subj in gc.subjectIndices) {
@@ -2376,7 +2237,6 @@ class _SeederImpl {
                   MasteryCompanion.insert(
                     school: _schoolId,
                     student: adm,
-                    grade: gc.grade,
                     subject: subj,
                     topic: topic,
                     score: score,
@@ -2390,7 +2250,6 @@ class _SeederImpl {
               sync_pb.UpdateMasteryPayload(
                 school: _schoolId,
                 student: adm,
-                grade: gc.grade,
                 subject: subj,
                 topic: topic,
                 score: score,

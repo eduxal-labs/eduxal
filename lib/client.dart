@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:grpc/grpc.dart';
 
@@ -10,12 +12,14 @@ import 'database/daos/memberships_dao.dart';
 import 'database/daos/schools_dao.dart';
 import 'database/daos/plans_dao.dart';
 import 'database/daos/roles_dao.dart';
-import 'database/daos/settings_dao.dart';
+
+import 'database/daos/catalog_dao.dart';
 import 'database/daos/system_stats_dao.dart';
 import 'database/daos/users_dao.dart';
 import 'models/authenticated.dart';
 import 'models/result.dart';
 import 'services/authentication.dart';
+import 'services/file_upload.dart';
 import 'sync/sync_engine.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -43,8 +47,9 @@ late final SchoolsDao schoolsDao;
 late final MembershipsDao membershipsDao;
 late final RolesDao rolesDao;
 late final PlansDao plansDao;
-late final SettingsDao settingsDao;
+
 late final SystemStatsDao systemStatsDao;
+late final CatalogDao catalogDao;
 
 /// Global getter so services can trigger a push via `sync.schedulePush()`.
 ///
@@ -123,6 +128,10 @@ class Client {
   /// account lifecycle.
   late final SyncEngine syncEngine;
 
+  /// File upload service for answer-sheet images.
+  /// Stubbed until the Files gRPC service proto stubs are generated.
+  late final fileUpload = FileUploadService(_channel);
+
   // ───────────────────────────────────────────────────────────────────────────
   // Factory
   // ───────────────────────────────────────────────────────────────────────────
@@ -143,8 +152,9 @@ class Client {
     membershipsDao = MembershipsDao(db);
     rolesDao = RolesDao(db);
     plansDao = PlansDao(db);
-    settingsDao = SettingsDao(db);
+
     systemStatsDao = SystemStatsDao(db);
+    catalogDao = CatalogDao(db);
     return Client._(channel, accountsDao, usersDao, logsDao);
   }
 
@@ -168,29 +178,67 @@ class Client {
   /// On success (steps 3 or 4), the [SyncEngine] is started for this account
   /// so that local mutations begin pushing and inbound deltas begin arriving.
   Future<Authenticated?> active() async {
+    // Wrap the entire active() body in a timeout so the splash screen never
+    // hangs indefinitely when the server is unreachable (e.g. token expired
+    // and the refresh gRPC call can't connect). 6 seconds is generous enough
+    // for a real refresh round-trip on a slow connection but short enough that
+    // the user isn't left staring at the splash for too long. On timeout we
+    // fall through to null → LoginScreen, which is the safe default.
+    try {
+      return await _active().timeout(const Duration(seconds: 6));
+    } on TimeoutException {
+      debugPrint('[Client] active() timed out — routing to login');
+      return null;
+    }
+  }
+
+  Future<Authenticated?> _active() async {
     // getActiveAccount() now returns a fully joined Authenticated? directly.
+    debugPrint('[Client] _active() — calling getActiveAccount()...');
     final authenticated = await _accountsDao.getActiveAccount();
+    debugPrint(
+      '[Client] _active() — getActiveAccount() returned: ${authenticated != null ? "user=${authenticated.user.id}" : "null"}',
+    );
     if (authenticated == null) return null;
 
+    debugPrint(
+      '[Client] _active() — refreshTokenExpired=${authenticated.isRefreshTokenExpired}, tokenExpired=${authenticated.isTokenExpired}',
+    );
+
     if (authenticated.isRefreshTokenExpired) {
+      debugPrint(
+        '[Client] _active() — refresh token expired, deleting account',
+      );
       await _accountsDao.deleteAccount(authenticated.user.id);
       cache.clear();
       return null;
     }
 
     if (authenticated.isTokenExpired) {
+      debugPrint(
+        '[Client] _active() — access token expired, calling _refresh()...',
+      );
       // _refresh() calls saveAccount() which already starts sync internally.
-      return await _refresh(authenticated.refreshToken);
+      final result = await _refresh(authenticated.refreshToken);
+      debugPrint(
+        '[Client] _active() — _refresh() returned: ${result != null ? "ok" : "null"}',
+      );
+      return result;
     }
 
+    debugPrint(
+      '[Client] _active() — tokens valid, setting cache and starting sync',
+    );
     accessToken = authenticated.accessToken;
     refreshToken = authenticated.refreshToken;
     cache.currentUser = authenticated;
 
     _startSync(authenticated);
 
+    debugPrint('[Client] _active() — done, returning authenticated');
     return authenticated;
   }
+  // End of _active()
 
   /// Returns all locally stored accounts as a map keyed by user id.
   Future<Map<String, Authenticated>> accounts() async {

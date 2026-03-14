@@ -4,7 +4,9 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 
 import '../database/database.dart';
+import '../database/tables/curriculum_subjects.dart';
 import '../database/tables/enums.dart';
+import '../database/tables/mpesa.dart';
 import '../proto/services/sync.pb.dart';
 
 /// Receives [SyncDelta] proto messages from the server and writes them
@@ -122,7 +124,7 @@ class DeltaWriter {
       case 11:
         await _applyEnrollments(delta);
       case 12:
-        await _applySubjects(delta);
+        await _applySubjectTeachers(delta);
       case 13:
         await _applyAttendance(delta);
       case 14:
@@ -148,7 +150,11 @@ class DeltaWriter {
       case 24:
         await _applyAiUsage(delta);
       case 25:
-        await _applySettings(delta);
+        // Settings table removed in schema v2 — ignore gracefully.
+        debugPrint(
+          '[DeltaWriter] ⚠ Received delta for removed settings table '
+          '(table=25) — SKIPPED',
+        );
       case 26:
         await _applyRoles(delta);
       case 27:
@@ -159,6 +165,16 @@ class DeltaWriter {
         await _applySubscriptions(delta);
       case 30:
         await _applyDiscounts(delta);
+      case 31:
+        await _applySubjectCatalog(delta);
+      case 32:
+        await _applyTopic(delta);
+      case 33:
+        await _applyStream(delta);
+      case 34:
+        await _applyMpesa(delta);
+      case 35:
+        await _applyExamGrade(delta);
       default:
         debugPrint(
           '[DeltaWriter] ⚠ UNKNOWN table=${delta.table}, '
@@ -523,16 +539,16 @@ class DeltaWriter {
   //     Only has `created` (no `updated`).
   // ---------------------------------------------------------------------------
 
-  Future<void> _applySubjects(SyncDelta delta) async {
+  Future<void> _applySubjectTeachers(SyncDelta delta) async {
     final k = _parseKey(delta.rowKey);
     debugPrint(
-      '[DeltaWriter] _applySubjects — op=${delta.operation}, '
+      '[DeltaWriter] _applySubjectTeachers — op=${delta.operation}, '
       'key=${delta.rowKey}, parts=${k.length}, '
       'hasData=${delta.hasData()}, '
-      'hasSubject=${delta.hasData() ? delta.data.hasSubject() : "N/A"}',
+      'hasSubjectTeacher=${delta.hasData() ? delta.data.hasSubjectTeacher() : "N/A"}',
     );
     if (delta.operation == 2) {
-      await (_db.delete(_db.subjects)..where(
+      await (_db.delete(_db.subjectTeachers)..where(
             (t) =>
                 t.school.equals(k[0]) &
                 t.year.equals(_parseInt(k[1])) &
@@ -544,25 +560,25 @@ class DeltaWriter {
           .go();
       return;
     }
-    if (!delta.hasData() || !delta.data.hasSubject()) {
+    if (!delta.hasData() || !delta.data.hasSubjectTeacher()) {
       debugPrint(
-        '[DeltaWriter] ⚠ _applySubjects — delta has NO subject data! '
+        '[DeltaWriter] ⚠ _applySubjectTeachers — delta has NO subjectTeacher data! '
         'hasData=${delta.hasData()}',
       );
       return;
     }
-    final row = delta.data.subject;
+    final row = delta.data.subjectTeacher;
     debugPrint(
-      '[DeltaWriter] _applySubjects — inserting: '
+      '[DeltaWriter] _applySubjectTeachers — inserting: '
       'school=${k[0]}, year=${k[1]}, term=${k[2]}, '
       'grade=${k[3]}, stream=${k[4]}, subject=${k[5]}, '
       'teacher=${row.teacher}',
     );
     final now = _now();
     await _db
-        .into(_db.subjects)
+        .into(_db.subjectTeachers)
         .insertOnConflictUpdate(
-          SubjectsCompanion(
+          SubjectTeachersCompanion(
             school: Value(k[0]),
             year: Value(_parseInt(k[1])),
             term: Value(_parseInt(k[2])),
@@ -573,7 +589,7 @@ class DeltaWriter {
             created: Value(now),
           ),
         );
-    debugPrint('[DeltaWriter] _applySubjects — INSERT OK');
+    debugPrint('[DeltaWriter] _applySubjectTeachers — INSERT OK');
   }
 
   // ---------------------------------------------------------------------------
@@ -723,10 +739,9 @@ class DeltaWriter {
           ExamsCompanion(
             id: Value(delta.rowKey),
             school: Value(row.school),
+            name: Value(row.name),
             year: Value(row.year),
             term: Value(row.term),
-            grade: Value(row.grade),
-            stream: Value(row.hasStream() ? row.stream : null),
             personalized: Value(row.personalized),
             type: Value(ExamType.values[row.type]),
             start: Value(row.start),
@@ -759,10 +774,12 @@ class DeltaWriter {
     // papers has a nullable PK column (paper), so we must use raw SQL for
     // upsert because Drift's insertOnConflictUpdate cannot handle nullable PKs.
     final paperVal = _parseIntNullable(k[3]);
+    final topicVal = row.hasTopic() ? row.topic : null;
     await _db.customStatement(
-      'INSERT INTO papers (school, exam, subject, paper, invigilator, start, "end", status, created, updated)'
-      ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO papers (school, exam, subject, paper, topic, invigilator, start, "end", status, created, updated)'
+      ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
       ' ON CONFLICT (school, exam, subject, paper) DO UPDATE SET'
+      ' topic = excluded.topic,'
       ' invigilator = excluded.invigilator,'
       ' start = excluded.start,'
       ' "end" = excluded."end",'
@@ -774,6 +791,7 @@ class DeltaWriter {
         k[1],
         _parseInt(k[2]),
         paperVal,
+        topicVal,
         row.invigilator,
         row.start.toInt(),
         row.end.toInt(),
@@ -966,9 +984,8 @@ class DeltaWriter {
             (t) =>
                 t.school.equals(k[0]) &
                 t.student.equals(_parseInt(k[1])) &
-                t.grade.equals(_parseInt(k[2])) &
-                t.subject.equals(_parseInt(k[3])) &
-                t.topic.equals(_parseInt(k[4])),
+                t.subject.equals(_parseInt(k[2])) &
+                t.topic.equals(_parseInt(k[3])),
           ))
           .go();
       return;
@@ -981,9 +998,8 @@ class DeltaWriter {
           MasteryCompanion(
             school: Value(k[0]),
             student: Value(_parseInt(k[1])),
-            grade: Value(_parseInt(k[2])),
-            subject: Value(_parseInt(k[3])),
-            topic: Value(_parseInt(k[4])),
+            subject: Value(row.subject),
+            topic: Value(row.topic),
             score: Value(row.score),
             created: Value(now),
             updated: Value(now),
@@ -1028,29 +1044,17 @@ class DeltaWriter {
   }
 
   // ---------------------------------------------------------------------------
-  // 25: settings  — PK: (school)  — rowKey: "{school}"
+  // 25: settings — REMOVED in schema v2. Handler retained as no-op so that
+  //     old server deltas don't crash if they arrive during a migration window.
   // ---------------------------------------------------------------------------
 
+  @Deprecated('Settings table removed in schema v2')
+  // ignore: unused_element
   Future<void> _applySettings(SyncDelta delta) async {
-    if (delta.operation == 2) {
-      await (_db.delete(
-        _db.settings,
-      )..where((t) => t.school.equals(delta.rowKey))).go();
-      return;
-    }
-    final row = delta.data.settings;
-    final now = _now();
-    await _db
-        .into(_db.settings)
-        .insertOnConflictUpdate(
-          SettingsCompanion(
-            school: Value(delta.rowKey),
-            data: Value(row.data),
-            mpesa: Value(row.hasMpesa() ? row.mpesa : null),
-            created: Value(now),
-            updated: Value(now),
-          ),
-        );
+    debugPrint(
+      '[DeltaWriter] ⚠ _applySettings called — settings table was removed '
+      'in schema v2. Delta discarded. key=${delta.rowKey}',
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -1215,5 +1219,178 @@ class DeltaWriter {
             updated: Value(now),
           ),
         );
+  }
+
+  // ---------------------------------------------------------------------------
+  // 31: subjects (global catalog)  — PK: (id)  — rowKey: "{id}"
+  // ---------------------------------------------------------------------------
+
+  Future<void> _applySubjectCatalog(SyncDelta delta) async {
+    if (delta.operation == 2) {
+      await (_db.delete(
+        _db.subjects,
+      )..where((t) => t.id.equals(_parseInt(delta.rowKey)))).go();
+      return;
+    }
+    if (!delta.hasData() || !delta.data.hasSubjectCatalog()) {
+      debugPrint(
+        '[DeltaWriter] ⚠ _applySubjectCatalog — delta has NO subjectCatalog data!',
+      );
+      return;
+    }
+    final row = delta.data.subjectCatalog;
+    final now = _now();
+    await _db
+        .into(_db.subjects)
+        .insertOnConflictUpdate(
+          SubjectsCompanion(
+            id: Value(_parseInt(delta.rowKey)),
+            name: Value(row.name),
+            curriculum: Value(
+              CurriculumType.values.firstWhere(
+                (e) => e.index_ == row.curriculum,
+              ),
+            ),
+            created: Value(now),
+            updated: Value(now),
+          ),
+        );
+  }
+
+  // ---------------------------------------------------------------------------
+  // 32: topics  — PK: (id)  — rowKey: "{id}"
+  // ---------------------------------------------------------------------------
+
+  Future<void> _applyTopic(SyncDelta delta) async {
+    if (delta.operation == 2) {
+      await (_db.delete(
+        _db.topics,
+      )..where((t) => t.id.equals(_parseInt(delta.rowKey)))).go();
+      return;
+    }
+    if (!delta.hasData() || !delta.data.hasTopic()) {
+      debugPrint('[DeltaWriter] ⚠ _applyTopic — delta has NO topic data!');
+      return;
+    }
+    final row = delta.data.topic;
+    final now = _now();
+    await _db
+        .into(_db.topics)
+        .insertOnConflictUpdate(
+          TopicsCompanion(
+            id: Value(_parseInt(delta.rowKey)),
+            subject: Value(row.subject),
+            grade: Value(row.grade),
+            name: Value(row.name),
+            created: Value(now),
+            updated: Value(now),
+          ),
+        );
+  }
+
+  // ---------------------------------------------------------------------------
+  // 33: streams  — PK: (school, grade, stream)
+  //     rowKey: "{school}|{grade}|{stream}"
+  // ---------------------------------------------------------------------------
+
+  Future<void> _applyStream(SyncDelta delta) async {
+    final k = _parseKey(delta.rowKey);
+    if (delta.operation == 2) {
+      await (_db.delete(_db.streams)..where(
+            (t) =>
+                t.school.equals(k[0]) &
+                t.grade.equals(_parseInt(k[1])) &
+                t.stream.equals(_parseInt(k[2])),
+          ))
+          .go();
+      return;
+    }
+    if (!delta.hasData() || !delta.data.hasStream()) {
+      debugPrint('[DeltaWriter] ⚠ _applyStream — delta has NO stream data!');
+      return;
+    }
+    final row = delta.data.stream;
+    final now = _now();
+    await _db
+        .into(_db.streams)
+        .insertOnConflictUpdate(
+          StreamsCompanion(
+            school: Value(k[0]),
+            grade: Value(_parseInt(k[1])),
+            stream: Value(_parseInt(k[2])),
+            name: Value(row.name),
+            created: Value(now),
+            updated: Value(now),
+          ),
+        );
+  }
+
+  // ---------------------------------------------------------------------------
+  // 34: mpesa  — PK: (school)  — rowKey: "{school}"
+  // ---------------------------------------------------------------------------
+
+  Future<void> _applyMpesa(SyncDelta delta) async {
+    if (delta.operation == 2) {
+      await (_db.delete(
+        _db.mpesa,
+      )..where((t) => t.school.equals(delta.rowKey))).go();
+      return;
+    }
+    if (!delta.hasData() || !delta.data.hasMpesa()) {
+      debugPrint('[DeltaWriter] ⚠ _applyMpesa — delta has NO mpesa data!');
+      return;
+    }
+    final row = delta.data.mpesa;
+    final now = _now();
+    await _db
+        .into(_db.mpesa)
+        .insertOnConflictUpdate(
+          MpesaCompanion(
+            school: Value(delta.rowKey),
+            consumerKey: Value(row.consumerKey),
+            consumerSecret: Value(row.consumerSecret),
+            passkey: Value(row.passkey),
+            shortcode: Value(row.shortcode),
+            env: Value(MpesaEnv.values[row.env]),
+            created: Value(now),
+            updated: Value(now),
+          ),
+        );
+  }
+
+  // ---------------------------------------------------------------------------
+  // 35: exam_grades  — PK: (exam, grade, stream)
+  //     rowKey: "{exam}|{grade}|{stream}"
+  // ---------------------------------------------------------------------------
+
+  Future<void> _applyExamGrade(SyncDelta delta) async {
+    final k = _parseKey(delta.rowKey);
+    if (delta.operation == 2) {
+      await (_db.delete(_db.examGrades)..where(
+            (t) =>
+                t.exam.equals(k[0]) &
+                t.grade.equals(_parseInt(k[1])) &
+                t.stream.equals(_parseInt(k[2])),
+          ))
+          .go();
+      return;
+    }
+    if (!delta.hasData() || !delta.data.hasExamGrade()) {
+      debugPrint(
+        '[DeltaWriter] ⚠ _applyExamGrade — delta has NO examGrade data!',
+      );
+      return;
+    }
+    // ExamGradeInsert only carries the PK fields — upsert using rowKey parts.
+    await _db
+        .into(_db.examGrades)
+        .insertOnConflictUpdate(
+          ExamGradesCompanion(
+            exam: Value(k[0]),
+            grade: Value(_parseInt(k[1])),
+            stream: Value(_parseInt(k[2])),
+          ),
+        );
+    debugPrint('[DeltaWriter] _applyExamGrade — INSERT OK key=${delta.rowKey}');
   }
 }

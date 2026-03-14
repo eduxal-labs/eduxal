@@ -4,6 +4,7 @@ import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 
 import 'client.dart';
+
 import 'ui/screens/splash/splash_screen.dart';
 import 'ui/theme/app_theme.dart';
 
@@ -52,38 +53,45 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   late final _SyncLifecycleObserver _lifecycleObserver;
+  late final StreamSubscription<dynamic> _themeSub;
+  ThemeMode _themeMode = ThemeMode.system;
 
   @override
   void initState() {
     super.initState();
     _lifecycleObserver = _SyncLifecycleObserver();
     WidgetsBinding.instance.addObserver(_lifecycleObserver);
+
+    // Listen to account changes ONLY to update the theme.
+    // We deliberately do NOT rebuild MaterialApp on every emission —
+    // doing so resets the navigator stack and sends the user back to
+    // SplashScreen every time the active account row changes.
+    _themeSub = accountsDao.watchActiveAccount().listen((auth) {
+      final resolved = auth?.theme != null
+          ? AppTheme.resolveThemeMode(auth!.theme)
+          : ThemeMode.system;
+      if (resolved != _themeMode) {
+        setState(() => _themeMode = resolved);
+      }
+    });
   }
 
   @override
   void dispose() {
+    _themeSub.cancel();
     WidgetsBinding.instance.removeObserver(_lifecycleObserver);
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder(
-      stream: accountsDao.watchActiveAccount(),
-      builder: (context, snapshot) {
-        final themeMode = snapshot.data?.theme != null
-            ? AppTheme.resolveThemeMode(snapshot.data!.theme)
-            : ThemeMode.system;
-
-        return MaterialApp(
-          title: 'EduXal',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.light(),
-          darkTheme: AppTheme.dark(),
-          themeMode: themeMode,
-          home: const SplashScreen(),
-        );
-      },
+    return MaterialApp(
+      title: 'EduXal',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: _themeMode,
+      home: const SplashScreen(),
     );
   }
 }
