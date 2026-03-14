@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart' hide Column;
@@ -11,11 +10,11 @@ import '../../../../database/database.dart';
 import '../../../../database/daos/exams_grades_dao.dart';
 import '../../../../database/daos/members_dao.dart';
 import '../../../../database/daos/plans_dao.dart';
-import '../../../../database/daos/settings_dao.dart';
+
 import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../database/tables/enums.dart';
 import '../../../../models/curriculum_levels.dart';
-import '../../../../models/school_config.dart';
+
 import '../../../../services/member_management.dart';
 import '../../../../services/members.dart';
 import '../../../widgets/edu_tab_bar.dart';
@@ -79,7 +78,7 @@ class _StudentDetailSheetState extends State<StudentDetailSheet>
   late final MembersDao _membersDao;
   late final ExamsGradesDao _gradesDao;
   late final PlansDao _plansDao;
-  late final SettingsDao _settingsDao;
+
   late final MemberManagementService _service;
 
   @override
@@ -89,7 +88,7 @@ class _StudentDetailSheetState extends State<StudentDetailSheet>
     _membersDao = MembersDao(db);
     _gradesDao = ExamsGradesDao(db);
     _plansDao = PlansDao(db);
-    _settingsDao = SettingsDao(db);
+
     _service = MemberManagementService(_membersDao);
   }
 
@@ -242,7 +241,6 @@ class _StudentDetailSheetState extends State<StudentDetailSheet>
                     schoolId: widget.schoolId,
                     studentAdm: student.adm,
                     gradesDao: _gradesDao,
-                    settingsDao: _settingsDao,
                   ),
                   _GuardiansTab(
                     schoolId: widget.schoolId,
@@ -802,13 +800,11 @@ class _PerformanceTab extends StatefulWidget {
     required this.schoolId,
     required this.studentAdm,
     required this.gradesDao,
-    required this.settingsDao,
   });
 
   final String schoolId;
   final int studentAdm;
   final ExamsGradesDao gradesDao;
-  final SettingsDao settingsDao;
 
   @override
   State<_PerformanceTab> createState() => _PerformanceTabState();
@@ -828,19 +824,8 @@ class _PerformanceTabState extends State<_PerformanceTab>
   }
 
   Future<void> _loadCurriculum() async {
-    final setting = await widget.settingsDao.getSettings(widget.schoolId);
-    if (setting != null && mounted) {
-      try {
-        final config = SchoolConfig.fromJson(
-          jsonDecode(setting.data) as Map<String, dynamic>,
-        );
-        if (config.curricula.isNotEmpty) {
-          setState(() => _curriculumType = config.curricula.first.type);
-        }
-      } catch (_) {
-        // Ignore parse errors — curriculum type stays null.
-      }
-    }
+    // TODO: reload curriculum from new settings source when available
+    return;
   }
 
   String _subjectName(int subjectIndex) {

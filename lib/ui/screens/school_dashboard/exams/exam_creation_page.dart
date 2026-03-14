@@ -73,7 +73,7 @@ class _GradeTabEntry {
 class _ClassSubjects {
   final int grade;
   final int? stream; // null = all-streams union
-  final List<({Subject subject, UsersData teacher})> subjects;
+  final List<({SubjectTeacher subject, UsersData teacher})> subjects;
 
   _ClassSubjects({
     required this.grade,
@@ -402,6 +402,7 @@ class _ExamCreationPageState extends State<ExamCreationPage>
   // ─────────────────────────────────────────────────────────────────────────
 
   void _onGradeTabChanged() {
+    if (_gradeTabs.isEmpty) return;
     final tab = _gradeTabs[_activeGradeTabIndex];
     if (tab.grade != null) {
       _onStreamTabChanged(tab.grade!);
@@ -446,7 +447,7 @@ class _ExamCreationPageState extends State<ExamCreationPage>
               grade: grade,
               stream: stream,
             )
-          : <({Subject subject, UsersData teacher})>[];
+          : <({SubjectTeacher subject, UsersData teacher})>[];
 
       if (!mounted) return;
       setState(() {
@@ -658,8 +659,6 @@ class _ExamCreationPageState extends State<ExamCreationPage>
           school: Value(widget.schoolId),
           year: Value(widget.year),
           term: Value(widget.term),
-          grade: Value(cls.grade),
-          stream: Value(cls.stream),
           personalized: Value(_personalized),
           type: Value(_type),
           start: Value(startDays),
@@ -2433,7 +2432,7 @@ class _SubjectDropdown extends StatelessWidget {
 
   void _showPicker(
     BuildContext context,
-    List<({Subject subject, UsersData teacher})> items,
+    List<({SubjectTeacher subject, UsersData teacher})> items,
   ) {
     final renderBox = context.findRenderObject() as RenderBox;
     final triggerSize = renderBox.size;
@@ -2476,7 +2475,7 @@ class _SubjectDropdownOverlay extends StatefulWidget {
     required this.onDismiss,
   });
 
-  final List<({Subject subject, UsersData teacher})> items;
+  final List<({SubjectTeacher subject, UsersData teacher})> items;
   final int? value;
   final CurriculumType? curriculum;
   final Offset triggerOffset;

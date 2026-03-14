@@ -1,11 +1,9 @@
-import 'dart:convert';
-
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
 import '../../../../client.dart';
 import '../../../../database/database.dart';
-import '../../../../database/daos/settings_dao.dart';
+
 import '../../../../database/daos/timetable_dao.dart';
 import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../database/tables/enums.dart';
@@ -149,7 +147,6 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   final _timetableDao = TimetableDao(db);
-  final _settingsDao = SettingsDao(db);
 
   SchoolConfig? _config;
   int? _selectedGrade;
@@ -163,35 +160,8 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
   }
 
   Future<void> _loadConfig() async {
-    final row = await _settingsDao.getSettings(
-      widget.schoolContext.membership.school.id,
-    );
-    if (row != null && mounted) {
-      try {
-        final json = jsonDecode(row.data);
-        if (json is Map<String, dynamic>) {
-          final config = SchoolConfig.fromJson(json);
-          setState(() {
-            _config = config;
-            // Auto-select first grade+stream if available
-            if (config.curricula.isNotEmpty) {
-              final firstCurriculum = config.curricula.first;
-              if (firstCurriculum.grades.isNotEmpty) {
-                final firstGrade = firstCurriculum.grades.first;
-                _selectedGrade = firstGrade.grade;
-                if (firstGrade.streams.isNotEmpty) {
-                  _selectedStream = firstGrade.streams.first.code;
-                }
-              }
-            }
-          });
-        }
-      } catch (_) {
-        setState(() => _config = SchoolConfig.defaults());
-      }
-    } else if (mounted) {
-      setState(() => _config = SchoolConfig.defaults());
-    }
+    // TODO: reload config from new settings source when available
+    if (mounted) setState(() => _config = SchoolConfig.defaults());
   }
 
   @override
@@ -443,20 +413,26 @@ class _ClassChip extends StatelessWidget {
 // RULES TAB — Timetable constraints for GA
 // ═════════════════════════════════════════════════════════════════════════════
 
-/// Key used to persist timetable rules in settings.data JSON under a
-/// "timetable_rules" sub-key.
-const _kRulesKey = 'timetable_rules';
-
 class _TimetableRules {
+  // ignore: unused_element_parameter
   _TimetableRules({
+    // ignore: unused_element_parameter
     this.dayStartSeconds = _kDefaultDayStart,
+    // ignore: unused_element_parameter
     this.dayEndSeconds = _kDefaultDayEnd,
+    // ignore: unused_element_parameter
     this.lessonDurationMinutes = 40,
+    // ignore: unused_element_parameter
     this.breakDurationMinutes = 10,
+    // ignore: unused_element_parameter
     this.maxLessonsPerDayTeacher = 6,
+    // ignore: unused_element_parameter
     this.allowDoubles = false,
+    // ignore: unused_element_parameter
     this.lunchStartSeconds = 12 * 3600 + 30 * 60,
+    // ignore: unused_element_parameter
     this.lunchDurationMinutes = 60,
+    // ignore: unused_element_parameter
     this.activeDays = const [
       DayOfWeek.monday,
       DayOfWeek.tuesday,
@@ -475,27 +451,6 @@ class _TimetableRules {
   int lunchStartSeconds;
   int lunchDurationMinutes;
   List<DayOfWeek> activeDays;
-
-  factory _TimetableRules.fromJson(Map<String, dynamic> json) {
-    return _TimetableRules(
-      dayStartSeconds:
-          (json['day_start'] as num?)?.toInt() ?? _kDefaultDayStart,
-      dayEndSeconds: (json['day_end'] as num?)?.toInt() ?? _kDefaultDayEnd,
-      lessonDurationMinutes: (json['lesson_duration'] as num?)?.toInt() ?? 40,
-      breakDurationMinutes: (json['break_duration'] as num?)?.toInt() ?? 10,
-      maxLessonsPerDayTeacher:
-          (json['max_lessons_teacher'] as num?)?.toInt() ?? 6,
-      allowDoubles: json['allow_doubles'] as bool? ?? false,
-      lunchStartSeconds:
-          (json['lunch_start'] as num?)?.toInt() ?? (12 * 3600 + 30 * 60),
-      lunchDurationMinutes: (json['lunch_duration'] as num?)?.toInt() ?? 60,
-      activeDays:
-          (json['active_days'] as List<dynamic>?)
-              ?.map((e) => DayOfWeek.values[(e as num).toInt()])
-              .toList() ??
-          _kSchoolDays.toList(),
-    );
-  }
 
   Map<String, dynamic> toJson() => {
     'day_start': dayStartSeconds,
@@ -528,7 +483,6 @@ class _RulesTab extends StatefulWidget {
 }
 
 class _RulesTabState extends State<_RulesTab> {
-  final _settingsDao = SettingsDao(db);
   late _TimetableRules _rules;
   bool _loading = true;
   bool _saving = false;
@@ -542,106 +496,17 @@ class _RulesTabState extends State<_RulesTab> {
   }
 
   Future<void> _loadRules() async {
-    final row = await _settingsDao.getSettings(
-      widget.schoolContext.membership.school.id,
-    );
-    if (row != null && mounted) {
-      try {
-        final json = jsonDecode(row.data);
-        if (json is Map<String, dynamic> &&
-            json[_kRulesKey] is Map<String, dynamic>) {
-          _rules = _TimetableRules.fromJson(
-            json[_kRulesKey] as Map<String, dynamic>,
-          );
-        }
-      } catch (_) {
-        // use defaults
-      }
-    }
+    // TODO: reload rules from new settings source when available
     if (mounted) setState(() => _loading = false);
   }
 
   Future<void> _saveRules() async {
-    setState(() => _saving = true);
-    try {
-      final schoolId = widget.schoolContext.membership.school.id;
-      final row = await _settingsDao.getSettings(schoolId);
-
-      Map<String, dynamic> dataMap = {};
-      if (row != null) {
-        try {
-          final decoded = jsonDecode(row.data);
-          if (decoded is Map<String, dynamic>) {
-            dataMap = Map<String, dynamic>.from(decoded);
-          }
-        } catch (_) {}
-      }
-
-      dataMap[_kRulesKey] = _rules.toJson();
-
-      // Preserve the full data map including the rules key
-      final accountId = cache.currentUser?.user.id;
-      if (accountId == null) return;
-
-      final nowSeconds = BigInt.from(
-        DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      );
-
-      if (row != null) {
-        await db.transaction(() async {
-          await (db.update(
-            db.settings,
-          )..where((t) => t.school.equals(schoolId))).write(
-            SettingsCompanion(
-              data: Value(jsonEncode(dataMap)),
-              updated: Value(nowSeconds),
-            ),
-          );
-        });
-      } else {
-        await db
-            .into(db.settings)
-            .insert(
-              SettingsCompanion(
-                school: Value(schoolId),
-                data: Value(jsonEncode(dataMap)),
-                mpesa: const Value(null),
-                created: Value(nowSeconds),
-                updated: Value(nowSeconds),
-              ),
-            );
-      }
-
-      if (mounted) {
-        setState(() {
-          _dirty = false;
-          _saving = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Timetable rules saved'),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            margin: const EdgeInsets.all(16),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _saving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to save: $e'),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            margin: const EdgeInsets.all(16),
-          ),
-        );
-      }
+    // TODO: persist rules via new settings source when available
+    if (mounted) {
+      setState(() {
+        _dirty = false;
+        _saving = false;
+      });
     }
   }
 
@@ -2165,7 +2030,6 @@ class _TeacherTimetableView extends StatefulWidget {
 
 class _TeacherTimetableViewState extends State<_TeacherTimetableView> {
   final _timetableDao = TimetableDao(db);
-  final _settingsDao = SettingsDao(db);
   SchoolConfig? _config;
 
   @override
@@ -2175,18 +2039,7 @@ class _TeacherTimetableViewState extends State<_TeacherTimetableView> {
   }
 
   Future<void> _loadConfig() async {
-    final row = await _settingsDao.getSettings(
-      widget.schoolContext.membership.school.id,
-    );
-    if (row != null && mounted) {
-      try {
-        final json = jsonDecode(row.data);
-        if (json is Map<String, dynamic>) {
-          setState(() => _config = SchoolConfig.fromJson(json));
-          return;
-        }
-      } catch (_) {}
-    }
+    // TODO: reload config from new settings source when available
     if (mounted) setState(() => _config = SchoolConfig.defaults());
   }
 
@@ -2301,7 +2154,6 @@ class _ClassTimetableView extends StatefulWidget {
 
 class _ClassTimetableViewState extends State<_ClassTimetableView> {
   final _timetableDao = TimetableDao(db);
-  final _settingsDao = SettingsDao(db);
   SchoolConfig? _config;
 
   // Student enrollment info for current term
@@ -2329,16 +2181,7 @@ class _ClassTimetableViewState extends State<_ClassTimetableView> {
     final schoolId = widget.schoolContext.membership.school.id;
     final term = widget.termContext.currentTerm;
 
-    // Load config
-    final row = await _settingsDao.getSettings(schoolId);
-    if (row != null) {
-      try {
-        final json = jsonDecode(row.data);
-        if (json is Map<String, dynamic>) {
-          _config = SchoolConfig.fromJson(json);
-        }
-      } catch (_) {}
-    }
+    // TODO: reload config from new settings source when available
     _config ??= SchoolConfig.defaults();
 
     // Find student enrollment for current term

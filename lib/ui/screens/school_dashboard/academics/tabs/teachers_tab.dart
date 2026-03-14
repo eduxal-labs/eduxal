@@ -47,7 +47,8 @@ class _TeachersTabState extends State<TeachersTab>
   late Stream<({ClassTeacher classTeacher, UsersData user})?> _activeCtStream;
   late Stream<List<({ClassTeacher classTeacher, UsersData user})>>
   _historyStream;
-  late Stream<List<({Subject subject, UsersData teacher})>> _subjectsStream;
+  late Stream<List<({SubjectTeacher subject, UsersData teacher})>>
+  _subjectsStream;
 
   bool _historyExpanded = false;
 
@@ -358,7 +359,7 @@ class _TeachersTabState extends State<TeachersTab>
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        StreamBuilder<List<({Subject subject, UsersData teacher})>>(
+        StreamBuilder<List<({SubjectTeacher subject, UsersData teacher})>>(
           stream: _subjectsStream,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting &&
@@ -412,7 +413,7 @@ class _TeachersTabState extends State<TeachersTab>
 
   Widget _buildSubjectTeacherCard(
     ColorScheme cs,
-    ({Subject subject, UsersData teacher}) entry,
+    ({SubjectTeacher subject, UsersData teacher}) entry,
   ) {
     final label = subjectLabel(widget.curriculumType, entry.subject.subject);
 

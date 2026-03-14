@@ -445,7 +445,7 @@ class _ExamCard extends StatelessWidget {
         : '';
 
     // Stream scope label.
-    final scopeLabel = exam?.stream == null ? 'Grade-wide' : 'Stream';
+    final scopeLabel = '';
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),

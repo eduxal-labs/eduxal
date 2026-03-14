@@ -3,158 +3,140 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart' hide Column;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Action;
 
 import '../../../../cache/file_cache.dart';
 import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/school_scopes_dao.dart';
+import '../../../../models/permissions.dart';
 import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/animated_save_button.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Resource groupings — identical to the system dashboard's role_detail_screen
+// Resource groupings — uses the typed Resource enum from models/permissions.dart
 // ─────────────────────────────────────────────────────────────────────────────
-
-const _kBaseActions = ['read', 'create', 'update', 'delete'];
-
-List<_ResourceGroup> _buildResourceGroups() {
-  List<String> a([List<String> actions = _kBaseActions]) => actions;
-
-  return <_ResourceGroup>[
-    _ResourceGroup('People', {
-      'users': a(),
-      'students': a(),
-      'guardians': a(),
-      'teachers': a(),
-      'staff': a(),
-    }),
-    _ResourceGroup('Academic', {
-      'terms': a(),
-      'subjects': a(),
-      'enrollments': a(['read', 'create', 'delete']),
-      'lessons': a(),
-      'exams': a(),
-      'papers': a(),
-      'grades': a(),
-      'timetable': a(),
-      'attendance': a(),
-      'mastery': a(['read', 'update']),
-      'classTeachers': a(['read', 'create', 'delete']),
-    }),
-    _ResourceGroup('Finance', {
-      'fees': a(),
-      'invoices': a(),
-      'payments': a(),
-      'discounts': a(),
-      'subscriptions': a(),
-    }),
-    _ResourceGroup('School Admin', {
-      'schools': a(),
-      'departments': a(),
-      'owners': a(['read', 'create', 'delete']),
-      'settings': a(['read', 'update']),
-      'announcements': a(),
-      'aiusage': a(['read', 'update']),
-    }),
-    _ResourceGroup('System', {
-      'roles': a(),
-      'scopes': a(['read', 'create', 'delete']),
-      'plans': a(),
-    }),
-  ];
-}
 
 class _ResourceGroup {
   const _ResourceGroup(this.label, this.resources);
   final String label;
-  final Map<String, List<String>> resources;
+  final List<Resource> resources;
 }
+
+List<_ResourceGroup> _buildResourceGroups() => const [
+  _ResourceGroup('People', [
+    Resource.users,
+    Resource.students,
+    Resource.teachers,
+    Resource.staff,
+    Resource.owners,
+  ]),
+  _ResourceGroup('Academic', [
+    Resource.subjects,
+    Resource.lessons,
+    Resource.exams,
+    Resource.grades,
+    Resource.attendance,
+    Resource.classes,
+    Resource.departments,
+  ]),
+  _ResourceGroup('Finance', [Resource.fees, Resource.payments, Resource.plans]),
+  _ResourceGroup('School Admin', [
+    Resource.schools,
+    Resource.announcements,
+    Resource.ai,
+  ]),
+  _ResourceGroup('System', [Resource.roles]),
+];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Action colour / icon mapping
 // ─────────────────────────────────────────────────────────────────────────────
 
-const _kActionColors = <String, Color>{
-  'read': Color(0xFF42A5F5),
-  'create': Color(0xFF66BB6A),
-  'update': Color(0xFFFFA726),
-  'delete': Color(0xFFEF5350),
+const _kActionColors = <Action, Color>{
+  Action.read: Color(0xFF42A5F5),
+  Action.create: Color(0xFF66BB6A),
+  Action.update: Color(0xFFFFA726),
+  Action.delete: Color(0xFFEF5350),
+  Action.purge: Color(0xFFB71C1C),
+  Action.assign: Color(0xFF26C6DA),
+  Action.unassign: Color(0xFF78909C),
+  Action.mark: Color(0xFF7E57C2),
+  Action.approve: Color(0xFF26A69A),
 };
 
-const _kActionIcons = <String, IconData>{
-  'read': Icons.visibility_outlined,
-  'create': Icons.add_circle_outline,
-  'update': Icons.edit_outlined,
-  'delete': Icons.delete_outline_rounded,
+const _kActionIcons = <Action, IconData>{
+  Action.create: Icons.add_rounded,
+  Action.read: Icons.visibility_outlined,
+  Action.update: Icons.edit_outlined,
+  Action.delete: Icons.delete_outline_rounded,
+  Action.purge: Icons.delete_forever_outlined,
+  Action.assign: Icons.link_rounded,
+  Action.unassign: Icons.link_off_rounded,
+  Action.mark: Icons.check_box_outline_blank_rounded,
+  Action.approve: Icons.thumb_up_outlined,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Permission helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-Map<String, bool> _parsePermissions(String json) {
+/// Parses the JSON string stored in `roles.permissions` into a mutable
+/// `Map<Resource, int>` bitmask map.  Handles null, empty string, empty
+/// JSON array `"[]"`, and both legacy JSON shapes via [Permissions.fromJson].
+/// Never throws — always returns an empty map on bad input.
+Map<Resource, int> _parsePermissions(String? jsonStr) {
+  if (jsonStr == null ||
+      jsonStr.isEmpty ||
+      jsonStr == '[]' ||
+      jsonStr == '{}') {
+    return {};
+  }
   try {
-    final decoded = jsonDecode(json);
-    if (decoded is List) {
-      final result = <String, bool>{};
-      for (final entry in decoded) {
-        if (entry is Map<String, dynamic>) {
-          final resource = entry['resource'];
-          final actions = entry['actions'];
-          if (resource is String && actions is List) {
-            for (final action in actions) {
-              if (action is String) {
-                result['$resource.$action'] = true;
-              }
-            }
-          }
-        }
-      }
-      return result;
-    }
-    // Fallback: flat map of { "resource.action": true } (legacy / raw JSON)
-    if (decoded is Map) {
-      return decoded.map(
-        (k, v) => MapEntry(k.toString(), v == true || v == 'true'),
-      );
-    }
-  } catch (_) {}
-  return {};
+    final decoded = jsonDecode(jsonStr);
+    final perms = Permissions.fromJson(decoded);
+    return Map<Resource, int>.from(perms.map);
+  } catch (_) {
+    return {};
+  }
 }
 
-String _serialisePermissions(Map<String, bool> perms) {
-  final grouped = <String, List<String>>{};
-  for (final e in perms.entries) {
-    if (!e.value) continue;
-    final parts = e.key.split('.');
-    if (parts.length < 2) continue;
-    final resource = parts.first;
-    final action = parts.skip(1).join('.');
-    grouped.putIfAbsent(resource, () => []).add(action);
+/// Serialises a `Map<Resource, int>` bitmask map back to the JSON string
+/// format stored in `roles.permissions`.
+///
+/// Output shape: `[{"resource": "users", "actions": ["read", "create"]}, …]`
+String _serialisePermissions(Map<Resource, int> perms) {
+  final list = <Map<String, dynamic>>[];
+  for (final entry in perms.entries) {
+    if (entry.value == 0) continue;
+    final actions = Action.values
+        .where((a) => entry.value & a.mask != 0)
+        .map((a) => a.name)
+        .toList();
+    if (actions.isNotEmpty) {
+      list.add({'resource': entry.key.name, 'actions': actions});
+    }
   }
-  final list = grouped.entries
-      .map((e) => {'resource': e.key, 'actions': e.value})
-      .toList();
   return jsonEncode(list);
 }
 
-Map<String, List<String>> _groupByResource(Map<String, bool> perms) {
-  final grouped = <String, List<String>>{};
-  for (final entry in perms.entries) {
-    if (!entry.value) continue;
-    final parts = entry.key.split('.');
-    if (parts.length < 2) continue;
-    final resource = parts.first;
-    final action = parts.skip(1).join('.');
-    grouped.putIfAbsent(resource, () => []).add(action);
+/// Returns the total count of granted permissions across all resources.
+int _countPermissions(Map<Resource, int> perms) {
+  var count = 0;
+  for (final mask in perms.values) {
+    count += _popcount(mask);
   }
-  return grouped;
+  return count;
 }
 
-String _capitalise(String s) =>
-    s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+/// Count set bits in a 16-bit integer (Hamming weight / popcount).
+int _popcount(int v) {
+  var n = v & 0xFFFF;
+  n = n - ((n >> 1) & 0x5555);
+  n = (n & 0x3333) + ((n >> 2) & 0x3333);
+  return (((n + (n >> 4)) & 0x0F0F) * 0x0101) & 0xFF;
+}
 
 String _initials(String name) {
   final parts = name.trim().split(RegExp(r'\s+'));
@@ -491,9 +473,8 @@ class _HeaderSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final perms = _parsePermissions(role.permissions);
-    final grouped = _groupByResource(perms);
-    final totalPerms = perms.values.where((v) => v).length;
-    final totalResources = grouped.length;
+    final totalPerms = _countPermissions(perms);
+    final totalResources = perms.entries.where((e) => e.value != 0).length;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
@@ -814,16 +795,16 @@ class _PermissionsTab extends StatefulWidget {
 
 class _PermissionsTabState extends State<_PermissionsTab> {
   /// Working copy of permissions — mutated during editing.
-  late Map<String, bool> _editPermissions;
+  late Map<Resource, int> _editPermissions;
 
   /// Snapshot of permissions from the role at the start of editing.
-  late Map<String, bool> _originalPermissions;
+  late Map<Resource, int> _originalPermissions;
 
   /// Resources selected for bulk removal.
-  final Set<String> _selectedResources = {};
+  final Set<Resource> _selectedResources = {};
 
   /// Resources that are expanded to show action details.
-  final Set<String> _expandedResources = {};
+  final Set<Resource> _expandedResources = {};
 
   bool _saving = false;
   String? _saveError;
@@ -849,13 +830,14 @@ class _PermissionsTabState extends State<_PermissionsTab> {
   }
 
   bool get _hasChanges {
-    final allKeys = <String>{
+    final allResources = <Resource>{
       ..._originalPermissions.keys,
       ..._editPermissions.keys,
+      ...Resource.values,
     };
-    for (final k in allKeys) {
-      final orig = _originalPermissions[k] == true;
-      final curr = _editPermissions[k] == true;
+    for (final r in allResources) {
+      final orig = _originalPermissions[r] ?? 0;
+      final curr = _editPermissions[r] ?? 0;
       if (orig != curr) return true;
     }
     return false;
@@ -864,51 +846,42 @@ class _PermissionsTabState extends State<_PermissionsTab> {
   ({int added, int removed}) get _changeSummary {
     int added = 0;
     int removed = 0;
-    final allKeys = <String>{
-      ..._originalPermissions.keys,
-      ..._editPermissions.keys,
-    };
-    for (final k in allKeys) {
-      final orig = _originalPermissions[k] == true;
-      final curr = _editPermissions[k] == true;
-      if (!orig && curr) added++;
-      if (orig && !curr) removed++;
+    for (final r in Resource.values) {
+      final orig = _originalPermissions[r] ?? 0;
+      final curr = _editPermissions[r] ?? 0;
+      final addedBits = curr & ~orig;
+      final removedBits = orig & ~curr;
+      added += _popcount(addedBits);
+      removed += _popcount(removedBits);
     }
     return (added: added, removed: removed);
   }
 
-  ({int added, int removed}) _resourceChangeSummary(String resource) {
-    int added = 0;
-    int removed = 0;
-    final allKeys = <String>{
-      ..._originalPermissions.keys,
-      ..._editPermissions.keys,
-    };
-    for (final k in allKeys) {
-      if (!k.startsWith('$resource.')) continue;
-      final orig = _originalPermissions[k] == true;
-      final curr = _editPermissions[k] == true;
-      if (!orig && curr) added++;
-      if (orig && !curr) removed++;
-    }
-    return (added: added, removed: removed);
+  ({int added, int removed}) _resourceChangeSummary(Resource resource) {
+    final orig = _originalPermissions[resource] ?? 0;
+    final curr = _editPermissions[resource] ?? 0;
+    final addedBits = curr & ~orig;
+    final removedBits = orig & ~curr;
+    return (added: _popcount(addedBits), removed: _popcount(removedBits));
   }
 
-  void _togglePermission(String key) {
+  void _togglePermission(Resource resource, Action action) {
     setState(() {
-      final current = _editPermissions[key] == true;
-      _editPermissions[key] = !current;
+      final current = (_editPermissions[resource] ?? 0) & action.mask != 0;
+      if (current) {
+        _editPermissions[resource] =
+            ((_editPermissions[resource] ?? 0) & ~action.mask) & 0xFFFF;
+        if (_editPermissions[resource] == 0) _editPermissions.remove(resource);
+      } else {
+        _editPermissions[resource] =
+            ((_editPermissions[resource] ?? 0) | action.mask) & 0xFFFF;
+      }
     });
   }
 
-  void _removeResource(String resource) {
+  void _clearResource(Resource resource) {
     setState(() {
-      final keysToRemove = _editPermissions.keys
-          .where((k) => k.startsWith('$resource.'))
-          .toList();
-      for (final k in keysToRemove) {
-        _editPermissions[k] = false;
-      }
+      _editPermissions.remove(resource);
       _expandedResources.remove(resource);
       _selectedResources.remove(resource);
     });
@@ -917,19 +890,14 @@ class _PermissionsTabState extends State<_PermissionsTab> {
   void _removeSelectedResources() {
     setState(() {
       for (final resource in _selectedResources) {
-        final keysToRemove = _editPermissions.keys
-            .where((k) => k.startsWith('$resource.'))
-            .toList();
-        for (final k in keysToRemove) {
-          _editPermissions[k] = false;
-        }
+        _editPermissions.remove(resource);
         _expandedResources.remove(resource);
       }
       _selectedResources.clear();
     });
   }
 
-  void _toggleResourceSelection(String resource) {
+  void _toggleResourceSelection(Resource resource) {
     setState(() {
       if (_selectedResources.contains(resource)) {
         _selectedResources.remove(resource);
@@ -939,7 +907,7 @@ class _PermissionsTabState extends State<_PermissionsTab> {
     });
   }
 
-  void _toggleExpand(String resource) {
+  void _toggleExpand(Resource resource) {
     setState(() {
       if (_expandedResources.contains(resource)) {
         _expandedResources.remove(resource);
@@ -963,10 +931,15 @@ class _PermissionsTabState extends State<_PermissionsTab> {
         DateTime.now().millisecondsSinceEpoch ~/ 1000,
       );
 
+      // Filter out zero-mask entries before serialising
+      final cleaned = Map.fromEntries(
+        _editPermissions.entries.where((e) => e.value != 0),
+      );
+
       await widget.dao.updateRole(
         widget.role.id,
         RolesCompanion(
-          permissions: Value(_serialisePermissions(_editPermissions)),
+          permissions: Value(_serialisePermissions(cleaned)),
           updated: Value(nowSeconds),
         ),
         accountId: accountId,
@@ -1004,7 +977,7 @@ class _PermissionsTabState extends State<_PermissionsTab> {
     final isLight = cs.brightness == Brightness.light;
     final groups = _buildResourceGroups();
 
-    final activeGrouped = _groupByResource(_editPermissions);
+    final hasAnyPermissions = _editPermissions.values.any((m) => m != 0);
     final hasChanges = _hasChanges;
     final changes = _changeSummary;
     final selectionMode = _selectedResources.isNotEmpty;
@@ -1044,79 +1017,106 @@ class _PermissionsTabState extends State<_PermissionsTab> {
             ),
           ),
 
-        // ── Resource list ─────────────────────────────────────────────────
+        // ── Resource list — always shows all resources ────────────────────
         Expanded(
-          child: activeGrouped.isEmpty
-              ? _PermissionsEmptyState(cs: cs)
-              : ListView.builder(
-                  padding: EdgeInsets.fromLTRB(
-                    widget.horizontalPadding,
-                    16,
-                    widget.horizontalPadding,
-                    40,
-                  ),
-                  itemCount: groups.length,
-                  itemBuilder: (context, gi) {
-                    final group = groups[gi];
-                    final activeResources = group.resources.entries
-                        .where(
-                          (e) => e.value.any(
-                            (a) => _editPermissions['${e.key}.$a'] == true,
-                          ),
-                        )
-                        .toList();
-
-                    if (activeResources.isEmpty) return const SizedBox.shrink();
-
-                    return Padding(
-                      padding: EdgeInsets.only(
-                        bottom: gi < groups.length - 1 ? 20 : 0,
+          child: ListView.builder(
+            padding: EdgeInsets.fromLTRB(
+              widget.horizontalPadding,
+              16,
+              widget.horizontalPadding,
+              40,
+            ),
+            itemCount: groups.length + 1, // +1 for the optional info banner
+            itemBuilder: (context, i) {
+              // First item: informational banner when no permissions set
+              if (i == 0) {
+                if (hasAnyPermissions) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerHighest.withValues(alpha: 0.35),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: cs.outlineVariant.withValues(alpha: 0.4),
+                        width: 0.5,
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Text(
-                              group.label.toUpperCase(),
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: cs.onSurfaceVariant.withValues(
-                                  alpha: 0.45,
-                                ),
-                                letterSpacing: 1.2,
-                              ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline_rounded,
+                          size: 15,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'No permissions configured. '
+                            'Expand a resource to add permissions.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                              height: 1.4,
                             ),
                           ),
-                          ...activeResources.map((entry) {
-                            return _ResourceRow(
-                              resource: entry.key,
-                              allActions: entry.value,
-                              editPermissions: _editPermissions,
-                              originalPermissions: _originalPermissions,
-                              isExpanded: _expandedResources.contains(
-                                entry.key,
-                              ),
-                              isSelected: _selectedResources.contains(
-                                entry.key,
-                              ),
-                              selectionMode: selectionMode,
-                              changeSummary: _resourceChangeSummary(entry.key),
-                              isLight: isLight,
-                              onToggleExpand: () => _toggleExpand(entry.key),
-                              onToggleSelection: () =>
-                                  _toggleResourceSelection(entry.key),
-                              onTogglePermission: _togglePermission,
-                              onRemove: () => _removeResource(entry.key),
-                              cs: cs,
-                            );
-                          }),
-                        ],
-                      ),
-                    );
-                  },
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              final gi = i - 1;
+              final group = groups[gi];
+
+              return Padding(
+                padding: EdgeInsets.only(
+                  bottom: gi < groups.length - 1 ? 20 : 0,
                 ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        group.label.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ),
+                    ...group.resources.map((resource) {
+                      return _ResourceRow(
+                        resource: resource,
+                        editPermissions: _editPermissions,
+                        originalPermissions: _originalPermissions,
+                        isExpanded: _expandedResources.contains(resource),
+                        isSelected: _selectedResources.contains(resource),
+                        selectionMode: selectionMode,
+                        changeSummary: _resourceChangeSummary(resource),
+                        isLight: isLight,
+                        onToggleExpand: () => _toggleExpand(resource),
+                        onToggleSelection: () =>
+                            _toggleResourceSelection(resource),
+                        onTogglePermission: _togglePermission,
+                        onClear: () => _clearResource(resource),
+                        cs: cs,
+                      );
+                    }),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ],
     );
@@ -1292,7 +1292,6 @@ class _ChangeBar extends StatelessWidget {
 class _ResourceRow extends StatelessWidget {
   const _ResourceRow({
     required this.resource,
-    required this.allActions,
     required this.editPermissions,
     required this.originalPermissions,
     required this.isExpanded,
@@ -1303,14 +1302,13 @@ class _ResourceRow extends StatelessWidget {
     required this.onToggleExpand,
     required this.onToggleSelection,
     required this.onTogglePermission,
-    required this.onRemove,
+    required this.onClear,
     required this.cs,
   });
 
-  final String resource;
-  final List<String> allActions;
-  final Map<String, bool> editPermissions;
-  final Map<String, bool> originalPermissions;
+  final Resource resource;
+  final Map<Resource, int> editPermissions;
+  final Map<Resource, int> originalPermissions;
   final bool isExpanded;
   final bool isSelected;
   final bool selectionMode;
@@ -1318,15 +1316,20 @@ class _ResourceRow extends StatelessWidget {
   final bool isLight;
   final VoidCallback onToggleExpand;
   final VoidCallback onToggleSelection;
-  final void Function(String key) onTogglePermission;
-  final VoidCallback onRemove;
+  final void Function(Resource resource, Action action) onTogglePermission;
+  final VoidCallback onClear;
   final ColorScheme cs;
 
   @override
   Widget build(BuildContext context) {
-    final activeActions = allActions
-        .where((a) => editPermissions['$resource.$a'] == true)
+    final applicableActions = resource.applicableActions;
+    final currentMask = editPermissions[resource] ?? 0;
+    final activeActions = applicableActions
+        .where((a) => currentMask & a.mask != 0)
         .toList();
+    final activeCount = activeActions.length;
+    final totalCount = applicableActions.length;
+    final hasAnyActive = activeCount > 0;
     final hasChanges = changeSummary.added > 0 || changeSummary.removed > 0;
 
     return Padding(
@@ -1369,11 +1372,9 @@ class _ResourceRow extends StatelessWidget {
                 onTap: onToggleExpand,
                 onLongPress: onToggleSelection,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 11,
-                  ),
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       if (selectionMode) ...[
                         SizedBox(
@@ -1404,17 +1405,51 @@ class _ResourceRow extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
+                      // ── Resource name + icon dots ─────────────────────
                       Expanded(
-                        child: Text(
-                          _capitalise(resource),
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w500,
-                            color: cs.onSurface,
-                            letterSpacing: 0.1,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              resource.label,
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w500,
+                                color: cs.onSurface,
+                                letterSpacing: 0.1,
+                              ),
+                            ),
+                            // Compact icon dots when some permissions active
+                            if (hasAnyActive && !isExpanded) ...[
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: activeActions.map((action) {
+                                  final color =
+                                      _kActionColors[action] ??
+                                      cs.onSurfaceVariant;
+                                  final icon =
+                                      _kActionIcons[action] ??
+                                      Icons.circle_outlined;
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 4),
+                                    child: Tooltip(
+                                      message: action.label,
+                                      child: Icon(
+                                        icon,
+                                        size: 13,
+                                        color: color.withValues(alpha: 0.75),
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
+                      // ── Change indicators ─────────────────────────────
                       if (hasChanges) ...[
                         if (changeSummary.added > 0)
                           Padding(
@@ -1430,7 +1465,7 @@ class _ResourceRow extends StatelessWidget {
                           ),
                         if (changeSummary.removed > 0)
                           Padding(
-                            padding: const EdgeInsets.only(right: 8),
+                            padding: const EdgeInsets.only(right: 6),
                             child: Text(
                               '-${changeSummary.removed}',
                               style: const TextStyle(
@@ -1441,31 +1476,43 @@ class _ResourceRow extends StatelessWidget {
                             ),
                           ),
                       ],
-                      ...activeActions.map((action) {
-                        final color =
-                            _kActionColors[action] ?? cs.onSurfaceVariant;
-                        final icon =
-                            _kActionIcons[action] ?? Icons.circle_outlined;
-                        return Padding(
-                          padding: const EdgeInsets.only(left: 2),
-                          child: Tooltip(
-                            message: action,
-                            child: Icon(
-                              icon,
-                              size: 15,
-                              color: color.withValues(alpha: 0.75),
-                            ),
+                      // ── Count badge: "3 / 5" ──────────────────────────
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: hasAnyActive
+                              ? cs.primary.withValues(alpha: 0.08)
+                              : cs.surfaceContainerHighest.withValues(
+                                  alpha: 0.5,
+                                ),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          '$activeCount\u202F/\u202F$totalCount',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                            color: hasAnyActive
+                                ? cs.primary.withValues(alpha: 0.8)
+                                : cs.onSurfaceVariant.withValues(alpha: 0.4),
+                            letterSpacing: 0.2,
                           ),
-                        );
-                      }),
+                        ),
+                      ),
+                      // ── Clear / selection-mode buttons ─────────────────
                       if (!selectionMode) ...[
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         GestureDetector(
-                          onTap: onRemove,
+                          onTap: hasAnyActive ? onClear : null,
                           child: Icon(
                             Icons.close_rounded,
                             size: 16,
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.35),
+                            color: hasAnyActive
+                                ? cs.onSurfaceVariant.withValues(alpha: 0.45)
+                                : cs.onSurfaceVariant.withValues(alpha: 0.15),
                           ),
                         ),
                       ],
@@ -1477,7 +1524,6 @@ class _ResourceRow extends StatelessWidget {
             if (isExpanded)
               _ExpandedPermissions(
                 resource: resource,
-                allActions: allActions,
                 editPermissions: editPermissions,
                 originalPermissions: originalPermissions,
                 isLight: isLight,
@@ -1498,7 +1544,6 @@ class _ResourceRow extends StatelessWidget {
 class _ExpandedPermissions extends StatelessWidget {
   const _ExpandedPermissions({
     required this.resource,
-    required this.allActions,
     required this.editPermissions,
     required this.originalPermissions,
     required this.isLight,
@@ -1506,16 +1551,19 @@ class _ExpandedPermissions extends StatelessWidget {
     required this.cs,
   });
 
-  final String resource;
-  final List<String> allActions;
-  final Map<String, bool> editPermissions;
-  final Map<String, bool> originalPermissions;
+  final Resource resource;
+  final Map<Resource, int> editPermissions;
+  final Map<Resource, int> originalPermissions;
   final bool isLight;
-  final void Function(String key) onToggle;
+  final void Function(Resource resource, Action action) onToggle;
   final ColorScheme cs;
 
   @override
   Widget build(BuildContext context) {
+    final applicableActions = resource.applicableActions;
+    final currentMask = editPermissions[resource] ?? 0;
+    final originalMask = originalPermissions[resource] ?? 0;
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -1528,94 +1576,83 @@ class _ExpandedPermissions extends StatelessWidget {
         ),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 6, 14, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: allActions.map((action) {
-            final key = '$resource.$action';
-            final isOn = editPermissions[key] == true;
-            final wasOn = originalPermissions[key] == true;
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: applicableActions.map((action) {
+            final isOn = currentMask & action.mask != 0;
+            final wasOn = originalMask & action.mask != 0;
             final changed = isOn != wasOn;
             final color = _kActionColors[action] ?? cs.onSurfaceVariant;
             final icon = _kActionIcons[action] ?? Icons.circle_outlined;
 
-            return Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => onToggle(key),
-                borderRadius: BorderRadius.circular(4),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 7,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        icon,
-                        size: 16,
+            return Tooltip(
+              message: action.label,
+              child: GestureDetector(
+                onTap: () => onToggle(resource, action),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      curve: Curves.easeOut,
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
                         color: isOn
-                            ? color.withValues(alpha: 0.85)
-                            : cs.onSurfaceVariant.withValues(alpha: 0.25),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          _capitalise(action),
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w400,
-                            color: isOn
-                                ? cs.onSurface
-                                : cs.onSurfaceVariant.withValues(alpha: 0.4),
-                            letterSpacing: 0.1,
-                          ),
+                            ? color.withValues(alpha: 0.12)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: isOn
+                              ? color.withValues(alpha: 0.35)
+                              : cs.outlineVariant.withValues(alpha: 0.4),
+                          width: 1,
                         ),
                       ),
-                      if (changed) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Icon(
+                            icon,
+                            size: 16,
                             color: isOn
-                                ? const Color(0xFF66BB6A).withValues(alpha: 0.1)
-                                : const Color(
-                                    0xFFEF5350,
-                                  ).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(3),
+                                ? color
+                                : cs.onSurfaceVariant.withValues(alpha: 0.35),
                           ),
-                          child: Text(
-                            isOn ? 'added' : 'removed',
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w600,
-                              color: isOn
-                                  ? const Color(0xFF66BB6A)
-                                  : const Color(0xFFEF5350),
-                              letterSpacing: 0.3,
+                          // Changed indicator dot (top-right corner)
+                          if (changed)
+                            Positioned(
+                              top: 3,
+                              right: 3,
+                              child: Container(
+                                width: 5,
+                                height: 5,
+                                decoration: BoxDecoration(
+                                  color: isOn
+                                      ? const Color(0xFF66BB6A)
+                                      : const Color(0xFFEF5350),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                      SizedBox(
-                        width: 36,
-                        height: 22,
-                        child: FittedBox(
-                          child: Switch(
-                            value: isOn,
-                            onChanged: (_) => onToggle(key),
-                            activeTrackColor: color.withValues(alpha: 0.3),
-                            activeThumbColor: color,
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
-                          ),
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      action.label,
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w400,
+                        color: isOn
+                            ? cs.onSurface.withValues(alpha: 0.75)
+                            : cs.onSurfaceVariant.withValues(alpha: 0.4),
+                        letterSpacing: 0.1,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             );
@@ -1629,59 +1666,6 @@ class _ExpandedPermissions extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // Empty state — no permissions
 // ─────────────────────────────────────────────────────────────────────────────
-
-class _PermissionsEmptyState extends StatelessWidget {
-  const _PermissionsEmptyState({required this.cs});
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                Icons.shield_outlined,
-                size: 24,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.35),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No permissions assigned',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: cs.onSurface.withValues(alpha: 0.7),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'This role has no permissions. Edit the role to add '
-              'resource permissions.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                height: 1.4,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Assigned Tab
@@ -2096,7 +2080,7 @@ class _AssignUserSheetState extends State<_AssignUserSheet> {
       ),
       decoration: BoxDecoration(
         color: cs.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

@@ -88,9 +88,7 @@ class _StudentMasteryTabState extends State<StudentMasteryTab>
         final allMastery = snapshot.data ?? [];
 
         // Filter to current grade.
-        final mastery = allMastery
-            .where((m) => m.grade == widget.grade)
-            .toList();
+        final mastery = allMastery;
 
         if (mastery.isEmpty) {
           return _buildEmptyState(cs);

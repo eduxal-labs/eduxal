@@ -49,7 +49,8 @@ class _StudentOverviewTabState extends State<StudentOverviewTab>
   late Stream<List<MasteryData>> _masteryStream;
   late Stream<({int totalDays, int present, int absent, int leave})>
   _attendanceStream;
-  late Stream<List<({Subject subject, UsersData teacher})>> _subjectsStream;
+  late Stream<List<({SubjectTeacher subject, UsersData teacher})>>
+  _subjectsStream;
 
   @override
   bool get wantKeepAlive => true;
@@ -111,7 +112,7 @@ class _StudentOverviewTabState extends State<StudentOverviewTab>
     // We nest multiple StreamBuilders. The outermost two (grades + subjects)
     // drive the Quick Stats row and Recent Exam Performance. Mastery and
     // attendance are independent sections further down.
-    return StreamBuilder<List<({Subject subject, UsersData teacher})>>(
+    return StreamBuilder<List<({SubjectTeacher subject, UsersData teacher})>>(
       stream: _subjectsStream,
       builder: (context, subjectsSnap) {
         return StreamBuilder<List<Grade>>(
@@ -299,9 +300,7 @@ class _QuickStatsRow extends StatelessWidget {
             builder: (context, snap) {
               final mastery = snap.data ?? [];
               // Filter to current grade only.
-              final gradeFiltered = mastery
-                  .where((m) => m.grade == currentGrade)
-                  .toList();
+              final gradeFiltered = mastery;
               double? masteryAvg;
               if (gradeFiltered.isNotEmpty) {
                 double total = 0;
@@ -619,9 +618,7 @@ class _SubjectMasterySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Filter mastery to current grade.
-    final gradeFiltered = mastery
-        .where((m) => m.grade == currentGrade)
-        .toList();
+    final gradeFiltered = mastery;
 
     if (gradeFiltered.isEmpty) {
       return _buildEmpty();

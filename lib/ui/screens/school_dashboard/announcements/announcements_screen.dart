@@ -1,10 +1,10 @@
-import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
 import '../../../../client.dart';
+import '../../../theme/app_theme.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/announcements_dao.dart';
 import '../../../../models/active_term_context.dart';
@@ -81,7 +81,7 @@ class _AdminFeed extends StatefulWidget {
 
 class _AdminFeedState extends State<_AdminFeed> {
   late final AnnouncementsDao _dao;
-  SchoolConfig _config = SchoolConfig.defaults();
+  final SchoolConfig _config = SchoolConfig.defaults();
 
   String get _schoolId => widget.schoolContext.membership.school.id;
 
@@ -93,15 +93,7 @@ class _AdminFeedState extends State<_AdminFeed> {
   }
 
   Future<void> _loadConfig() async {
-    final row = await settingsDao.getSettings(_schoolId);
-    if (row != null && mounted) {
-      try {
-        final decoded = jsonDecode(row.data);
-        if (decoded is Map<String, dynamic>) {
-          setState(() => _config = SchoolConfig.fromJson(decoded));
-        }
-      } catch (_) {}
-    }
+    // settings table removed in schema v2 — config no longer persisted here
   }
 
   @override
@@ -253,7 +245,7 @@ class _RoleFeedState extends State<_RoleFeed> {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// ANNOUNCEMENT LIST — the chronological feed
+// ANNOUNCEMENT LIST — the chronological feed (data-table style)
 // ═════════════════════════════════════════════════════════════════════════════
 
 class _AnnouncementList extends StatelessWidget {
@@ -277,13 +269,15 @@ class _AnnouncementList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
-      itemCount: items.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(0, 8, 0, 88),
+      itemCount: items.length * 2 - 1,
       itemBuilder: (context, i) {
-        final item = items[i];
-        return _AnnouncementCard(
+        if (i.isOdd) {
+          return AppTheme.tableRowDivider(isDark, cs);
+        }
+        final item = items[i ~/ 2];
+        return _AnnouncementRow(
           item: item,
           cs: cs,
           isDark: isDark,
@@ -298,11 +292,11 @@ class _AnnouncementList extends StatelessWidget {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// ANNOUNCEMENT CARD — a single message in the feed
+// ANNOUNCEMENT ROW — a single row in the data-table feed
 // ═════════════════════════════════════════════════════════════════════════════
 
-class _AnnouncementCard extends StatelessWidget {
-  const _AnnouncementCard({
+class _AnnouncementRow extends StatefulWidget {
+  const _AnnouncementRow({
     required this.item,
     required this.cs,
     required this.isDark,
@@ -321,143 +315,140 @@ class _AnnouncementCard extends StatelessWidget {
   final SchoolContext schoolContext;
 
   @override
-  Widget build(BuildContext context) {
-    final surfaceColor = isDark
-        ? cs.surfaceContainerHighest.withValues(alpha: 0.55)
-        : cs.surfaceContainerLowest;
+  State<_AnnouncementRow> createState() => _AnnouncementRowState();
+}
 
+class _AnnouncementRowState extends State<_AnnouncementRow> {
+  bool _isHovered = false;
+
+  AnnouncementWithAuthor get item => widget.item;
+  ColorScheme get cs => widget.cs;
+  bool get isDark => widget.isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDesktop = MediaQuery.sizeOf(context).width >= 600;
     final audienceTags = _buildAudienceTags();
     final gradeTags = _buildGradeTags();
     final allTags = [...audienceTags, ...gradeTags];
 
-    return Container(
-      decoration: BoxDecoration(
-        color: surfaceColor,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.22 : 0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.08 : 0.02),
-            blurRadius: 3,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.click,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 100),
+        color: _isHovered
+            ? cs.primary.withValues(alpha: 0.04)
+            : Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(10),
           onTap: () => _showDetailSheet(context),
+          splashFactory: NoSplash.splashFactory,
+          highlightColor: Colors.transparent,
+          hoverColor: Colors.transparent,
           child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Header row: author + time + admin menu ─────────────
-                Row(
-                  children: [
-                    // Author avatar.
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: cs.primary.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Center(
-                        child: Text(
-                          _authorInitial(),
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: cs.primary,
-                          ),
-                        ),
+                // ── Author avatar ──────────────────────────────────────
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: cs.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Center(
+                    child: Text(
+                      _authorInitial(),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: cs.primary,
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    // Author name + timestamp.
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  ),
+                ),
+                const SizedBox(width: 12),
+
+                // ── Main content ───────────────────────────────────────
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Title + date row
+                      Row(
                         children: [
-                          Text(
-                            item.authorName ?? 'Deleted user',
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w500,
-                              color: cs.onSurface,
-                              letterSpacing: 0.1,
+                          Expanded(
+                            child: Text(
+                              item.title,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: cs.onSurface,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 1),
+                          const SizedBox(width: 8),
                           Text(
                             _formatTimestamp(item.created),
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w400,
                               color: cs.onSurfaceVariant.withValues(
-                                alpha: 0.65,
+                                alpha: 0.55,
                               ),
-                              letterSpacing: 0.15,
                             ),
                           ),
                         ],
                       ),
-                    ),
-                    // Admin overflow menu.
-                    if (isAdmin)
-                      _OverflowMenu(
-                        cs: cs,
-                        isDark: isDark,
-                        onEdit: () => _showEditSheet(context),
-                        onDelete: () => _confirmDelete(context),
+                      const SizedBox(height: 3),
+
+                      // Body preview
+                      Text(
+                        item.content,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                          height: 1.4,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                  ],
-                ),
 
-                const SizedBox(height: 12),
-
-                // ── Title ──────────────────────────────────────────────
-                Text(
-                  item.title,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurface,
-                    height: 1.35,
+                      // Audience tags
+                      if (allTags.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Wrap(spacing: 5, runSpacing: 4, children: allTags),
+                      ],
+                    ],
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
 
-                const SizedBox(height: 6),
-
-                // ── Content preview ────────────────────────────────────
-                Text(
-                  item.content,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400,
-                    color: cs.onSurfaceVariant,
-                    height: 1.45,
+                // ── Desktop actions ────────────────────────────────────
+                if (widget.isAdmin && isDesktop) ...[
+                  const SizedBox(width: 4),
+                  _RowActions(
+                    isHovered: _isHovered,
+                    onEdit: () => _showEditSheet(context),
+                    onDelete: () => _confirmDelete(context),
+                    cs: cs,
                   ),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                ),
-
-                // ── Audience / grade tags ──────────────────────────────
-                if (allTags.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Wrap(spacing: 6, runSpacing: 6, children: allTags),
                 ],
+
+                // ── Mobile three-dot ───────────────────────────────────
+                if (widget.isAdmin && !isDesktop)
+                  _MobileRowMenu(
+                    cs: cs,
+                    isDark: isDark,
+                    onEdit: () => _showEditSheet(context),
+                    onDelete: () => _confirmDelete(context),
+                  ),
               ],
             ),
           ),
@@ -527,9 +518,9 @@ class _AnnouncementCard extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _ComposeSheet(
-        dao: dao,
+        dao: widget.dao,
         schoolId: item.school,
-        config: config,
+        config: widget.config,
         existing: item,
       ),
     );
@@ -578,7 +569,7 @@ class _AnnouncementCard extends StatelessWidget {
                 Navigator.pop(ctx);
                 final user = cache.currentUser;
                 if (user == null) return;
-                await dao.deleteAnnouncement(
+                await widget.dao.deleteAnnouncement(
                   id: item.id,
                   accountId: user.user.id,
                 );
@@ -593,6 +584,211 @@ class _AnnouncementCard extends StatelessWidget {
               ),
             ),
           ],
+        );
+      },
+    );
+  }
+}
+
+// ─── Desktop inline action buttons ───────────────────────────────────────────
+
+class _RowActions extends StatelessWidget {
+  const _RowActions({
+    required this.isHovered,
+    required this.onEdit,
+    required this.onDelete,
+    required this.cs,
+  });
+
+  final bool isHovered;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _ActionBtn(
+          icon: Icons.edit_outlined,
+          label: 'Edit',
+          color: cs.onSurfaceVariant,
+          isRowHovered: isHovered,
+          onTap: onEdit,
+        ),
+        _ActionBtn(
+          icon: Icons.delete_outline_rounded,
+          label: 'Delete',
+          color: cs.error,
+          isRowHovered: isHovered,
+          onTap: onDelete,
+        ),
+      ],
+    );
+  }
+}
+
+class _ActionBtn extends StatefulWidget {
+  const _ActionBtn({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.isRowHovered,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final bool isRowHovered;
+  final VoidCallback onTap;
+
+  @override
+  State<_ActionBtn> createState() => _ActionBtnState();
+}
+
+class _ActionBtnState extends State<_ActionBtn> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveAlpha = (_isHovered || widget.isRowHovered) ? 1.0 : 0.0;
+    return Tooltip(
+      message: widget.label,
+      waitDuration: const Duration(milliseconds: 400),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 100),
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: _isHovered
+                  ? widget.color.withValues(alpha: 0.08)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 120),
+              opacity: effectiveAlpha,
+              child: Icon(widget.icon, size: 16, color: widget.color),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Mobile three-dot menu ────────────────────────────────────────────────────
+
+class _MobileRowMenu extends StatelessWidget {
+  const _MobileRowMenu({
+    required this.cs,
+    required this.isDark,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final ColorScheme cs;
+  final bool isDark;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 32,
+      height: 32,
+      child: IconButton(
+        padding: EdgeInsets.zero,
+        iconSize: 18,
+        icon: Icon(Icons.more_vert, size: 18, color: cs.onSurfaceVariant),
+        tooltip: 'More actions',
+        onPressed: () => _showSheet(context),
+      ),
+    );
+  }
+
+  void _showSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppTheme.modalBg(isDark, cs),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.kModalRadius),
+        ),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 10, bottom: 6),
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.edit_outlined,
+                  size: 20,
+                  color: cs.onSurface,
+                ),
+                title: Text(
+                  'Edit',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurface,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  onEdit();
+                },
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 2,
+                ),
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.delete_outline_rounded,
+                  size: 20,
+                  color: cs.error,
+                ),
+                title: Text(
+                  'Delete',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    color: cs.error,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  onDelete();
+                },
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 2,
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
         );
       },
     );
@@ -633,83 +829,6 @@ class _Tag extends StatelessWidget {
           letterSpacing: 0.2,
         ),
       ),
-    );
-  }
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
-// OVERFLOW MENU — edit / delete for admin cards
-// ═════════════════════════════════════════════════════════════════════════════
-
-class _OverflowMenu extends StatelessWidget {
-  const _OverflowMenu({
-    required this.cs,
-    required this.isDark,
-    required this.onEdit,
-    required this.onDelete,
-  });
-
-  final ColorScheme cs;
-  final bool isDark;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    return PopupMenuButton<String>(
-      icon: Icon(
-        Icons.more_vert,
-        size: 18,
-        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-      ),
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 120),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      color: cs.surface,
-      elevation: 4,
-      surfaceTintColor: Colors.transparent,
-      itemBuilder: (_) => [
-        PopupMenuItem(
-          value: 'edit',
-          height: 38,
-          child: Row(
-            children: [
-              Icon(Icons.edit_outlined, size: 16, color: cs.onSurface),
-              const SizedBox(width: 8),
-              Text(
-                'Edit',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurface,
-                ),
-              ),
-            ],
-          ),
-        ),
-        PopupMenuItem(
-          value: 'delete',
-          height: 38,
-          child: Row(
-            children: [
-              Icon(Icons.delete_outline, size: 16, color: cs.error),
-              const SizedBox(width: 8),
-              Text(
-                'Delete',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  color: cs.error,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-      onSelected: (v) {
-        if (v == 'edit') onEdit();
-        if (v == 'delete') onDelete();
-      },
     );
   }
 }

@@ -1,11 +1,7 @@
-import 'dart:async';
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 
 import '../../../../client.dart';
 import '../../../../database/database.dart';
-
 import '../../../../database/tables/curriculum_subjects.dart';
 
 import '../../../../models/school_config.dart';
@@ -29,7 +25,7 @@ class AcademicsScreen extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Grade/Stream Tree — the new Academics landing page
+// Grade/Stream Tree — the Academics landing page
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _AcademicsGradeTree extends StatefulWidget {
@@ -41,64 +37,113 @@ class _AcademicsGradeTree extends StatefulWidget {
 }
 
 class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
-  SchoolConfig? _config;
-  StreamSubscription<Setting?>? _settingsSub;
-  bool _loading = true;
-
   String get _schoolId => widget.schoolContext.membership.school.id;
 
-  @override
-  void initState() {
-    super.initState();
-    _settingsSub = settingsDao.watchSettings(_schoolId).listen((setting) {
-      if (!mounted) return;
-      SchoolConfig config = SchoolConfig.defaults();
-      if (setting != null) {
-        try {
-          final decoded = jsonDecode(setting.data);
-          if (decoded is Map<String, dynamic>) {
-            config = SchoolConfig.fromJson(decoded);
-          }
-        } catch (_) {}
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  /// Determines which curriculum a grade number belongs to based on the
+  /// numbering convention:
+  ///   CBC: 1–14  (PP1=1, PP2=2, Grade 1–9 = 3–11, Grade 10–12 = 12–14)
+  ///   8-4-4: 1–8 (Standard 1–8) and 41–44 (Form 1–4)
+  ///
+  /// Grade numbers 1–8 are ambiguous — they exist in both systems. We resolve
+  /// ambiguity by checking if any grade ≥ 41 exists (which means 8-4-4 is in
+  /// use) or any grade ≥ 9 exists (which means CBC is in use). Grade numbers
+  /// 41–44 are unambiguously 8-4-4. Grade numbers 9–14 are unambiguously CBC.
+  ///
+  /// For simplicity when the set of grades is unknown, we default ambiguous
+  /// grades (1–8) to CBC. The curriculum chooser UI always creates at least
+  /// one grade, so the grouping will self-correct as grades are added.
+  CurriculumType _curriculumForGrade(int grade, Set<int> allGrades) {
+    // Unambiguous: Form grades are always 8-4-4.
+    if (grade >= 41) return CurriculumType.eightFourFour;
+    // Unambiguous: CBC upper grades.
+    if (grade >= 9) return CurriculumType.cbc;
+    // Ambiguous range (1–8). Check if we have any 8-4-4-only grades.
+    if (allGrades.any((g) => g >= 41)) return CurriculumType.eightFourFour;
+    // Default to CBC.
+    return CurriculumType.cbc;
+  }
+
+  /// Builds a [SchoolConfig]-like structure from raw [SchoolStream] rows,
+  /// grouping by curriculum and grade.
+  ({List<_CurriculumGroup> curricula, bool isEmpty}) _buildGradeTree(
+    List<SchoolStream> allStreams,
+  ) {
+    if (allStreams.isEmpty) {
+      return (curricula: <_CurriculumGroup>[], isEmpty: true);
+    }
+
+    // Collect all distinct grade numbers.
+    final allGrades = allStreams.map((s) => s.grade).toSet();
+
+    // Group streams by grade.
+    final byGrade = <int, List<SchoolStream>>{};
+    for (final s in allStreams) {
+      byGrade.putIfAbsent(s.grade, () => []).add(s);
+    }
+
+    // Group grades by curriculum.
+    final cbcGrades = <_GradeGroup>[];
+    final eftGrades = <_GradeGroup>[];
+
+    for (final entry in byGrade.entries) {
+      final gradeNum = entry.key;
+      final streams = entry.value..sort((a, b) => a.stream.compareTo(b.stream));
+      final type = _curriculumForGrade(gradeNum, allGrades);
+      final group = _GradeGroup(grade: gradeNum, streams: streams);
+
+      if (type == CurriculumType.cbc) {
+        cbcGrades.add(group);
+      } else {
+        eftGrades.add(group);
       }
-      setState(() {
-        _config = config;
-        _loading = false;
-      });
-    });
-  }
+    }
 
-  @override
-  void dispose() {
-    _settingsSub?.cancel();
-    super.dispose();
-  }
+    cbcGrades.sort((a, b) => a.grade.compareTo(b.grade));
+    eftGrades.sort((a, b) => a.grade.compareTo(b.grade));
 
-  Future<void> _saveConfig(SchoolConfig config) async {
-    final user = cache.currentUser?.user;
-    if (user == null) return;
-    await settingsDao.updateSchoolConfig(_schoolId, config, accountId: user.id);
+    final curricula = <_CurriculumGroup>[];
+    if (cbcGrades.isNotEmpty) {
+      curricula.add(
+        _CurriculumGroup(type: CurriculumType.cbc, grades: cbcGrades),
+      );
+    }
+    if (eftGrades.isNotEmpty) {
+      curricula.add(
+        _CurriculumGroup(type: CurriculumType.eightFourFour, grades: eftGrades),
+      );
+    }
+
+    return (curricula: curricula, isEmpty: false);
   }
 
   // ── Add grade ──────────────────────────────────────────────────────────────
 
-  void _showAddGradeSheet() {
-    final config = _config;
-    if (config == null) return;
+  void _showAddGradeSheet(List<SchoolStream> allStreams) {
+    final allGrades = allStreams.map((s) => s.grade).toSet();
 
-    // Determine which curricula are enabled
-    if (config.curricula.isEmpty) {
-      // No curricula — show curriculum picker first
+    // Determine which curricula are currently in use.
+    final hasCbc =
+        allGrades.any((g) => g >= 9 && g <= 14) ||
+        (allGrades.isNotEmpty && !allGrades.any((g) => g >= 41));
+    final has844 = allGrades.any((g) => g >= 41);
+
+    if (allGrades.isEmpty) {
+      // No grades yet — show curriculum picker first.
       _showAddCurriculumAndGradeSheet();
       return;
     }
 
-    if (config.curricula.length == 1) {
-      // Single curriculum — go directly to grade picker
-      _showGradePickerForCurriculum(config.curricula.first);
+    if (hasCbc && has844) {
+      // Both curricula — let user pick which one.
+      _showCurriculumChooser(allGrades);
+    } else if (hasCbc) {
+      _showGradePickerForCurriculum(CurriculumType.cbc, allGrades);
+    } else if (has844) {
+      _showGradePickerForCurriculum(CurriculumType.eightFourFour, allGrades);
     } else {
-      // Multiple curricula — let user pick which one
-      _showCurriculumChooser();
+      _showAddCurriculumAndGradeSheet();
     }
   }
 
@@ -114,16 +159,18 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
       builder: (ctx) => _CurriculumSetupSheet(
         onCurriculumSelected: (type) {
           Navigator.pop(ctx);
-          // Create a new curriculum config and show grade picker
-          final newCurr = CurriculumConfig(type: type, grades: []);
-          _showGradePickerForNewCurriculum(newCurr);
+          _showGradePickerForCurriculum(type, <int>{});
         },
       ),
     );
   }
 
-  void _showCurriculumChooser() {
+  void _showCurriculumChooser(Set<int> usedGrades) {
     final cs = Theme.of(context).colorScheme;
+
+    final cbcCount = usedGrades.where((g) => g <= 14).length;
+    final eftCount = usedGrades.where((g) => g >= 41).length;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: cs.surface,
@@ -158,17 +205,30 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
                 ),
               ),
               const SizedBox(height: 12),
-              for (final curr in _config!.curricula)
-                _SheetOption(
-                  label: curr.type == CurriculumType.cbc ? 'CBC' : '8-4-4',
-                  subtitle:
-                      '${curr.grades.length} grade${curr.grades.length == 1 ? '' : 's'} configured',
-                  icon: Icons.school_outlined,
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _showGradePickerForCurriculum(curr);
-                  },
-                ),
+              _SheetOption(
+                label: 'CBC',
+                subtitle:
+                    '$cbcCount grade${cbcCount == 1 ? '' : 's'} configured',
+                icon: Icons.school_outlined,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showGradePickerForCurriculum(CurriculumType.cbc, usedGrades);
+                },
+              ),
+              const SizedBox(height: 6),
+              _SheetOption(
+                label: '8-4-4',
+                subtitle:
+                    '$eftCount grade${eftCount == 1 ? '' : 's'} configured',
+                icon: Icons.school_outlined,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showGradePickerForCurriculum(
+                    CurriculumType.eightFourFour,
+                    usedGrades,
+                  );
+                },
+              ),
             ],
           ),
         ),
@@ -176,9 +236,8 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
     );
   }
 
-  void _showGradePickerForCurriculum(CurriculumConfig curriculum) {
-    final labels = gradeLabelsFor(curriculum.type);
-    final usedGrades = curriculum.grades.map((g) => g.grade).toSet();
+  void _showGradePickerForCurriculum(CurriculumType type, Set<int> usedGrades) {
+    final labels = gradeLabelsFor(type);
     final available =
         labels.entries.where((e) => !usedGrades.contains(e.key)).toList()
           ..sort((a, b) => a.key.compareTo(b.key));
@@ -187,7 +246,7 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'All grades for ${curriculum.type == CurriculumType.cbc ? "CBC" : "8-4-4"} are already added.',
+            'All grades for ${type == CurriculumType.cbc ? "CBC" : "8-4-4"} are already added.',
           ),
           behavior: SnackBarBehavior.floating,
         ),
@@ -205,87 +264,52 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
       ),
       builder: (ctx) => _GradePickerSheet(
         available: available,
-        curriculumLabel: curriculum.type == CurriculumType.cbc
-            ? 'CBC'
-            : '8-4-4',
+        curriculumLabel: type == CurriculumType.cbc ? 'CBC' : '8-4-4',
         onGradeSelected: (gradeNum) {
           Navigator.pop(ctx);
-          _addGradeToCurriculum(curriculum.type, gradeNum);
+          _createGrade(gradeNum);
         },
       ),
     );
   }
 
-  void _showGradePickerForNewCurriculum(CurriculumConfig newCurr) {
-    final labels = gradeLabelsFor(newCurr.type);
-    final available = labels.entries.toList()
-      ..sort((a, b) => a.key.compareTo(b.key));
+  /// Creating a grade means inserting a default stream (code=1, name="Main")
+  /// for that grade number. A grade with zero streams cannot exist in the DB.
+  Future<void> _createGrade(int gradeNum) async {
+    final accountId = cache.currentUser?.user.id;
+    if (accountId == null) return;
 
-    final cs = Theme.of(context).colorScheme;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: cs.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
-      ),
-      builder: (ctx) => _GradePickerSheet(
-        available: available,
-        curriculumLabel: newCurr.type == CurriculumType.cbc ? 'CBC' : '8-4-4',
-        onGradeSelected: (gradeNum) {
-          Navigator.pop(ctx);
-          _addGradeToNewCurriculum(newCurr.type, gradeNum);
-        },
-      ),
-    );
-  }
-
-  Future<void> _addGradeToCurriculum(CurriculumType type, int gradeNum) async {
-    final config = _config;
-    if (config == null) return;
-
-    final updated = config.copyWith(
-      curricula: config.curricula.map((c) {
-        if (c.type != type) return c;
-        final newGrades = [
-          ...c.grades,
-          GradeConfig(grade: gradeNum, streams: []),
-        ]..sort((a, b) => a.grade.compareTo(b.grade));
-        return c.copyWith(grades: newGrades);
-      }).toList(),
-    );
-    await _saveConfig(updated);
-  }
-
-  Future<void> _addGradeToNewCurriculum(
-    CurriculumType type,
-    int gradeNum,
-  ) async {
-    final config = _config ?? SchoolConfig.defaults();
-    final newCurr = CurriculumConfig(
-      type: type,
-      grades: [GradeConfig(grade: gradeNum, streams: [])],
-    );
-    final updated = config.copyWith(curricula: [...config.curricula, newCurr]);
-    await _saveConfig(updated);
+    try {
+      await catalogDao.createSchoolStream(
+        schoolId: _schoolId,
+        grade: gradeNum,
+        streamCode: 1,
+        name: 'Main',
+        accountId: accountId,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to add grade: $e'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   // ── Delete grade ───────────────────────────────────────────────────────────
 
-  Future<void> _deleteGrade(CurriculumType type, int gradeNum) async {
-    final config = _config;
-    if (config == null) return;
-
+  Future<void> _deleteGrade(int gradeNum, String gradeLabel) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) {
         final cs = Theme.of(ctx).colorScheme;
-        final label = gradeLabelsFor(type)[gradeNum] ?? 'Grade $gradeNum';
         return AlertDialog(
           backgroundColor: cs.surface,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           title: Text(
-            'Remove $label?',
+            'Remove $gradeLabel?',
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w500,
@@ -293,7 +317,7 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
             ),
           ),
           content: Text(
-            'This will remove the grade and all its stream definitions from the school configuration. '
+            'This will remove the grade and all its stream definitions. '
             'Existing enrollments and records are not affected.',
             style: TextStyle(
               fontSize: 13,
@@ -332,22 +356,34 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
 
     if (confirmed != true) return;
 
-    final updatedCurricula = config.curricula
-        .map((c) {
-          if (c.type != type) return c;
-          return c.copyWith(
-            grades: c.grades.where((g) => g.grade != gradeNum).toList(),
-          );
-        })
-        .where((c) => c.grades.isNotEmpty)
-        .toList();
+    final accountId = cache.currentUser?.user.id;
+    if (accountId == null) return;
 
-    await _saveConfig(config.copyWith(curricula: updatedCurricula));
+    try {
+      await catalogDao.deleteAllStreamsForGrade(
+        schoolId: _schoolId,
+        grade: gradeNum,
+        gradeLabel: gradeLabel,
+        accountId: accountId,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to remove grade: $e'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   // ── Add stream ─────────────────────────────────────────────────────────────
 
-  void _showAddStreamDialog(CurriculumType type, GradeConfig grade) {
+  void _showAddStreamDialog(
+    int gradeNum,
+    String gradeLabel,
+    List<SchoolStream> existingStreams,
+  ) {
     final cs = Theme.of(context).colorScheme;
     final nameCtrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
@@ -358,7 +394,7 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
         backgroundColor: cs.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         title: Text(
-          'Add stream to ${gradeLabelsFor(type)[grade.grade] ?? "Grade ${grade.grade}"}',
+          'Add stream to $gradeLabel',
           style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w500,
@@ -408,15 +444,20 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
             ),
             validator: (v) {
               if (v == null || v.trim().isEmpty) return 'Name required';
-              if (grade.streams.any(
+              if (existingStreams.any(
                 (s) => s.name.toLowerCase() == v.trim().toLowerCase(),
               )) {
                 return 'Stream already exists';
               }
               return null;
             },
-            onFieldSubmitted: (_) =>
-                _submitAddStream(ctx, formKey, nameCtrl, type, grade),
+            onFieldSubmitted: (_) => _submitAddStream(
+              ctx,
+              formKey,
+              nameCtrl,
+              gradeNum,
+              existingStreams,
+            ),
           ),
         ),
         actions: [
@@ -432,8 +473,13 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
             ),
           ),
           TextButton(
-            onPressed: () =>
-                _submitAddStream(ctx, formKey, nameCtrl, type, grade),
+            onPressed: () => _submitAddStream(
+              ctx,
+              formKey,
+              nameCtrl,
+              gradeNum,
+              existingStreams,
+            ),
             child: Text(
               'Add',
               style: TextStyle(
@@ -452,40 +498,49 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
     BuildContext ctx,
     GlobalKey<FormState> formKey,
     TextEditingController nameCtrl,
-    CurriculumType type,
-    GradeConfig grade,
+    int gradeNum,
+    List<SchoolStream> existingStreams,
   ) async {
     if (!formKey.currentState!.validate()) return;
     final name = nameCtrl.text.trim();
 
-    // Auto-assign code: max existing code + 1, or 1 if none
-    final nextCode = grade.streams.isEmpty
+    final accountId = cache.currentUser?.user.id;
+    if (accountId == null) return;
+
+    // Auto-assign code: max existing code + 1, or 1 if none.
+    final nextCode = existingStreams.isEmpty
         ? 1
-        : grade.streams.map((s) => s.code).reduce((a, b) => a > b ? a : b) + 1;
-
-    final newStream = GradeStream(name: name, code: nextCode);
-    final config = _config;
-    if (config == null) return;
-
-    final updated = config.copyWith(
-      curricula: config.curricula.map((c) {
-        if (c.type != type) return c;
-        return c.copyWith(
-          grades: c.grades.map((g) {
-            if (g.grade != grade.grade) return g;
-            return g.copyWith(streams: [...g.streams, newStream]);
-          }).toList(),
-        );
-      }).toList(),
-    );
+        : existingStreams.map((s) => s.stream).reduce((a, b) => a > b ? a : b) +
+              1;
 
     Navigator.pop(ctx);
-    await _saveConfig(updated);
+
+    try {
+      await catalogDao.createSchoolStream(
+        schoolId: _schoolId,
+        grade: gradeNum,
+        streamCode: nextCode,
+        name: name,
+        accountId: accountId,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to add stream: $e'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
-  // ── Edit streams (batch rename) ────────────────────────────────────────────
+  // ── Edit streams (batch rename / delete) ───────────────────────────────────
 
-  void _showEditStreamsSheet(CurriculumType type, GradeConfig grade) {
+  void _showEditStreamsSheet(
+    int gradeNum,
+    String gradeLabel,
+    List<SchoolStream> streams,
+  ) {
     final cs = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
@@ -495,35 +550,31 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
       ),
       builder: (ctx) => _EditStreamsSheet(
-        type: type,
-        grade: grade,
-        gradeLabel: gradeLabelsFor(type)[grade.grade] ?? 'Grade ${grade.grade}',
-        onSave: (updatedStreams) async {
-          Navigator.pop(ctx);
-          final config = _config;
-          if (config == null) return;
-
-          final updated = config.copyWith(
-            curricula: config.curricula.map((c) {
-              if (c.type != type) return c;
-              return c.copyWith(
-                grades: c.grades.map((g) {
-                  if (g.grade != grade.grade) return g;
-                  return g.copyWith(streams: updatedStreams);
-                }).toList(),
-              );
-            }).toList(),
-          );
-          await _saveConfig(updated);
-        },
+        schoolId: _schoolId,
+        gradeNum: gradeNum,
+        gradeLabel: gradeLabel,
+        streams: streams,
+        onDone: () => Navigator.pop(ctx),
       ),
     );
   }
 
   // ── Navigate to grade detail ───────────────────────────────────────────────
 
-  void _navigateToGradeDetail(CurriculumType type, GradeConfig grade) {
-    final label = gradeLabelsFor(type)[grade.grade] ?? 'Grade ${grade.grade}';
+  void _navigateToGradeDetail(
+    CurriculumType type,
+    int gradeNum,
+    String gradeLabel,
+    List<SchoolStream> streams,
+  ) {
+    // Build a GradeConfig from DB rows for the detail page.
+    final gradeConfig = GradeConfig(
+      grade: gradeNum,
+      streams: streams
+          .map((s) => GradeStream(name: s.name, code: s.stream))
+          .toList(),
+    );
+
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ActiveTermProvider(
@@ -531,8 +582,8 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
           child: GradeDetailPage(
             schoolContext: widget.schoolContext,
             curriculumType: type,
-            grade: grade,
-            gradeLabel: label,
+            grade: gradeConfig,
+            gradeLabel: gradeLabel,
           ),
         ),
       ),
@@ -546,71 +597,80 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
 
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator(strokeWidth: 1.5));
-    }
+    return StreamBuilder<List<SchoolStream>>(
+      stream: catalogDao.watchAllStreamsForSchool(_schoolId),
+      builder: (context, snapshot) {
+        final allStreams = snapshot.data ?? [];
+        final tree = _buildGradeTree(allStreams);
 
-    final config = _config ?? SchoolConfig.defaults();
-
-    return Stack(
-      children: [
-        CustomScrollView(
-          slivers: [
-            // ── Header bar with action links ─────────────────────────────
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 14, 12, 2),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Academics',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: cs.onSurface,
-                          letterSpacing: 0.1,
+        return Stack(
+          children: [
+            CustomScrollView(
+              slivers: [
+                // ── Header bar ──────────────────────────────────────────
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 14, 12, 2),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Academics',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: cs.onSurface,
+                              letterSpacing: 0.1,
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
+
+                // ── Content ─────────────────────────────────────────────
+                if (tree.isEmpty)
+                  SliverFillRemaining(
+                    child: _EmptyConfigState(
+                      onAdd: () => _showAddGradeSheet(allStreams),
+                    ),
+                  )
+                else
+                  ..._buildCurriculaSlivers(
+                    tree.curricula,
+                    cs,
+                    isDark,
+                    allStreams,
+                  ),
+
+                // Bottom padding for FAB
+                const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
+              ],
             ),
 
-            // ── Content ──────────────────────────────────────────────────
-            if (config.isEmpty)
-              SliverFillRemaining(
-                child: _EmptyConfigState(onAdd: _showAddGradeSheet),
-              )
-            else
-              ..._buildCurriculaSlivers(config, cs, isDark),
-
-            // Bottom padding for FAB
-            const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
+            // ── FAB — always visible ────────────────────────────────────
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: _AddGradeFab(onTap: () => _showAddGradeSheet(allStreams)),
+            ),
           ],
-        ),
-
-        // ── FAB ──────────────────────────────────────────────────────────
-        if (!config.isEmpty)
-          Positioned(
-            right: 16,
-            bottom: 16,
-            child: _AddGradeFab(onTap: _showAddGradeSheet),
-          ),
-      ],
+        );
+      },
     );
   }
 
   List<Widget> _buildCurriculaSlivers(
-    SchoolConfig config,
+    List<_CurriculumGroup> curricula,
     ColorScheme cs,
     bool isDark,
+    List<SchoolStream> allStreams,
   ) {
-    final showHeaders = config.curricula.length > 1;
+    final showHeaders = curricula.length > 1;
     final List<Widget> slivers = [];
 
-    for (final curriculum in config.curricula) {
+    for (final curriculum in curricula) {
       if (showHeaders) {
         slivers.add(
           SliverToBoxAdapter(
@@ -659,22 +719,37 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
           sliver: SliverList.builder(
             itemCount: curriculum.grades.length,
             itemBuilder: (context, index) {
-              final grade = curriculum.grades[index];
+              final gradeGroup = curriculum.grades[index];
+              final gradeLabel =
+                  gradeLabelsFor(curriculum.type)[gradeGroup.grade] ??
+                  'Grade ${gradeGroup.grade}';
+
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: _GradeCard(
                   curriculumType: curriculum.type,
-                  grade: grade,
-                  gradeLabel:
-                      gradeLabelsFor(curriculum.type)[grade.grade] ??
-                      'Grade ${grade.grade}',
-                  onTap: () => _navigateToGradeDetail(curriculum.type, grade),
-                  onAddStream: () =>
-                      _showAddStreamDialog(curriculum.type, grade),
-                  onEditStreams: grade.streams.isNotEmpty
-                      ? () => _showEditStreamsSheet(curriculum.type, grade)
+                  gradeNum: gradeGroup.grade,
+                  gradeLabel: gradeLabel,
+                  streams: gradeGroup.streams,
+                  onTap: () => _navigateToGradeDetail(
+                    curriculum.type,
+                    gradeGroup.grade,
+                    gradeLabel,
+                    gradeGroup.streams,
+                  ),
+                  onAddStream: () => _showAddStreamDialog(
+                    gradeGroup.grade,
+                    gradeLabel,
+                    gradeGroup.streams,
+                  ),
+                  onEditStreams: gradeGroup.streams.isNotEmpty
+                      ? () => _showEditStreamsSheet(
+                          gradeGroup.grade,
+                          gradeLabel,
+                          gradeGroup.streams,
+                        )
                       : null,
-                  onDelete: () => _deleteGrade(curriculum.type, grade.grade),
+                  onDelete: () => _deleteGrade(gradeGroup.grade, gradeLabel),
                 ),
               );
             },
@@ -688,14 +763,31 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Internal grouping models
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CurriculumGroup {
+  const _CurriculumGroup({required this.type, required this.grades});
+  final CurriculumType type;
+  final List<_GradeGroup> grades;
+}
+
+class _GradeGroup {
+  const _GradeGroup({required this.grade, required this.streams});
+  final int grade;
+  final List<SchoolStream> streams;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Grade Card
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _GradeCard extends StatelessWidget {
   const _GradeCard({
     required this.curriculumType,
-    required this.grade,
+    required this.gradeNum,
     required this.gradeLabel,
+    required this.streams,
     required this.onTap,
     required this.onAddStream,
     this.onEditStreams,
@@ -703,8 +795,9 @@ class _GradeCard extends StatelessWidget {
   });
 
   final CurriculumType curriculumType;
-  final GradeConfig grade;
+  final int gradeNum;
   final String gradeLabel;
+  final List<SchoolStream> streams;
   final VoidCallback onTap;
   final VoidCallback onAddStream;
   final VoidCallback? onEditStreams;
@@ -776,7 +869,7 @@ class _GradeCard extends StatelessWidget {
 
               // ── Stream chips ──────────────────────────────────────────
               const SizedBox(height: 8),
-              if (grade.streams.isEmpty)
+              if (streams.isEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 2, bottom: 2),
                   child: Text(
@@ -793,7 +886,7 @@ class _GradeCard extends StatelessWidget {
                 Wrap(
                   spacing: 6,
                   runSpacing: 5,
-                  children: grade.streams.map((stream) {
+                  children: streams.map((stream) {
                     return _StreamChip(name: stream.name);
                   }).toList(),
                 ),
@@ -927,8 +1020,6 @@ class _EmptyConfigState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    // ignore: unused_local_variable
-    final isDark = cs.brightness == Brightness.dark;
 
     return Center(
       child: Padding(
@@ -970,28 +1061,15 @@ class _EmptyConfigState extends StatelessWidget {
                 height: 1.45,
               ),
             ),
-            const SizedBox(height: 22),
-            Material(
-              color: cs.primary,
-              borderRadius: BorderRadius.circular(6),
-              child: InkWell(
-                onTap: onAdd,
-                borderRadius: BorderRadius.circular(6),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 10,
-                  ),
-                  child: Text(
-                    'Add First Grade',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w500,
-                      color: cs.onPrimary,
-                      letterSpacing: 0.2,
-                    ),
-                  ),
-                ),
+            const SizedBox(height: 10),
+            Text(
+              'Tap the + button to get started.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                fontStyle: FontStyle.italic,
               ),
             ),
           ],
@@ -1262,16 +1340,18 @@ class _GradePickerSheet extends StatelessWidget {
 
 class _EditStreamsSheet extends StatefulWidget {
   const _EditStreamsSheet({
-    required this.type,
-    required this.grade,
+    required this.schoolId,
+    required this.gradeNum,
     required this.gradeLabel,
-    required this.onSave,
+    required this.streams,
+    required this.onDone,
   });
 
-  final CurriculumType type;
-  final GradeConfig grade;
+  final String schoolId;
+  final int gradeNum;
   final String gradeLabel;
-  final Future<void> Function(List<GradeStream> streams) onSave;
+  final List<SchoolStream> streams;
+  final VoidCallback onDone;
 
   @override
   State<_EditStreamsSheet> createState() => _EditStreamsSheetState();
@@ -1284,10 +1364,11 @@ class _EditStreamsSheetState extends State<_EditStreamsSheet> {
   @override
   void initState() {
     super.initState();
-    _streams = widget.grade.streams
+    _streams = widget.streams
         .map(
           (s) => _EditableStream(
-            code: s.code,
+            code: s.stream,
+            originalName: s.name,
             controller: TextEditingController(text: s.name),
           ),
         )
@@ -1305,14 +1386,20 @@ class _EditStreamsSheetState extends State<_EditStreamsSheet> {
   void _removeStream(int index) {
     setState(() {
       _streams[index].controller.dispose();
-      _streams.removeAt(index);
+      _streams[index] = _EditableStream(
+        code: _streams[index].code,
+        originalName: _streams[index].originalName,
+        controller: TextEditingController(), // disposed above
+        removed: true,
+      );
     });
   }
 
   Future<void> _save() async {
-    // Validate — no empty names, no duplicates
+    // Validate — no empty names, no duplicates among non-removed streams.
+    final active = _streams.where((s) => !s.removed).toList();
     final names = <String>{};
-    for (final s in _streams) {
+    for (final s in active) {
       final name = s.controller.text.trim();
       if (name.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1334,17 +1421,56 @@ class _EditStreamsSheetState extends State<_EditStreamsSheet> {
       }
     }
 
+    final accountId = cache.currentUser?.user.id;
+    if (accountId == null) return;
+
     setState(() => _saving = true);
-    final result = _streams
-        .map((s) => GradeStream(name: s.controller.text.trim(), code: s.code))
-        .toList();
-    await widget.onSave(result);
+
+    try {
+      // Process deletions.
+      for (final s in _streams.where((s) => s.removed)) {
+        await catalogDao.deleteStream(
+          schoolId: widget.schoolId,
+          grade: widget.gradeNum,
+          streamCode: s.code,
+          streamName: s.originalName,
+          accountId: accountId,
+        );
+      }
+
+      // Process renames (only for non-removed streams whose name changed).
+      for (final s in active) {
+        final newName = s.controller.text.trim();
+        if (newName != s.originalName) {
+          await catalogDao.updateStream(
+            schoolId: widget.schoolId,
+            grade: widget.gradeNum,
+            streamCode: s.code,
+            name: newName,
+            accountId: accountId,
+          );
+        }
+      }
+
+      widget.onDone();
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
+    final activeStreams = _streams.where((s) => !s.removed).toList();
 
     return SafeArea(
       child: Padding(
@@ -1413,7 +1539,7 @@ class _EditStreamsSheetState extends State<_EditStreamsSheet> {
               ],
             ),
             const SizedBox(height: 14),
-            if (_streams.isEmpty)
+            if (activeStreams.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 child: Text(
@@ -1427,8 +1553,9 @@ class _EditStreamsSheetState extends State<_EditStreamsSheet> {
                 ),
               )
             else
-              ...List.generate(_streams.length, (i) {
-                final s = _streams[i];
+              ...List.generate(activeStreams.length, (i) {
+                final s = activeStreams[i];
+                final realIndex = _streams.indexOf(s);
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Row(
@@ -1491,7 +1618,7 @@ class _EditStreamsSheetState extends State<_EditStreamsSheet> {
                       ),
                       const SizedBox(width: 6),
                       InkWell(
-                        onTap: () => _removeStream(i),
+                        onTap: () => _removeStream(realIndex),
                         borderRadius: BorderRadius.circular(4),
                         child: Padding(
                           padding: const EdgeInsets.all(6),
@@ -1514,7 +1641,14 @@ class _EditStreamsSheetState extends State<_EditStreamsSheet> {
 }
 
 class _EditableStream {
-  _EditableStream({required this.code, required this.controller});
+  _EditableStream({
+    required this.code,
+    required this.originalName,
+    required this.controller,
+    this.removed = false,
+  });
   final int code;
+  final String originalName;
   final TextEditingController controller;
+  final bool removed;
 }

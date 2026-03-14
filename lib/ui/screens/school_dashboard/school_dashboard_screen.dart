@@ -38,6 +38,12 @@ import 'timetable/timetable_screen.dart';
 //   > kDesktopBreakpoint  (> 1200)  → full labelled sidebar (232 px)
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Layout mode — drives which navigation chrome is shown around the
+/// persistent content area. Switching modes does NOT tear down the content
+/// widget tree, so any pushed routes (exam detail, paper detail, etc.)
+/// survive a window resize across breakpoints.
+enum _LayoutMode { full, rail, mobile }
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Nav item descriptor
 // ─────────────────────────────────────────────────────────────────────────────
@@ -198,6 +204,7 @@ class _DashboardShellState extends State<_DashboardShell>
   late TabController _tabController;
   List<_NavItem> _currentItems = [];
   int _selectedIndex = 0;
+  _LayoutMode _layoutMode = _LayoutMode.full;
 
   // ── lifecycle ──────────────────────────────────────────────────────────────
 
@@ -293,7 +300,12 @@ class _DashboardShellState extends State<_DashboardShell>
     };
   }
 
-  // ── build — three-tier layout dispatch ────────────────────────────────────
+  // ── build — single Scaffold, layout mode drives navigation chrome ─────────
+  //
+  // A single Scaffold persists across all breakpoints. The LayoutBuilder only
+  // updates `_layoutMode` — the navigation chrome (sidebar / rail / tabs) is
+  // swapped but the content area widget tree is NEVER torn down. This ensures
+  // that any Navigator.push-based detail pages survive a window resize.
 
   @override
   Widget build(BuildContext context) {
@@ -303,132 +315,103 @@ class _DashboardShellState extends State<_DashboardShell>
         return LayoutBuilder(
           builder: (context, constraints) {
             final w = constraints.maxWidth;
-            if (w >= AppTheme.kDesktopBreakpoint) {
-              // Wide desktop — full labelled sidebar.
-              return _buildFullSidebarLayout(context, currentEntry);
+            final newMode = w >= AppTheme.kDesktopBreakpoint
+                ? _LayoutMode.full
+                : w >= AppTheme.kMobileBreakpoint
+                ? _LayoutMode.rail
+                : _LayoutMode.mobile;
+            // Schedule mode update if changed — don't rebuild during build.
+            if (newMode != _layoutMode) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) setState(() => _layoutMode = newMode);
+              });
             }
-            if (w >= AppTheme.kMobileBreakpoint) {
-              // Narrow desktop / tablet — compact icon rail.
-              return _buildRailLayout(context, currentEntry);
-            }
-            // Mobile — pill tabs, icon-only.
-            return _buildTabLayout(context, currentEntry);
+            return _buildLayout(context, currentEntry, newMode);
           },
         );
       },
     );
   }
 
-  // ── FULL SIDEBAR (≥ 1200 px) — labelled 232 px sidebar ────────────────────
+  // ── Unified layout — single Scaffold, swappable chrome ─────────────────────
 
-  Widget _buildFullSidebarLayout(
-    BuildContext context,
+  Widget _buildLayout(
+    BuildContext ctx,
     MembershipEntry currentEntry,
+    _LayoutMode mode,
   ) {
-    final cs = Theme.of(context).colorScheme;
+    final cs = Theme.of(ctx).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+    final content = _buildContentArea(ctx, currentEntry);
 
     return Scaffold(
       backgroundColor: cs.surfaceContainerLowest,
-      body: Row(
-        children: [
-          _FullSidebar(
-            schoolContext: widget.schoolContext,
-            currentEntry: currentEntry,
-            items: _currentItems,
-            selectedIndex: _selectedIndex,
-            onItemSelected: _selectIndex,
-            onRoleSwitchTap: () => _showRoleSwitcherSheet(context),
-            activeTermContext: widget.activeTermContext,
+      body: switch (mode) {
+        _LayoutMode.full => Row(
+          children: [
+            _FullSidebar(
+              schoolContext: widget.schoolContext,
+              currentEntry: currentEntry,
+              items: _currentItems,
+              selectedIndex: _selectedIndex,
+              onItemSelected: _selectIndex,
+              onRoleSwitchTap: () => _showRoleSwitcherSheet(ctx),
+              activeTermContext: widget.activeTermContext,
+            ),
+            Expanded(child: _wrapSidebarContent(cs, content)),
+          ],
+        ),
+        _LayoutMode.rail => Row(
+          children: [
+            _IconRail(
+              schoolContext: widget.schoolContext,
+              currentEntry: currentEntry,
+              items: _currentItems,
+              selectedIndex: _selectedIndex,
+              onItemSelected: _selectIndex,
+              onRoleSwitchTap: () => _showRoleSwitcherSheet(ctx),
+              activeTermContext: widget.activeTermContext,
+            ),
+            Expanded(child: _wrapSidebarContent(cs, content)),
+          ],
+        ),
+        _LayoutMode.mobile => SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _TabLayoutTopBar(
+                schoolContext: widget.schoolContext,
+                currentEntry: currentEntry,
+                activeTermContext: widget.activeTermContext,
+                onRoleSwitchTap: widget.schoolContext.canSwitch
+                    ? () => _showRoleSwitcherSheet(ctx)
+                    : null,
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+                child: _PillTabStrip(
+                  items: _currentItems,
+                  controller: _tabController,
+                  isDark: isDark,
+                  cs: cs,
+                ),
+              ),
+              Expanded(child: content),
+            ],
           ),
-          Expanded(child: _buildSidebarContentArea(context, currentEntry)),
-        ],
-      ),
+        ),
+      },
     );
   }
 
-  // ── ICON RAIL (600–1200 px) — 64 px icon-only rail ────────────────────────
-
-  Widget _buildRailLayout(BuildContext context, MembershipEntry currentEntry) {
-    final cs = Theme.of(context).colorScheme;
-
-    return Scaffold(
-      backgroundColor: cs.surfaceContainerLowest,
-      body: Row(
-        children: [
-          _IconRail(
-            schoolContext: widget.schoolContext,
-            currentEntry: currentEntry,
-            items: _currentItems,
-            selectedIndex: _selectedIndex,
-            onItemSelected: _selectIndex,
-            onRoleSwitchTap: () => _showRoleSwitcherSheet(context),
-            activeTermContext: widget.activeTermContext,
-          ),
-          Expanded(child: _buildSidebarContentArea(context, currentEntry)),
-        ],
-      ),
-    );
-  }
-
-  // Shared content column used by both sidebar layouts.
-  Widget _buildSidebarContentArea(
-    BuildContext context,
-    MembershipEntry currentEntry,
-  ) {
-    final cs = Theme.of(context).colorScheme;
-
+  /// Wraps the content area with the padding + rounded card used by both
+  /// sidebar and rail layouts.
+  Widget _wrapSidebarContent(ColorScheme cs, Widget content) {
     return Padding(
       padding: const EdgeInsets.all(20),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(10),
-        child: Material(
-          color: cs.surface,
-          child: _buildContentArea(context, currentEntry),
-        ),
-      ),
-    );
-  }
-
-  // ── MOBILE (< 600 px) — pill tabs, icon-only ──────────────────────────────
-
-  Widget _buildTabLayout(BuildContext context, MembershipEntry currentEntry) {
-    final cs = Theme.of(context).colorScheme;
-    final isDark = cs.brightness == Brightness.dark;
-
-    return Scaffold(
-      backgroundColor: cs.surfaceContainerLowest,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _TabLayoutTopBar(
-              schoolContext: widget.schoolContext,
-              currentEntry: currentEntry,
-              activeTermContext: widget.activeTermContext,
-              onRoleSwitchTap: widget.schoolContext.canSwitch
-                  ? () => _showRoleSwitcherSheet(context)
-                  : null,
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-              child: _PillTabStrip(
-                items: _currentItems,
-                controller: _tabController,
-                isDark: isDark,
-                cs: cs,
-              ),
-            ),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                physics: const NeverScrollableScrollPhysics(),
-                children: _currentItems
-                    .map((_) => _buildContentArea(context, currentEntry))
-                    .toList(),
-              ),
-            ),
-          ],
-        ),
+        child: Material(color: cs.surface, child: content),
       ),
     );
   }
@@ -662,7 +645,7 @@ class _FullSidebar extends StatelessWidget {
                 children: [
                   IconButton(
                     icon: Icon(
-                      Icons.arrow_back,
+                      Icons.chevron_left_rounded,
                       size: 18,
                       color: cs.onSurfaceVariant,
                     ),
@@ -913,7 +896,7 @@ class _IconRail extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.only(top: 8),
               child: _RailIconBtn(
-                icon: Icons.arrow_back,
+                icon: Icons.chevron_left_rounded,
                 tooltip: 'Back to Home',
                 cs: cs,
                 onTap: () => Navigator.of(context).pop(),

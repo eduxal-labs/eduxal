@@ -1,8 +1,7 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../theme/app_theme.dart';
 import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/finance_dao.dart';
@@ -11,7 +10,6 @@ import '../../../../models/active_term_context.dart';
 import '../../../../models/membership.dart';
 import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
-import '../../../theme/app_theme.dart';
 import '../../../widgets/active_term_provider.dart';
 import '../../../widgets/edu_tab_bar.dart';
 
@@ -119,7 +117,7 @@ class _OwnerFinanceShellState extends State<_OwnerFinanceShell>
   late final FinanceDao _dao;
   late TabController _tabController;
   _FinanceTab _currentTab = _FinanceTab.overview;
-  SchoolConfig _config = SchoolConfig.defaults();
+  final SchoolConfig _config = SchoolConfig.defaults();
 
   String get _schoolId => widget.schoolContext.membership.school.id;
 
@@ -135,14 +133,8 @@ class _OwnerFinanceShellState extends State<_OwnerFinanceShell>
   }
 
   Future<void> _loadConfig() async {
-    final row = await settingsDao.getSettings(_schoolId);
-    if (row != null && mounted) {
-      setState(() {
-        _config = SchoolConfig.fromJson(
-          jsonDecode(row.data) as Map<String, dynamic>,
-        );
-      });
-    }
+    // TODO: reload config from new settings source when available
+    return;
   }
 
   @override
@@ -818,13 +810,15 @@ class _InvoiceListView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
-      itemCount: items.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(0, 4, 0, 80),
+      itemCount: items.length * 2 - 1,
       itemBuilder: (context, index) {
-        final item = items[index];
-        return _InvoiceTile(
+        if (index.isOdd) {
+          return AppTheme.tableRowDivider(isDark, cs);
+        }
+        final item = items[index ~/ 2];
+        return _InvoiceRow(
           item: item,
           dao: dao,
           schoolId: schoolId,
@@ -838,8 +832,8 @@ class _InvoiceListView extends StatelessWidget {
   }
 }
 
-class _InvoiceTile extends StatelessWidget {
-  const _InvoiceTile({
+class _InvoiceRow extends StatefulWidget {
+  const _InvoiceRow({
     required this.item,
     required this.dao,
     required this.schoolId,
@@ -856,156 +850,173 @@ class _InvoiceTile extends StatelessWidget {
   final VoidCallback onRecordPayment;
 
   @override
+  State<_InvoiceRow> createState() => _InvoiceRowState();
+}
+
+class _InvoiceRowState extends State<_InvoiceRow> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final isDark = widget.isDark;
+    final item = widget.item;
+    final isDesktop = MediaQuery.sizeOf(context).width >= 600;
     final statusColor = _invoiceStatusColor(item.invoice.status);
     final balance = item.balance;
     final title = item.feeTitle ?? item.invoice.description ?? 'Invoice';
+    final canRecordPayment =
+        item.invoice.status != InvoiceStatus.paid &&
+        item.invoice.status != InvoiceStatus.cancelled;
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: isDark
-            ? cs.surfaceContainerHighest.withValues(alpha: 0.4)
-            : cs.surface,
-        borderRadius: BorderRadius.circular(AppTheme.kRadius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.14 : 0.04),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.basic,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 100),
+        color: _isHovered
+            ? cs.primary.withValues(alpha: 0.04)
+            : Colors.transparent,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              // ── Main info ──────────────────────────────────────────────
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w500,
-                        color: cs.onSurface,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    // Title + status badge
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: cs.onSurface,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _StatusBadge(
+                          label: _invoiceStatusLabel(item.invoice.status),
+                          color: statusColor,
+                          cs: cs,
+                          isDark: isDark,
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 3),
-                    Text(
-                      '${item.studentName} · Adm #${item.studentAdm}',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w400,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-                      ),
+                    // Student name + amount + due
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${item.studentName} · Adm #${item.studentAdm}'
+                            '${item.invoice.due != null ? ' · Due ${_fmtDateFromEpoch(item.invoice.due!.toInt())}' : ''}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _fmtCurrency(item.invoice.amount),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: cs.onSurface,
+                          ),
+                        ),
+                        if (balance > 0.01) ...[
+                          const SizedBox(width: 4),
+                          Text(
+                            '(bal: ${_fmtCurrency(balance)})',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w400,
+                              color: _kOverdueColor.withValues(alpha: 0.8),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),
               ),
-              _StatusBadge(
-                label: _invoiceStatusLabel(item.invoice.status),
-                color: statusColor,
-                cs: cs,
-                isDark: isDark,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              _AmountCell(
-                label: 'Invoiced',
-                value: _fmtCurrency(item.invoice.amount),
-                cs: cs,
-              ),
-              const SizedBox(width: 20),
-              _AmountCell(
-                label: 'Paid',
-                value: _fmtCurrency(item.totalPaid),
-                cs: cs,
-                color: _kPaidColor,
-              ),
-              const SizedBox(width: 20),
-              _AmountCell(
-                label: 'Balance',
-                value: _fmtCurrency(balance),
-                cs: cs,
-                color: balance > 0.01 ? _kOverdueColor : _kPaidColor,
-                isBold: true,
-              ),
-              const Spacer(),
-              if (item.invoice.status != InvoiceStatus.paid &&
-                  item.invoice.status != InvoiceStatus.cancelled)
-                _CompactButton(
-                  label: 'Record Payment',
-                  icon: Icons.add_rounded,
-                  color: _kPaidColor,
+
+              // ── Desktop actions ────────────────────────────────────────
+              if (isDesktop) ...[
+                const SizedBox(width: 4),
+                _FinanceRowActions(
+                  isHovered: _isHovered,
+                  cs: cs,
+                  actions: [
+                    if (canRecordPayment)
+                      _FinanceRowAction(
+                        icon: Icons.add_card_outlined,
+                        label: 'Record Payment',
+                        color: _kPaidColor,
+                        onTap: widget.onRecordPayment,
+                      ),
+                    _FinanceRowAction(
+                      icon: Icons.edit_outlined,
+                      label: 'Edit',
+                      color: cs.onSurfaceVariant,
+                      onTap: () {},
+                    ),
+                    _FinanceRowAction(
+                      icon: Icons.delete_outline_rounded,
+                      label: 'Delete',
+                      color: cs.error,
+                      onTap: () {},
+                    ),
+                  ],
+                ),
+              ],
+
+              // ── Mobile three-dot ───────────────────────────────────────
+              if (!isDesktop)
+                _FinanceMobileMenu(
                   cs: cs,
                   isDark: isDark,
-                  onTap: onRecordPayment,
+                  actions: [
+                    if (canRecordPayment)
+                      _FinanceRowAction(
+                        icon: Icons.add_card_outlined,
+                        label: 'Record Payment',
+                        color: _kPaidColor,
+                        onTap: widget.onRecordPayment,
+                      ),
+                    _FinanceRowAction(
+                      icon: Icons.edit_outlined,
+                      label: 'Edit',
+                      color: cs.onSurface,
+                      onTap: () {},
+                    ),
+                    _FinanceRowAction(
+                      icon: Icons.delete_outline_rounded,
+                      label: 'Delete',
+                      color: cs.error,
+                      onTap: () {},
+                    ),
+                  ],
                 ),
             ],
           ),
-          if (item.invoice.due != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              'Due: ${_fmtDateFromEpoch(item.invoice.due!.toInt())}',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-              ),
-            ),
-          ],
-        ],
+        ),
       ),
-    );
-  }
-}
-
-class _AmountCell extends StatelessWidget {
-  const _AmountCell({
-    required this.label,
-    required this.value,
-    required this.cs,
-    this.color,
-    this.isBold = false,
-  });
-
-  final String label;
-  final String value;
-  final ColorScheme cs;
-  final Color? color;
-  final bool isBold;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 10.5,
-            fontWeight: FontWeight.w400,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: isBold ? FontWeight.w500 : FontWeight.w400,
-            color: color ?? cs.onSurface,
-          ),
-        ),
-      ],
     );
   }
 }
@@ -1045,58 +1056,6 @@ class _StatusBadge extends StatelessWidget {
           fontWeight: FontWeight.w500,
           color: color,
           letterSpacing: 0.3,
-        ),
-      ),
-    );
-  }
-}
-
-class _CompactButton extends StatelessWidget {
-  const _CompactButton({
-    required this.label,
-    required this.icon,
-    required this.color,
-    required this.cs,
-    required this.isDark,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final Color color;
-  final ColorScheme cs;
-  final bool isDark;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(7),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: isDark ? 0.15 : 0.08),
-            borderRadius: BorderRadius.circular(7),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 14, color: color),
-              const SizedBox(width: 5),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w500,
-                  color: color,
-                  letterSpacing: 0.1,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -1151,13 +1110,15 @@ class _PaymentsTab extends StatelessWidget {
             cs: cs,
           );
         }
-        return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
-          itemCount: items.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
+        return ListView.builder(
+          padding: const EdgeInsets.fromLTRB(0, 4, 0, 80),
+          itemCount: items.length * 2 - 1,
           itemBuilder: (context, index) {
-            final item = items[index];
-            return _PaymentTile(item: item, cs: cs, isDark: isDark);
+            if (index.isOdd) {
+              return AppTheme.tableRowDivider(isDark, cs);
+            }
+            final item = items[index ~/ 2];
+            return _PaymentRow(item: item, cs: cs, isDark: isDark);
           },
         );
       },
@@ -1165,8 +1126,8 @@ class _PaymentsTab extends StatelessWidget {
   }
 }
 
-class _PaymentTile extends StatelessWidget {
-  const _PaymentTile({
+class _PaymentRow extends StatefulWidget {
+  const _PaymentRow({
     required this.item,
     required this.cs,
     required this.isDark,
@@ -1177,82 +1138,152 @@ class _PaymentTile extends StatelessWidget {
   final bool isDark;
 
   @override
+  State<_PaymentRow> createState() => _PaymentRowState();
+}
+
+class _PaymentRowState extends State<_PaymentRow> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final isDark = widget.isDark;
+    final item = widget.item;
+    final isDesktop = MediaQuery.sizeOf(context).width >= 600;
     final methodLabel = _paymentMethodLabel(item.payment.method);
     final ref = item.payment.reference;
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: isDark
-            ? cs.surfaceContainerHighest.withValues(alpha: 0.4)
-            : cs.surface,
-        borderRadius: BorderRadius.circular(AppTheme.kRadius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.14 : 0.04),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Leading icon
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: _kPaidColor.withValues(alpha: isDark ? 0.18 : 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              _paymentMethodIcon(item.payment.method),
-              size: 18,
-              color: _kPaidColor,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${item.studentName} · Adm #${item.studentAdm}',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurface,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.basic,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 100),
+        color: _isHovered
+            ? cs.primary.withValues(alpha: 0.04)
+            : Colors.transparent,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+          child: Row(
+            children: [
+              // ── Method icon ────────────────────────────────────────────
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: _kPaidColor.withValues(alpha: isDark ? 0.18 : 0.1),
+                  borderRadius: BorderRadius.circular(6),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  '$methodLabel${ref != null && ref.isNotEmpty ? ' · $ref' : ''}'
-                  '${item.invoiceDescription != null ? ' · ${item.invoiceDescription}' : ''}',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w400,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.65),
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                child: Icon(
+                  _paymentMethodIcon(item.payment.method),
+                  size: 16,
+                  color: _kPaidColor,
+                ),
+              ),
+              const SizedBox(width: 12),
+
+              // ── Main info ──────────────────────────────────────────────
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${item.studentName} · Adm #${item.studentAdm}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: cs.onSurface,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$methodLabel${ref != null && ref.isNotEmpty ? ' · $ref' : ''}'
+                      '${item.invoiceDescription != null ? ' · ${item.invoiceDescription}' : ''}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+
+              // ── Amount ─────────────────────────────────────────────────
+              const SizedBox(width: 12),
+              Text(
+                _fmtCurrency(item.payment.amount),
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: _kPaidColor,
+                  letterSpacing: -0.2,
+                ),
+              ),
+
+              // ── Desktop actions ────────────────────────────────────────
+              if (isDesktop) ...[
+                const SizedBox(width: 4),
+                _FinanceRowActions(
+                  isHovered: _isHovered,
+                  cs: cs,
+                  actions: [
+                    _FinanceRowAction(
+                      icon: Icons.thumb_up_outlined,
+                      label: 'Approve',
+                      color: _kPaidColor,
+                      onTap: () {},
+                    ),
+                    _FinanceRowAction(
+                      icon: Icons.edit_outlined,
+                      label: 'Edit',
+                      color: cs.onSurfaceVariant,
+                      onTap: () {},
+                    ),
+                    _FinanceRowAction(
+                      icon: Icons.delete_outline_rounded,
+                      label: 'Delete',
+                      color: cs.error,
+                      onTap: () {},
+                    ),
+                  ],
                 ),
               ],
-            ),
+
+              // ── Mobile three-dot ───────────────────────────────────────
+              if (!isDesktop)
+                _FinanceMobileMenu(
+                  cs: cs,
+                  isDark: isDark,
+                  actions: [
+                    _FinanceRowAction(
+                      icon: Icons.thumb_up_outlined,
+                      label: 'Approve',
+                      color: _kPaidColor,
+                      onTap: () {},
+                    ),
+                    _FinanceRowAction(
+                      icon: Icons.edit_outlined,
+                      label: 'Edit',
+                      color: cs.onSurface,
+                      onTap: () {},
+                    ),
+                    _FinanceRowAction(
+                      icon: Icons.delete_outline_rounded,
+                      label: 'Delete',
+                      color: cs.error,
+                      onTap: () {},
+                    ),
+                  ],
+                ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Text(
-            _fmtCurrency(item.payment.amount),
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: _kPaidColor,
-              letterSpacing: -0.2,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1317,13 +1348,15 @@ class _FeesTab extends StatelessWidget {
                 cs: cs,
               );
             }
-            return ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
-              itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
+            return ListView.builder(
+              padding: const EdgeInsets.fromLTRB(0, 4, 0, 80),
+              itemCount: items.length * 2 - 1,
               itemBuilder: (context, index) {
-                final item = items[index];
-                return _FeeTile(
+                if (index.isOdd) {
+                  return AppTheme.tableRowDivider(isDark, cs);
+                }
+                final item = items[index ~/ 2];
+                return _FeeRow(
                   item: item,
                   dao: dao,
                   config: config,
@@ -1408,8 +1441,8 @@ class _FeesTab extends StatelessWidget {
   }
 }
 
-class _FeeTile extends StatelessWidget {
-  const _FeeTile({
+class _FeeRow extends StatefulWidget {
+  const _FeeRow({
     required this.item,
     required this.dao,
     required this.config,
@@ -1426,110 +1459,341 @@ class _FeeTile extends StatelessWidget {
   final VoidCallback onGenerateInvoices;
 
   @override
-  Widget build(BuildContext context) {
-    final fee = item.fee;
-    final gradeLabel = _gradeLabel(fee.grade, config);
+  State<_FeeRow> createState() => _FeeRowState();
+}
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: isDark
-            ? cs.surfaceContainerHighest.withValues(alpha: 0.4)
-            : cs.surface,
-        borderRadius: BorderRadius.circular(AppTheme.kRadius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.14 : 0.04),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+class _FeeRowState extends State<_FeeRow> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final isDark = widget.isDark;
+    final fee = widget.item.fee;
+    final isDesktop = MediaQuery.sizeOf(context).width >= 600;
+    final gradeLabel = _gradeLabel(fee.grade, widget.config);
+    final typeLabel = fee.mandatory ? 'Mandatory' : 'Optional';
+    final typeColor = fee.mandatory ? cs.primary : cs.onSurfaceVariant;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.basic,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 100),
+        color: _isHovered
+            ? cs.primary.withValues(alpha: 0.04)
+            : Colors.transparent,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              // ── Main info ──────────────────────────────────────────────
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      fee.title,
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w500,
-                        color: cs.onSurface,
-                      ),
+                    // Fee title + amount
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            fee.title,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: cs.onSurface,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _fmtCurrency(fee.amount),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: cs.onSurface,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 3),
-                    Text(
-                      '$gradeLabel · ${fee.mandatory ? 'Mandatory' : 'Optional'}',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w400,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.65),
-                      ),
+                    // Grade + type badge + invoice count
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '$gradeLabel · ${widget.item.invoiceCount} invoice${widget.item.invoiceCount == 1 ? '' : 's'} · Due ${_fmtDateFromEpoch(fee.due.toInt())}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Type badge
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: typeColor.withValues(
+                              alpha: isDark ? 0.15 : 0.08,
+                            ),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            typeLabel,
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w500,
+                              color: typeColor,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              Text(
-                _fmtCurrency(fee.amount),
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                  color: cs.onSurface,
-                  letterSpacing: -0.3,
+
+              // ── Desktop actions ────────────────────────────────────────
+              if (isDesktop) ...[
+                const SizedBox(width: 4),
+                _FinanceRowActions(
+                  isHovered: _isHovered,
+                  cs: cs,
+                  actions: [
+                    _FinanceRowAction(
+                      icon: Icons.send_outlined,
+                      label: 'Generate Invoices',
+                      color: cs.primary,
+                      onTap: widget.onGenerateInvoices,
+                    ),
+                    _FinanceRowAction(
+                      icon: Icons.edit_outlined,
+                      label: 'Edit',
+                      color: cs.onSurfaceVariant,
+                      onTap: () {},
+                    ),
+                    _FinanceRowAction(
+                      icon: Icons.delete_outline_rounded,
+                      label: 'Delete',
+                      color: cs.error,
+                      onTap: () {},
+                    ),
+                  ],
                 ),
-              ),
+              ],
+
+              // ── Mobile three-dot ───────────────────────────────────────
+              if (!isDesktop)
+                _FinanceMobileMenu(
+                  cs: cs,
+                  isDark: isDark,
+                  actions: [
+                    _FinanceRowAction(
+                      icon: Icons.send_outlined,
+                      label: 'Generate Invoices',
+                      color: cs.primary,
+                      onTap: widget.onGenerateInvoices,
+                    ),
+                    _FinanceRowAction(
+                      icon: Icons.edit_outlined,
+                      label: 'Edit',
+                      color: cs.onSurface,
+                      onTap: () {},
+                    ),
+                    _FinanceRowAction(
+                      icon: Icons.delete_outline_rounded,
+                      label: 'Delete',
+                      color: cs.error,
+                      onTap: () {},
+                    ),
+                  ],
+                ),
             ],
           ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Icon(
-                Icons.receipt_outlined,
-                size: 14,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-              ),
-              const SizedBox(width: 5),
-              Text(
-                '${item.invoiceCount} invoice${item.invoiceCount == 1 ? '' : 's'} generated',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Icon(
-                Icons.event_outlined,
-                size: 14,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                'Due: ${_fmtDateFromEpoch(fee.due.toInt())}',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                ),
-              ),
-              const Spacer(),
-              _CompactButton(
-                label: 'Generate Invoices',
-                icon: Icons.send_rounded,
-                color: cs.primary,
-                cs: cs,
-                isDark: isDark,
-                onTap: onGenerateInvoices,
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
+    );
+  }
+}
+
+// ─── Shared finance row action helpers ────────────────────────────────────────
+
+class _FinanceRowAction {
+  const _FinanceRowAction({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+}
+
+class _FinanceRowActions extends StatelessWidget {
+  const _FinanceRowActions({
+    required this.isHovered,
+    required this.cs,
+    required this.actions,
+  });
+
+  final bool isHovered;
+  final ColorScheme cs;
+  final List<_FinanceRowAction> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: actions
+          .map((a) => _FinanceActionBtn(action: a, isRowHovered: isHovered))
+          .toList(),
+    );
+  }
+}
+
+class _FinanceActionBtn extends StatefulWidget {
+  const _FinanceActionBtn({required this.action, required this.isRowHovered});
+
+  final _FinanceRowAction action;
+  final bool isRowHovered;
+
+  @override
+  State<_FinanceActionBtn> createState() => _FinanceActionBtnState();
+}
+
+class _FinanceActionBtnState extends State<_FinanceActionBtn> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveAlpha = (_isHovered || widget.isRowHovered) ? 1.0 : 0.0;
+    final color = widget.action.color;
+
+    return Tooltip(
+      message: widget.action.label,
+      waitDuration: const Duration(milliseconds: 400),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: widget.action.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 100),
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: _isHovered
+                  ? color.withValues(alpha: 0.08)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 120),
+              opacity: effectiveAlpha,
+              child: Icon(widget.action.icon, size: 16, color: color),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FinanceMobileMenu extends StatelessWidget {
+  const _FinanceMobileMenu({
+    required this.cs,
+    required this.isDark,
+    required this.actions,
+  });
+
+  final ColorScheme cs;
+  final bool isDark;
+  final List<_FinanceRowAction> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 32,
+      height: 32,
+      child: IconButton(
+        padding: EdgeInsets.zero,
+        iconSize: 18,
+        icon: Icon(Icons.more_vert, size: 18, color: cs.onSurfaceVariant),
+        tooltip: 'More actions',
+        onPressed: () => _showSheet(context),
+      ),
+    );
+  }
+
+  void _showSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppTheme.modalBg(isDark, cs),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.kModalRadius),
+        ),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 10, bottom: 6),
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              ...actions.map(
+                (a) => ListTile(
+                  leading: Icon(a.icon, size: 20, color: a.color),
+                  title: Text(
+                    a.label,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      color: a.color,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    a.onTap();
+                  },
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 2,
+                  ),
+                  minLeadingWidth: 20,
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
     );
   }
 }

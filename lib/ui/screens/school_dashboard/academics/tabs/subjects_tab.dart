@@ -6,6 +6,7 @@ import '../../../../../database/tables/curriculum_subjects.dart';
 import '../../../../../models/curriculum_levels.dart';
 import '../../../../../models/grade_analytics.dart';
 import '../../../../../models/school_context.dart';
+import '../../../../theme/app_theme.dart';
 import '../../../../widgets/user_avatar.dart';
 
 /// Subjects tab — shows all subject-teacher assignments for a specific stream
@@ -167,91 +168,155 @@ class _SubjectsTabState extends State<SubjectsTab>
   // ── Subject list ───────────────────────────────────────────────────────────
 
   Widget _buildList(ColorScheme cs, List<SubjectTeacherEntry> entries) {
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-      itemCount: entries.length + 1, // +1 for header
-      itemBuilder: (context, index) {
-        if (index == 0) return _buildHeader(cs, entries.length);
-        return _buildSubjectCard(cs, entries[index - 1]);
-      },
+    final isDark = cs.brightness == Brightness.dark;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: _buildHeader(cs, entries.length),
+        ),
+        AppTheme.tableRowDivider(isDark, cs),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.only(bottom: 24),
+            itemCount: entries.length * 2 - 1,
+            itemBuilder: (context, index) {
+              if (index.isOdd) {
+                return AppTheme.tableRowDivider(isDark, cs);
+              }
+              return _buildSubjectRow(cs, entries[index ~/ 2], isDark);
+            },
+          ),
+        ),
+      ],
     );
   }
 
   // ── Header ─────────────────────────────────────────────────────────────────
 
   Widget _buildHeader(ColorScheme cs, int count) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Text(
-        '$count subject${count == 1 ? '' : 's'}',
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w400,
-          color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-        ),
+    return Text(
+      '$count subject${count == 1 ? '' : 's'}',
+      style: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        color: cs.onSurfaceVariant.withValues(alpha: 0.5),
       ),
     );
   }
 
-  // ── Subject card ───────────────────────────────────────────────────────────
+  // ── Subject row ────────────────────────────────────────────────────────────
 
-  Widget _buildSubjectCard(ColorScheme cs, SubjectTeacherEntry entry) {
-    final isDark = cs.brightness == Brightness.dark;
+  Widget _buildSubjectRow(
+    ColorScheme cs,
+    SubjectTeacherEntry entry,
+    bool isDark,
+  ) {
+    return _SubjectRow(
+      entry: entry,
+      curriculumType: widget.curriculumType,
+      cs: cs,
+      isDark: isDark,
+    );
+  }
+}
+
+// ─── Flat subject row with hover ──────────────────────────────────────────────
+
+class _SubjectRow extends StatefulWidget {
+  const _SubjectRow({
+    required this.entry,
+    required this.curriculumType,
+    required this.cs,
+    required this.isDark,
+  });
+
+  final SubjectTeacherEntry entry;
+  final CurriculumType curriculumType;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  State<_SubjectRow> createState() => _SubjectRowState();
+}
+
+class _SubjectRowState extends State<_SubjectRow> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final isDark = widget.isDark;
+    final entry = widget.entry;
     final label = subjectLabel(widget.curriculumType, entry.subject.subject);
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(8),
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.basic,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 100),
+        color: _isHovered
+            ? cs.primary.withValues(alpha: 0.04)
+            : Colors.transparent,
         child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // ── Subject name ────────────────────────────────────────────
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: cs.onSurface,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-
-              const SizedBox(height: 10),
-
-              // ── Teacher row ────────────────────────────────────────────
-              Row(
-                children: [
-                  UserAvatar(userId: entry.teacher.id, radius: 14),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      entry.teacher.name,
+              // ── Subject name + teacher ─────────────────────────────────
+              Expanded(
+                flex: 2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label,
                       style: TextStyle(
                         fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                        color: cs.onSurfaceVariant,
+                        fontWeight: FontWeight.w500,
+                        color: cs.onSurface,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 3),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        UserAvatar(userId: entry.teacher.id, radius: 10),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            entry.teacher.name,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(width: 12),
 
-              // ── Mastery section ────────────────────────────────────────
-              _MasterySection(
-                streamAvg: entry.streamMasteryAverage,
-                gradeAvg: entry.gradeMasteryAverage,
-                cs: cs,
-                isDark: isDark,
+              // ── Mastery bars (compact) ─────────────────────────────────
+              Expanded(
+                flex: 3,
+                child: _MasterySection(
+                  streamAvg: entry.streamMasteryAverage,
+                  gradeAvg: entry.gradeMasteryAverage,
+                  cs: cs,
+                  isDark: isDark,
+                ),
               ),
             ],
           ),

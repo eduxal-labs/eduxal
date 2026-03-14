@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:drift/drift.dart' hide Column;
@@ -68,7 +67,7 @@ class _ExamsShellState extends State<_ExamsShell> {
   String? _selectedGroupKey;
   Exam? _selectedExamRow;
   Paper? _selectedPaper;
-  SchoolConfig _config = SchoolConfig.defaults();
+  final SchoolConfig _config = SchoolConfig.defaults();
   late final ExamsGradesDao _dao;
 
   @override
@@ -79,15 +78,8 @@ class _ExamsShellState extends State<_ExamsShell> {
   }
 
   Future<void> _loadConfig() async {
-    final schoolId = widget.schoolContext.membership.school.id;
-    final row = await (db.select(
-      db.settings,
-    )..where((s) => s.school.equals(schoolId))).getSingleOrNull();
-    if (row == null || !mounted) return;
-    try {
-      final decoded = Map<String, dynamic>.from(_jsonDecode(row.data) as Map);
-      setState(() => _config = SchoolConfig.fromJson(decoded));
-    } catch (_) {}
+    // settings table removed in schema v2 — config loaded elsewhere
+    if (!mounted) return;
   }
 
   void _openExam(ExamGroup group) {
@@ -98,10 +90,13 @@ class _ExamsShellState extends State<_ExamsShell> {
     });
   }
 
-  void _openPaper(Paper paper, Exam exam) {
+  int? _selectedExamGrade;
+
+  void _openPaper(Paper paper, Exam exam, int grade) {
     setState(() {
       _selectedPaper = paper;
       _selectedExamRow = exam;
+      _selectedExamGrade = grade;
       _view = _ExamsView.paperDetail;
     });
   }
@@ -110,6 +105,7 @@ class _ExamsShellState extends State<_ExamsShell> {
     setState(() {
       _selectedPaper = null;
       _selectedExamRow = null;
+      _selectedExamGrade = null;
       _view = _ExamsView.examDetail;
     });
   }
@@ -120,6 +116,7 @@ class _ExamsShellState extends State<_ExamsShell> {
       _selectedGroupKey = null;
       _selectedExamRow = null;
       _selectedPaper = null;
+      _selectedExamGrade = null;
       _view = _ExamsView.list;
     });
   }
@@ -179,6 +176,11 @@ class _ExamsShellState extends State<_ExamsShell> {
         schoolId: schoolId,
         year: term.year,
         term: term.term,
+        grade:
+            _selectedExamGrade ??
+            (_selectedGroup!.grades.isNotEmpty
+                ? _selectedGroup!.grades.first.grade
+                : 0),
         config: _config,
         entry: entry,
         onBack: _popToExam,
@@ -233,48 +235,60 @@ class _ExamsListViewState extends State<_ExamsListView> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _SectionHeader(
-          title: 'Exams & Assessments',
-          subtitle: '${widget.year} · Term ${widget.term}',
-          action: _canManage
-              ? _HeaderAction(
-                  icon: Icons.add,
-                  label: 'New Exam',
-                  onTap: () => _showCreateExam(context),
-                )
-              : null,
-        ),
-        Expanded(
-          child: StreamBuilder<List<ExamGroup>>(
-            stream: _buildStream(),
-            builder: (context, snap) {
-              if (snap.connectionState == ConnectionState.waiting) {
-                return const Center(
-                  child: CircularProgressIndicator(strokeWidth: 1.5),
-                );
-              }
-              final items = snap.data ?? [];
-              if (items.isEmpty) {
-                return _EmptyExamsState(canCreate: _canManage);
-              }
-              return ListView.separated(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                itemCount: items.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 10),
-                itemBuilder: (context, i) => _ExamGroupCard(
-                  group: items[i],
-                  config: widget.config,
-                  cs: cs,
-                  onTap: () => widget.onExamTap(items[i]),
-                ),
-              );
-            },
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      floatingActionButton: _canManage
+          ? FloatingActionButton.small(
+              heroTag: 'fab_exams_list',
+              onPressed: () => _showCreateExam(context),
+              tooltip: 'New Exam',
+              child: const Icon(Icons.add_rounded),
+            )
+          : null,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _SectionHeader(
+            title: 'Exams & Assessments',
+            subtitle: '${widget.year} · Term ${widget.term}',
           ),
-        ),
-      ],
+          Expanded(
+            child: StreamBuilder<List<ExamGroup>>(
+              stream: _buildStream(),
+              builder: (context, snap) {
+                if (snap.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(strokeWidth: 1.5),
+                  );
+                }
+                final items = snap.data ?? [];
+                if (items.isEmpty) {
+                  return _EmptyExamsState(canCreate: _canManage);
+                }
+                final isDark = Theme.of(context).brightness == Brightness.dark;
+                return ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(0, 0, 0, 80),
+                  itemCount: items.length,
+                  itemBuilder: (context, i) {
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _ExamGroupRow(
+                          group: items[i],
+                          config: widget.config,
+                          onTap: () => widget.onExamTap(items[i]),
+                        ),
+                        if (i < items.length - 1)
+                          AppTheme.tableRowDivider(isDark, cs),
+                      ],
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -299,128 +313,149 @@ class _ExamsListViewState extends State<_ExamsListView> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Exam group card
+// Exam group row — data-table-style row (replaces _ExamGroupCard)
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _ExamGroupCard extends StatelessWidget {
-  const _ExamGroupCard({
+class _ExamGroupRow extends StatefulWidget {
+  const _ExamGroupRow({
     required this.group,
     required this.config,
-    required this.cs,
     required this.onTap,
   });
   final ExamGroup group;
   final SchoolConfig config;
-  final ColorScheme cs;
   final VoidCallback onTap;
 
   @override
+  State<_ExamGroupRow> createState() => _ExamGroupRowState();
+}
+
+class _ExamGroupRowState extends State<_ExamGroupRow> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final typeColor = _typeColor(group.type, cs);
-    final typeLabel = _typeLabel(group.type);
+    final cs = Theme.of(context).colorScheme;
+    final typeColor = _typeColor(widget.group.type, cs);
+    final typeLabel = _typeLabel(widget.group.type);
     final startDate = DateTime.fromMillisecondsSinceEpoch(
-      group.start * 86400 * 1000,
+      widget.group.start * 86400 * 1000,
     );
     final endDate = DateTime.fromMillisecondsSinceEpoch(
-      group.end * 86400 * 1000,
+      widget.group.end * 86400 * 1000,
     );
-    final gradeCount = group.grades.length;
-    final subjCount = group.uniqueSubjectCount;
+    final gradeCount = widget.group.grades.length;
+    final paperCount = widget.group.grades.fold<int>(
+      0,
+      (sum, g) => sum + g.streams.length,
+    );
+    final hoverColor = cs.primary.withValues(alpha: 0.04);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(
-          color: cs.outlineVariant.withValues(alpha: isDark ? 0.20 : 0.40),
-        ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(4),
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.click,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 100),
+        color: _isHovered ? hoverColor : Colors.transparent,
         child: InkWell(
-          onTap: onTap,
+          onTap: widget.onTap,
           splashFactory: NoSplash.splashFactory,
-          borderRadius: BorderRadius.circular(4),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Row 1: type badge + date range
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: typeColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        typeLabel,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: typeColor,
-                          letterSpacing: 0.4,
+          highlightColor: Colors.transparent,
+          hoverColor: Colors.transparent,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 56),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 16, 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // ── Left column: type badge + date range ──────────────
+                  SizedBox(
+                    width: 130,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Type badge
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: typeColor.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.kChipRadius,
+                            ),
+                          ),
+                          child: Text(
+                            typeLabel,
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w500,
+                              color: typeColor,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      '${_fmtDate(startDate)} – ${_fmtDate(endDate)}',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w400,
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-                // Row 2: participating grade chips
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 4,
-                  runSpacing: 4,
-                  children: group.grades
-                      .map(
-                        (g) => _ClassChip(
-                          label: _gradeLabel(g.grade, config),
-                          cs: cs,
+                        const SizedBox(height: 4),
+                        // Date range
+                        Text(
+                          '${_fmtDate(startDate)} – ${_fmtDate(endDate)}',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w400,
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
-                      )
-                      .toList(),
-                ),
-                // Row 3: meta badges
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    _MetaBadge(
-                      icon: Icons.description_outlined,
-                      label: '$subjCount subj',
-                      cs: cs,
+                      ],
                     ),
-                    const SizedBox(width: 6),
-                    _MetaBadge(
-                      icon: Icons.school_outlined,
-                      label: '$gradeCount grade${gradeCount == 1 ? '' : 's'}',
-                      cs: cs,
+                  ),
+                  const SizedBox(width: 12),
+
+                  // ── Middle: grade chips ───────────────────────────────
+                  Expanded(
+                    child: Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: widget.group.grades
+                          .map(
+                            (g) => _ClassChip(
+                              label: _gradeLabel(g.grade, widget.config),
+                              cs: cs,
+                            ),
+                          )
+                          .toList(),
                     ),
-                    if (group.personalized) ...[
-                      const SizedBox(width: 6),
+                  ),
+                  const SizedBox(width: 8),
+
+                  // ── Right: badges + chevron ───────────────────────────
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
                       _MetaBadge(
-                        icon: Icons.person_outline,
-                        label: 'Custom',
+                        icon: Icons.school_outlined,
+                        label: '$gradeCount',
                         cs: cs,
                       ),
+                      const SizedBox(width: 4),
+                      _MetaBadge(
+                        icon: Icons.note_alt_outlined,
+                        label: '$paperCount',
+                        cs: cs,
+                      ),
+                      const SizedBox(width: 6),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 16,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                      ),
                     ],
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -452,7 +487,7 @@ class _ExamGroupDetailView extends StatefulWidget {
   final SchoolConfig config;
   final MembershipEntry entry;
   final VoidCallback onBack;
-  final void Function(Paper paper, Exam exam) onPaperTap;
+  final void Function(Paper paper, Exam exam, int grade) onPaperTap;
   final VoidCallback onDeleted;
 
   @override
@@ -485,27 +520,26 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
   }
 
   @override
-  void didUpdateWidget(_ExamGroupDetailView old) {
-    super.didUpdateWidget(old);
-    final g = widget.group;
-    final og = old.group;
-    if (g.groupKey != og.groupKey || g.grades.length != og.grades.length) {
+  void didUpdateWidget(covariant _ExamGroupDetailView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.group.groupKey != widget.group.groupKey) {
       _gradeTabController.removeListener(() {});
       _gradeTabController.dispose();
-      _selectedGradeIndex = _selectedGradeIndex
-          .clamp(0, g.grades.length - 1)
-          .toInt();
+      _selectedGradeIndex = 0;
+      _selectedStreamIndex = 0;
       _gradeTabController =
           TabController(
-            length: g.grades.length,
-            initialIndex: _selectedGradeIndex,
+            length: widget.group.grades.length,
+            initialIndex: 0,
             vsync: this,
           )..addListener(() {
             if (_gradeTabController.indexIsChanging) return;
             _onGradeTabChanged(_gradeTabController.index);
           });
       _rebuildStreamTabs();
+      _loadTeacherNames();
     }
+    // Same group updated (e.g. new papers added) → preserve tab state
   }
 
   @override
@@ -694,6 +728,198 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
     }
   }
 
+  Future<void> _showEditExamName(BuildContext context) async {
+    final group = widget.group;
+    final currentName =
+        group.grades.isNotEmpty && group.grades.first.streams.isNotEmpty
+        ? group.grades.first.streams.first.exam.name
+        : '';
+    final ctrl = TextEditingController(text: currentName);
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sheetBg = isDark ? const Color(0xFF18222E) : cs.surface;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            color: sheetBg,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.1),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Drag handle
+              Center(
+                child: Container(
+                  width: 32,
+                  height: 3.5,
+                  margin: const EdgeInsets.only(bottom: 14),
+                  decoration: BoxDecoration(
+                    color: cs.outlineVariant.withValues(
+                      alpha: isDark ? 0.4 : 0.5,
+                    ),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Text(
+                'Edit Exam Name',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurface,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: ctrl,
+                autofocus: true,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurface,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'e.g. Mid-Term Exam',
+                  hintStyle: TextStyle(
+                    fontSize: 13,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                  ),
+                  filled: true,
+                  fillColor: isDark
+                      ? const Color(0xFF1E2C3C)
+                      : cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(
+                      color: cs.outlineVariant.withValues(
+                        alpha: isDark ? 0.3 : 0.5,
+                      ),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(
+                      color: cs.outlineVariant.withValues(
+                        alpha: isDark ? 0.25 : 0.4,
+                      ),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(
+                      color: cs.primary.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: TextButton.styleFrom(
+                      splashFactory: NoSplash.splashFactory,
+                    ),
+                    child: Text(
+                      'Cancel',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    onPressed: () async {
+                      final name = ctrl.text.trim();
+                      if (name.isEmpty) return;
+                      Navigator.of(context).pop();
+                      final accountId = cache.currentUser?.user.id;
+                      if (accountId == null) return;
+                      await _dao.updateExamName(
+                        examIds: group.examIds,
+                        name: name,
+                        accountId: accountId,
+                      );
+                    },
+                    icon: const Icon(Icons.check_rounded, size: 16),
+                    label: const Text('Save', style: TextStyle(fontSize: 13)),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    ctrl.dispose();
+  }
+
+  Future<void> _confirmDeleteStream(BuildContext context) async {
+    final streamEntry = _currentStreamEntry;
+    if (streamEntry == null) return;
+    final currentGrade = widget.group.grades.isNotEmpty
+        ? widget.group.grades[_selectedGradeIndex]
+        : null;
+    if (currentGrade == null) return;
+    final streamName = streamEntry.streamCode != null
+        ? _streamLabel(
+            currentGrade.grade,
+            streamEntry.streamCode!,
+            widget.config,
+          )
+        : 'this stream';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => _ConfirmDeleteDialog(
+        title: 'Remove $streamName?',
+        message: 'This will delete all papers for this stream.',
+        confirmLabel: 'Remove',
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final accountId = cache.currentUser?.user.id;
+    if (accountId == null) return;
+    await _dao.deleteExam(examId: streamEntry.exam.id, accountId: accountId);
+    if (mounted) {
+      setState(() => _selectedStreamIndex = 0);
+    }
+  }
+
   Future<void> _confirmDeleteGroup(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -765,25 +991,42 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
                   ),
                   const SizedBox(width: 2),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
                       children: [
-                        Text(
-                          typeLabel,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                            color: cs.onSurface,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                typeLabel,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                  color: cs.onSurface,
+                                ),
+                              ),
+                              Text(
+                                subtitle,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w400,
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        Text(
-                          subtitle,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                            color: cs.onSurfaceVariant,
+                        if (_canManage)
+                          IconButton(
+                            icon: Icon(
+                              Icons.edit_outlined,
+                              size: 16,
+                              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                            ),
+                            onPressed: () => _showEditExamName(context),
+                            tooltip: 'Edit exam name',
+                            visualDensity: VisualDensity.compact,
                           ),
-                        ),
                       ],
                     ),
                   ),
@@ -811,11 +1054,31 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
               ),
             // ── Stream sub-tabs ────────────────────────────────────────────
             if (streamTabs.isNotEmpty && _streamTabController != null)
-              EduTabBar(
-                controller: _streamTabController!,
-                tabs: streamTabs,
-                isScrollable: true,
-                padding: const EdgeInsets.fromLTRB(16, 2, 16, 4),
+              Row(
+                children: [
+                  Expanded(
+                    child: EduTabBar(
+                      controller: _streamTabController!,
+                      tabs: streamTabs,
+                      isScrollable: true,
+                      padding: const EdgeInsets.fromLTRB(16, 2, 4, 4),
+                    ),
+                  ),
+                  if (_canManage)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: IconButton(
+                        icon: Icon(
+                          Icons.close_rounded,
+                          size: 14,
+                          color: cs.error.withValues(alpha: 0.5),
+                        ),
+                        onPressed: () => _confirmDeleteStream(context),
+                        tooltip: 'Remove stream',
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                ],
               ),
             // ── Paper status legend ────────────────────────────────────────
             if (_currentStreamEntry != null)
@@ -829,6 +1092,9 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
                   ? _EmptyPapersTimetableState(cs: cs)
                   : _PaperContentArea(
                       streamEntry: _currentStreamEntry!,
+                      grade: widget.group.grades.isNotEmpty
+                          ? widget.group.grades[_selectedGradeIndex].grade
+                          : 0,
                       schoolId: widget.schoolId,
                       config: widget.config,
                       teacherNames: _teacherNames,
@@ -1035,7 +1301,8 @@ class _AddStreamFormState extends State<_AddStreamForm> {
   final Map<int?, List<_GradePaperSlot>> _paperSlots = {};
 
   // ── Subject / teacher loading ──────────────────────────────────────────────
-  final Map<int?, List<({Subject subject, UsersData teacher})>> _subjects = {};
+  final Map<int?, List<({SubjectTeacher subject, UsersData teacher})>>
+  _subjects = {};
   final Map<int?, bool> _loadingSubjects = {};
   List<({TeachersData teacher, UsersData user})> _teachers = [];
   bool _teachersLoaded = false;
@@ -1200,7 +1467,7 @@ class _AddStreamFormState extends State<_AddStreamForm> {
               grade: grade,
               stream: streamCode,
             )
-          : <({Subject subject, UsersData teacher})>[];
+          : <({SubjectTeacher subject, UsersData teacher})>[];
       if (mounted) {
         setState(() {
           _subjects[streamCode] = result;
@@ -1357,8 +1624,6 @@ class _AddStreamFormState extends State<_AddStreamForm> {
           school: Value(widget.schoolId),
           year: Value(widget.year),
           term: Value(widget.term),
-          grade: Value(grade),
-          stream: Value(streamCode),
           personalized: Value(templateExam.personalized),
           type: Value(templateExam.type),
           start: Value(templateExam.start),
@@ -1441,7 +1706,7 @@ class _AddStreamFormState extends State<_AddStreamForm> {
     final activeCode = _activeStreamCode;
     final activeSubjects = activeCode != null
         ? (_subjects[activeCode] ?? [])
-        : <({Subject subject, UsersData teacher})>[];
+        : <({SubjectTeacher subject, UsersData teacher})>[];
     final isLoading =
         activeCode != null && _loadingSubjects[activeCode] == true;
     final activeSlots = activeCode != null
@@ -2234,7 +2499,8 @@ class _AddGradeToExamFormState extends State<_AddGradeToExamForm>
   // Paper slots keyed by stream code (null for no-stream grades)
   final Map<int?, List<_GradePaperSlot>> _paperSlots = {};
   // Subjects loaded per stream
-  final Map<int?, List<({Subject subject, UsersData teacher})>> _subjects = {};
+  final Map<int?, List<({SubjectTeacher subject, UsersData teacher})>>
+  _subjects = {};
   final Map<int?, bool> _loadingSubjects = {};
   // Active stream being configured in step 2
   int _activeStreamTabIndex = 0;
@@ -2323,7 +2589,7 @@ class _AddGradeToExamFormState extends State<_AddGradeToExamForm>
               grade: grade,
               stream: streamCode,
             )
-          : <({Subject subject, UsersData teacher})>[];
+          : <({SubjectTeacher subject, UsersData teacher})>[];
       if (mounted) {
         setState(() {
           _subjects[streamCode] = result;
@@ -2440,8 +2706,6 @@ class _AddGradeToExamFormState extends State<_AddGradeToExamForm>
           school: Value(widget.schoolId),
           year: Value(widget.year),
           term: Value(widget.term),
-          grade: Value(grade),
-          stream: Value(streamCode),
           personalized: Value(widget.group.personalized),
           type: Value(widget.group.type),
           start: Value(widget.group.start),
@@ -3280,7 +3544,7 @@ class _GradePaperSlotCard extends StatefulWidget {
   });
 
   final _GradePaperSlot slot;
-  final List<({Subject subject, UsersData teacher})> subjects;
+  final List<({SubjectTeacher subject, UsersData teacher})> subjects;
   final List<({TeachersData teacher, UsersData user})> teachers;
   final bool teachersLoaded;
   final SchoolConfig config;
@@ -4095,7 +4359,7 @@ class _GradeSubjectSelector extends StatelessWidget {
   });
 
   final int? value;
-  final List<({Subject subject, UsersData teacher})> subjects;
+  final List<({SubjectTeacher subject, UsersData teacher})> subjects;
   final SchoolConfig config;
   final ColorScheme cs;
   final bool isDark;
@@ -4193,7 +4457,7 @@ class _GradeSubjectPickerSheet extends StatelessWidget {
     required this.onSelected,
   });
 
-  final List<({Subject subject, UsersData teacher})> subjects;
+  final List<({SubjectTeacher subject, UsersData teacher})> subjects;
   final int? value;
   final SchoolConfig config;
   final ColorScheme cs;
@@ -5041,6 +5305,7 @@ class _FabOptionPill extends StatelessWidget {
 class _PaperContentArea extends StatelessWidget {
   const _PaperContentArea({
     required this.streamEntry,
+    required this.grade,
     required this.schoolId,
     required this.config,
     required this.teacherNames,
@@ -5049,12 +5314,13 @@ class _PaperContentArea extends StatelessWidget {
     required this.onPaperTap,
   });
   final ExamStreamEntry streamEntry;
+  final int grade;
   final String schoolId;
   final SchoolConfig config;
   final Map<String, String> teacherNames;
   final ExamsGradesDao dao;
   final bool canManage;
-  final void Function(Paper paper, Exam exam) onPaperTap;
+  final void Function(Paper paper, Exam exam, int grade) onPaperTap;
 
   @override
   Widget build(BuildContext context) {
@@ -5075,6 +5341,7 @@ class _PaperContentArea extends StatelessWidget {
               return _PaperTimetableGrid(
                 papers: papers,
                 exam: streamEntry.exam,
+                grade: grade,
                 config: config,
                 teacherNames: teacherNames,
                 canManage: canManage,
@@ -5084,6 +5351,7 @@ class _PaperContentArea extends StatelessWidget {
               return _PaperTimetableMobile(
                 papers: papers,
                 exam: streamEntry.exam,
+                grade: grade,
                 config: config,
                 teacherNames: teacherNames,
                 canManage: canManage,
@@ -5171,6 +5439,7 @@ class _PaperTimetableGrid extends StatelessWidget {
   const _PaperTimetableGrid({
     required this.papers,
     required this.exam,
+    required this.grade,
     required this.config,
     required this.teacherNames,
     required this.canManage,
@@ -5179,10 +5448,11 @@ class _PaperTimetableGrid extends StatelessWidget {
 
   final List<Paper> papers;
   final Exam exam;
+  final int grade;
   final SchoolConfig config;
   final Map<String, String> teacherNames;
   final bool canManage;
-  final void Function(Paper paper, Exam exam) onPaperTap;
+  final void Function(Paper paper, Exam exam, int grade) onPaperTap;
 
   @override
   Widget build(BuildContext context) {
@@ -5211,6 +5481,7 @@ class _PaperTimetableGrid extends StatelessWidget {
                   startTime: slot.start,
                   endTime: slot.end,
                   exam: exam,
+                  grade: grade,
                   config: config,
                   teacherNames: teacherNames,
                   cs: cs,
@@ -5282,6 +5553,7 @@ class _PaperGridRow extends StatelessWidget {
     required this.startTime,
     required this.endTime,
     required this.exam,
+    required this.grade,
     required this.config,
     required this.teacherNames,
     required this.cs,
@@ -5293,10 +5565,11 @@ class _PaperGridRow extends StatelessWidget {
   final String startTime;
   final String endTime;
   final Exam exam;
+  final int grade;
   final SchoolConfig config;
   final Map<String, String> teacherNames;
   final ColorScheme cs;
-  final void Function(Paper paper, Exam exam) onPaperTap;
+  final void Function(Paper paper, Exam exam, int grade) onPaperTap;
 
   @override
   Widget build(BuildContext context) {
@@ -5322,7 +5595,7 @@ class _PaperGridRow extends StatelessWidget {
               statusColor: statusColor,
               invigilatorName: invName,
               cs: cs,
-              onTap: () => onPaperTap(paper, exam),
+              onTap: () => onPaperTap(paper, exam, grade),
             );
           }),
         ],
@@ -5397,13 +5670,24 @@ class _PaperSlotBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final subjectName = _subjectLabel(paper.subject, config);
+    // Subject fallback: if label resolves to empty-ish, show 'Subject N'
+    final rawSubject = _subjectLabel(paper.subject, config);
+    final subjectName = rawSubject.isNotEmpty
+        ? rawSubject
+        : 'Subject ${paper.subject}';
     final paperLabel = (paper.paper ?? 1) > 1 ? ' · Paper ${paper.paper}' : '';
-    final startDt = DateTime.fromMillisecondsSinceEpoch(
-      paper.start.toInt() * 1000,
-    );
-    final endDt = DateTime.fromMillisecondsSinceEpoch(paper.end.toInt() * 1000);
-    final timeRange = '${_fmtTime(startDt)} – ${_fmtTime(endDt)}';
+
+    // Time fallback: if start is 0 treat as unset
+    final startMs = paper.start.toInt();
+    final endMs = paper.end.toInt();
+    final timeUnset = startMs == 0;
+    final timeRange = timeUnset
+        ? null
+        : '${_fmtTime(DateTime.fromMillisecondsSinceEpoch(startMs * 1000))} – '
+              '${_fmtTime(DateTime.fromMillisecondsSinceEpoch(endMs * 1000))}';
+
+    // Invigilator fallback: empty string (not found) → show '—'
+    final invDisplay = invigilatorName.isNotEmpty ? invigilatorName : '—';
 
     return SizedBox(
       width: 140,
@@ -5447,28 +5731,37 @@ class _PaperSlotBox extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  timeRange,
-                  style: TextStyle(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w400,
-                    color: cs.onSurfaceVariant,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-                if (invigilatorName.isNotEmpty) ...[
-                  const SizedBox(height: 2),
+                if (timeUnset)
                   Text(
-                    'Inv: $invigilatorName',
+                    'Time not set',
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 9.5,
                       fontWeight: FontWeight.w400,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+                      fontStyle: FontStyle.italic,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  )
+                else
+                  Text(
+                    timeRange!,
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w400,
+                      color: cs.onSurfaceVariant,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
                   ),
-                ],
+                const SizedBox(height: 2),
+                Text(
+                  'Inv: $invDisplay',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
           ),
@@ -5494,7 +5787,7 @@ class _PaperEmptyCell extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
-              color: cs.outlineVariant.withValues(alpha: 0.12),
+              color: cs.outlineVariant.withValues(alpha: 0.2),
               width: 1,
             ),
           ),
@@ -5512,6 +5805,7 @@ class _PaperTimetableMobile extends StatefulWidget {
   const _PaperTimetableMobile({
     required this.papers,
     required this.exam,
+    required this.grade,
     required this.config,
     required this.teacherNames,
     required this.canManage,
@@ -5520,10 +5814,11 @@ class _PaperTimetableMobile extends StatefulWidget {
 
   final List<Paper> papers;
   final Exam exam;
+  final int grade;
   final SchoolConfig config;
   final Map<String, String> teacherNames;
   final bool canManage;
-  final void Function(Paper paper, Exam exam) onPaperTap;
+  final void Function(Paper paper, Exam exam, int grade) onPaperTap;
 
   @override
   State<_PaperTimetableMobile> createState() => _PaperTimetableMobileState();
@@ -5627,7 +5922,8 @@ class _PaperTimetableMobileState extends State<_PaperTimetableMobile> {
                       cs: cs,
                       statusColor: statusColor,
                       invigilatorName: invName,
-                      onTap: () => widget.onPaperTap(p, widget.exam),
+                      onTap: () =>
+                          widget.onPaperTap(p, widget.exam, widget.grade),
                     );
                   },
                 ),
@@ -5650,32 +5946,63 @@ class _PaperDayChip extends StatelessWidget {
   final ColorScheme cs;
   final VoidCallback onTap;
 
+  static const _dayAbbr = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
   @override
   Widget build(BuildContext context) {
+    final dayName = _dayAbbr[date.weekday % 7];
+    final dayNum = date.day.toString();
+
     return Padding(
       padding: const EdgeInsets.only(right: 6),
       child: GestureDetector(
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 140),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          height: 34,
+          width: 44,
+          alignment: Alignment.center,
           decoration: BoxDecoration(
             color: isSelected ? cs.primary : Colors.transparent,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
               color: isSelected
                   ? cs.primary
-                  : cs.outlineVariant.withValues(alpha: 0.5),
+                  : cs.outlineVariant.withValues(alpha: 0.2),
               width: 1,
             ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: cs.primary.withValues(alpha: 0.25),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
           ),
-          child: Text(
-            _fmtDayColumn(date),
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: isSelected ? cs.onPrimary : cs.onSurfaceVariant,
-            ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                dayName,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w400,
+                  color: isSelected
+                      ? cs.onPrimary.withValues(alpha: 0.8)
+                      : cs.onSurfaceVariant,
+                ),
+              ),
+              Text(
+                dayNum,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: isSelected ? cs.onPrimary : cs.onSurface,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -5920,6 +6247,7 @@ class _PaperDetailView extends StatefulWidget {
     required this.schoolId,
     required this.year,
     required this.term,
+    required this.grade,
     required this.config,
     required this.entry,
     required this.onBack,
@@ -5929,6 +6257,7 @@ class _PaperDetailView extends StatefulWidget {
   final String schoolId;
   final int year;
   final int term;
+  final int grade;
   final SchoolConfig config;
   final MembershipEntry entry;
   final VoidCallback onBack;
@@ -5950,13 +6279,11 @@ class _PaperDetailViewState extends State<_PaperDetailView> {
   }
 
   Future<void> _loadStudents() async {
-    final exam = widget.exam.exam;
     final list = await _dao.getEnrolledStudents(
       schoolId: widget.schoolId,
       year: widget.year,
       term: widget.term,
-      grade: exam.grade,
-      stream: exam.stream,
+      grade: widget.grade,
     );
     if (!mounted) return;
     setState(() {
@@ -5977,7 +6304,7 @@ class _PaperDetailViewState extends State<_PaperDetailView> {
     final exam = widget.exam.exam;
     final subjectLabel = _subjectLabel(paper.subject, widget.config);
     final paperLabel = paper.paper != null ? ' Paper ${paper.paper}' : '';
-    final gradeLabel = _gradeLabel(exam.grade, widget.config);
+    final gradeLabel = '';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -7450,7 +7777,7 @@ class _CreatePaperSheet extends StatefulWidget {
 
 class _CreatePaperSheetState extends State<_CreatePaperSheet> {
   // ── Data ──────────────────────────────────────────────────────────────────
-  List<Subject> _subjects = [];
+  List<SubjectTeacher> _subjects = [];
   bool _loadingSubjects = true;
 
   // ── Form state ────────────────────────────────────────────────────────────
@@ -7474,6 +7801,9 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
 
   static const _durMinValues = [0, 15, 30, 45];
 
+  // ── Teacher names (userId → display name) for subject overlay subtitles ──
+  Map<String, String> _teacherNames = {};
+
   // ── Subject overlay ───────────────────────────────────────────────────────
   OverlayEntry? _subjectOverlay;
   final _subjectTriggerKey = GlobalKey();
@@ -7493,7 +7823,7 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
     final durMIdx = _durMinValues.indexOf(_durationMinutes % 60).clamp(0, 3);
     _durHourCtrl = FixedExtentScrollController(initialItem: durH);
     _durMinCtrl = FixedExtentScrollController(initialItem: durMIdx);
-    _loadSubjects();
+    _loadSubjects(); // also triggers _loadTeacherNamesForSubjects when done
   }
 
   @override
@@ -7508,6 +7838,24 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+
+  Future<void> _loadTeacherNamesForSubjects() async {
+    // Wait until subjects are loaded, then resolve each teacher's display name.
+    // We collect unique teacher IDs from the subject_teachers rows and look
+    // up each via MembersDao.findUserById.
+    final membersDao = MembersDao(db);
+    // _subjects may still be loading; call after _loadSubjects populates it.
+    // We resolve what we have at call time; a second call is made after
+    // _loadSubjects finishes if subjects were empty at that point.
+    final ids = _subjects.map((s) => s.teacher).toSet();
+    if (ids.isEmpty) return;
+    final names = <String, String>{};
+    for (final id in ids) {
+      final user = await membersDao.findUserById(id);
+      if (user != null) names[id] = user.name;
+    }
+    if (mounted) setState(() => _teacherNames = names);
+  }
 
   Future<void> _loadSubjects() async {
     final allSubs = await widget.subjectsDao.getSubjectsForTerm(
@@ -7527,6 +7875,8 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
         _subjects = filtered;
         _loadingSubjects = false;
       });
+      // Now that subjects are available, resolve teacher display names.
+      _loadTeacherNamesForSubjects();
     }
   }
 
@@ -7627,6 +7977,7 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
                 cs: cs,
                 isDark: isDark,
                 indigo: indigo,
+                teacherNames: _teacherNames,
                 onSelected: (code) {
                   _closeSubjectOverlay();
                   setState(() => _selectedSubject = code);
@@ -8102,22 +8453,18 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
             ),
           ),
           const Spacer(),
-          // Paper number wheel (only when _multiPaper)
+          // Paper number buttons (only when _multiPaper)
           AnimatedSize(
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOutCubic,
             child: _multiPaper
-                ? SizedBox(
-                    width: 72,
-                    height: 36,
-                    child: _PaperNumberWheel(
-                      controller: _paperNumCtrl,
-                      selected: _paperNumber,
-                      cs: cs,
-                      isDark: isDark,
-                      indigo: indigo,
-                      onChanged: (n) => setState(() => _paperNumber = n),
-                    ),
+                ? _PaperNumberWheel(
+                    controller: _paperNumCtrl,
+                    selected: _paperNumber,
+                    cs: cs,
+                    isDark: isDark,
+                    indigo: indigo,
+                    onChanged: (n) => setState(() => _paperNumber = n),
                   )
                 : const SizedBox.shrink(),
           ),
@@ -8430,15 +8777,19 @@ class _SubjectMenuOverlay extends StatefulWidget {
     required this.isDark,
     required this.indigo,
     required this.onSelected,
+    this.teacherNames = const {},
   });
 
-  final List<Subject> subjects;
+  final List<SubjectTeacher> subjects;
   final int? selected;
   final SchoolConfig config;
   final ColorScheme cs;
   final bool isDark;
   final Color indigo;
   final ValueChanged<int> onSelected;
+
+  /// Optional map of userId → display name for showing teacher names in items.
+  final Map<String, String> teacherNames;
 
   @override
   State<_SubjectMenuOverlay> createState() => _SubjectMenuOverlayState();
@@ -8507,32 +8858,86 @@ class _SubjectMenuOverlayState extends State<_SubjectMenuOverlay>
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              children: widget.subjects.map((s) {
+              children: widget.subjects.asMap().entries.map((entry) {
+                final idx = entry.key;
+                final s = entry.value;
                 final isSelected = s.subject == widget.selected;
+                final isLast = idx == widget.subjects.length - 1;
                 final label = _subjectLabel(s.subject, widget.config);
-                return InkWell(
-                  splashFactory: NoSplash.splashFactory,
-                  onTap: () => widget.onSelected(s.subject),
-                  child: Container(
-                    height: 36,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            label,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: isSelected
-                                  ? FontWeight.w500
-                                  : FontWeight.w400,
-                              color: isSelected ? indigo : cs.onSurface,
+                final teacherDisplay = widget.teacherNames[s.teacher] ?? '';
+                final hasTeacher = teacherDisplay.isNotEmpty;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 2,
+                  ),
+                  child: InkWell(
+                    splashFactory: NoSplash.splashFactory,
+                    borderRadius: BorderRadius.circular(4),
+                    hoverColor: cs.primary.withValues(alpha: 0.06),
+                    onTap: () => widget.onSelected(s.subject),
+                    child: Container(
+                      height: 40,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: isLast
+                          ? null
+                          : BoxDecoration(
+                              border: Border(
+                                bottom: BorderSide(
+                                  color: cs.outlineVariant.withValues(
+                                    alpha: isDark ? 0.15 : 0.25,
+                                  ),
+                                  width: 1,
+                                ),
+                              ),
+                            ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.menu_book_outlined,
+                            size: 14,
+                            color: isSelected
+                                ? indigo
+                                : cs.onSurfaceVariant.withValues(alpha: 0.5),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  label,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w500
+                                        : FontWeight.w400,
+                                    color: isSelected ? indigo : cs.onSurface,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (hasTeacher)
+                                  Text(
+                                    teacherDisplay, // non-empty guaranteed by hasTeacher guard
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w400,
+                                      color: cs.onSurfaceVariant.withValues(
+                                        alpha: 0.55,
+                                      ),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                              ],
                             ),
                           ),
-                        ),
-                        if (isSelected)
-                          Icon(Icons.check_rounded, size: 14, color: indigo),
-                      ],
+                          if (isSelected)
+                            Icon(Icons.check_rounded, size: 14, color: indigo),
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -8559,6 +8964,7 @@ class _PaperNumberWheel extends StatelessWidget {
     required this.onChanged,
   });
 
+  // controller kept for API compatibility but no longer used by ListWheelScrollView
   final FixedExtentScrollController controller;
   final int selected;
   final ColorScheme cs;
@@ -8568,55 +8974,36 @@ class _PaperNumberWheel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark
-            ? const Color(0xFF18222E)
-            : cs.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(
-          color: cs.outlineVariant.withValues(alpha: isDark ? 0.2 : 0.3),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            'P',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-            ),
-          ),
-          const SizedBox(width: 2),
-          SizedBox(
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [1, 2, 3].map((n) {
+        final isSelected = n == selected;
+        return GestureDetector(
+          onTap: () => onChanged(n),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            margin: const EdgeInsets.symmetric(horizontal: 3),
             width: 32,
-            child: ListWheelScrollView(
-              controller: controller,
-              itemExtent: 30,
-              diameterRatio: 1.5,
-              physics: const FixedExtentScrollPhysics(),
-              onSelectedItemChanged: (i) => onChanged(i + 1),
-              children: List.generate(3, (i) {
-                final isSelected = (i + 1) == selected;
-                return Center(
-                  child: Text(
-                    '${i + 1}',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: isSelected ? indigo : cs.onSurface,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                );
-              }),
+            height: 32,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: isSelected ? indigo : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+              border: isSelected
+                  ? null
+                  : Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+            ),
+            child: Text(
+              '$n',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: isSelected ? Colors.white : cs.onSurface,
+              ),
             ),
           ),
-        ],
-      ),
+        );
+      }).toList(),
     );
   }
 }
@@ -9186,12 +9573,10 @@ class _SectionHeader extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.leadingAction,
-    this.action,
   });
   final String title;
   final String subtitle;
   final _HeaderAction? leadingAction;
-  final _HeaderAction? action;
 
   @override
   Widget build(BuildContext context) {
@@ -9236,19 +9621,6 @@ class _SectionHeader extends StatelessWidget {
               ],
             ),
           ),
-          if (action != null)
-            TextButton.icon(
-              onPressed: action!.onTap,
-              icon: Icon(action!.icon, size: 16),
-              label: Text(action!.label),
-              style: TextButton.styleFrom(
-                foregroundColor: cs.primary,
-                textStyle: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
         ],
       ),
     );
@@ -9443,7 +9815,7 @@ class _EmptyExamsState extends StatelessWidget {
             const SizedBox(height: 5),
             Text(
               canCreate
-                  ? 'Tap + to create your first exam.'
+                  ? 'Use the + button to create your first exam.'
                   : 'Exams created by teachers will appear here.',
               textAlign: TextAlign.center,
               style: TextStyle(
@@ -9654,6 +10026,3 @@ String _generateId() {
   final rand = (math.Random().nextInt(0x7FFFFFFF));
   return '${ms.toRadixString(16)}-${rand.toRadixString(16)}';
 }
-
-/// Thin wrapper so call sites read cleanly.
-dynamic _jsonDecode(String source) => jsonDecode(source);

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../../../../cache/file_cache.dart';
+import '../../../../theme/app_theme.dart';
 import '../../../../../database/database.dart';
 import '../../../../../database/daos/timetable_dao.dart';
 import '../../../../../database/tables/curriculum_subjects.dart';
@@ -158,15 +159,12 @@ class _LessonsTabState extends State<LessonsTab>
             // ── Divider ──────────────────────────────────────────────────
             Container(height: 1, color: cs.outline.withValues(alpha: 0.06)),
 
-            // ── Grouped lesson list ──────────────────────────────────────
+            // ── Grouped lesson list ──────────────────────────────────────────
             Expanded(
               child: filtered.isEmpty
                   ? _buildFilterEmpty(cs)
                   : ListView.builder(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
+                      padding: const EdgeInsets.only(bottom: 24),
                       itemCount: _itemCount(sortedDates, grouped),
                       itemBuilder: (context, index) {
                         return _buildItem(index, sortedDates, grouped, cs);
@@ -196,21 +194,33 @@ class _LessonsTabState extends State<LessonsTab>
     Map<int, List<LessonEntry>> grouped,
     ColorScheme cs,
   ) {
+    final isDark = cs.brightness == Brightness.dark;
     int running = 0;
     for (final d in dates) {
       final entries = grouped[d]!;
       if (index == running) {
         // Date header
-        return _DateHeader(date: d, cs: cs);
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: _DateHeader(date: d, cs: cs),
+        );
       }
       running += 1;
       if (index < running + entries.length) {
-        final entry = entries[index - running];
-        return _LessonRow(
-          entry: entry,
-          curriculumType: widget.curriculumType,
-          schoolId: widget.schoolId,
-          cs: cs,
+        final entryIndex = index - running;
+        final entry = entries[entryIndex];
+        final isLast = entryIndex == entries.length - 1;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _LessonRow(
+              entry: entry,
+              curriculumType: widget.curriculumType,
+              schoolId: widget.schoolId,
+              cs: cs,
+            ),
+            if (!isLast) AppTheme.tableRowDivider(isDark, cs),
+          ],
         );
       }
       running += entries.length;
@@ -596,7 +606,7 @@ Color _subjectColor(int subject) {
   return palette[subject % palette.length];
 }
 
-class _LessonRow extends StatelessWidget {
+class _LessonRow extends StatefulWidget {
   const _LessonRow({
     required this.entry,
     required this.curriculumType,
@@ -610,75 +620,99 @@ class _LessonRow extends StatelessWidget {
   final ColorScheme cs;
 
   @override
+  State<_LessonRow> createState() => _LessonRowState();
+}
+
+class _LessonRowState extends State<_LessonRow> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    final subjectName = subjectLabel(curriculumType, entry.lesson.subject);
+    final cs = widget.cs;
+    final entry = widget.entry;
+    final subjectName = subjectLabel(
+      widget.curriculumType,
+      entry.lesson.subject,
+    );
     final teacherName = entry.teacher.name;
     final color = _subjectColor(entry.lesson.subject);
-    final isDark = cs.brightness == Brightness.dark;
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerHighest.withValues(
-            alpha: isDark ? 0.3 : 0.35,
-          ),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: cs.outline.withValues(alpha: isDark ? 0.06 : 0.05),
-          ),
-        ),
-        child: Row(
-          children: [
-            // ── Subject color indicator ──────────────────────────────────
-            Container(
-              width: 3,
-              height: 32,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.6),
-                borderRadius: BorderRadius.circular(2),
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.basic,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 100),
+        color: _isHovered
+            ? cs.primary.withValues(alpha: 0.04)
+            : Colors.transparent,
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── 3px left color accent border ───────────────────────────
+              Container(
+                width: 3,
+                decoration: BoxDecoration(color: color.withValues(alpha: 0.65)),
               ),
-            ),
-            const SizedBox(width: 12),
 
-            // ── Subject name + teacher ───────────────────────────────────
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    subjectName,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: cs.onSurface,
-                      height: 1.2,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+              // ── Row content ────────────────────────────────────────────
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    teacherName,
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w400,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-                      height: 1.2,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  child: Row(
+                    children: [
+                      // ── Subject name + teacher ─────────────────────────
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              subjectName,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: cs.onSurface,
+                                height: 1.2,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              teacherName,
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w400,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.55,
+                                ),
+                                height: 1.2,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+
+                      // ── Teacher avatar ─────────────────────────────────
+                      _TeacherAvatar(
+                        userId: entry.teacher.id,
+                        name: teacherName,
+                        cs: cs,
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-
-            // ── Teacher avatar ───────────────────────────────────────────
-            _TeacherAvatar(userId: entry.teacher.id, name: teacherName, cs: cs),
-          ],
+            ],
+          ),
         ),
       ),
     );

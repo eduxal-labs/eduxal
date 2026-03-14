@@ -130,6 +130,7 @@ class _ExamDetailPageState extends State<ExamDetailPage>
                   schoolId: widget.schoolId,
                   year: widget.year,
                   term: widget.term,
+                  grade: widget.grade,
                   curriculumType: widget.curriculumType,
                   papersStream: _papersStream,
                   dao: _dao,
@@ -140,6 +141,7 @@ class _ExamDetailPageState extends State<ExamDetailPage>
                   schoolId: widget.schoolId,
                   year: widget.year,
                   term: widget.term,
+                  grade: widget.grade,
                   curriculumType: widget.curriculumType,
                   dao: _dao,
                 ),
@@ -148,6 +150,7 @@ class _ExamDetailPageState extends State<ExamDetailPage>
                   schoolId: widget.schoolId,
                   year: widget.year,
                   term: widget.term,
+                  grade: widget.grade,
                   curriculumType: widget.curriculumType,
                   dao: _dao,
                 ),
@@ -227,18 +230,7 @@ class _ExamSummaryCard extends StatelessWidget {
                   _TypeBadge(type: exam.type, cs: cs),
                   if (exam.personalized)
                     _OutlineBadge(label: 'Personalized', cs: cs),
-                  if (exam.stream == null)
-                    _TintedBadge(
-                      label: 'Grade-wide',
-                      color: cs.tertiary,
-                      cs: cs,
-                    )
-                  else if (streamName != null)
-                    _TintedBadge(
-                      label: streamName!,
-                      color: cs.secondary,
-                      cs: cs,
-                    ),
+                  _TintedBadge(label: 'All Grades', color: cs.tertiary, cs: cs),
                   // Status badge — reactive from papers stream
                   StreamBuilder<List<Paper>>(
                     stream: papersStream,
@@ -322,6 +314,7 @@ class _PapersTab extends StatelessWidget {
     required this.schoolId,
     required this.year,
     required this.term,
+    required this.grade,
     required this.curriculumType,
     required this.papersStream,
     required this.dao,
@@ -332,6 +325,7 @@ class _PapersTab extends StatelessWidget {
   final String schoolId;
   final int year;
   final int term;
+  final int grade;
   final CurriculumType curriculumType;
   final Stream<List<Paper>> papersStream;
   final ExamsGradesDao dao;
@@ -395,6 +389,7 @@ class _PapersTab extends StatelessWidget {
           schoolId: schoolId,
           year: year,
           term: term,
+          grade: grade,
           curriculumType: curriculumType,
           schoolContext: schoolContext,
         ),
@@ -413,6 +408,7 @@ class _GradesTab extends StatefulWidget {
     required this.schoolId,
     required this.year,
     required this.term,
+    required this.grade,
     required this.curriculumType,
     required this.dao,
   });
@@ -421,6 +417,7 @@ class _GradesTab extends StatefulWidget {
   final String schoolId;
   final int year;
   final int term;
+  final int grade;
   final CurriculumType curriculumType;
   final ExamsGradesDao dao;
 
@@ -476,8 +473,7 @@ class _GradesTabState extends State<_GradesTab>
       schoolId: widget.schoolId,
       year: widget.year,
       term: widget.term,
-      grade: widget.exam.exam.grade,
-      stream: widget.exam.exam.stream,
+      grade: widget.grade,
     );
     if (!mounted) return;
     setState(() {
@@ -1330,6 +1326,7 @@ class _PerformanceTab extends StatefulWidget {
     required this.schoolId,
     required this.year,
     required this.term,
+    required this.grade,
     required this.curriculumType,
     required this.dao,
   });
@@ -1338,6 +1335,7 @@ class _PerformanceTab extends StatefulWidget {
   final String schoolId;
   final int year;
   final int term;
+  final int grade;
   final CurriculumType curriculumType;
   final ExamsGradesDao dao;
 
@@ -1373,8 +1371,7 @@ class _PerformanceTabState extends State<_PerformanceTab>
       schoolId: widget.schoolId,
       year: widget.year,
       term: widget.term,
-      grade: widget.exam.exam.grade,
-      stream: widget.exam.exam.stream,
+      grade: widget.grade,
     );
 
     // Fetch all grades for this exam

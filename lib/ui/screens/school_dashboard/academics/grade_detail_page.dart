@@ -2029,7 +2029,7 @@ class _SubjectTeacherPickerSheetState
                     child: Padding(
                       padding: const EdgeInsets.only(right: 10),
                       child: Icon(
-                        Icons.arrow_back_rounded,
+                        Icons.chevron_left_rounded,
                         size: 18,
                         color: cs.onSurfaceVariant.withValues(alpha: 0.7),
                       ),
@@ -2486,8 +2486,6 @@ class _CreateExamFromGradeSheetState extends State<_CreateExamFromGradeSheet> {
           school: Value(widget.schoolId),
           year: Value(widget.year),
           term: Value(widget.term),
-          grade: Value(widget.grade),
-          stream: Value(_allStreams ? null : widget.stream?.code),
           personalized: Value(_personalized),
           type: Value(_type),
           start: Value(startDays),
@@ -2524,7 +2522,7 @@ class _CreateExamFromGradeSheetState extends State<_CreateExamFromGradeSheet> {
       child: Container(
         decoration: BoxDecoration(
           color: cs.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
         ),
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
         child: Form(

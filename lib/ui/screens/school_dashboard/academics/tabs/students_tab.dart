@@ -8,6 +8,7 @@ import '../../../../../database/database.dart';
 import '../../../../../database/daos/academics_dao.dart';
 import '../../../../../models/grade_analytics.dart';
 import '../../../../../models/school_context.dart';
+import '../../../../theme/app_theme.dart';
 import '../student_grade_page.dart';
 
 /// Students tab — shows all enrolled students for a specific stream within a
@@ -171,47 +172,122 @@ class _StudentsTabState extends State<StudentsTab>
   // ── Student list ───────────────────────────────────────────────────────────
 
   Widget _buildList(ColorScheme cs, List<GradeStudentRow> rows) {
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-      itemCount: rows.length + 1, // +1 for header
-      itemBuilder: (context, index) {
-        if (index == 0) return _buildHeader(cs, rows.length);
-        return _buildStudentItem(cs, rows[index - 1]);
-      },
+    final isDark = cs.brightness == Brightness.dark;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: _buildHeader(cs, rows.length),
+        ),
+        AppTheme.tableRowDivider(isDark, cs),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.only(bottom: 24),
+            itemCount: rows.length * 2 - 1,
+            itemBuilder: (context, index) {
+              if (index.isOdd) {
+                return AppTheme.tableRowDivider(isDark, cs);
+              }
+              return _buildStudentItem(cs, rows[index ~/ 2], isDark);
+            },
+          ),
+        ),
+      ],
     );
   }
 
   // ── Header ─────────────────────────────────────────────────────────────────
 
   Widget _buildHeader(ColorScheme cs, int count) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Text(
-        '$count student${count == 1 ? '' : 's'}',
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w400,
-          color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-        ),
+    return Text(
+      '$count student${count == 1 ? '' : 's'}',
+      style: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        color: cs.onSurfaceVariant.withValues(alpha: 0.5),
       ),
     );
   }
 
   // ── Student row ────────────────────────────────────────────────────────────
 
-  Widget _buildStudentItem(ColorScheme cs, GradeStudentRow row) {
-    final isDark = cs.brightness == Brightness.dark;
+  Widget _buildStudentItem(ColorScheme cs, GradeStudentRow row, bool isDark) {
+    return _StudentRow(
+      row: row,
+      schoolId: widget.schoolId,
+      cs: cs,
+      isDark: isDark,
+      onTap: () => _onStudentTap(row),
+    );
+  }
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Material(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(6),
+  // ── Navigation ─────────────────────────────────────────────────────────────
+
+  void _onStudentTap(GradeStudentRow row) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => StudentGradePage(
+          schoolId: widget.schoolId,
+          year: widget.year,
+          term: widget.term,
+          grade: widget.grade,
+          streamCode: widget.streamCode,
+          streamName: widget.streamName,
+          studentAdm: row.student.adm,
+          curriculumType: widget.curriculumType,
+          schoolContext: widget.schoolContext,
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Flat student row with hover ─────────────────────────────────────────────
+
+class _StudentRow extends StatefulWidget {
+  const _StudentRow({
+    required this.row,
+    required this.schoolId,
+    required this.cs,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  final GradeStudentRow row;
+  final String schoolId;
+  final ColorScheme cs;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  @override
+  State<_StudentRow> createState() => _StudentRowState();
+}
+
+class _StudentRowState extends State<_StudentRow> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final row = widget.row;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.click,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 100),
+        color: _isHovered
+            ? cs.primary.withValues(alpha: 0.04)
+            : Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(6),
-          onTap: () => _onStudentTap(row),
+          onTap: widget.onTap,
+          splashFactory: NoSplash.splashFactory,
+          highlightColor: Colors.transparent,
+          hoverColor: Colors.transparent,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: Row(
               children: [
                 // ── Avatar ─────────────────────────────────────────────────
@@ -232,7 +308,7 @@ class _StudentsTabState extends State<StudentsTab>
                       Text(
                         row.student.name,
                         style: TextStyle(
-                          fontSize: 13.5,
+                          fontSize: 13,
                           fontWeight: FontWeight.w500,
                           color: cs.onSurface,
                         ),
@@ -263,31 +339,11 @@ class _StudentsTabState extends State<StudentsTab>
                 _AverageBadge(
                   percent: row.overallAverage,
                   cs: cs,
-                  isDark: isDark,
+                  isDark: widget.isDark,
                 ),
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  // ── Navigation ─────────────────────────────────────────────────────────────
-
-  void _onStudentTap(GradeStudentRow row) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => StudentGradePage(
-          schoolId: widget.schoolId,
-          year: widget.year,
-          term: widget.term,
-          grade: widget.grade,
-          streamCode: widget.streamCode,
-          streamName: widget.streamName,
-          studentAdm: row.student.adm,
-          curriculumType: widget.curriculumType,
-          schoolContext: widget.schoolContext,
         ),
       ),
     );

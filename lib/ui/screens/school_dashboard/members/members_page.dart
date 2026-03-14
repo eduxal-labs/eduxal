@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart' hide Column;
@@ -10,12 +9,15 @@ import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/departments_dao.dart';
 import '../../../../database/daos/members_dao.dart';
-import '../../../../database/daos/settings_dao.dart';
+
 import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../database/tables/enums.dart';
 import '../../../../models/curriculum_levels.dart';
+import '../../../../models/result.dart';
 import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
+import '../../../widgets/animated_action_button.dart';
+import '../../../widgets/edu_data_table.dart';
 import '../../../widgets/edu_tab_bar.dart';
 import '../../../widgets/status_indicator.dart';
 import '../../../widgets/user_avatar.dart';
@@ -26,6 +28,7 @@ import '../../../widgets/member_creation/add_owner_panel.dart';
 import '../../../widgets/member_creation/add_staff_panel.dart';
 import '../../../widgets/member_creation/add_student_panel.dart';
 import '../../../widgets/member_creation/add_teacher_panel.dart';
+import '../../../theme/app_theme.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Entry point
@@ -253,8 +256,8 @@ class _DepartmentsTabState extends State<_DepartmentsTab> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final cs = Theme.of(context).colorScheme;
-    final isDark = cs.brightness == Brightness.dark;
 
     return StreamBuilder<List<Department>>(
       stream: _dao.watchDepartments(widget.schoolId),
@@ -266,99 +269,106 @@ class _DepartmentsTabState extends State<_DepartmentsTab> {
         }
         final depts = snap.data!;
         if (depts.isEmpty) {
-          return _EmptyTab(
+          return const _EmptyTab(
             icon: Icons.domain_outlined,
             label: 'No departments',
             hint: 'Create one to organise teachers and staff.',
           );
         }
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: depts.length,
-          itemBuilder: (context, index) {
-            final dept = depts[index];
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Material(
-                color: isDark
-                    ? cs.surfaceContainerHighest.withValues(alpha: 0.4)
-                    : cs.surfaceContainerHighest.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(6),
-                child: InkWell(
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => _DepartmentDetailScreen(
-                          dept: dept,
-                          schoolId: widget.schoolId,
-                          dao: _dao,
-                        ),
-                      ),
-                    );
-                  },
-                  borderRadius: BorderRadius.circular(6),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
+        return EduDataTable<Department>(
+          items: depts,
+          padding: const EdgeInsets.only(top: 4, bottom: 80),
+          onItemTap: (dept) {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => _DepartmentDetailScreen(
+                  dept: dept,
+                  schoolId: widget.schoolId,
+                  dao: _dao,
+                ),
+              ),
+            );
+          },
+          actions: (dept) => [
+            EduDataTableAction<Department>(
+              icon: Icons.open_in_new_rounded,
+              label: 'View',
+              onTap: (d) {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => _DepartmentDetailScreen(
+                      dept: d,
+                      schoolId: widget.schoolId,
+                      dao: _dao,
                     ),
-                    child: Row(
+                  ),
+                );
+              },
+            ),
+            EduDataTableAction<Department>(
+              icon: Icons.delete_outline_rounded,
+              label: 'Delete',
+              isDestructive: true,
+              onTap: (d) => _confirmDeleteDepartment(context, d),
+            ),
+          ],
+          rowBuilder: (context, dept, isHovered) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? cs.surfaceContainerHighest.withValues(alpha: 0.5)
+                          : cs.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+                    ),
+                    child: Icon(
+                      Icons.domain_outlined,
+                      size: 16,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                dept.name,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  color: cs.onSurface,
+                        Text(
+                          dept.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: cs.onSurface,
+                          ),
+                        ),
+                        if (dept.description != null &&
+                            dept.description!.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              dept.description!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w400,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.55,
                                 ),
                               ),
-                              if (dept.description != null &&
-                                  dept.description!.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 2),
-                                  child: Text(
-                                    dept.description!,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.w400,
-                                      color: cs.onSurfaceVariant.withValues(
-                                        alpha: 0.55,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        InkWell(
-                          onTap: () => _confirmDeleteDepartment(context, dept),
-                          borderRadius: BorderRadius.circular(4),
-                          child: Padding(
-                            padding: const EdgeInsets.all(6),
-                            child: Icon(
-                              Icons.delete_outline_rounded,
-                              size: 16,
-                              color: cs.error.withValues(alpha: 0.45),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 4),
-                        Icon(
-                          Icons.chevron_right_rounded,
-                          size: 18,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.3),
-                        ),
                       ],
                     ),
                   ),
-                ),
+                ],
               ),
             );
           },
@@ -460,7 +470,7 @@ class _OwnersTab extends StatelessWidget {
             hint: 'Tap + to add a school owner.',
           );
         }
-        return _MemberListView(
+        return _FlatMemberList(
           itemCount: owners.length,
           itemBuilder: (context, i) {
             final owner = owners[i];
@@ -483,13 +493,28 @@ class _OwnerRow extends StatelessWidget {
       future: MembersDao(db).findUserById(owner.user),
       builder: (context, snap) {
         final user = snap.data;
-        return _MemberTile(
+        return _UserDataRow(
           userId: owner.user,
           name: user?.name ?? '…',
           subtitle: user?.phone ?? '',
           status: user?.status,
           level: user?.level,
           onTap: () => _openDetail(context, user),
+          actions: user == null
+              ? const []
+              : [
+                  _RowAction(
+                    icon: Icons.open_in_new_rounded,
+                    label: 'View',
+                    onTap: () => _openDetail(context, user),
+                  ),
+                  _RowAction(
+                    icon: Icons.person_remove_outlined,
+                    label: 'Remove',
+                    isDestructive: true,
+                    onTap: () => _confirmRemoveOwner(context, user),
+                  ),
+                ],
         );
       },
     );
@@ -542,6 +567,73 @@ class _OwnerRow extends StatelessWidget {
       },
     );
   }
+
+  Future<void> _confirmRemoveOwner(BuildContext context, UsersData user) async {
+    final cs = Theme.of(context).colorScheme;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: cs.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        ),
+        title: Text(
+          'Remove "${user.name}"?',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            color: cs.onSurface,
+          ),
+        ),
+        content: Text(
+          'This will remove the owner from this school.',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              'Remove',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: cs.error,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    final service = MemberManagementService(MembersDao(db));
+    final result = await service.removeOwner(
+      schoolId: schoolId,
+      userId: user.id,
+    );
+    switch (result) {
+      case Err(:final error) when context.mounted:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to remove owner: $error')),
+        );
+      default:
+        break;
+    }
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -571,7 +663,7 @@ class _TeachersTab extends StatelessWidget {
             hint: 'Tap + to add a teacher.',
           );
         }
-        return _MemberListView(
+        return _FlatMemberList(
           itemCount: list.length,
           itemBuilder: (context, i) {
             final t = list[i];
@@ -595,17 +687,23 @@ class _TeacherRow extends StatelessWidget {
       builder: (context, snap) {
         final user = snap.data;
         final parts = <String>[];
-        if (user?.phone != null) parts.add(user!.phone);
         if (teacher.department != null) parts.add(teacher.department!);
         if (teacher.role != null) parts.add(teacher.role!);
 
-        return _MemberTile(
+        return _UserDataRow(
           userId: teacher.user,
           name: user?.name ?? '…',
-          subtitle: parts.join('  ·  '),
+          subtitle: parts.isNotEmpty
+              ? parts.join('  ·  ')
+              : (user?.phone ?? ''),
           status: user?.status,
           level: user?.level,
-          trailing: _statusChip(context, teacher.status),
+          trailing: teacher.status != TeacherStatus.active
+              ? _SmallChip(
+                  label: teacher.status.name,
+                  cs: Theme.of(context).colorScheme,
+                )
+              : null,
           onTap: () {
             if (user == null) return;
             final w = MediaQuery.sizeOf(context).width;
@@ -615,6 +713,40 @@ class _TeacherRow extends StatelessWidget {
               _showTeacherBottomSheet(context, user);
             }
           },
+          actions: user == null
+              ? const []
+              : [
+                  _RowAction(
+                    icon: Icons.open_in_new_rounded,
+                    label: 'View',
+                    onTap: () {
+                      final w = MediaQuery.sizeOf(context).width;
+                      if (w >= 600) {
+                        _showTeacherSideSheet(context, user);
+                      } else {
+                        _showTeacherBottomSheet(context, user);
+                      }
+                    },
+                  ),
+                  _RowAction(
+                    icon: Icons.edit_outlined,
+                    label: 'Edit',
+                    onTap: () {
+                      final w = MediaQuery.sizeOf(context).width;
+                      if (w >= 600) {
+                        _showTeacherSideSheet(context, user);
+                      } else {
+                        _showTeacherBottomSheet(context, user);
+                      }
+                    },
+                  ),
+                  _RowAction(
+                    icon: Icons.person_remove_outlined,
+                    label: 'Remove',
+                    isDestructive: true,
+                    onTap: () => _confirmRemove(context, user),
+                  ),
+                ],
         );
       },
     );
@@ -660,10 +792,71 @@ class _TeacherRow extends StatelessWidget {
     );
   }
 
-  Widget? _statusChip(BuildContext context, TeacherStatus status) {
-    if (status == TeacherStatus.active) return null;
+  Future<void> _confirmRemove(BuildContext context, UsersData user) async {
     final cs = Theme.of(context).colorScheme;
-    return _SmallChip(label: status.name, cs: cs);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: cs.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        ),
+        title: Text(
+          'Remove "${user.name}"?',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            color: cs.onSurface,
+          ),
+        ),
+        content: Text(
+          'This will remove the teacher from this school.',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              'Remove',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: cs.error,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    final service = MemberManagementService(MembersDao(db));
+    final result = await service.removeTeacher(
+      schoolId: schoolId,
+      userId: user.id,
+    );
+    switch (result) {
+      case Err(:final error) when context.mounted:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to remove teacher: $error')),
+        );
+      default:
+        break;
+    }
   }
 }
 
@@ -694,7 +887,7 @@ class _StaffTab extends StatelessWidget {
             hint: 'Tap + to add a staff member.',
           );
         }
-        return _MemberListView(
+        return _FlatMemberList(
           itemCount: list.length,
           itemBuilder: (context, i) {
             final s = list[i];
@@ -718,17 +911,23 @@ class _StaffRow extends StatelessWidget {
       builder: (context, snap) {
         final user = snap.data;
         final parts = <String>[];
-        if (user?.phone != null) parts.add(user!.phone);
         if (member.department != null) parts.add(member.department!);
         if (member.role != null) parts.add(member.role!);
 
-        return _MemberTile(
+        return _UserDataRow(
           userId: member.user,
           name: user?.name ?? '…',
-          subtitle: parts.join('  ·  '),
+          subtitle: parts.isNotEmpty
+              ? parts.join('  ·  ')
+              : (user?.phone ?? ''),
           status: user?.status,
           level: user?.level,
-          trailing: _statusChip(context, member.status),
+          trailing: member.status != StaffStatus.active
+              ? _SmallChip(
+                  label: member.status.name,
+                  cs: Theme.of(context).colorScheme,
+                )
+              : null,
           onTap: () {
             if (user == null) return;
             final w = MediaQuery.sizeOf(context).width;
@@ -738,6 +937,40 @@ class _StaffRow extends StatelessWidget {
               _showStaffBottomSheet(context, user);
             }
           },
+          actions: user == null
+              ? const []
+              : [
+                  _RowAction(
+                    icon: Icons.open_in_new_rounded,
+                    label: 'View',
+                    onTap: () {
+                      final w = MediaQuery.sizeOf(context).width;
+                      if (w >= 600) {
+                        _showStaffSideSheet(context, user);
+                      } else {
+                        _showStaffBottomSheet(context, user);
+                      }
+                    },
+                  ),
+                  _RowAction(
+                    icon: Icons.edit_outlined,
+                    label: 'Edit',
+                    onTap: () {
+                      final w = MediaQuery.sizeOf(context).width;
+                      if (w >= 600) {
+                        _showStaffSideSheet(context, user);
+                      } else {
+                        _showStaffBottomSheet(context, user);
+                      }
+                    },
+                  ),
+                  _RowAction(
+                    icon: Icons.person_remove_outlined,
+                    label: 'Remove',
+                    isDestructive: true,
+                    onTap: () => _confirmRemove(context, user),
+                  ),
+                ],
         );
       },
     );
@@ -783,10 +1016,71 @@ class _StaffRow extends StatelessWidget {
     );
   }
 
-  Widget? _statusChip(BuildContext context, StaffStatus status) {
-    if (status == StaffStatus.active) return null;
+  Future<void> _confirmRemove(BuildContext context, UsersData user) async {
     final cs = Theme.of(context).colorScheme;
-    return _SmallChip(label: status.name, cs: cs);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: cs.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        ),
+        title: Text(
+          'Remove "${user.name}"?',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            color: cs.onSurface,
+          ),
+        ),
+        content: Text(
+          'This will remove the staff member from this school.',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              'Remove',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: cs.error,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    final service = MemberManagementService(MembersDao(db));
+    final result = await service.removeStaff(
+      schoolId: schoolId,
+      userId: user.id,
+    );
+    switch (result) {
+      case Err(:final error) when context.mounted:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to remove staff: $error')),
+        );
+      default:
+        break;
+    }
   }
 }
 
@@ -817,7 +1111,7 @@ class _StudentsTab extends StatelessWidget {
             hint: 'Tap + to add a student.',
           );
         }
-        return _MemberListView(
+        return _FlatMemberList(
           itemCount: list.length,
           itemBuilder: (context, i) {
             final s = list[i];
@@ -838,9 +1132,7 @@ class _StudentRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    final subtitle = '${student.adm}';
-
-    return _BaseTile(
+    return _FlatRow(
       leading: _StudentAvatar(
         schoolId: schoolId,
         adm: student.adm,
@@ -848,7 +1140,7 @@ class _StudentRow extends StatelessWidget {
         status: student.status,
       ),
       name: student.name,
-      subtitle: subtitle,
+      subtitle: 'ADM: ${student.adm}',
       trailing: student.status != StudentStatus.active
           ? _SmallChip(label: student.status.name, cs: cs)
           : null,
@@ -860,6 +1152,38 @@ class _StudentRow extends StatelessWidget {
           _showStudentBottomSheet(context);
         }
       },
+      actions: [
+        _RowAction(
+          icon: Icons.open_in_new_rounded,
+          label: 'View',
+          onTap: () {
+            final w = MediaQuery.sizeOf(context).width;
+            if (w >= 600) {
+              _showStudentSideSheet(context);
+            } else {
+              _showStudentBottomSheet(context);
+            }
+          },
+        ),
+        _RowAction(
+          icon: Icons.edit_outlined,
+          label: 'Edit',
+          onTap: () {
+            final w = MediaQuery.sizeOf(context).width;
+            if (w >= 600) {
+              _showStudentSideSheet(context);
+            } else {
+              _showStudentBottomSheet(context);
+            }
+          },
+        ),
+        _RowAction(
+          icon: Icons.delete_outline_rounded,
+          label: 'Delete',
+          isDestructive: true,
+          onTap: () => _confirmDelete(context),
+        ),
+      ],
     );
   }
 
@@ -909,6 +1233,74 @@ class _StudentRow extends StatelessWidget {
       },
     );
   }
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final cs = Theme.of(context).colorScheme;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: cs.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        ),
+        title: Text(
+          'Delete "${student.name}"?',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            color: cs.onSurface,
+          ),
+        ),
+        content: Text(
+          'This will permanently delete the student record.',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              'Delete',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: cs.error,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    final service = MemberManagementService(MembersDao(db));
+    final result = await service.changeStudentStatus(
+      schoolId: schoolId,
+      adm: student.adm,
+      status: StudentStatus.deleted,
+    );
+    switch (result) {
+      case Err(:final error) when context.mounted:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete student: $error')),
+        );
+      default:
+        break;
+    }
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -938,7 +1330,7 @@ class _GuardiansTab extends StatelessWidget {
             hint: 'Link a guardian from a student\'s profile, or tap +.',
           );
         }
-        return _MemberListView(
+        return _FlatMemberList(
           itemCount: list.length,
           itemBuilder: (context, i) {
             final item = list[i];
@@ -967,13 +1359,20 @@ class _UniqueGuardianRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _MemberTile(
+    return _UserDataRow(
       userId: user.id,
       name: user.name,
-      subtitle: '${user.phone}  ·  $wardCount ward${wardCount == 1 ? '' : 's'}',
+      subtitle: '$wardCount ward${wardCount == 1 ? '' : 's'}',
       status: user.status,
       level: user.level,
       onTap: () => _openDetail(context),
+      actions: [
+        _RowAction(
+          icon: Icons.open_in_new_rounded,
+          label: 'View',
+          onTap: () => _openDetail(context),
+        ),
+      ],
     );
   }
 
@@ -1029,8 +1428,31 @@ class _UniqueGuardianRow extends StatelessWidget {
 // Shared member tile — user-based rows (Owners, Teachers, Staff, Guardians)
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _MemberTile extends StatelessWidget {
-  const _MemberTile({
+// ─────────────────────────────────────────────────────────────────────────────
+// _RowAction — lightweight action descriptor for flat rows
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _RowAction {
+  const _RowAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.isDestructive = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool isDestructive;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _UserDataRow — flat data-table row for user-based members
+// (Owners, Teachers, Staff, Guardians)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _UserDataRow extends StatefulWidget {
+  const _UserDataRow({
     required this.userId,
     required this.name,
     required this.subtitle,
@@ -1038,6 +1460,7 @@ class _MemberTile extends StatelessWidget {
     this.level,
     this.trailing,
     this.onTap,
+    this.actions = const [],
   });
 
   final String userId;
@@ -1047,16 +1470,24 @@ class _MemberTile extends StatelessWidget {
   final UserLevel? level;
   final Widget? trailing;
   final VoidCallback? onTap;
+  final List<_RowAction> actions;
+
+  @override
+  State<_UserDataRow> createState() => _UserDataRowState();
+}
+
+class _UserDataRowState extends State<_UserDataRow> {
+  bool _isHovered = false;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
+    final isDesktop = MediaQuery.sizeOf(context).width >= 600;
 
-    Widget avatar = UserAvatar(userId: userId, radius: 20);
+    Widget avatar = UserAvatar(userId: widget.userId, radius: 16);
 
-    // Overlay status indicator on avatar if available.
-    if (status != null && level != null) {
+    if (widget.status != null && widget.level != null) {
       avatar = Stack(
         clipBehavior: Clip.none,
         children: [
@@ -1065,8 +1496,8 @@ class _MemberTile extends StatelessWidget {
             bottom: -1,
             right: -1,
             child: StatusIndicator(
-              status: status!,
-              level: level!,
+              status: widget.status!,
+              level: widget.level!,
               backgroundColor: isDark ? const Color(0xFF18222E) : cs.surface,
             ),
           ),
@@ -1074,27 +1505,105 @@ class _MemberTile extends StatelessWidget {
       );
     }
 
-    return _BaseTile(
-      leading: avatar,
-      name: name,
-      subtitle: subtitle,
-      trailing: trailing,
-      onTap: onTap,
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: widget.onTap != null
+          ? SystemMouseCursors.click
+          : SystemMouseCursors.basic,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 100),
+        color: _isHovered
+            ? cs.primary.withValues(alpha: 0.04)
+            : Colors.transparent,
+        child: InkWell(
+          onTap: widget.onTap,
+          splashFactory: NoSplash.splashFactory,
+          highlightColor: Colors.transparent,
+          hoverColor: Colors.transparent,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 52),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  // Avatar
+                  avatar,
+                  const SizedBox(width: 12),
+
+                  // Name + subtitle
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          widget.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: cs.onSurface,
+                          ),
+                        ),
+                        if (widget.subtitle.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            widget.subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              color: cs.onSurfaceVariant.withValues(
+                                alpha: 0.55,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+
+                  // Trailing chip
+                  if (widget.trailing != null) ...[
+                    const SizedBox(width: 8),
+                    widget.trailing!,
+                  ],
+
+                  // Actions
+                  if (widget.actions.isNotEmpty) ...[
+                    const SizedBox(width: 4),
+                    isDesktop
+                        ? _InlineActions(
+                            actions: widget.actions,
+                            isHovered: _isHovered,
+                          )
+                        : _MobileActions(actions: widget.actions),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Base tile — shared layout for user & student rows
+// _FlatRow — flat data-table row for non-user rows (Students)
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _BaseTile extends StatelessWidget {
-  const _BaseTile({
+class _FlatRow extends StatefulWidget {
+  const _FlatRow({
     required this.leading,
     required this.name,
     required this.subtitle,
     this.trailing,
     this.onTap,
+    this.actions = const [],
   });
 
   final Widget leading;
@@ -1102,67 +1611,263 @@ class _BaseTile extends StatelessWidget {
   final String subtitle;
   final Widget? trailing;
   final VoidCallback? onTap;
+  final List<_RowAction> actions;
+
+  @override
+  State<_FlatRow> createState() => _FlatRowState();
+}
+
+class _FlatRowState extends State<_FlatRow> {
+  bool _isHovered = false;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final isDark = cs.brightness == Brightness.dark;
+    final isDesktop = MediaQuery.sizeOf(context).width >= 600;
 
-    return Material(
-      color: isDark
-          ? cs.surfaceContainerHighest.withValues(alpha: 0.4)
-          : cs.surfaceContainerHighest.withValues(alpha: 0.3),
-      borderRadius: BorderRadius.circular(6),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(6),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          child: Row(
-            children: [
-              // Avatar
-              leading,
-              const SizedBox(width: 14),
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: widget.onTap != null
+          ? SystemMouseCursors.click
+          : SystemMouseCursors.basic,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 100),
+        color: _isHovered
+            ? cs.primary.withValues(alpha: 0.04)
+            : Colors.transparent,
+        child: InkWell(
+          onTap: widget.onTap,
+          splashFactory: NoSplash.splashFactory,
+          highlightColor: Colors.transparent,
+          hoverColor: Colors.transparent,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 52),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  // Leading (avatar)
+                  widget.leading,
+                  const SizedBox(width: 12),
 
-              // Name + subtitle
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w500,
-                        color: cs.onSurface,
-                        letterSpacing: 0.05,
-                      ),
-                    ),
-                    if (subtitle.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w400,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-                          letterSpacing: 0.1,
+                  // Name + subtitle
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          widget.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: cs.onSurface,
+                          ),
                         ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+                        if (widget.subtitle.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            widget.subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              color: cs.onSurfaceVariant.withValues(
+                                alpha: 0.55,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
 
-              // Trailing widget (chip or nothing)
-              if (trailing != null) ...[const SizedBox(width: 10), trailing!],
-            ],
+                  // Trailing chip
+                  if (widget.trailing != null) ...[
+                    const SizedBox(width: 8),
+                    widget.trailing!,
+                  ],
+
+                  // Actions
+                  if (widget.actions.isNotEmpty) ...[
+                    const SizedBox(width: 4),
+                    isDesktop
+                        ? _InlineActions(
+                            actions: widget.actions,
+                            isHovered: _isHovered,
+                          )
+                        : _MobileActions(actions: widget.actions),
+                  ],
+                ],
+              ),
+            ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _InlineActions — desktop: icon buttons that fade in on row hover
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _InlineActions extends StatelessWidget {
+  const _InlineActions({required this.actions, required this.isHovered});
+
+  final List<_RowAction> actions;
+  final bool isHovered;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: actions
+            .map((a) => _InlineActionButton(action: a, isRowHovered: isHovered))
+            .toList(),
+      ),
+    );
+  }
+}
+
+class _InlineActionButton extends StatefulWidget {
+  const _InlineActionButton({required this.action, required this.isRowHovered});
+
+  final _RowAction action;
+  final bool isRowHovered;
+
+  @override
+  State<_InlineActionButton> createState() => _InlineActionButtonState();
+}
+
+class _InlineActionButtonState extends State<_InlineActionButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final baseColor = widget.action.isDestructive
+        ? cs.error
+        : cs.onSurfaceVariant;
+    final effectiveAlpha = (_isHovered || widget.isRowHovered) ? 1.0 : 0.0;
+
+    return Tooltip(
+      message: widget.action.label,
+      waitDuration: const Duration(milliseconds: 400),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: widget.action.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 100),
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: _isHovered
+                  ? baseColor.withValues(alpha: 0.08)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 120),
+              opacity: effectiveAlpha,
+              child: Icon(widget.action.icon, size: 16, color: baseColor),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _MobileActions — mobile: three-dot → bottom sheet
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MobileActions extends StatelessWidget {
+  const _MobileActions({required this.actions});
+
+  final List<_RowAction> actions;
+
+  void _showSheet(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cs = Theme.of(context).colorScheme;
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppTheme.modalBg(isDark, cs),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.kModalRadius),
+        ),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 10, bottom: 6),
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              ...actions.map((action) {
+                final color = action.isDestructive ? cs.error : cs.onSurface;
+                return ListTile(
+                  leading: Icon(action.icon, size: 20, color: color),
+                  title: Text(
+                    action.label,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      color: color,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    action.onTap();
+                  },
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 2,
+                  ),
+                  minLeadingWidth: 20,
+                );
+              }),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: 36,
+      height: 36,
+      child: IconButton(
+        padding: EdgeInsets.zero,
+        iconSize: 18,
+        icon: Icon(Icons.more_vert, size: 18, color: cs.onSurfaceVariant),
+        tooltip: 'More actions',
+        onPressed: () => _showSheet(context),
       ),
     );
   }
@@ -1198,19 +1903,19 @@ class _StudentAvatar extends StatelessWidget {
 
         if (hasImage) {
           return CircleAvatar(
-            radius: 20,
+            radius: 16,
             backgroundImage: FileImage(file),
             backgroundColor: cs.surfaceContainerHighest,
           );
         }
 
         return CircleAvatar(
-          radius: 20,
+          radius: 16,
           backgroundColor: cs.surfaceContainerHighest,
           child: Text(
             initials,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.w500,
               color: cs.onSurfaceVariant.withValues(alpha: 0.8),
             ),
@@ -1260,26 +1965,25 @@ class _SmallChip extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Reusable list view wrapper
+// _FlatMemberList — flat list separated by thin dividers
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _MemberListView extends StatelessWidget {
-  const _MemberListView({required this.itemCount, required this.itemBuilder});
+class _FlatMemberList extends StatelessWidget {
+  const _FlatMemberList({required this.itemCount, required this.itemBuilder});
 
   final int itemCount;
   final Widget Function(BuildContext, int) itemBuilder;
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      padding: const EdgeInsets.only(left: 16, right: 16, top: 8, bottom: 80),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cs = Theme.of(context).colorScheme;
+
+    return ListView.separated(
+      padding: const EdgeInsets.only(top: 4, bottom: 80),
       itemCount: itemCount,
-      itemBuilder: (context, index) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 6),
-          child: itemBuilder(context, index),
-        );
-      },
+      separatorBuilder: (_, _) => AppTheme.tableRowDivider(isDark, cs),
+      itemBuilder: itemBuilder,
     );
   }
 }
@@ -1882,19 +2586,8 @@ class _TeacherInfoSheetState extends State<_TeacherInfoSheet> {
   }
 
   Future<void> _loadCurriculum() async {
-    final setting = await SettingsDao(db).getSettings(schoolId);
-    if (setting != null && mounted) {
-      try {
-        final config = SchoolConfig.fromJson(
-          jsonDecode(setting.data) as Map<String, dynamic>,
-        );
-        if (config.curricula.isNotEmpty) {
-          setState(() => _curriculumType = config.curricula.first.type);
-        }
-      } catch (_) {
-        // Ignore parse errors — curriculum type stays null.
-      }
-    }
+    // TODO: reload curriculum from new settings source when available
+    return;
   }
 
   String _subjectName(int subjectIndex) {
@@ -2077,7 +2770,7 @@ class _TeacherInfoSheetState extends State<_TeacherInfoSheet> {
                   expanded: _subjectsExpanded,
                   onToggle: () =>
                       setState(() => _subjectsExpanded = !_subjectsExpanded),
-                  child: StreamBuilder<List<Subject>>(
+                  child: StreamBuilder<List<SubjectTeacher>>(
                     stream: _dao.watchTeacherSubjects(schoolId, teacher.user),
                     builder: (context, snapshot) {
                       final items = snapshot.data ?? [];
@@ -2096,7 +2789,7 @@ class _TeacherInfoSheetState extends State<_TeacherInfoSheet> {
                         );
                       }
                       // Group subjects by (year, term, grade, stream)
-                      final grouped = <String, List<Subject>>{};
+                      final grouped = <String, List<SubjectTeacher>>{};
                       for (final s in items) {
                         final key =
                             '${s.year}|${s.term}|${s.grade}|${s.stream}';
@@ -3854,8 +4547,8 @@ class _DeptAllMemberList extends StatelessWidget {
 
   final Stream<List<({TeachersData teacher, UsersData user})>> teacherStream;
   final Stream<List<({StaffData staff, UsersData user})>> staffStream;
-  final void Function(String userId) onRemoveTeacher;
-  final void Function(String userId) onRemoveStaff;
+  final Future<void> Function(String userId) onRemoveTeacher;
+  final Future<void> Function(String userId) onRemoveStaff;
 
   @override
   Widget build(BuildContext context) {
@@ -3877,7 +4570,7 @@ class _DeptAllMemberList extends StatelessWidget {
                   name: t.user.name,
                   statusLabel: t.teacher.status.name,
                   roleTag: 'Teacher',
-                  onRemove: () => onRemoveTeacher(t.teacher.user),
+                  onRemove: () async => onRemoveTeacher(t.teacher.user),
                 ),
               ),
               ...staffMembers.map(
@@ -3885,7 +4578,7 @@ class _DeptAllMemberList extends StatelessWidget {
                   name: s.user.name,
                   statusLabel: s.staff.status.name,
                   roleTag: 'Staff',
-                  onRemove: () => onRemoveStaff(s.staff.user),
+                  onRemove: () async => onRemoveStaff(s.staff.user),
                 ),
               ),
             ];
@@ -3927,7 +4620,7 @@ class _DeptAllItem extends StatelessWidget {
   final String name;
   final String statusLabel;
   final String roleTag;
-  final VoidCallback onRemove;
+  final Future<void> Function() onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -3988,17 +4681,14 @@ class _DeptAllItem extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              InkWell(
+              AnimatedActionButton(
+                icon: Icons.close_rounded,
+                iconSize: 15,
+                color: cs.error.withValues(alpha: 0.5),
+                size: 28,
+                tooltip: 'Remove',
+                showCheckOnSuccess: false,
                 onTap: onRemove,
-                borderRadius: BorderRadius.circular(4),
-                child: Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: Icon(
-                    Icons.close_rounded,
-                    size: 15,
-                    color: cs.error.withValues(alpha: 0.5),
-                  ),
-                ),
               ),
             ],
           ),
@@ -4021,7 +4711,7 @@ class _DeptMemberList<T> extends StatelessWidget {
   final String emptyLabel;
   final String Function(T) nameOf;
   final String Function(T) statusOf;
-  final void Function(T) onRemove;
+  final Future<void> Function(T) onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -4068,7 +4758,7 @@ class _DeptMemberList<T> extends StatelessWidget {
                     return _DeptMemberRow(
                       name: nameOf(item),
                       statusLabel: statusOf(item),
-                      onRemove: () => onRemove(item),
+                      onRemove: () async => onRemove(item),
                     );
                   },
                 ),
@@ -4089,7 +4779,7 @@ class _DeptMemberRow extends StatelessWidget {
 
   final String name;
   final String statusLabel;
-  final VoidCallback onRemove;
+  final Future<void> Function() onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -4134,17 +4824,14 @@ class _DeptMemberRow extends StatelessWidget {
                   ],
                 ),
               ),
-              InkWell(
+              AnimatedActionButton(
+                icon: Icons.close_rounded,
+                iconSize: 15,
+                color: cs.error.withValues(alpha: 0.5),
+                size: 28,
+                tooltip: 'Remove',
+                showCheckOnSuccess: false,
                 onTap: onRemove,
-                borderRadius: BorderRadius.circular(4),
-                child: Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: Icon(
-                    Icons.close_rounded,
-                    size: 15,
-                    color: cs.error.withValues(alpha: 0.5),
-                  ),
-                ),
               ),
             ],
           ),

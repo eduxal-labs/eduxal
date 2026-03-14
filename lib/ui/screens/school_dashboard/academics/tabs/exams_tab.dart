@@ -1,8 +1,7 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 
 import '../../../../../database/database.dart';
+import '../../../../theme/app_theme.dart';
 import '../../../../../database/daos/academics_dao.dart';
 import '../../../../../database/daos/exams_grades_dao.dart' show ExamWithPapers;
 import '../../../../../database/tables/enums.dart';
@@ -53,8 +52,8 @@ class _ExamsTabState extends State<ExamsTab>
   late final AcademicsDao _dao;
   late Stream<List<ExamWithPapers>> _stream;
 
-  SchoolConfig _config = SchoolConfig.defaults();
-  bool _configLoaded = false;
+  final SchoolConfig _config = SchoolConfig.defaults();
+  final bool _configLoaded = false;
 
   // ── Filter state ───────────────────────────────────────────────────────────
 
@@ -98,17 +97,8 @@ class _ExamsTabState extends State<ExamsTab>
   }
 
   Future<void> _loadConfig() async {
-    final row = await (db.select(
-      db.settings,
-    )..where((s) => s.school.equals(widget.schoolId))).getSingleOrNull();
-    if (row == null || !mounted) return;
-    try {
-      final decoded = Map<String, dynamic>.from(jsonDecode(row.data) as Map);
-      setState(() {
-        _config = SchoolConfig.fromJson(decoded);
-        _configLoaded = true;
-      });
-    } catch (_) {}
+    // settings table removed in schema v2 — config loaded elsewhere
+    if (!mounted) return;
   }
 
   List<ExamWithPapers> _applyFilters(List<ExamWithPapers> items) {
@@ -322,10 +312,7 @@ class _ExamsTabState extends State<ExamsTab>
           ? 'standard'
           : null;
 
-      final parts = <String>[
-        if (typeLabel != null) typeLabel.toLowerCase(),
-        if (personLabel != null) personLabel,
-      ];
+      final parts = <String>[?typeLabel?.toLowerCase(), ?personLabel];
       message = parts.isEmpty
           ? 'No exams found'
           : 'No ${parts.join(' ')} exams found';
@@ -391,195 +378,52 @@ class _ExamsTabState extends State<ExamsTab>
   // ── Exam list ──────────────────────────────────────────────────────────────
 
   Widget _buildList(ColorScheme cs, List<ExamWithPapers> items) {
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
-      itemCount: items.length + 1, // +1 for header
-      itemBuilder: (context, index) {
-        if (index == 0) return _buildHeader(cs, items.length);
-        return _buildExamCard(cs, items[index - 1]);
-      },
+    final isDark = cs.brightness == Brightness.dark;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
+          child: _buildHeader(cs, items.length),
+        ),
+        AppTheme.tableRowDivider(isDark, cs),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.only(bottom: 80),
+            itemCount: items.length * 2 - 1,
+            itemBuilder: (context, index) {
+              if (index.isOdd) {
+                return AppTheme.tableRowDivider(isDark, cs);
+              }
+              return _buildExamRow(cs, items[index ~/ 2], isDark);
+            },
+          ),
+        ),
+      ],
     );
   }
 
   // ── Header ─────────────────────────────────────────────────────────────────
 
   Widget _buildHeader(ColorScheme cs, int count) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        '$count exam${count == 1 ? '' : 's'}',
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w400,
-          color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-        ),
+    return Text(
+      '$count exam${count == 1 ? '' : 's'}',
+      style: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        color: cs.onSurfaceVariant.withValues(alpha: 0.5),
       ),
     );
   }
 
-  // ── Exam card ──────────────────────────────────────────────────────────────
+  // ── Exam row ───────────────────────────────────────────────────────────────
 
-  Widget _buildExamCard(ColorScheme cs, ExamWithPapers ep) {
-    final exam = ep.exam;
-    final isDark = cs.brightness == Brightness.dark;
-    final typeColor = _examTypeColor(exam.type, cs);
-    final typeLabel = _examTypeLabel(exam.type);
-
-    final startDate = DateTime.fromMillisecondsSinceEpoch(
-      exam.start * 86400 * 1000,
-    );
-    final endDate = DateTime.fromMillisecondsSinceEpoch(
-      exam.end * 86400 * 1000,
-    );
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(8),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: () => _onExamTap(ep),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ── Top: type badge + personalized badge + grade-wide ────
-                Row(
-                  children: [
-                    // Type badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: typeColor.withValues(alpha: isDark ? 0.2 : 0.12),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        typeLabel,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: typeColor,
-                          letterSpacing: 0.4,
-                        ),
-                      ),
-                    ),
-
-                    if (exam.personalized) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                            color: cs.outline.withValues(
-                              alpha: isDark ? 0.15 : 0.12,
-                            ),
-                          ),
-                        ),
-                        child: Text(
-                          'Personalized',
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w500,
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                            letterSpacing: 0.2,
-                          ),
-                        ),
-                      ),
-                    ],
-
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(4),
-                        color: exam.stream == null
-                            ? cs.primary.withValues(alpha: isDark ? 0.15 : 0.08)
-                            : cs.surfaceContainerHighest.withValues(alpha: 0.6),
-                        border: exam.stream != null
-                            ? Border.all(
-                                color: cs.outline.withValues(
-                                  alpha: isDark ? 0.15 : 0.12,
-                                ),
-                              )
-                            : null,
-                      ),
-                      child: Text(
-                        exam.stream == null ? 'All Streams' : widget.streamName,
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w500,
-                          color: exam.stream == null
-                              ? cs.primary
-                              : cs.onSurfaceVariant.withValues(alpha: 0.6),
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 10),
-
-                // ── Date range ───────────────────────────────────────────
-                Text(
-                  '${_fmtDate(startDate)} – ${_fmtDate(endDate)}',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400,
-                    color: cs.onSurface,
-                  ),
-                ),
-
-                const SizedBox(height: 4),
-
-                // ── Teacher name ─────────────────────────────────────────
-                Text(
-                  'Created by ${ep.teacher.name}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-                  ),
-                ),
-
-                const SizedBox(height: 10),
-
-                // ── Paper count badge ────────────────────────────────────
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: cs.surfaceContainerHighest.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    '${ep.papers.length} paper${ep.papers.length == 1 ? '' : 's'}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+  Widget _buildExamRow(ColorScheme cs, ExamWithPapers ep, bool isDark) {
+    return _ExamRow(
+      ep: ep,
+      cs: cs,
+      isDark: isDark,
+      onTap: () => _onExamTap(ep),
     );
   }
 
@@ -605,6 +449,181 @@ class _ExamsTabState extends State<ExamsTab>
 }
 
 // ─── Filter chip ─────────────────────────────────────────────────────────────
+
+// ─── Flat exam row with hover ─────────────────────────────────────────────────
+
+class _ExamRow extends StatefulWidget {
+  const _ExamRow({
+    required this.ep,
+    required this.cs,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  final ExamWithPapers ep;
+  final ColorScheme cs;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  @override
+  State<_ExamRow> createState() => _ExamRowState();
+}
+
+class _ExamRowState extends State<_ExamRow> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final isDark = widget.isDark;
+    final ep = widget.ep;
+    final exam = ep.exam;
+    final typeColor = _examTypeColor(exam.type, cs);
+    final typeLabel = _examTypeLabel(exam.type);
+
+    final startDate = DateTime.fromMillisecondsSinceEpoch(
+      exam.start * 86400 * 1000,
+    );
+    final endDate = DateTime.fromMillisecondsSinceEpoch(
+      exam.end * 86400 * 1000,
+    );
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.click,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 100),
+        color: _isHovered
+            ? cs.primary.withValues(alpha: 0.04)
+            : Colors.transparent,
+        child: InkWell(
+          onTap: widget.onTap,
+          splashFactory: NoSplash.splashFactory,
+          highlightColor: Colors.transparent,
+          hoverColor: Colors.transparent,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+            child: Row(
+              children: [
+                // ── Type badge ─────────────────────────────────────────────
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: typeColor.withValues(alpha: isDark ? 0.2 : 0.12),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    typeLabel,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: typeColor,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(width: 10),
+
+                // ── Date range + teacher ───────────────────────────────────
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '${_fmtDate(startDate)} – ${_fmtDate(endDate)}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        ep.teacher.name,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(width: 8),
+
+                // ── Scope badges ───────────────────────────────────────────
+                if (exam.personalized)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: cs.outline.withValues(
+                            alpha: isDark ? 0.15 : 0.12,
+                          ),
+                        ),
+                      ),
+                      child: Text(
+                        'Personalized',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w400,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // ── Paper count badge ──────────────────────────────────────
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHighest.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '${ep.papers.length}p',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(width: 4),
+
+                // ── Chevron ────────────────────────────────────────────────
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 18,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.35),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _ExamFilterChip extends StatelessWidget {
   const _ExamFilterChip({

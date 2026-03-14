@@ -1,8 +1,5 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 
-import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/attendance_dao.dart';
 import '../../../../database/daos/enrollments_dao.dart';
@@ -113,20 +110,7 @@ class _ClassPickerShellState extends State<_ClassPickerShell> {
   }
 
   Future<void> _loadConfig() async {
-    final row = await settingsDao.getSettings(_schoolId);
-    if (row == null || !mounted) {
-      if (mounted) setState(() => _loadingConfig = false);
-      return;
-    }
-    try {
-      final decoded = Map<String, dynamic>.from(jsonDecode(row.data) as Map);
-      setState(() {
-        _config = SchoolConfig.fromJson(decoded);
-        _loadingConfig = false;
-      });
-    } catch (_) {
-      if (mounted) setState(() => _loadingConfig = false);
-    }
+    if (mounted) setState(() => _loadingConfig = false);
   }
 
   void _loadClasses() {
