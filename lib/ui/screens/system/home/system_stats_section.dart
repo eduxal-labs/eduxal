@@ -600,7 +600,7 @@ class _SegmentedBarChart extends StatefulWidget {
     required this.barWidth,
     required this.barGap,
     required this.labelHeight,
-    this.aboveLabelHeight = 22.0,
+    this.aboveLabelHeight = 22.0, // ignore: unused_element_parameter
   });
 
   final List<_BarSegment> segments;

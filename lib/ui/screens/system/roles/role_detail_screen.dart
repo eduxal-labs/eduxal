@@ -12,6 +12,7 @@ import '../../../../database/tables/enums.dart';
 import '../../../../models/permissions.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/animated_action_button.dart';
 import '../../../widgets/animated_save_button.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -362,27 +363,15 @@ class _RoleDetailScreenState extends State<RoleDetailScreen>
           if (widget.permissions.can(Resource.roles, Action.delete))
             Padding(
               padding: const EdgeInsets.only(right: 8),
-              child: IconButton(
-                icon: Icon(
-                  Icons.delete_outline_rounded,
-                  size: 18,
-                  color: cs.error.withValues(alpha: 0.7),
-                ),
-                onPressed: () {
-                  _confirmDelete(widget.role);
-                },
+              child: AnimatedActionButton(
+                icon: Icons.delete_outline_rounded,
+                iconSize: 18,
+                color: cs.error.withValues(alpha: 0.7),
+                backgroundColor: cs.surfaceContainer,
+                size: 36,
                 tooltip: 'Delete role',
-                style: IconButton.styleFrom(
-                  backgroundColor: cs.surfaceContainer,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    side: BorderSide(
-                      color: cs.outlineVariant.withValues(alpha: 0.5),
-                    ),
-                  ),
-                  padding: const EdgeInsets.all(8),
-                  minimumSize: const Size(36, 36),
-                ),
+                showCheckOnSuccess: false,
+                onTap: () async => _confirmDelete(widget.role),
               ),
             ),
         ],
@@ -1742,13 +1731,9 @@ class _AssignedTab extends StatefulWidget {
 }
 
 class _AssignedTabState extends State<_AssignedTab> {
-  final Set<String> _unassigningIds = {};
-
   Future<void> _unassign(String userId) async {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;
-
-    setState(() => _unassigningIds.add(userId));
 
     try {
       await rolesDao.unassignUserFromRole(
@@ -1766,8 +1751,7 @@ class _AssignedTabState extends State<_AssignedTab> {
           ),
         );
       }
-    } finally {
-      if (mounted) setState(() => _unassigningIds.remove(userId));
+      rethrow;
     }
   }
 
@@ -1805,14 +1789,12 @@ class _AssignedTabState extends State<_AssignedTab> {
           separatorBuilder: (_, _) => const SizedBox(height: 6),
           itemBuilder: (context, index) {
             final entry = assigned[index];
-            final isUnassigning = _unassigningIds.contains(entry.user.id);
 
             return _AssignedRow(
               user: entry.user,
               cs: cs,
               isLight: isLight,
               canUnassign: canUnassign,
-              isUnassigning: isUnassigning,
               onUnassign: () => _unassign(entry.user.id),
             );
           },
@@ -1883,7 +1865,6 @@ class _AssignedRow extends StatelessWidget {
     required this.cs,
     required this.isLight,
     required this.canUnassign,
-    required this.isUnassigning,
     required this.onUnassign,
   });
 
@@ -1891,8 +1872,7 @@ class _AssignedRow extends StatelessWidget {
   final ColorScheme cs;
   final bool isLight;
   final bool canUnassign;
-  final bool isUnassigning;
-  final VoidCallback onUnassign;
+  final Future<void> Function() onUnassign;
 
   @override
   Widget build(BuildContext context) {
@@ -2042,33 +2022,15 @@ class _AssignedRow extends StatelessWidget {
             // ── Unassign button ──────────────────────────────────────
             if (canUnassign) ...[
               const SizedBox(width: 6),
-              isUnassigning
-                  ? Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 1.5,
-                          color: cs.error.withValues(alpha: 0.6),
-                        ),
-                      ),
-                    )
-                  : IconButton(
-                      onPressed: onUnassign,
-                      icon: Icon(
-                        Icons.person_remove_outlined,
-                        size: 17,
-                        color: cs.error.withValues(alpha: 0.6),
-                      ),
-                      tooltip: 'Unassign',
-                      visualDensity: VisualDensity.compact,
-                      padding: const EdgeInsets.all(6),
-                      constraints: const BoxConstraints(
-                        minWidth: 32,
-                        minHeight: 32,
-                      ),
-                    ),
+              AnimatedActionButton(
+                icon: Icons.person_remove_outlined,
+                iconSize: 17,
+                color: cs.error.withValues(alpha: 0.6),
+                size: 32,
+                tooltip: 'Unassign',
+                showCheckOnSuccess: false,
+                onTap: onUnassign,
+              ),
             ],
           ],
         ),
@@ -2177,7 +2139,7 @@ class _AssignUserSheetState extends State<_AssignUserSheet> {
       ),
       decoration: BoxDecoration(
         color: cs.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

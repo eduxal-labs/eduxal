@@ -8,6 +8,7 @@ import '../../../../database/tables/enums.dart';
 import '../../../../models/permissions.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/edu_data_table.dart';
 import '../../../widgets/status_indicator.dart';
 import '../../../widgets/user_avatar.dart';
 import '../roles/role_detail_screen.dart';
@@ -16,12 +17,13 @@ import '../roles/role_detail_screen.dart';
 // Members Section — system dashboard tab
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Displays all users with `level = UserLevel.system` in a reactive list.
+/// Displays all users with `level = UserLevel.system` or `super_` in a
+/// reactive list.
 ///
 /// Features:
 /// - Search toolbar (name / phone, debounced 200ms)
 /// - Status dot indicator on each avatar
-/// - Row actions: Remove, Elevate, Suspend, Trash, Purge (super only)
+/// - Row actions: Roles, Promote, Suspend/Restore, Demote, Purge (super only)
 /// - Add Member modal (promote Normal → System)
 class MembersSection extends StatefulWidget {
   const MembersSection({super.key, required this.permissions});
@@ -100,160 +102,6 @@ class _MembersSectionState extends State<MembersSection> {
     }
   }
 
-  Future<void> _elevateMember(UsersData user) async {
-    final confirmed = await _showConfirmDialog(
-      title: 'Elevate to Super',
-      message:
-          'Elevate "${user.name}" to Super level? '
-          'This grants unrestricted access.',
-      actionLabel: 'Elevate',
-    );
-    if (!confirmed || !mounted) return;
-
-    try {
-      final accountId = cache.currentUser?.user.id;
-      if (accountId == null) return;
-      await usersDao.setUserLevel(
-        user.id,
-        UserLevel.super_,
-        accountId: accountId,
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${user.name} elevated to Super')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to elevate member: $e')));
-      }
-    }
-  }
-
-  Future<void> _suspendMember(UsersData user) async {
-    final confirmed = await _showConfirmDialog(
-      title: 'Suspend member',
-      message:
-          'Suspend "${user.name}"? '
-          'They will be set to Suspended status and Normal level.',
-      actionLabel: 'Suspend',
-    );
-    if (!confirmed || !mounted) return;
-
-    try {
-      final accountId = cache.currentUser?.user.id;
-      if (accountId == null) return;
-      await usersDao.setUserLevel(
-        user.id,
-        UserLevel.normal,
-        accountId: accountId,
-        status: UserStatus.suspended,
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('${user.name} suspended')));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to suspend member: $e')));
-      }
-    }
-  }
-
-  Future<void> _trashMember(UsersData user) async {
-    final confirmed = await _showConfirmDialog(
-      title: 'Trash member',
-      message:
-          'Move "${user.name}" to trash? '
-          'They will be marked as Deleted and set to Normal level.',
-      actionLabel: 'Trash',
-    );
-    if (!confirmed || !mounted) return;
-
-    try {
-      final accountId = cache.currentUser?.user.id;
-      if (accountId == null) return;
-      await usersDao.setUserLevel(
-        user.id,
-        UserLevel.normal,
-        accountId: accountId,
-        status: UserStatus.deleted,
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('${user.name} moved to trash')));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to trash member: $e')));
-      }
-    }
-  }
-
-  Future<void> _demoteMember(UsersData user) async {
-    // Members shown here are system-level. Demoting always goes to normal.
-    final confirmed = await _showConfirmDialog(
-      title: 'Demote to Normal',
-      message:
-          'Demote "${user.name}" to Normal level? '
-          'They will be removed from the Members list.',
-      actionLabel: 'Demote',
-    );
-    if (!confirmed || !mounted) return;
-
-    try {
-      final accountId = cache.currentUser?.user.id;
-      if (accountId == null) return;
-      await usersDao.setUserLevel(
-        user.id,
-        UserLevel.normal,
-        accountId: accountId,
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${user.name} demoted to Normal')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to demote member: $e')));
-      }
-    }
-  }
-
-  Future<void> _restoreMember(UsersData user) async {
-    try {
-      final accountId = cache.currentUser?.user.id;
-      if (accountId == null) return;
-      await usersDao.updateUserStatus(
-        user.id,
-        UserStatus.active,
-        accountId: accountId,
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${user.name} restored to active')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to restore member: $e')));
-      }
-    }
-  }
-
   Future<void> _purgeMember(UsersData user) async {
     final confirmed = await _showConfirmDialog(
       title: 'Permanently delete',
@@ -280,6 +128,61 @@ class _MembersSectionState extends State<MembersSection> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Failed to purge member: $e')));
+      }
+    }
+  }
+
+  Future<void> _promoteMember(UsersData user) async {
+    final confirmed = await _showConfirmDialog(
+      title: 'Promote to Super',
+      message:
+          'Promote "${user.name}" to Super level? '
+          'They will have full access and bypass all permission checks.',
+      actionLabel: 'Promote',
+    );
+    if (!confirmed || !mounted) return;
+
+    try {
+      final accountId = cache.currentUser?.user.id;
+      if (accountId == null) return;
+      await usersDao.setUserLevel(
+        user.id,
+        UserLevel.super_,
+        accountId: accountId,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${user.name} promoted to Super')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to promote member: $e')));
+      }
+    }
+  }
+
+  Future<void> _updateStatus(
+    UsersData user,
+    UserStatus status,
+    String label,
+  ) async {
+    try {
+      final accountId = cache.currentUser?.user.id;
+      if (accountId == null) return;
+      await usersDao.updateUserStatus(user.id, status, accountId: accountId);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('${user.name} $label')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to update status: $e')));
       }
     }
   }
@@ -388,25 +291,316 @@ class _MembersSectionState extends State<MembersSection> {
             Expanded(
               child: !snapshot.hasData
                   ? const _ListShimmer()
-                  : filtered.isEmpty
-                  ? _EmptyState(hasQuery: _searchQuery.isNotEmpty, cs: cs)
-                  : _MemberList(
-                      members: filtered,
-                      permissions: widget.permissions,
-                      currentUserId: cache.currentUser?.user.id,
-                      onRemove: _removeMember,
-                      onElevate: _elevateMember,
-                      onSuspend: _suspendMember,
-                      onDemote: _demoteMember,
-                      onRestore: _restoreMember,
-                      onTrash: _trashMember,
-                      onPurge: _purgeMember,
-                      cs: cs,
+                  : SingleChildScrollView(
+                      child: EduDataTable<UsersData>(
+                        items: filtered,
+                        emptyIcon: Icons.people_outline_rounded,
+                        emptyTitle: 'No system members',
+                        emptySubtitle: _searchQuery.isNotEmpty
+                            ? 'No members match your search.'
+                            : 'Promote a user to System level to add them here.',
+                        onItemTap: (u) => _openRolesSheet(context, u),
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                        actions: (user) {
+                          final isSuper =
+                              widget.permissions.level == UserLevel.super_;
+                          final isMe = user.id == cache.currentUser?.user.id;
+                          return [
+                            // ── View roles ──
+                            EduDataTableAction<UsersData>(
+                              icon: Icons.assignment_ind_outlined,
+                              label: 'Roles',
+                              onTap: (u) => _openRolesSheet(context, u),
+                            ),
+                            // ── Promote to Super: only if current user is super and target is system ──
+                            if (isSuper &&
+                                user.level == UserLevel.system &&
+                                !isMe)
+                              EduDataTableAction<UsersData>(
+                                icon: Icons.arrow_upward_rounded,
+                                label: 'Promote',
+                                color: const Color(0xFFFF7043),
+                                onTap: (u) => _promoteMember(u),
+                              ),
+                            // ── Suspend: if active ──
+                            if (user.status == UserStatus.active && !isMe)
+                              EduDataTableAction<UsersData>(
+                                icon: Icons.block_rounded,
+                                label: 'Suspend',
+                                color: const Color(0xFFFFB300),
+                                onTap: (u) => _updateStatus(
+                                  u,
+                                  UserStatus.suspended,
+                                  'suspended',
+                                ),
+                              ),
+                            // ── Restore: if suspended or deleted ──
+                            if ((user.status == UserStatus.suspended ||
+                                    user.status == UserStatus.deleted) &&
+                                !isMe)
+                              EduDataTableAction<UsersData>(
+                                icon: Icons.check_circle_outline_rounded,
+                                label: 'Restore',
+                                color: const Color(0xFF26A69A),
+                                onTap: (u) => _updateStatus(
+                                  u,
+                                  UserStatus.active,
+                                  'restored',
+                                ),
+                              ),
+                            // ── Demote: removes from system (sets to Normal) ──
+                            if (!isMe)
+                              EduDataTableAction<UsersData>(
+                                icon: Icons.arrow_downward_rounded,
+                                label: 'Demote',
+                                onTap: (u) => _removeMember(u),
+                              ),
+                            // ── Purge: super only ──
+                            if (isSuper && !isMe)
+                              EduDataTableAction<UsersData>(
+                                icon: Icons.delete_forever_rounded,
+                                label: 'Purge',
+                                isDestructive: true,
+                                onTap: (u) => _purgeMember(u),
+                              ),
+                          ];
+                        },
+                        columns: const [
+                          EduDataTableColumn(label: 'Member', flex: 3),
+                          EduDataTableColumn(label: 'Level', flex: 1),
+                          EduDataTableColumn(label: 'Status', flex: 1),
+                        ],
+                        cellBuilder: (context, user, index, isHovered) {
+                          final isMe = user.id == cache.currentUser?.user.id;
+                          return switch (index) {
+                            0 => _MemberIdentityCell(user: user, isMe: isMe),
+                            1 => _MemberLevelBadge(level: user.level),
+                            2 => _MemberStatusBadge(status: user.status),
+                            _ => const SizedBox.shrink(),
+                          };
+                        },
+                      ),
                     ),
             ),
           ],
         );
       },
+    );
+  }
+
+  void _openRolesSheet(BuildContext context, UsersData user) {
+    final isDesktop =
+        MediaQuery.sizeOf(context).width >= AppTheme.kMobileBreakpoint;
+    if (isDesktop) {
+      showDialog(
+        context: context,
+        builder: (_) => Dialog(
+          child: SizedBox(
+            width: 480,
+            child: _MemberRolesSheet(
+              user: user,
+              permissions: widget.permissions,
+            ),
+          ),
+        ),
+      );
+    } else {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) =>
+            _MemberRolesSheet(user: user, permissions: widget.permissions),
+      );
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Member identity cell — avatar + status indicator + name + phone
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MemberIdentityCell extends StatelessWidget {
+  const _MemberIdentityCell({required this.user, required this.isMe});
+
+  final UsersData user;
+  final bool isMe;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Row(
+      children: [
+        // ── Avatar ───────────────────────────────────────────────────────
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            UserAvatar(userId: user.id, radius: 16),
+            Positioned(
+              bottom: -1,
+              right: -1,
+              child: StatusIndicator(
+                status: user.status,
+                level: user.level,
+                backgroundColor: cs.surface,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(width: 10),
+
+        // ── Name + phone ──────────────────────────────────────────────────
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      user.name,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: cs.onSurface,
+                        letterSpacing: 0.1,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (isMe) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.07),
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.kChipRadius,
+                        ),
+                        border: Border.all(
+                          color: cs.primary.withValues(alpha: 0.5),
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        'YOU',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                          color: cs.primary,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                user.phone,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.8),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Member level badge — compact chip
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MemberLevelBadge extends StatelessWidget {
+  const _MemberLevelBadge({required this.level});
+
+  final UserLevel level;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    final (label, color) = switch (level) {
+      UserLevel.normal => ('Normal', cs.onSurfaceVariant),
+      UserLevel.system => ('System', cs.primary),
+      UserLevel.super_ => ('Super', const Color(0xFFFF7043)),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: isDark ? 0.12 : 0.08),
+        borderRadius: BorderRadius.circular(4.0),
+        border: Border.all(
+          color: color.withValues(alpha: isDark ? 0.3 : 0.2),
+          width: 0.5,
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          color: color,
+          letterSpacing: 0.2,
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Member status badge — compact chip
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MemberStatusBadge extends StatelessWidget {
+  const _MemberStatusBadge({required this.status});
+
+  final UserStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    final (label, color) = switch (status) {
+      UserStatus.invited => ('Invited', const Color(0xFF42A5F5)),
+      UserStatus.active => ('Active', const Color(0xFF26A69A)),
+      UserStatus.suspended => ('Suspended', const Color(0xFFFFB300)),
+      UserStatus.deleted => ('Deleted', cs.error),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: isDark ? 0.12 : 0.08),
+        borderRadius: BorderRadius.circular(4.0),
+        border: Border.all(
+          color: color.withValues(alpha: isDark ? 0.3 : 0.2),
+          width: 0.5,
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          color: color,
+          letterSpacing: 0.2,
+        ),
+      ),
     );
   }
 }
@@ -467,455 +661,6 @@ class _Toolbar extends StatelessWidget {
             isDense: true,
           ),
         ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Member list
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _MemberList extends StatelessWidget {
-  const _MemberList({
-    required this.members,
-    required this.permissions,
-    required this.currentUserId,
-    required this.onRemove,
-    required this.onElevate,
-    required this.onSuspend,
-    required this.onDemote,
-    required this.onRestore,
-    required this.onTrash,
-    required this.onPurge,
-    required this.cs,
-  });
-
-  final List<UsersData> members;
-  final SystemPermissions permissions;
-  final String? currentUserId;
-  final Future<void> Function(UsersData) onRemove;
-  final Future<void> Function(UsersData) onElevate;
-  final Future<void> Function(UsersData) onSuspend;
-  final Future<void> Function(UsersData) onDemote;
-  final Future<void> Function(UsersData) onRestore;
-  final Future<void> Function(UsersData) onTrash;
-  final Future<void> Function(UsersData) onPurge;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.separated(
-      padding: const EdgeInsets.only(bottom: 24, top: 8),
-      itemCount: members.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        final m = members[index];
-        return _MemberRow(
-          user: m,
-          permissions: permissions,
-          isMe: m.id == currentUserId,
-          onRemove: () => onRemove(m),
-          onElevate: () => onElevate(m),
-          onSuspend: () => onSuspend(m),
-          onDemote: () => onDemote(m),
-          onRestore: () => onRestore(m),
-          onTrash: () => onTrash(m),
-          onPurge: () => onPurge(m),
-          cs: cs,
-        );
-      },
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Member row
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _MemberRow extends StatefulWidget {
-  const _MemberRow({
-    required this.user,
-    required this.permissions,
-    required this.isMe,
-    required this.onRemove,
-    required this.onElevate,
-    required this.onSuspend,
-    required this.onDemote,
-    required this.onRestore,
-    required this.onTrash,
-    required this.onPurge,
-    required this.cs,
-  });
-
-  final UsersData user;
-  final SystemPermissions permissions;
-  final bool isMe;
-  final VoidCallback onRemove;
-  final VoidCallback onElevate;
-  final VoidCallback onSuspend;
-  final VoidCallback onDemote;
-  final VoidCallback onRestore;
-  final VoidCallback onTrash;
-  final VoidCallback onPurge;
-  final ColorScheme cs;
-
-  @override
-  State<_MemberRow> createState() => _MemberRowState();
-}
-
-class _MemberRowState extends State<_MemberRow> {
-  bool _isHovering = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = widget.cs;
-    final isDesktop =
-        MediaQuery.sizeOf(context).width >= AppTheme.kMobileBreakpoint;
-    final isDark = cs.brightness == Brightness.dark;
-
-    final rowBg = _isHovering
-        ? cs.surfaceContainerHighest.withValues(alpha: isDark ? 0.5 : 0.3)
-        : isDark
-        ? cs.surface
-        : cs.surfaceContainerLowest;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: rowBg,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isDark
-              ? cs.outline.withValues(alpha: 0.5)
-              : cs.outlineVariant.withValues(alpha: 0.5),
-        ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onHover: (hovering) {
-            if (isDesktop) setState(() => _isHovering = hovering);
-          },
-          borderRadius: BorderRadius.circular(8),
-          onTap: () => _openRolesSheet(context),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                // ── Avatar with status dot ───────────────────────────────
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    UserAvatar(userId: widget.user.id, radius: 20),
-                    Positioned(
-                      bottom: -1,
-                      right: -1,
-                      child: StatusIndicator(
-                        status: widget.user.status,
-                        level: UserLevel.system,
-                        backgroundColor: rowBg,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 12),
-
-                // ── Name & phone ─────────────────────────────────────────
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.user.name,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: cs.onSurface,
-                          letterSpacing: 0.1,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        widget.user.phone,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w400,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.9),
-                        ),
-                      ),
-                      if (widget.isMe) ...[
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: cs.primary.withValues(alpha: 0.07),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(
-                              color: cs.primary.withValues(alpha: 0.5),
-                              width: 1,
-                            ),
-                          ),
-                          child: Text(
-                            'YOU',
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w600,
-                              color: cs.primary,
-                              letterSpacing: 0.8,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-
-                const SizedBox(width: 8),
-
-                // ── Actions ──────────────────────────────────────────────
-                if (isDesktop)
-                  _buildDesktopActions(cs)
-                else
-                  _buildMobileMenu(cs),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _openRolesSheet(BuildContext context) {
-    final isDesktop =
-        MediaQuery.sizeOf(context).width >= AppTheme.kMobileBreakpoint;
-
-    if (isDesktop) {
-      showDialog(
-        context: context,
-        builder: (_) => Dialog(
-          child: SizedBox(
-            width: 480,
-            child: _MemberRolesSheet(
-              user: widget.user,
-              permissions: widget.permissions,
-            ),
-          ),
-        ),
-      );
-    } else {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => _MemberRolesSheet(
-          user: widget.user,
-          permissions: widget.permissions,
-        ),
-      );
-    }
-  }
-
-  Widget _buildDesktopActions(ColorScheme cs) {
-    final isSuper = widget.permissions.level == UserLevel.super_;
-    final user = widget.user;
-    final canSuspend =
-        user.status != UserStatus.suspended &&
-        user.status != UserStatus.deleted;
-    final canRestore =
-        user.status == UserStatus.suspended ||
-        user.status == UserStatus.deleted;
-
-    return IgnorePointer(
-      ignoring: !_isHovering,
-      child: AnimatedOpacity(
-        opacity: _isHovering ? 1.0 : 0.0,
-        duration: const Duration(milliseconds: 150),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _ActionIcon(
-              icon: Icons.assignment_ind_outlined,
-              tooltip: 'View roles',
-              color: cs.onSurfaceVariant,
-              onPressed: () => _openRolesSheet(context),
-            ),
-            _ActionIcon(
-              icon: Icons.person_remove_outlined,
-              tooltip: 'Remove from system',
-              color: cs.onSurfaceVariant,
-              onPressed: widget.onRemove,
-            ),
-            _ActionIcon(
-              icon: Icons.arrow_upward_rounded,
-              tooltip: 'Promote',
-              color: cs.primary,
-              onPressed: widget.onElevate,
-            ),
-            _ActionIcon(
-              icon: Icons.arrow_downward_rounded,
-              tooltip: 'Demote',
-              color: cs.onSurfaceVariant,
-              onPressed: widget.onDemote,
-            ),
-            if (canSuspend)
-              _ActionIcon(
-                icon: Icons.block_outlined,
-                tooltip: 'Suspend',
-                color: const Color(0xFFFFB300),
-                onPressed: widget.onSuspend,
-              ),
-            if (canRestore)
-              _ActionIcon(
-                icon: Icons.restore_rounded,
-                tooltip: 'Restore',
-                color: Colors.teal,
-                onPressed: widget.onRestore,
-              ),
-            _ActionIcon(
-              icon: Icons.delete_outline_rounded,
-              tooltip: 'Trash',
-              color: cs.onSurfaceVariant,
-              onPressed: widget.onTrash,
-            ),
-            if (isSuper)
-              _ActionIcon(
-                icon: Icons.delete_forever_rounded,
-                tooltip: 'Purge',
-                color: cs.error,
-                onPressed: widget.onPurge,
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMobileMenu(ColorScheme cs) {
-    final isSuper = widget.permissions.level == UserLevel.super_;
-    final user = widget.user;
-    final canSuspend =
-        user.status != UserStatus.suspended &&
-        user.status != UserStatus.deleted;
-    final canRestore =
-        user.status == UserStatus.suspended ||
-        user.status == UserStatus.deleted;
-
-    return PopupMenuButton<String>(
-      icon: Icon(Icons.more_vert_rounded, size: 20, color: cs.onSurfaceVariant),
-      padding: EdgeInsets.zero,
-      color: cs.surfaceContainerHighest,
-      elevation: 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: cs.outlineVariant, width: 1),
-      ),
-      position: PopupMenuPosition.under,
-      onSelected: (val) {
-        switch (val) {
-          case 'roles':
-            _openRolesSheet(context);
-          case 'remove':
-            widget.onRemove();
-          case 'elevate':
-            widget.onElevate();
-          case 'demote':
-            widget.onDemote();
-          case 'suspend':
-            widget.onSuspend();
-          case 'restore':
-            widget.onRestore();
-          case 'trash':
-            widget.onTrash();
-          case 'purge':
-            widget.onPurge();
-        }
-      },
-      itemBuilder: (context) => [
-        _popupItem(
-          'roles',
-          Icons.assignment_ind_outlined,
-          'View roles',
-          cs.onSurface,
-          cs,
-        ),
-        _popupItem(
-          'remove',
-          Icons.person_remove_outlined,
-          'Remove',
-          cs.onSurface,
-          cs,
-        ),
-        _popupItem(
-          'elevate',
-          Icons.arrow_upward_rounded,
-          'Promote',
-          cs.primary,
-          cs,
-        ),
-        _popupItem(
-          'demote',
-          Icons.arrow_downward_rounded,
-          'Demote',
-          cs.onSurfaceVariant,
-          cs,
-        ),
-        if (canSuspend)
-          _popupItem(
-            'suspend',
-            Icons.block_outlined,
-            'Suspend',
-            const Color(0xFFFFB300),
-            cs,
-          ),
-        if (canRestore)
-          _popupItem(
-            'restore',
-            Icons.restore_rounded,
-            'Restore',
-            Colors.teal,
-            cs,
-          ),
-        _popupItem(
-          'trash',
-          Icons.delete_outline_rounded,
-          'Trash',
-          cs.onSurfaceVariant,
-          cs,
-        ),
-        if (isSuper)
-          _popupItem(
-            'purge',
-            Icons.delete_forever_rounded,
-            'Purge',
-            cs.error,
-            cs,
-          ),
-      ],
-    );
-  }
-
-  PopupMenuItem<String> _popupItem(
-    String value,
-    IconData icon,
-    String label,
-    Color color,
-    ColorScheme cs,
-  ) {
-    return PopupMenuItem(
-      value: value,
-      height: 40,
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(width: 12),
-          Text(label, style: TextStyle(fontSize: 13, color: color)),
-        ],
       ),
     );
   }
@@ -1222,7 +967,7 @@ class _MemberRolesSheetState extends State<_MemberRolesSheet> {
       ),
       decoration: BoxDecoration(
         color: cs.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
       ),
       child: content,
     );
@@ -1640,7 +1385,7 @@ class _AssignRoleSheetState extends State<_AssignRoleSheet> {
       ),
       decoration: BoxDecoration(
         color: cs.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
       ),
       child: inner,
     );
@@ -1783,38 +1528,6 @@ class _EligibleRoleRow extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Action icon button (desktop hover)
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _ActionIcon extends StatelessWidget {
-  const _ActionIcon({
-    required this.icon,
-    required this.tooltip,
-    required this.color,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final String tooltip;
-  final Color color;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return IconButton(
-      icon: Icon(icon),
-      iconSize: 18,
-      color: color,
-      onPressed: onPressed,
-      tooltip: tooltip,
-      visualDensity: VisualDensity.compact,
-      padding: const EdgeInsets.all(6),
-      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // List shimmer — loading placeholder
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1921,49 +1634,6 @@ class _ListShimmerState extends State<_ListShimmer>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Empty state
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.hasQuery, required this.cs});
-
-  final bool hasQuery;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.shield_outlined,
-              size: 40,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.4),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              hasQuery
-                  ? 'No members match your search.'
-                  : 'No system members yet.',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-                letterSpacing: 0.1,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Add Member sheet / modal
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -2047,7 +1717,7 @@ class _AddMemberSheetState extends State<AddMemberSheet> {
       ),
       decoration: BoxDecoration(
         color: cs.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

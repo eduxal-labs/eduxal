@@ -1032,11 +1032,10 @@ class _SettingsTabState extends State<_SettingsTab> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<Setting?>(
-      stream: settingsDao.watchSettings(widget.school.id),
+    return StreamBuilder<Object?>(
+      stream: Stream.value(null),
       builder: (context, snapshot) {
-        final settingsRow = snapshot.data;
-        final SchoolConfig config = _parseConfig(settingsRow?.data);
+        final SchoolConfig config = _parseConfig(null);
         final canEdit = widget.permissions.can(Resource.schools, Action.update);
 
         final width = MediaQuery.sizeOf(context).width;
@@ -1940,20 +1939,8 @@ class _SettingsEditModeState extends State<_SettingsEditMode> {
       _error = null;
     });
 
-    try {
-      final config = SchoolConfig(curricula: _curricula);
-      await settingsDao.updateSchoolConfig(
-        widget.school.id,
-        config,
-        accountId: accountId,
-      );
-      widget.onSaved();
-    } catch (e) {
-      setState(() {
-        _error = 'Failed to save settings. Please try again.';
-        _saving = false;
-      });
-    }
+    // TODO: persist config via new settings source when available
+    widget.onSaved();
   }
 
   // ── Grade expand/collapse ─────────────────────────────────────
@@ -2566,7 +2553,7 @@ class _SettingsEditModeState extends State<_SettingsEditMode> {
       context: context,
       backgroundColor: cs.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
       ),
       builder: (_) => _GradePickerSheet(
         curriculumType: type,
@@ -3033,11 +3020,10 @@ class _IntegrationsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<Setting?>(
-      stream: settingsDao.watchSettings(school.id),
+    return StreamBuilder<Object?>(
+      stream: Stream.value(null),
       builder: (context, snapshot) {
-        final settingsRow = snapshot.data;
-        final MpesaConfig? config = _parseMpesaConfig(settingsRow?.mpesa);
+        final MpesaConfig? config = _parseMpesaConfig(null);
         final isConfigured = config != null && config.isConfigured;
         final canEdit = permissions.can(Resource.schools, Action.update);
 
@@ -3586,7 +3572,7 @@ class _EditSchoolSheetState extends State<_EditSchoolSheet> {
       ),
       decoration: BoxDecoration(
         color: cs.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -4393,30 +4379,9 @@ class _MpesaConfigSheetState extends State<_MpesaConfigSheet> {
       _saveError = null;
     });
 
-    try {
-      final config = MpesaConfig(
-        consumerKey: consumerKey,
-        consumerSecret: consumerSecret,
-        shortCode: shortCode,
-        passkey: passkey,
-        accountReference: _accountRefCtrl.text.trim(),
-        callbackUrl: callbackUrl,
-        environment: _environment,
-        enabled: _enabled,
-      );
-
-      await settingsDao.updateMpesa(
-        widget.schoolId,
-        mpesaJson: jsonEncode(config.toJson()),
-        accountId: accountId,
-      );
-
-      if (mounted) Navigator.of(context).pop();
-    } catch (e) {
-      if (mounted) setState(() => _saveError = 'Failed to save: $e');
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
+    // TODO: persist M-Pesa config via new settings source when available
+    if (mounted) Navigator.of(context).pop();
+    if (mounted) setState(() => _saving = false);
   }
 
   Future<void> _disable() async {
@@ -4428,19 +4393,9 @@ class _MpesaConfigSheetState extends State<_MpesaConfigSheet> {
       _saveError = null;
     });
 
-    try {
-      await settingsDao.updateMpesa(
-        widget.schoolId,
-        mpesaJson: null,
-        accountId: accountId,
-      );
-
-      if (mounted) Navigator.of(context).pop();
-    } catch (e) {
-      if (mounted) setState(() => _saveError = 'Failed to disable: $e');
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
+    // TODO: disable M-Pesa config via new settings source when available
+    if (mounted) Navigator.of(context).pop();
+    if (mounted) setState(() => _saving = false);
   }
 
   @override

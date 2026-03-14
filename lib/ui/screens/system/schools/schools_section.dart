@@ -9,7 +9,9 @@ import '../../../../database/database.dart';
 import '../../../../database/tables/enums.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/edu_data_table.dart';
 import '../../../widgets/status_indicator.dart';
+
 import 'school_detail_screen.dart';
 
 /// The Schools data section of the system dashboard.
@@ -19,7 +21,6 @@ import 'school_detail_screen.dart';
 ///
 /// On **mobile** this is the body of the Schools tab.
 /// On **desktop** this is the content inside the Schools tab of the data area.
-/// [onCreateTap] is provided on desktop only — on mobile the FAB handles it.
 class SchoolsSection extends StatefulWidget {
   const SchoolsSection({super.key, required this.permissions});
 
@@ -37,7 +38,6 @@ class _SchoolsSectionState extends State<SchoolsSection> {
 
   final Set<SchoolStatus> _statusFilter = {};
   bool _filterExpanded = false;
-  final Set<String> _selectedIds = {};
 
   // ── Search debounce ────────────────────────────────────────────────────────
 
@@ -88,41 +88,6 @@ class _SchoolsSectionState extends State<SchoolsSection> {
   void _clearFilters() => setState(() => _statusFilter.clear());
 
   // ── Actions ────────────────────────────────────────────────────────────────
-
-  Future<void> _updateSchoolStatus(
-    SchoolsData school,
-    SchoolStatus newStatus,
-  ) async {
-    final accountId = cache.currentUser?.user.id;
-    if (accountId == null) return;
-    try {
-      await schoolsDao.updateSchoolStatus(
-        school.id,
-        newStatus,
-        accountId: accountId,
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '${school.name} — status updated to ${newStatus.name}.',
-            ),
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to update status: $e'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    }
-  }
 
   Future<void> _trashSchool(SchoolsData school) async {
     final confirmed = await showDialog<bool>(
@@ -222,12 +187,38 @@ class _SchoolsSectionState extends State<SchoolsSection> {
     );
   }
 
+  Future<void> _setStatus(
+    SchoolsData school,
+    SchoolStatus status,
+    String label,
+  ) async {
+    try {
+      final accountId = cache.currentUser?.user.id;
+      if (accountId == null) return;
+      await schoolsDao.updateSchoolStatus(
+        school.id,
+        status,
+        accountId: accountId,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('${school.name} $label')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to update status: $e')));
+      }
+    }
+  }
+
   // ── Build ───────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final isDark = cs.brightness == Brightness.dark;
 
     return StreamBuilder<List<SchoolsData>>(
       stream: schoolsDao.watchAllSchools(),
@@ -237,60 +228,18 @@ class _SchoolsSectionState extends State<SchoolsSection> {
 
         return Column(
           children: [
-            // ── Toolbar ────────────────────────────────────────────────────
-            if (_selectedIds.isNotEmpty)
-              Container(
-                height: 62,
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                color: cs.primaryContainer.withValues(
-                  alpha: isDark ? 0.2 : 0.3,
-                ),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded),
-                      onPressed: () => setState(() => _selectedIds.clear()),
-                      color: cs.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 16),
-                    Text(
-                      '${_selectedIds.length} selected',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: cs.onSurface,
-                      ),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline_rounded),
-                      onPressed: () {
-                        // TODO: Bulk delete
-                      },
-                      color: cs.error,
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.more_vert_rounded),
-                      onPressed: () {
-                        // TODO: Bulk actions
-                      },
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ],
-                ),
-              )
-            else
-              _Toolbar(
-                searchController: _searchController,
-                filterExpanded: _filterExpanded,
-                hasActiveFilters: _hasActiveFilters,
-                onToggleFilter: () =>
-                    setState(() => _filterExpanded = !_filterExpanded),
-                cs: cs,
-              ),
+            // ── Toolbar ──────────────────────────────────────────────────
+            _Toolbar(
+              searchController: _searchController,
+              filterExpanded: _filterExpanded,
+              hasActiveFilters: _hasActiveFilters,
+              onToggleFilter: () =>
+                  setState(() => _filterExpanded = !_filterExpanded),
+              cs: cs,
+            ),
 
-            // ── Filter panel ───────────────────────────────────────────────
-            if (_filterExpanded && _selectedIds.isEmpty)
+            // ── Filter panel ─────────────────────────────────────────────
+            if (_filterExpanded)
               _FilterPanel(
                 statusFilter: _statusFilter,
                 showDeleted: widget.permissions.canSeeDeleted,
@@ -304,56 +253,224 @@ class _SchoolsSectionState extends State<SchoolsSection> {
                 cs: cs,
               ),
 
-            // ── List ───────────────────────────────────────────────────────
+            // ── List ─────────────────────────────────────────────────────
             Expanded(
               child: !snapshot.hasData
                   ? const _ListShimmer()
-                  : filtered.isEmpty
-                  ? _EmptyState(
-                      hasQuery: _searchQuery.isNotEmpty || _hasActiveFilters,
-                      cs: cs,
-                    )
-                  : _SchoolList(
-                      schools: filtered,
-                      permissions: widget.permissions,
-                      selectedIds: _selectedIds,
-                      onTap: (s) {
-                        if (_selectedIds.isNotEmpty) {
-                          setState(() {
-                            if (_selectedIds.contains(s.id)) {
-                              _selectedIds.remove(s.id);
-                            } else {
-                              _selectedIds.add(s.id);
-                            }
-                          });
-                        } else {
-                          _openDetail(s);
-                        }
-                      },
-                      onLongPress: (s) {
-                        setState(() {
-                          _selectedIds.add(s.id);
-                        });
-                      },
-                      onToggleSelection: (s) {
-                        setState(() {
-                          if (_selectedIds.contains(s.id)) {
-                            _selectedIds.remove(s.id);
-                          } else {
-                            _selectedIds.add(s.id);
-                          }
-                        });
-                      },
-                      onTrash: (s) => _trashSchool(s),
-                      onPurge: (s) => _purgeSchool(s),
-                      onStatusChange: (s, status) =>
-                          _updateSchoolStatus(s, status),
-                      cs: cs,
+                  : SingleChildScrollView(
+                      child: EduDataTable<SchoolsData>(
+                        items: filtered,
+                        emptyIcon: Icons.school_outlined,
+                        emptyTitle: 'No schools found',
+                        emptySubtitle:
+                            _searchQuery.isNotEmpty || _hasActiveFilters
+                            ? 'No schools match your filters.'
+                            : 'Create a school to get started.',
+                        onItemTap: _openDetail,
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                        actions: (school) => [
+                          EduDataTableAction<SchoolsData>(
+                            icon: Icons.open_in_new_rounded,
+                            label: 'View',
+                            onTap: (s) => _openDetail(s),
+                          ),
+                          // ── Activate: if trial, suspended, or cancelled ──
+                          if (school.status == SchoolStatus.trial ||
+                              school.status == SchoolStatus.suspended ||
+                              school.status == SchoolStatus.cancelled)
+                            EduDataTableAction<SchoolsData>(
+                              icon: Icons.check_circle_outline_rounded,
+                              label: 'Activate',
+                              color: const Color(0xFF26A69A),
+                              onTap: (s) => _setStatus(
+                                s,
+                                SchoolStatus.active,
+                                'activated',
+                              ),
+                            ),
+                          // ── Suspend: if active or trial ──
+                          if (school.status == SchoolStatus.active ||
+                              school.status == SchoolStatus.trial)
+                            EduDataTableAction<SchoolsData>(
+                              icon: Icons.block_rounded,
+                              label: 'Suspend',
+                              color: const Color(0xFFFFB300),
+                              onTap: (s) => _setStatus(
+                                s,
+                                SchoolStatus.suspended,
+                                'suspended',
+                              ),
+                            ),
+                          // ── Restore: if deleted ──
+                          if (school.status == SchoolStatus.deleted)
+                            EduDataTableAction<SchoolsData>(
+                              icon: Icons.restore_rounded,
+                              label: 'Restore',
+                              color: const Color(0xFF26A69A),
+                              onTap: (s) => _setStatus(
+                                s,
+                                SchoolStatus.active,
+                                'restored',
+                              ),
+                            ),
+                          // ── Delete: if not already deleted ──
+                          if (school.status != SchoolStatus.deleted)
+                            EduDataTableAction<SchoolsData>(
+                              icon: Icons.delete_outline_rounded,
+                              label: 'Delete',
+                              isDestructive: true,
+                              onTap: (s) => _trashSchool(s),
+                            ),
+                          // ── Purge: super only ──
+                          if (widget.permissions.canSeeDeleted)
+                            EduDataTableAction<SchoolsData>(
+                              icon: Icons.delete_forever_rounded,
+                              label: 'Purge',
+                              isDestructive: true,
+                              onTap: (s) => _purgeSchool(s),
+                            ),
+                        ],
+                        columns: const [
+                          EduDataTableColumn(label: 'School', flex: 3),
+                          EduDataTableColumn(label: 'Status', flex: 1),
+                          EduDataTableColumn(label: 'Joined', flex: 1),
+                        ],
+                        cellBuilder: (context, school, index, isHovered) {
+                          final cs = Theme.of(context).colorScheme;
+                          return switch (index) {
+                            0 => _SchoolIdentityCell(school: school),
+                            1 => _SchoolStatusBadge(status: school.status),
+                            2 => Text(
+                              _formatRelativeDate(school.created.toInt()),
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w400,
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
+                            _ => const SizedBox.shrink(),
+                          };
+                        },
+                      ),
                     ),
             ),
           ],
         );
       },
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// School status badge — compact chip
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SchoolStatusBadge extends StatelessWidget {
+  const _SchoolStatusBadge({required this.status});
+
+  final SchoolStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    final (label, color) = switch (status) {
+      SchoolStatus.trial => ('Trial', const Color(0xFF42A5F5)),
+      SchoolStatus.active => ('Active', const Color(0xFF26A69A)),
+      SchoolStatus.suspended => ('Suspended', const Color(0xFFFFB300)),
+      SchoolStatus.cancelled => ('Cancelled', cs.onSurfaceVariant),
+      SchoolStatus.deleted => ('Deleted', cs.error),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: isDark ? 0.12 : 0.08),
+        borderRadius: BorderRadius.circular(4.0),
+        border: Border.all(
+          color: color.withValues(alpha: isDark ? 0.3 : 0.2),
+          width: 0.5,
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          color: color,
+          letterSpacing: 0.2,
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// School row content — identity cell with logo + status dot + name + motto
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SchoolIdentityCell extends StatelessWidget {
+  const _SchoolIdentityCell({required this.school});
+
+  final SchoolsData school;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Row(
+      children: [
+        // ── Logo with status dot overlay ─────────────────────────────
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            _SchoolLogo(schoolId: school.id, cs: cs),
+            Positioned(
+              bottom: -1,
+              right: -1,
+              child: SchoolStatusDot(
+                status: school.status,
+                backgroundColor: cs.surface,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(width: 12),
+
+        // ── Name + motto ──────────────────────────────────────────────
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                school.name,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurface,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (school.motto != null && school.motto!.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  school.motto!,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.8),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -491,51 +608,10 @@ class _ToolbarIcon extends StatelessWidget {
   }
 }
 
-/*
-class _CreateButton extends StatelessWidget {
-  const _CreateButton({required this.onTap, required this.cs});
-
-  final VoidCallback onTap;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppTheme.brandGreen,
-      borderRadius: BorderRadius.circular(AppTheme.kRadius),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppTheme.kRadius),
-        child: Container(
-          height: 38,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.add_business_outlined, size: 16, color: Colors.white),
-              const SizedBox(width: 6),
-              Text(
-                'Create school',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  color: Colors.white,
-                  letterSpacing: 0.1,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
-// Filter panel
+// Filter panel — status names only (no badges)
 // ─────────────────────────────────────────────────────────────────────────────
 
-*/
 class _FilterPanel extends StatelessWidget {
   const _FilterPanel({
     required this.statusFilter,
@@ -697,7 +773,7 @@ class _ListShimmerState extends State<_ListShimmer>
         return ListView.separated(
           padding: const EdgeInsets.symmetric(vertical: 8),
           itemCount: 6,
-          separatorBuilder: (_, _) => Divider(
+          separatorBuilder: (_, __) => Divider(
             height: 1,
             thickness: 0.5,
             indent: 52,
@@ -765,438 +841,6 @@ class _ListShimmerState extends State<_ListShimmer>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// School list
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _SchoolList extends StatelessWidget {
-  const _SchoolList({
-    required this.schools,
-    required this.permissions,
-    required this.selectedIds,
-    required this.onTap,
-    required this.onLongPress,
-    required this.onToggleSelection,
-    required this.onTrash,
-    required this.onPurge,
-    required this.onStatusChange,
-    required this.cs,
-  });
-
-  final List<SchoolsData> schools;
-  final SystemPermissions permissions;
-  final Set<String> selectedIds;
-  final void Function(SchoolsData) onTap;
-  final void Function(SchoolsData) onLongPress;
-  final void Function(SchoolsData) onToggleSelection;
-  final void Function(SchoolsData) onTrash;
-  final void Function(SchoolsData) onPurge;
-  final void Function(SchoolsData, SchoolStatus) onStatusChange;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    final selectionMode = selectedIds.isNotEmpty;
-
-    return ListView.separated(
-      padding: const EdgeInsets.only(bottom: 24, top: 8),
-      itemCount: schools.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        final s = schools[index];
-        final isSelected = selectedIds.contains(s.id);
-
-        return _SchoolRow(
-          school: s,
-          permissions: permissions,
-          isSelected: isSelected,
-          selectionMode: selectionMode,
-          onTap: () => onTap(s),
-          onLongPress: () => onLongPress(s),
-          onToggleSelection: () => onToggleSelection(s),
-          onTrash: () => onTrash(s),
-          onPurge: () => onPurge(s),
-          onStatusChange: (status) => onStatusChange(s, status),
-          cs: cs,
-        );
-      },
-    );
-  }
-}
-
-class _SchoolRow extends StatefulWidget {
-  const _SchoolRow({
-    required this.school,
-    required this.permissions,
-    required this.isSelected,
-    required this.selectionMode,
-    required this.onTap,
-    required this.onLongPress,
-    required this.onToggleSelection,
-    required this.onTrash,
-    required this.onPurge,
-    required this.onStatusChange,
-    required this.cs,
-  });
-
-  final SchoolsData school;
-  final SystemPermissions permissions;
-  final bool isSelected;
-  final bool selectionMode;
-  final VoidCallback onTap;
-  final VoidCallback onLongPress;
-  final VoidCallback onToggleSelection;
-  final VoidCallback onTrash;
-  final VoidCallback onPurge;
-  final void Function(SchoolStatus) onStatusChange;
-  final ColorScheme cs;
-
-  @override
-  State<_SchoolRow> createState() => _SchoolRowState();
-}
-
-class _SchoolRowState extends State<_SchoolRow> {
-  bool _isHovering = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = widget.cs;
-    final isDesktop =
-        MediaQuery.sizeOf(context).width >= AppTheme.kMobileBreakpoint;
-    final isDark = cs.brightness == Brightness.dark;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: widget.isSelected
-            ? cs.primaryContainer.withValues(alpha: isDark ? 0.2 : 0.3)
-            : _isHovering && !widget.selectionMode
-            ? cs.surfaceContainerHighest.withValues(alpha: isDark ? 0.5 : 0.3)
-            : isDark
-            ? cs.surface
-            : cs.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: widget.isSelected
-              ? cs.primary
-              : isDark
-              ? cs.outline.withValues(alpha: 0.5)
-              : cs.outlineVariant.withValues(alpha: 0.5),
-        ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: widget.onTap,
-          onLongPress: widget.onLongPress,
-          onHover: (hovering) {
-            if (isDesktop) {
-              setState(() => _isHovering = hovering);
-            }
-          },
-          borderRadius: BorderRadius.circular(8),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                if (widget.selectionMode || (_isHovering && isDesktop)) ...[
-                  Checkbox(
-                    value: widget.isSelected,
-                    onChanged: (_) => widget.onToggleSelection(),
-                    visualDensity: VisualDensity.compact,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                ],
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    _SchoolLogo(schoolId: widget.school.id, cs: cs),
-                    Positioned(
-                      bottom: -2,
-                      right: -2,
-                      child: SchoolStatusDot(
-                        status: widget.school.status,
-                        backgroundColor: widget.isSelected
-                            ? cs.primaryContainer.withValues(
-                                alpha: isDark ? 0.2 : 0.3,
-                              )
-                            : _isHovering && !widget.selectionMode
-                            ? cs.surfaceContainerHighest.withValues(
-                                alpha: isDark ? 0.5 : 0.3,
-                              )
-                            : isDark
-                            ? cs.surface
-                            : cs.surfaceContainerLowest,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.school.name,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: cs.onSurface,
-                          letterSpacing: 0.1,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (widget.school.motto != null) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          widget.school.motto!,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.9),
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                if (!widget.selectionMode) ...[
-                  const SizedBox(width: 12),
-                  if (isDesktop)
-                    IgnorePointer(
-                      ignoring: !_isHovering,
-                      child: AnimatedOpacity(
-                        opacity: _isHovering ? 1.0 : 0.0,
-                        duration: const Duration(milliseconds: 150),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit_outlined),
-                              iconSize: 18,
-                              color: cs.onSurfaceVariant,
-                              onPressed: widget.onTap,
-                              tooltip: 'Edit',
-                            ),
-                            // Status transition actions
-                            ..._statusActions(widget.school.status).map(
-                              (a) => IconButton(
-                                icon: Icon(a.icon, size: 18, color: a.color),
-                                onPressed: () =>
-                                    widget.onStatusChange(a.target),
-                                tooltip: a.label,
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline_rounded),
-                              iconSize: 18,
-                              color: cs.onSurfaceVariant,
-                              onPressed: widget.onTrash,
-                              tooltip: 'Trash',
-                            ),
-                            if (widget.permissions.level == UserLevel.super_)
-                              IconButton(
-                                icon: const Icon(Icons.delete_forever_rounded),
-                                iconSize: 18,
-                                color: cs.error,
-                                onPressed: widget.onPurge,
-                                tooltip: 'Purge',
-                              ),
-                          ],
-                        ),
-                      ),
-                    )
-                  else
-                    PopupMenuButton<String>(
-                      icon: Icon(
-                        Icons.more_vert_rounded,
-                        size: 20,
-                        color: cs.onSurfaceVariant,
-                      ),
-                      padding: EdgeInsets.zero,
-                      color: cs.surfaceContainerHighest,
-                      elevation: 1,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: BorderSide(color: cs.outlineVariant, width: 1),
-                      ),
-                      position: PopupMenuPosition.under,
-                      onSelected: (val) {
-                        if (val == 'edit') {
-                          widget.onTap();
-                        } else if (val == 'trash') {
-                          widget.onTrash();
-                        } else if (val == 'purge') {
-                          widget.onPurge();
-                        } else {
-                          // Status transition values are encoded as
-                          // 'status_<index>' where index is the enum index.
-                          final status = SchoolStatus.values.firstWhere(
-                            (s) => 'status_${s.index}' == val,
-                            orElse: () => widget.school.status,
-                          );
-                          if ('status_${status.index}' == val) {
-                            widget.onStatusChange(status);
-                          }
-                        }
-                      },
-                      itemBuilder: (context) => [
-                        PopupMenuItem(
-                          value: 'edit',
-                          height: 40,
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.edit_outlined,
-                                size: 18,
-                                color: cs.onSurface,
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                'Edit',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: cs.onSurface,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        // Status transition actions
-                        ..._statusActions(widget.school.status).map(
-                          (a) => PopupMenuItem<String>(
-                            value: 'status_${a.target.index}',
-                            height: 40,
-                            child: Row(
-                              children: [
-                                Icon(a.icon, size: 18, color: a.color),
-                                const SizedBox(width: 12),
-                                Text(
-                                  a.label,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: a.color,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        PopupMenuItem(
-                          value: 'trash',
-                          height: 40,
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.delete_outline_rounded,
-                                size: 18,
-                                color: cs.onSurfaceVariant,
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                'Trash',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: cs.onSurface,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (widget.permissions.level == UserLevel.super_)
-                          PopupMenuItem(
-                            value: 'purge',
-                            height: 40,
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.delete_forever_rounded,
-                                  size: 18,
-                                  color: cs.error,
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  'Purge',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: cs.error,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
-                    ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Status action descriptor for _SchoolRowState
-typedef _StatusAction = ({
-  SchoolStatus target,
-  String label,
-  IconData icon,
-  Color color,
-});
-
-List<_StatusAction> _statusActions(SchoolStatus status) {
-  const green = Color(0xFF4CAF50);
-  const amber = Color(0xFFFF8F00);
-  return switch (status) {
-    SchoolStatus.trial => [
-      (
-        target: SchoolStatus.active,
-        label: 'Activate',
-        icon: Icons.check_circle_outline_rounded,
-        color: green,
-      ),
-      (
-        target: SchoolStatus.suspended,
-        label: 'Suspend',
-        icon: Icons.pause_circle_outline_rounded,
-        color: amber,
-      ),
-    ],
-    SchoolStatus.active => [
-      (
-        target: SchoolStatus.suspended,
-        label: 'Suspend',
-        icon: Icons.pause_circle_outline_rounded,
-        color: amber,
-      ),
-    ],
-    SchoolStatus.cancelled => [
-      (
-        target: SchoolStatus.active,
-        label: 'Reactivate',
-        icon: Icons.check_circle_outline_rounded,
-        color: green,
-      ),
-    ],
-    SchoolStatus.suspended => [
-      (
-        target: SchoolStatus.active,
-        label: 'Reactivate',
-        icon: Icons.check_circle_outline_rounded,
-        color: green,
-      ),
-    ],
-    SchoolStatus.deleted => [],
-  };
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // School logo widget — loads from FileCache, falls back to placeholder
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1245,42 +889,17 @@ class _SchoolLogo extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Empty state
+// Relative date helper
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.hasQuery, required this.cs});
-
-  final bool hasQuery;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.school_outlined,
-              size: 40,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.4),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              hasQuery ? 'No schools match your search.' : 'No schools yet.',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-                letterSpacing: 0.1,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+String _formatRelativeDate(int? epochMs) {
+  if (epochMs == null) return '—';
+  final date = DateTime.fromMillisecondsSinceEpoch(epochMs);
+  final now = DateTime.now();
+  final diff = now.difference(date);
+  if (diff.inDays < 1) return 'Today';
+  if (diff.inDays == 1) return '1d ago';
+  if (diff.inDays < 30) return '${diff.inDays}d ago';
+  if (diff.inDays < 365) return '${(diff.inDays / 30).floor()}mo ago';
+  return '${(diff.inDays / 365).floor()}y ago';
 }

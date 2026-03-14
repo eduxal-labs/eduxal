@@ -639,6 +639,24 @@ IconData _iconForAction(SyncAction action) => switch (action) {
   SyncAction.createDiscount ||
   SyncAction.updateDiscount ||
   SyncAction.deleteDiscount => Icons.local_offer_outlined,
+  // Subjects (global catalog)
+  SyncAction.createSubject ||
+  SyncAction.updateSubject ||
+  SyncAction.deleteSubject => Icons.menu_book_outlined,
+  // Topics (global catalog)
+  SyncAction.createTopic ||
+  SyncAction.updateTopic ||
+  SyncAction.deleteTopic => Icons.list_outlined,
+  // Streams (per-school)
+  SyncAction.createStream ||
+  SyncAction.updateStream ||
+  SyncAction.deleteStream => Icons.linear_scale_outlined,
+  // M-Pesa (per-school)
+  SyncAction.createMpesa ||
+  SyncAction.updateMpesa ||
+  SyncAction.deleteMpesa => Icons.payments_outlined,
+  // Exam Grades (junction)
+  SyncAction.addExamGrade || SyncAction.removeExamGrade => Icons.grade_outlined,
 };
 
 String _relativeTime(DateTime time) {

@@ -12,6 +12,7 @@ import '../../../../models/permissions.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/animated_save_button.dart';
+import '../../../widgets/edu_data_table.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PlansSection — standalone plans management widget
@@ -30,8 +31,6 @@ class PlansSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     return StreamBuilder<List<Plan>>(
       stream: plansDao.watchAllPlans(),
       builder: (context, snapshot) {
@@ -55,49 +54,90 @@ class PlansSection extends StatelessWidget {
             )
             .toList();
 
-        if (plans.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.credit_card_outlined,
-                    size: 40,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.35),
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    'No plans yet',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                      letterSpacing: 0.1,
-                    ),
-                  ),
-                ],
-              ),
+        return EduDataTable<Plan>(
+          items: plans,
+          emptyIcon: Icons.credit_card_outlined,
+          emptyTitle: 'No plans yet',
+          emptySubtitle: 'Create a subscription plan to get started.',
+          onItemTap: (plan) => _openPlanDetail(context, plan),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          actions: (plan) => [
+            EduDataTableAction<Plan>(
+              icon: Icons.edit_outlined,
+              label: 'Edit',
+              onTap: (p) => _openPlanDetail(context, p),
             ),
-          );
-        }
-
-        return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-          itemCount: plans.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 10),
-          itemBuilder: (context, index) {
-            final plan = plans[index];
-            return _PlanCard(
-              plan: plan,
-              permissions: permissions,
-              onTap: () => _openPlanDetail(context, plan),
-            );
+            if (plan.status != PlanStatus.deleted &&
+                permissions.can(Resource.plans, Action.delete))
+              EduDataTableAction<Plan>(
+                icon: Icons.delete_outline_rounded,
+                label: 'Delete',
+                isDestructive: true,
+                onTap: (p) => _deletePlan(context, p),
+              ),
+            if (plan.status == PlanStatus.deleted && permissions.canSeeDeleted)
+              EduDataTableAction<Plan>(
+                icon: Icons.delete_forever_rounded,
+                label: 'Purge',
+                isDestructive: true,
+                onTap: (p) => _purgePlan(context, p),
+              ),
+          ],
+          columns: const [
+            EduDataTableColumn(label: 'Plan', flex: 3),
+            EduDataTableColumn(label: 'Status', flex: 1),
+          ],
+          cellBuilder: (context, plan, index, isHovered) {
+            final cs = Theme.of(context).colorScheme;
+            return switch (index) {
+              0 => _PlanIdentityCell(plan: plan),
+              1 => _PlanStatusBadge(status: plan.status, cs: cs),
+              _ => const SizedBox.shrink(),
+            };
           },
         );
       },
     );
+  }
+
+  Future<void> _deletePlan(BuildContext context, Plan plan) async {
+    final accountId = cache.currentUser?.user.id;
+    if (accountId == null) return;
+    try {
+      await plansDao.updatePlanStatus(
+        plan.id,
+        PlanStatus.deleted,
+        accountId: accountId,
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete plan: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _purgePlan(BuildContext context, Plan plan) async {
+    final confirmed = await _showPurgeDialog(context, plan.name);
+    if (!confirmed) return;
+    final accountId = cache.currentUser?.user.id;
+    if (accountId == null) return;
+    try {
+      await plansDao.purgePlan(plan.id, accountId: accountId);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to purge plan: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   void _openPlanDetail(BuildContext context, Plan plan) {
@@ -106,6 +146,154 @@ class PlansSection extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _PlanDetailSheet(plan: plan, permissions: permissions),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Plan row — data-table row content
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PlanIdentityCell extends StatelessWidget {
+  const _PlanIdentityCell({required this.plan});
+
+  final Plan plan;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    // Parse grade level label.
+    final levelText = gradeLabel(plan.levels);
+
+    // Parse grade count.
+    int gradeCount = 0;
+    final levelsVal = plan.levels;
+    if (levelsVal != 0) {
+      for (int i = 0; i < 32; i++) {
+        if ((levelsVal >> i) & 1 == 1) gradeCount++;
+      }
+    }
+
+    return Row(
+      children: [
+        // ── Plan icon ────────────────────────────────────────────────────
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: cs.primary.withValues(alpha: isDark ? 0.14 : 0.08),
+            borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+          ),
+          child: Icon(
+            Icons.credit_card_outlined,
+            size: 16,
+            color: cs.primary.withValues(alpha: isDark ? 0.85 : 0.7),
+          ),
+        ),
+        const SizedBox(width: 12),
+
+        // ── Name + price ─────────────────────────────────────────────────
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                plan.name,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurface,
+                  letterSpacing: 0.1,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'KES ${plan.amount.toStringAsFixed(0)}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.8),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+
+        // ── Grade count badge ────────────────────────────────────────────
+        if (gradeCount > 0)
+          Container(
+            margin: const EdgeInsets.only(right: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+              border: Border.all(
+                color: isDark
+                    ? cs.outline.withValues(alpha: 0.5)
+                    : cs.outlineVariant,
+                width: 1,
+              ),
+            ),
+            child: Text(
+              levelText,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Plan status badge — compact inline chip
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PlanStatusBadge extends StatelessWidget {
+  const _PlanStatusBadge({required this.status, required this.cs});
+
+  final PlanStatus status;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color) = switch (status) {
+      PlanStatus.active => ('Active', const Color(0xFF26A69A)),
+      PlanStatus.pending => ('Pending', cs.onSurfaceVariant),
+      PlanStatus.suspended => ('Suspended', const Color(0xFFFF8F00)),
+      PlanStatus.deleted => ('Deleted', cs.error),
+    };
+    final isDark = cs.brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: isDark ? 0.15 : 0.10),
+        borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+        border: Border.all(
+          color: color.withValues(alpha: isDark ? 0.4 : 0.3),
+          width: 1,
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w400,
+          color: color.withValues(alpha: isDark ? 0.9 : 0.85),
+          letterSpacing: 0.1,
+        ),
+      ),
     );
   }
 }
@@ -1401,7 +1589,7 @@ class _PlanDetailSheetState extends State<_PlanDetailSheet> {
       ),
       decoration: BoxDecoration(
         color: cs.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

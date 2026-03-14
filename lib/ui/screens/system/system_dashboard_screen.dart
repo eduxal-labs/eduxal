@@ -12,7 +12,6 @@ import '../notifications/notifications_page.dart';
 import 'home/system_stats_section.dart';
 import 'roles/roles_section.dart';
 import 'schools/schools_section.dart';
-import 'plans/plans_section.dart';
 
 import 'users/invite_user_sheet.dart';
 import 'users/users_section.dart';
@@ -26,13 +25,11 @@ import 'members/members_section.dart';
 
 const int _kTabHome = 0;
 const int _kTabMembers = 2;
-const int _kTabPlans = 5;
 
 /// The fully-functional system dashboard screen.
 ///
 /// **Mobile** (width < [AppTheme.kMobileBreakpoint]):
-/// - Icon-only [TabBar] with 6 tabs: Home, Users, Members, Schools, Roles,
-///   Plans.
+/// - Icon-only [TabBar] with 5 tabs: Home, Users, Members, Schools, Roles.
 /// - Inline back-button row above the tab bar.
 /// - Expandable FAB (create actions) on tabs that support creation.
 ///
@@ -60,13 +57,18 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
   /// FAB expanded state (mobile only).
   bool _fabExpanded = false;
 
+  /// Tracks the current layout mode. Updated via LayoutBuilder so that
+  /// crossing the breakpoint does NOT tear down the widget tree (preserving
+  /// any pushed routes like role detail, school detail, etc.).
+  bool _isMobile = false;
+
   /// Scaffold key — used for scaffold access.
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  /// Mobile tab controller (6 tabs).
+  /// Mobile tab controller (5 tabs).
   late final TabController _mobileTabController;
 
-  /// Desktop tab controller (Users=0, Members=1, Schools=2, Roles=3, Plans=4).
+  /// Desktop tab controller (Users=0, Members=1, Schools=2, Roles=3).
   late final TabController _desktopTabController;
 
   /// Entrance animation.
@@ -79,9 +81,9 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
   @override
   void initState() {
     super.initState();
-    _mobileTabController = TabController(length: 6, vsync: this);
+    _mobileTabController = TabController(length: 5, vsync: this);
     _mobileTabController.addListener(_onMobileTabChanged);
-    _desktopTabController = TabController(length: 5, vsync: this);
+    _desktopTabController = TabController(length: 4, vsync: this);
 
     _entranceController = AnimationController(
       vsync: this,
@@ -169,15 +171,14 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
 
   bool get _showFab {
     final tab = _mobileTabController.index;
-    // FAB on: Users, Members, Schools, Roles, Plans.
+    // FAB on: Users, Members, Schools, Roles.
     if (tab == _kTabHome) {
       return false;
     }
     return _permissions.can(Resource.users, Action.create) ||
         _permissions.can(Resource.users, Action.update) ||
         _permissions.can(Resource.schools, Action.create) ||
-        _permissions.can(Resource.roles, Action.create) ||
-        _permissions.can(Resource.plans, Action.create);
+        _permissions.can(Resource.roles, Action.create);
   }
 
   void _toggleFab() => setState(() => _fabExpanded = !_fabExpanded);
@@ -222,140 +223,155 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final isMobile = width < AppTheme.kMobileBreakpoint;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final newIsMobile = constraints.maxWidth < AppTheme.kMobileBreakpoint;
+        if (newIsMobile != _isMobile) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _isMobile = newIsMobile);
+          });
+        }
+        return GestureDetector(
+          onTap: _collapseFab,
+          child: _buildLayout(context, newIsMobile),
+        );
+      },
+    );
+  }
 
-    return GestureDetector(
-      onTap: _collapseFab,
-      child: isMobile ? _buildMobile(context) : _buildDesktop(context),
+  // ── Unified layout — single Scaffold, swappable chrome ─────────────────────
+
+  Widget _buildLayout(BuildContext context, bool isMobile) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Scaffold(
+      key: _scaffoldKey,
+      backgroundColor: cs.surfaceContainerLowest,
+      body: isMobile
+          ? _buildMobileBody(context, cs)
+          : _buildDesktopBody(context, cs),
+      floatingActionButton: isMobile && _showFab ? _buildFab(context) : null,
     );
   }
 
   // ── Mobile layout ──────────────────────────────────────────────────────────
 
-  Widget _buildMobile(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+  Widget _buildMobileBody(BuildContext context, ColorScheme cs) {
     final isDark = cs.brightness == Brightness.dark;
 
-    return Scaffold(
-      key: _scaffoldKey,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ── Inline back-button row (stable, not animated) ────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.of(context).pop(),
-                    behavior: HitTestBehavior.opaque,
-                    child: Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: Icon(
-                        Icons.chevron_left_rounded,
-                        size: 24,
-                        color: cs.onSurface,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'System',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w300,
+    return SafeArea(
+      child: Column(
+        children: [
+          // ── Inline back-button row (stable, not animated) ────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.chevron_left_rounded,
+                      size: 24,
                       color: cs.onSurface,
-                      letterSpacing: -0.3,
                     ),
                   ),
-                  const Spacer(),
-                  const SyncIndicator(),
-                  const SizedBox(width: 6),
-                  _UserMenuAnchor(cs: cs, openUpward: false),
-                ],
-              ),
-            ),
-            // ── Icon-only tab bar ────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: Container(
-                height: 36,
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHighest.withValues(
-                    alpha: isDark ? 0.7 : 0.5,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'System',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w300,
+                    color: cs.onSurface,
+                    letterSpacing: -0.3,
                   ),
-                  borderRadius: BorderRadius.circular(8),
+                ),
+                const Spacer(),
+                const SyncIndicator(),
+                const SizedBox(width: 6),
+                _UserMenuAnchor(cs: cs, openUpward: false),
+              ],
+            ),
+          ),
+          // ── Icon-only tab bar ────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
+            child: Container(
+              height: 36,
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest.withValues(
+                  alpha: isDark ? 0.7 : 0.5,
+                ),
+                borderRadius: BorderRadius.circular(8),
+                border: isDark
+                    ? Border.all(
+                        color: cs.outlineVariant.withValues(alpha: 0.3),
+                        width: 1,
+                      )
+                    : null,
+              ),
+              child: TabBar(
+                controller: _mobileTabController,
+                isScrollable: false,
+                dividerColor: Colors.transparent,
+                indicatorSize: TabBarIndicatorSize.tab,
+                indicator: BoxDecoration(
+                  color: cs.surface,
+                  borderRadius: BorderRadius.circular(6),
                   border: isDark
                       ? Border.all(
-                          color: cs.outlineVariant.withValues(alpha: 0.3),
+                          color: cs.outlineVariant.withValues(alpha: 0.4),
                           width: 1,
                         )
                       : null,
-                ),
-                child: TabBar(
-                  controller: _mobileTabController,
-                  isScrollable: false,
-                  dividerColor: Colors.transparent,
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  indicator: BoxDecoration(
-                    color: cs.surface,
-                    borderRadius: BorderRadius.circular(6),
-                    border: isDark
-                        ? Border.all(
-                            color: cs.outlineVariant.withValues(alpha: 0.4),
-                            width: 1,
-                          )
-                        : null,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(
-                          alpha: isDark ? 0.12 : 0.04,
-                        ),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(
+                        alpha: isDark ? 0.12 : 0.04,
                       ),
-                    ],
-                  ),
-                  labelColor: cs.onSurface,
-                  unselectedLabelColor: cs.onSurfaceVariant,
-                  labelPadding: EdgeInsets.zero,
-                  tabs: const [
-                    Tab(icon: Icon(Icons.bar_chart_rounded, size: 18)),
-                    Tab(icon: Icon(Icons.people_outline_rounded, size: 18)),
-                    Tab(icon: Icon(Icons.shield_outlined, size: 18)),
-                    Tab(icon: Icon(Icons.school_outlined, size: 18)),
-                    Tab(icon: Icon(Icons.verified_user_outlined, size: 18)),
-                    Tab(icon: Icon(Icons.credit_card_outlined, size: 18)),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                labelColor: cs.onSurface,
+                unselectedLabelColor: cs.onSurfaceVariant,
+                labelPadding: EdgeInsets.zero,
+                tabs: const [
+                  Tab(icon: Icon(Icons.bar_chart_rounded, size: 18)),
+                  Tab(icon: Icon(Icons.people_outline_rounded, size: 18)),
+                  Tab(icon: Icon(Icons.shield_outlined, size: 18)),
+                  Tab(icon: Icon(Icons.school_outlined, size: 18)),
+                  Tab(icon: Icon(Icons.verified_user_outlined, size: 18)),
+                ],
+              ),
+            ),
+          ),
+          // ── Animated tab content ─────────────────────────────────────
+          Expanded(
+            child: SlideTransition(
+              position: _slideUp,
+              child: FadeTransition(
+                opacity: _fadeIn,
+                child: TabBarView(
+                  controller: _mobileTabController,
+                  children: [
+                    SystemStatsSection(permissions: _permissions),
+                    UsersSection(permissions: _permissions),
+                    MembersSection(permissions: _permissions),
+                    SchoolsSection(permissions: _permissions),
+                    RolesSection(permissions: _permissions),
                   ],
                 ),
               ),
             ),
-            // ── Animated tab content ─────────────────────────────────────
-            Expanded(
-              child: SlideTransition(
-                position: _slideUp,
-                child: FadeTransition(
-                  opacity: _fadeIn,
-                  child: TabBarView(
-                    controller: _mobileTabController,
-                    children: [
-                      SystemStatsSection(permissions: _permissions),
-                      UsersSection(permissions: _permissions),
-                      MembersSection(permissions: _permissions),
-                      SchoolsSection(permissions: _permissions),
-                      RolesSection(permissions: _permissions),
-                      PlansSection(permissions: _permissions),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
-      floatingActionButton: _showFab ? _buildFab(context) : null,
     );
   }
 
@@ -369,19 +385,6 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
     final canAddMember = _permissions.can(Resource.users, Action.update);
     final canCreateSchool = _permissions.can(Resource.schools, Action.create);
     final canCreateRole = _permissions.can(Resource.roles, Action.create);
-    final canCreatePlan = _permissions.can(Resource.plans, Action.create);
-
-    // Plans tab (index 6) — only the createPlan action is relevant.
-    if (tab == _kTabPlans) {
-      if (!canCreatePlan) return const SizedBox.shrink();
-      return FloatingActionButton.small(
-        heroTag: 'fab_system_plans',
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        onPressed: () => openCreatePlan(context, _permissions),
-        child: const Icon(Icons.add_rounded, size: 20),
-      );
-    }
-
     // Members tab (index 2) — only the addMember action is relevant.
     if (tab == _kTabMembers) {
       if (!canAddMember) return const SizedBox.shrink();
@@ -479,57 +482,51 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
 
   // ── Desktop layout ─────────────────────────────────────────────────────────
 
-  Widget _buildDesktop(BuildContext context) {
-    return Scaffold(
-      key: _scaffoldKey,
-      body: SlideTransition(
-        position: _slideUp,
-        child: FadeTransition(
-          opacity: _fadeIn,
-          child: _DesktopBody(
-            tabController: _desktopTabController,
-            permissions: _permissions,
-            accountId: cache.currentUser?.user.id,
-            onInviteUser: _permissions.can(Resource.users, Action.create)
-                ? () => showDialog(
-                    context: context,
-                    builder: (_) => Dialog(
-                      child: SizedBox(
-                        width: 480,
-                        child: InviteUserSheet(permissions: _permissions),
-                      ),
+  Widget _buildDesktopBody(BuildContext context, ColorScheme cs) {
+    return SlideTransition(
+      position: _slideUp,
+      child: FadeTransition(
+        opacity: _fadeIn,
+        child: _DesktopBody(
+          tabController: _desktopTabController,
+          permissions: _permissions,
+          accountId: cache.currentUser?.user.id,
+          onInviteUser: _permissions.can(Resource.users, Action.create)
+              ? () => showDialog(
+                  context: context,
+                  builder: (_) => Dialog(
+                    child: SizedBox(
+                      width: 480,
+                      child: InviteUserSheet(permissions: _permissions),
                     ),
-                  )
-                : null,
-            onAddMember: _permissions.can(Resource.users, Action.update)
-                ? _openAddMemberModal
-                : null,
-            onCreateSchool: _permissions.can(Resource.schools, Action.create)
-                ? () => showDialog(
-                    context: context,
-                    builder: (_) => Dialog(
-                      child: SizedBox(
-                        width: 520,
-                        child: CreateSchoolSheet(permissions: _permissions),
-                      ),
+                  ),
+                )
+              : null,
+          onAddMember: _permissions.can(Resource.users, Action.update)
+              ? _openAddMemberModal
+              : null,
+          onCreateSchool: _permissions.can(Resource.schools, Action.create)
+              ? () => showDialog(
+                  context: context,
+                  builder: (_) => Dialog(
+                    child: SizedBox(
+                      width: 520,
+                      child: CreateSchoolSheet(permissions: _permissions),
                     ),
-                  )
-                : null,
-            onCreateRole: _permissions.can(Resource.roles, Action.create)
-                ? () => showDialog(
-                    context: context,
-                    builder: (_) => Dialog(
-                      child: SizedBox(
-                        width: 480,
-                        child: CreateRoleSheet(permissions: _permissions),
-                      ),
+                  ),
+                )
+              : null,
+          onCreateRole: _permissions.can(Resource.roles, Action.create)
+              ? () => showDialog(
+                  context: context,
+                  builder: (_) => Dialog(
+                    child: SizedBox(
+                      width: 480,
+                      child: CreateRoleSheet(permissions: _permissions),
                     ),
-                  )
-                : null,
-            onCreatePlan: _permissions.can(Resource.plans, Action.create)
-                ? () => openCreatePlan(context, _permissions)
-                : null,
-          ),
+                  ),
+                )
+              : null,
         ),
       ),
     );
@@ -549,7 +546,6 @@ class _DesktopBody extends StatelessWidget {
     this.onAddMember,
     this.onCreateSchool,
     this.onCreateRole,
-    this.onCreatePlan,
   });
 
   final TabController tabController;
@@ -559,7 +555,6 @@ class _DesktopBody extends StatelessWidget {
   final VoidCallback? onAddMember;
   final VoidCallback? onCreateSchool;
   final VoidCallback? onCreateRole;
-  final VoidCallback? onCreatePlan;
 
   @override
   Widget build(BuildContext context) {
@@ -618,7 +613,7 @@ class _DesktopBody extends StatelessWidget {
             ),
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
             // Stack lets the pill anchor left and grow rightward while the
             // + button is independently pinned to the far right. The pill's
             // right edge is constrained to never overlap the button (8 gap +
@@ -724,7 +719,6 @@ class _DesktopBody extends StatelessWidget {
                                       Tab(text: 'Members'),
                                       Tab(text: 'Schools'),
                                       Tab(text: 'Roles'),
-                                      Tab(text: 'Plans'),
                                     ],
                                   ),
                                 );
@@ -749,7 +743,6 @@ class _DesktopBody extends StatelessWidget {
                           1 => onAddMember,
                           2 => onCreateSchool,
                           3 => onCreateRole,
-                          4 => onCreatePlan,
                           _ => null,
                         };
 
@@ -789,7 +782,6 @@ class _DesktopBody extends StatelessWidget {
               MembersSection(permissions: permissions),
               SchoolsSection(permissions: permissions),
               RolesSection(permissions: permissions),
-              PlansSection(permissions: permissions),
             ],
           ),
         ),

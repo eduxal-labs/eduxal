@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 
 import '../../../../client.dart';
 import '../../../../database/database.dart';
+import '../../../../models/permissions.dart' as models;
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/edu_data_table.dart';
 import 'role_detail_screen.dart';
 
 /// The Roles data section of the system dashboard.
@@ -30,7 +32,6 @@ class _RolesSectionState extends State<RolesSection> {
 
   final _searchController = TextEditingController();
   String _searchQuery = '';
-  final Set<String> _selectedIds = {};
 
   // ── Search debounce ────────────────────────────────────────────────────────
 
@@ -75,7 +76,49 @@ class _RolesSectionState extends State<RolesSection> {
     );
   }
 
-  // ── Build ───────────────────────────────────────────────────────────────────
+  Future<void> _deleteRole(BuildContext context, Role role) async {
+    final cs = Theme.of(context).colorScheme;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        title: const Text('Delete role'),
+        content: Text(
+          'Delete "${role.name}"?\n\nUsers assigned this role will lose its permissions.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: cs.error),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      final accountId = cache.currentUser?.user.id;
+      if (accountId == null) return;
+      await rolesDao.deleteRole(role.id, accountId: accountId);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('"${role.name}" deleted')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to delete role: $e')));
+      }
+    }
+  }
+
+  // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -90,90 +133,191 @@ class _RolesSectionState extends State<RolesSection> {
         return Column(
           children: [
             // ── Toolbar ────────────────────────────────────────────────────
-            if (_selectedIds.isNotEmpty)
-              Container(
-                height: 62,
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                color: cs.primaryContainer.withValues(alpha: 0.3),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded),
-                      onPressed: () => setState(() => _selectedIds.clear()),
-                      color: cs.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 16),
-                    Text(
-                      '${_selectedIds.length} selected',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: cs.onSurface,
-                      ),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline_rounded),
-                      onPressed: () {
-                        // TODO: Bulk delete
-                      },
-                      color: cs.error,
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.more_vert_rounded),
-                      onPressed: () {
-                        // TODO: Bulk actions
-                      },
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ],
-                ),
-              )
-            else
-              _Toolbar(searchController: _searchController, cs: cs),
+            _Toolbar(searchController: _searchController, cs: cs),
 
             // ── List ───────────────────────────────────────────────────────
             Expanded(
               child: !snapshot.hasData
                   ? const _ListShimmer()
-                  : filtered.isEmpty
-                  ? _EmptyState(hasQuery: _searchQuery.isNotEmpty, cs: cs)
-                  : _RoleList(
-                      roles: filtered,
-                      selectedIds: _selectedIds,
-                      onTap: (r) {
-                        if (_selectedIds.isNotEmpty) {
-                          setState(() {
-                            if (_selectedIds.contains(r.id)) {
-                              _selectedIds.remove(r.id);
-                            } else {
-                              _selectedIds.add(r.id);
-                            }
-                          });
-                        } else {
-                          _openDetail(context, r);
-                        }
-                      },
-                      onLongPress: (r) {
-                        setState(() {
-                          _selectedIds.add(r.id);
-                        });
-                      },
-                      onToggleSelection: (r) {
-                        setState(() {
-                          if (_selectedIds.contains(r.id)) {
-                            _selectedIds.remove(r.id);
-                          } else {
-                            _selectedIds.add(r.id);
-                          }
-                        });
-                      },
-                      cs: cs,
+                  : SingleChildScrollView(
+                      child: EduDataTable<Role>(
+                        items: filtered,
+                        emptyIcon: Icons.verified_user_outlined,
+                        emptyTitle: 'No roles found',
+                        emptySubtitle: _searchQuery.isNotEmpty
+                            ? 'No roles match your search.'
+                            : 'Create a system role to get started.',
+                        onItemTap: (r) => _openDetail(context, r),
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                        actions: (role) => [
+                          EduDataTableAction<Role>(
+                            icon: Icons.open_in_new_rounded,
+                            label: 'View',
+                            onTap: (r) => _openDetail(context, r),
+                          ),
+                          if (widget.permissions.can(
+                            models.Resource.roles,
+                            models.Action.delete,
+                          ))
+                            EduDataTableAction<Role>(
+                              icon: Icons.delete_outline_rounded,
+                              label: 'Delete',
+                              isDestructive: true,
+                              onTap: (r) => _deleteRole(context, r),
+                            ),
+                        ],
+                        columns: const [
+                          EduDataTableColumn(label: 'Role', flex: 2),
+                          EduDataTableColumn(label: 'Description', flex: 3),
+                          EduDataTableColumn(label: 'Permissions', flex: 1),
+                        ],
+                        cellBuilder: (context, role, index, isHovered) {
+                          return switch (index) {
+                            0 => _RoleIdentityCell(role: role),
+                            1 => _RoleDescriptionCell(role: role),
+                            2 => _RolePermissionsBadge(role: role),
+                            _ => const SizedBox.shrink(),
+                          };
+                        },
+                      ),
                     ),
             ),
           ],
         );
       },
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Role identity cell — icon + name only
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _RoleIdentityCell extends StatelessWidget {
+  const _RoleIdentityCell({required this.role});
+
+  final Role role;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    return Row(
+      children: [
+        // ── Role icon ──────────────────────────────────────────────────
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            color: cs.primary.withValues(alpha: isDark ? 0.12 : 0.06),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Icon(
+            Icons.shield_outlined,
+            size: 14,
+            color: cs.primary.withValues(alpha: 0.7),
+          ),
+        ),
+        const SizedBox(width: 10),
+
+        // ── Name ───────────────────────────────────────────────────────
+        Expanded(
+          child: Text(
+            role.name,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurface,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Role description cell
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _RoleDescriptionCell extends StatelessWidget {
+  const _RoleDescriptionCell({required this.role});
+
+  final Role role;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final hasDescription =
+        role.description != null && role.description!.isNotEmpty;
+
+    return Text(
+      hasDescription ? role.description! : '—',
+      style: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        color: cs.onSurfaceVariant.withValues(
+          alpha: hasDescription ? 0.8 : 0.5,
+        ),
+      ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Role permissions badge — descriptive count or dash
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _RolePermissionsBadge extends StatelessWidget {
+  const _RolePermissionsBadge({required this.role});
+
+  final Role role;
+
+  static int _permissionCount(String permissionsJson) {
+    try {
+      final decoded = jsonDecode(permissionsJson);
+      if (decoded is! List) return 0;
+      var count = 0;
+      for (final entry in decoded) {
+        if (entry is Map<String, dynamic>) {
+          final actions = entry['actions'];
+          if (actions is List) count += actions.length;
+        }
+      }
+      return count;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final count = _permissionCount(role.permissions);
+    final cs = Theme.of(context).colorScheme;
+
+    if (count == 0) {
+      return Text(
+        '—',
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w400,
+          color: cs.onSurfaceVariant,
+        ),
+      );
+    }
+
+    return Text(
+      '$count ${count == 1 ? 'perm' : 'perms'}',
+      style: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        color: cs.onSurfaceVariant,
+      ),
     );
   }
 }
@@ -289,7 +433,7 @@ class _ListShimmerState extends State<_ListShimmer>
         return ListView.separated(
           padding: const EdgeInsets.symmetric(vertical: 8),
           itemCount: 6,
-          separatorBuilder: (_, _) => Divider(
+          separatorBuilder: (_, __) => Divider(
             height: 1,
             thickness: 0.5,
             indent: 52,
@@ -300,7 +444,6 @@ class _ListShimmerState extends State<_ListShimmer>
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
-                  // Rounded rect icon placeholder.
                   Container(
                     width: 36,
                     height: 36,
@@ -350,381 +493,6 @@ class _ListShimmerState extends State<_ListShimmer>
           end: Alignment(-1.0 + 2.0 * _animation.value + 1.0, 0),
           colors: [baseColor, highlightColor, baseColor],
           stops: const [0.0, 0.5, 1.0],
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Role list
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _RoleList extends StatelessWidget {
-  const _RoleList({
-    required this.roles,
-    required this.selectedIds,
-    required this.onTap,
-    required this.onLongPress,
-    required this.onToggleSelection,
-    required this.cs,
-  });
-
-  final List<Role> roles;
-  final Set<String> selectedIds;
-  final void Function(Role) onTap;
-  final void Function(Role) onLongPress;
-  final void Function(Role) onToggleSelection;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    final selectionMode = selectedIds.isNotEmpty;
-
-    return ListView.separated(
-      padding: const EdgeInsets.only(bottom: 24, top: 8),
-      itemCount: roles.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        final r = roles[index];
-        final isSelected = selectedIds.contains(r.id);
-
-        return _RoleRow(
-          role: r,
-          isSelected: isSelected,
-          selectionMode: selectionMode,
-          onTap: () => onTap(r),
-          onLongPress: () => onLongPress(r),
-          onToggleSelection: () => onToggleSelection(r),
-          cs: cs,
-        );
-      },
-    );
-  }
-}
-
-class _RoleRow extends StatefulWidget {
-  const _RoleRow({
-    required this.role,
-    required this.isSelected,
-    required this.selectionMode,
-    required this.onTap,
-    required this.onLongPress,
-    required this.onToggleSelection,
-    required this.cs,
-  });
-
-  final Role role;
-  final bool isSelected;
-  final bool selectionMode;
-  final VoidCallback onTap;
-  final VoidCallback onLongPress;
-  final VoidCallback onToggleSelection;
-  final ColorScheme cs;
-
-  @override
-  State<_RoleRow> createState() => _RoleRowState();
-}
-
-class _RoleRowState extends State<_RoleRow> {
-  bool _isHovering = false;
-
-  /// Counts the total number of `resource.action` permission keys in the
-  /// role's permissions JSON (new list-of-objects format).
-  static int _permissionCount(String permissionsJson) {
-    try {
-      final decoded = jsonDecode(permissionsJson);
-      if (decoded is! List) return 0;
-      var count = 0;
-      for (final entry in decoded) {
-        if (entry is Map<String, dynamic>) {
-          final actions = entry['actions'];
-          if (actions is List) count += actions.length;
-        }
-      }
-      return count;
-    } catch (_) {
-      return 0;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = widget.cs;
-    final isDesktop =
-        MediaQuery.sizeOf(context).width >= AppTheme.kMobileBreakpoint;
-    final count = _permissionCount(widget.role.permissions);
-
-    final isDark = cs.brightness == Brightness.dark;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: widget.isSelected
-            ? cs.primaryContainer.withValues(alpha: isDark ? 0.2 : 0.3)
-            : _isHovering && !widget.selectionMode
-            ? cs.surfaceContainerHighest.withValues(alpha: isDark ? 0.5 : 0.3)
-            : isDark
-            ? cs.surface
-            : cs.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: widget.isSelected
-              ? cs.primary
-              : isDark
-              ? cs.outline.withValues(alpha: 0.5)
-              : cs.outlineVariant.withValues(alpha: 0.5),
-        ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: widget.onTap,
-          onLongPress: widget.onLongPress,
-          onHover: (hovering) {
-            if (isDesktop) {
-              setState(() => _isHovering = hovering);
-            }
-          },
-          borderRadius: BorderRadius.circular(8),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                if (widget.selectionMode || (_isHovering && isDesktop)) ...[
-                  Checkbox(
-                    value: widget.isSelected,
-                    onChanged: (_) => widget.onToggleSelection(),
-                    visualDensity: VisualDensity.compact,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                ],
-                // Role icon.
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: cs.primary.withValues(alpha: isDark ? 0.14 : 0.08),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(
-                      color: cs.primary.withValues(alpha: isDark ? 0.3 : 0.18),
-                      width: 1,
-                    ),
-                  ),
-                  child: Icon(
-                    Icons.verified_user_outlined,
-                    size: 18,
-                    color: cs.primary.withValues(alpha: isDark ? 0.85 : 0.7),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.role.name,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: cs.onSurface,
-                          letterSpacing: 0.1,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (widget.role.description != null &&
-                          widget.role.description!.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          widget.role.description!,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.9),
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // Permission count badge.
-                if (count > 0)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: cs.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(
-                        color: isDark
-                            ? cs.outline.withValues(alpha: 0.5)
-                            : cs.outlineVariant,
-                        width: 1,
-                      ),
-                    ),
-                    child: Text(
-                      '$count',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w400,
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                if (!widget.selectionMode) ...[
-                  const SizedBox(width: 12),
-                  if (isDesktop)
-                    IgnorePointer(
-                      ignoring: !_isHovering,
-                      child: AnimatedOpacity(
-                        opacity: _isHovering ? 1.0 : 0.0,
-                        duration: const Duration(milliseconds: 150),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit_outlined),
-                              iconSize: 18,
-                              color: cs.onSurfaceVariant,
-                              onPressed: widget.onTap,
-                              tooltip: 'Edit',
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline_rounded),
-                              iconSize: 18,
-                              color: cs.error,
-                              onPressed: () {
-                                // Handle delete action (TODO)
-                              },
-                              tooltip: 'Delete',
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  else
-                    PopupMenuButton<String>(
-                      icon: Icon(
-                        Icons.more_vert_rounded,
-                        size: 20,
-                        color: cs.onSurfaceVariant,
-                      ),
-                      padding: EdgeInsets.zero,
-                      color: cs.surfaceContainerHighest,
-                      elevation: 1,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: BorderSide(
-                          color: isDark
-                              ? cs.outline.withValues(alpha: 0.5)
-                              : cs.outlineVariant,
-                          width: 1,
-                        ),
-                      ),
-                      position: PopupMenuPosition.under,
-                      onSelected: (val) {
-                        if (val == 'edit') {
-                          widget.onTap();
-                        } else if (val == 'delete') {
-                          // Handle delete action (TODO)
-                        }
-                      },
-                      itemBuilder: (context) => [
-                        PopupMenuItem(
-                          value: 'edit',
-                          height: 40,
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.edit_outlined,
-                                size: 18,
-                                color: cs.onSurface,
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                'Edit',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: cs.onSurface,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        PopupMenuItem(
-                          value: 'delete',
-                          height: 40,
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.delete_outline_rounded,
-                                size: 18,
-                                color: cs.error,
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                'Delete',
-                                style: TextStyle(fontSize: 13, color: cs.error),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Empty state
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.hasQuery, required this.cs});
-
-  final bool hasQuery;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.verified_user_outlined,
-              size: 40,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.4),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              hasQuery ? 'No roles match your search.' : 'No roles yet.',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-                letterSpacing: 0.1,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
         ),
       ),
     );

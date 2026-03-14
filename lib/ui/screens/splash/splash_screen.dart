@@ -58,21 +58,28 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _resolveAuthAndNavigate() async {
+    debugPrint('[Splash] _resolveAuthAndNavigate START');
+
     // Run the minimum display timer and auth check in parallel.
+    debugPrint('[Splash] calling client.active()...');
     final results = await Future.wait([
       Future.delayed(const Duration(milliseconds: 600)),
       client.active(),
     ]);
+    debugPrint('[Splash] client.active() returned: ${results[1]}');
 
-    if (!mounted) return;
+    if (!mounted) {
+      debugPrint('[Splash] NOT MOUNTED after active() — aborting');
+      return;
+    }
 
     final authenticated = results[1];
-
-    if (!mounted) return;
 
     final destination = authenticated == null
         ? const LoginScreen()
         : const HomeScreen();
+
+    debugPrint('[Splash] navigating to ${destination.runtimeType}');
 
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
@@ -83,6 +90,8 @@ class _SplashScreenState extends State<SplashScreen>
         transitionDuration: const Duration(milliseconds: 350),
       ),
     );
+
+    debugPrint('[Splash] pushReplacement called');
   }
 
   @override
