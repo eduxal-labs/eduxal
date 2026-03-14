@@ -56,7 +56,12 @@ class PaperDetailPage extends StatefulWidget {
   State<PaperDetailPage> createState() => _PaperDetailPageState();
 }
 
-class _PaperDetailPageState extends State<PaperDetailPage> {
+class _PaperDetailPageState extends State<PaperDetailPage>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _entranceController;
+  late final Animation<double> _fadeIn;
+  late final Animation<Offset> _slideUp;
+
   late final ExamsGradesDao _dao;
   late Stream<List<GradeRow>> _gradesStream;
   late Stream<Paper?> _paperStream;
@@ -74,6 +79,20 @@ class _PaperDetailPageState extends State<PaperDetailPage> {
   @override
   void initState() {
     super.initState();
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    );
+    _fadeIn = CurvedAnimation(
+      parent: _entranceController,
+      curve: Curves.easeOut,
+    );
+    _slideUp = Tween<Offset>(begin: const Offset(0, 0.03), end: Offset.zero)
+        .animate(
+          CurvedAnimation(parent: _entranceController, curve: Curves.easeOut),
+        );
+    _entranceController.forward();
+
     _dao = ExamsGradesDao(db);
     _gradesStream = _dao.watchGradesForPaper(
       schoolId: widget.schoolId,
@@ -88,6 +107,12 @@ class _PaperDetailPageState extends State<PaperDetailPage> {
       paperNum: _paper.paper,
     );
     _loadStudents();
+  }
+
+  @override
+  void dispose() {
+    _entranceController.dispose();
+    super.dispose();
   }
 
   Future<void> _showInvigilatorPicker(
@@ -245,7 +270,11 @@ class _PaperDetailPageState extends State<PaperDetailPage> {
         scrolledUnderElevation: 0,
         backgroundColor: cs.surface,
       ),
-      body: StreamBuilder<Paper?>(
+      body: SlideTransition(
+        position: _slideUp,
+        child: FadeTransition(
+          opacity: _fadeIn,
+          child: StreamBuilder<Paper?>(
         stream: _paperStream,
         builder: (context, paperSnap) {
           final currentPaper = paperSnap.data ?? widget.paper;
@@ -344,6 +373,10 @@ class _PaperDetailPageState extends State<PaperDetailPage> {
             },
           );
         },
+      ),
+    ),
+          ),
+        ),
       ),
     );
   }

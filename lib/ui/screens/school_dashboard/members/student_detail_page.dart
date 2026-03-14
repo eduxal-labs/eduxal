@@ -20,6 +20,7 @@ import '../../../../services/members.dart';
 import '../../../widgets/edu_tab_bar.dart';
 import '../../../widgets/inline_calendar.dart';
 import '../../../widgets/member_creation/add_guardian_panel.dart';
+import '../../../widgets/user_avatar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Student Detail Page — thin wrapper that opens StudentDetailSheet
@@ -1387,18 +1388,7 @@ class _GuardianRow extends StatelessWidget {
           child: Row(
             children: [
               // Avatar
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: cs.surfaceContainerHighest,
-                child: Text(
-                  _initials(user?.name ?? '?'),
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.8),
-                  ),
-                ),
-              ),
+              UserAvatar(userId: guardian.user, radius: 18),
               const SizedBox(width: 12),
 
               // Name + details
@@ -1480,13 +1470,6 @@ class _GuardianRow extends StatelessWidget {
         );
       },
     );
-  }
-
-  static String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts[0][0].toUpperCase();
-    return '${parts[0][0]}${parts.last[0]}'.toUpperCase();
   }
 }
 

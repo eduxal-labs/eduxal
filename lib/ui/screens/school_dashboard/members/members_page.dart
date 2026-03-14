@@ -4204,6 +4204,30 @@ class _WardItem extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Row(
             children: [
+              // Student (ward) avatar
+              if (student != null)
+                Padding(
+                  padding: const EdgeInsets.only(right: 10),
+                  child: _StudentAvatar(
+                    schoolId: schoolId,
+                    adm: student!.adm,
+                    name: student!.name,
+                    status: student!.status,
+                  ),
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.only(right: 10),
+                  child: CircleAvatar(
+                    radius: 16,
+                    backgroundColor: cs.surfaceContainerHighest,
+                    child: Icon(
+                      Icons.person,
+                      size: 14,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                    ),
+                  ),
+                ),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

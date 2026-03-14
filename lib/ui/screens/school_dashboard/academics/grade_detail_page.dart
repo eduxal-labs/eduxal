@@ -87,6 +87,12 @@ class _GradeDetailPageState extends State<GradeDetailPage>
   late final AnimationController _fabScaleController;
   late final Animation<double> _fabScaleAnimation;
 
+  // ── Entrance animation ─────────────────────────────────────────────────────
+
+  late final AnimationController _entranceController;
+  late final Animation<double> _fadeIn;
+  late final Animation<Offset> _slideUp;
+
   // ── Content tab definitions ────────────────────────────────────────────────
 
   static const _contentTabs = [
@@ -104,6 +110,22 @@ class _GradeDetailPageState extends State<GradeDetailPage>
   @override
   void initState() {
     super.initState();
+
+    // Entrance animation.
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    );
+    _fadeIn = CurvedAnimation(
+      parent: _entranceController,
+      curve: Curves.easeOut,
+    );
+    _slideUp = Tween<Offset>(begin: const Offset(0, 0.03), end: Offset.zero)
+        .animate(
+          CurvedAnimation(parent: _entranceController, curve: Curves.easeOut),
+        );
+    _entranceController.forward();
+
     final streamCount = widget.grade.streams.length;
 
     // Resolve initial stream index — clamp to valid range.
@@ -148,6 +170,7 @@ class _GradeDetailPageState extends State<GradeDetailPage>
 
   @override
   void dispose() {
+    _entranceController.dispose();
     _streamTabController.removeListener(_onStreamTabChanged);
     _streamTabController.dispose();
     _contentTabController.removeListener(_onContentTabChanged);
@@ -278,70 +301,76 @@ class _GradeDetailPageState extends State<GradeDetailPage>
         scrolledUnderElevation: 0,
         backgroundColor: cs.surface,
       ),
-      body: ValueListenableBuilder<Term?>(
-        valueListenable: termCtx.termNotifier,
-        builder: (context, term, _) {
-          // ── No terms — show blank state ──────────────────────────────
-          if (term == null) {
-            final role = widget.schoolContext.currentEntry.value.role;
-            return NoTermsBlankState(
-              schoolId: widget.schoolContext.membership.school.id,
-              role: role,
-            );
-          }
+      body: SlideTransition(
+        position: _slideUp,
+        child: FadeTransition(
+          opacity: _fadeIn,
+          child: ValueListenableBuilder<Term?>(
+            valueListenable: termCtx.termNotifier,
+            builder: (context, term, _) {
+              // ── No terms — show blank state ──────────────────────────────
+              if (term == null) {
+                final role = widget.schoolContext.currentEntry.value.role;
+                return NoTermsBlankState(
+                  schoolId: widget.schoolContext.membership.school.id,
+                  role: role,
+                );
+              }
 
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // ── Layer 1: Stream tabs ─────────────────────────────────
-              Container(
-                color: cs.surface,
-                child: EduTabBar(
-                  controller: _streamTabController,
-                  tabs: streamTabs,
-                  isScrollable: true,
-                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
-                ),
-              ),
-
-              // ── Layer 2: Content tabs (hidden on Comparisons) ────────
-              if (!_isComparisons)
-                Container(
-                  color: cs.surface,
-                  child: EduTabBar(
-                    controller: _contentTabController,
-                    tabs: _contentTabs,
-                    isScrollable: true,
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // ── Layer 1: Stream tabs ─────────────────────────────────
+                  Container(
+                    color: cs.surface,
+                    child: EduTabBar(
+                      controller: _streamTabController,
+                      tabs: streamTabs,
+                      isScrollable: true,
+                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+                    ),
                   ),
-                ),
 
-              // ── Divider ──────────────────────────────────────────────
-              Container(
-                height: 1,
-                color: cs.outline.withValues(alpha: isDark ? 0.08 : 0.06),
-              ),
-
-              // ── Content area ─────────────────────────────────────────
-              Expanded(
-                child: _isComparisons
-                    ? _buildComparisonsTab(cs, term)
-                    : TabBarView(
+                  // ── Layer 2: Content tabs (hidden on Comparisons) ────────
+                  if (!_isComparisons)
+                    Container(
+                      color: cs.surface,
+                      child: EduTabBar(
                         controller: _contentTabController,
-                        children: [
-                          _buildStudentsTab(cs, term),
-                          _buildExamsTab(cs, term),
-                          _buildSubjectsTab(cs, term),
-                          _buildAttendanceTab(cs, term),
-                          _buildTimetableTab(cs, term),
-                          _buildLessonsTab(cs, term),
-                          _buildTeachersTab(cs, term),
-                        ],
+                        tabs: _contentTabs,
+                        isScrollable: true,
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                       ),
-              ),
-            ],
-          );
-        },
+                    ),
+
+                  // ── Divider ──────────────────────────────────────────────
+                  Container(
+                    height: 1,
+                    color: cs.outline.withValues(alpha: isDark ? 0.08 : 0.06),
+                  ),
+
+                  // ── Content area ─────────────────────────────────────────
+                  Expanded(
+                    child: _isComparisons
+                        ? _buildComparisonsTab(cs, term)
+                        : TabBarView(
+                            controller: _contentTabController,
+                            children: [
+                              _buildStudentsTab(cs, term),
+                              _buildExamsTab(cs, term),
+                              _buildSubjectsTab(cs, term),
+                              _buildAttendanceTab(cs, term),
+                              _buildTimetableTab(cs, term),
+                              _buildLessonsTab(cs, term),
+                              _buildTeachersTab(cs, term),
+                            ],
+                          ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
       ),
       floatingActionButton: _buildContextualFab(cs),
     );

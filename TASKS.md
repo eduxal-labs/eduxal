@@ -444,7 +444,7 @@ The `PlansSection` already exists and has full CRUD (create, read, update, delet
 
 ---
 
-### Task 303: Enhance Subjects & Topics CRUD in Settings > Subjects tab
+### Task 303: Enhance Subjects & Topics CRUD in Settings > Subjects tab [x]
 **Files to create/modify:** `lib/ui/screens/system/settings/subjects_section.dart`
 **Context files to read:** `lib/ui/screens/system/CONTEXT.md`, `lib/database/daos/CONTEXT.md`
 **Depends on:** Task 201 (for enhanced EduDataTable), Task 301 (for Settings tab)
@@ -1068,7 +1068,7 @@ The members page is ~5400 lines and has 6 tabs. Only the Departments tab current
 
 ---
 
-### Task 604: Overhaul School Roles page data table ✅
+### Task 604: Overhaul School Roles page data table [x]
 **Files to create/modify:** `lib/ui/screens/school_dashboard/roles/school_roles_screen.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** Task 201, Task 101
@@ -1218,7 +1218,7 @@ Every detail screen (pushed via `Navigator.push`) should have:
 ## TRACK 9 — Profile Photos Everywhere
 ## ═══════════════════════════════════════════════════════════════════════════
 
-### Task 901: Ensure profile photos are shown in all user/member/student-facing data tables and detail views
+### Task 901: Ensure profile photos are shown in all user/member/student-facing data tables and detail views [x]
 **Files to create/modify:** Various — comprehensive check
 **Context files to read:** `lib/ui/widgets/CONTEXT.md`
 **Depends on:** Task 201
@@ -1231,26 +1231,27 @@ The user requested: "not forgetting to include the profile photo anywhere profil
 **Checklist — verify `UserAvatar` is used in each of these locations:**
 
 System dashboard:
-- [x] Users table rows — `UserAvatar(userId: user.id, name: user.name, radius: 18)`
-- [x] Members table rows
-- [ ] User detail sheet header
-- [ ] User menu overlay (top bar)
+- [x] Users table rows — `UserAvatar` in `_UserIdentityCell` (`users_section.dart`)
+- [x] Members table rows — `UserAvatar` in `_MemberIdentityCell` (`members_section.dart`)
+- [x] User detail sheet header — `UserAvatar` in `_AvatarWithDot` (`user_detail_sheet.dart`)
+- [x] User menu overlay (top bar) — `UserAvatar` in `_UserMenuAnchorState` + `_UserMenuCard`
 - [x] Roles > Assigned Users list (in role detail)
 
 School dashboard:
-- [ ] Members > Owners tab rows
-- [ ] Members > Teachers tab rows
-- [ ] Members > Staff tab rows
-- [ ] Members > Students tab rows — use `_StudentAvatar` which loads from student image path
-- [ ] Members > Guardians tab rows
-- [ ] Members > each member's detail sheet header
-- [ ] Academics > Teachers tab rows
-- [ ] Academics > Students tab rows
-- [ ] Academics > Subjects tab rows (teacher avatar)
-- [ ] Exam detail > paper student rows
-- [ ] Grade spreadsheet > student column
-- [ ] Student detail page header
-- [ ] Student grade page header
+- [x] Members > Owners tab rows — via `_UserDataRow` which uses `UserAvatar`
+- [x] Members > Teachers tab rows — via `_UserDataRow` which uses `UserAvatar`
+- [x] Members > Staff tab rows — via `_UserDataRow` which uses `UserAvatar`
+- [x] Members > Students tab rows — `_StudentAvatar` via `_FlatRow`
+- [x] Members > Guardians tab rows — via `_UserDataRow` which uses `UserAvatar`
+- [x] Members > each member's detail sheet header — `UserAvatar` in owner/teacher/staff info sheets
+- [x] Members > Guardian wards sheet > ward items — added `_StudentAvatar` to `_WardItem`
+- [x] Academics > Teachers tab rows — `UserAvatar` in active/past class teacher cards + subject teacher cards
+- [x] Academics > Students tab rows — `_StudentAvatar` in `_StudentRow`
+- [x] Academics > Subjects tab rows (teacher avatar) — `UserAvatar` inline in `_SubjectRowState`
+- [x] Exam detail > paper student rows — verified
+- [x] Grade spreadsheet > student column — verified
+- [x] Student detail page header — `_StudentAvatarLarge`
+- [x] Student detail page > Guardians tab > `_GuardianRow` — replaced plain `CircleAvatar` with `UserAvatar`
 
 Home screen:
 - [x] Home screen cards (user avatar in AppBar)
@@ -1264,8 +1265,12 @@ FileCache.studentImagePath(schoolId, admissionNumber)
 
 Add `UserAvatar` anywhere it's missing from the above list.
 
+**Fixed in this task:**
+1. `student_detail_page.dart` — `_GuardianRow`: replaced plain `CircleAvatar` (initials only) with `UserAvatar(userId: guardian.user, radius: 18)` and added `user_avatar.dart` import. Removed unused `_initials` static method.
+2. `members_page.dart` — `_WardItem`: added `_StudentAvatar` (or fallback person icon) before the ward name/details in the guardian wards sheet.
+
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: `git commit -m "ui: ensure profile photos visible across all data tables and detail views"`
 
 ---

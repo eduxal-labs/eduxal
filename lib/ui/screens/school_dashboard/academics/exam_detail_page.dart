@@ -50,10 +50,14 @@ class ExamDetailPage extends StatefulWidget {
 }
 
 class _ExamDetailPageState extends State<ExamDetailPage>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final ExamsGradesDao _dao;
   late final TabController _tabController;
   late Stream<List<Paper>> _papersStream;
+
+  late final AnimationController _entranceController;
+  late final Animation<double> _fadeIn;
+  late final Animation<Offset> _slideUp;
 
   static const _tabs = [
     EduTab(label: 'Papers'),
@@ -70,10 +74,24 @@ class _ExamDetailPageState extends State<ExamDetailPage>
       schoolId: widget.schoolId,
       examId: widget.exam.exam.id,
     );
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    );
+    _fadeIn = CurvedAnimation(
+      parent: _entranceController,
+      curve: Curves.easeOut,
+    );
+    _slideUp = Tween<Offset>(begin: const Offset(0, 0.03), end: Offset.zero)
+        .animate(
+          CurvedAnimation(parent: _entranceController, curve: Curves.easeOut),
+        );
+    _entranceController.forward();
   }
 
   @override
   void dispose() {
+    _entranceController.dispose();
     _tabController.dispose();
     super.dispose();
   }
@@ -105,59 +123,65 @@ class _ExamDetailPageState extends State<ExamDetailPage>
         scrolledUnderElevation: 0,
         backgroundColor: cs.surface,
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // ── Summary card ───────────────────────────────────────────
-          _ExamSummaryCard(
-            exam: _exam,
-            teacher: _teacher,
-            streamName: widget.streamName,
-            curriculumType: widget.curriculumType,
-            papersStream: _papersStream,
-          ),
+      body: SlideTransition(
+        position: _slideUp,
+        child: FadeTransition(
+          opacity: _fadeIn,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── Summary card ───────────────────────────────────────────
+              _ExamSummaryCard(
+                exam: _exam,
+                teacher: _teacher,
+                streamName: widget.streamName,
+                curriculumType: widget.curriculumType,
+                papersStream: _papersStream,
+              ),
 
-          // ── Tab bar ────────────────────────────────────────────────
-          EduTabBar(controller: _tabController, tabs: _tabs),
+              // ── Tab bar ────────────────────────────────────────────────
+              EduTabBar(controller: _tabController, tabs: _tabs),
 
-          // ── Tab views ──────────────────────────────────────────────
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _PapersTab(
-                  exam: widget.exam,
-                  schoolId: widget.schoolId,
-                  year: widget.year,
-                  term: widget.term,
-                  grade: widget.grade,
-                  curriculumType: widget.curriculumType,
-                  papersStream: _papersStream,
-                  dao: _dao,
-                  schoolContext: widget.schoolContext,
+              // ── Tab views ──────────────────────────────────────────────
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _PapersTab(
+                      exam: widget.exam,
+                      schoolId: widget.schoolId,
+                      year: widget.year,
+                      term: widget.term,
+                      grade: widget.grade,
+                      curriculumType: widget.curriculumType,
+                      papersStream: _papersStream,
+                      dao: _dao,
+                      schoolContext: widget.schoolContext,
+                    ),
+                    _GradesTab(
+                      exam: widget.exam,
+                      schoolId: widget.schoolId,
+                      year: widget.year,
+                      term: widget.term,
+                      grade: widget.grade,
+                      curriculumType: widget.curriculumType,
+                      dao: _dao,
+                    ),
+                    _PerformanceTab(
+                      exam: widget.exam,
+                      schoolId: widget.schoolId,
+                      year: widget.year,
+                      term: widget.term,
+                      grade: widget.grade,
+                      curriculumType: widget.curriculumType,
+                      dao: _dao,
+                    ),
+                  ],
                 ),
-                _GradesTab(
-                  exam: widget.exam,
-                  schoolId: widget.schoolId,
-                  year: widget.year,
-                  term: widget.term,
-                  grade: widget.grade,
-                  curriculumType: widget.curriculumType,
-                  dao: _dao,
-                ),
-                _PerformanceTab(
-                  exam: widget.exam,
-                  schoolId: widget.schoolId,
-                  year: widget.year,
-                  term: widget.term,
-                  grade: widget.grade,
-                  curriculumType: widget.curriculumType,
-                  dao: _dao,
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
