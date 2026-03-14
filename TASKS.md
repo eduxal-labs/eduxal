@@ -37,7 +37,7 @@ Create term modal) and codify them into reusable widgets and tokens.
 
 ---
 
-### Task 101: Codify EduXal Design System into shared widget library
+### Task 101: Codify EduXal Design System into shared widget library [x]
 **Files to create/modify:** `lib/ui/widgets/edu_sheet.dart`, `lib/ui/widgets/edu_dialog.dart`, `lib/ui/widgets/edu_form_field.dart`, `lib/ui/widgets/edu_section_card.dart`, `lib/ui/widgets/edu_detail_header.dart`, `lib/ui/widgets/edu_empty_state.dart`, `lib/ui/widgets/edu_confirm_dialog.dart`, `lib/ui/widgets/edu_filter_toolbar.dart`, `lib/ui/widgets/edu_search_field.dart`, `lib/ui/theme/app_theme.dart`
 **Context files to read:** `lib/ui/CONTEXT.md`, `lib/ui/widgets/CONTEXT.md`
 **Depends on:** Nothing
@@ -239,9 +239,9 @@ static const IconData levelSuperIcon = Icons.star_rounded;     // star
 ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/widgets/CONTEXT.md` — add entries for all new widget files
-- [ ] Update `lib/ui/CONTEXT.md` — note new design system tokens in AppTheme
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/widgets/CONTEXT.md` — add entries for all new widget files
+- [x] Update `lib/ui/CONTEXT.md` — note new design system tokens in AppTheme
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: `git commit -m "ui: codify design system into reusable widget library"`
 
 ---

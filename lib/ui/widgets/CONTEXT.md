@@ -5,7 +5,7 @@
 
 ## Overview
 
-This directory contains **14 files** and **1 subdirectory** (`member_creation/`). These are the shared building blocks that enforce visual consistency across the app — tab bars, term selectors, avatars, save buttons, action buttons, status indicators, sync indicators, progress bars, trajectory indicators, stat badges, and member creation flows.
+This directory contains **23 files** and **1 subdirectory** (`member_creation/`). These are the shared building blocks that enforce visual consistency across the app — tab bars, term selectors, avatars, save buttons, action buttons, status indicators, sync indicators, progress bars, trajectory indicators, stat badges, member creation flows, and the codified design system widgets (sheets, dialogs, form fields, section cards, detail headers, empty states, confirmation dialogs, filter toolbars, search fields).
 
 ## Files
 
@@ -26,6 +26,16 @@ This directory contains **14 files** and **1 subdirectory** (`member_creation/`)
 | `sync_indicator.dart` | `SyncIndicator` | ✅ Complete | Tiny (7 px) sync status dot. Binds to `sync.status` (`ValueNotifier<SyncStatus>` from `SyncEngine`). Colors: disconnected → muted red, idle → subtle green, pushing/pulling → pulsing blue. Uses `SingleTickerProviderStateMixin` for pulse animation (900 ms, ease-in-out, opacity 0.35→1.0). Tooltip shows "Offline" / "Connected" / "Syncing…". 20×20 touch target, `BorderRadius.circular(1.5)` (slightly blunted square, not circular). Placed in home screen top bar and all three school dashboard layouts (full sidebar footer, icon rail footer, mobile top bar). |
 | `user_avatar.dart` | `UserAvatar` | ✅ Complete | Circular avatar widget that loads a user's profile image from `FileCache.profilePath(userId)`. Falls back to initials (first letter of name) on a colored background if no cached image exists. Accepts a `radius` parameter for sizing. |
 | `inline_calendar.dart` | `InlineCalendar` | ✅ Complete | Compact, embeddable inline date picker. Renders as a trigger row (icon + date text + chevron) that expands/collapses a calendar grid via `SizeTransition`. Month/year header with `<` `>` nav arrows, Su–Sa day-of-week labels, tight 32×32 day cells with accent fill on selected, border on today, faded outside/disabled days. Auto-collapses after selection. Accepts `value`, `firstDate`, `lastDate`, `onChanged`, optional `hint` and `icon`. Uses `AppTheme.brandIndigo` / `brandIndigoDark` for accent. Replaces `showDatePicker` dialog usage in member creation forms. |
+
+| `edu_sheet.dart` | `EduSheet`, `showEduSheet()` | ✅ Complete | Standard bottom sheet wrapper + adaptive launcher (desktop dialog / mobile sheet). Sheet renders modalBg background, drag handle (36×4px pill), optional title row with close button. `showEduSheet` detects screen width: ≥600px → dialog with border/shadow/constrained width; <600px → modal bottom sheet wrapping content in `EduSheet`. |
+| `edu_dialog.dart` | `EduDialog` | ✅ Complete | Standard dialog wrapper. Renders: transparent `Dialog` with `ConstrainedBox(maxWidth)`, `Container` with `modalBg`, `kModalRadius` (12), 1px `borderColor` border, `modalShadow`. Optional title row with close button and thin divider separator. |
+| `edu_form_field.dart` | `EduFormField` | ✅ Complete | Standard form text field. Uppercase label (9.5px, w600, letterSpacing 0.9, onSurfaceVariant @0.55) above a filled `TextFormField` (dark: 0xFF1E2A3A, light: surfaceContainerLowest, kCardRadius). Optional error banner below (red-tinted container with icon + message). Supports hint, prefixText, suffix, maxLines, obscureText, onChanged, enabled. |
+| `edu_section_card.dart` | `EduSectionCard` | ✅ Complete | Bordered section container. surfaceContainer fill, kCardRadius, 0.5px border. Optional uppercase header with trailing widget. Thin dividers interleaved between children. |
+| `edu_detail_header.dart` | `EduDetailHeader`, `EduDetailChip` | ✅ Complete | Detail page header with avatar, title, subtitle, metadata chips, trailing actions. `EduDetailChip`: small chip with icon + label, surfaceContainerHighest @0.4, kChipRadius, 0.5px border. |
+| `edu_empty_state.dart` | `EduEmptyState` | ✅ Complete | Centered empty state. 32px icon in 52×52 tinted circle (primary @0.08), title 13.5px w500, subtitle 12px w400, optional CTA action widget. |
+| `edu_confirm_dialog.dart` | `EduConfirmDialog`, `showEduConfirmDialog()` | ✅ Complete | Standard confirmation dialog with title, optional message, confirm/cancel buttons. `isDestructive` flag colors confirm in `cs.error`. `showEduConfirmDialog` convenience returns `Future<bool>`. |
+| `edu_filter_toolbar.dart` | `EduFilterToolbar`, `EduFilterChipData` | ✅ Complete | Search + filter toolbar for data tables. Row with search icon toggle, animated `EduSearchField`, filter icon toggle. Below: collapsible `AnimatedCrossFade` filter chip rows. |
+| `edu_search_field.dart` | `EduSearchField` | ✅ Complete | Animated inline search field. 32px height, kCardRadius, surfaceContainerHighest fill, 13px text, search icon prefix, clear button suffix via `ValueListenableBuilder`. Animated width transition. |
 
 ## Subdirectory: `member_creation/`
 
@@ -124,4 +134,4 @@ Internally calls `FileCache.get(FileCache.profilePath(userId))` to check for a c
 - Widgets never import services or DAOs directly for business logic — they receive callbacks or data via constructor parameters. Exception: `CreateTermModal` and member creation panels which instantiate service calls directly (they are self-contained mini-flows, not pure presentational widgets).
 
 ## Last Updated
-Task U11 — Added `animated_action_button.dart`: `AnimatedActionButton` compact icon button with idle→busy→done animation states. Applied to mutation buttons in `schools_section.dart`, `roles_section.dart`, `role_detail_screen.dart`, and `members_page.dart`. Refactored `_AssignedRow` to use `Future<void> Function()` callback and removed manual `_unassigningIds` state tracking.
+Task 101 — Codified EduXal design system into shared widget library. Added 9 new reusable widgets: `EduSheet`, `EduDialog`, `EduFormField`, `EduSectionCard`, `EduDetailHeader` + `EduDetailChip`, `EduEmptyState`, `EduConfirmDialog`, `EduFilterToolbar` + `EduFilterChipData`, `EduSearchField`. Added entrance animation tokens, action icon colors, status colors, and level badge icons to `AppTheme`.

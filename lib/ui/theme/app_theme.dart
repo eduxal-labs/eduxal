@@ -179,6 +179,79 @@ class AppTheme {
       : cs.outlineVariant.withValues(alpha: 0.6);
 
   // ─────────────────────────────────────────────────────────────────────────
+  // Design tokens — entrance animation
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Standard entrance animation duration for page/section transitions.
+  static const Duration kEntranceAnimDuration = Duration(milliseconds: 350);
+
+  /// Standard slide offset for entrance animations (subtle upward slide).
+  static const Offset kEntranceSlideOffset = Offset(0, 0.03);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Design tokens — action icon colors
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Read action — blue.
+  static const Color actionRead = Color(0xFF42A5F5);
+
+  /// Create action — green.
+  static const Color actionCreate = Color(0xFF66BB6A);
+
+  /// Update action — orange.
+  static const Color actionUpdate = Color(0xFFFFA726);
+
+  /// Delete action — red.
+  static const Color actionDelete = Color(0xFFEF5350);
+
+  /// Purge action — purple.
+  static const Color actionPurge = Color(0xFFAB47BC);
+
+  /// Assign action — cyan.
+  static const Color actionAssign = Color(0xFF26C6DA);
+
+  /// Mark action — indigo.
+  static const Color actionMark = Color(0xFF5C6BC0);
+
+  /// Approve action — green.
+  static const Color actionApprove = Color(0xFF66BB6A);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Design tokens — status colors
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Active status — green.
+  static const Color statusActive = Color(0xFF4CAF50);
+
+  /// Invited status — blue.
+  static const Color statusInvited = Color(0xFF42A5F5);
+
+  /// Suspended status — orange.
+  static const Color statusSuspended = Color(0xFFFF9800);
+
+  /// Deleted status — red.
+  static const Color statusDeleted = Color(0xFFEF5350);
+
+  /// Trial status — green.
+  static const Color statusTrial = Color(0xFF66BB6A);
+
+  /// Cancelled status — gray.
+  static const Color statusCancelled = Color(0xFF9E9E9E);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Design tokens — level badge icons
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Normal user level — small filled circle (dot).
+  static const IconData levelNormalIcon = Icons.circle;
+
+  /// System user level — shield icon.
+  static const IconData levelSystemIcon = Icons.shield_outlined;
+
+  /// Super user level — star icon.
+  static const IconData levelSuperIcon = Icons.star_rounded;
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Theme mode mapping
   // ─────────────────────────────────────────────────────────────────────────
 
