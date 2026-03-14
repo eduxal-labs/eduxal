@@ -12,6 +12,8 @@ import '../../../../models/membership.dart';
 import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
 import '../../../widgets/active_term_provider.dart';
+import '../../../widgets/edu_confirm_dialog.dart';
+import '../../../widgets/edu_sheet.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Entry point
@@ -504,19 +506,15 @@ class _AnnouncementRowState extends State<_AnnouncementRow> {
   }
 
   void _showDetailSheet(BuildContext context) {
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (_) => _DetailSheet(item: item, cs: cs, isDark: isDark),
     );
   }
 
   void _showEditSheet(BuildContext context) {
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (_) => _ComposeSheet(
         dao: widget.dao,
         schoolId: item.school,
@@ -526,67 +524,19 @@ class _AnnouncementRowState extends State<_AnnouncementRow> {
     );
   }
 
-  void _confirmDelete(BuildContext context) {
-    showDialog(
+  void _confirmDelete(BuildContext context) async {
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (ctx) {
-        final dialogCs = Theme.of(ctx).colorScheme;
-        return AlertDialog(
-          backgroundColor: dialogCs.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          title: Text(
-            'Delete announcement?',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: dialogCs.onSurface,
-            ),
-          ),
-          content: Text(
-            'This cannot be undone. The announcement will be removed for all users.',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              color: dialogCs.onSurfaceVariant,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(
-                'Cancel',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: dialogCs.onSurfaceVariant,
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                final user = cache.currentUser;
-                if (user == null) return;
-                await widget.dao.deleteAnnouncement(
-                  id: item.id,
-                  accountId: user.user.id,
-                );
-              },
-              child: Text(
-                'Delete',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: dialogCs.error,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+      title: 'Delete announcement?',
+      message:
+          'This cannot be undone. The announcement will be removed for all users.',
+      confirmLabel: 'Delete',
+      isDestructive: true,
     );
+    if (!confirmed) return;
+    final user = cache.currentUser;
+    if (user == null) return;
+    await widget.dao.deleteAnnouncement(id: item.id, accountId: user.user.id);
   }
 }
 
@@ -716,30 +666,13 @@ class _MobileRowMenu extends StatelessWidget {
   }
 
   void _showSheet(BuildContext context) {
-    showModalBottomSheet<void>(
+    showEduSheet<void>(
       context: context,
-      backgroundColor: AppTheme.modalBg(isDark, cs),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppTheme.kModalRadius),
-        ),
-      ),
       builder: (ctx) {
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 10, bottom: 6),
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.25),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
               ListTile(
                 leading: Icon(
                   Icons.edit_outlined,
@@ -1067,10 +1000,8 @@ void _showComposeSheet(
   required SchoolConfig config,
   AnnouncementWithAuthor? existing,
 }) {
-  showModalBottomSheet(
+  showEduSheet(
     context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
     builder: (_) => _ComposeSheet(
       dao: dao,
       schoolId: schoolId,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../database/tables/enums.dart';
 import '../theme/app_theme.dart';
 import 'edu_filter_toolbar.dart';
+import 'edu_sheet.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // EduDataTableAction
@@ -855,35 +856,16 @@ class _MobileMenuButton<T> extends StatelessWidget {
   final List<EduDataTableAction<T>> actions;
 
   void _showSheet(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cs = Theme.of(context).colorScheme;
-
-    showModalBottomSheet<void>(
+    showEduSheet<void>(
       context: context,
-      backgroundColor: AppTheme.modalBg(isDark, cs),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppTheme.kModalRadius),
-        ),
-      ),
       builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+
         return SafeArea(
+          top: false,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // ── drag handle ───────────────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.only(top: 10, bottom: 6),
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.25),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-
               // ── action rows ───────────────────────────────────────────────
               ...actions.map((action) {
                 final color =

@@ -15,6 +15,7 @@ import '../../../models/school_permissions.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/active_term_provider.dart';
 
+import '../../widgets/edu_sheet.dart';
 import '../../widgets/no_terms_blank_state.dart';
 import '../../widgets/term_selector_chip.dart';
 import '../../widgets/user_avatar.dart';
@@ -575,9 +576,8 @@ class _DashboardShellState extends State<_DashboardShell>
 
   void _showRoleSwitcherSheet(BuildContext context) {
     if (widget.schoolContext.membership.entries.length <= 1) return;
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
       builder: (_) => _RoleSwitcherSheet(
         schoolContext: widget.schoolContext,
         onEntrySelected: (entry) {

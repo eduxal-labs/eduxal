@@ -13,6 +13,7 @@ import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../database/tables/enums.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/edu_sheet.dart';
 import 'school_detail_screen.dart';
 
 /// Two-step bottom sheet (mobile) / dialog content (desktop) for creating a
@@ -372,10 +373,8 @@ class _CreateSchoolSheetState extends State<CreateSchoolSheet> {
 
   Future<void> _openCountyPicker() async {
     final cs = Theme.of(context).colorScheme;
-    final selected = await showModalBottomSheet<KenyaCounty>(
+    final selected = await showEduSheet<KenyaCounty>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (_) => _CountyPickerSheet(selected: _selectedCounty, cs: cs),
     );
     if (selected != null && mounted) {

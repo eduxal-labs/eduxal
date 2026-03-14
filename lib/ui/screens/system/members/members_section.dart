@@ -8,7 +8,9 @@ import '../../../../database/tables/enums.dart';
 import '../../../../models/permissions.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_data_table.dart';
+import '../../../widgets/edu_sheet.dart';
 import '../../../widgets/status_indicator.dart';
 import '../../../widgets/user_avatar.dart';
 import '../roles/role_detail_screen.dart';
@@ -207,81 +209,21 @@ class _MembersSectionState extends State<MembersSection> {
     required String actionLabel,
     bool isDestructive = false,
   }) async {
-    final cs = Theme.of(context).colorScheme;
-    final result = await showDialog<bool>(
+    return showEduConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        backgroundColor: cs.surface,
-        title: Text(
-          title,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-            color: isDestructive ? cs.error : cs.onSurface,
-            letterSpacing: 0.1,
-          ),
-        ),
-        content: Text(
-          message,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w400,
-            color: cs.onSurfaceVariant,
-            height: 1.5,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(
-              actionLabel,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: isDestructive ? cs.error : cs.primary,
-              ),
-            ),
-          ),
-        ],
-      ),
+      title: title,
+      message: message,
+      confirmLabel: actionLabel,
+      isDestructive: isDestructive,
     );
-    return result ?? false;
   }
 
   void openAddMemberModal() {
-    final isDesktop =
-        MediaQuery.sizeOf(context).width >= AppTheme.kMobileBreakpoint;
-
-    if (isDesktop) {
-      showDialog(
-        context: context,
-        builder: (_) => Dialog(
-          child: SizedBox(
-            width: 480,
-            child: AddMemberSheet(permissions: widget.permissions),
-          ),
-        ),
-      );
-    } else {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => AddMemberSheet(permissions: widget.permissions),
-      );
-    }
+    showEduSheet(
+      context: context,
+      builder: (_) => AddMemberSheet(permissions: widget.permissions),
+      maxWidth: 480,
+    );
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
@@ -429,30 +371,12 @@ class _MembersSectionState extends State<MembersSection> {
   }
 
   void _openRolesSheet(BuildContext context, UsersData user) {
-    final isDesktop =
-        MediaQuery.sizeOf(context).width >= AppTheme.kMobileBreakpoint;
-    if (isDesktop) {
-      showDialog(
-        context: context,
-        builder: (_) => Dialog(
-          child: SizedBox(
-            width: 480,
-            child: _MemberRolesSheet(
-              user: user,
-              permissions: widget.permissions,
-            ),
-          ),
-        ),
-      );
-    } else {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) =>
-            _MemberRolesSheet(user: user, permissions: widget.permissions),
-      );
-    }
+    showEduSheet(
+      context: context,
+      builder: (_) =>
+          _MemberRolesSheet(user: user, permissions: widget.permissions),
+      maxWidth: 480,
+    );
   }
 }
 
@@ -727,33 +651,12 @@ class _MemberRolesSheet extends StatefulWidget {
 
 class _MemberRolesSheetState extends State<_MemberRolesSheet> {
   void _openAssignRoleSheet(BuildContext context) {
-    final isDesktop =
-        MediaQuery.sizeOf(context).width >= AppTheme.kMobileBreakpoint;
-
-    if (isDesktop) {
-      showDialog(
-        context: context,
-        builder: (_) => Dialog(
-          child: SizedBox(
-            width: 480,
-            child: _AssignRoleSheet(
-              user: widget.user,
-              permissions: widget.permissions,
-            ),
-          ),
-        ),
-      );
-    } else {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => _AssignRoleSheet(
-          user: widget.user,
-          permissions: widget.permissions,
-        ),
-      );
-    }
+    showEduSheet(
+      context: context,
+      builder: (_) =>
+          _AssignRoleSheet(user: widget.user, permissions: widget.permissions),
+      maxWidth: 480,
+    );
   }
 
   void _navigateToRole(BuildContext context, Role role) {

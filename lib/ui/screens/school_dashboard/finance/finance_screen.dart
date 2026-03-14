@@ -11,6 +11,7 @@ import '../../../../models/membership.dart';
 import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
 import '../../../widgets/active_term_provider.dart';
+import '../../../widgets/edu_sheet.dart';
 import '../../../widgets/edu_tab_bar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1743,30 +1744,13 @@ class _FinanceMobileMenu extends StatelessWidget {
   }
 
   void _showSheet(BuildContext context) {
-    showModalBottomSheet<void>(
+    showEduSheet<void>(
       context: context,
-      backgroundColor: AppTheme.modalBg(isDark, cs),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppTheme.kModalRadius),
-        ),
-      ),
       builder: (ctx) {
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 10, bottom: 6),
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.25),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
               ...actions.map(
                 (a) => ListTile(
                   leading: Icon(a.icon, size: 20, color: a.color),
@@ -2245,12 +2229,8 @@ Future<void> _showCreateFeeSheet(
   SchoolConfig config,
   ColorScheme cs,
 ) {
-  return showModalBottomSheet(
+  return showEduSheet(
     context: context,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
-    ),
     builder: (_) => _CreateFeeSheet(
       dao: dao,
       schoolId: schoolId,
@@ -2581,12 +2561,8 @@ Future<void> _showRecordPaymentSheet(
   String schoolId,
   ColorScheme cs,
 ) {
-  return showModalBottomSheet(
+  return showEduSheet(
     context: context,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
-    ),
     builder: (_) =>
         _RecordPaymentSheet(item: item, dao: dao, schoolId: schoolId),
   );

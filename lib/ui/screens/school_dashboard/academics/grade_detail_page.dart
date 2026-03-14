@@ -17,6 +17,8 @@ import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/active_term_provider.dart';
+import '../../../widgets/edu_confirm_dialog.dart';
+import '../../../widgets/edu_sheet.dart';
 import '../../../widgets/no_terms_blank_state.dart';
 import '../../../widgets/edu_tab_bar.dart';
 import 'tabs/comparisons_tab.dart';
@@ -627,39 +629,26 @@ class _GradeDetailPageState extends State<GradeDetailPage>
   // ── Action sheet ───────────────────────────────────────────────────────────
 
   void _showActionSheet(BuildContext context, List<_FabAction> actions) {
-    final cs = Theme.of(context).colorScheme;
     final streamName = _selectedStreamName;
 
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      backgroundColor: cs.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
-      ),
+      title: '${widget.gradeLabel} · $streamName',
       builder: (ctx) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // ── Header ─────────────────────────────────────────────────
-              Text(
-                '${widget.gradeLabel} · $streamName',
-                style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w500,
-                  color: cs.onSurface,
-                  letterSpacing: 0.1,
-                ),
-              ),
-              const SizedBox(height: 4),
               Text(
                 'Choose an action',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w400,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                  color: Theme.of(
+                    ctx,
+                  ).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                 ),
               ),
               const SizedBox(height: 16),
@@ -693,11 +682,9 @@ class _GradeDetailPageState extends State<GradeDetailPage>
     final schoolId = widget.schoolContext.membership.school.id;
     final stream = _selectedStream;
 
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _CreateExamFromGradeSheet(
+      builder: (ctx) => _CreateExamFromGradeSheet(
         schoolId: schoolId,
         year: term.year,
         term: term.term,
@@ -720,11 +707,9 @@ class _GradeDetailPageState extends State<GradeDetailPage>
     final stream = _selectedStream;
     if (stream == null) return;
 
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _SubjectTeacherPickerSheet(
+      builder: (ctx) => _SubjectTeacherPickerSheet(
         schoolId: schoolId,
         year: term.year,
         term: term.term,
@@ -748,11 +733,9 @@ class _GradeDetailPageState extends State<GradeDetailPage>
     final stream = _selectedStream;
     if (stream == null) return;
 
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _ClassTeacherPickerSheet(
+      builder: (ctx) => _ClassTeacherPickerSheet(
         schoolId: schoolId,
         year: term.year,
         term: term.term,
@@ -775,11 +758,9 @@ class _GradeDetailPageState extends State<GradeDetailPage>
     final stream = _selectedStream;
     if (stream == null) return;
 
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _StudentEnrollSheet(
+      builder: (ctx) => _StudentEnrollSheet(
         schoolId: schoolId,
         year: term.year,
         term: term.term,
@@ -1211,61 +1192,18 @@ class _StudentEnrollSheetState extends State<_StudentEnrollSheet> {
     );
   }
 
-  void _confirmTransfer(_StudentEnrollCandidate candidate) {
-    final cs = Theme.of(context).colorScheme;
-
-    showDialog(
+  void _confirmTransfer(_StudentEnrollCandidate candidate) async {
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: cs.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        title: Text(
-          'Transfer student?',
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-            color: cs.onSurface,
-          ),
-        ),
-        content: Text(
+      title: 'Transfer student?',
+      message:
           '${candidate.student.name} is ${candidate.statusLabel.toLowerCase()}. '
           'This will move them to ${widget.gradeLabel} · ${widget.streamName}.',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w400,
-            color: cs.onSurfaceVariant,
-            height: 1.45,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              _enroll(candidate);
-            },
-            child: Text(
-              'Transfer',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: cs.primary,
-              ),
-            ),
-          ),
-        ],
-      ),
+      confirmLabel: 'Transfer',
     );
+    if (confirmed) {
+      _enroll(candidate);
+    }
   }
 
   static String _initials(String name) {

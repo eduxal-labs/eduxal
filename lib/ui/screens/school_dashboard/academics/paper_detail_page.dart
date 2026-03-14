@@ -20,6 +20,8 @@ import '../../../../models/membership.dart';
 import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/animated_save_button.dart';
+import '../../../widgets/edu_confirm_dialog.dart';
+import '../../../widgets/edu_sheet.dart';
 import '../../../widgets/user_avatar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -129,104 +131,53 @@ class _PaperDetailPageState extends State<PaperDetailPage>
     if (!mounted) return;
 
     final cs = Theme.of(ctx).colorScheme;
-    final isDark = cs.brightness == Brightness.dark;
 
-    showModalBottomSheet(
+    showEduSheet(
       context: ctx,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
+      title: 'Select Invigilator',
       builder: (sheetCtx) {
-        return Container(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.sizeOf(sheetCtx).height * 0.5,
-          ),
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1A2332) : cs.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Handle
-              Padding(
-                padding: const EdgeInsets.only(top: 10, bottom: 6),
-                child: Container(
-                  width: 32,
-                  height: 3.5,
-                  decoration: BoxDecoration(
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(2),
+        return ListView.builder(
+          shrinkWrap: true,
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          itemCount: teachers.length,
+          itemBuilder: (_, i) {
+            final t = teachers[i];
+            final isSelected = t.user.id == currentPaper.invigilator;
+            return ListTile(
+              leading: UserAvatar(userId: t.user.id, radius: 16),
+              title: Text(
+                t.user.name,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurface,
+                ),
+              ),
+              trailing: isSelected
+                  ? Icon(Icons.check_rounded, size: 18, color: cs.primary)
+                  : null,
+              onTap: () async {
+                Navigator.pop(sheetCtx);
+                if (t.user.id == currentPaper.invigilator) return;
+                final accountId = cache.currentUser?.user.id;
+                if (accountId == null) return;
+                final now = BigInt.from(
+                  DateTime.now().millisecondsSinceEpoch ~/ 1000,
+                );
+                await _dao.updatePaper(
+                  schoolId: widget.schoolId,
+                  examId: _exam.id,
+                  subject: currentPaper.subject,
+                  paperNum: currentPaper.paper,
+                  changes: PapersCompanion(
+                    invigilator: Value(t.user.id),
+                    updated: Value(now),
                   ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                child: Text(
-                  'Select Invigilator',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurface,
-                  ),
-                ),
-              ),
-              Divider(
-                height: 1,
-                color: cs.outlineVariant.withValues(alpha: 0.2),
-              ),
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  itemCount: teachers.length,
-                  itemBuilder: (_, i) {
-                    final t = teachers[i];
-                    final isSelected = t.user.id == currentPaper.invigilator;
-                    return ListTile(
-                      leading: UserAvatar(userId: t.user.id, radius: 16),
-                      title: Text(
-                        t.user.name,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: cs.onSurface,
-                        ),
-                      ),
-                      trailing: isSelected
-                          ? Icon(
-                              Icons.check_rounded,
-                              size: 18,
-                              color: cs.primary,
-                            )
-                          : null,
-                      onTap: () async {
-                        Navigator.pop(sheetCtx);
-                        if (t.user.id == currentPaper.invigilator) return;
-                        final accountId = cache.currentUser?.user.id;
-                        if (accountId == null) return;
-                        final now = BigInt.from(
-                          DateTime.now().millisecondsSinceEpoch ~/ 1000,
-                        );
-                        await _dao.updatePaper(
-                          schoolId: widget.schoolId,
-                          examId: _exam.id,
-                          subject: currentPaper.subject,
-                          paperNum: currentPaper.paper,
-                          changes: PapersCompanion(
-                            invigilator: Value(t.user.id),
-                            updated: Value(now),
-                          ),
-                          accountId: accountId,
-                        );
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
+                  accountId: accountId,
+                );
+              },
+            );
+          },
         );
       },
     );
@@ -275,106 +226,104 @@ class _PaperDetailPageState extends State<PaperDetailPage>
         child: FadeTransition(
           opacity: _fadeIn,
           child: StreamBuilder<Paper?>(
-        stream: _paperStream,
-        builder: (context, paperSnap) {
-          final currentPaper = paperSnap.data ?? widget.paper;
+            stream: _paperStream,
+            builder: (context, paperSnap) {
+              final currentPaper = paperSnap.data ?? widget.paper;
 
-          return StreamBuilder<List<GradeRow>>(
-            stream: _gradesStream,
-            builder: (context, snap) {
-              if (_loadingStudents ||
-                  snap.connectionState == ConnectionState.waiting) {
-                return _buildLoading(cs);
-              }
+              return StreamBuilder<List<GradeRow>>(
+                stream: _gradesStream,
+                builder: (context, snap) {
+                  if (_loadingStudents ||
+                      snap.connectionState == ConnectionState.waiting) {
+                    return _buildLoading(cs);
+                  }
 
-              final gradeRows = snap.data ?? [];
-              final gradeMap = {
-                for (final r in gradeRows) r.student.adm: r.grade,
-              };
+                  final gradeRows = snap.data ?? [];
+                  final gradeMap = {
+                    for (final r in gradeRows) r.student.adm: r.grade,
+                  };
 
-              return LayoutBuilder(
-                builder: (context, constraints) {
-                  final isDesktop =
-                      constraints.maxWidth >= AppTheme.kMobileBreakpoint;
+                  return LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isDesktop =
+                          constraints.maxWidth >= AppTheme.kMobileBreakpoint;
 
-                  return ListView(
-                    padding: isDesktop
-                        ? const EdgeInsets.fromLTRB(16, 4, 16, 32)
-                        : const EdgeInsets.fromLTRB(12, 4, 12, 24),
-                    children: [
-                      // ── Paper Info Card ──────────────────────────────────
-                      _PaperInfoCard(
-                        paper: currentPaper,
-                        exam: widget.exam,
-                        curriculumType: widget.curriculumType,
-                        cs: cs,
-                        canEdit: _canManage,
-                        onEditInvigilator: () =>
-                            _showInvigilatorPicker(context, currentPaper),
-                      ),
+                      return ListView(
+                        padding: isDesktop
+                            ? const EdgeInsets.fromLTRB(16, 4, 16, 32)
+                            : const EdgeInsets.fromLTRB(12, 4, 12, 24),
+                        children: [
+                          // ── Paper Info Card ──────────────────────────────────
+                          _PaperInfoCard(
+                            paper: currentPaper,
+                            exam: widget.exam,
+                            curriculumType: widget.curriculumType,
+                            cs: cs,
+                            canEdit: _canManage,
+                            onEditInvigilator: () =>
+                                _showInvigilatorPicker(context, currentPaper),
+                          ),
 
-                      const SizedBox(height: 12),
+                          const SizedBox(height: 12),
 
-                      // ── Status Advance ──────────────────────────────────
-                      _PaperActionBar(
-                        paper: currentPaper,
-                        schoolId: widget.schoolId,
-                        exam: _exam,
-                        dao: _dao,
-                        canManage: _canManage,
-                        cs: cs,
-                        onDeleted: () => Navigator.of(context).pop(),
-                      ),
+                          // ── Status Advance ──────────────────────────────────
+                          _PaperActionBar(
+                            paper: currentPaper,
+                            schoolId: widget.schoolId,
+                            exam: _exam,
+                            dao: _dao,
+                            canManage: _canManage,
+                            cs: cs,
+                            onDeleted: () => Navigator.of(context).pop(),
+                          ),
 
-                      const SizedBox(height: 16),
+                          const SizedBox(height: 16),
 
-                      // ── Analytics (when marked) ─────────────────────────
-                      if (currentPaper.status == PaperStatus.marked) ...[
-                        _AnalyticsSection(
-                          gradeRows: gradeRows,
-                          totalStudents: _students.length,
-                          cs: cs,
-                        ),
-                        const SizedBox(height: 20),
-                      ],
+                          // ── Analytics (when marked) ─────────────────────────
+                          if (currentPaper.status == PaperStatus.marked) ...[
+                            _AnalyticsSection(
+                              gradeRows: gradeRows,
+                              totalStudents: _students.length,
+                              cs: cs,
+                            ),
+                            const SizedBox(height: 20),
+                          ],
 
-                      // ── Grade Entry Section ─────────────────────────────
-                      _SectionLabel(label: 'Grades', cs: cs),
-                      const SizedBox(height: 8),
+                          // ── Grade Entry Section ─────────────────────────────
+                          _SectionLabel(label: 'Grades', cs: cs),
+                          const SizedBox(height: 8),
 
-                      if (_students.isEmpty)
-                        _buildEmpty(cs, 'No students enrolled')
-                      else if (isDesktop)
-                        _GradeSpreadsheet(
-                          students: _students,
-                          gradeMap: gradeMap,
-                          paper: currentPaper,
-                          exam: _exam,
-                          schoolId: widget.schoolId,
-                          dao: _dao,
-                          canGrade: _canManage,
-                          cs: cs,
-                        )
-                      else
-                        _GradeList(
-                          students: _students,
-                          gradeMap: gradeMap,
-                          paper: currentPaper,
-                          exam: _exam,
-                          schoolId: widget.schoolId,
-                          dao: _dao,
-                          canGrade: _canManage,
-                          cs: cs,
-                        ),
-                    ],
+                          if (_students.isEmpty)
+                            _buildEmpty(cs, 'No students enrolled')
+                          else if (isDesktop)
+                            _GradeSpreadsheet(
+                              students: _students,
+                              gradeMap: gradeMap,
+                              paper: currentPaper,
+                              exam: _exam,
+                              schoolId: widget.schoolId,
+                              dao: _dao,
+                              canGrade: _canManage,
+                              cs: cs,
+                            )
+                          else
+                            _GradeList(
+                              students: _students,
+                              gradeMap: gradeMap,
+                              paper: currentPaper,
+                              exam: _exam,
+                              schoolId: widget.schoolId,
+                              dao: _dao,
+                              canGrade: _canManage,
+                              cs: cs,
+                            ),
+                        ],
+                      );
+                    },
                   );
                 },
               );
             },
-          );
-        },
-      ),
-    ),
           ),
         ),
       ),
@@ -765,42 +714,17 @@ class _PaperActionBarState extends State<_PaperActionBar>
   }
 
   Future<void> _deletePaper(BuildContext context) async {
-    final cs = widget.cs;
     final subjLabel = widget.paper.paper != null
         ? 'Paper ${widget.paper.paper}'
         : 'Paper';
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
-        ),
-        title: const Text(
-          'Delete Paper?',
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-        ),
-        content: Text(
-          'This will permanently remove $subjLabel.',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w400,
-            color: cs.onSurfaceVariant,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: cs.error),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+      title: 'Delete Paper?',
+      message: 'This will permanently remove $subjLabel.',
+      confirmLabel: 'Delete',
+      isDestructive: true,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;
     setState(() => _busy = true);
@@ -1614,10 +1538,8 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
 
   void _openSubmissionSheet(BuildContext context, StudentsData student) {
     final adm = student.adm;
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (_) => _AnswerSubmissionSheet(
         student: student,
         schoolId: widget.schoolId,
@@ -2439,10 +2361,8 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
 
   void _openSubmissionSheet(BuildContext context, StudentsData student) {
     final adm = student.adm;
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (_) => _AnswerSubmissionSheet(
         student: student,
         schoolId: widget.schoolId,
@@ -2508,10 +2428,8 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
     if (!widget.canGrade) return;
     final adm = student.adm;
     final existing = widget.gradeMap[adm];
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (_) => _MobileGradeEntrySheet(
         student: student,
         existingGrade: existing,
@@ -2539,119 +2457,66 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
         widget.paper.status == PaperStatus.done ||
         widget.paper.status == PaperStatus.marked;
 
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => SafeArea(
-        child: Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF18222E) : cs.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Drag handle
-              Center(
-                child: Container(
-                  width: 32,
-                  height: 3.5,
-                  margin: const EdgeInsets.symmetric(vertical: 10),
-                  decoration: BoxDecoration(
-                    color: cs.outlineVariant.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              // Student name header
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        student.name,
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w500,
-                          color: cs.onSurface,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    Text(
-                      'Adm: $adm',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w400,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Divider(
-                height: 1,
-                color: cs.outlineVariant.withValues(alpha: 0.2),
-              ),
-              // Action: Submit Answer Sheets (only when done/marked)
-              if (showSubmit)
-                _ActionSheetRow(
-                  icon: Icons.upload_file_outlined,
-                  label: 'Submit Answer Sheets',
-                  cs: cs,
-                  isDark: isDark,
-                  onTap: () {
+      title: student.name,
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Action: Submit Answer Sheets (only when done/marked)
+          if (showSubmit)
+            _ActionSheetRow(
+              icon: Icons.upload_file_outlined,
+              label: 'Submit Answer Sheets',
+              cs: cs,
+              isDark: isDark,
+              onTap: () {
+                Navigator.pop(ctx);
+                _openSubmissionSheet(context, student);
+              },
+            ),
+          // Action: Quick Grade with AI (only when submissions exist)
+          if (showSubmit && subCount > 0)
+            _ActionSheetRow(
+              icon: Icons.auto_fix_high,
+              label: 'Quick Grade with AI',
+              cs: cs,
+              isDark: isDark,
+              onTap:
+                  (_quickGrading[adm] == true || _aiMarking || !widget.canGrade)
+                  ? null
+                  : () {
+                      Navigator.pop(ctx);
+                      _quickGrade(adm);
+                    },
+            ),
+          // Action: Enter Grade (always shown)
+          _ActionSheetRow(
+            icon: Icons.edit_outlined,
+            label: 'Enter Grade',
+            cs: cs,
+            isDark: isDark,
+            onTap: widget.canGrade
+                ? () {
                     Navigator.pop(ctx);
-                    _openSubmissionSheet(context, student);
-                  },
-                ),
-              // Action: Quick Grade with AI (only when submissions exist)
-              if (showSubmit && subCount > 0)
-                _ActionSheetRow(
-                  icon: Icons.auto_fix_high,
-                  label: 'Quick Grade with AI',
-                  cs: cs,
-                  isDark: isDark,
-                  onTap:
-                      (_quickGrading[adm] == true ||
-                          _aiMarking ||
-                          !widget.canGrade)
-                      ? null
-                      : () {
-                          Navigator.pop(ctx);
-                          _quickGrade(adm);
-                        },
-                ),
-              // Action: Enter Grade (always shown)
-              _ActionSheetRow(
-                icon: Icons.edit_outlined,
-                label: 'Enter Grade',
-                cs: cs,
-                isDark: isDark,
-                onTap: widget.canGrade
-                    ? () {
-                        Navigator.pop(ctx);
-                        _openGradeEntry(context, student);
-                      }
-                    : null,
-              ),
-              // Action: View Submissions (only when submissions exist)
-              if (subCount > 0)
-                _ActionSheetRow(
-                  icon: Icons.photo_library_outlined,
-                  label: 'View Submissions ($subCount)',
-                  cs: cs,
-                  isDark: isDark,
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _openSubmissionSheet(context, student);
-                  },
-                ),
-              const SizedBox(height: 8),
-            ],
+                    _openGradeEntry(context, student);
+                  }
+                : null,
           ),
-        ),
+          // Action: View Submissions (only when submissions exist)
+          if (subCount > 0)
+            _ActionSheetRow(
+              icon: Icons.photo_library_outlined,
+              label: 'View Submissions ($subCount)',
+              cs: cs,
+              isDark: isDark,
+              onTap: () {
+                Navigator.pop(ctx);
+                _openSubmissionSheet(context, student);
+              },
+            ),
+          const SizedBox(height: 8),
+        ],
       ),
     );
   }

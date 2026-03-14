@@ -13,6 +13,8 @@ import '../../../models/authenticated.dart';
 import '../../../core/grpc_errors.dart';
 import '../../../models/result.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/edu_confirm_dialog.dart';
+import '../../widgets/edu_sheet.dart';
 import '../../widgets/user_avatar.dart';
 import '../auth/login_screen.dart';
 import '../home/home_screen.dart';
@@ -196,88 +198,60 @@ class _AccountScreenState extends State<AccountScreen>
     final controller = TextEditingController(text: currentName);
     final formKey = GlobalKey<FormState>();
 
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
+      title: 'Edit name',
       builder: (ctx) {
-        final theme = Theme.of(ctx);
-        final cs = theme.colorScheme;
-
         return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-              child: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 36,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextFormField(
+                  controller: controller,
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: InputDecoration(
+                    labelText: 'Display name',
+                    hintText: 'Your name',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.kRadius),
                     ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'Edit name',
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: controller,
-                      autofocus: true,
-                      textCapitalization: TextCapitalization.words,
-                      decoration: InputDecoration(
-                        labelText: 'Display name',
-                        hintText: 'Your name',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppTheme.kRadius),
-                        ),
-                      ),
-                      validator: (value) {
-                        final trimmed = value?.trim() ?? '';
-                        if (trimmed.length < 2) {
-                          return 'Name must be at least 2 characters';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      height: 48,
-                      child: FilledButton(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppTheme.brandGreen,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(
-                              AppTheme.kRadius,
-                            ),
-                          ),
-                        ),
-                        onPressed: () async {
-                          if (!formKey.currentState!.validate()) return;
-                          final newName = controller.text.trim();
-                          await accountsDao.updateName(userId, newName);
-                          if (ctx.mounted) Navigator.pop(ctx);
-                        },
-                        child: const Text('Save'),
-                      ),
-                    ),
-                  ],
+                  ),
+                  validator: (value) {
+                    final trimmed = value?.trim() ?? '';
+                    if (trimmed.length < 2) {
+                      return 'Name must be at least 2 characters';
+                    }
+                    return null;
+                  },
                 ),
-              ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 48,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppTheme.brandGreen,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.kRadius,
+                        ),
+                      ),
+                    ),
+                    onPressed: () async {
+                      if (!formKey.currentState!.validate()) return;
+                      final newName = controller.text.trim();
+                      await accountsDao.updateName(userId, newName);
+                      if (ctx.mounted) Navigator.pop(ctx);
+                    },
+                    child: const Text('Save'),
+                  ),
+                ),
+              ],
             ),
           ),
         );
@@ -293,90 +267,62 @@ class _AccountScreenState extends State<AccountScreen>
     final controller = TextEditingController(text: currentEmail ?? '');
     final formKey = GlobalKey<FormState>();
 
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
+      title: 'Edit email',
       builder: (ctx) {
-        final theme = Theme.of(ctx);
-        final cs = theme.colorScheme;
-
         return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-              child: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 36,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextFormField(
+                  controller: controller,
+                  autofocus: true,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: InputDecoration(
+                    labelText: 'Email address',
+                    hintText: 'you@example.com',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.kRadius),
                     ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'Edit email',
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: controller,
-                      autofocus: true,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: InputDecoration(
-                        labelText: 'Email address',
-                        hintText: 'you@example.com',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppTheme.kRadius),
-                        ),
-                      ),
-                      validator: (value) {
-                        final trimmed = value?.trim() ?? '';
-                        if (trimmed.isEmpty) return null; // nullable
-                        if (!trimmed.contains('@') || !trimmed.contains('.')) {
-                          return 'Enter a valid email address';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      height: 48,
-                      child: FilledButton(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppTheme.brandGreen,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(
-                              AppTheme.kRadius,
-                            ),
-                          ),
-                        ),
-                        onPressed: () async {
-                          if (!formKey.currentState!.validate()) return;
-                          final raw = controller.text.trim();
-                          final email = raw.isEmpty ? null : raw;
-                          await accountsDao.updateEmail(userId, email);
-                          if (ctx.mounted) Navigator.pop(ctx);
-                        },
-                        child: const Text('Save'),
-                      ),
-                    ),
-                  ],
+                  ),
+                  validator: (value) {
+                    final trimmed = value?.trim() ?? '';
+                    if (trimmed.isEmpty) return null; // nullable
+                    if (!trimmed.contains('@') || !trimmed.contains('.')) {
+                      return 'Enter a valid email address';
+                    }
+                    return null;
+                  },
                 ),
-              ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 48,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppTheme.brandGreen,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.kRadius,
+                        ),
+                      ),
+                    ),
+                    onPressed: () async {
+                      if (!formKey.currentState!.validate()) return;
+                      final raw = controller.text.trim();
+                      final email = raw.isEmpty ? null : raw;
+                      await accountsDao.updateEmail(userId, email);
+                      if (ctx.mounted) Navigator.pop(ctx);
+                    },
+                    child: const Text('Save'),
+                  ),
+                ),
+              ],
             ),
           ),
         );
@@ -389,11 +335,8 @@ class _AccountScreenState extends State<AccountScreen>
   // ─────────────────────────────────────────────────────────────────────────
 
   void _changePhone(String userId) {
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
-      // isDismissible: false prevents accidental close mid-flow.
-      isDismissible: true,
       builder: (ctx) => _ChangePhoneSheet(userId: userId),
     );
   }
@@ -411,166 +354,140 @@ class _AccountScreenState extends State<AccountScreen>
 
     if (!mounted) return;
 
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
+      title: 'Switch account',
       builder: (ctx) {
         final theme = Theme.of(ctx);
         final cs = theme.colorScheme;
 
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // ── Handle bar ──────────────────────────────────────────
-                Center(
-                  child: Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── Other accounts ──────────────────────────────────────
+              if (others.isEmpty)
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
                   child: Text(
-                    'Switch account',
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w400,
+                    'No other accounts on this device.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
-
-                // ── Other accounts ──────────────────────────────────────
-                if (others.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 16,
-                    ),
-                    child: Text(
-                      'No other accounts on this device.',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  )
-                else
-                  ...others.map((account) {
-                    return InkWell(
-                      onTap: () async {
-                        Navigator.pop(ctx);
-                        final result = await client.switchAccount(
-                          account.user.id,
+                )
+              else
+                ...others.map((account) {
+                  return InkWell(
+                    onTap: () async {
+                      Navigator.pop(ctx);
+                      final result = await client.switchAccount(
+                        account.user.id,
+                      );
+                      if (!mounted) return;
+                      if (result == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Session expired. Please log in again.',
+                            ),
+                          ),
                         );
-                        if (!mounted) return;
-                        if (result == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Session expired. Please log in again.',
-                              ),
+                        _navigateToLogin(replaceAll: true);
+                      } else {
+                        // Switched — go to home.
+                        _navigateToHome();
+                      }
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                      child: Row(
+                        children: [
+                          UserAvatar(userId: account.user.id, radius: 20),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  account.user.name,
+                                  style: theme.textTheme.bodyMedium,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _formatPhone(account.user.phone),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: cs.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
                             ),
-                          );
-                          _navigateToLogin(replaceAll: true);
-                        } else {
-                          // Switched — go to home.
-                          _navigateToHome();
-                        }
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 12,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+
+              // ── Divider ─────────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Divider(
+                  indent: 20,
+                  endIndent: 20,
+                  height: 1,
+                  color: cs.outlineVariant,
+                ),
+              ),
+
+              // ── Add account ─────────────────────────────────────────
+              InkWell(
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _navigateToLogin();
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: cs.surfaceContainerHighest,
+                          shape: BoxShape.circle,
                         ),
-                        child: Row(
-                          children: [
-                            UserAvatar(userId: account.user.id, radius: 20),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    account.user.name,
-                                    style: theme.textTheme.bodyMedium,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    _formatPhone(account.user.phone),
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: cs.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
+                        child: Icon(
+                          Icons.person_add_alt_1_rounded,
+                          size: 18,
+                          color: AppTheme.brandGreen,
                         ),
                       ),
-                    );
-                  }),
-
-                // ── Divider ─────────────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Divider(
-                    indent: 20,
-                    endIndent: 20,
-                    height: 1,
-                    color: cs.outlineVariant,
+                      const SizedBox(width: 14),
+                      Text(
+                        'Add account',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: AppTheme.brandGreen,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-
-                // ── Add account ─────────────────────────────────────────
-                InkWell(
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _navigateToLogin();
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: cs.surfaceContainerHighest,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.person_add_alt_1_rounded,
-                            size: 18,
-                            color: AppTheme.brandGreen,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Text(
-                          'Add account',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: AppTheme.brandGreen,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },
@@ -581,113 +498,42 @@ class _AccountScreenState extends State<AccountScreen>
   // Logout (with confirmation)
   // ─────────────────────────────────────────────────────────────────────────
 
-  void _confirmLogout() {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-
-    showDialog(
+  Future<void> _confirmLogout() async {
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: Text(
-            'Log out',
-            style: theme.textTheme.bodyLarge?.copyWith(
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-          content: Text(
-            'Are you sure you want to log out of this account?',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: cs.onSurfaceVariant,
-            ),
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.kRadius),
-          ),
-          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(
-                'Cancel',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                await client.logOut();
-                if (!mounted) return;
-                _navigateToLogin(replaceAll: true);
-              },
-              child: Text(
-                'Log out',
-                style: theme.textTheme.bodyMedium?.copyWith(color: cs.error),
-              ),
-            ),
-          ],
-        );
-      },
+      title: 'Log out',
+      message: 'Are you sure you want to log out of this account?',
+      confirmLabel: 'Log out',
+      isDestructive: true,
     );
+
+    if (!confirmed || !mounted) return;
+
+    await client.logOut();
+    if (!mounted) return;
+    _navigateToLogin(replaceAll: true);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
   // Delete account (with confirmation)
   // ─────────────────────────────────────────────────────────────────────────
 
-  void _confirmDeleteAccount(String userId) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-
-    showDialog(
+  Future<void> _confirmDeleteAccount(String userId) async {
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: Text(
-            'Delete account',
-            style: theme.textTheme.bodyLarge?.copyWith(
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-          content: Text(
-            'This will permanently delete your account and all associated data. This action cannot be undone.',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: cs.onSurfaceVariant,
-            ),
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.kRadius),
-          ),
-          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(
-                'Cancel',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                await accountsDao.deleteUserAccount(userId);
-                if (!mounted) return;
-                cache.clear();
-                _navigateToLogin(replaceAll: true);
-              },
-              child: Text(
-                'Delete',
-                style: theme.textTheme.bodyMedium?.copyWith(color: cs.error),
-              ),
-            ),
-          ],
-        );
-      },
+      title: 'Delete account',
+      message:
+          'This will permanently delete your account and all associated data. This action cannot be undone.',
+      confirmLabel: 'Delete',
+      isDestructive: true,
     );
+
+    if (!confirmed || !mounted) return;
+
+    await accountsDao.deleteUserAccount(userId);
+    if (!mounted) return;
+    cache.clear();
+    _navigateToLogin(replaceAll: true);
   }
 
   // ─────────────────────────────────────────────────────────────────────────

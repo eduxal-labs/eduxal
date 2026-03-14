@@ -17,6 +17,8 @@ import '../../../../models/curriculum_levels.dart';
 
 import '../../../../services/member_management.dart';
 import '../../../../services/members.dart';
+import '../../../widgets/edu_confirm_dialog.dart';
+import '../../../widgets/edu_sheet.dart';
 import '../../../widgets/edu_tab_bar.dart';
 import '../../../widgets/inline_calendar.dart';
 import '../../../widgets/member_creation/add_guardian_panel.dart';
@@ -292,24 +294,17 @@ class _StudentDetailSheetState extends State<StudentDetailSheet>
         : null;
     File? imageFile;
 
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      title: 'Edit Student',
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) {
-          return Container(
+          return Padding(
             padding: EdgeInsets.only(
               left: 24,
               right: 24,
-              top: 20,
+              top: 12,
               bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-            ),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF18222E) : cs.surface,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(16),
-              ),
             ),
             child: TweenAnimationBuilder<double>(
               tween: Tween(begin: 0.0, end: 1.0),
@@ -328,28 +323,6 @@ class _StudentDetailSheetState extends State<StudentDetailSheet>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Drag handle
-                  Center(
-                    child: Container(
-                      width: 36,
-                      height: 3.5,
-                      margin: const EdgeInsets.only(bottom: 20),
-                      decoration: BoxDecoration(
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.20),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  Text(
-                    'Edit Student',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: cs.onSurface,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
                   // Photo section
                   Center(
                     child: GestureDetector(
@@ -563,39 +536,15 @@ class _StudentDetailSheetState extends State<StudentDetailSheet>
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
 
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF18222E) : cs.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-        ),
+      title: 'Change Status',
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 3.5,
-                margin: const EdgeInsets.only(bottom: 20),
-                decoration: BoxDecoration(
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.20),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            Text(
-              'Change Status',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                color: cs.onSurface,
-              ),
-            ),
-            const SizedBox(height: 16),
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -644,41 +593,24 @@ class _StudentDetailSheetState extends State<StudentDetailSheet>
 
   // ── Delete confirmation ───────────────────────────────────────────────────
 
-  void _confirmDelete(StudentsData student) {
-    final cs = Theme.of(context).colorScheme;
-    showDialog(
+  void _confirmDelete(StudentsData student) async {
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text(
-          'Delete Student',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-        ),
-        content: Text(
+      title: 'Delete Student',
+      message:
           'Delete ${student.name} (Adm ${student.adm})? '
           'This will mark the student as deleted.',
-          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w400),
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: TextStyle(color: cs.onSurfaceVariant)),
-          ),
-          TextButton(
-            onPressed: () async {
-              await _service.changeStudentStatus(
-                schoolId: widget.schoolId,
-                adm: student.adm,
-                status: StudentStatus.deleted,
-              );
-              if (ctx.mounted) Navigator.pop(ctx);
-              if (mounted) Navigator.pop(context);
-            },
-            child: Text('Delete', style: TextStyle(color: cs.error)),
-          ),
-        ],
-      ),
+      confirmLabel: 'Delete',
+      isDestructive: true,
     );
+    if (!confirmed) return;
+
+    await _service.changeStudentStatus(
+      schoolId: widget.schoolId,
+      adm: student.adm,
+      status: StudentStatus.deleted,
+    );
+    if (mounted) Navigator.pop(context);
   }
 }
 
@@ -1314,39 +1246,22 @@ class _GuardiansTab extends StatelessWidget {
     );
   }
 
-  void _confirmRemoveGuardian(BuildContext context, GuardiansData g) {
-    final cs = Theme.of(context).colorScheme;
-    showDialog(
+  void _confirmRemoveGuardian(BuildContext context, GuardiansData g) async {
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text(
-          'Remove Guardian',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-        ),
-        content: const Text(
+      title: 'Remove Guardian',
+      message:
           'Remove this guardian link from the student? '
           'The guardian\'s user account is not affected.',
-          style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w400),
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: TextStyle(color: cs.onSurfaceVariant)),
-          ),
-          TextButton(
-            onPressed: () async {
-              await service.removeGuardian(
-                schoolId: schoolId,
-                userId: g.user,
-                studentAdm: g.student,
-              );
-              if (ctx.mounted) Navigator.pop(ctx);
-            },
-            child: Text('Remove', style: TextStyle(color: cs.error)),
-          ),
-        ],
-      ),
+      confirmLabel: 'Remove',
+      isDestructive: true,
+    );
+    if (!confirmed) return;
+
+    await service.removeGuardian(
+      schoolId: schoolId,
+      userId: g.user,
+      studentAdm: g.student,
     );
   }
 }
@@ -1574,10 +1489,8 @@ class _PlansTab extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
 
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (ctx) => _SubscribeSheet(
         schoolId: schoolId,
         studentAdm: studentAdm,
@@ -1742,39 +1655,15 @@ class _SubscriptionRow extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
 
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF18222E) : cs.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-        ),
+      title: 'Change Status',
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 3.5,
-                margin: const EdgeInsets.only(bottom: 20),
-                decoration: BoxDecoration(
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.20),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            Text(
-              'Change Status',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                color: cs.onSurface,
-              ),
-            ),
-            const SizedBox(height: 16),
             Wrap(
               spacing: 8,
               runSpacing: 8,

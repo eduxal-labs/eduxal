@@ -4,7 +4,7 @@ import '../../../database/database.dart';
 import '../../../database/daos/members_dao.dart';
 import '../../../models/result.dart';
 import '../../../services/members.dart';
-import '../../../ui/theme/app_theme.dart';
+import '../edu_sheet.dart';
 import 'phone_first_panel.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -20,137 +20,20 @@ Future<UsersData?> showAddOwnerPanel({
   required BuildContext context,
   required String schoolId,
 }) {
-  final w = MediaQuery.sizeOf(context).width;
   final service = MemberCreationService(MembersDao(db));
 
-  if (w >= AppTheme.kMobileBreakpoint) {
-    return showDialog<UsersData>(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.35),
-      builder: (_) => _AddOwnerDialog(schoolId: schoolId, service: service),
-    );
-  }
-  return showModalBottomSheet<UsersData>(
+  return showEduSheet<UsersData>(
     context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) => _AddOwnerSheet(schoolId: schoolId, service: service),
+    maxWidth: 420,
+    builder: (ctx) => SingleChildScrollView(
+      child: _AddOwnerForm(
+        schoolId: schoolId,
+        service: service,
+        onDone: (user) => Navigator.of(ctx).pop(user),
+        onCancel: () => Navigator.of(ctx).pop(),
+      ),
+    ),
   );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Desktop dialog wrapper
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _AddOwnerDialog extends StatelessWidget {
-  const _AddOwnerDialog({required this.schoolId, required this.service});
-
-  final String schoolId;
-  final MemberCreationService service;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isDark = cs.brightness == Brightness.dark;
-
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
-        child: Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF18222E) : cs.surface,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.55 : 0.14),
-                blurRadius: isDark ? 48 : 28,
-                offset: const Offset(0, 12),
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.24 : 0.06),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: SingleChildScrollView(
-              child: _AddOwnerForm(
-                schoolId: schoolId,
-                service: service,
-                onDone: (user) => Navigator.of(context).pop(user),
-                onCancel: () => Navigator.of(context).pop(),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Mobile bottom-sheet wrapper
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _AddOwnerSheet extends StatelessWidget {
-  const _AddOwnerSheet({required this.schoolId, required this.service});
-
-  final String schoolId;
-  final MemberCreationService service;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isDark = cs.brightness == Brightness.dark;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF18222E) : cs.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.50 : 0.12),
-            blurRadius: 32,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Drag handle
-          Padding(
-            padding: const EdgeInsets.only(top: 10),
-            child: Container(
-              width: 36,
-              height: 3.5,
-              decoration: BoxDecoration(
-                color: cs.onSurfaceVariant.withValues(alpha: 0.20),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          // Content
-          SafeArea(
-            top: false,
-            child: SingleChildScrollView(
-              child: _AddOwnerForm(
-                schoolId: schoolId,
-                service: service,
-                onDone: (user) => Navigator.of(context).pop(user),
-                onCancel: () => Navigator.of(context).pop(),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

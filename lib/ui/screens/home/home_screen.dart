@@ -4,6 +4,7 @@ import '../../../client.dart';
 import '../../../database/tables/enums.dart';
 import '../../../models/membership.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/edu_sheet.dart';
 import '../../widgets/sync_indicator.dart';
 import '../../widgets/user_avatar.dart';
 import '../account/account_screen.dart';
@@ -85,60 +86,36 @@ class _HomeScreenState extends State<HomeScreen>
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
 
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
+      title: membership.school.name,
       builder: (ctx) {
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Handle bar.
-                Center(
-                  child: Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  'Choose how to enter this school',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(height: 20),
+              ),
 
-                // School name.
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Text(
-                    membership.school.name,
-                    style: theme.textTheme.titleMedium,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Text(
-                    'Choose how to enter this school',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
-                ),
+              const SizedBox(height: 8),
+              Divider(indent: 16, endIndent: 16),
 
-                const SizedBox(height: 12),
-                Divider(indent: 20, endIndent: 20),
+              // Entry list.
+              ...membership.entries.map((entry) {
+                return _buildEntryTile(ctx, theme, cs, membership, entry);
+              }),
 
-                // Entry list.
-                ...membership.entries.map((entry) {
-                  return _buildEntryTile(ctx, theme, cs, membership, entry);
-                }),
-
-                const SizedBox(height: 8),
-              ],
-            ),
+              const SizedBox(height: 8),
+            ],
           ),
         );
       },

@@ -4,6 +4,7 @@ import '../../../../../database/database.dart';
 import '../../../../../database/daos/exams_grades_dao.dart';
 import '../../../../../database/tables/curriculum_subjects.dart';
 import '../../../../../models/curriculum_levels.dart';
+import '../../../../widgets/edu_sheet.dart';
 
 /// Mastery tab for the Student Grade Page — shows the student's topic-level
 /// mastery per subject with tappable subject cards that open a detail sheet.
@@ -199,36 +200,16 @@ class _StudentMasteryTabState extends State<StudentMasteryTab>
     int subjectIndex,
     List<MasteryData> topics,
   ) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isWide = screenWidth >= 600;
-
-    if (isWide) {
-      // Desktop/tablet: show a dialog-style sheet.
-      showDialog(
-        context: context,
-        builder: (ctx) => _TopicDetailDialog(
-          cs: cs,
-          isDark: isDark,
-          subjectIndex: subjectIndex,
-          topics: topics,
-          curriculumType: widget.curriculumType,
-        ),
-      );
-    } else {
-      // Mobile: draggable bottom sheet.
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (ctx) => _TopicDetailSheet(
-          cs: cs,
-          isDark: isDark,
-          subjectIndex: subjectIndex,
-          topics: topics,
-          curriculumType: widget.curriculumType,
-        ),
-      );
-    }
+    showEduSheet(
+      context: context,
+      builder: (ctx) => _TopicDetailSheet(
+        cs: cs,
+        isDark: isDark,
+        subjectIndex: subjectIndex,
+        topics: topics,
+        curriculumType: widget.curriculumType,
+      ),
+    );
   }
 }
 
@@ -490,170 +471,6 @@ class _TopicDetailSheet extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-// ─── Topic Detail Dialog (Desktop / Wide screens ≥600px) ─────────────────────
-
-class _TopicDetailDialog extends StatelessWidget {
-  const _TopicDetailDialog({
-    required this.cs,
-    required this.isDark,
-    required this.subjectIndex,
-    required this.topics,
-    required this.curriculumType,
-  });
-
-  final ColorScheme cs;
-  final bool isDark;
-  final int subjectIndex;
-  final List<MasteryData> topics;
-  final CurriculumType curriculumType;
-
-  @override
-  Widget build(BuildContext context) {
-    final sortedTopics = List<MasteryData>.from(topics)
-      ..sort((a, b) => a.topic.compareTo(b.topic));
-    final avg =
-        topics.map((t) => t.score).reduce((a, b) => a + b) / topics.length;
-    final pct = avg * 100;
-    final color = _masteryColor(pct);
-    final label = subjectLabel(curriculumType, subjectIndex);
-
-    return Dialog(
-      backgroundColor: isDark ? cs.surfaceContainerLow : cs.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420, maxHeight: 520),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ── Header ───────────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 18, 12, 0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          label,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                            color: cs.onSurface,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: color.withValues(
-                                  alpha: isDark ? 0.18 : 0.1,
-                                ),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                'Overall: ${pct.round()}%',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  color: color,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${sortedTopics.length} topic${sortedTopics.length == 1 ? '' : 's'}',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w400,
-                                color: cs.onSurfaceVariant.withValues(
-                                  alpha: 0.45,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      Icons.close_rounded,
-                      size: 18,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                    ),
-                    onPressed: () => Navigator.of(context).pop(),
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 10),
-
-            // ── Overall bar ──────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: _ThinProgressBar(
-                percent: avg.clamp(0.0, 1.0),
-                color: color,
-                backgroundColor: cs.surfaceContainerHighest.withValues(
-                  alpha: 0.6,
-                ),
-                height: 4,
-              ),
-            ),
-
-            const SizedBox(height: 14),
-
-            // ── Divider ──────────────────────────────────────────────────
-            Container(
-              height: 1,
-              color: cs.outline.withValues(alpha: isDark ? 0.08 : 0.06),
-            ),
-
-            // ── Topic list ───────────────────────────────────────────────
-            Flexible(
-              child: ListView.separated(
-                shrinkWrap: true,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                itemCount: sortedTopics.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 4),
-                itemBuilder: (context, index) {
-                  return _TopicRow(
-                    cs: cs,
-                    isDark: isDark,
-                    topic: sortedTopics[index],
-                  );
-                },
-              ),
-            ),
-
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
     );
   }
 }

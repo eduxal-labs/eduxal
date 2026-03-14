@@ -19,6 +19,7 @@ import '../../../../models/school_context.dart';
 import '../../../widgets/animated_action_button.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_data_table.dart';
+import '../../../widgets/edu_sheet.dart';
 import '../../../widgets/edu_tab_bar.dart';
 import '../../../widgets/status_indicator.dart';
 import '../../../widgets/user_avatar.dart';
@@ -118,14 +119,8 @@ class _MembersPageBodyState extends State<_MembersPageBody>
   }
 
   void _showCreateDepartment() {
-    final cs = Theme.of(context).colorScheme;
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: cs.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
-      ),
       builder: (ctx) =>
           _CreateDepartmentSheet(schoolId: _schoolId, dao: DepartmentsDao(db)),
     );
@@ -133,10 +128,8 @@ class _MembersPageBodyState extends State<_MembersPageBody>
 
   Future<void> _pickStudentThenAddGuardian() async {
     if (!mounted) return;
-    final picked = await showModalBottomSheet<StudentsData>(
+    final picked = await showEduSheet<StudentsData>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (ctx) => _StudentPickerSheet(schoolId: _schoolId),
     );
 
@@ -581,10 +574,8 @@ class _OwnerRow extends StatelessWidget {
   }
 
   void _showOwnerBottomSheet(BuildContext context, UsersData user) {
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (_) => _OwnerInfoSheet(user: user, schoolId: schoolId),
     );
   }
@@ -819,10 +810,8 @@ class _TeacherRow extends StatelessWidget {
   }
 
   void _showTeacherBottomSheet(BuildContext context, UsersData user) {
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (_) =>
           _TeacherInfoSheet(user: user, teacher: teacher, schoolId: schoolId),
     );
@@ -1059,10 +1048,8 @@ class _StaffRow extends StatelessWidget {
   }
 
   void _showStaffBottomSheet(BuildContext context, UsersData user) {
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (_) =>
           _StaffInfoSheet(user: user, member: member, schoolId: schoolId),
     );
@@ -1263,10 +1250,8 @@ class _StudentRow extends StatelessWidget {
   }
 
   void _showStudentBottomSheet(BuildContext context) {
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (_) => DraggableScrollableSheet(
         initialChildSize: 0.9,
         minChildSize: 0.5,
@@ -1454,10 +1439,8 @@ class _UniqueGuardianRow extends StatelessWidget {
   }
 
   void _showGuardianBottomSheet(BuildContext context) {
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (_) => _GuardianWardsSheet(user: user, schoolId: schoolId),
     );
   }
@@ -1866,33 +1849,14 @@ class _MobileActions extends StatelessWidget {
   final List<_RowAction> actions;
 
   void _showSheet(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cs = Theme.of(context).colorScheme;
-
-    showModalBottomSheet<void>(
+    showEduSheet<void>(
       context: context,
-      backgroundColor: AppTheme.modalBg(isDark, cs),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppTheme.kModalRadius),
-        ),
-      ),
       builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 10, bottom: 6),
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.25),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
               ...actions.map((action) {
                 final color = action.isDestructive ? cs.error : cs.onSurface;
                 return ListTile(
@@ -2612,66 +2576,47 @@ class _OwnerInfoSheet extends StatelessWidget {
     );
   }
 
-  void _confirmRemoveOwner(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    showDialog(
+  void _confirmRemoveOwner(BuildContext context) async {
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text(
-          'Remove Owner',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-        ),
-        content: Text(
+      title: 'Remove Owner',
+      message:
           'Remove ${user.name} as an owner of this school? This action can be undone by re-adding them.',
-          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w400),
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: TextStyle(color: cs.onSurfaceVariant)),
-          ),
-          TextButton(
-            onPressed: () async {
-              final accountId = cache.currentUser?.user.id;
-              if (accountId == null) {
-                if (ctx.mounted) Navigator.pop(ctx);
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('No active account. Please log in again.'),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                }
-                return;
-              }
-              try {
-                final dao = MembersDao(db);
-                await dao.removeOwner(
-                  schoolId: schoolId,
-                  userId: user.id,
-                  accountId: accountId,
-                );
-                if (ctx.mounted) Navigator.pop(ctx); // close dialog
-                if (context.mounted) Navigator.pop(context); // close sheet
-              } catch (e) {
-                if (ctx.mounted) Navigator.pop(ctx); // close dialog
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Failed to remove owner: $e'),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                }
-              }
-            },
-            child: Text('Remove', style: TextStyle(color: cs.error)),
-          ),
-        ],
-      ),
+      confirmLabel: 'Remove',
+      isDestructive: true,
     );
+    if (!confirmed || !context.mounted) return;
+
+    final accountId = cache.currentUser?.user.id;
+    if (accountId == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No active account. Please log in again.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+    try {
+      final dao = MembersDao(db);
+      await dao.removeOwner(
+        schoolId: schoolId,
+        userId: user.id,
+        accountId: accountId,
+      );
+      if (context.mounted) Navigator.pop(context); // close sheet
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to remove owner: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 }
 
@@ -3212,58 +3157,28 @@ class _TeacherInfoSheetState extends State<_TeacherInfoSheet> {
 
   void _showEditSheet(BuildContext context, MemberManagementService service) {
     final cs = Theme.of(context).colorScheme;
-    final isDark = cs.brightness == Brightness.dark;
     final roleCtrl = TextEditingController(text: teacher.role ?? '');
     final deptCtrl = TextEditingController(text: teacher.department ?? '');
     DateTime? hiredDate = teacher.hired != null
         ? DateTime.utc(1970).add(Duration(days: teacher.hired!))
         : null;
 
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      title: 'Edit Teacher',
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) {
-          return Container(
+          return Padding(
             padding: EdgeInsets.only(
               left: 24,
               right: 24,
-              top: 20,
+              top: 12,
               bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-            ),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF18222E) : cs.surface,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(16),
-              ),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Drag handle
-                Center(
-                  child: Container(
-                    width: 36,
-                    height: 3.5,
-                    margin: const EdgeInsets.only(bottom: 20),
-                    decoration: BoxDecoration(
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.20),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                Text(
-                  'Edit Teacher',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 20),
-
                 // Role field
                 TextField(
                   controller: roleCtrl,
@@ -3423,40 +3338,23 @@ class _TeacherInfoSheetState extends State<_TeacherInfoSheet> {
 
   // ── Remove confirmation ─────────────────────────────────────────────────
 
-  void _confirmRemove(BuildContext context, MemberManagementService service) {
-    final cs = Theme.of(context).colorScheme;
-    showDialog(
+  void _confirmRemove(
+    BuildContext context,
+    MemberManagementService service,
+  ) async {
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text(
-          'Remove Teacher',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-        ),
-        content: Text(
+      title: 'Remove Teacher',
+      message:
           'Remove ${user.name} as a teacher from this school? '
           'This action can be undone by re-adding them.',
-          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w400),
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: TextStyle(color: cs.onSurfaceVariant)),
-          ),
-          TextButton(
-            onPressed: () async {
-              await service.removeTeacher(
-                schoolId: schoolId,
-                userId: teacher.user,
-              );
-              if (ctx.mounted) Navigator.pop(ctx); // close dialog
-              if (context.mounted) Navigator.pop(context); // close sheet
-            },
-            child: Text('Remove', style: TextStyle(color: cs.error)),
-          ),
-        ],
-      ),
+      confirmLabel: 'Remove',
+      isDestructive: true,
     );
+    if (!confirmed) return;
+
+    await service.removeTeacher(schoolId: schoolId, userId: teacher.user);
+    if (context.mounted) Navigator.pop(context); // close sheet
   }
 }
 
@@ -3794,52 +3692,24 @@ class _StaffInfoSheet extends StatelessWidget {
 
   void _showEditSheet(BuildContext context, MemberManagementService service) {
     final cs = Theme.of(context).colorScheme;
-    final isDark = cs.brightness == Brightness.dark;
     final roleCtrl = TextEditingController(text: member.role ?? '');
     final deptCtrl = TextEditingController(text: member.department ?? '');
     final idCtrl = TextEditingController(text: member.idnumber ?? '');
 
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
+      title: 'Edit Staff',
+      builder: (ctx) => Padding(
         padding: EdgeInsets.only(
           left: 24,
           right: 24,
-          top: 20,
+          top: 12,
           bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-        ),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF18222E) : cs.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Drag handle
-            Center(
-              child: Container(
-                width: 36,
-                height: 3.5,
-                margin: const EdgeInsets.only(bottom: 20),
-                decoration: BoxDecoration(
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.20),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            Text(
-              'Edit Staff',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                color: cs.onSurface,
-              ),
-            ),
-            const SizedBox(height: 20),
-
             // Role field
             TextField(
               controller: roleCtrl,
@@ -3963,40 +3833,23 @@ class _StaffInfoSheet extends StatelessWidget {
 
   // ── Remove confirmation ─────────────────────────────────────────────────
 
-  void _confirmRemove(BuildContext context, MemberManagementService service) {
-    final cs = Theme.of(context).colorScheme;
-    showDialog(
+  void _confirmRemove(
+    BuildContext context,
+    MemberManagementService service,
+  ) async {
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text(
-          'Remove Staff',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-        ),
-        content: Text(
+      title: 'Remove Staff',
+      message:
           'Remove ${user.name} as staff from this school? '
           'This action can be undone by re-adding them.',
-          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w400),
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: TextStyle(color: cs.onSurfaceVariant)),
-          ),
-          TextButton(
-            onPressed: () async {
-              await service.removeStaff(
-                schoolId: schoolId,
-                userId: member.user,
-              );
-              if (ctx.mounted) Navigator.pop(ctx); // close dialog
-              if (context.mounted) Navigator.pop(context); // close sheet
-            },
-            child: Text('Remove', style: TextStyle(color: cs.error)),
-          ),
-        ],
-      ),
+      confirmLabel: 'Remove',
+      isDestructive: true,
     );
+    if (!confirmed) return;
+
+    await service.removeStaff(schoolId: schoolId, userId: member.user);
+    if (context.mounted) Navigator.pop(context); // close sheet
   }
 }
 
@@ -4291,48 +4144,21 @@ class _WardItem extends StatelessWidget {
     var selectedRelationship = guardian.relationship;
     var selectedRole = guardian.role;
 
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      title: 'Edit Guardian',
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) => Container(
+        builder: (ctx, setSheetState) => Padding(
           padding: EdgeInsets.only(
             left: 24,
             right: 24,
-            top: 20,
+            top: 12,
             bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-          ),
-          decoration: BoxDecoration(
-            color: isDarkLocal ? const Color(0xFF18222E) : cs.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Drag handle
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 3.5,
-                  margin: const EdgeInsets.only(bottom: 20),
-                  decoration: BoxDecoration(
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.20),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              Text(
-                'Edit Guardian',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                  color: cs.onSurface,
-                ),
-              ),
-              const SizedBox(height: 20),
-
               // Relationship dropdown
               Text(
                 'Relationship',
@@ -4463,38 +4289,21 @@ class _WardItem extends StatelessWidget {
     );
   }
 
-  void _unlinkGuardian(BuildContext context) {
+  void _unlinkGuardian(BuildContext context) async {
     final wardName = student?.name ?? 'this student';
-    showDialog(
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text(
-          'Unlink Guardian',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-        ),
-        content: Text(
-          'Remove guardian link to $wardName?',
-          style: const TextStyle(fontSize: 13.5),
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: TextStyle(color: cs.onSurfaceVariant)),
-          ),
-          TextButton(
-            onPressed: () async {
-              await service.removeGuardian(
-                schoolId: schoolId,
-                userId: guardian.user,
-                studentAdm: guardian.student,
-              );
-              if (ctx.mounted) Navigator.pop(ctx);
-            },
-            child: Text('Unlink', style: TextStyle(color: cs.error)),
-          ),
-        ],
-      ),
+      title: 'Unlink Guardian',
+      message: 'Remove guardian link to $wardName?',
+      confirmLabel: 'Unlink',
+      isDestructive: true,
+    );
+    if (!confirmed) return;
+
+    await service.removeGuardian(
+      schoolId: schoolId,
+      userId: guardian.user,
+      studentAdm: guardian.student,
     );
   }
 }
@@ -4632,56 +4441,15 @@ class _DepartmentDetailScreenState extends State<_DepartmentDetailScreen>
   }
 
   Future<void> _confirmDelete(BuildContext context) async {
-    final cs = Theme.of(context).colorScheme;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: cs.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        title: Text(
-          'Delete "${widget.dept.name}"?',
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-            color: cs.onSurface,
-          ),
-        ),
-        content: Text(
-          'This department will be permanently removed.',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w400,
-            color: cs.onSurfaceVariant,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(
-              'Delete',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: cs.error,
-              ),
-            ),
-          ),
-        ],
-      ),
+      title: 'Delete "${widget.dept.name}"?',
+      message: 'This department will be permanently removed.',
+      confirmLabel: 'Delete',
+      isDestructive: true,
     );
 
-    if (confirmed == true && context.mounted) {
+    if (confirmed && context.mounted) {
       final user = cache.currentUser?.user;
       if (user != null) {
         await widget.dao.deleteDepartment(
@@ -4695,14 +4463,8 @@ class _DepartmentDetailScreenState extends State<_DepartmentDetailScreen>
   }
 
   void _showAssignMember(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: cs.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
-      ),
       builder: (ctx) => _AssignMemberSearchSheet(
         schoolId: widget.schoolId,
         deptName: widget.dept.name,

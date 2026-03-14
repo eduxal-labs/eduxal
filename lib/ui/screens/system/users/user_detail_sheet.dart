@@ -12,6 +12,7 @@ import '../../../../database/tables/enums.dart';
 import '../../../../models/permissions.dart' show Action, Resource;
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/user_avatar.dart';
 
 /// Modal bottom sheet showing the full details of a [UsersData] row.
@@ -246,59 +247,16 @@ class _UserDetailSheetState extends State<UserDetailSheet> {
     required Color confirmColor,
     required Future<void> Function() onConfirm,
   }) async {
-    final cs = Theme.of(context).colorScheme;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.kRadius),
-        ),
-        backgroundColor: cs.surface,
-        title: Text(
-          title,
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-            color: cs.onSurface,
-          ),
-        ),
-        content: Text(
-          message,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w400,
-            color: cs.onSurfaceVariant,
-            height: 1.5,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(
-              confirmLabel,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: confirmColor,
-              ),
-            ),
-          ),
-        ],
-      ),
+      title: title,
+      message: message,
+      confirmLabel: confirmLabel,
+      confirmColor: confirmColor,
+      isDestructive: true,
     );
 
-    if (confirmed == true) {
+    if (confirmed) {
       await onConfirm();
     }
   }

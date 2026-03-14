@@ -15,6 +15,7 @@ import '../../../theme/app_theme.dart';
 import '../../../widgets/animated_save_button.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_data_table.dart';
+import '../../../widgets/edu_sheet.dart';
 import 'school_role_detail_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -189,21 +190,10 @@ class _SchoolRolesBodyState extends State<_SchoolRolesBody> {
   }
 
   void _showCreateSheet(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    if (width >= AppTheme.kMobileBreakpoint) {
-      showDialog<void>(
-        context: context,
-        barrierColor: Colors.black.withValues(alpha: 0.35),
-        builder: (_) => _RoleFormSheet(schoolId: _schoolId, dao: _dao),
-      );
-    } else {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => _RoleFormSheet(schoolId: _schoolId, dao: _dao),
-      );
-    }
+    showEduSheet<void>(
+      context: context,
+      builder: (_) => _RoleFormSheet(schoolId: _schoolId, dao: _dao),
+    );
   }
 
   Future<void> _deleteRole(BuildContext context, Role role) async {
@@ -1029,52 +1019,12 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
-    final width = MediaQuery.sizeOf(context).width;
-    final isDesktop = width >= AppTheme.kMobileBreakpoint;
 
-    if (isDesktop) {
-      // ── Desktop: adaptive dialog ─────────────────────────────────────
-      return Dialog(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 440),
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppTheme.modalBg(isDark, cs),
-              borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
-              border: Border.all(
-                color: AppTheme.borderColor(isDark, cs),
-                width: 1,
-              ),
-              boxShadow: AppTheme.modalShadow(isDark),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
-              child: _buildFormContent(context, cs, isDark, isSheet: false),
-            ),
-          ),
-        ),
-      );
-    }
-
-    // ── Mobile: bottom sheet ─────────────────────────────────────────────
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.modalBg(isDark, cs),
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(AppTheme.kModalRadius),
-          ),
-          border: Border(
-            top: BorderSide(color: AppTheme.borderColor(isDark, cs), width: 1),
-          ),
-        ),
-        child: _buildFormContent(context, cs, isDark, isSheet: true),
-      ),
-    );
+    // Wrapping (Dialog on desktop / bottom sheet on mobile) is handled by
+    // showEduSheet — this widget only returns the form content.
+    // isSheet: false so we don't render a duplicate drag handle (EduSheet
+    // already provides one on mobile).
+    return _buildFormContent(context, cs, isDark, isSheet: false);
   }
 }
 

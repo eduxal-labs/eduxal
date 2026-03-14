@@ -9,6 +9,7 @@ import '../../../../database/database.dart';
 import '../../../../database/tables/enums.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_data_table.dart';
 import '../../../widgets/status_indicator.dart';
 
@@ -90,27 +91,15 @@ class _SchoolsSectionState extends State<SchoolsSection> {
   // ── Actions ────────────────────────────────────────────────────────────────
 
   Future<void> _trashSchool(SchoolsData school) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Trash School'),
-        content: Text(
+      title: 'Trash School',
+      message:
           'Set ${school.name} to Deleted status? '
           'This is a soft delete — the record can be restored later.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Trash'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Trash',
     );
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
 
     try {
       final accountId = cache.currentUser?.user.id;
@@ -135,30 +124,16 @@ class _SchoolsSectionState extends State<SchoolsSection> {
   }
 
   Future<void> _purgeSchool(SchoolsData school) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Purge School'),
-        content: Text(
+      title: 'Purge School',
+      message:
           'Permanently delete ${school.name}?\n\n'
           'This action is irreversible and will permanently remove this record.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            style: TextButton.styleFrom(
-              foregroundColor: Theme.of(ctx).colorScheme.error,
-            ),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Purge'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Purge',
+      isDestructive: true,
     );
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
 
     try {
       final accountId = cache.currentUser?.user.id;

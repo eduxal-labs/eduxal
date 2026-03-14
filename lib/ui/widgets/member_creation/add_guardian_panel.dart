@@ -6,6 +6,7 @@ import '../../../database/tables/enums.dart';
 import '../../../models/result.dart';
 import '../../../services/members.dart';
 import '../../../ui/theme/app_theme.dart';
+import '../edu_sheet.dart';
 import 'phone_first_panel.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -27,164 +28,21 @@ Future<UsersData?> showAddGuardianPanel({
   required int studentAdm,
   required String studentName,
 }) {
-  final w = MediaQuery.sizeOf(context).width;
   final service = MemberCreationService(MembersDao(db));
 
-  if (w >= AppTheme.kMobileBreakpoint) {
-    return showDialog<UsersData>(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.35),
-      builder: (_) => _AddGuardianDialog(
+  return showEduSheet<UsersData>(
+    context: context,
+    builder: (_) => SingleChildScrollView(
+      child: _AddGuardianForm(
         schoolId: schoolId,
         studentAdm: studentAdm,
         studentName: studentName,
         service: service,
+        onDone: (user) => Navigator.of(context).pop(user),
+        onCancel: () => Navigator.of(context).pop(),
       ),
-    );
-  }
-  return showModalBottomSheet<UsersData>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) => _AddGuardianSheet(
-      schoolId: schoolId,
-      studentAdm: studentAdm,
-      studentName: studentName,
-      service: service,
     ),
   );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Desktop dialog wrapper
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _AddGuardianDialog extends StatelessWidget {
-  const _AddGuardianDialog({
-    required this.schoolId,
-    required this.studentAdm,
-    required this.studentName,
-    required this.service,
-  });
-
-  final String schoolId;
-  final int studentAdm;
-  final String studentName;
-  final MemberCreationService service;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isDark = cs.brightness == Brightness.dark;
-
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
-        child: Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF18222E) : cs.surface,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.55 : 0.14),
-                blurRadius: isDark ? 48 : 28,
-                offset: const Offset(0, 12),
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.24 : 0.06),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: SingleChildScrollView(
-              child: _AddGuardianForm(
-                schoolId: schoolId,
-                studentAdm: studentAdm,
-                studentName: studentName,
-                service: service,
-                onDone: (user) => Navigator.of(context).pop(user),
-                onCancel: () => Navigator.of(context).pop(),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Mobile bottom-sheet wrapper
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _AddGuardianSheet extends StatelessWidget {
-  const _AddGuardianSheet({
-    required this.schoolId,
-    required this.studentAdm,
-    required this.studentName,
-    required this.service,
-  });
-
-  final String schoolId;
-  final int studentAdm;
-  final String studentName;
-  final MemberCreationService service;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isDark = cs.brightness == Brightness.dark;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF18222E) : cs.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.50 : 0.12),
-            blurRadius: 32,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Drag handle
-          Padding(
-            padding: const EdgeInsets.only(top: 10),
-            child: Container(
-              width: 36,
-              height: 3.5,
-              decoration: BoxDecoration(
-                color: cs.onSurfaceVariant.withValues(alpha: 0.20),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          SafeArea(
-            top: false,
-            child: SingleChildScrollView(
-              child: _AddGuardianForm(
-                schoolId: schoolId,
-                studentAdm: studentAdm,
-                studentName: studentName,
-                service: service,
-                onDone: (user) => Navigator.of(context).pop(user),
-                onCancel: () => Navigator.of(context).pop(),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

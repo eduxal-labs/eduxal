@@ -14,6 +14,7 @@ import '../../../../models/curriculum_levels.dart';
 import '../../../../models/membership.dart';
 import '../../../../models/school_config.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/edu_sheet.dart';
 import '../../../widgets/edu_tab_bar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2810,10 +2811,8 @@ class _InlineInvigilator extends StatelessWidget {
     final isDark = cs.brightness == Brightness.dark;
     final sheetBg = isDark ? const Color(0xFF1A2332) : cs.surface;
 
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
       builder: (ctx) => _InvigilatorPickerSheet(
         teachers: teachers,
         value: value,

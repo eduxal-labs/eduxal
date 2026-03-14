@@ -5,6 +5,7 @@ import '../../../database/tables/enums.dart';
 import '../../../models/permissions.dart';
 import '../../../models/system_permissions.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/edu_sheet.dart';
 import '../../widgets/edu_tab_bar.dart';
 import '../../widgets/sync_indicator.dart';
 import '../../widgets/user_avatar.dart';
@@ -27,9 +28,12 @@ import 'members/members_section.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const int _kMobileTabHome = 0;
+// ignore: unused_element
 const int _kMobileTabUsers = 1;
 const int _kMobileTabMembers = 2;
+// ignore: unused_element
 const int _kMobileTabSchools = 3;
+// ignore: unused_element
 const int _kMobileTabRoles = 4;
 const int _kMobileTabSettings = 5;
 
@@ -38,6 +42,7 @@ const int _kDesktopTabUsers = 0;
 const int _kDesktopTabMembers = 1;
 const int _kDesktopTabSchools = 2;
 const int _kDesktopTabRoles = 3;
+// ignore: unused_element
 const int _kDesktopTabSettings = 4;
 
 /// The fully-functional system dashboard screen.
@@ -158,27 +163,11 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
   // ── Add Member modal ──────────────────────────────────────────────────────
 
   void _openAddMemberModal() {
-    final isDesktop =
-        MediaQuery.sizeOf(context).width >= AppTheme.kMobileBreakpoint;
-
-    if (isDesktop) {
-      showDialog(
-        context: context,
-        builder: (_) => Dialog(
-          child: SizedBox(
-            width: 480,
-            child: AddMemberSheet(permissions: _permissions),
-          ),
-        ),
-      );
-    } else {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => AddMemberSheet(permissions: _permissions),
-      );
-    }
+    showEduSheet(
+      context: context,
+      builder: (_) => AddMemberSheet(permissions: _permissions),
+      maxWidth: 480,
+    );
   }
 
   // ── FAB logic (mobile only) ────────────────────────────────────────────────
@@ -207,27 +196,24 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
     if (user == null) return;
     switch (action) {
       case _FabAction.inviteUser:
-        showModalBottomSheet(
+        showEduSheet(
           context: context,
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
           builder: (_) => InviteUserSheet(permissions: _permissions),
+          maxWidth: 480,
         );
       case _FabAction.addMember:
         _openAddMemberModal();
       case _FabAction.createSchool:
-        showModalBottomSheet(
+        showEduSheet(
           context: context,
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
           builder: (_) => CreateSchoolSheet(permissions: _permissions),
+          maxWidth: 520,
         );
       case _FabAction.createRole:
-        showModalBottomSheet(
+        showEduSheet(
           context: context,
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
           builder: (_) => CreateRoleSheet(permissions: _permissions),
+          maxWidth: 480,
         );
       case _FabAction.createPlan:
         openCreatePlan(context, _permissions);
@@ -464,39 +450,27 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
           permissions: _permissions,
           accountId: cache.currentUser?.user.id,
           onInviteUser: _permissions.can(Resource.users, Action.create)
-              ? () => showDialog(
+              ? () => showEduSheet(
                   context: context,
-                  builder: (_) => Dialog(
-                    child: SizedBox(
-                      width: 480,
-                      child: InviteUserSheet(permissions: _permissions),
-                    ),
-                  ),
+                  builder: (_) => InviteUserSheet(permissions: _permissions),
+                  maxWidth: 480,
                 )
               : null,
           onAddMember: _permissions.can(Resource.users, Action.update)
               ? _openAddMemberModal
               : null,
           onCreateSchool: _permissions.can(Resource.schools, Action.create)
-              ? () => showDialog(
+              ? () => showEduSheet(
                   context: context,
-                  builder: (_) => Dialog(
-                    child: SizedBox(
-                      width: 520,
-                      child: CreateSchoolSheet(permissions: _permissions),
-                    ),
-                  ),
+                  builder: (_) => CreateSchoolSheet(permissions: _permissions),
+                  maxWidth: 520,
                 )
               : null,
           onCreateRole: _permissions.can(Resource.roles, Action.create)
-              ? () => showDialog(
+              ? () => showEduSheet(
                   context: context,
-                  builder: (_) => Dialog(
-                    child: SizedBox(
-                      width: 480,
-                      child: CreateRoleSheet(permissions: _permissions),
-                    ),
-                  ),
+                  builder: (_) => CreateRoleSheet(permissions: _permissions),
+                  maxWidth: 480,
                 )
               : null,
         ),

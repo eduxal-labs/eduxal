@@ -1100,7 +1100,7 @@ The members page is ~5400 lines and has 6 tabs. Only the Departments tab current
 ## TRACK 7 — Dialog, Form & Modal Consistency
 ## ═══════════════════════════════════════════════════════════════════════════
 
-### Task 701: Migrate all modals/sheets to use `EduSheet`/`EduDialog` wrappers
+### Task 701: Migrate all modals/sheets to use `EduSheet`/`EduDialog` wrappers [x]
 **Files to create/modify:** (All files that contain `showModalBottomSheet` or `showDialog` — comprehensive list below)
 **Context files to read:** `lib/ui/CONTEXT.md`, `lib/ui/widgets/CONTEXT.md`
 **Depends on:** Task 101 (for EduSheet, EduDialog)

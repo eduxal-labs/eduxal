@@ -7,7 +7,9 @@ import '../../../../database/database.dart';
 import '../../../../database/tables/enums.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_data_table.dart';
+import '../../../widgets/edu_sheet.dart';
 import '../../../widgets/status_indicator.dart';
 import '../../../widgets/user_avatar.dart';
 import 'user_detail_sheet.dart';
@@ -100,25 +102,12 @@ class _UsersSectionState extends State<UsersSection> {
   // ── Individual actions ─────────────────────────────────────────────────────
 
   Future<void> _suspendUser(UsersData user) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        title: const Text('Suspend user'),
-        content: Text(
-          'Suspend ${user.name}? They will lose access until restored.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Suspend'),
-          ),
-        ],
-      ),
+      title: 'Suspend user',
+      message: 'Suspend ${user.name}? They will lose access until restored.',
+      confirmLabel: 'Suspend',
+      isDestructive: true,
     );
     if (confirmed != true || !mounted) return;
 
@@ -170,25 +159,13 @@ class _UsersSectionState extends State<UsersSection> {
   Future<void> _promoteUser(UsersData user, UserLevel targetLevel) async {
     final label = targetLevel == UserLevel.system ? 'System' : 'Super';
 
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        title: Text('Promote to $label'),
-        content: Text('Promote ${user.name} to $label level?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Promote'),
-          ),
-        ],
-      ),
+      title: 'Promote to $label',
+      message: 'Promote ${user.name} to $label level?',
+      confirmLabel: 'Promote',
     );
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
 
     try {
       final accountId = cache.currentUser?.user.id;
@@ -211,25 +188,14 @@ class _UsersSectionState extends State<UsersSection> {
   Future<void> _demoteUser(UsersData user, UserLevel targetLevel) async {
     final label = targetLevel == UserLevel.system ? 'System' : 'Normal';
 
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        title: Text('Demote to $label'),
-        content: Text('Demote ${user.name} to $label level?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Demote'),
-          ),
-        ],
-      ),
+      title: 'Demote to $label',
+      message: 'Demote ${user.name} to $label level?',
+      confirmLabel: 'Demote',
+      isDestructive: true,
     );
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
 
     try {
       final accountId = cache.currentUser?.user.id;
@@ -250,28 +216,16 @@ class _UsersSectionState extends State<UsersSection> {
   }
 
   Future<void> _trashUser(UsersData user) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        title: const Text('Trash User'),
-        content: Text(
+      title: 'Trash User',
+      message:
           'Set ${user.name} to Deleted status? '
           'This is a soft delete — the record can be restored later.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Trash'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Trash',
+      isDestructive: true,
     );
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
 
     try {
       final accountId = cache.currentUser?.user.id;
@@ -296,31 +250,16 @@ class _UsersSectionState extends State<UsersSection> {
   }
 
   Future<void> _purgeUser(UsersData user) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        title: const Text('Purge User'),
-        content: Text(
+      title: 'Purge User',
+      message:
           'Permanently delete ${user.name}?\n\n'
           'This action is irreversible and will permanently remove this record.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            style: TextButton.styleFrom(
-              foregroundColor: Theme.of(ctx).colorScheme.error,
-            ),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Purge'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Purge',
+      isDestructive: true,
     );
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
 
     try {
       final accountId = cache.currentUser?.user.id;
@@ -343,10 +282,8 @@ class _UsersSectionState extends State<UsersSection> {
   // ── Detail sheet ───────────────────────────────────────────────────────────
 
   void _openDetail(UsersData user) {
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (_) =>
           UserDetailSheet(user: user, permissions: widget.permissions),
     );

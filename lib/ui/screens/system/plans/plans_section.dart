@@ -13,8 +13,10 @@ import '../../../../models/permissions.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/animated_save_button.dart';
+import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_data_table.dart';
 import '../../../widgets/edu_filter_toolbar.dart';
+import '../../../widgets/edu_sheet.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PlansSection — standalone plans management widget
@@ -278,10 +280,8 @@ class _PlansSectionState extends State<PlansSection> {
   }
 
   void _openPlanDetail(BuildContext context, Plan plan) {
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (_) => _PlanDetailSheet(plan: plan, permissions: permissions),
     );
   }
@@ -439,10 +439,8 @@ class _PlanStatusBadge extends StatelessWidget {
 /// so that both [PlansSection] and external callers (e.g. FAB actions)
 /// can invoke it without needing a [PlansSection] instance.
 void openCreatePlan(BuildContext context, SystemPermissions permissions) {
-  showModalBottomSheet(
+  showEduSheet(
     context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
     builder: (_) => _CreatePlanSheet(permissions: permissions),
   );
 }
@@ -1580,60 +1578,17 @@ class _PlanDetailSheetState extends State<_PlanDetailSheet> {
   }
 
   Future<void> _confirmDelete(Plan current) async {
-    final cs = Theme.of(context).colorScheme;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: cs.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.kRadius),
-        ),
-        title: Text(
-          'Delete plan?',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w400,
-            color: cs.onSurface,
-          ),
-        ),
-        content: Text(
+      title: 'Delete plan?',
+      message:
           'Mark "${current.name}" as deleted? '
           'It can be restored or purged later.',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w400,
-            color: cs.onSurfaceVariant,
-            height: 1.5,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(
-              'Delete',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: cs.error,
-              ),
-            ),
-          ),
-        ],
-      ),
+      confirmLabel: 'Delete',
+      isDestructive: true,
     );
 
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
 
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;

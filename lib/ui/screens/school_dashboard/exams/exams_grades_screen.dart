@@ -21,7 +21,9 @@ import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/active_term_provider.dart';
 import '../../../widgets/animated_save_button.dart';
+import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_filter_toolbar.dart';
+import '../../../widgets/edu_sheet.dart';
 import '../../../widgets/edu_tab_bar.dart';
 import 'exam_creation_page.dart';
 
@@ -784,119 +786,57 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
     if (grades.isEmpty) return;
     final gradeEntry = grades[_selectedGradeIndex];
 
-    final isDesktop =
-        MediaQuery.of(context).size.width >= AppTheme.kMobileBreakpoint;
-
-    if (isDesktop) {
-      await showDialog<void>(
-        context: context,
-        barrierColor: Colors.black.withValues(alpha: 0.35),
-        builder: (_) => _CreatePaperSheet(
-          examGroup: widget.group,
-          schoolId: widget.schoolId,
-          examId: streamEntry.exam.id,
-          year: widget.year,
-          term: widget.term,
-          grade: gradeEntry.grade,
-          stream: streamEntry.streamCode,
-          config: widget.config,
-          dao: _dao,
-          subjectsDao: SubjectsDao(db),
-        ),
-      );
-    } else {
-      await showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => _CreatePaperSheet(
-          examGroup: widget.group,
-          schoolId: widget.schoolId,
-          examId: streamEntry.exam.id,
-          year: widget.year,
-          term: widget.term,
-          grade: gradeEntry.grade,
-          stream: streamEntry.streamCode,
-          config: widget.config,
-          dao: _dao,
-          subjectsDao: SubjectsDao(db),
-        ),
-      );
-    }
+    await showEduSheet<void>(
+      context: context,
+      builder: (_) => _CreatePaperSheet(
+        examGroup: widget.group,
+        schoolId: widget.schoolId,
+        examId: streamEntry.exam.id,
+        year: widget.year,
+        term: widget.term,
+        grade: gradeEntry.grade,
+        stream: streamEntry.streamCode,
+        config: widget.config,
+        dao: _dao,
+        subjectsDao: SubjectsDao(db),
+      ),
+    );
   }
 
   Future<void> _showAddGradeModal(BuildContext context) async {
-    final width = MediaQuery.of(context).size.width;
-    final isDesktop = width >= 600;
-    if (isDesktop) {
-      await showDialog<void>(
-        context: context,
-        barrierColor: Colors.black.withValues(alpha: 0.45),
-        builder: (_) => _AddGradeToExamDialog(
-          group: widget.group,
-          schoolId: widget.schoolId,
-          year: widget.year,
-          term: widget.term,
-          config: widget.config,
-          dao: _dao,
-          subjectsDao: SubjectsDao(db),
-          membersDao: _membersDao,
-        ),
-      );
-    } else {
-      await showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => _AddGradeToExamSheet(
-          group: widget.group,
-          schoolId: widget.schoolId,
-          year: widget.year,
-          term: widget.term,
-          config: widget.config,
-          dao: _dao,
-          subjectsDao: SubjectsDao(db),
-          membersDao: _membersDao,
-        ),
-      );
-    }
+    await showEduSheet<void>(
+      context: context,
+      maxWidth: 520,
+      builder: (_) => _AddGradeToExamForm(
+        group: widget.group,
+        schoolId: widget.schoolId,
+        year: widget.year,
+        term: widget.term,
+        config: widget.config,
+        dao: _dao,
+        subjectsDao: SubjectsDao(db),
+        membersDao: _membersDao,
+        onClose: () => Navigator.of(context).pop(),
+      ),
+    );
   }
 
   Future<void> _showAddStreamModal(BuildContext context) async {
-    final width = MediaQuery.of(context).size.width;
-    final isDesktop = width >= 600;
-    if (isDesktop) {
-      await showDialog<void>(
-        context: context,
-        barrierColor: Colors.black.withValues(alpha: 0.45),
-        builder: (_) => _AddStreamToExamDialog(
-          group: widget.group,
-          schoolId: widget.schoolId,
-          year: widget.year,
-          term: widget.term,
-          config: widget.config,
-          dao: _dao,
-          subjectsDao: SubjectsDao(db),
-          membersDao: _membersDao,
-        ),
-      );
-    } else {
-      await showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => _AddStreamToExamSheet(
-          group: widget.group,
-          schoolId: widget.schoolId,
-          year: widget.year,
-          term: widget.term,
-          config: widget.config,
-          dao: _dao,
-          subjectsDao: SubjectsDao(db),
-          membersDao: _membersDao,
-        ),
-      );
-    }
+    await showEduSheet<void>(
+      context: context,
+      maxWidth: 520,
+      builder: (_) => _AddStreamForm(
+        group: widget.group,
+        schoolId: widget.schoolId,
+        year: widget.year,
+        term: widget.term,
+        config: widget.config,
+        dao: _dao,
+        subjectsDao: SubjectsDao(db),
+        membersDao: _membersDao,
+        onClose: () => Navigator.of(context).pop(),
+      ),
+    );
   }
 
   Future<void> _showEditExamName(BuildContext context) async {
@@ -910,10 +850,8 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final sheetBg = isDark ? const Color(0xFF18222E) : cs.surface;
 
-    await showModalBottomSheet<void>(
+    await showEduSheet<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (_) => Padding(
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -1074,15 +1012,14 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
           )
         : 'this stream';
 
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (_) => _ConfirmDeleteDialog(
-        title: 'Remove $streamName?',
-        message: 'This will delete all papers for this stream.',
-        confirmLabel: 'Remove',
-      ),
+      title: 'Remove $streamName?',
+      message: 'This will delete all papers for this stream.',
+      confirmLabel: 'Remove',
+      isDestructive: true,
     );
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;
     await _dao.deleteExam(examId: streamEntry.exam.id, accountId: accountId);
@@ -1092,16 +1029,15 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
   }
 
   Future<void> _confirmDeleteGroup(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (_) => _ConfirmDeleteDialog(
-        title: 'Delete Exam',
-        message:
-            'All papers, grades, and mastery data for this exam will be permanently deleted.',
-        confirmLabel: 'Delete Exam',
-      ),
+      title: 'Delete Exam',
+      message:
+          'All papers, grades, and mastery data for this exam will be permanently deleted.',
+      confirmLabel: 'Delete Exam',
+      isDestructive: true,
     );
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;
     for (final id in widget.group.examIds) {
@@ -1294,135 +1230,7 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Add Stream to Exam — Dialog (desktop ≥600px)
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _AddStreamToExamDialog extends StatelessWidget {
-  const _AddStreamToExamDialog({
-    required this.group,
-    required this.schoolId,
-    required this.year,
-    required this.term,
-    required this.config,
-    required this.dao,
-    required this.subjectsDao,
-    required this.membersDao,
-  });
-
-  final ExamGroup group;
-  final String schoolId;
-  final int year;
-  final int term;
-  final SchoolConfig config;
-  final ExamsGradesDao dao;
-  final SubjectsDao subjectsDao;
-  final MembersDao membersDao;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520),
-        child: Container(
-          decoration: BoxDecoration(
-            color: isDark
-                ? const Color(0xFF18222E)
-                : Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: _AddStreamForm(
-              group: group,
-              schoolId: schoolId,
-              year: year,
-              term: term,
-              config: config,
-              dao: dao,
-              subjectsDao: subjectsDao,
-              membersDao: membersDao,
-              onClose: () => Navigator.of(context).pop(),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Add Stream to Exam — Sheet (mobile <600px)
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _AddStreamToExamSheet extends StatelessWidget {
-  const _AddStreamToExamSheet({
-    required this.group,
-    required this.schoolId,
-    required this.year,
-    required this.term,
-    required this.config,
-    required this.dao,
-    required this.subjectsDao,
-    required this.membersDao,
-  });
-
-  final ExamGroup group;
-  final String schoolId;
-  final int year;
-  final int term;
-  final SchoolConfig config;
-  final ExamsGradesDao dao;
-  final SubjectsDao subjectsDao;
-  final MembersDao membersDao;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: isDark
-              ? const Color(0xFF18222E)
-              : Theme.of(context).colorScheme.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        child: _AddStreamForm(
-          group: group,
-          schoolId: schoolId,
-          year: year,
-          term: term,
-          config: config,
-          dao: dao,
-          subjectsDao: subjectsDao,
-          membersDao: membersDao,
-          onClose: () => Navigator.of(context).pop(),
-          isSheet: true,
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Add Stream to Exam — Shared Form
+// Add Stream to Exam — Form
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// A single-step form for adding missing streams to an existing grade within
@@ -1440,7 +1248,6 @@ class _AddStreamForm extends StatefulWidget {
     required this.subjectsDao,
     required this.membersDao,
     required this.onClose,
-    this.isSheet = false,
   });
 
   final ExamGroup group;
@@ -1452,7 +1259,6 @@ class _AddStreamForm extends StatefulWidget {
   final SubjectsDao subjectsDao;
   final MembersDao membersDao;
   final VoidCallback onClose;
-  final bool isSheet;
 
   @override
   State<_AddStreamForm> createState() => _AddStreamFormState();
@@ -1895,8 +1701,6 @@ class _AddStreamFormState extends State<_AddStreamForm> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Drag handle (sheet only)
-          if (widget.isSheet) _buildDragHandle(cs),
           // Header
           _buildStreamHeader(cs, isDark, indigo, grade),
           // Grade selector (only when multiple grades have missing streams)
@@ -2057,20 +1861,6 @@ class _AddStreamFormState extends State<_AddStreamForm> {
   }
 
   // ── Sub-builders ──────────────────────────────────────────────────────────
-
-  Widget _buildDragHandle(ColorScheme cs) => Padding(
-    padding: const EdgeInsets.only(top: 10, bottom: 4),
-    child: Center(
-      child: Container(
-        width: 36,
-        height: 4,
-        decoration: BoxDecoration(
-          color: cs.outlineVariant.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(2),
-        ),
-      ),
-    ),
-  );
 
   Widget _buildStreamHeader(
     ColorScheme cs,
@@ -2493,135 +2283,7 @@ class _StreamDropdownOverlayState extends State<_StreamDropdownOverlay>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Add Grade to Exam — Dialog (desktop ≥600px)
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _AddGradeToExamDialog extends StatelessWidget {
-  const _AddGradeToExamDialog({
-    required this.group,
-    required this.schoolId,
-    required this.year,
-    required this.term,
-    required this.config,
-    required this.dao,
-    required this.subjectsDao,
-    required this.membersDao,
-  });
-
-  final ExamGroup group;
-  final String schoolId;
-  final int year;
-  final int term;
-  final SchoolConfig config;
-  final ExamsGradesDao dao;
-  final SubjectsDao subjectsDao;
-  final MembersDao membersDao;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520),
-        child: Container(
-          decoration: BoxDecoration(
-            color: isDark
-                ? const Color(0xFF18222E)
-                : Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: _AddGradeToExamForm(
-              group: group,
-              schoolId: schoolId,
-              year: year,
-              term: term,
-              config: config,
-              dao: dao,
-              subjectsDao: subjectsDao,
-              membersDao: membersDao,
-              onClose: () => Navigator.of(context).pop(),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Add Grade to Exam — Sheet (mobile <600px)
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _AddGradeToExamSheet extends StatelessWidget {
-  const _AddGradeToExamSheet({
-    required this.group,
-    required this.schoolId,
-    required this.year,
-    required this.term,
-    required this.config,
-    required this.dao,
-    required this.subjectsDao,
-    required this.membersDao,
-  });
-
-  final ExamGroup group;
-  final String schoolId;
-  final int year;
-  final int term;
-  final SchoolConfig config;
-  final ExamsGradesDao dao;
-  final SubjectsDao subjectsDao;
-  final MembersDao membersDao;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: isDark
-              ? const Color(0xFF18222E)
-              : Theme.of(context).colorScheme.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        child: _AddGradeToExamForm(
-          group: group,
-          schoolId: schoolId,
-          year: year,
-          term: term,
-          config: config,
-          dao: dao,
-          subjectsDao: subjectsDao,
-          membersDao: membersDao,
-          onClose: () => Navigator.of(context).pop(),
-          isSheet: true,
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Add Grade to Exam — Shared Form (two-step)
+// Add Grade to Exam — Form (two-step)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// A two-step form for adding a new grade (+ streams) to an existing exam group.
@@ -2639,7 +2301,6 @@ class _AddGradeToExamForm extends StatefulWidget {
     required this.subjectsDao,
     required this.membersDao,
     required this.onClose,
-    this.isSheet = false,
   });
 
   final ExamGroup group;
@@ -2651,7 +2312,6 @@ class _AddGradeToExamForm extends StatefulWidget {
   final SubjectsDao subjectsDao;
   final MembersDao membersDao;
   final VoidCallback onClose;
-  final bool isSheet;
 
   @override
   State<_AddGradeToExamForm> createState() => _AddGradeToExamFormState();
@@ -2958,7 +2618,6 @@ class _AddGradeToExamFormState extends State<_AddGradeToExamForm>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (widget.isSheet) _buildDragHandle(cs),
           // Header
           _buildHeader(cs, isDark, indigo),
           // Step indicator
@@ -2980,20 +2639,6 @@ class _AddGradeToExamFormState extends State<_AddGradeToExamForm>
       ),
     );
   }
-
-  Widget _buildDragHandle(ColorScheme cs) => Padding(
-    padding: const EdgeInsets.only(top: 10, bottom: 4),
-    child: Center(
-      child: Container(
-        width: 36,
-        height: 4,
-        decoration: BoxDecoration(
-          color: cs.outlineVariant.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(2),
-        ),
-      ),
-    ),
-  );
 
   Widget _buildHeader(ColorScheme cs, bool isDark, Color indigo) => Padding(
     padding: const EdgeInsets.fromLTRB(16, 14, 8, 4),
@@ -4547,9 +4192,8 @@ class _GradeSubjectSelector extends StatelessWidget {
     return GestureDetector(
       onTap: () async {
         if (subjects.isEmpty) return;
-        await showModalBottomSheet<void>(
+        await showEduSheet<void>(
           context: context,
-          backgroundColor: Colors.transparent,
           builder: (_) => _GradeSubjectPickerSheet(
             subjects: subjects,
             value: value,
@@ -4754,9 +4398,8 @@ class _GradeInvigilatorSelector extends StatelessWidget {
     return GestureDetector(
       onTap: () async {
         if (!teachersLoaded || teachers.isEmpty) return;
-        await showModalBottomSheet<void>(
+        await showEduSheet<void>(
           context: context,
-          backgroundColor: Colors.transparent,
           builder: (_) => _GradeInvigilatorPickerSheet(
             teachers: teachers,
             value: value,
@@ -7547,10 +7190,8 @@ class _GradeListState extends State<_GradeList> {
   void _openGradeEntry(BuildContext context, StudentsData student) {
     if (!widget.canGrade) return;
     final existing = widget.gradeMap[student.adm];
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (_) => _MobileGradeEntrySheet(
         student: student,
         existingGrade: existing,
@@ -8250,13 +7891,13 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
 
   // ── Build ─────────────────────────────────────────────────────────────────
 
+  // Wrapping (Dialog on desktop / bottom sheet on mobile) is handled by
+  // showEduSheet — this widget only returns the form content.
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final indigo = const Color(0xFF5C7CFA);
-    final isDesktop =
-        MediaQuery.of(context).size.width >= AppTheme.kMobileBreakpoint;
 
     final gradeLabel = _gradeLabel(widget.grade, widget.config);
     final streamLabel = widget.stream != null
@@ -8268,58 +7909,16 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
 
     final sheetBg = isDark ? const Color(0xFF18222E) : cs.surface;
 
-    Widget content = _buildContent(
+    // isSheet: false — the drag handle is provided by EduSheet / showEduSheet,
+    // so we don't render a duplicate one inside the content.
+    return _buildContent(
       context,
       cs: cs,
       isDark: isDark,
       indigo: indigo,
       subtitle: subtitle,
       sheetBg: sheetBg,
-      isSheet: !isDesktop,
-    );
-
-    if (isDesktop) {
-      return Dialog(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 440),
-            child: Container(
-              decoration: BoxDecoration(
-                color: sheetBg,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
-                    blurRadius: 32,
-                    offset: const Offset(0, 12),
-                  ),
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.06),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: content,
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: sheetBg,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        child: content,
-      ),
+      isSheet: false,
     );
   }
 
@@ -9899,47 +9498,6 @@ class _StatusChip extends StatelessWidget {
           letterSpacing: 0.3,
         ),
       ),
-    );
-  }
-}
-
-class _ConfirmDeleteDialog extends StatelessWidget {
-  const _ConfirmDeleteDialog({
-    required this.title,
-    required this.message,
-    required this.confirmLabel,
-  });
-  final String title;
-  final String message;
-  final String confirmLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return AlertDialog(
-      title: Text(
-        title,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-      ),
-      content: Text(
-        message,
-        style: TextStyle(
-          fontSize: 13.5,
-          fontWeight: FontWeight.w400,
-          color: cs.onSurfaceVariant,
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Cancel'),
-        ),
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(true),
-          style: TextButton.styleFrom(foregroundColor: cs.error),
-          child: Text(confirmLabel),
-        ),
-      ],
     );
   }
 }

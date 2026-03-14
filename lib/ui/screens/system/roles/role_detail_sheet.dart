@@ -9,6 +9,7 @@ import '../../../../database/tables/enums.dart';
 import '../../../../models/permissions.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/edu_confirm_dialog.dart';
 
 /// Modal bottom sheet showing the full details of a [Role] row.
 ///
@@ -187,62 +188,17 @@ class _RoleDetailSheetState extends State<RoleDetailSheet> {
   // ── Delete helpers ─────────────────────────────────────────────────────────
 
   Future<void> _confirmDelete(Role current) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (ctx) {
-        final cs = Theme.of(ctx).colorScheme;
-        return AlertDialog(
-          backgroundColor: cs.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.kRadius),
-          ),
-          title: Text(
-            'Delete role?',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w400,
-              color: cs.onSurface,
-            ),
-          ),
-          content: Text(
-            'Are you sure you want to delete "${current.name}"? '
-            'This action cannot be undone.',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
-              color: cs.onSurfaceVariant,
-              height: 1.5,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: Text(
-                'Cancel',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: Text(
-                'Delete',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  color: cs.error,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+      title: 'Delete role?',
+      message:
+          'Are you sure you want to delete "${current.name}"? '
+          'This action cannot be undone.',
+      confirmLabel: 'Delete',
+      isDestructive: true,
     );
 
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
 
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;

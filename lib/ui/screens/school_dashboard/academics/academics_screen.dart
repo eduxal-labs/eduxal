@@ -7,6 +7,8 @@ import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
 import '../../../widgets/active_term_provider.dart';
+import '../../../widgets/edu_sheet.dart';
+import '../../../widgets/edu_confirm_dialog.dart';
 
 import 'grade_detail_page.dart';
 
@@ -135,14 +137,8 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
   }
 
   void _showAddCurriculumAndGradeSheet() {
-    final cs = Theme.of(context).colorScheme;
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: cs.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
-      ),
       builder: (ctx) => _CurriculumSetupSheet(
         onCurriculumSelected: (type) {
           Navigator.pop(ctx);
@@ -153,45 +149,19 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
   }
 
   void _showCurriculumChooser(Set<int> usedGrades) {
-    final cs = Theme.of(context).colorScheme;
-
     final cbcCount = usedGrades.where((g) => g <= 14).length;
     final eftCount = usedGrades.where((g) => g >= 41).length;
 
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      backgroundColor: cs.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
-      ),
+      title: 'Add grade to…',
       builder: (ctx) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(
-                child: Container(
-                  width: 32,
-                  height: 3.5,
-                  decoration: BoxDecoration(
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Add grade to…',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: cs.onSurface,
-                  letterSpacing: 0.1,
-                ),
-              ),
-              const SizedBox(height: 12),
               _SheetOption(
                 label: 'CBC',
                 subtitle:
@@ -241,14 +211,8 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
       return;
     }
 
-    final cs = Theme.of(context).colorScheme;
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: cs.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
-      ),
       builder: (ctx) => _GradePickerSheet(
         available: available,
         curriculumLabel: type == CurriculumType.cbc ? 'CBC' : '8-4-4',
@@ -274,60 +238,17 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
   // ── Delete grade ───────────────────────────────────────────────────────────
 
   Future<void> _deleteGrade(int gradeNum, String gradeLabel) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (ctx) {
-        final cs = Theme.of(ctx).colorScheme;
-        return AlertDialog(
-          backgroundColor: cs.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          title: Text(
-            'Remove $gradeLabel?',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              color: cs.onSurface,
-            ),
-          ),
-          content: Text(
-            'This will remove the grade and all its stream definitions. '
-            'Existing enrollments and records are not affected.',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              color: cs.onSurfaceVariant,
-              height: 1.45,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(
-                'Cancel',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: Text(
-                'Remove',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: cs.error,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+      title: 'Remove $gradeLabel?',
+      message:
+          'This will remove the grade and all its stream definitions. '
+          'Existing enrollments and records are not affected.',
+      confirmLabel: 'Remove',
+      isDestructive: true,
     );
 
-    if (confirmed != true) return;
+    if (!confirmed) return;
 
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;
@@ -362,112 +283,113 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
     final nameCtrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
 
-    showDialog(
+    showEduSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: cs.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        title: Text(
-          isFirstStream
-              ? 'Name the first stream for $gradeLabel'
-              : 'Add stream to $gradeLabel',
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-            color: cs.onSurface,
-          ),
-        ),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            controller: nameCtrl,
-            autofocus: true,
-            style: TextStyle(
-              fontSize: 13.5,
-              fontWeight: FontWeight.w400,
-              color: cs.onSurface,
-            ),
-            decoration: InputDecoration(
-              hintText: 'e.g. Green, Blue, North, A',
-              hintStyle: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-              ),
-              filled: true,
-              fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide(
-                  color: cs.outline.withValues(alpha: 0.3),
+      title: isFirstStream
+          ? 'Name the first stream for $gradeLabel'
+          : 'Add stream to $gradeLabel',
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Form(
+              key: formKey,
+              child: TextFormField(
+                controller: nameCtrl,
+                autofocus: true,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurface,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'e.g. Green, Blue, North, A',
+                  hintStyle: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                  ),
+                  filled: true,
+                  fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(6),
+                    borderSide: BorderSide(
+                      color: cs.outline.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(6),
+                    borderSide: BorderSide(
+                      color: cs.outline.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(6),
+                    borderSide: BorderSide(color: cs.primary, width: 1),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  isDense: true,
+                ),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'Name required';
+                  if (existingStreams.any(
+                    (s) => s.name.toLowerCase() == v.trim().toLowerCase(),
+                  )) {
+                    return 'Stream already exists';
+                  }
+                  return null;
+                },
+                onFieldSubmitted: (_) => _submitAddStream(
+                  ctx,
+                  formKey,
+                  nameCtrl,
+                  gradeNum,
+                  existingStreams,
+                  isFirstStream: isFirstStream,
                 ),
               ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide(
-                  color: cs.outline.withValues(alpha: 0.3),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
                 ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide(color: cs.primary, width: 1),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 10,
-              ),
-              isDense: true,
+                TextButton(
+                  onPressed: () => _submitAddStream(
+                    ctx,
+                    formKey,
+                    nameCtrl,
+                    gradeNum,
+                    existingStreams,
+                    isFirstStream: isFirstStream,
+                  ),
+                  child: Text(
+                    'Add',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: cs.primary,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            validator: (v) {
-              if (v == null || v.trim().isEmpty) return 'Name required';
-              if (existingStreams.any(
-                (s) => s.name.toLowerCase() == v.trim().toLowerCase(),
-              )) {
-                return 'Stream already exists';
-              }
-              return null;
-            },
-            onFieldSubmitted: (_) => _submitAddStream(
-              ctx,
-              formKey,
-              nameCtrl,
-              gradeNum,
-              existingStreams,
-              isFirstStream: isFirstStream,
-            ),
-          ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => _submitAddStream(
-              ctx,
-              formKey,
-              nameCtrl,
-              gradeNum,
-              existingStreams,
-              isFirstStream: isFirstStream,
-            ),
-            child: Text(
-              'Add',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: cs.primary,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -524,14 +446,8 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
     String gradeLabel,
     List<SchoolStream> streams,
   ) {
-    final cs = Theme.of(context).colorScheme;
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: cs.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
-      ),
       builder: (ctx) => _EditStreamsSheet(
         schoolId: _schoolId,
         gradeNum: gradeNum,
@@ -1359,58 +1275,17 @@ class _EditStreamsSheetState extends State<_EditStreamsSheet> {
     final activeCount = _streams.where((s) => !s.removed).length;
     if (activeCount == 1) {
       // Last stream — confirm that removing it will delete the whole grade.
-      final cs = Theme.of(context).colorScheme;
-      showDialog<bool>(
+      showEduConfirmDialog(
         context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: cs.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          title: Text(
-            'Remove grade?',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              color: cs.onSurface,
-            ),
-          ),
-          content: Text(
+        title: 'Remove grade?',
+        message:
             'This is the last stream for ${widget.gradeLabel}. '
             'Removing it will also remove the grade. '
             'Existing enrollments and records are not affected.',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              color: cs.onSurfaceVariant,
-              height: 1.45,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(
-                'Cancel',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: Text(
-                'Remove',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: cs.error,
-                ),
-              ),
-            ),
-          ],
-        ),
+        confirmLabel: 'Remove',
+        isDestructive: true,
       ).then((confirmed) {
-        if (confirmed != true) return;
+        if (!confirmed) return;
         setState(() {
           _streams[index].controller.dispose();
           _streams[index] = _EditableStream(

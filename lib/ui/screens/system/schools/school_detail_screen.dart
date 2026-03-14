@@ -19,6 +19,7 @@ import '../../../../models/school_config.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/animated_save_button.dart';
+import '../../../widgets/edu_sheet.dart';
 import '../../../widgets/status_indicator.dart';
 
 /// Full-page school detail screen, pushed onto the navigator from
@@ -75,10 +76,8 @@ class _SchoolDetailScreenState extends State<SchoolDetailScreen>
   }
 
   void _openEditSheet(SchoolsData school) {
-    showModalBottomSheet(
+    showEduSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (_) => _EditSchoolSheet(school: school),
     );
   }
@@ -136,10 +135,8 @@ class _SchoolDetailScreenState extends State<SchoolDetailScreen>
                 color: cs.onSurfaceVariant,
               ),
               onPressed: () {
-                showModalBottomSheet(
+                showEduSheet(
                   context: context,
-                  isScrollControlled: true,
-                  backgroundColor: Colors.transparent,
                   builder: (_) => _AddOwnerSheet(
                     schoolId: widget.school.id,
                     permissions: widget.permissions,
@@ -2549,12 +2546,8 @@ class _SettingsEditModeState extends State<_SettingsEditMode> {
 
   void _openGradePicker(CurriculumType type, Set<int> alreadyAdded) {
     final cs = widget.cs;
-    showModalBottomSheet<void>(
+    showEduSheet<void>(
       context: context,
-      backgroundColor: cs.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-      ),
       builder: (_) => _GradePickerSheet(
         curriculumType: type,
         alreadyAdded: alreadyAdded,
@@ -3218,10 +3211,8 @@ class _MpesaNotConfigured extends StatelessWidget {
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                 ),
                 onPressed: () {
-                  showModalBottomSheet(
+                  showEduSheet(
                     context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
                     builder: (_) =>
                         _MpesaConfigSheet(schoolId: schoolId, existing: null),
                   );
@@ -3295,10 +3286,8 @@ class _MpesaConfigured extends StatelessWidget {
                   ),
                 ),
                 onPressed: () {
-                  showModalBottomSheet(
+                  showEduSheet(
                     context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
                     builder: (_) =>
                         _MpesaConfigSheet(schoolId: schoolId, existing: config),
                   );
@@ -3486,10 +3475,8 @@ class _EditSchoolSheetState extends State<_EditSchoolSheet> {
 
   Future<void> _openCountyPicker() async {
     final cs = Theme.of(context).colorScheme;
-    final selected = await showModalBottomSheet<KenyaCounty>(
+    final selected = await showEduSheet<KenyaCounty>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (_) => _EditCountyPickerSheet(selected: _selectedCounty, cs: cs),
     );
     if (selected != null && mounted) {
