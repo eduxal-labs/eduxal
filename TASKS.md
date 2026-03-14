@@ -250,7 +250,7 @@ static const IconData levelSuperIcon = Icons.star_rounded;     // star
 ## TRACK 2 — Enhanced EduDataTable with Selection, Search, Filters
 ## ═══════════════════════════════════════════════════════════════════════════
 
-### Task 201: Overhaul `EduDataTable` with multi-select, search, filters, and new row design
+### Task 201: Overhaul `EduDataTable` with multi-select, search, filters, and new row design [x]
 **Files to create/modify:** `lib/ui/widgets/edu_data_table.dart`
 **Context files to read:** `lib/ui/widgets/CONTEXT.md`
 **Depends on:** Task 101 (for `EduFilterToolbar`, `EduSearchField`)
@@ -355,7 +355,7 @@ This allows the caller to return different actions based on the item state (e.g.
 ## TRACK 3 — System Dashboard: Tab Styling + Settings Tab
 ## ═══════════════════════════════════════════════════════════════════════════
 
-### Task 301: Restyle system dashboard tabs to match school dashboard members page tabs
+### Task 301: Restyle system dashboard tabs to match school dashboard members page tabs [x]
 **Files to create/modify:** `lib/ui/screens/system/system_dashboard_screen.dart`
 **Context files to read:** `lib/ui/screens/system/CONTEXT.md`
 **Depends on:** Nothing
@@ -409,7 +409,7 @@ The `SystemSettingsScreen` file can be kept for now (not deleted) in case it's r
 
 ---
 
-### Task 302: Add Plans CRUD to Settings > Plans tab (verify/enhance existing PlansSection)
+### Task 302: Add Plans CRUD to Settings > Plans tab (verify/enhance existing PlansSection) [x]
 **Files to create/modify:** `lib/ui/screens/system/plans/plans_section.dart`, `lib/ui/screens/system/system_dashboard_screen.dart`
 **Context files to read:** `lib/ui/screens/system/CONTEXT.md`, `lib/database/daos/CONTEXT.md`
 **Depends on:** Task 201 (for enhanced EduDataTable), Task 301 (for Settings tab)
@@ -495,7 +495,7 @@ The `SubjectsSection` already exists (~2378 lines) with **full CRUD for both sub
 ## TRACK 4 — Critical Bug Fix: Subject-Teacher Assignment
 ## ═══════════════════════════════════════════════════════════════════════════
 
-### Task 401: Fix subject-teacher assignment using real `subjects` table instead of enum indices
+### Task 401: Fix subject-teacher assignment using real `subjects` table instead of enum indices [x]
 **Files to create/modify:** `lib/ui/screens/school_dashboard/academics/grade_detail_page.dart`
 **Context files to read:** `lib/database/daos/CONTEXT.md`, `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** Nothing

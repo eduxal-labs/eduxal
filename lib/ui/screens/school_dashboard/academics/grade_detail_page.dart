@@ -7,11 +7,11 @@ import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/enrollments_dao.dart';
 import '../../../../database/daos/exams_grades_dao.dart';
+import '../../../../database/daos/catalog_dao.dart';
 import '../../../../database/daos/members_dao.dart';
 import '../../../../database/daos/subjects_dao.dart';
 import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../database/tables/enums.dart' show ExamType;
-import '../../../../models/curriculum_levels.dart';
 import '../../../../models/membership.dart';
 import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
@@ -1729,7 +1729,7 @@ class _SubjectTeacherPickerSheetState
   bool _loadingSubjects = true;
 
   // ── Step 1 — teacher list ──────────────────────────────────────────────────
-  int? _selectedSubjectIndex;
+  int? _selectedSubjectId;
   String? _selectedSubjectName;
   String? _currentTeacherUserId; // teacher already assigned to this subject
   List<_TeacherCandidate> _allTeachers = [];
@@ -1749,61 +1749,18 @@ class _SubjectTeacherPickerSheetState
     super.dispose();
   }
 
-  // ── Grade → Level mapping ──────────────────────────────────────────────────
-
-  /// Returns all valid subject indices for the given grade int.
-  ///
-  /// For CBC:
-  ///   PP1(1),PP2(2) → level 0; Grade1–3(3–5) → level 1; Grade4–6(6–8) → level 2;
-  ///   Grade7–9(9–11) → level 3; Grade10–12(12–14) → levels 4,5,6 (union).
-  ///
-  /// For 8-4-4:
-  ///   Std1–3(1–3) → level 0; Std4–8(4–8) → level 1;
-  ///   Form1–2(41–42) → level 2; Form3–4(43–44) → level 3.
-  List<int> _subjectsForGrade() {
-    final levels = levelsFor(widget.curriculumType);
-    final grade = widget.grade;
-
-    // Build grade → level index ranges for each curriculum.
-    List<int> cbcLevelIndicesForGrade(int g) {
-      if (g <= 2) return [0];
-      if (g <= 5) return [1];
-      if (g <= 8) return [2];
-      if (g <= 11) return [3];
-      if (g <= 14) return [4, 5, 6]; // all senior pathways
-      return [];
-    }
-
-    List<int> eightFourFourLevelIndicesForGrade(int g) {
-      if (g <= 3) return [0];
-      if (g <= 8) return [1];
-      if (g <= 42) return [2]; // Form 1–2 = 41–42
-      if (g <= 44) return [3]; // Form 3–4 = 43–44
-      return [];
-    }
-
-    final levelIndices = widget.curriculumType == CurriculumType.cbc
-        ? cbcLevelIndicesForGrade(grade)
-        : eightFourFourLevelIndicesForGrade(grade);
-
-    // Collect all subjects from matching levels (union for multiple pathways).
-    final subjects = <int>{};
-    for (final li in levelIndices) {
-      if (li < levels.length) {
-        subjects.addAll(levels[li].subjects);
-      }
-    }
-    final sorted = subjects.toList()..sort();
-    return sorted;
-  }
-
   // ── Load subjects ──────────────────────────────────────────────────────────
 
   Future<void> _loadSubjects() async {
     setState(() => _loadingSubjects = true);
 
-    // Get all valid subject indices for this grade.
-    final validSubjects = _subjectsForGrade();
+    // Query real subjects from the global catalog table.
+    final catalogDao = CatalogDao(db);
+    final subjectsStream = catalogDao.watchSubjectsByCurriculum(
+      widget.curriculumType,
+    );
+    final subjectsList = await subjectsStream.first;
+    if (!mounted) return;
 
     // Get currently assigned subjects for this class.
     final assignedStream = _subjectsDao.watchSubjectsForClass(
@@ -1816,22 +1773,20 @@ class _SubjectTeacherPickerSheetState
     final assignedList = await assignedStream.first;
     if (!mounted) return;
 
-    // Build a map of subject index → assigned teacher name.
+    // Build a map of subject id → assigned teacher name.
     final assignedMap = <int, String>{};
     for (final entry in assignedList) {
       assignedMap[entry.subject.subject] = entry.teacher.name;
     }
 
-    // Build candidate list.
+    // Build candidate list from real subjects table rows.
     final candidates = <_SubjectCandidate>[];
-    for (final subjectIndex in validSubjects) {
-      final label = subjectLabel(widget.curriculumType, subjectIndex);
-      final assignedTeacher = assignedMap[subjectIndex];
+    for (final subject in subjectsList) {
       candidates.add(
         _SubjectCandidate(
-          subjectIndex: subjectIndex,
-          subjectName: label,
-          assignedTeacherName: assignedTeacher,
+          subjectId: subject.id,
+          subjectName: subject.name,
+          assignedTeacherName: assignedMap[subject.id],
         ),
       );
     }
@@ -1863,14 +1818,14 @@ class _SubjectTeacherPickerSheetState
     _searchCtrl.clear();
     setState(() {
       _step = 1;
-      _selectedSubjectIndex = candidate.subjectIndex;
+      _selectedSubjectId = candidate.subjectId;
       _selectedSubjectName = candidate.subjectName;
       _loadingTeachers = true;
     });
 
     // Find the currently assigned teacher for this subject (if any).
     final assignedEntry = _allSubjects.firstWhere(
-      (s) => s.subjectIndex == candidate.subjectIndex,
+      (s) => s.subjectId == candidate.subjectId,
     );
     // We need to find the teacher user id, not just the name.
     _loadTeachers(assignedEntry);
@@ -1884,7 +1839,7 @@ class _SubjectTeacherPickerSheetState
       term: widget.term,
       grade: widget.grade,
       stream: widget.streamCode,
-      subject: forSubject.subjectIndex,
+      subject: forSubject.subjectId,
     );
     if (!mounted) return;
     _currentTeacherUserId = assignment?.teacher;
@@ -1944,7 +1899,7 @@ class _SubjectTeacherPickerSheetState
 
   Future<void> _assign(_TeacherCandidate candidate) async {
     final accountId = cache.currentUser?.user.id;
-    if (accountId == null || _selectedSubjectIndex == null) return;
+    if (accountId == null || _selectedSubjectId == null) return;
 
     setState(() => _assigning = true);
 
@@ -1954,7 +1909,7 @@ class _SubjectTeacherPickerSheetState
       term: widget.term,
       grade: widget.grade,
       stream: widget.streamCode,
-      subject: _selectedSubjectIndex!,
+      subject: _selectedSubjectId!,
       teacherUserId: candidate.teacher.user,
       accountId: accountId,
     );
@@ -1978,7 +1933,7 @@ class _SubjectTeacherPickerSheetState
     _searchCtrl.clear();
     setState(() {
       _step = 0;
-      _selectedSubjectIndex = null;
+      _selectedSubjectId = null;
       _selectedSubjectName = null;
       _currentTeacherUserId = null;
       _allTeachers = [];
@@ -2388,12 +2343,12 @@ class _SubjectTeacherPickerSheetState
 
 class _SubjectCandidate {
   const _SubjectCandidate({
-    required this.subjectIndex,
+    required this.subjectId,
     required this.subjectName,
     this.assignedTeacherName,
   });
 
-  final int subjectIndex;
+  final int subjectId;
   final String subjectName;
   final String? assignedTeacherName;
 }

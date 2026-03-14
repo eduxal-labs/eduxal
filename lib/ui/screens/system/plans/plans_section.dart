@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:bson/bson.dart';
@@ -13,6 +14,7 @@ import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/animated_save_button.dart';
 import '../../../widgets/edu_data_table.dart';
+import '../../../widgets/edu_filter_toolbar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PlansSection — standalone plans management widget
@@ -24,81 +26,216 @@ import '../../../widgets/edu_data_table.dart';
 /// Accepts [SystemPermissions] to gate create/edit/delete actions.
 /// Can be used as tab content in the system dashboard or embedded in
 /// the settings screen.
-class PlansSection extends StatelessWidget {
+class PlansSection extends StatefulWidget {
   const PlansSection({super.key, required this.permissions});
 
   final SystemPermissions permissions;
 
   @override
+  State<PlansSection> createState() => _PlansSectionState();
+}
+
+class _PlansSectionState extends State<PlansSection> {
+  // ── Search & filter state ──────────────────────────────────────────────────
+
+  final _searchCtrl = TextEditingController();
+  String _searchQuery = '';
+  bool _searchVisible = false;
+  bool _filterVisible = false;
+  PlanStatus? _statusFilter;
+  Timer? _debounce;
+
+  SystemPermissions get permissions => widget.permissions;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchCtrl.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _searchCtrl.removeListener(_onSearchChanged);
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 200), () {
+      if (mounted) setState(() => _searchQuery = _searchCtrl.text);
+    });
+  }
+
+  void _toggleSearch() {
+    setState(() {
+      _searchVisible = !_searchVisible;
+      if (!_searchVisible) {
+        _searchCtrl.clear();
+        _searchQuery = '';
+      }
+    });
+  }
+
+  void _toggleFilters() {
+    setState(() => _filterVisible = !_filterVisible);
+  }
+
+  // ── Filtering logic ────────────────────────────────────────────────────────
+
+  List<Plan> _applyFilters(List<Plan> all) {
+    var plans = all
+        .where(
+          (p) => permissions.canSeeDeleted || p.status != PlanStatus.deleted,
+        )
+        .toList();
+
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      plans = plans.where((p) => p.name.toLowerCase().contains(q)).toList();
+    }
+
+    if (_statusFilter != null) {
+      plans = plans.where((p) => p.status == _statusFilter).toList();
+    }
+
+    return plans;
+  }
+
+  List<EduFilterChipData> _buildFilterChips() {
+    final statuses = [
+      PlanStatus.active,
+      PlanStatus.suspended,
+      if (permissions.canSeeDeleted) PlanStatus.deleted,
+    ];
+
+    return statuses.map((s) {
+      final label = switch (s) {
+        PlanStatus.active => 'Active',
+        PlanStatus.suspended => 'Suspended',
+        PlanStatus.deleted => 'Deleted',
+        _ => s.name,
+      };
+      return EduFilterChipData(
+        label: label,
+        isSelected: _statusFilter == s,
+        onTap: () =>
+            setState(() => _statusFilter = _statusFilter == s ? null : s),
+        activeColor: switch (s) {
+          PlanStatus.active => AppTheme.statusActive,
+          PlanStatus.suspended => AppTheme.statusSuspended,
+          PlanStatus.deleted => AppTheme.statusDeleted,
+          _ => null,
+        },
+      );
+    }).toList();
+  }
+
+  // ── Build ──────────────────────────────────────────────────────────────────
+
+  @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<Plan>>(
-      stream: plansDao.watchAllPlans(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.only(top: 48),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 1.5),
-              ),
-            ),
-          );
-        }
+    return Stack(
+      children: [
+        StreamBuilder<List<Plan>>(
+          stream: plansDao.watchAllPlans(),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.only(top: 48),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 1.5),
+                  ),
+                ),
+              );
+            }
 
-        final plans = snapshot.data!
-            .where(
-              (p) =>
-                  permissions.canSeeDeleted || p.status != PlanStatus.deleted,
-            )
-            .toList();
+            final plans = _applyFilters(snapshot.data!);
 
-        return EduDataTable<Plan>(
-          items: plans,
-          emptyIcon: Icons.credit_card_outlined,
-          emptyTitle: 'No plans yet',
-          emptySubtitle: 'Create a subscription plan to get started.',
-          onItemTap: (plan) => _openPlanDetail(context, plan),
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          actions: (plan) => [
-            EduDataTableAction<Plan>(
-              icon: Icons.edit_outlined,
-              label: 'Edit',
-              onTap: (p) => _openPlanDetail(context, p),
-            ),
-            if (plan.status != PlanStatus.deleted &&
-                permissions.can(Resource.plans, Action.delete))
-              EduDataTableAction<Plan>(
-                icon: Icons.delete_outline_rounded,
-                label: 'Delete',
-                isDestructive: true,
-                onTap: (p) => _deletePlan(context, p),
-              ),
-            if (plan.status == PlanStatus.deleted && permissions.canSeeDeleted)
-              EduDataTableAction<Plan>(
-                icon: Icons.delete_forever_rounded,
-                label: 'Purge',
-                isDestructive: true,
-                onTap: (p) => _purgePlan(context, p),
-              ),
-          ],
-          columns: const [
-            EduDataTableColumn(label: 'Plan', flex: 3),
-            EduDataTableColumn(label: 'Status', flex: 1),
-          ],
-          cellBuilder: (context, plan, index, isHovered) {
-            final cs = Theme.of(context).colorScheme;
-            return switch (index) {
-              0 => _PlanIdentityCell(plan: plan),
-              1 => _PlanStatusBadge(status: plan.status, cs: cs),
-              _ => const SizedBox.shrink(),
-            };
+            return EduDataTable<Plan>(
+              items: plans,
+              emptyIcon: Icons.credit_card_outlined,
+              emptyTitle: 'No plans yet',
+              emptySubtitle: 'Create a subscription plan to get started.',
+              onItemTap: (plan) => _openPlanDetail(context, plan),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              // ── Search & filters ───────────────────────────────────────
+              searchController: _searchCtrl,
+              searchHint: 'Search plans…',
+              onSearchChanged: (_) {},
+              showSearch: _searchVisible,
+              onToggleSearch: _toggleSearch,
+              filters: _buildFilterChips(),
+              showFilters: _filterVisible,
+              onToggleFilters: _toggleFilters,
+              // ── Actions ────────────────────────────────────────────────
+              actions: (plan) => [
+                EduDataTableAction<Plan>(
+                  icon: Icons.edit_outlined,
+                  label: 'Edit',
+                  onTap: (p) => _openPlanDetail(context, p),
+                ),
+                if (plan.status != PlanStatus.deleted &&
+                    permissions.can(Resource.plans, Action.delete))
+                  EduDataTableAction<Plan>(
+                    icon: Icons.delete_outline_rounded,
+                    label: 'Delete',
+                    isDestructive: true,
+                    onTap: (p) => _deletePlan(context, p),
+                  ),
+                if (plan.status == PlanStatus.deleted &&
+                    permissions.canSeeDeleted)
+                  EduDataTableAction<Plan>(
+                    icon: Icons.delete_forever_rounded,
+                    label: 'Purge',
+                    isDestructive: true,
+                    onTap: (p) => _purgePlan(context, p),
+                  ),
+              ],
+              columns: const [
+                EduDataTableColumn(label: 'Plan', flex: 3),
+                EduDataTableColumn(label: 'Status', flex: 1),
+              ],
+              cellBuilder: (context, plan, index, isHovered) {
+                final cs = Theme.of(context).colorScheme;
+                return switch (index) {
+                  0 => _PlanIdentityCell(plan: plan),
+                  1 => _PlanStatusBadge(status: plan.status, cs: cs),
+                  _ => const SizedBox.shrink(),
+                };
+              },
+            );
           },
-        );
-      },
+        ),
+        // ── Inline FAB ─────────────────────────────────────────────────────
+        if (permissions.can(Resource.plans, Action.create))
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: FloatingActionButton.small(
+              heroTag: 'fab_plans',
+              backgroundColor: AppTheme.statusActive,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              onPressed: () => openCreatePlan(context, permissions),
+              tooltip: 'New Plan',
+              child: const Icon(
+                Icons.add_rounded,
+                size: 20,
+                color: Colors.white,
+              ),
+            ),
+          ),
+      ],
     );
   }
+
+  // ── Actions ────────────────────────────────────────────────────────────────
 
   Future<void> _deletePlan(BuildContext context, Plan plan) async {
     final accountId = cache.currentUser?.user.id;

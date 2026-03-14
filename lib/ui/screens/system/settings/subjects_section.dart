@@ -7,6 +7,9 @@ import '../../../../models/curriculum_levels.dart';
 import '../../../../models/permissions.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/edu_confirm_dialog.dart';
+import '../../../widgets/edu_form_field.dart';
+import '../../../widgets/edu_sheet.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SubjectsSection — global subject catalog management
@@ -68,137 +71,162 @@ class _SubjectsSectionState extends State<SubjectsSection> {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Stack(
       children: [
-        // ── Header row ─────────────────────────────────────────────────────
-        Padding(
-          padding: const EdgeInsets.fromLTRB(0, 4, 0, 8),
-          child: Row(
-            children: [
-              Icon(
-                Icons.menu_book_outlined,
-                size: 18,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Subjects',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: cs.onSurface,
-                  letterSpacing: 0.1,
-                ),
-              ),
-              const SizedBox(width: 12),
-              // ── Curriculum toggle ──────────────────────────────────────
-              _CurriculumToggle(
-                selected: _curriculum,
-                onChanged: (c) => setState(() => _curriculum = c),
-                cs: cs,
-                isDark: isDark,
-              ),
-              const Spacer(),
-              // ── Search toggle ──────────────────────────────────────────
-              _SmallIconButton(
-                icon: _searchVisible
-                    ? Icons.search_off_rounded
-                    : Icons.search_rounded,
-                tooltip: _searchVisible ? 'Close search' : 'Search subjects',
-                onTap: _toggleSearch,
-                cs: cs,
-              ),
-              if (_canCreate) ...[
-                const SizedBox(width: 4),
-                _SmallIconButton(
-                  icon: Icons.add_rounded,
-                  tooltip: 'Add subject',
-                  onTap: () => _showCreateSubject(context),
-                  cs: cs,
-                  isPrimary: true,
-                ),
-              ],
-            ],
-          ),
-        ),
-
-        // ── Search bar ─────────────────────────────────────────────────────
-        AnimatedSize(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOutCubic,
-          alignment: Alignment.topCenter,
-          child: _searchVisible
-              ? Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: _SearchField(
-                    controller: _searchCtrl,
-                    focusNode: _searchFocus,
-                    cs: cs,
-                    isDark: isDark,
-                    onChanged: (v) => setState(() => _search = v),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Header row ─────────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(0, 4, 0, 8),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.menu_book_outlined,
+                    size: 18,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                   ),
-                )
-              : const SizedBox.shrink(),
-        ),
-
-        // ── Subject list ───────────────────────────────────────────────────
-        Expanded(
-          child: StreamBuilder<List<Subject>>(
-            stream: catalogDao.watchSubjectsByCurriculum(_curriculum),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return const Center(
-                  child: Padding(
-                    padding: EdgeInsets.only(top: 48),
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 1.5),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Subjects',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: cs.onSurface,
+                      letterSpacing: 0.1,
                     ),
                   ),
-                );
-              }
-
-              var subjects = snapshot.data!;
-              if (_search.isNotEmpty) {
-                final q = _search.toLowerCase();
-                subjects = subjects
-                    .where((s) => s.name.toLowerCase().contains(q))
-                    .toList();
-              }
-
-              if (subjects.isEmpty) {
-                return _EmptyState(
-                  curriculum: _curriculum,
-                  isFiltered: _search.isNotEmpty,
-                  cs: cs,
-                );
-              }
-
-              return ListView.separated(
-                padding: const EdgeInsets.only(bottom: 24),
-                itemCount: subjects.length,
-                separatorBuilder: (_, __) =>
-                    AppTheme.tableRowDivider(isDark, cs),
-                itemBuilder: (context, index) {
-                  final subject = subjects[index];
-                  return _SubjectTile(
-                    subject: subject,
-                    curriculum: _curriculum,
-                    canEdit: _canEdit,
-                    canDelete: _canDelete,
-                    canCreate: _canCreate,
+                  const SizedBox(width: 12),
+                  // ── Curriculum toggle ──────────────────────────────────────
+                  _CurriculumToggle(
+                    selected: _curriculum,
+                    onChanged: (c) => setState(() => _curriculum = c),
                     cs: cs,
                     isDark: isDark,
-                    onEdit: () => _showEditSubject(context, subject),
-                    onDelete: () => _deleteSubject(context, subject),
+                  ),
+                  const Spacer(),
+                  // ── Search toggle ──────────────────────────────────────────
+                  _SmallIconButton(
+                    icon: _searchVisible
+                        ? Icons.search_off_rounded
+                        : Icons.search_rounded,
+                    tooltip: _searchVisible
+                        ? 'Close search'
+                        : 'Search subjects',
+                    onTap: _toggleSearch,
+                    cs: cs,
+                  ),
+                  if (_canCreate) ...[
+                    const SizedBox(width: 4),
+                    _SmallIconButton(
+                      icon: Icons.add_rounded,
+                      tooltip: 'Add subject',
+                      onTap: () => _showCreateSubject(context),
+                      cs: cs,
+                      isPrimary: true,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+            // ── Search bar ─────────────────────────────────────────────────────
+            AnimatedSize(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: _searchVisible
+                  ? Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _SearchField(
+                        controller: _searchCtrl,
+                        focusNode: _searchFocus,
+                        cs: cs,
+                        isDark: isDark,
+                        onChanged: (v) => setState(() => _search = v),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+
+            // ── Subject list ───────────────────────────────────────────────────
+            Expanded(
+              child: StreamBuilder<List<Subject>>(
+                stream: catalogDao.watchSubjectsByCurriculum(_curriculum),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.only(top: 48),
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 1.5),
+                        ),
+                      ),
+                    );
+                  }
+
+                  var subjects = snapshot.data!;
+                  if (_search.isNotEmpty) {
+                    final q = _search.toLowerCase();
+                    subjects = subjects
+                        .where((s) => s.name.toLowerCase().contains(q))
+                        .toList();
+                  }
+
+                  if (subjects.isEmpty) {
+                    return _EmptyState(
+                      curriculum: _curriculum,
+                      isFiltered: _search.isNotEmpty,
+                      cs: cs,
+                    );
+                  }
+
+                  return ListView.separated(
+                    padding: const EdgeInsets.only(bottom: 24),
+                    itemCount: subjects.length,
+                    separatorBuilder: (_, __) =>
+                        AppTheme.tableRowDivider(isDark, cs),
+                    itemBuilder: (context, index) {
+                      final subject = subjects[index];
+                      return _SubjectTile(
+                        subject: subject,
+                        curriculum: _curriculum,
+                        canEdit: _canEdit,
+                        canDelete: _canDelete,
+                        canCreate: _canCreate,
+                        cs: cs,
+                        isDark: isDark,
+                        onEdit: () => _showEditSubject(context, subject),
+                        onDelete: () => _deleteSubject(context, subject),
+                      );
+                    },
                   );
                 },
-              );
-            },
-          ),
+              ),
+            ),
+          ],
         ),
+        if (_canCreate)
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: FloatingActionButton.small(
+              heroTag: 'fab_subjects',
+              backgroundColor: AppTheme.statusActive,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              onPressed: () => _showCreateSubject(context),
+              tooltip: 'New Subject',
+              child: const Icon(
+                Icons.add_rounded,
+                size: 20,
+                color: Colors.white,
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -206,72 +234,38 @@ class _SubjectsSectionState extends State<SubjectsSection> {
   // ── Create subject ─────────────────────────────────────────────────────────
 
   void _showCreateSubject(BuildContext context) {
-    final isDesktop =
-        MediaQuery.sizeOf(context).width >= AppTheme.kMobileBreakpoint;
-
-    if (isDesktop) {
-      showDialog(
-        context: context,
-        builder: (_) => Dialog(
-          backgroundColor: Colors.transparent,
-          child: SizedBox(
-            width: 420,
-            child: _CreateSubjectSheet(curriculum: _curriculum),
-          ),
-        ),
-      );
-    } else {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => _CreateSubjectSheet(curriculum: _curriculum),
-      );
-    }
+    showEduSheet(
+      context: context,
+      title: 'New Subject',
+      maxWidth: 420,
+      builder: (_) => _CreateSubjectSheet(curriculum: _curriculum),
+    );
   }
 
   // ── Edit subject ───────────────────────────────────────────────────────────
 
   void _showEditSubject(BuildContext context, Subject subject) {
-    final isDesktop =
-        MediaQuery.sizeOf(context).width >= AppTheme.kMobileBreakpoint;
-
-    if (isDesktop) {
-      showDialog(
-        context: context,
-        builder: (_) => Dialog(
-          backgroundColor: Colors.transparent,
-          child: SizedBox(
-            width: 420,
-            child: _EditSubjectSheet(subject: subject),
-          ),
-        ),
-      );
-    } else {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => _EditSubjectSheet(subject: subject),
-      );
-    }
+    showEduSheet(
+      context: context,
+      title: 'Edit Subject',
+      maxWidth: 420,
+      builder: (_) => _EditSubjectSheet(subject: subject),
+    );
   }
 
   // ── Delete subject ─────────────────────────────────────────────────────────
 
   Future<void> _deleteSubject(BuildContext context, Subject subject) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (ctx) => _ConfirmDialog(
-        title: 'Delete Subject',
-        message:
-            'Are you sure you want to delete "${subject.name}"? '
-            'All topics under this subject will also be removed.',
-        confirmLabel: 'Delete',
-        isDestructive: true,
-      ),
+      title: 'Delete Subject',
+      message:
+          'Are you sure you want to delete "${subject.name}"? '
+          'All topics under this subject will also be removed.',
+      confirmLabel: 'Delete',
+      isDestructive: true,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
 
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;
@@ -1082,36 +1076,16 @@ class _TopicList extends StatelessWidget {
   }
 
   void _showCreateTopic(BuildContext context) {
-    final isDesktop =
-        MediaQuery.sizeOf(context).width >= AppTheme.kMobileBreakpoint;
-
-    if (isDesktop) {
-      showDialog(
-        context: context,
-        builder: (_) => Dialog(
-          backgroundColor: Colors.transparent,
-          child: SizedBox(
-            width: 380,
-            child: _CreateTopicSheet(
-              subjectId: subjectId,
-              subjectName: subjectName,
-              grade: grade,
-            ),
-          ),
-        ),
-      );
-    } else {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => _CreateTopicSheet(
-          subjectId: subjectId,
-          subjectName: subjectName,
-          grade: grade,
-        ),
-      );
-    }
+    showEduSheet(
+      context: context,
+      title: 'New Topic',
+      maxWidth: 380,
+      builder: (_) => _CreateTopicSheet(
+        subjectId: subjectId,
+        subjectName: subjectName,
+        grade: grade,
+      ),
+    );
   }
 }
 
@@ -1217,38 +1191,23 @@ class _TopicRowState extends State<_TopicRow> {
   }
 
   void _showEditTopic(BuildContext context, Topic topic) {
-    final isDesktop =
-        MediaQuery.sizeOf(context).width >= AppTheme.kMobileBreakpoint;
-
-    if (isDesktop) {
-      showDialog(
-        context: context,
-        builder: (_) => Dialog(
-          backgroundColor: Colors.transparent,
-          child: SizedBox(width: 380, child: _EditTopicSheet(topic: topic)),
-        ),
-      );
-    } else {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => _EditTopicSheet(topic: topic),
-      );
-    }
+    showEduSheet(
+      context: context,
+      title: 'Edit Topic',
+      maxWidth: 380,
+      builder: (_) => _EditTopicSheet(topic: topic),
+    );
   }
 
   Future<void> _deleteTopic(BuildContext context, Topic topic) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showEduConfirmDialog(
       context: context,
-      builder: (ctx) => _ConfirmDialog(
-        title: 'Delete Topic',
-        message: 'Are you sure you want to delete "${topic.name}"?',
-        confirmLabel: 'Delete',
-        isDestructive: true,
-      ),
+      title: 'Delete Topic',
+      message: 'Are you sure you want to delete "${topic.name}"?',
+      confirmLabel: 'Delete',
+      isDestructive: true,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
 
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;
@@ -1411,107 +1370,80 @@ class _CreateSubjectSheetState extends State<_CreateSubjectSheet> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF18222E) : cs.surface,
-        borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
-        boxShadow: AppTheme.modalShadow(isDark),
-      ),
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + bottomInset),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ── Handle ────────────────────────────────────────────────
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(2),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ── Save button row ──────────────────────────────────────
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              if (_submitting)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 1.5),
+                )
+              else
+                _SmallIconButton(
+                  icon: Icons.check_rounded,
+                  tooltip: 'Create',
+                  onTap: _submit,
+                  cs: cs,
+                  isPrimary: true,
                 ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            // ── Title row ─────────────────────────────────────────────
-            Row(
-              children: [
-                Text(
-                  'New Subject',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurface,
-                    letterSpacing: 0.1,
-                  ),
-                ),
-                const Spacer(),
-                if (_submitting)
-                  const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 1.5),
-                  )
-                else
-                  _SmallIconButton(
-                    icon: Icons.check_rounded,
-                    tooltip: 'Create',
-                    onTap: _submit,
-                    cs: cs,
-                    isPrimary: true,
-                  ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            // ── Error ─────────────────────────────────────────────────
-            if (_submitError != null) ...[
-              _ErrorBanner(message: _submitError!, cs: cs, isDark: isDark),
-              const SizedBox(height: 10),
             ],
-            // ── Name field ────────────────────────────────────────────
-            _SheetLabel(label: 'Name', cs: cs),
-            const SizedBox(height: 6),
-            _SheetTextField(
-              controller: _nameCtrl,
-              hint: 'e.g. Mathematics',
-              error: _nameError,
-              cs: cs,
-              isDark: isDark,
-              autofocus: true,
-              onSubmitted: (_) => _submit(),
-            ),
-            const SizedBox(height: 14),
-            // ── Curriculum selector ───────────────────────────────────
-            _SheetLabel(label: 'Curriculum', cs: cs),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                _CurriculumOption(
-                  label: 'CBC',
-                  isSelected: _curriculum == CurriculumType.cbc,
-                  onTap: () => setState(() => _curriculum = CurriculumType.cbc),
-                  cs: cs,
-                  isDark: isDark,
-                ),
-                const SizedBox(width: 8),
-                _CurriculumOption(
-                  label: '8-4-4',
-                  isSelected: _curriculum == CurriculumType.eightFourFour,
-                  onTap: () => setState(
-                    () => _curriculum = CurriculumType.eightFourFour,
-                  ),
-                  cs: cs,
-                  isDark: isDark,
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
+          ),
+          const SizedBox(height: 8),
+          // ── Error ─────────────────────────────────────────────────
+          if (_submitError != null) ...[
+            _ErrorBanner(message: _submitError!, cs: cs, isDark: isDark),
+            const SizedBox(height: 10),
           ],
-        ),
+          // ── Name field ────────────────────────────────────────────
+          EduFormField(
+            controller: _nameCtrl,
+            label: 'Name',
+            hint: 'e.g. Mathematics',
+            error: _nameError,
+          ),
+          const SizedBox(height: 14),
+          // ── Curriculum selector ───────────────────────────────────
+          Text(
+            'CURRICULUM',
+            style: TextStyle(
+              fontSize: 9.5,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.9,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              _CurriculumOption(
+                label: 'CBC',
+                isSelected: _curriculum == CurriculumType.cbc,
+                onTap: () => setState(() => _curriculum = CurriculumType.cbc),
+                cs: cs,
+                isDark: isDark,
+              ),
+              const SizedBox(width: 8),
+              _CurriculumOption(
+                label: '8-4-4',
+                isSelected: _curriculum == CurriculumType.eightFourFour,
+                onTap: () =>
+                    setState(() => _curriculum = CurriculumType.eightFourFour),
+                cs: cs,
+                isDark: isDark,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+        ],
       ),
     );
   }
@@ -1608,107 +1540,80 @@ class _EditSubjectSheetState extends State<_EditSubjectSheet> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF18222E) : cs.surface,
-        borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
-        boxShadow: AppTheme.modalShadow(isDark),
-      ),
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + bottomInset),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ── Handle ────────────────────────────────────────────────
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(2),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ── Save button row ──────────────────────────────────────
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              if (_submitting)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 1.5),
+                )
+              else
+                _SmallIconButton(
+                  icon: Icons.check_rounded,
+                  tooltip: 'Save',
+                  onTap: _submit,
+                  cs: cs,
+                  isPrimary: true,
                 ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            // ── Title row ─────────────────────────────────────────────
-            Row(
-              children: [
-                Text(
-                  'Edit Subject',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurface,
-                    letterSpacing: 0.1,
-                  ),
-                ),
-                const Spacer(),
-                if (_submitting)
-                  const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 1.5),
-                  )
-                else
-                  _SmallIconButton(
-                    icon: Icons.check_rounded,
-                    tooltip: 'Save',
-                    onTap: _submit,
-                    cs: cs,
-                    isPrimary: true,
-                  ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            // ── Error ─────────────────────────────────────────────────
-            if (_submitError != null) ...[
-              _ErrorBanner(message: _submitError!, cs: cs, isDark: isDark),
-              const SizedBox(height: 10),
             ],
-            // ── Name field ────────────────────────────────────────────
-            _SheetLabel(label: 'Name', cs: cs),
-            const SizedBox(height: 6),
-            _SheetTextField(
-              controller: _nameCtrl,
-              hint: 'Subject name',
-              error: _nameError,
-              cs: cs,
-              isDark: isDark,
-              autofocus: true,
-              onSubmitted: (_) => _submit(),
-            ),
-            const SizedBox(height: 14),
-            // ── Curriculum selector ───────────────────────────────────
-            _SheetLabel(label: 'Curriculum', cs: cs),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                _CurriculumOption(
-                  label: 'CBC',
-                  isSelected: _curriculum == CurriculumType.cbc,
-                  onTap: () => setState(() => _curriculum = CurriculumType.cbc),
-                  cs: cs,
-                  isDark: isDark,
-                ),
-                const SizedBox(width: 8),
-                _CurriculumOption(
-                  label: '8-4-4',
-                  isSelected: _curriculum == CurriculumType.eightFourFour,
-                  onTap: () => setState(
-                    () => _curriculum = CurriculumType.eightFourFour,
-                  ),
-                  cs: cs,
-                  isDark: isDark,
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
+          ),
+          const SizedBox(height: 8),
+          // ── Error ─────────────────────────────────────────────────
+          if (_submitError != null) ...[
+            _ErrorBanner(message: _submitError!, cs: cs, isDark: isDark),
+            const SizedBox(height: 10),
           ],
-        ),
+          // ── Name field ────────────────────────────────────────────
+          EduFormField(
+            controller: _nameCtrl,
+            label: 'Name',
+            hint: 'Subject name',
+            error: _nameError,
+          ),
+          const SizedBox(height: 14),
+          // ── Curriculum selector ───────────────────────────────────
+          Text(
+            'CURRICULUM',
+            style: TextStyle(
+              fontSize: 9.5,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.9,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              _CurriculumOption(
+                label: 'CBC',
+                isSelected: _curriculum == CurriculumType.cbc,
+                onTap: () => setState(() => _curriculum = CurriculumType.cbc),
+                cs: cs,
+                isDark: isDark,
+              ),
+              const SizedBox(width: 8),
+              _CurriculumOption(
+                label: '8-4-4',
+                isSelected: _curriculum == CurriculumType.eightFourFour,
+                onTap: () =>
+                    setState(() => _curriculum = CurriculumType.eightFourFour),
+                cs: cs,
+                isDark: isDark,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+        ],
       ),
     );
   }
@@ -1791,97 +1696,57 @@ class _CreateTopicSheetState extends State<_CreateTopicSheet> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF18222E) : cs.surface,
-        borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
-        boxShadow: AppTheme.modalShadow(isDark),
-      ),
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + bottomInset),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ── Handle ────────────────────────────────────────────────
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(2),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ── Subject name subtitle + save button ─────────────────
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  widget.subjectName,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w300,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 14),
-            // ── Title ─────────────────────────────────────────────────
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'New Topic',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: cs.onSurface,
-                          letterSpacing: 0.1,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        widget.subjectName,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w300,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                        ),
-                      ),
-                    ],
-                  ),
+              if (_submitting)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 1.5),
+                )
+              else
+                _SmallIconButton(
+                  icon: Icons.check_rounded,
+                  tooltip: 'Create',
+                  onTap: _submit,
+                  cs: cs,
+                  isPrimary: true,
                 ),
-                if (_submitting)
-                  const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 1.5),
-                  )
-                else
-                  _SmallIconButton(
-                    icon: Icons.check_rounded,
-                    tooltip: 'Create',
-                    onTap: _submit,
-                    cs: cs,
-                    isPrimary: true,
-                  ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            // ── Error ─────────────────────────────────────────────────
-            if (_submitError != null) ...[
-              _ErrorBanner(message: _submitError!, cs: cs, isDark: isDark),
-              const SizedBox(height: 10),
             ],
-            // ── Name field ────────────────────────────────────────────
-            _SheetLabel(label: 'Topic name', cs: cs),
-            const SizedBox(height: 6),
-            _SheetTextField(
-              controller: _nameCtrl,
-              hint: 'e.g. Algebra, Trigonometry',
-              error: _nameError,
-              cs: cs,
-              isDark: isDark,
-              autofocus: true,
-              onSubmitted: (_) => _submit(),
-            ),
-            const SizedBox(height: 8),
+          ),
+          const SizedBox(height: 12),
+          // ── Error ─────────────────────────────────────────────────
+          if (_submitError != null) ...[
+            _ErrorBanner(message: _submitError!, cs: cs, isDark: isDark),
+            const SizedBox(height: 10),
           ],
-        ),
+          // ── Name field ────────────────────────────────────────────
+          EduFormField(
+            controller: _nameCtrl,
+            label: 'Topic Name',
+            hint: 'e.g. Algebra, Trigonometry',
+            error: _nameError,
+          ),
+          const SizedBox(height: 8),
+        ],
       ),
     );
   }
@@ -1969,82 +1834,48 @@ class _EditTopicSheetState extends State<_EditTopicSheet> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF18222E) : cs.surface,
-        borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
-        boxShadow: AppTheme.modalShadow(isDark),
-      ),
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + bottomInset),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ── Handle ────────────────────────────────────────────────
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(2),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ── Save button row ──────────────────────────────────────
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              if (_submitting)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 1.5),
+                )
+              else
+                _SmallIconButton(
+                  icon: Icons.check_rounded,
+                  tooltip: 'Save',
+                  onTap: _submit,
+                  cs: cs,
+                  isPrimary: true,
                 ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            // ── Title row ─────────────────────────────────────────────
-            Row(
-              children: [
-                Text(
-                  'Edit Topic',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurface,
-                    letterSpacing: 0.1,
-                  ),
-                ),
-                const Spacer(),
-                if (_submitting)
-                  const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 1.5),
-                  )
-                else
-                  _SmallIconButton(
-                    icon: Icons.check_rounded,
-                    tooltip: 'Save',
-                    onTap: _submit,
-                    cs: cs,
-                    isPrimary: true,
-                  ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            // ── Error ─────────────────────────────────────────────────
-            if (_submitError != null) ...[
-              _ErrorBanner(message: _submitError!, cs: cs, isDark: isDark),
-              const SizedBox(height: 10),
             ],
-            // ── Name field ────────────────────────────────────────────
-            _SheetLabel(label: 'Topic name', cs: cs),
-            const SizedBox(height: 6),
-            _SheetTextField(
-              controller: _nameCtrl,
-              hint: 'Topic name',
-              error: _nameError,
-              cs: cs,
-              isDark: isDark,
-              autofocus: true,
-              onSubmitted: (_) => _submit(),
-            ),
-            const SizedBox(height: 8),
+          ),
+          const SizedBox(height: 8),
+          // ── Error ─────────────────────────────────────────────────
+          if (_submitError != null) ...[
+            _ErrorBanner(message: _submitError!, cs: cs, isDark: isDark),
+            const SizedBox(height: 10),
           ],
-        ),
+          // ── Name field ────────────────────────────────────────────
+          EduFormField(
+            controller: _nameCtrl,
+            label: 'Topic Name',
+            hint: 'Topic name',
+            error: _nameError,
+          ),
+          const SizedBox(height: 8),
+        ],
       ),
     );
   }
@@ -2053,125 +1884,6 @@ class _EditTopicSheetState extends State<_EditTopicSheet> {
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared form widgets
 // ─────────────────────────────────────────────────────────────────────────────
-
-class _SheetLabel extends StatelessWidget {
-  const _SheetLabel({required this.label, required this.cs});
-
-  final String label;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-        color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-        letterSpacing: 0.2,
-      ),
-    );
-  }
-}
-
-class _SheetTextField extends StatelessWidget {
-  const _SheetTextField({
-    required this.controller,
-    required this.hint,
-    required this.cs,
-    required this.isDark,
-    this.error,
-    this.autofocus = false,
-    this.onSubmitted,
-  });
-
-  final TextEditingController controller;
-  final String hint;
-  final ColorScheme cs;
-  final bool isDark;
-  final String? error;
-  final bool autofocus;
-  final ValueChanged<String>? onSubmitted;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          height: 38,
-          child: TextField(
-            controller: controller,
-            autofocus: autofocus,
-            onSubmitted: onSubmitted,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              color: cs.onSurface,
-            ),
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w300,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.4),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 10,
-              ),
-              filled: true,
-              fillColor: isDark
-                  ? cs.surfaceContainerHighest.withValues(alpha: 0.4)
-                  : cs.surfaceContainerHighest.withValues(alpha: 0.3),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(
-                  color: error != null
-                      ? cs.error.withValues(alpha: 0.6)
-                      : (isDark
-                            ? cs.outlineVariant.withValues(alpha: 0.3)
-                            : cs.outlineVariant.withValues(alpha: 0.4)),
-                  width: 0.5,
-                ),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(
-                  color: error != null
-                      ? cs.error.withValues(alpha: 0.6)
-                      : (isDark
-                            ? cs.outlineVariant.withValues(alpha: 0.3)
-                            : cs.outlineVariant.withValues(alpha: 0.4)),
-                  width: 0.5,
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(
-                  color: error != null ? cs.error : cs.primary,
-                  width: 1,
-                ),
-              ),
-            ),
-          ),
-        ),
-        if (error != null) ...[
-          const SizedBox(height: 4),
-          Text(
-            error!,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w400,
-              color: cs.error.withValues(alpha: 0.8),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
 
 class _CurriculumOption extends StatelessWidget {
   const _CurriculumOption({
@@ -2231,93 +1943,6 @@ class _CurriculumOption extends StatelessWidget {
                     ? cs.primary
                     : cs.onSurfaceVariant.withValues(alpha: 0.7),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Confirm dialog
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _ConfirmDialog extends StatelessWidget {
-  const _ConfirmDialog({
-    required this.title,
-    required this.message,
-    required this.confirmLabel,
-    this.isDestructive = false,
-  });
-
-  final String title;
-  final String message;
-  final String confirmLabel;
-  final bool isDestructive;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isDark = cs.brightness == Brightness.dark;
-
-    return Dialog(
-      backgroundColor: isDark ? const Color(0xFF18222E) : cs.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: cs.onSurface,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              message,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.8),
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  style: TextButton.styleFrom(
-                    foregroundColor: cs.onSurfaceVariant,
-                    textStyle: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                  child: const Text('Cancel'),
-                ),
-                const SizedBox(width: 8),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  style: TextButton.styleFrom(
-                    foregroundColor: isDestructive ? cs.error : cs.primary,
-                    textStyle: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  child: Text(confirmLabel),
-                ),
-              ],
             ),
           ],
         ),

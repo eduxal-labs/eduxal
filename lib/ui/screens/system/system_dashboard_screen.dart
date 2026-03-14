@@ -5,6 +5,7 @@ import '../../../database/tables/enums.dart';
 import '../../../models/permissions.dart';
 import '../../../models/system_permissions.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/edu_tab_bar.dart';
 import '../../widgets/sync_indicator.dart';
 import '../../widgets/user_avatar.dart';
 import '../account/account_screen.dart';
@@ -12,6 +13,8 @@ import '../notifications/notifications_page.dart';
 import 'home/system_stats_section.dart';
 import 'roles/roles_section.dart';
 import 'schools/schools_section.dart';
+import 'settings/subjects_section.dart';
+import 'plans/plans_section.dart';
 
 import 'users/invite_user_sheet.dart';
 import 'users/users_section.dart';
@@ -20,16 +23,27 @@ import 'roles/create_role_sheet.dart';
 import 'members/members_section.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tab index constants
+// Tab index constants — mobile (6 tabs: Home, Users, Members, Schools, Roles, Settings)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const int _kTabHome = 0;
-const int _kTabMembers = 2;
+const int _kMobileTabHome = 0;
+const int _kMobileTabUsers = 1;
+const int _kMobileTabMembers = 2;
+const int _kMobileTabSchools = 3;
+const int _kMobileTabRoles = 4;
+const int _kMobileTabSettings = 5;
+
+// Desktop tab indices (5 tabs: Users, Members, Schools, Roles, Settings)
+const int _kDesktopTabUsers = 0;
+const int _kDesktopTabMembers = 1;
+const int _kDesktopTabSchools = 2;
+const int _kDesktopTabRoles = 3;
+const int _kDesktopTabSettings = 4;
 
 /// The fully-functional system dashboard screen.
 ///
 /// **Mobile** (width < [AppTheme.kMobileBreakpoint]):
-/// - Icon-only [TabBar] with 5 tabs: Home, Users, Members, Schools, Roles.
+/// - Icon-only [EduTabBar] with 6 tabs: Home, Users, Members, Schools, Roles, Settings.
 /// - Inline back-button row above the tab bar.
 /// - Expandable FAB (create actions) on tabs that support creation.
 ///
@@ -65,10 +79,10 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
   /// Scaffold key — used for scaffold access.
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  /// Mobile tab controller (5 tabs).
+  /// Mobile tab controller (6 tabs: Home, Users, Members, Schools, Roles, Settings).
   late final TabController _mobileTabController;
 
-  /// Desktop tab controller (Users=0, Members=1, Schools=2, Roles=3).
+  /// Desktop tab controller (Users=0, Members=1, Schools=2, Roles=3, Settings=4).
   late final TabController _desktopTabController;
 
   /// Entrance animation.
@@ -81,9 +95,9 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
   @override
   void initState() {
     super.initState();
-    _mobileTabController = TabController(length: 5, vsync: this);
+    _mobileTabController = TabController(length: 6, vsync: this);
     _mobileTabController.addListener(_onMobileTabChanged);
-    _desktopTabController = TabController(length: 4, vsync: this);
+    _desktopTabController = TabController(length: 5, vsync: this);
 
     _entranceController = AnimationController(
       vsync: this,
@@ -171,8 +185,8 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
 
   bool get _showFab {
     final tab = _mobileTabController.index;
-    // FAB on: Users, Members, Schools, Roles.
-    if (tab == _kTabHome) {
+    // FAB on: Users, Members, Schools, Roles (not Home, not Settings).
+    if (tab == _kMobileTabHome || tab == _kMobileTabSettings) {
       return false;
     }
     return _permissions.can(Resource.users, Action.create) ||
@@ -215,7 +229,8 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
           backgroundColor: Colors.transparent,
           builder: (_) => CreateRoleSheet(permissions: _permissions),
         );
-      // createPlan FAB action deferred until Task 11 extracts CreatePlanSheet.
+      case _FabAction.createPlan:
+        openCreatePlan(context, _permissions);
     }
   }
 
@@ -257,8 +272,6 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
   // ── Mobile layout ──────────────────────────────────────────────────────────
 
   Widget _buildMobileBody(BuildContext context, ColorScheme cs) {
-    final isDark = cs.brightness == Brightness.dark;
-
     return SafeArea(
       child: Column(
         children: [
@@ -297,59 +310,17 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
             ),
           ),
           // ── Icon-only tab bar ────────────────────────────────────────
-          Padding(
+          EduTabBar(
+            controller: _mobileTabController,
             padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
-            child: Container(
-              height: 36,
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHighest.withValues(
-                  alpha: isDark ? 0.7 : 0.5,
-                ),
-                borderRadius: BorderRadius.circular(8),
-                border: isDark
-                    ? Border.all(
-                        color: cs.outlineVariant.withValues(alpha: 0.3),
-                        width: 1,
-                      )
-                    : null,
-              ),
-              child: TabBar(
-                controller: _mobileTabController,
-                isScrollable: false,
-                dividerColor: Colors.transparent,
-                indicatorSize: TabBarIndicatorSize.tab,
-                indicator: BoxDecoration(
-                  color: cs.surface,
-                  borderRadius: BorderRadius.circular(6),
-                  border: isDark
-                      ? Border.all(
-                          color: cs.outlineVariant.withValues(alpha: 0.4),
-                          width: 1,
-                        )
-                      : null,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(
-                        alpha: isDark ? 0.12 : 0.04,
-                      ),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                labelColor: cs.onSurface,
-                unselectedLabelColor: cs.onSurfaceVariant,
-                labelPadding: EdgeInsets.zero,
-                tabs: const [
-                  Tab(icon: Icon(Icons.bar_chart_rounded, size: 18)),
-                  Tab(icon: Icon(Icons.people_outline_rounded, size: 18)),
-                  Tab(icon: Icon(Icons.shield_outlined, size: 18)),
-                  Tab(icon: Icon(Icons.school_outlined, size: 18)),
-                  Tab(icon: Icon(Icons.verified_user_outlined, size: 18)),
-                ],
-              ),
-            ),
+            tabs: const [
+              EduTab(icon: Icons.bar_chart_rounded),
+              EduTab(icon: Icons.people_outline_rounded),
+              EduTab(icon: Icons.shield_outlined),
+              EduTab(icon: Icons.school_outlined),
+              EduTab(icon: Icons.verified_user_outlined),
+              EduTab(icon: Icons.settings_outlined),
+            ],
           ),
           // ── Animated tab content ─────────────────────────────────────
           Expanded(
@@ -365,6 +336,7 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
                     MembersSection(permissions: _permissions),
                     SchoolsSection(permissions: _permissions),
                     RolesSection(permissions: _permissions),
+                    _SettingsTabBody(permissions: _permissions),
                   ],
                 ),
               ),
@@ -386,7 +358,7 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
     final canCreateSchool = _permissions.can(Resource.schools, Action.create);
     final canCreateRole = _permissions.can(Resource.roles, Action.create);
     // Members tab (index 2) — only the addMember action is relevant.
-    if (tab == _kTabMembers) {
+    if (tab == _kMobileTabMembers) {
       if (!canAddMember) return const SizedBox.shrink();
       return FloatingActionButton.small(
         heroTag: 'fab_system_members',
@@ -534,6 +506,60 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Settings tab body — inner Plans / Subjects tabs
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SettingsTabBody extends StatefulWidget {
+  const _SettingsTabBody({required this.permissions});
+
+  final SystemPermissions permissions;
+
+  @override
+  State<_SettingsTabBody> createState() => _SettingsTabBodyState();
+}
+
+class _SettingsTabBodyState extends State<_SettingsTabBody>
+    with SingleTickerProviderStateMixin {
+  late final TabController _innerTabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _innerTabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _innerTabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        EduTabBar(
+          controller: _innerTabController,
+          tabs: const [
+            EduTab(label: 'Plans'),
+            EduTab(label: 'Subjects'),
+          ],
+        ),
+        Expanded(
+          child: TabBarView(
+            controller: _innerTabController,
+            children: [
+              PlansSection(permissions: widget.permissions),
+              SubjectsSection(permissions: widget.permissions),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Desktop body — fixed stats panel + sticky tab bar + scrollable tab content
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -619,7 +645,7 @@ class _DesktopBody extends StatelessWidget {
             // right edge is constrained to never overlap the button (8 gap +
             // 32 button width = 40 px from the right).
             child: SizedBox(
-              height: 36,
+              height: 38,
               child: Stack(
                 children: [
                   // ── Pill: anchored left, shrinks to content, max right = 40px from edge ──
@@ -637,94 +663,17 @@ class _DesktopBody extends StatelessWidget {
                         constraints: const BoxConstraints(
                           maxWidth: double.infinity,
                         ),
-                        child: AnimatedBuilder(
-                          animation: tabController,
-                          builder: (context, _) {
-                            // Measure natural tab widths to know when to stop shrinking.
-                            return LayoutBuilder(
-                              builder: (context, bc) {
-                                return Container(
-                                  height: 36,
-                                  constraints: BoxConstraints(
-                                    maxWidth: bc.maxWidth,
-                                  ),
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    color: cs.surfaceContainerHighest
-                                        .withValues(
-                                          alpha:
-                                              cs.brightness == Brightness.dark
-                                              ? 0.7
-                                              : 0.5,
-                                        ),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: cs.brightness == Brightness.dark
-                                        ? Border.all(
-                                            color: cs.outlineVariant.withValues(
-                                              alpha: 0.3,
-                                            ),
-                                            width: 1,
-                                          )
-                                        : null,
-                                  ),
-                                  child: TabBar(
-                                    controller: tabController,
-                                    isScrollable: true,
-                                    tabAlignment: TabAlignment.start,
-                                    splashBorderRadius: BorderRadius.circular(
-                                      6,
-                                    ),
-                                    dividerColor: Colors.transparent,
-                                    indicatorSize: TabBarIndicatorSize.tab,
-                                    indicator: BoxDecoration(
-                                      color: cs.surface,
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: cs.brightness == Brightness.dark
-                                          ? Border.all(
-                                              color: cs.outlineVariant
-                                                  .withValues(alpha: 0.4),
-                                              width: 1,
-                                            )
-                                          : null,
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(
-                                            alpha:
-                                                cs.brightness == Brightness.dark
-                                                ? 0.12
-                                                : 0.04,
-                                          ),
-                                          blurRadius: 4,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    labelColor: cs.onSurface,
-                                    unselectedLabelColor: cs.onSurfaceVariant,
-                                    labelPadding: const EdgeInsets.symmetric(
-                                      horizontal: 20,
-                                    ),
-                                    labelStyle: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
-                                      letterSpacing: 0.2,
-                                    ),
-                                    unselectedLabelStyle: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w400,
-                                      letterSpacing: 0.2,
-                                    ),
-                                    tabs: const [
-                                      Tab(text: 'Users'),
-                                      Tab(text: 'Members'),
-                                      Tab(text: 'Schools'),
-                                      Tab(text: 'Roles'),
-                                    ],
-                                  ),
-                                );
-                              },
-                            );
-                          },
+                        child: EduTabBar(
+                          controller: tabController,
+                          isScrollable: true,
+                          padding: EdgeInsets.zero,
+                          tabs: const [
+                            EduTab(label: 'Users'),
+                            EduTab(label: 'Members'),
+                            EduTab(label: 'Schools'),
+                            EduTab(label: 'Roles'),
+                            EduTab(label: 'Settings'),
+                          ],
                         ),
                       ),
                     ),
@@ -739,10 +688,10 @@ class _DesktopBody extends StatelessWidget {
                       builder: (context, _) {
                         final index = tabController.index;
                         final VoidCallback? action = switch (index) {
-                          0 => onInviteUser,
-                          1 => onAddMember,
-                          2 => onCreateSchool,
-                          3 => onCreateRole,
+                          _kDesktopTabUsers => onInviteUser,
+                          _kDesktopTabMembers => onAddMember,
+                          _kDesktopTabSchools => onCreateSchool,
+                          _kDesktopTabRoles => onCreateRole,
                           _ => null,
                         };
 
@@ -782,6 +731,7 @@ class _DesktopBody extends StatelessWidget {
               MembersSection(permissions: permissions),
               SchoolsSection(permissions: permissions),
               RolesSection(permissions: permissions),
+              _SettingsTabBody(permissions: permissions),
             ],
           ),
         ),
@@ -794,7 +744,7 @@ class _DesktopBody extends StatelessWidget {
 // FAB sub-button
 // ─────────────────────────────────────────────────────────────────────────────
 
-enum _FabAction { inviteUser, addMember, createSchool, createRole }
+enum _FabAction { inviteUser, addMember, createSchool, createRole, createPlan }
 
 class _FabSubButton extends StatelessWidget {
   const _FabSubButton({
@@ -813,50 +763,49 @@ class _FabSubButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Label chip to the left of the mini-FAB.
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: cs.surfaceContainer,
-            borderRadius: BorderRadius.circular(AppTheme.kRadius),
-            border: Border.all(
-              color: cs.brightness == Brightness.dark
-                  ? cs.outline.withValues(alpha: 0.5)
-                  : cs.outlineVariant,
-              width: 1,
-            ),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
-              color: cs.onSurface,
-              letterSpacing: 0.1,
-            ),
+    final isDark = cs.brightness == Brightness.dark;
+    return Material(
+      color: isDark ? const Color(0xFF1A2536) : cs.surface,
+      borderRadius: BorderRadius.circular(10),
+      elevation: isDark ? 0 : 2,
+      shadowColor: Colors.black.withValues(alpha: 0.1),
+      child: InkWell(
+        onTap: () => onTap(action),
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: isDark
+              ? BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: cs.outlineVariant.withValues(alpha: 0.35),
+                    width: 0.5,
+                  ),
+                )
+              : null,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: cs.primary),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurface,
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(width: 8),
-        // Mini FAB.
-        FloatingActionButton.small(
-          heroTag: label,
-          backgroundColor: AppTheme.brandGreen.withValues(alpha: 0.85),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          onPressed: () => onTap(action),
-          child: Icon(icon, size: 20),
-        ),
-      ],
+      ),
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// User menu — avatar anchor, overlay, card, menu items
+// User menu — anchor, overlay, card
 // ─────────────────────────────────────────────────────────────────────────────
 
 enum _UserMenuAction { account, notifications, logout }
@@ -998,6 +947,7 @@ class _UserMenuOverlay extends StatefulWidget {
     required this.onDismiss,
     required this.onAction,
   });
+
   final LayerLink link;
   final bool openUpward;
   final VoidCallback onDismiss;
@@ -1021,14 +971,15 @@ class _UserMenuOverlayState extends State<_UserMenuOverlay>
       duration: const Duration(milliseconds: 160),
     );
     _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    final dy = widget.openUpward ? 0.08 : -0.08;
     _slide = Tween<Offset>(
-      begin: const Offset(0, 0.06),
+      begin: Offset(0, dy),
       end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
     _ctrl.forward();
   }
 
-  Future<void> _dismiss() async {
+  void _dismiss() async {
     await _ctrl.reverse();
     widget.onDismiss();
   }
@@ -1041,36 +992,32 @@ class _UserMenuOverlayState extends State<_UserMenuOverlay>
 
   @override
   Widget build(BuildContext context) {
+    final offset = widget.openUpward
+        ? const Offset(-200, -10) // above-right
+        : const Offset(-200, 40); // below-left
+
     return Stack(
       children: [
-        // Transparent barrier — taps outside dismiss the menu.
+        // Full-screen dismiss barrier.
         Positioned.fill(
           child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
+            behavior: HitTestBehavior.translucent,
             onTap: _dismiss,
-            child: const SizedBox.expand(),
           ),
         ),
-        // Anchored card.
+        // Positioned card.
         CompositedTransformFollower(
           link: widget.link,
+          offset: offset,
           showWhenUnlinked: false,
-          targetAnchor: widget.openUpward
-              ? Alignment.topRight
-              : Alignment.bottomRight,
-          followerAnchor: widget.openUpward
-              ? Alignment.bottomLeft
-              : Alignment.topRight,
-          offset: widget.openUpward ? const Offset(8, -8) : const Offset(0, 8),
-          child: FadeTransition(
-            opacity: _fade,
-            child: SlideTransition(
-              position: _slide,
+          child: SlideTransition(
+            position: _slide,
+            child: FadeTransition(
+              opacity: _fade,
               child: _UserMenuCard(
-                onAction: (action) {
+                onAction: (a) {
                   _dismiss();
-                  // Small delay so the animation closes before navigation.
-                  Future.microtask(() => widget.onAction(action));
+                  widget.onAction(a);
                 },
               ),
             ),
