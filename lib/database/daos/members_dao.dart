@@ -8,7 +8,7 @@ import '../tables/logs.dart';
 import '../tables/owners.dart';
 import '../tables/staff.dart';
 import '../tables/students.dart';
-import '../tables/subjects.dart';
+import '../tables/subject_teachers.dart';
 import '../tables/teachers.dart';
 import '../tables/users.dart';
 import '../../client.dart';
@@ -43,7 +43,7 @@ part 'members_dao.g.dart';
     Students,
     Guardians,
     ClassTeachers,
-    Subjects,
+    SubjectTeachers,
     Logs,
   ],
 )
@@ -1175,11 +1175,11 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
 
   /// Watches all subjects rows assigned to a teacher at a school, across all
   /// years/terms. Ordered by year descending, then grade ascending.
-  Stream<List<Subject>> watchTeacherSubjects(
+  Stream<List<SubjectTeacher>> watchTeacherSubjects(
     String schoolId,
     String teacherUserId,
   ) =>
-      (select(subjects)
+      (select(subjectTeachers)
             ..where(
               (t) =>
                   t.school.equals(schoolId) & t.teacher.equals(teacherUserId),

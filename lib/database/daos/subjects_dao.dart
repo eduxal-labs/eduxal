@@ -4,7 +4,7 @@ import '../database.dart';
 import '../tables/class_teachers.dart';
 import '../tables/enums.dart';
 import '../tables/logs.dart';
-import '../tables/subjects.dart';
+import '../tables/subject_teachers.dart';
 import '../tables/teachers.dart';
 import '../tables/users.dart';
 import '../../client.dart';
@@ -12,16 +12,16 @@ import '../../proto/services/sync.pb.dart' as sync_pb;
 
 part 'subjects_dao.g.dart';
 
-/// DAO for the [Subjects] and [ClassTeachers] tables.
+/// DAO for the [SubjectTeachers] and [ClassTeachers] tables.
 ///
-/// Subjects tie a teacher to a specific class (school, year, term, grade,
+/// SubjectTeachers tie a teacher to a specific class (school, year, term, grade,
 /// stream, subject) for the active term.  Class teachers are the homeroom
 /// teachers assigned to a grade+stream combination for a term.
 ///
 /// All mutating methods write a corresponding [Logs] entry inside the same
 /// transaction so the sync engine can replay it to the server when
 /// connectivity is restored.
-@DriftAccessor(tables: [Subjects, ClassTeachers, Teachers, Users, Logs])
+@DriftAccessor(tables: [SubjectTeachers, ClassTeachers, Teachers, Users, Logs])
 class SubjectsDao extends DatabaseAccessor<AppDatabase>
     with _$SubjectsDaoMixin {
   SubjectsDao(super.db);
@@ -34,8 +34,9 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
   /// stream), joined with the teacher's [Users] row so the UI can display
   /// the teacher's name inline.
   ///
-  /// Re-emits on any change to [Subjects] or [Users].
-  Stream<List<({Subject subject, UsersData teacher})>> watchSubjectsForClass({
+  /// Re-emits on any change to [SubjectTeachers] or [Users].
+  Stream<List<({SubjectTeacher subject, UsersData teacher})>>
+  watchSubjectsForClass({
     required String schoolId,
     required int year,
     required int term,
@@ -43,23 +44,25 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
     required int stream,
   }) {
     final query =
-        select(
-            subjects,
-          ).join([innerJoin(users, users.id.equalsExp(subjects.teacher))])
+        select(subjectTeachers).join([
+            innerJoin(users, users.id.equalsExp(subjectTeachers.teacher)),
+          ])
           ..where(
-            subjects.school.equals(schoolId) &
-                subjects.year.equals(year) &
-                subjects.term.equals(term) &
-                subjects.grade.equals(grade) &
-                subjects.stream.equals(stream),
+            subjectTeachers.school.equals(schoolId) &
+                subjectTeachers.year.equals(year) &
+                subjectTeachers.term.equals(term) &
+                subjectTeachers.grade.equals(grade) &
+                subjectTeachers.stream.equals(stream),
           )
-          ..orderBy([OrderingTerm.asc(subjects.subject)]);
+          ..orderBy([OrderingTerm.asc(subjectTeachers.subject)]);
 
     return query.watch().map(
       (rows) => rows
           .map(
-            (r) =>
-                (subject: r.readTable(subjects), teacher: r.readTable(users)),
+            (r) => (
+              subject: r.readTable(subjectTeachers),
+              teacher: r.readTable(users),
+            ),
           )
           .toList(),
     );
@@ -69,14 +72,14 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
   /// [teacherUserId] in the given term.  Useful for building a teacher's
   /// "My Classes" overview.
   ///
-  /// Re-emits on any change to [Subjects] or [Users].
-  Stream<List<Subject>> watchSubjectsForTeacher({
+  /// Re-emits on any change to [SubjectTeachers] or [Users].
+  Stream<List<SubjectTeacher>> watchSubjectsForTeacher({
     required String schoolId,
     required int year,
     required int term,
     required String teacherUserId,
   }) {
-    return (select(subjects)
+    return (select(subjectTeachers)
           ..where(
             (t) =>
                 t.school.equals(schoolId) &
@@ -93,9 +96,9 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
   }
 
   /// Emits all distinct (grade, stream) combinations that have at least one
-  /// subject assigned in the given term.  Returned as raw [SubjectsData] rows
-  /// (duplicates per class are collapsed server-side; here we group in Dart
-  /// after the watch fires).
+  /// subject assigned in the given term.  Returned as raw [SubjectTeachersData]
+  /// rows (duplicates per class are collapsed server-side; here we group in
+  /// Dart after the watch fires).
   ///
   /// The UI uses this to populate the class-picker used before selecting a
   /// specific subject.
@@ -104,7 +107,7 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
     required int year,
     required int term,
   }) {
-    return (select(subjects)
+    return (select(subjectTeachers)
           ..where(
             (t) =>
                 t.school.equals(schoolId) &
@@ -207,12 +210,12 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
 
   /// Returns all subjects for the given (school, year, term) in a single
   /// query.  Used during initial data load.
-  Future<List<Subject>> getSubjectsForTerm({
+  Future<List<SubjectTeacher>> getSubjectsForTerm({
     required String schoolId,
     required int year,
     required int term,
   }) {
-    return (select(subjects)..where(
+    return (select(subjectTeachers)..where(
           (t) =>
               t.school.equals(schoolId) &
               t.year.equals(year) &
@@ -224,7 +227,8 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
   /// Returns all subject assignments for a specific class
   /// (school, year, term, grade, stream) as a one-shot read.
   /// Each result includes the subject row and the teacher's [Users] row.
-  Future<List<({Subject subject, UsersData teacher})>> getSubjectsForClass({
+  Future<List<({SubjectTeacher subject, UsersData teacher})>>
+  getSubjectsForClass({
     required String schoolId,
     required int year,
     required int term,
@@ -232,30 +236,32 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
     required int stream,
   }) {
     final query =
-        select(
-            subjects,
-          ).join([innerJoin(users, users.id.equalsExp(subjects.teacher))])
+        select(subjectTeachers).join([
+            innerJoin(users, users.id.equalsExp(subjectTeachers.teacher)),
+          ])
           ..where(
-            subjects.school.equals(schoolId) &
-                subjects.year.equals(year) &
-                subjects.term.equals(term) &
-                subjects.grade.equals(grade) &
-                subjects.stream.equals(stream),
+            subjectTeachers.school.equals(schoolId) &
+                subjectTeachers.year.equals(year) &
+                subjectTeachers.term.equals(term) &
+                subjectTeachers.grade.equals(grade) &
+                subjectTeachers.stream.equals(stream),
           )
-          ..orderBy([OrderingTerm.asc(subjects.subject)]);
+          ..orderBy([OrderingTerm.asc(subjectTeachers.subject)]);
 
     return query.get().then(
       (rows) => rows
           .map(
-            (r) =>
-                (subject: r.readTable(subjects), teacher: r.readTable(users)),
+            (r) => (
+              subject: r.readTable(subjectTeachers),
+              teacher: r.readTable(users),
+            ),
           )
           .toList(),
     );
   }
 
   /// Returns the teacher assigned to the given subject/class combo, or null.
-  Future<Subject?> getSubjectAssignment({
+  Future<SubjectTeacher?> getSubjectAssignment({
     required String schoolId,
     required int year,
     required int term,
@@ -263,7 +269,7 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
     required int stream,
     required int subject,
   }) {
-    return (select(subjects)..where(
+    return (select(subjectTeachers)..where(
           (t) =>
               t.school.equals(schoolId) &
               t.year.equals(year) &
@@ -281,7 +287,7 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
 
   /// Assigns [teacherUserId] to teach [subject] for the specified class.
   ///
-  /// If no existing assignment exists, inserts a new [Subjects] row.
+  /// If no existing assignment exists, inserts a new [SubjectTeachers] row.
   /// If one already exists (same PK), updates the teacher column and writes
   /// a log update entry.
   ///
@@ -313,8 +319,8 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
 
       if (existing == null) {
         // Insert a fresh assignment row.
-        await into(subjects).insert(
-          SubjectsCompanion(
+        await into(subjectTeachers).insert(
+          SubjectTeachersCompanion(
             school: Value(schoolId),
             year: Value(year),
             term: Value(term),
@@ -327,7 +333,7 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
         );
       } else {
         // Update the teacher on the existing row.
-        await (update(subjects)..where(
+        await (update(subjectTeachers)..where(
               (t) =>
                   t.school.equals(schoolId) &
                   t.year.equals(year) &
@@ -336,7 +342,7 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
                   t.stream.equals(stream) &
                   t.subject.equals(subject),
             ))
-            .write(SubjectsCompanion(teacher: Value(teacherUserId)));
+            .write(SubjectTeachersCompanion(teacher: Value(teacherUserId)));
       }
 
       // Log: assignSubject action (covers both insert and reassign).
@@ -403,7 +409,7 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
         ),
       );
 
-      await (delete(subjects)..where(
+      await (delete(subjectTeachers)..where(
             (t) =>
                 t.school.equals(schoolId) &
                 t.year.equals(year) &

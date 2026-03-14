@@ -10,10 +10,13 @@ mixin _$AcademicsDaoMixin on DatabaseAccessor<AppDatabase> {
   $StudentsTable get students => attachedDatabase.students;
   $GradesTable get grades => attachedDatabase.grades;
   $ExamsTable get exams => attachedDatabase.exams;
+  $ExamGradesTable get examGrades => attachedDatabase.examGrades;
   $PapersTable get papers => attachedDatabase.papers;
+  $SubjectsTable get subjects => attachedDatabase.subjects;
+  $TopicsTable get topics => attachedDatabase.topics;
   $MasteryTable get mastery => attachedDatabase.mastery;
   $AttendanceTable get attendance => attachedDatabase.attendance;
-  $SubjectsTable get subjects => attachedDatabase.subjects;
+  $SubjectTeachersTable get subjectTeachers => attachedDatabase.subjectTeachers;
   $ClassTeachersTable get classTeachers => attachedDatabase.classTeachers;
   $AccountsTable get accounts => attachedDatabase.accounts;
   $LogsTable get logs => attachedDatabase.logs;
@@ -35,14 +38,23 @@ class AcademicsDaoManager {
       $$GradesTableTableManager(_db.attachedDatabase, _db.grades);
   $$ExamsTableTableManager get exams =>
       $$ExamsTableTableManager(_db.attachedDatabase, _db.exams);
+  $$ExamGradesTableTableManager get examGrades =>
+      $$ExamGradesTableTableManager(_db.attachedDatabase, _db.examGrades);
   $$PapersTableTableManager get papers =>
       $$PapersTableTableManager(_db.attachedDatabase, _db.papers);
+  $$SubjectsTableTableManager get subjects =>
+      $$SubjectsTableTableManager(_db.attachedDatabase, _db.subjects);
+  $$TopicsTableTableManager get topics =>
+      $$TopicsTableTableManager(_db.attachedDatabase, _db.topics);
   $$MasteryTableTableManager get mastery =>
       $$MasteryTableTableManager(_db.attachedDatabase, _db.mastery);
   $$AttendanceTableTableManager get attendance =>
       $$AttendanceTableTableManager(_db.attachedDatabase, _db.attendance);
-  $$SubjectsTableTableManager get subjects =>
-      $$SubjectsTableTableManager(_db.attachedDatabase, _db.subjects);
+  $$SubjectTeachersTableTableManager get subjectTeachers =>
+      $$SubjectTeachersTableTableManager(
+        _db.attachedDatabase,
+        _db.subjectTeachers,
+      );
   $$ClassTeachersTableTableManager get classTeachers =>
       $$ClassTeachersTableTableManager(_db.attachedDatabase, _db.classTeachers);
   $$AccountsTableTableManager get accounts =>

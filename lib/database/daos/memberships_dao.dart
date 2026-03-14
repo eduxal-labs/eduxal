@@ -9,7 +9,7 @@ import '../tables/owners.dart';
 import '../tables/schools.dart';
 import '../tables/staff.dart';
 import '../tables/students.dart';
-import '../tables/subjects.dart';
+import '../tables/subject_teachers.dart';
 import '../tables/teachers.dart';
 import '../tables/terms.dart';
 import '../../models/membership.dart';
@@ -31,7 +31,7 @@ part 'memberships_dao.g.dart';
     Students,
     Guardians,
     Schools,
-    Subjects,
+    SubjectTeachers,
     Terms,
   ],
 )
@@ -66,7 +66,7 @@ class MembershipsDao extends DatabaseAccessor<AppDatabase>
       db.tableUpdates(TableUpdateQuery.onTable(db.students)),
       db.tableUpdates(TableUpdateQuery.onTable(db.guardians)),
       db.tableUpdates(TableUpdateQuery.onTable(db.schools)),
-      db.tableUpdates(TableUpdateQuery.onTable(db.subjects)),
+      db.tableUpdates(TableUpdateQuery.onTable(db.subjectTeachers)),
       db.tableUpdates(TableUpdateQuery.onTable(db.terms)),
     ]);
 
@@ -247,14 +247,14 @@ class MembershipsDao extends DatabaseAccessor<AppDatabase>
     if (currentTerm == null) return 0;
 
     // Count subjects taught by this teacher in the current term.
-    final countExpr = subjects.subject.count();
-    final query = selectOnly(subjects)
+    final countExpr = subjectTeachers.subject.count();
+    final query = selectOnly(subjectTeachers)
       ..addColumns([countExpr])
       ..where(
-        subjects.school.equals(schoolId) &
-            subjects.year.equals(currentTerm.year) &
-            subjects.term.equals(currentTerm.term) &
-            subjects.teacher.equals(teacherId),
+        subjectTeachers.school.equals(schoolId) &
+            subjectTeachers.year.equals(currentTerm.year) &
+            subjectTeachers.term.equals(currentTerm.term) &
+            subjectTeachers.teacher.equals(teacherId),
       );
 
     final result = await query.getSingleOrNull();

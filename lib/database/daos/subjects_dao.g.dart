@@ -5,7 +5,7 @@ part of 'subjects_dao.dart';
 // ignore_for_file: type=lint
 mixin _$SubjectsDaoMixin on DatabaseAccessor<AppDatabase> {
   $SchoolsTable get schools => attachedDatabase.schools;
-  $SubjectsTable get subjects => attachedDatabase.subjects;
+  $SubjectTeachersTable get subjectTeachers => attachedDatabase.subjectTeachers;
   $ClassTeachersTable get classTeachers => attachedDatabase.classTeachers;
   $UsersTable get users => attachedDatabase.users;
   $TeachersTable get teachers => attachedDatabase.teachers;
@@ -19,8 +19,11 @@ class SubjectsDaoManager {
   SubjectsDaoManager(this._db);
   $$SchoolsTableTableManager get schools =>
       $$SchoolsTableTableManager(_db.attachedDatabase, _db.schools);
-  $$SubjectsTableTableManager get subjects =>
-      $$SubjectsTableTableManager(_db.attachedDatabase, _db.subjects);
+  $$SubjectTeachersTableTableManager get subjectTeachers =>
+      $$SubjectTeachersTableTableManager(
+        _db.attachedDatabase,
+        _db.subjectTeachers,
+      );
   $$ClassTeachersTableTableManager get classTeachers =>
       $$ClassTeachersTableTableManager(_db.attachedDatabase, _db.classTeachers);
   $$UsersTableTableManager get users =>

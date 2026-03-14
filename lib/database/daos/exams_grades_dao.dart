@@ -16,7 +16,8 @@ import '../../client.dart';
 import '../tables/teachers.dart';
 import '../tables/users.dart';
 import '../tables/enrollments.dart';
-import '../tables/subjects.dart';
+import '../tables/subject_teachers.dart';
+import '../tables/exam_grades.dart';
 import '../../proto/services/sync.pb.dart' as sync_pb;
 
 part 'exams_grades_dao.g.dart';
@@ -81,7 +82,8 @@ class PaperAnalytics {
     Teachers,
     Users,
     Enrollments,
-    Subjects,
+    SubjectTeachers,
+    ExamGrades,
     Logs,
   ],
 )
@@ -155,26 +157,33 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     int? stream,
     String? teacherId,
   }) {
-    final examStream =
-        (select(exams)
-              ..where((e) {
-                Expression<bool> filter =
-                    e.school.equals(schoolId) &
-                    e.year.equals(year) &
-                    e.term.equals(term) &
-                    e.grade.equals(grade);
-                if (stream != null) {
-                  // Include all-stream exams (e.stream IS NULL) AND stream-specific.
-                  filter =
-                      filter & (e.stream.isNull() | e.stream.equals(stream));
-                }
-                if (teacherId != null) {
-                  filter = filter & e.teacher.equals(teacherId);
-                }
-                return filter;
-              })
-              ..orderBy([(e) => OrderingTerm.desc(e.start)]))
-            .watch();
+    // Watch exam_grades rows for this grade (and optionally stream) to get
+    // the set of applicable exam IDs, then watch those exams.
+    final egQuery = select(examGrades)
+      ..where((eg) {
+        Expression<bool> f = eg.grade.equals(grade);
+        if (stream != null) f = f & eg.stream.equals(stream);
+        return f;
+      });
+
+    final examStream = egQuery.watch().asyncMap((egRows) async {
+      final ids = egRows.map((r) => r.exam).toList();
+      if (ids.isEmpty) return <Exam>[];
+      return (select(exams)
+            ..where((e) {
+              Expression<bool> filter =
+                  e.school.equals(schoolId) &
+                  e.year.equals(year) &
+                  e.term.equals(term) &
+                  e.id.isIn(ids);
+              if (teacherId != null) {
+                filter = filter & e.teacher.equals(teacherId);
+              }
+              return filter;
+            })
+            ..orderBy([(e) => OrderingTerm.desc(e.start)]))
+          .get();
+    });
 
     return examStream.asyncMap((examList) async {
       final results = <ExamWithPapers>[];
@@ -307,7 +316,6 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
             (m) => m.school.equals(schoolId) & m.student.equals(studentAdm),
           )
           ..orderBy([
-            (m) => OrderingTerm.asc(m.grade),
             (m) => OrderingTerm.asc(m.subject),
             (m) => OrderingTerm.asc(m.topic),
           ]))
@@ -331,9 +339,7 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
             ),
           ])
           ..where(
-            mastery.school.equals(schoolId) &
-                mastery.grade.equals(grade) &
-                mastery.subject.equals(subject),
+            mastery.school.equals(schoolId) & mastery.subject.equals(subject),
           )
           ..orderBy([
             OrderingTerm.asc(students.adm),
@@ -593,7 +599,7 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         school: exam.school.value,
         year: exam.year.value,
         term: exam.term.value,
-        grade: exam.grade.value,
+        name: exam.name.value,
         type: exam.type.value.index,
         start: exam.start.value,
         end: exam.end.value,
@@ -602,9 +608,6 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
             ? exam.personalized.value
             : false,
       );
-      if (exam.stream.present && exam.stream.value != null) {
-        payload.stream = exam.stream.value!;
-      }
 
       await into(logs).insert(
         LogsCompanion(
@@ -643,16 +646,13 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
           school: e.school.value,
           year: e.year.value,
           term: e.term.value,
-          grade: e.grade.value,
+          name: e.name.value,
           type: e.type.value.index,
           start: e.start.value,
           end: e.end.value,
           teacher: e.teacher.value,
           personalized: e.personalized.present ? e.personalized.value : false,
         );
-        if (e.stream.present && e.stream.value != null) {
-          examPayload.stream = e.stream.value!;
-        }
         await into(logs).insert(
           LogsCompanion(
             account: Value(accountId),
@@ -707,9 +707,8 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
       final payload = sync_pb.UpdateExamPayload(id: examId);
       bool hasChanges = false;
 
-      if (changes.stream.present) {
-        if (changes.stream.value != null)
-          payload.stream = changes.stream.value!;
+      if (changes.name.present) {
+        payload.name = changes.name.value;
         hasChanges = true;
       }
       if (changes.personalized.present) {
@@ -744,6 +743,35 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
           created: Value(now),
         ),
       );
+    });
+    sync.schedulePush();
+  }
+
+  /// Updates the [name] field on all exam rows in [examIds] atomically.
+  /// Writes one [SyncAction.updateExam] log entry per exam ID.
+  Future<void> updateExamName({
+    required List<String> examIds,
+    required String name,
+    required String accountId,
+  }) async {
+    if (examIds.isEmpty) return;
+    await transaction(() async {
+      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+      for (final id in examIds) {
+        await (update(exams)..where((e) => e.id.equals(id))).write(
+          ExamsCompanion(name: Value(name)),
+        );
+        final payload = sync_pb.UpdateExamPayload(id: id, name: name);
+        await into(logs).insert(
+          LogsCompanion(
+            account: Value(accountId),
+            action: Value(SyncAction.updateExam),
+            resource: Value('Exam $id'),
+            payload: Value(payload.writeToBuffer()),
+            created: Value(now),
+          ),
+        );
+      }
     });
     sync.schedulePush();
   }
@@ -1096,7 +1124,6 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     await transaction(() async {
       final schoolId = entry.school.value;
       final studentAdm = entry.student.value;
-      final grade = entry.grade.value;
       final subject = entry.subject.value;
       final topic = entry.topic.value;
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
@@ -1106,7 +1133,6 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
                 (m) =>
                     m.school.equals(schoolId) &
                     m.student.equals(studentAdm) &
-                    m.grade.equals(grade) &
                     m.subject.equals(subject) &
                     m.topic.equals(topic),
               ))
@@ -1117,7 +1143,6 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
               (m) =>
                   m.school.equals(schoolId) &
                   m.student.equals(studentAdm) &
-                  m.grade.equals(grade) &
                   m.subject.equals(subject) &
                   m.topic.equals(topic),
             ))
@@ -1127,7 +1152,6 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
           final payload = sync_pb.UpdateMasteryPayload(
             school: schoolId,
             student: studentAdm,
-            grade: grade,
             subject: subject,
             topic: topic,
             score: entry.score.value,
@@ -1149,7 +1173,6 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         final payload = sync_pb.UpdateMasteryPayload(
           school: schoolId,
           student: studentAdm,
-          grade: grade,
           subject: subject,
           topic: topic,
           score: entry.score.value,
@@ -1292,21 +1315,44 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
                 .getSingleOrNull();
         if (teacherUser == null) continue;
 
-        // Group by grade
-        final gradeMap = <int, List<Exam>>{};
+        // Load exam_grades rows for all exams in this group to determine
+        // which grades/streams each exam applies to.
+        final examIds = group.map((e) => e.id).toList();
+        final egRows = await (select(
+          examGrades,
+        )..where((eg) => eg.exam.isIn(examIds))).get();
+
+        // Build a map: examId -> list of (grade, stream) pairs
+        final examGradeMap = <String, List<({int grade, int stream})>>{};
+        for (final eg in egRows) {
+          examGradeMap.putIfAbsent(eg.exam, () => []).add((
+            grade: eg.grade,
+            stream: eg.stream,
+          ));
+        }
+
+        // Group by grade: collect all (exam, stream) combos per grade
+        final gradeMap = <int, List<({Exam exam, int stream})>>{};
         for (final exam in group) {
-          (gradeMap[exam.grade] ??= []).add(exam);
+          final pairs = examGradeMap[exam.id] ?? [];
+          for (final pair in pairs) {
+            (gradeMap[pair.grade] ??= []).add((
+              exam: exam,
+              stream: pair.stream,
+            ));
+          }
         }
 
         final gradeEntries = <ExamGradeEntry>[];
         for (final entry in gradeMap.entries) {
           final streamEntries = <ExamStreamEntry>[];
-          for (final exam in entry.value) {
+          for (final item in entry.value) {
             final paperList =
                 await (select(papers)
                       ..where(
                         (p) =>
-                            p.school.equals(schoolId) & p.exam.equals(exam.id),
+                            p.school.equals(schoolId) &
+                            p.exam.equals(item.exam.id),
                       )
                       ..orderBy([
                         (p) => OrderingTerm.asc(p.subject),
@@ -1315,8 +1361,8 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
                     .get();
             streamEntries.add(
               ExamStreamEntry(
-                exam: exam,
-                streamCode: exam.stream,
+                exam: item.exam,
+                streamCode: item.stream,
                 papers: paperList,
               ),
             );
@@ -1423,7 +1469,7 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     final ids = <String>[];
     await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
-      for (final streamCode in streams) {
+      for (final _ in streams) {
         final examId = _generateExamId();
         ids.add(examId);
 
@@ -1432,8 +1478,6 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
           school: Value(group.school),
           year: Value(group.year),
           term: Value(group.term),
-          grade: Value(grade),
-          stream: Value(streamCode),
           personalized: Value(group.personalized),
           type: Value(group.type),
           start: Value(group.start),
@@ -1449,16 +1493,12 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
           school: group.school,
           year: group.year,
           term: group.term,
-          grade: grade,
           type: group.type.index,
           start: group.start,
           end: group.end,
           teacher: teacherId,
           personalized: group.personalized,
         );
-        if (streamCode != null) {
-          examPayload.stream = streamCode;
-        }
         await into(logs).insert(
           LogsCompanion(
             account: Value(accountId),
@@ -1630,5 +1670,100 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         .toRadixString(16)
         .padLeft(4, '0');
     return 'ex_${now.toRadixString(36)}_$rand';
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Exam grades (junction: exam ↔ grade+stream)
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /// Reactively watches all (grade, stream) pairs that participate in [examId].
+  Stream<List<ExamGrade>> watchExamGrades(String examId) {
+    return (select(examGrades)
+          ..where((eg) => eg.exam.equals(examId))
+          ..orderBy([
+            (eg) => OrderingTerm.asc(eg.grade),
+            (eg) => OrderingTerm.asc(eg.stream),
+          ]))
+        .watch();
+  }
+
+  /// One-shot read of all (grade, stream) pairs for [examId].
+  Future<List<ExamGrade>> getExamGrades(String examId) =>
+      (select(examGrades)..where((eg) => eg.exam.equals(examId))).get();
+
+  /// Adds a (grade, stream) pair to an exam and writes a
+  /// [SyncAction.addExamGrade] log entry.
+  Future<void> addExamGrade({
+    required String examId,
+    required int grade,
+    required int stream,
+    required String accountId,
+  }) async {
+    await transaction(() async {
+      final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      await into(examGrades).insertOnConflictUpdate(
+        ExamGradesCompanion(
+          exam: Value(examId),
+          grade: Value(grade),
+          stream: Value(stream),
+        ),
+      );
+
+      final payload = sync_pb.AddExamGradePayload(
+        exam: examId,
+        grade: grade,
+        stream: stream,
+      );
+
+      await into(logs).insert(
+        LogsCompanion(
+          account: Value(accountId),
+          action: Value(SyncAction.addExamGrade),
+          resource: Value('Exam $examId Grade $grade/$stream'),
+          payload: Value(payload.writeToBuffer()),
+          created: Value(nowMs),
+        ),
+      );
+    });
+    sync.schedulePush();
+  }
+
+  /// Removes a (grade, stream) pair from an exam and writes a
+  /// [SyncAction.removeExamGrade] log entry.
+  Future<void> removeExamGrade({
+    required String examId,
+    required int grade,
+    required int stream,
+    required String accountId,
+  }) async {
+    await transaction(() async {
+      final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      final payload = sync_pb.RemoveExamGradePayload(
+        exam: examId,
+        grade: grade,
+        stream: stream,
+      );
+
+      await into(logs).insert(
+        LogsCompanion(
+          account: Value(accountId),
+          action: Value(SyncAction.removeExamGrade),
+          resource: Value('Exam $examId Grade $grade/$stream'),
+          payload: Value(payload.writeToBuffer()),
+          created: Value(nowMs),
+        ),
+      );
+
+      await (delete(examGrades)..where(
+            (eg) =>
+                eg.exam.equals(examId) &
+                eg.grade.equals(grade) &
+                eg.stream.equals(stream),
+          ))
+          .go();
+    });
+    sync.schedulePush();
   }
 }

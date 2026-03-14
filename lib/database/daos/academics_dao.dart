@@ -5,13 +5,14 @@ import '../tables/attendance.dart';
 import '../tables/class_teachers.dart';
 import '../tables/enrollments.dart';
 import '../tables/enums.dart';
+import '../tables/exam_grades.dart';
 import '../tables/exams.dart';
 import '../tables/grades.dart';
 import '../tables/logs.dart';
 import '../tables/mastery.dart';
 import '../tables/papers.dart';
 import '../tables/students.dart';
-import '../tables/subjects.dart';
+import '../tables/subject_teachers.dart';
 import '../tables/users.dart';
 import '../../models/grade_analytics.dart';
 import 'exams_grades_dao.dart' show ExamWithPapers;
@@ -25,10 +26,11 @@ part 'academics_dao.g.dart';
     Users,
     Grades,
     Exams,
+    ExamGrades,
     Papers,
     Mastery,
     Attendance,
-    Subjects,
+    SubjectTeachers,
     ClassTeachers,
     Logs,
   ],
@@ -89,14 +91,19 @@ class AcademicsDao extends DatabaseAccessor<AppDatabase>
           .map((p) => p.student.adm)
           .toSet();
 
-      // Find all exams for this grade (and matching stream or whole-grade exams).
+      // Find all exams for this grade via exam_grades junction table.
+      final examIdsForGrade =
+          await (select(examGrades)..where((eg) => eg.grade.equals(grade)))
+              .get()
+              .then((rows) => rows.map((r) => r.exam).toSet());
+
       final examQuery = select(exams)
         ..where(
           (e) =>
               e.school.equals(schoolId) &
               e.year.equals(year) &
               e.term.equals(term) &
-              e.grade.equals(grade),
+              e.id.isIn(examIdsForGrade),
         )
         ..orderBy([(e) => OrderingTerm.desc(e.start)]);
       final examList = await examQuery.get();
@@ -255,23 +262,23 @@ class AcademicsDao extends DatabaseAccessor<AppDatabase>
     int? stream,
   }) {
     final baseQuery =
-        select(
-          subjects,
-        ).join([innerJoin(users, users.id.equalsExp(subjects.teacher))])..where(
-          subjects.school.equals(schoolId) &
-              subjects.year.equals(year) &
-              subjects.term.equals(term) &
-              subjects.grade.equals(grade),
+        select(subjectTeachers).join([
+          innerJoin(users, users.id.equalsExp(subjectTeachers.teacher)),
+        ])..where(
+          subjectTeachers.school.equals(schoolId) &
+              subjectTeachers.year.equals(year) &
+              subjectTeachers.term.equals(term) &
+              subjectTeachers.grade.equals(grade),
         );
 
     if (stream != null) {
-      baseQuery.where(subjects.stream.equals(stream));
+      baseQuery.where(subjectTeachers.stream.equals(stream));
     }
 
     return baseQuery.watch().asyncMap((rows) async {
       final subjectTeacherRows = rows.map((row) {
         return (
-          subject: row.readTable(subjects),
+          subject: row.readTable(subjectTeachers),
           teacher: row.readTable(users),
         );
       }).toList();
@@ -298,15 +305,14 @@ class AcademicsDao extends DatabaseAccessor<AppDatabase>
         allStudentAdms.add(e.student);
       }
 
-      // Load all mastery rows for these students in this grade.
-      // Mastery PK: (school, student, grade, subject, topic).
+      // Load all mastery rows for these students in this school.
+      // Mastery PK: (school, student, subject, topic).
       // We average across topics for each (student, subject).
       final masteryRows = allStudentAdms.isEmpty
           ? <MasteryData>[]
           : await (select(mastery)..where(
                   (m) =>
                       m.school.equals(schoolId) &
-                      m.grade.equals(grade) &
                       m.student.isIn(allStudentAdms),
                 ))
                 .get();
@@ -448,7 +454,12 @@ class AcademicsDao extends DatabaseAccessor<AppDatabase>
       studentsByStream.putIfAbsent(e.stream, () => {}).add(e.student);
     }
 
-    // ── 2. Load exams for this grade (including whole-grade exams) ──
+    // ── 2. Load exams for this grade via exam_grades junction table ──
+    final examIdsForGrade =
+        await (select(examGrades)..where((eg) => eg.grade.equals(grade)))
+            .get()
+            .then((rows) => rows.map((r) => r.exam).toSet());
+
     final examList =
         await (select(exams)
               ..where(
@@ -456,7 +467,7 @@ class AcademicsDao extends DatabaseAccessor<AppDatabase>
                     e.school.equals(schoolId) &
                     e.year.equals(year) &
                     e.term.equals(term) &
-                    e.grade.equals(grade),
+                    e.id.isIn(examIdsForGrade),
               )
               ..orderBy([(e) => OrderingTerm.desc(e.start)]))
             .get();
@@ -509,9 +520,7 @@ class AcademicsDao extends DatabaseAccessor<AppDatabase>
         ? <MasteryData>[]
         : await (select(mastery)..where(
                 (m) =>
-                    m.school.equals(schoolId) &
-                    m.grade.equals(grade) &
-                    m.student.isIn(allStudentAdms),
+                    m.school.equals(schoolId) & m.student.isIn(allStudentAdms),
               ))
               .get();
 
@@ -543,15 +552,13 @@ class AcademicsDao extends DatabaseAccessor<AppDatabase>
           ? 0.0
           : allPercents.reduce((a, b) => a + b) / allPercents.length;
 
-      // Last exam average: find the most recent exam that applies to this
-      // stream (exam.stream == null means all streams, or exam.stream == s.code).
+      // Last exam average: find the most recent exam for this stream.
+      // An exam applies to a stream if there is a matching row in exam_grades.
       double? lastExamAverage;
       Exam? lastExam;
       for (final exam in examList) {
-        if (exam.stream == null || exam.stream == s.code) {
-          lastExam = exam;
-          break; // examList is ordered most recent first
-        }
+        lastExam = exam;
+        break; // examList is ordered most recent first; all exams here are for this grade
       }
       if (lastExam != null) {
         final lastExamPercents = <double>[];
@@ -576,7 +583,6 @@ class AcademicsDao extends DatabaseAccessor<AppDatabase>
       final Trajectory trajectory;
       final recentExamAverages = <double>[];
       for (final exam in examList) {
-        if (exam.stream != null && exam.stream != s.code) continue;
         final percents = <double>[];
         for (final adm in streamStudents) {
           final examGrades = gradesByStudent[adm]?[exam.id];
@@ -754,18 +760,27 @@ class AcademicsDao extends DatabaseAccessor<AppDatabase>
     required int grade,
     required int streamCode,
   }) {
-    final examStream =
-        (select(exams)
-              ..where(
-                (e) =>
-                    e.school.equals(schoolId) &
-                    e.year.equals(year) &
-                    e.term.equals(term) &
-                    e.grade.equals(grade) &
-                    (e.stream.isNull() | e.stream.equals(streamCode)),
-              )
-              ..orderBy([(e) => OrderingTerm.desc(e.start)]))
+    // Watch exam_grades rows for this grade/stream combination.
+    final egStream =
+        (select(examGrades)..where(
+              (eg) => eg.grade.equals(grade) & eg.stream.equals(streamCode),
+            ))
             .watch();
+
+    final examStream = egStream.asyncMap((egRows) async {
+      final ids = egRows.map((r) => r.exam).toList();
+      if (ids.isEmpty) return <Exam>[];
+      return (select(exams)
+            ..where(
+              (e) =>
+                  e.school.equals(schoolId) &
+                  e.year.equals(year) &
+                  e.term.equals(term) &
+                  e.id.isIn(ids),
+            )
+            ..orderBy([(e) => OrderingTerm.desc(e.start)]))
+          .get();
+    });
 
     return examStream.asyncMap((examList) async {
       final results = <ExamWithPapers>[];
@@ -811,10 +826,17 @@ class AcademicsDao extends DatabaseAccessor<AppDatabase>
     required int studentAdm,
     required int grade,
   }) async {
-    // Get all exams for this grade, ordered most recent first.
+    // Get all exams for this grade via exam_grades, ordered most recent first.
+    final examIdsForGrade =
+        await (select(examGrades)..where((eg) => eg.grade.equals(grade)))
+            .get()
+            .then((rows) => rows.map((r) => r.exam).toSet());
+
     final examList =
         await (select(exams)
-              ..where((e) => e.school.equals(schoolId) & e.grade.equals(grade))
+              ..where(
+                (e) => e.school.equals(schoolId) & e.id.isIn(examIdsForGrade),
+              )
               ..orderBy([(e) => OrderingTerm.desc(e.start)]))
             .get();
 
@@ -937,10 +959,17 @@ class AcademicsDao extends DatabaseAccessor<AppDatabase>
   }) async {
     if (studentAdms.isEmpty) return {};
 
-    // Get all exams for this grade, ordered most recent first.
+    // Get all exams for this grade via exam_grades, ordered most recent first.
+    final examIdsForGrade =
+        await (select(examGrades)..where((eg) => eg.grade.equals(grade)))
+            .get()
+            .then((rows) => rows.map((r) => r.exam).toSet());
+
     final examList =
         await (select(exams)
-              ..where((e) => e.school.equals(schoolId) & e.grade.equals(grade))
+              ..where(
+                (e) => e.school.equals(schoolId) & e.id.isIn(examIdsForGrade),
+              )
               ..orderBy([(e) => OrderingTerm.desc(e.start)]))
             .get();
 
@@ -1093,12 +1122,11 @@ class AcademicsDao extends DatabaseAccessor<AppDatabase>
     final studentAdms = enrollmentRows.map((e) => e.student).toSet();
     if (studentAdms.isEmpty) return null;
 
-    // 2. Get all mastery rows for those students for this grade + subject.
+    // 2. Get all mastery rows for those students for this subject.
     final masteryRows =
         await (select(mastery)..where(
               (m) =>
                   m.school.equals(schoolId) &
-                  m.grade.equals(grade) &
                   m.subject.equals(subject) &
                   m.student.isIn(studentAdms),
             ))
@@ -1124,10 +1152,7 @@ class AcademicsDao extends DatabaseAccessor<AppDatabase>
   }) async {
     final masteryRows =
         await (select(mastery)..where(
-              (m) =>
-                  m.school.equals(schoolId) &
-                  m.grade.equals(grade) &
-                  m.subject.equals(subject),
+              (m) => m.school.equals(schoolId) & m.subject.equals(subject),
             ))
             .get();
 
@@ -1165,13 +1190,10 @@ class AcademicsDao extends DatabaseAccessor<AppDatabase>
     final studentAdms = enrollmentRows.map((e) => e.student).toSet();
     if (studentAdms.isEmpty) return null;
 
-    // 2. Get all mastery rows for those students in this grade (all subjects).
+    // 2. Get all mastery rows for those students (all subjects).
     final masteryRows =
         await (select(mastery)..where(
-              (m) =>
-                  m.school.equals(schoolId) &
-                  m.grade.equals(grade) &
-                  m.student.isIn(studentAdms),
+              (m) => m.school.equals(schoolId) & m.student.isIn(studentAdms),
             ))
             .get();
 
@@ -1223,7 +1245,12 @@ class AcademicsDao extends DatabaseAccessor<AppDatabase>
       studentsByStream.putIfAbsent(e.stream, () => {}).add(e.student);
     }
 
-    // 2. Load exams for this grade, ordered most recent first.
+    // 2. Load exams for this grade via exam_grades, ordered most recent first.
+    final examIdsForGrade =
+        await (select(examGrades)..where((eg) => eg.grade.equals(grade)))
+            .get()
+            .then((rows) => rows.map((r) => r.exam).toSet());
+
     final examList =
         await (select(exams)
               ..where(
@@ -1231,7 +1258,7 @@ class AcademicsDao extends DatabaseAccessor<AppDatabase>
                     e.school.equals(schoolId) &
                     e.year.equals(year) &
                     e.term.equals(term) &
-                    e.grade.equals(grade),
+                    e.id.isIn(examIdsForGrade),
               )
               ..orderBy([(e) => OrderingTerm.desc(e.start)]))
             .get();
@@ -1295,9 +1322,6 @@ class AcademicsDao extends DatabaseAccessor<AppDatabase>
 
       // Process in chronological order (oldest first).
       for (final exam in chronologicalExams) {
-        // Check if exam applies to this stream.
-        if (exam.stream != null && exam.stream != s.code) continue;
-
         final examGradesByStudent = gradesByExamStudent[exam.id] ?? {};
         final percents = <double>[];
 
