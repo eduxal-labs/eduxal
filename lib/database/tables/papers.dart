@@ -11,7 +11,8 @@ class Papers extends Table {
       text().references(Schools, #id, onDelete: KeyAction.cascade)();
   TextColumn get exam =>
       text().references(Exams, #id, onDelete: KeyAction.cascade)();
-  IntColumn get subject => integer()();
+  IntColumn get subject => integer()(); // FK → subjects.id
+  IntColumn get topic => integer().nullable()(); // FK → topics.id
   // paper is nullable — indicates paper number (e.g. Paper 1, 2, 3).
   // NULL means single-paper subject; non-null allows multiple papers.
   // NOTE: paper is part of the composite PK but is nullable, which SQLite
@@ -35,6 +36,8 @@ class Papers extends Table {
   List<String> get customConstraints => [
     'PRIMARY KEY (school, exam, subject, paper)',
     'CHECK (start < end)',
+    'FOREIGN KEY (subject) REFERENCES subjects(id) ON DELETE CASCADE',
+    'FOREIGN KEY (topic) REFERENCES topics(id) ON DELETE SET NULL',
     'FOREIGN KEY (school, invigilator)'
         ' REFERENCES teachers(school, user) ON DELETE CASCADE',
   ];

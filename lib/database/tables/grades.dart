@@ -34,6 +34,7 @@ class Grades extends Table {
     'PRIMARY KEY (school, exam, student, subject, paper)',
     'CHECK (total > 0 AND score >= 0 AND score <= total)',
     'FOREIGN KEY (exam) REFERENCES exams(id) ON DELETE CASCADE',
+    'FOREIGN KEY (subject) REFERENCES subjects(id) ON DELETE CASCADE',
     'FOREIGN KEY (school, student)'
         ' REFERENCES students(school, adm) ON DELETE CASCADE',
     // Only enforced when paper IS NOT NULL — SQLite skips FK checks when any

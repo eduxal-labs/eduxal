@@ -1,9 +1,9 @@
 import 'package:drift/drift.dart';
 import 'schools.dart';
 
-class Lessons extends Table {
+class SubjectTeachers extends Table {
   @override
-  String get tableName => 'lessons';
+  String get tableName => 'subject_teachers';
 
   TextColumn get school =>
       text().references(Schools, #id, onDelete: KeyAction.cascade)();
@@ -11,23 +11,12 @@ class Lessons extends Table {
   IntColumn get term => integer()();
   IntColumn get grade => integer()();
   IntColumn get stream => integer()();
-  IntColumn get date => integer()(); // days since epoch
-  IntColumn get subject => integer()();
+  IntColumn get subject => integer()(); // FK → subjects.id (was smallint enum)
   TextColumn get teacher => text()();
   Int64Column get created => int64()();
-  Int64Column get updated => int64()();
 
   @override
-  Set<Column> get primaryKey => {
-    school,
-    year,
-    term,
-    grade,
-    stream,
-    date,
-    subject,
-    teacher,
-  };
+  Set<Column> get primaryKey => {school, year, term, grade, stream, subject};
 
   @override
   List<String> get customConstraints => [
@@ -35,9 +24,7 @@ class Lessons extends Table {
         ' REFERENCES terms(school, year, term) ON DELETE CASCADE',
     'FOREIGN KEY (school, teacher)'
         ' REFERENCES teachers(school, user) ON DELETE CASCADE',
-    // RESTRICT prevents deleting a subject that still has recorded lessons.
-    'FOREIGN KEY (school, year, term, grade, stream, subject)'
-        ' REFERENCES subject_teachers(school, year, term, grade, stream, subject)'
-        ' ON DELETE RESTRICT',
+    'FOREIGN KEY (subject)'
+        ' REFERENCES subjects(id) ON DELETE CASCADE',
   ];
 }

@@ -1,5 +1,11 @@
 import 'package:drift/drift.dart';
 
+// NOTE: CbcSubject and EightFourFourSubject enums are no longer used as
+// database column values. Subjects are now rows in the global `subjects` table.
+// These enums are retained as a reference for seeding the subjects table
+// and for label display. The CurriculumType enum and its converter ARE still
+// actively used by the new `subjects` table.
+
 // ============================================================
 // Curriculum Type
 // ============================================================
@@ -279,15 +285,6 @@ enum CbcSubject {
   };
 }
 
-class CbcSubjectConverter extends TypeConverter<CbcSubject, int> {
-  const CbcSubjectConverter();
-  @override
-  CbcSubject fromSql(int fromDb) =>
-      CbcSubject.values.firstWhere((e) => e.index_ == fromDb);
-  @override
-  int toSql(CbcSubject value) => value.index_;
-}
-
 // ============================================================
 // 8-4-4 Subject Enum
 // Covers Standard 1–8 (Primary) and Form 1–4 (Secondary)
@@ -430,16 +427,6 @@ enum EightFourFourSubject {
       'Social Ethics and Development',
     EightFourFourSubject.divinity => 'Divinity',
   };
-}
-
-class EightFourFourSubjectConverter
-    extends TypeConverter<EightFourFourSubject, int> {
-  const EightFourFourSubjectConverter();
-  @override
-  EightFourFourSubject fromSql(int fromDb) =>
-      EightFourFourSubject.values.firstWhere((e) => e.index_ == fromDb);
-  @override
-  int toSql(EightFourFourSubject value) => value.index_;
 }
 
 // ============================================================

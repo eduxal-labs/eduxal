@@ -41,7 +41,7 @@ class Timetable extends Table {
     // teacher matches the assigned subject teacher.
     // ON UPDATE CASCADE keeps timetable in sync if the teacher is reassigned.
     'FOREIGN KEY (school, year, term, grade, stream, subject, teacher)'
-        ' REFERENCES subjects(school, year, term, grade, stream, subject, teacher)'
+        ' REFERENCES subject_teachers(school, year, term, grade, stream, subject, teacher)'
         ' ON DELETE CASCADE ON UPDATE CASCADE',
   ];
 }

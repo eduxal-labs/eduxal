@@ -9,10 +9,9 @@ class Exams extends Table {
   TextColumn get id => text()();
   TextColumn get school =>
       text().references(Schools, #id, onDelete: KeyAction.cascade)();
+  TextColumn get name => text()();
   IntColumn get year => integer()();
   IntColumn get term => integer()();
-  IntColumn get grade => integer()();
-  IntColumn get stream => integer().nullable()(); // null = all streams
   BoolColumn get personalized => boolean().withDefault(const Constant(false))();
   IntColumn get type => integer().map(const ExamTypeConverter())();
   IntColumn get start => integer()(); // days since epoch
