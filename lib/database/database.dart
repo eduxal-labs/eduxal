@@ -26,6 +26,7 @@ import 'daos/finance_dao.dart';
 import 'daos/academics_dao.dart';
 import 'daos/announcements_dao.dart';
 import 'daos/timetable_dao.dart';
+import 'daos/catalog_dao.dart';
 
 import 'tables/users.dart';
 import 'tables/schools.dart';
@@ -40,7 +41,13 @@ import 'tables/guardians.dart';
 import 'tables/terms.dart';
 import 'tables/class_teachers.dart';
 import 'tables/enrollments.dart';
+import 'tables/subject_teachers.dart';
 import 'tables/subjects.dart';
+import 'tables/curriculum_subjects.dart';
+import 'tables/topics.dart';
+import 'tables/streams.dart';
+import 'tables/mpesa.dart';
+import 'tables/exam_grades.dart';
 import 'tables/attendance.dart';
 import 'tables/timetable.dart';
 import 'tables/lessons.dart';
@@ -53,7 +60,7 @@ import 'tables/payments.dart';
 import 'tables/announcements.dart';
 import 'tables/mastery.dart';
 import 'tables/aiusage.dart';
-import 'tables/settings.dart';
+
 import 'tables/scopes.dart';
 import 'tables/subscriptions.dart';
 import 'tables/discounts.dart';
@@ -80,7 +87,11 @@ late final AppDatabase db;
     Terms,
     ClassTeachers,
     Enrollments,
+    SubjectTeachers,
     Subjects,
+    Topics,
+    Streams,
+    Mpesa,
     Attendance,
     Timetable,
     Lessons,
@@ -94,7 +105,7 @@ late final AppDatabase db;
     Announcements,
     Mastery,
     AiUsage,
-    Settings,
+    ExamGrades,
     Scopes,
     Subscriptions,
     Discounts,
@@ -132,23 +143,28 @@ late final AppDatabase db;
     AnnouncementsDao,
     TimetableDao,
     AcademicsDao,
+    CatalogDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase()
     : super(
         LazyDatabase(() async {
+          print('[DB] LazyDatabase callback START');
           final dir = await getApplicationDocumentsDirectory();
+          print('[DB] Documents dir: ${dir.path}');
           final file = File(p.join(dir.path, 'eduxal.sqlite'));
-          return NativeDatabase.createBackgroundConnection(
+          print('[DB] DB file: ${file.path}, exists: ${file.existsSync()}');
+          final ndb = NativeDatabase(
             file,
             setup: (db) {
-              // Wait up to 10s for locks instead of failing immediately
-              // with "database is locked". Essential when reactive watch()
-              // streams hold read connections while a large write runs.
+              print('[DB] NativeDatabase setup callback running');
               db.execute('PRAGMA busy_timeout = 10000');
+              print('[DB] PRAGMA busy_timeout set');
             },
           );
+          print('[DB] NativeDatabase created, returning');
+          return ndb;
         }),
       );
 
@@ -195,8 +211,17 @@ class AppDatabase extends _$AppDatabase {
       await delete(lessons).go();
       await delete(timetable).go();
 
-      // ── Subjects (depend on teachers, terms, schools) ──
+      // ── Exam grades (junction: depend on exams) ──
+      await delete(examGrades).go();
+
+      // ── Subject teachers (depend on teachers, terms, schools) ──
+      await delete(subjectTeachers).go();
+
+      // ── Subjects / topics / streams / mpesa (global or school-scoped) ──
+      await delete(topics).go();
       await delete(subjects).go();
+      await delete(streams).go();
+      await delete(mpesa).go();
 
       // ── Enrollments (depend on students, terms, schools) ──
       await delete(enrollments).go();
@@ -238,9 +263,6 @@ class AppDatabase extends _$AppDatabase {
       // ── Departments (depend on schools) ──
       await delete(departments).go();
 
-      // ── Settings (depend on schools) ──
-      await delete(settings).go();
-
       // ── Plans (standalone) ──
       await delete(plans).go();
 
@@ -258,7 +280,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -282,6 +304,14 @@ class AppDatabase extends _$AppDatabase {
         // Add client-only paper_submissions table for persisting answer image paths.
         await m.createTable(paperSubmissions);
       }
+      if (from < 6) {
+        // Add theme column to accounts table (was added to the Drift schema
+        // but never had a migration — databases created at schema 1–5 are
+        // missing it, causing getActiveAccount() to fail silently).
+        await customStatement(
+          'ALTER TABLE accounts ADD COLUMN theme INTEGER NOT NULL DEFAULT 0',
+        );
+      }
     },
     onCreate: (m) async {
       // 1. Create all Drift-managed tables.
@@ -290,14 +320,26 @@ class AppDatabase extends _$AppDatabase {
       // 2. Enable FK enforcement (SQLite disables it by default).
       await customStatement('PRAGMA foreign_keys = ON');
 
-      // ----------------------------------------------------------------
-      // 3. Triggers
-      // ----------------------------------------------------------------
+      // 3. Create triggers and indexes (idempotent — safe to re-run).
+      await _createTriggersAndIndexes();
+    },
+    beforeOpen: (details) async {
+      await customStatement('PRAGMA foreign_keys = ON');
+    },
+  );
 
-      // Prevents mixing null-paper (subject-level) and numbered-paper grades
-      // for the same student+subject within the same exam on INSERT.
-      await customStatement('''
-        CREATE TRIGGER grades_paper_mix_check
+  /// Creates all triggers and indexes using IF NOT EXISTS so the statements
+  /// are safe to run on both fresh databases and databases that already have
+  /// some or all of these objects.
+  Future<void> _createTriggersAndIndexes() async {
+    // ----------------------------------------------------------------
+    // Triggers
+    // ----------------------------------------------------------------
+
+    // Prevents mixing null-paper (subject-level) and numbered-paper grades
+    // for the same student+subject within the same exam on INSERT.
+    await customStatement('''
+        CREATE TRIGGER IF NOT EXISTS grades_paper_mix_check
         BEFORE INSERT ON grades
         BEGIN
           SELECT RAISE(ABORT, 'cannot add a numbered-paper grade: a subject-level grade already exists for this student in this exam')
@@ -317,52 +359,31 @@ class AppDatabase extends _$AppDatabase {
         END
       ''');
 
-      // Ensures a grade can only be recorded for a student enrolled in the
-      // class the exam belongs to (INSERT).
-      await customStatement('''
-        CREATE TRIGGER grades_enrollment_check
+    // Ensures a grade can only be recorded for a student enrolled in a
+    // grade/stream that participates in the exam (via exam_grades), INSERT.
+    await customStatement('''
+        CREATE TRIGGER IF NOT EXISTS grades_enrollment_check
         BEFORE INSERT ON grades
         BEGIN
-          SELECT RAISE(ABORT, 'student is not enrolled in the class this exam belongs to')
+          SELECT RAISE(ABORT, 'student is not enrolled in a class that participates in this exam')
           WHERE NOT EXISTS (
             SELECT 1 FROM enrollments
             INNER JOIN exams ON exams.id = NEW.exam AND exams.school = NEW.school
+            INNER JOIN exam_grades eg
+              ON eg.exam = NEW.exam
+             AND eg.grade = enrollments.grade
+             AND eg.stream = enrollments.stream
             WHERE enrollments.school  = NEW.school
               AND enrollments.student = NEW.student
               AND enrollments.year    = exams.year
               AND enrollments.term    = exams.term
-              AND enrollments.grade   = exams.grade
-              AND (exams.stream IS NULL OR enrollments.stream = exams.stream)
           );
         END
       ''');
 
-      // Prevents mixing all-stream and stream-specific exams of the same
-      // type for the same grade/term (INSERT).
-      await customStatement('''
-        CREATE TRIGGER exams_stream_consistency_check
-        BEFORE INSERT ON exams
-        BEGIN
-          SELECT RAISE(ABORT, 'an all-stream exam of this type already exists for this grade/term; cannot add a stream-specific exam')
-          WHERE NEW.stream IS NOT NULL
-          AND EXISTS (
-            SELECT 1 FROM exams
-            WHERE school = NEW.school AND year = NEW.year AND term = NEW.term
-              AND grade = NEW.grade AND type = NEW.type AND stream IS NULL
-          );
-          SELECT RAISE(ABORT, 'stream-specific exams of this type already exist for this grade/term; cannot add an all-stream exam')
-          WHERE NEW.stream IS NULL
-          AND EXISTS (
-            SELECT 1 FROM exams
-            WHERE school = NEW.school AND year = NEW.year AND term = NEW.term
-              AND grade = NEW.grade AND type = NEW.type AND stream IS NOT NULL
-          );
-        END
-      ''');
-
-      // Prevents UPDATE from introducing a paper-mix violation on grades.
-      await customStatement('''
-        CREATE TRIGGER grades_paper_mix_check_update
+    // Prevents UPDATE from introducing a paper-mix violation on grades.
+    await customStatement('''
+        CREATE TRIGGER IF NOT EXISTS grades_paper_mix_check_update
         BEFORE UPDATE OF paper ON grades
         BEGIN
           SELECT RAISE(ABORT, 'cannot update to a numbered-paper grade: a subject-level grade already exists for this student in this exam')
@@ -384,30 +405,32 @@ class AppDatabase extends _$AppDatabase {
         END
       ''');
 
-      // Prevents UPDATE from moving a grade to an exam the student is not
-      // enrolled in.
-      await customStatement('''
-        CREATE TRIGGER grades_enrollment_check_update
+    // Prevents UPDATE from moving a grade to an exam the student is not
+    // enrolled in (via exam_grades).
+    await customStatement('''
+        CREATE TRIGGER IF NOT EXISTS grades_enrollment_check_update
         BEFORE UPDATE OF exam, student, school ON grades
         BEGIN
-          SELECT RAISE(ABORT, 'student is not enrolled in the class this exam belongs to')
+          SELECT RAISE(ABORT, 'student is not enrolled in a class that participates in this exam')
           WHERE NOT EXISTS (
             SELECT 1 FROM enrollments
             INNER JOIN exams ON exams.id = NEW.exam AND exams.school = NEW.school
+            INNER JOIN exam_grades eg
+              ON eg.exam = NEW.exam
+             AND eg.grade = enrollments.grade
+             AND eg.stream = enrollments.stream
             WHERE enrollments.school  = NEW.school
               AND enrollments.student = NEW.student
               AND enrollments.year    = exams.year
               AND enrollments.term    = exams.term
-              AND enrollments.grade   = exams.grade
-              AND (exams.stream IS NULL OR enrollments.stream = exams.stream)
           );
         END
       ''');
 
-      // Ensures the invoice linked to a subscription (on INSERT) belongs to
-      // the same student and school.
-      await customStatement('''
-        CREATE TRIGGER subscriptions_invoice_check
+    // Ensures the invoice linked to a subscription (on INSERT) belongs to
+    // the same student and school.
+    await customStatement('''
+        CREATE TRIGGER IF NOT EXISTS subscriptions_invoice_check
         BEFORE INSERT ON subscriptions
         BEGIN
           SELECT RAISE(ABORT, 'invoice does not belong to this student or school')
@@ -421,9 +444,9 @@ class AppDatabase extends _$AppDatabase {
         END
       ''');
 
-      // Same invoice-ownership check on UPDATE.
-      await customStatement('''
-        CREATE TRIGGER subscriptions_invoice_check_update
+    // Same invoice-ownership check on UPDATE.
+    await customStatement('''
+        CREATE TRIGGER IF NOT EXISTS subscriptions_invoice_check_update
         BEFORE UPDATE OF invoice ON subscriptions
         BEGIN
           SELECT RAISE(ABORT, 'invoice does not belong to this student or school')
@@ -437,10 +460,10 @@ class AppDatabase extends _$AppDatabase {
         END
       ''');
 
-      // Prevents inserting a term whose date range overlaps any existing term
-      // for the same school.
-      await customStatement('''
-        CREATE TRIGGER terms_no_overlap
+    // Prevents inserting a term whose date range overlaps any existing term
+    // for the same school.
+    await customStatement('''
+        CREATE TRIGGER IF NOT EXISTS terms_no_overlap
         BEFORE INSERT ON terms
         BEGIN
           SELECT RAISE(ABORT, 'term dates overlap with an existing term for this school')
@@ -453,9 +476,9 @@ class AppDatabase extends _$AppDatabase {
         END
       ''');
 
-      // Same overlap check when a term's dates are updated.
-      await customStatement('''
-        CREATE TRIGGER terms_no_overlap_update
+    // Same overlap check when a term's dates are updated.
+    await customStatement('''
+        CREATE TRIGGER IF NOT EXISTS terms_no_overlap_update
         BEFORE UPDATE OF start, end ON terms
         BEGIN
           SELECT RAISE(ABORT, 'term dates overlap with an existing term for this school')
@@ -469,11 +492,11 @@ class AppDatabase extends _$AppDatabase {
         END
       ''');
 
-      // Ensures a paper is not scheduled outside its parent exam's date window
-      // (INSERT). papers.start/end are seconds since epoch; exams.start/end
-      // are days since epoch.
-      await customStatement('''
-        CREATE TRIGGER papers_within_exam_range
+    // Ensures a paper is not scheduled outside its parent exam's date window
+    // (INSERT). papers.start/end are seconds since epoch; exams.start/end
+    // are days since epoch.
+    await customStatement('''
+        CREATE TRIGGER IF NOT EXISTS papers_within_exam_range
         BEFORE INSERT ON papers
         BEGIN
           SELECT RAISE(ABORT, 'paper schedule falls outside the exam date range')
@@ -486,9 +509,9 @@ class AppDatabase extends _$AppDatabase {
         END
       ''');
 
-      // Same date-window check when a paper's schedule is updated.
-      await customStatement('''
-        CREATE TRIGGER papers_within_exam_range_update
+    // Same date-window check when a paper's schedule is updated.
+    await customStatement('''
+        CREATE TRIGGER IF NOT EXISTS papers_within_exam_range_update
         BEFORE UPDATE OF start, end, exam ON papers
         BEGIN
           SELECT RAISE(ABORT, 'paper schedule falls outside the exam date range')
@@ -501,11 +524,11 @@ class AppDatabase extends _$AppDatabase {
         END
       ''');
 
-      // Ensures attendance is only recorded on dates that fall within the term
-      // (INSERT). attendance.date is days since epoch; terms.start/end are
-      // seconds since epoch.
-      await customStatement('''
-        CREATE TRIGGER attendance_within_term
+    // Ensures attendance is only recorded on dates that fall within the term
+    // (INSERT). attendance.date is days since epoch; terms.start/end are
+    // seconds since epoch.
+    await customStatement('''
+        CREATE TRIGGER IF NOT EXISTS attendance_within_term
         BEFORE INSERT ON attendance
         BEGIN
           SELECT RAISE(ABORT, 'attendance date falls outside the term date range')
@@ -518,9 +541,9 @@ class AppDatabase extends _$AppDatabase {
         END
       ''');
 
-      // Same date-range check when an attendance record's date is updated.
-      await customStatement('''
-        CREATE TRIGGER attendance_within_term_update
+    // Same date-range check when an attendance record's date is updated.
+    await customStatement('''
+        CREATE TRIGGER IF NOT EXISTS attendance_within_term_update
         BEFORE UPDATE OF date ON attendance
         BEGIN
           SELECT RAISE(ABORT, 'attendance date falls outside the term date range')
@@ -533,10 +556,10 @@ class AppDatabase extends _$AppDatabase {
         END
       ''');
 
-      // Ensures a lesson is only recorded on a date that falls within the
-      // term (INSERT).
-      await customStatement('''
-        CREATE TRIGGER lessons_within_term
+    // Ensures a lesson is only recorded on a date that falls within the
+    // term (INSERT).
+    await customStatement('''
+        CREATE TRIGGER IF NOT EXISTS lessons_within_term
         BEFORE INSERT ON lessons
         BEGIN
           SELECT RAISE(ABORT, 'lesson date falls outside the term date range')
@@ -549,9 +572,9 @@ class AppDatabase extends _$AppDatabase {
         END
       ''');
 
-      // Same date-range check when a lesson's date is updated.
-      await customStatement('''
-        CREATE TRIGGER lessons_within_term_update
+    // Same date-range check when a lesson's date is updated.
+    await customStatement('''
+        CREATE TRIGGER IF NOT EXISTS lessons_within_term_update
         BEFORE UPDATE OF date ON lessons
         BEGIN
           SELECT RAISE(ABORT, 'lesson date falls outside the term date range')
@@ -564,11 +587,11 @@ class AppDatabase extends _$AppDatabase {
         END
       ''');
 
-      // When a department is deleted, only nullify the department column in
-      // teachers (not school). A composite FK with ON DELETE SET NULL would
-      // wipe both columns, so we use NO ACTION on the FK and handle it here.
-      await customStatement('''
-        CREATE TRIGGER dept_delete_clear_teachers
+    // When a department is deleted, only nullify the department column in
+    // teachers (not school). A composite FK with ON DELETE SET NULL would
+    // wipe both columns, so we use NO ACTION on the FK and handle it here.
+    await customStatement('''
+        CREATE TRIGGER IF NOT EXISTS dept_delete_clear_teachers
         AFTER DELETE ON departments
         BEGIN
           UPDATE teachers SET department = NULL
@@ -576,9 +599,9 @@ class AppDatabase extends _$AppDatabase {
         END
       ''');
 
-      // Same department-nullify behaviour for staff.
-      await customStatement('''
-        CREATE TRIGGER dept_delete_clear_staff
+    // Same department-nullify behaviour for staff.
+    await customStatement('''
+        CREATE TRIGGER IF NOT EXISTS dept_delete_clear_staff
         AFTER DELETE ON departments
         BEGIN
           UPDATE staff SET department = NULL
@@ -586,227 +609,255 @@ class AppDatabase extends _$AppDatabase {
         END
       ''');
 
-      // ----------------------------------------------------------------
-      // 4. Unique / partial indexes (cannot be expressed in Drift DSL)
-      // ----------------------------------------------------------------
+    // ----------------------------------------------------------------
+    // Unique / partial indexes (cannot be expressed in Drift DSL)
+    // ----------------------------------------------------------------
 
-      // students: a user may only be linked to one student per school.
-      await customStatement(
-        'CREATE UNIQUE INDEX students_school_user_idx'
-        ' ON students(school, user) WHERE user IS NOT NULL',
-      );
+    // students: a user may only be linked to one student per school.
+    await customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS students_school_user_idx'
+      ' ON students(school, user) WHERE user IS NOT NULL',
+    );
 
-      // guardians: at most one primary guardian per student per school.
-      await customStatement(
-        'CREATE UNIQUE INDEX uq_guardians_primary'
-        ' ON guardians(school, student) WHERE role = 0',
-      );
+    // guardians: at most one primary guardian per student per school.
+    await customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS uq_guardians_primary'
+      ' ON guardians(school, student) WHERE role = 0',
+    );
 
-      // class_teachers: at most one active (un-ended) teacher per class.
-      await customStatement(
-        'CREATE UNIQUE INDEX uq_class_teachers_active'
-        ' ON class_teachers(school, year, term, grade, stream) WHERE end IS NULL',
-      );
+    // class_teachers: at most one active (un-ended) teacher per class.
+    await customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS uq_class_teachers_active'
+      ' ON class_teachers(school, year, term, grade, stream) WHERE end IS NULL',
+    );
 
-      // enrollments: a student can only be in one class per term.
-      await customStatement(
-        'CREATE UNIQUE INDEX uq_enrollments_student_term'
-        ' ON enrollments(school, year, term, student)',
-      );
+    // enrollments: a student can only be in one class per term.
+    await customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS uq_enrollments_student_term'
+      ' ON enrollments(school, year, term, student)',
+    );
 
-      // subjects: 7-column index gives SQLite a target for the composite FK
-      // reference from timetable (subject + teacher pair).
-      await customStatement(
-        'CREATE UNIQUE INDEX subjects_class_teacher_idx'
-        ' ON subjects(school, year, term, grade, stream, subject, teacher)',
-      );
+    // subject_teachers: 7-column index gives SQLite a target for the
+    // composite FK reference from timetable (subject + teacher pair).
+    await customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS subject_teachers_class_teacher_idx'
+      ' ON subject_teachers(school, year, term, grade, stream, subject, teacher)',
+    );
 
-      // timetable: a teacher can only have one slot at a given time.
-      await customStatement(
-        'CREATE UNIQUE INDEX uq_timetable_teacher_slot'
-        ' ON timetable(school, year, term, teacher, day, start)',
-      );
+    // timetable: a teacher can only have one slot at a given time.
+    await customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS uq_timetable_teacher_slot'
+      ' ON timetable(school, year, term, teacher, day, start)',
+    );
 
-      // timetable: a class can only have one subject at a given time.
-      await customStatement(
-        'CREATE UNIQUE INDEX uq_timetable_class_slot'
-        ' ON timetable(school, year, term, grade, stream, day, start)',
-      );
+    // timetable: a class can only have one subject at a given time.
+    await customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS uq_timetable_class_slot'
+      ' ON timetable(school, year, term, grade, stream, day, start)',
+    );
 
-      // papers: at most one null-paper row per (school, exam, subject).
-      await customStatement(
-        'CREATE UNIQUE INDEX papers_subject_null_idx'
-        ' ON papers(school, exam, subject) WHERE paper IS NULL',
-      );
+    // papers: at most one null-paper row per (school, exam, subject).
+    await customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS papers_subject_null_idx'
+      ' ON papers(school, exam, subject) WHERE paper IS NULL',
+    );
 
-      // roles: school-scoped role names must be unique within a school.
-      await customStatement(
-        'CREATE UNIQUE INDEX roles_school_name_idx'
-        ' ON roles(school, name) WHERE school IS NOT NULL',
-      );
+    // roles: school-scoped role names must be unique within a school.
+    await customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS roles_school_name_idx'
+      ' ON roles(school, name) WHERE school IS NOT NULL',
+    );
 
-      // roles: system-level (school=NULL) role names must be globally unique.
-      await customStatement(
-        'CREATE UNIQUE INDEX roles_system_name_idx'
-        ' ON roles(name) WHERE school IS NULL',
-      );
+    // roles: system-level (school=NULL) role names must be globally unique.
+    await customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS roles_system_name_idx'
+      ' ON roles(name) WHERE school IS NULL',
+    );
 
-      // scopes: a user may only hold a given role once at the system level.
-      await customStatement(
-        'CREATE UNIQUE INDEX scopes_system_idx'
-        ' ON scopes(user, role) WHERE school IS NULL',
-      );
+    // scopes: a user may only hold a given role once at the system level.
+    await customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS scopes_system_idx'
+      ' ON scopes(user, role) WHERE school IS NULL',
+    );
 
-      // schools: subdomain routing requires unique non-null domains.
-      await customStatement(
-        'CREATE UNIQUE INDEX idx_schools_domain'
-        ' ON schools(domain) WHERE domain IS NOT NULL',
-      );
+    // schools: subdomain routing requires unique non-null domains.
+    await customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_schools_domain'
+      ' ON schools(domain) WHERE domain IS NOT NULL',
+    );
 
-      // accounts: at most one active account session at a time.
-      await customStatement(
-        'CREATE UNIQUE INDEX uq_accounts_active'
-        ' ON accounts(is_active) WHERE is_active = 1',
-      );
+    // accounts: at most one active account session at a time.
+    await customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS uq_accounts_active'
+      ' ON accounts(is_active) WHERE is_active = 1',
+    );
 
-      // ----------------------------------------------------------------
-      // 5. Performance indexes
-      // ----------------------------------------------------------------
+    // ----------------------------------------------------------------
+    // Performance indexes
+    // ----------------------------------------------------------------
 
-      await customStatement('CREATE INDEX idx_users_email ON users(email)');
-      await customStatement('CREATE INDEX idx_users_status ON users(status)');
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_users_status ON users(status)',
+    );
 
-      await customStatement(
-        'CREATE INDEX idx_schools_status ON schools(status)',
-      );
-      await customStatement(
-        'CREATE INDEX idx_schools_county ON schools(county)',
-      );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_schools_status ON schools(status)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_schools_county ON schools(county)',
+    );
 
-      await customStatement('CREATE INDEX idx_owners_user ON owners(user)');
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_owners_user ON owners(user)',
+    );
 
-      await customStatement(
-        'CREATE INDEX idx_students_school_status ON students(school, status)',
-      );
-      await customStatement(
-        'CREATE INDEX idx_students_school_name ON students(school, name)',
-      );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_students_school_status ON students(school, status)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_students_school_name ON students(school, name)',
+    );
 
-      await customStatement(
-        'CREATE INDEX idx_guardians_school_student ON guardians(school, student)',
-      );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_guardians_school_student ON guardians(school, student)',
+    );
 
-      await customStatement(
-        'CREATE INDEX idx_teachers_school_department ON teachers(school, department)',
-      );
-      await customStatement(
-        'CREATE INDEX idx_teachers_school_status ON teachers(school, status)',
-      );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_teachers_school_department ON teachers(school, department)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_teachers_school_status ON teachers(school, status)',
+    );
 
-      await customStatement('CREATE INDEX idx_staff_school ON staff(school)');
-      await customStatement(
-        'CREATE INDEX idx_staff_school_department ON staff(school, department)',
-      );
-      await customStatement(
-        'CREATE INDEX idx_staff_school_status ON staff(school, status)',
-      );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_staff_school ON staff(school)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_staff_school_department ON staff(school, department)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_staff_school_status ON staff(school, status)',
+    );
 
-      await customStatement(
-        'CREATE INDEX idx_class_teachers_school_teacher ON class_teachers(school, teacher)',
-      );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_class_teachers_school_teacher ON class_teachers(school, teacher)',
+    );
 
-      await customStatement(
-        'CREATE INDEX idx_enrollments_school_student ON enrollments(school, student)',
-      );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_enrollments_school_student ON enrollments(school, student)',
+    );
 
-      await customStatement(
-        'CREATE INDEX idx_subjects_school_teacher ON subjects(school, teacher)',
-      );
+    await customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS uq_subjects_name_curriculum ON subjects(name, curriculum)',
+    );
 
-      await customStatement(
-        'CREATE INDEX idx_attendance_school_term_student ON attendance(school, year, term, student)',
-      );
+    await customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS uq_topics_subject_grade_name ON topics(subject, grade, name)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_topics_subject ON topics(subject)',
+    );
 
-      await customStatement(
-        'CREATE INDEX idx_timetable_school_teacher ON timetable(school, teacher)',
-      );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_streams_school ON streams(school, grade)',
+    );
 
-      await customStatement(
-        'CREATE INDEX idx_lessons_school_teacher ON lessons(school, teacher)',
-      );
-      await customStatement(
-        'CREATE INDEX idx_lessons_school_term_date ON lessons(school, year, term, date)',
-      );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_exam_grades_grade ON exam_grades(grade, stream)',
+    );
 
-      await customStatement(
-        'CREATE INDEX idx_exams_school_term_class ON exams(school, year, term, grade, stream)',
-      );
-      await customStatement(
-        'CREATE INDEX idx_exams_school_teacher ON exams(school, teacher)',
-      );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_subject_teachers_school_teacher ON subject_teachers(school, teacher)',
+    );
 
-      await customStatement(
-        'CREATE INDEX idx_papers_school_exam_status ON papers(school, exam, status)',
-      );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_attendance_school_term_student ON attendance(school, year, term, student)',
+    );
 
-      await customStatement(
-        'CREATE INDEX idx_grades_school_student ON grades(school, student)',
-      );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_timetable_school_teacher ON timetable(school, teacher)',
+    );
 
-      await customStatement(
-        'CREATE INDEX idx_fees_school_term_grade ON fees(school, year, term, grade)',
-      );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_lessons_school_teacher ON lessons(school, teacher)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_lessons_school_term_date ON lessons(school, year, term, date)',
+    );
 
-      await customStatement(
-        'CREATE INDEX idx_invoices_school_student ON invoices(school, student)',
-      );
-      await customStatement(
-        'CREATE INDEX idx_invoices_school_term ON invoices(school, year, term)',
-      );
-      await customStatement(
-        'CREATE INDEX idx_invoices_school_status ON invoices(school, status)',
-      );
+    // The old index referenced grade/stream columns that were removed in
+    // schema v2 (Task C08). Drop it if it exists, then create the replacement.
+    await customStatement('DROP INDEX IF EXISTS idx_exams_school_term_class');
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_exams_school_term ON exams(school, year, term)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_exams_school_teacher ON exams(school, teacher)',
+    );
 
-      await customStatement(
-        'CREATE INDEX idx_payments_invoice ON payments(invoice)',
-      );
-      await customStatement(
-        'CREATE INDEX idx_payments_school_student ON payments(school, student)',
-      );
-      await customStatement(
-        'CREATE INDEX idx_payments_direct_date'
-        ' ON payments(school, student, date) WHERE invoice IS NULL',
-      );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_papers_school_exam_status ON papers(school, exam, status)',
+    );
 
-      await customStatement(
-        'CREATE INDEX idx_announcements_school ON announcements(school)',
-      );
-      await customStatement(
-        'CREATE INDEX idx_announcements_school_grade ON announcements(school, grade)',
-      );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_grades_school_student ON grades(school, student)',
+    );
 
-      await customStatement(
-        'CREATE INDEX idx_scopes_school_role ON scopes(school, role)',
-      );
-      await customStatement('CREATE INDEX idx_scopes_role ON scopes(role)');
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_fees_school_term_grade ON fees(school, year, term, grade)',
+    );
 
-      await customStatement('CREATE INDEX idx_plans_status ON plans(status)');
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_invoices_school_student ON invoices(school, student)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_invoices_school_term ON invoices(school, year, term)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_invoices_school_status ON invoices(school, status)',
+    );
 
-      await customStatement(
-        'CREATE INDEX idx_subscriptions_school_student ON subscriptions(school, student)',
-      );
-      await customStatement(
-        'CREATE INDEX idx_subscriptions_school_term ON subscriptions(school, year, term)',
-      );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_payments_invoice ON payments(invoice)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_payments_school_student ON payments(school, student)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_payments_direct_date'
+      ' ON payments(school, student, date) WHERE invoice IS NULL',
+    );
 
-      await customStatement(
-        'CREATE INDEX idx_discounts_school_term_grade ON discounts(school, year, term, grade)',
-      );
-    },
-    beforeOpen: (details) async {
-      // FK enforcement must be enabled on every connection, not just onCreate,
-      // because it is a per-connection setting in SQLite.
-      await customStatement('PRAGMA foreign_keys = ON');
-    },
-  );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_announcements_school ON announcements(school)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_announcements_school_grade ON announcements(school, grade)',
+    );
+
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_scopes_school_role ON scopes(school, role)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_scopes_role ON scopes(role)',
+    );
+
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_plans_status ON plans(status)',
+    );
+
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_subscriptions_school_student ON subscriptions(school, student)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_subscriptions_school_term ON subscriptions(school, year, term)',
+    );
+
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_discounts_school_term_grade ON discounts(school, year, term, grade)',
+    );
+  }
 }
