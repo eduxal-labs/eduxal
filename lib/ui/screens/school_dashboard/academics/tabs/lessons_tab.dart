@@ -7,7 +7,7 @@ import '../../../../theme/app_theme.dart';
 import '../../../../../database/database.dart';
 import '../../../../../database/daos/timetable_dao.dart';
 import '../../../../../database/tables/curriculum_subjects.dart';
-import '../../../../../models/curriculum_levels.dart';
+
 import '../../../../../models/school_context.dart';
 
 /// Lessons tab — displays a chronological log of all lessons recorded for a
@@ -106,11 +106,12 @@ class _LessonsTabState extends State<LessonsTab>
         }
 
         // Collect distinct subjects for filter chips.
-        final subjectCodes = <int>{};
+        // Build a map of subject ID → name from the entries.
+        final subjectNames = <int, String>{};
         for (final e in all) {
-          subjectCodes.add(e.lesson.subject);
+          subjectNames.putIfAbsent(e.lesson.subject, () => e.subjectName);
         }
-        final sortedSubjects = subjectCodes.toList()..sort();
+        final sortedSubjects = subjectNames.keys.toList()..sort();
 
         // Apply subject filter.
         final filtered = _selectedSubject == null
@@ -149,7 +150,7 @@ class _LessonsTabState extends State<LessonsTab>
             _SubjectFilterRow(
               subjects: sortedSubjects,
               selectedSubject: _selectedSubject,
-              curriculumType: widget.curriculumType,
+              subjectNames: subjectNames,
               cs: cs,
               onSelected: (subject) {
                 setState(() => _selectedSubject = subject);
@@ -162,7 +163,7 @@ class _LessonsTabState extends State<LessonsTab>
             // ── Grouped lesson list ──────────────────────────────────────────
             Expanded(
               child: filtered.isEmpty
-                  ? _buildFilterEmpty(cs)
+                  ? _buildFilterEmpty(cs, subjectNames)
                   : ListView.builder(
                       padding: const EdgeInsets.only(bottom: 24),
                       itemCount: _itemCount(sortedDates, grouped),
@@ -291,9 +292,9 @@ class _LessonsTabState extends State<LessonsTab>
   }
 
   /// Empty state when the filter produces zero results.
-  Widget _buildFilterEmpty(ColorScheme cs) {
+  Widget _buildFilterEmpty(ColorScheme cs, Map<int, String> subjectNames) {
     final label = _selectedSubject != null
-        ? subjectLabel(widget.curriculumType, _selectedSubject!)
+        ? (subjectNames[_selectedSubject!] ?? 'Subject $_selectedSubject')
         : 'this subject';
     return Center(
       child: Padding(
@@ -433,14 +434,14 @@ class _SubjectFilterRow extends StatelessWidget {
   const _SubjectFilterRow({
     required this.subjects,
     required this.selectedSubject,
-    required this.curriculumType,
+    required this.subjectNames,
     required this.cs,
     required this.onSelected,
   });
 
   final List<int> subjects;
   final int? selectedSubject;
-  final CurriculumType curriculumType;
+  final Map<int, String> subjectNames;
   final ColorScheme cs;
   final ValueChanged<int?> onSelected;
 
@@ -464,7 +465,7 @@ class _SubjectFilterRow extends StatelessWidget {
           }
           final code = subjects[index - 1];
           return _FilterChip(
-            label: subjectLabel(curriculumType, code),
+            label: subjectNames[code] ?? 'Subject $code',
             selected: selectedSubject == code,
             cs: cs,
             onTap: () => onSelected(code),
@@ -630,10 +631,7 @@ class _LessonRowState extends State<_LessonRow> {
   Widget build(BuildContext context) {
     final cs = widget.cs;
     final entry = widget.entry;
-    final subjectName = subjectLabel(
-      widget.curriculumType,
-      entry.lesson.subject,
-    );
+    final subjectName = entry.subjectName;
     final teacherName = entry.teacher.name;
     final color = _subjectColor(entry.lesson.subject);
 

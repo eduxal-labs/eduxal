@@ -45,6 +45,7 @@ enum Trajectory { improving, declining, stable, insufficientData }
 class SubjectTeacherEntry {
   const SubjectTeacherEntry({
     required this.subject,
+    required this.subjectName,
     required this.streamCode,
     required this.streamName,
     required this.teacher,
@@ -53,6 +54,10 @@ class SubjectTeacherEntry {
   });
 
   final SubjectTeacher subject;
+
+  /// Human-readable subject name from the `subjects` table (via JOIN).
+  final String subjectName;
+
   final int streamCode;
   final String streamName;
   final UsersData teacher;

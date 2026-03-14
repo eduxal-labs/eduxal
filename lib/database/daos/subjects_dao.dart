@@ -35,7 +35,9 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
   /// the teacher's name inline.
   ///
   /// Re-emits on any change to [SubjectTeachers] or [Users].
-  Stream<List<({SubjectTeacher subject, UsersData teacher})>>
+  Stream<
+    List<({SubjectTeacher subject, UsersData teacher, String subjectName})>
+  >
   watchSubjectsForClass({
     required String schoolId,
     required int year,
@@ -46,6 +48,10 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
     final query =
         select(subjectTeachers).join([
             innerJoin(users, users.id.equalsExp(subjectTeachers.teacher)),
+            leftOuterJoin(
+              attachedDatabase.subjects,
+              attachedDatabase.subjects.id.equalsExp(subjectTeachers.subject),
+            ),
           ])
           ..where(
             subjectTeachers.school.equals(schoolId) &
@@ -57,14 +63,16 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
           ..orderBy([OrderingTerm.asc(subjectTeachers.subject)]);
 
     return query.watch().map(
-      (rows) => rows
-          .map(
-            (r) => (
-              subject: r.readTable(subjectTeachers),
-              teacher: r.readTable(users),
-            ),
-          )
-          .toList(),
+      (rows) => rows.map((r) {
+        final subjectRow = r.readTableOrNull(attachedDatabase.subjects);
+        return (
+          subject: r.readTable(subjectTeachers),
+          teacher: r.readTable(users),
+          subjectName:
+              subjectRow?.name ??
+              'Subject ${r.readTable(subjectTeachers).subject}',
+        );
+      }).toList(),
     );
   }
 

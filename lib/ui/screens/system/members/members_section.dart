@@ -167,8 +167,22 @@ class _MembersSectionState extends State<MembersSection> {
   Future<void> _updateStatus(
     UsersData user,
     UserStatus status,
-    String label,
-  ) async {
+    String label, {
+    bool confirm = false,
+    String? confirmTitle,
+    String? confirmMessage,
+  }) async {
+    if (confirm) {
+      final ok = await _showConfirmDialog(
+        title: confirmTitle ?? 'Update status',
+        message: confirmMessage ?? 'Set "${user.name}" status to $label?',
+        actionLabel: label[0].toUpperCase() + label.substring(1),
+        isDestructive:
+            status == UserStatus.suspended || status == UserStatus.deleted,
+      );
+      if (!ok || !mounted) return;
+    }
+
     try {
       final accountId = cache.currentUser?.user.id;
       if (accountId == null) return;
@@ -322,8 +336,10 @@ class _MembersSectionState extends State<MembersSection> {
                                 color: const Color(0xFFFF7043),
                                 onTap: (u) => _promoteMember(u),
                               ),
-                            // ── Suspend: if active ──
-                            if (user.status == UserStatus.active && !isMe)
+                            // ── Suspend: if active or invited ──
+                            if ((user.status == UserStatus.active ||
+                                    user.status == UserStatus.invited) &&
+                                !isMe)
                               EduDataTableAction<UsersData>(
                                 icon: Icons.block_rounded,
                                 label: 'Suspend',
@@ -332,6 +348,11 @@ class _MembersSectionState extends State<MembersSection> {
                                   u,
                                   UserStatus.suspended,
                                   'suspended',
+                                  confirm: true,
+                                  confirmTitle: 'Suspend member',
+                                  confirmMessage:
+                                      'Suspend "${u.name}"? They will lose '
+                                      'access until restored.',
                                 ),
                               ),
                             // ── Restore: if suspended or deleted ──
@@ -346,6 +367,25 @@ class _MembersSectionState extends State<MembersSection> {
                                   u,
                                   UserStatus.active,
                                   'restored',
+                                ),
+                              ),
+                            // ── Delete (soft-delete): if active or invited ──
+                            if ((user.status == UserStatus.active ||
+                                    user.status == UserStatus.invited) &&
+                                !isMe)
+                              EduDataTableAction<UsersData>(
+                                icon: Icons.delete_outline_rounded,
+                                label: 'Delete',
+                                isDestructive: true,
+                                onTap: (u) => _updateStatus(
+                                  u,
+                                  UserStatus.deleted,
+                                  'deleted',
+                                  confirm: true,
+                                  confirmTitle: 'Delete member',
+                                  confirmMessage:
+                                      'Mark "${u.name}" as deleted? '
+                                      'They can be restored later.',
                                 ),
                               ),
                             // ── Demote: removes from system (sets to Normal) ──

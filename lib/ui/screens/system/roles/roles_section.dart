@@ -5,11 +5,15 @@ import 'package:flutter/material.dart';
 
 import '../../../../client.dart';
 import '../../../../database/database.dart';
+import '../../../../database/tables/enums.dart';
 import '../../../../models/permissions.dart' as models;
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_data_table.dart';
+import '../../../widgets/edu_sheet.dart';
 import 'role_detail_screen.dart';
+import 'role_detail_sheet.dart';
 
 /// The Roles data section of the system dashboard.
 ///
@@ -76,30 +80,27 @@ class _RolesSectionState extends State<RolesSection> {
     );
   }
 
-  Future<void> _deleteRole(BuildContext context, Role role) async {
-    final cs = Theme.of(context).colorScheme;
-    final confirmed = await showDialog<bool>(
+  void _openEditSheet(BuildContext context, Role role) {
+    showEduSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        title: const Text('Delete role'),
-        content: Text(
-          'Delete "${role.name}"?\n\nUsers assigned this role will lose its permissions.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: cs.error),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+      title: 'Role Details',
+      maxWidth: 480,
+      builder: (_) =>
+          RoleDetailSheet(role: role, permissions: widget.permissions),
     );
-    if (confirmed != true || !mounted) return;
+  }
+
+  Future<void> _deleteRole(BuildContext context, Role role) async {
+    final confirmed = await showEduConfirmDialog(
+      context: context,
+      title: 'Delete role',
+      message:
+          'Delete "${role.name}"?\n\n'
+          'Users assigned this role will lose its permissions.',
+      confirmLabel: 'Delete',
+      isDestructive: true,
+    );
+    if (!confirmed || !mounted) return;
     try {
       final accountId = cache.currentUser?.user.id;
       if (accountId == null) return;
@@ -114,6 +115,37 @@ class _RolesSectionState extends State<RolesSection> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Failed to delete role: $e')));
+      }
+    }
+  }
+
+  Future<void> _purgeRole(BuildContext context, Role role) async {
+    final confirmed = await showEduConfirmDialog(
+      context: context,
+      title: 'Permanently delete role',
+      message:
+          'Permanently delete "${role.name}"?\n\n'
+          'This action is irreversible and will permanently remove '
+          'this record from the local database.',
+      confirmLabel: 'Purge',
+      isDestructive: true,
+    );
+    if (!confirmed || !mounted) return;
+    try {
+      final accountId = cache.currentUser?.user.id;
+      if (accountId == null) return;
+      // Purge uses the same deleteRole DAO call — it's a hard delete.
+      await rolesDao.deleteRole(role.id, accountId: accountId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('"${role.name}" permanently deleted')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to purge role: $e')));
       }
     }
   }
@@ -157,6 +189,15 @@ class _RolesSectionState extends State<RolesSection> {
                           ),
                           if (widget.permissions.can(
                             models.Resource.roles,
+                            models.Action.update,
+                          ))
+                            EduDataTableAction<Role>(
+                              icon: Icons.edit_outlined,
+                              label: 'Edit',
+                              onTap: (r) => _openEditSheet(context, r),
+                            ),
+                          if (widget.permissions.can(
+                            models.Resource.roles,
                             models.Action.delete,
                           ))
                             EduDataTableAction<Role>(
@@ -164,6 +205,13 @@ class _RolesSectionState extends State<RolesSection> {
                               label: 'Delete',
                               isDestructive: true,
                               onTap: (r) => _deleteRole(context, r),
+                            ),
+                          if (widget.permissions.level == UserLevel.super_)
+                            EduDataTableAction<Role>(
+                              icon: Icons.delete_forever_rounded,
+                              label: 'Purge',
+                              isDestructive: true,
+                              onTap: (r) => _purgeRole(context, r),
                             ),
                         ],
                         columns: const [

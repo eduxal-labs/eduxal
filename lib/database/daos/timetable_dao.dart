@@ -42,9 +42,10 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
     required int stream,
   }) {
     final query =
-        select(
-            timetable,
-          ).join([innerJoin(users, users.id.equalsExp(timetable.teacher))])
+        select(timetable).join([
+            innerJoin(users, users.id.equalsExp(timetable.teacher)),
+            leftOuterJoin(subjects, subjects.id.equalsExp(timetable.subject)),
+          ])
           ..where(
             timetable.school.equals(schoolId) &
                 timetable.year.equals(year) &
@@ -58,14 +59,15 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
           ]);
 
     return query.watch().map(
-      (rows) => rows
-          .map(
-            (r) => TimetableEntry(
-              slot: r.readTable(timetable),
-              teacher: r.readTable(users),
-            ),
-          )
-          .toList(),
+      (rows) => rows.map((r) {
+        final subjectRow = r.readTableOrNull(subjects);
+        return TimetableEntry(
+          slot: r.readTable(timetable),
+          teacher: r.readTable(users),
+          subjectName:
+              subjectRow?.name ?? 'Subject ${r.readTable(timetable).subject}',
+        );
+      }).toList(),
     );
   }
 
@@ -105,9 +107,10 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
     required DayOfWeek day,
   }) {
     final query =
-        select(
-            timetable,
-          ).join([innerJoin(users, users.id.equalsExp(timetable.teacher))])
+        select(timetable).join([
+            innerJoin(users, users.id.equalsExp(timetable.teacher)),
+            leftOuterJoin(subjects, subjects.id.equalsExp(timetable.subject)),
+          ])
           ..where(
             timetable.school.equals(schoolId) &
                 timetable.year.equals(year) &
@@ -119,14 +122,15 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
           ..orderBy([OrderingTerm.asc(timetable.start)]);
 
     return query.watch().map(
-      (rows) => rows
-          .map(
-            (r) => TimetableEntry(
-              slot: r.readTable(timetable),
-              teacher: r.readTable(users),
-            ),
-          )
-          .toList(),
+      (rows) => rows.map((r) {
+        final subjectRow = r.readTableOrNull(subjects);
+        return TimetableEntry(
+          slot: r.readTable(timetable),
+          teacher: r.readTable(users),
+          subjectName:
+              subjectRow?.name ?? 'Subject ${r.readTable(timetable).subject}',
+        );
+      }).toList(),
     );
   }
 
@@ -138,9 +142,10 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
     required int term,
   }) {
     final query =
-        select(
-            timetable,
-          ).join([innerJoin(users, users.id.equalsExp(timetable.teacher))])
+        select(timetable).join([
+            innerJoin(users, users.id.equalsExp(timetable.teacher)),
+            leftOuterJoin(subjects, subjects.id.equalsExp(timetable.subject)),
+          ])
           ..where(
             timetable.school.equals(schoolId) &
                 timetable.year.equals(year) &
@@ -154,14 +159,15 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
           ]);
 
     return query.watch().map(
-      (rows) => rows
-          .map(
-            (r) => TimetableEntry(
-              slot: r.readTable(timetable),
-              teacher: r.readTable(users),
-            ),
-          )
-          .toList(),
+      (rows) => rows.map((r) {
+        final subjectRow = r.readTableOrNull(subjects);
+        return TimetableEntry(
+          slot: r.readTable(timetable),
+          teacher: r.readTable(users),
+          subjectName:
+              subjectRow?.name ?? 'Subject ${r.readTable(timetable).subject}',
+        );
+      }).toList(),
     );
   }
 
@@ -415,9 +421,10 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
     required int date, // days since epoch
   }) {
     final query =
-        select(
-            lessons,
-          ).join([innerJoin(users, users.id.equalsExp(lessons.teacher))])
+        select(lessons).join([
+            innerJoin(users, users.id.equalsExp(lessons.teacher)),
+            leftOuterJoin(subjects, subjects.id.equalsExp(lessons.subject)),
+          ])
           ..where(
             lessons.school.equals(schoolId) &
                 lessons.year.equals(year) &
@@ -429,14 +436,15 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
           ..orderBy([OrderingTerm.asc(lessons.subject)]);
 
     return query.watch().map(
-      (rows) => rows
-          .map(
-            (r) => LessonEntry(
-              lesson: r.readTable(lessons),
-              teacher: r.readTable(users),
-            ),
-          )
-          .toList(),
+      (rows) => rows.map((r) {
+        final subjectRow = r.readTableOrNull(subjects);
+        return LessonEntry(
+          lesson: r.readTable(lessons),
+          teacher: r.readTable(users),
+          subjectName:
+              subjectRow?.name ?? 'Subject ${r.readTable(lessons).subject}',
+        );
+      }).toList(),
     );
   }
 
@@ -471,9 +479,10 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
     required int stream,
   }) {
     final query =
-        select(
-            lessons,
-          ).join([innerJoin(users, users.id.equalsExp(lessons.teacher))])
+        select(lessons).join([
+            innerJoin(users, users.id.equalsExp(lessons.teacher)),
+            leftOuterJoin(subjects, subjects.id.equalsExp(lessons.subject)),
+          ])
           ..where(
             lessons.school.equals(schoolId) &
                 lessons.year.equals(year) &
@@ -487,14 +496,15 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
           ]);
 
     return query.watch().map(
-      (rows) => rows
-          .map(
-            (r) => LessonEntry(
-              lesson: r.readTable(lessons),
-              teacher: r.readTable(users),
-            ),
-          )
-          .toList(),
+      (rows) => rows.map((r) {
+        final subjectRow = r.readTableOrNull(subjects);
+        return LessonEntry(
+          lesson: r.readTable(lessons),
+          teacher: r.readTable(users),
+          subjectName:
+              subjectRow?.name ?? 'Subject ${r.readTable(lessons).subject}',
+        );
+      }).toList(),
     );
   }
 
@@ -595,16 +605,32 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
 
 /// A timetable slot joined with the teacher's user data for display.
 class TimetableEntry {
-  const TimetableEntry({required this.slot, required this.teacher});
+  const TimetableEntry({
+    required this.slot,
+    required this.teacher,
+    required this.subjectName,
+  });
 
   final TimetableData slot;
   final UsersData teacher;
+
+  /// Human-readable subject name from the `subjects` table.
+  /// Falls back to `'Subject <id>'` if the subject row is missing.
+  final String subjectName;
 }
 
 /// A lesson record joined with the teacher's user data for display.
 class LessonEntry {
-  const LessonEntry({required this.lesson, required this.teacher});
+  const LessonEntry({
+    required this.lesson,
+    required this.teacher,
+    required this.subjectName,
+  });
 
   final Lesson lesson;
   final UsersData teacher;
+
+  /// Human-readable subject name from the `subjects` table.
+  /// Falls back to `'Subject <id>'` if the subject row is missing.
+  final String subjectName;
 }

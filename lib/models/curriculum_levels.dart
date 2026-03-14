@@ -337,6 +337,9 @@ List<CurriculumLevel> levelsFor(CurriculumType curriculum) =>
     };
 
 /// Returns the human-readable label for a subject index given a curriculum.
+@Deprecated(
+  'Use subjects table name instead — subject IDs are now real auto-increment values, not enum indices',
+)
 String subjectLabel(CurriculumType curriculum, int subjectIndex) {
   switch (curriculum) {
     case CurriculumType.cbc:

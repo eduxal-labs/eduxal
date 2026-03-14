@@ -635,7 +635,7 @@ So the column types are correct (`int` → `int`), but the VALUES are wrong (enu
 
 ---
 
-### Task 402: Update `subjectLabel()` callers to handle real subject names
+### Task 402: Update `subjectLabel()` callers to handle real subject names [x]
 **Files to create/modify:** `lib/ui/screens/school_dashboard/academics/tabs/subjects_tab.dart`, `lib/ui/screens/school_dashboard/exams/exams_grades_screen.dart`, `lib/ui/screens/school_dashboard/timetable/timetable_screen.dart`, `lib/models/curriculum_levels.dart`, `lib/database/daos/academics_dao.dart`, `lib/models/grade_analytics.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`, `lib/database/daos/CONTEXT.md`
 **Depends on:** Task 401
@@ -699,7 +699,7 @@ After Task 401, subject identifiers in the `subject_teachers` table are now real
 ## TRACK 5 — System Dashboard Data Tables Overhaul
 ## ═══════════════════════════════════════════════════════════════════════════
 
-### Task 501: Overhaul Users section data table
+### Task 501: Overhaul Users section data table [x]
 **Files to create/modify:** `lib/ui/screens/system/users/users_section.dart`, `lib/ui/screens/system/users/user_detail_sheet.dart`
 **Context files to read:** `lib/ui/screens/system/CONTEXT.md`
 **Depends on:** Task 201 (enhanced EduDataTable), Task 101 (design system)
@@ -836,7 +836,7 @@ Redesign the Users section to match the new data table style and the user's requ
 
 ---
 
-### Task 502: Overhaul Schools section data table
+### Task 502: Overhaul Schools section data table [x]
 **Files to create/modify:** `lib/ui/screens/system/schools/schools_section.dart`
 **Context files to read:** `lib/ui/screens/system/CONTEXT.md`
 **Depends on:** Task 201, Task 101
@@ -872,7 +872,7 @@ Apply the same data table overhaul to schools:
 
 ---
 
-### Task 503: Overhaul Members section data table
+### Task 503: Overhaul Members section data table [x]
 **Files to create/modify:** `lib/ui/screens/system/members/members_section.dart`
 **Context files to read:** `lib/ui/screens/system/CONTEXT.md`
 **Depends on:** Task 201, Task 101
@@ -901,7 +901,7 @@ Apply the same data table overhaul to schools:
 
 ---
 
-### Task 504: Overhaul Roles section data table
+### Task 504: Overhaul Roles section data table [x]
 **Files to create/modify:** `lib/ui/screens/system/roles/roles_section.dart`
 **Context files to read:** `lib/ui/screens/system/CONTEXT.md`
 **Depends on:** Task 201, Task 101

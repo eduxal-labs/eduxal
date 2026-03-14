@@ -269,15 +269,9 @@ class _SchoolsSectionState extends State<SchoolsSection> {
                         onItemTap: _openDetail,
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                         actions: (school) => [
-                          EduDataTableAction<SchoolsData>(
-                            icon: Icons.open_in_new_rounded,
-                            label: 'View',
-                            onTap: (s) => _openDetail(s),
-                          ),
-                          // ── Activate: if trial, suspended, or cancelled ──
+                          // ── Activate: if trial or suspended ──
                           if (school.status == SchoolStatus.trial ||
-                              school.status == SchoolStatus.suspended ||
-                              school.status == SchoolStatus.cancelled)
+                              school.status == SchoolStatus.suspended)
                             EduDataTableAction<SchoolsData>(
                               icon: Icons.check_circle_outline_rounded,
                               label: 'Activate',
@@ -301,8 +295,9 @@ class _SchoolsSectionState extends State<SchoolsSection> {
                                 'suspended',
                               ),
                             ),
-                          // ── Restore: if deleted ──
-                          if (school.status == SchoolStatus.deleted)
+                          // ── Restore: if suspended or deleted ──
+                          if (school.status == SchoolStatus.suspended ||
+                              school.status == SchoolStatus.deleted)
                             EduDataTableAction<SchoolsData>(
                               icon: Icons.restore_rounded,
                               label: 'Restore',

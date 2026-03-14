@@ -5,7 +5,6 @@ import '../../../../../database/daos/attendance_dao.dart';
 import '../../../../../database/daos/exams_grades_dao.dart';
 import '../../../../../database/daos/subjects_dao.dart';
 import '../../../../../database/tables/curriculum_subjects.dart';
-import '../../../../../models/curriculum_levels.dart';
 
 /// Overview tab for the Student Grade Page — an "at a glance" view of the
 /// student's academic standing within a specific grade/stream context.
@@ -49,7 +48,9 @@ class _StudentOverviewTabState extends State<StudentOverviewTab>
   late Stream<List<MasteryData>> _masteryStream;
   late Stream<({int totalDays, int present, int absent, int leave})>
   _attendanceStream;
-  late Stream<List<({SubjectTeacher subject, UsersData teacher})>>
+  late Stream<
+    List<({SubjectTeacher subject, UsersData teacher, String subjectName})>
+  >
   _subjectsStream;
 
   @override
@@ -112,7 +113,9 @@ class _StudentOverviewTabState extends State<StudentOverviewTab>
     // We nest multiple StreamBuilders. The outermost two (grades + subjects)
     // drive the Quick Stats row and Recent Exam Performance. Mastery and
     // attendance are independent sections further down.
-    return StreamBuilder<List<({SubjectTeacher subject, UsersData teacher})>>(
+    return StreamBuilder<
+      List<({SubjectTeacher subject, UsersData teacher, String subjectName})>
+    >(
       stream: _subjectsStream,
       builder: (context, subjectsSnap) {
         return StreamBuilder<List<Grade>>(
@@ -120,6 +123,11 @@ class _StudentOverviewTabState extends State<StudentOverviewTab>
           builder: (context, gradesSnap) {
             final subjects = subjectsSnap.data ?? [];
             final grades = gradesSnap.data ?? [];
+
+            // Build a subject ID → name lookup map from the subjects stream.
+            final subjectNames = <int, String>{
+              for (final s in subjects) s.subject.subject: s.subjectName,
+            };
 
             return ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
@@ -143,7 +151,7 @@ class _StudentOverviewTabState extends State<StudentOverviewTab>
                   cs: cs,
                   isDark: isDark,
                   grades: grades,
-                  curriculumType: widget.curriculumType,
+                  subjectNames: subjectNames,
                 ),
 
                 const SizedBox(height: 20),
@@ -159,7 +167,7 @@ class _StudentOverviewTabState extends State<StudentOverviewTab>
                       isDark: isDark,
                       mastery: masterySnap.data ?? [],
                       currentGrade: widget.grade,
-                      curriculumType: widget.curriculumType,
+                      subjectNames: subjectNames,
                     );
                   },
                 ),
@@ -396,13 +404,13 @@ class _RecentExamsSection extends StatelessWidget {
     required this.cs,
     required this.isDark,
     required this.grades,
-    required this.curriculumType,
+    required this.subjectNames,
   });
 
   final ColorScheme cs;
   final bool isDark;
   final List<Grade> grades;
-  final CurriculumType curriculumType;
+  final Map<int, String> subjectNames;
 
   @override
   Widget build(BuildContext context) {
@@ -451,7 +459,7 @@ class _RecentExamsSection extends StatelessWidget {
             isDark: isDark,
             examId: recentExams[i],
             grades: byExam[recentExams[i]]!,
-            curriculumType: curriculumType,
+            subjectNames: subjectNames,
           ),
           if (i < recentExams.length - 1) const SizedBox(height: 6),
         ],
@@ -498,14 +506,14 @@ class _ExamRow extends StatelessWidget {
     required this.isDark,
     required this.examId,
     required this.grades,
-    required this.curriculumType,
+    required this.subjectNames,
   });
 
   final ColorScheme cs;
   final bool isDark;
   final String examId;
   final List<Grade> grades;
-  final CurriculumType curriculumType;
+  final Map<int, String> subjectNames;
 
   @override
   Widget build(BuildContext context) {
@@ -523,7 +531,7 @@ class _ExamRow extends StatelessWidget {
 
     // Build a compact subject summary.
     final subjectLabels = grades.map((g) {
-      return subjectLabel(curriculumType, g.subject);
+      return subjectNames[g.subject] ?? 'Subject ${g.subject}';
     }).toList();
     final subjectSummary = subjectLabels.length <= 3
         ? subjectLabels.join(', ')
@@ -606,14 +614,14 @@ class _SubjectMasterySection extends StatelessWidget {
     required this.isDark,
     required this.mastery,
     required this.currentGrade,
-    required this.curriculumType,
+    required this.subjectNames,
   });
 
   final ColorScheme cs;
   final bool isDark;
   final List<MasteryData> mastery;
   final int currentGrade;
-  final CurriculumType curriculumType;
+  final Map<int, String> subjectNames;
 
   @override
   Widget build(BuildContext context) {
@@ -641,7 +649,7 @@ class _SubjectMasterySection extends StatelessWidget {
             isDark: isDark,
             subjectIndex: sortedKeys[i],
             scores: bySubject[sortedKeys[i]]!,
-            curriculumType: curriculumType,
+            subjectNames: subjectNames,
           ),
           if (i < sortedKeys.length - 1) const SizedBox(height: 4),
         ],
@@ -688,21 +696,21 @@ class _MasteryRow extends StatelessWidget {
     required this.isDark,
     required this.subjectIndex,
     required this.scores,
-    required this.curriculumType,
+    required this.subjectNames,
   });
 
   final ColorScheme cs;
   final bool isDark;
   final int subjectIndex;
   final List<double> scores;
-  final CurriculumType curriculumType;
+  final Map<int, String> subjectNames;
 
   @override
   Widget build(BuildContext context) {
     final avg = scores.reduce((a, b) => a + b) / scores.length;
     final pct = avg * 100; // scores are 0.0–1.0
     final color = _masteryColor(pct);
-    final label = subjectLabel(curriculumType, subjectIndex);
+    final label = subjectNames[subjectIndex] ?? 'Subject $subjectIndex';
 
     return Tooltip(
       message: 'See Mastery tab for details',

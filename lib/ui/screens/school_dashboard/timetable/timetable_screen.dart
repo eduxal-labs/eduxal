@@ -2091,7 +2091,13 @@ class _TeacherTimetableViewState extends State<_TeacherTimetableView> {
         );
 
         final entries = slots
-            .map((s) => TimetableEntry(slot: s, teacher: pseudoUser))
+            .map(
+              (s) => TimetableEntry(
+                slot: s,
+                teacher: pseudoUser,
+                subjectName: _subjectLabel(s.subject, _config!),
+              ),
+            )
             .toList();
 
         return LayoutBuilder(

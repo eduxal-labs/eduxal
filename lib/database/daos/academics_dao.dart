@@ -264,6 +264,10 @@ class AcademicsDao extends DatabaseAccessor<AppDatabase>
     final baseQuery =
         select(subjectTeachers).join([
           innerJoin(users, users.id.equalsExp(subjectTeachers.teacher)),
+          leftOuterJoin(
+            attachedDatabase.subjects,
+            attachedDatabase.subjects.id.equalsExp(subjectTeachers.subject),
+          ),
         ])..where(
           subjectTeachers.school.equals(schoolId) &
               subjectTeachers.year.equals(year) &
@@ -277,9 +281,13 @@ class AcademicsDao extends DatabaseAccessor<AppDatabase>
 
     return baseQuery.watch().asyncMap((rows) async {
       final subjectTeacherRows = rows.map((row) {
+        final subjectRow = row.readTableOrNull(attachedDatabase.subjects);
         return (
           subject: row.readTable(subjectTeachers),
           teacher: row.readTable(users),
+          subjectName:
+              subjectRow?.name ??
+              'Subject ${row.readTable(subjectTeachers).subject}',
         );
       }).toList();
 
@@ -360,6 +368,7 @@ class AcademicsDao extends DatabaseAccessor<AppDatabase>
 
         return SubjectTeacherEntry(
           subject: row.subject,
+          subjectName: row.subjectName,
           streamCode: streamCode,
           streamName: _streamName(streamCode),
           teacher: row.teacher,

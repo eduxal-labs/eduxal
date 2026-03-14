@@ -4,7 +4,7 @@ import '../../../../../database/database.dart';
 import '../../../../../database/daos/timetable_dao.dart';
 import '../../../../../database/tables/curriculum_subjects.dart';
 import '../../../../../database/tables/enums.dart';
-import '../../../../../models/curriculum_levels.dart';
+
 import '../../../../../models/school_context.dart';
 
 /// Timetable tab — displays the weekly schedule for a specific stream within
@@ -430,7 +430,7 @@ class _SlotCell extends StatelessWidget {
       return _EmptyCell(cs: cs, isDark: isDark);
     }
 
-    final subjectName = subjectLabel(curriculumType, entry!.slot.subject);
+    final subjectName = entry!.subjectName;
     final teacherName = entry!.teacher.name;
     final color = _subjectColor(entry!.slot.subject);
 
@@ -686,7 +686,7 @@ class _MobileSlotCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final subjectName = subjectLabel(curriculumType, entry.slot.subject);
+    final subjectName = entry.subjectName;
     final teacherName = entry.teacher.name;
     final timeRange =
         '${_fmtTime(entry.slot.start)} – ${_fmtTime(entry.slot.end)}';

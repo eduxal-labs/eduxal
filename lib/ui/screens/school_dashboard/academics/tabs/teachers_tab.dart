@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../../database/database.dart';
 import '../../../../../database/daos/subjects_dao.dart';
 import '../../../../../database/tables/curriculum_subjects.dart';
-import '../../../../../models/curriculum_levels.dart';
+
 import '../../../../../models/school_context.dart';
 import '../../../../widgets/user_avatar.dart';
 
@@ -47,7 +47,9 @@ class _TeachersTabState extends State<TeachersTab>
   late Stream<({ClassTeacher classTeacher, UsersData user})?> _activeCtStream;
   late Stream<List<({ClassTeacher classTeacher, UsersData user})>>
   _historyStream;
-  late Stream<List<({SubjectTeacher subject, UsersData teacher})>>
+  late Stream<
+    List<({SubjectTeacher subject, UsersData teacher, String subjectName})>
+  >
   _subjectsStream;
 
   bool _historyExpanded = false;
@@ -359,7 +361,11 @@ class _TeachersTabState extends State<TeachersTab>
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        StreamBuilder<List<({SubjectTeacher subject, UsersData teacher})>>(
+        StreamBuilder<
+          List<
+            ({SubjectTeacher subject, UsersData teacher, String subjectName})
+          >
+        >(
           stream: _subjectsStream,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting &&
@@ -413,9 +419,9 @@ class _TeachersTabState extends State<TeachersTab>
 
   Widget _buildSubjectTeacherCard(
     ColorScheme cs,
-    ({SubjectTeacher subject, UsersData teacher}) entry,
+    ({SubjectTeacher subject, UsersData teacher, String subjectName}) entry,
   ) {
-    final label = subjectLabel(widget.curriculumType, entry.subject.subject);
+    final label = entry.subjectName;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../../../database/database.dart';
 import '../../../../../database/daos/academics_dao.dart';
 import '../../../../../database/tables/curriculum_subjects.dart';
-import '../../../../../models/curriculum_levels.dart';
 import '../../../../../models/grade_analytics.dart';
 import '../../../../../models/school_context.dart';
 import '../../../../theme/app_theme.dart';
@@ -249,7 +248,7 @@ class _SubjectRowState extends State<_SubjectRow> {
     final cs = widget.cs;
     final isDark = widget.isDark;
     final entry = widget.entry;
-    final label = subjectLabel(widget.curriculumType, entry.subject.subject);
+    final label = entry.subjectName;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -294,7 +293,9 @@ class _SubjectRowState extends State<_SubjectRow> {
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w400,
-                              color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                              color: cs.onSurfaceVariant.withValues(
+                                alpha: 0.65,
+                              ),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,

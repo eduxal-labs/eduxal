@@ -167,10 +167,7 @@ class _UsersSectionState extends State<UsersSection> {
     }
   }
 
-  Future<void> _promoteUser(UsersData user) async {
-    final targetLevel = user.level == UserLevel.normal
-        ? UserLevel.system
-        : UserLevel.super_;
+  Future<void> _promoteUser(UsersData user, UserLevel targetLevel) async {
     final label = targetLevel == UserLevel.system ? 'System' : 'Super';
 
     final confirmed = await showDialog<bool>(
@@ -211,10 +208,7 @@ class _UsersSectionState extends State<UsersSection> {
     }
   }
 
-  Future<void> _demoteUser(UsersData user) async {
-    final targetLevel = user.level == UserLevel.super_
-        ? UserLevel.system
-        : UserLevel.normal;
+  Future<void> _demoteUser(UsersData user, UserLevel targetLevel) async {
     final label = targetLevel == UserLevel.system ? 'System' : 'Normal';
 
     final confirmed = await showDialog<bool>(
@@ -419,60 +413,126 @@ class _UsersSectionState extends State<UsersSection> {
                         onItemTap: _openDetail,
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                         actions: (user) {
-                          final isSuper =
-                              widget.permissions.level == UserLevel.super_;
                           final isMe = user.id == cache.currentUser?.user.id;
-                          return [
-                            // ── View detail ──
-                            EduDataTableAction<UsersData>(
-                              icon: Icons.open_in_new_rounded,
-                              label: 'View',
-                              onTap: (u) => _openDetail(u),
-                            ),
-                            // ── Demote: only if current user is super and target is super ──
-                            if (isSuper &&
-                                user.level == UserLevel.super_ &&
-                                !isMe)
+                          if (isMe) return [];
+
+                          final actions = <EduDataTableAction<UsersData>>[];
+                          final canSeeDeleted =
+                              widget.permissions.canSeeDeleted;
+
+                          // ── Promote to System: only if Normal ──
+                          if (user.level == UserLevel.normal) {
+                            actions.add(
+                              EduDataTableAction<UsersData>(
+                                icon: Icons.shield_outlined,
+                                label: 'Promote to System',
+                                onTap: (u) => _promoteUser(u, UserLevel.system),
+                                color: AppTheme.actionAssign,
+                              ),
+                            );
+                          }
+
+                          // ── Elevate to Super: only if System & viewer is super ──
+                          if (user.level == UserLevel.system && canSeeDeleted) {
+                            actions.add(
+                              EduDataTableAction<UsersData>(
+                                icon: Icons.star_outline_rounded,
+                                label: 'Elevate to Super',
+                                onTap: (u) => _promoteUser(u, UserLevel.super_),
+                                color: AppTheme.actionApprove,
+                              ),
+                            );
+                          }
+
+                          // ── Demote to Normal: only if System ──
+                          if (user.level == UserLevel.system) {
+                            actions.add(
                               EduDataTableAction<UsersData>(
                                 icon: Icons.arrow_downward_rounded,
-                                label: 'Demote',
-                                onTap: (u) => _demoteUser(u),
+                                label: 'Demote to Normal',
+                                onTap: (u) => _demoteUser(u, UserLevel.normal),
+                                color: AppTheme.actionUpdate,
                               ),
-                            // ── Suspend: only if active ──
-                            if (user.status == UserStatus.active && !isMe)
+                            );
+                          }
+
+                          // ── Demote to System: only if Super & viewer is super ──
+                          if (user.level == UserLevel.super_ && canSeeDeleted) {
+                            actions.add(
+                              EduDataTableAction<UsersData>(
+                                icon: Icons.arrow_downward_rounded,
+                                label: 'Demote to System',
+                                onTap: (u) => _demoteUser(u, UserLevel.system),
+                                color: AppTheme.actionUpdate,
+                              ),
+                            );
+                          }
+
+                          // ── Suspend: only if active or invited ──
+                          if (user.status == UserStatus.active ||
+                              user.status == UserStatus.invited) {
+                            actions.add(
                               EduDataTableAction<UsersData>(
                                 icon: Icons.block_rounded,
                                 label: 'Suspend',
                                 onTap: (u) => _suspendUser(u),
-                                color: const Color(0xFFFFB300),
+                                color: AppTheme.statusSuspended,
+                                isDestructive: true,
                               ),
-                            // ── Restore: if suspended or deleted ──
-                            if ((user.status == UserStatus.suspended ||
-                                    user.status == UserStatus.deleted) &&
-                                !isMe)
+                            );
+                          }
+
+                          // ── Restore: only if suspended ──
+                          if (user.status == UserStatus.suspended) {
+                            actions.add(
                               EduDataTableAction<UsersData>(
-                                icon: Icons.check_circle_outline_rounded,
+                                icon: Icons.restore_rounded,
                                 label: 'Restore',
                                 onTap: (u) => _restoreUser(u),
-                                color: const Color(0xFF26A69A),
+                                color: AppTheme.statusActive,
                               ),
-                            // ── Trash: if not already deleted ──
-                            if (user.status != UserStatus.deleted && !isMe)
+                            );
+                          }
+
+                          // ── Delete: only if NOT already deleted ──
+                          if (user.status != UserStatus.deleted) {
+                            actions.add(
                               EduDataTableAction<UsersData>(
                                 icon: Icons.delete_outline_rounded,
                                 label: 'Delete',
-                                isDestructive: true,
                                 onTap: (u) => _trashUser(u),
+                                color: AppTheme.actionDelete,
+                                isDestructive: true,
                               ),
-                            // ── Purge: super only ──
-                            if (isSuper && !isMe)
+                            );
+                          }
+
+                          // ── Restore from deleted: only if deleted ──
+                          if (user.status == UserStatus.deleted) {
+                            actions.add(
+                              EduDataTableAction<UsersData>(
+                                icon: Icons.restore_rounded,
+                                label: 'Restore',
+                                onTap: (u) => _restoreUser(u),
+                                color: AppTheme.statusActive,
+                              ),
+                            );
+                          }
+
+                          // ── Purge: super only ──
+                          if (canSeeDeleted) {
+                            actions.add(
                               EduDataTableAction<UsersData>(
                                 icon: Icons.delete_forever_rounded,
                                 label: 'Purge',
-                                isDestructive: true,
                                 onTap: (u) => _purgeUser(u),
+                                color: AppTheme.actionPurge,
+                                isDestructive: true,
                               ),
-                          ];
+                            );
+                          }
+
+                          return actions;
                         },
                         columns: const [
                           EduDataTableColumn(label: 'User', flex: 3),
