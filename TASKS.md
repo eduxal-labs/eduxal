@@ -410,24 +410,32 @@ The `SystemSettingsScreen` file can be kept for now (not deleted) in case it's r
 ---
 
 ### Task 302: Add Plans CRUD to Settings > Plans tab (verify/enhance existing PlansSection)
-**Files to create/modify:** `lib/ui/screens/system/plans/plans_section.dart`
+**Files to create/modify:** `lib/ui/screens/system/plans/plans_section.dart`, `lib/ui/screens/system/system_dashboard_screen.dart`
 **Context files to read:** `lib/ui/screens/system/CONTEXT.md`, `lib/database/daos/CONTEXT.md`
 **Depends on:** Task 201 (for enhanced EduDataTable), Task 301 (for Settings tab)
 **Parallel group:** —
 
 **Specification:**
 
-The `PlansSection` already exists and has full CRUD (create, read, update, delete, purge). This task is about ensuring it works correctly within the new Settings tab context and matches the new design system.
+The `PlansSection` already exists and has full CRUD (create, read, update, delete, purge) via `PlansDao`. It uses `EduDataTable<Plan>` and is a `StatelessWidget` — already embeddable as a tab body (no Scaffold/AppBar). This task fills the remaining gaps.
+
+**Research findings — current gaps:**
+- ❌ No search/filter on the plans list
+- ❌ The mobile FAB for creating plans is NOT wired up in `SystemDashboardScreen` (line ~218 has a comment: `// createPlan FAB action deferred until Task 11 extracts CreatePlanSheet.`)
+- ✅ The `openCreatePlan()` top-level function exists and works
+- ✅ Full CRUD is present in `PlansDao`: `createPlan`, `updatePlan`, `updatePlanStatus`, `purgePlan`
 
 **Changes:**
 
-1. **Ensure PlansSection works as a tab body:** It should not have its own Scaffold or AppBar. It should be embeddable as a direct child of a TabBarView. Currently it extends `StatelessWidget` and returns content directly — verify this is the case.
+1. **Wire up the FAB:** In `system_dashboard_screen.dart`, wire the `_FabAction.createPlan` case in `_onFabAction` to call `openCreatePlan(context, _permissions)`. Remove the deferral comment.
 
-2. **Add FAB:** The Plans tab should have a floating action button for creating a new plan. The FAB should be green (`AppTheme.brandGreen`), 48×48, with `Icons.add_rounded`. On tap, it calls `openCreatePlan(context, permissions)`.
+2. **Add search:** Add an `EduFilterToolbar` (or simpler search field) above the plans list to filter by plan name. Currently `PlansSection` receives all plans from `plansDao.watchAllPlans()` and filters deleted plans client-side — add a search controller and filter by `plan.name.toLowerCase().contains(query)`.
 
-3. **Ensure search is available:** Plans should be searchable by name. If not already present, add an `EduFilterToolbar` with search by plan name.
+3. **Add status filter chips:** Filter by plan status: Active, Suspended, Deleted (if super).
 
-4. **Ensure the data table uses the new `actionsBuilder` pattern** (from Task 201) so that actions are contextual per plan status.
+4. **Ensure the data table uses the new `actionsBuilder` pattern** (from Task 201) so that actions are contextual per plan status (e.g., can't delete an already-deleted plan, can only purge if super).
+
+5. **Add a FAB to PlansSection itself** (for when it's rendered inside the Settings tab, where the system dashboard's top-level FAB may not be relevant): Green `FloatingActionButton.small` with `Icons.add_rounded`, tooltip "New Plan", calling `openCreatePlan(context, permissions)`. Use a `Scaffold(floatingActionButton: ...)` wrapper or `Stack` overlay.
 
 **Update after completion:**
 - [ ] Update `lib/ui/screens/system/CONTEXT.md` — note Plans enhancements
@@ -444,32 +452,37 @@ The `PlansSection` already exists and has full CRUD (create, read, update, delet
 
 **Specification:**
 
-The `SubjectsSection` already exists (~2378 lines) with full CRUD for subjects and topics. This task ensures it works correctly in the new Settings tab and matches the new design patterns.
+The `SubjectsSection` already exists (~2378 lines) with **full CRUD for both subjects AND topics**, all wired to `CatalogDao`. This task is about ensuring design system consistency, NOT adding missing CRUD.
 
-**Changes:**
+**Research findings — current state (all working):**
+- ✅ `SubjectsSection` is a `StatefulWidget` with no Scaffold/AppBar — embeddable as tab body
+- ✅ Create subject: `_showCreateSubject()` → `_CreateSubjectSheet` → `catalogDao.createSubject()`
+- ✅ Edit subject: `_showEditSubject()` → `_EditSubjectSheet` → `catalogDao.updateSubject()`
+- ✅ Delete subject: `_deleteSubject()` → confirmation → `catalogDao.deleteSubject()`
+- ✅ Create topic: `_showCreateTopic()` → `_CreateTopicSheet` → `catalogDao.createTopic()`
+- ✅ Edit topic: `_showEditTopic()` → `_EditTopicSheet` → `catalogDao.updateTopic()`
+- ✅ Delete topic: `_deleteTopic()` → confirmation → `catalogDao.deleteTopic()`
+- ✅ Search: `_searchVisible` toggle + `_SearchField` filters subjects by name
+- ✅ Curriculum toggle: CBC / 8-4-4 filter via `_CurriculumToggle`
+- ✅ Expandable rows: `_SubjectTile` expands to show `_TopicsPanel` → grade chips → `_TopicList`
+- ✅ Permission gating: `_canCreate`, `_canEdit`, `_canDelete` from `SystemPermissions`
+- ❌ No FAB — uses an inline `+` icon button in the header instead
+- ❌ Create/edit sheets use custom private widgets, not the shared `EduSheet`/`EduFormField`
 
-1. **Ensure SubjectsSection works as a tab body:** No Scaffold, no AppBar — embeddable in TabBarView.
+**Changes (design consistency only):**
 
-2. **Add FAB:** Green floating action button for creating a new subject. On tap → `_CreateSubjectSheet`.
+1. **Add a FAB:** Green `FloatingActionButton.small` with `Icons.add_rounded`, tooltip "New Subject". On tap → `_showCreateSubject()` (already exists). Use `Stack` to overlay on the existing content.
 
-3. **Ensure all CRUD operations work with real `subjects` table data:**
-   - Create subject: name + curriculum → writes to `subjects` table via `CatalogDao`
-   - Read subjects: `CatalogDao.watchSubjectsByCurriculum(curriculum)` 
-   - Update subject: name edit → `CatalogDao.updateSubject()`
-   - Delete subject: → `CatalogDao.deleteSubject()`
+2. **Migrate create/edit sheets to use shared design widgets:**
+   - Replace `_CreateSubjectSheet` / `_EditSubjectSheet` / `_CreateTopicSheet` / `_EditTopicSheet` to use `showEduSheet` for responsive dialog/sheet entry
+   - Replace internal text fields with `EduFormField`
+   - Replace confirmation dialogs with `showEduConfirmDialog`
+   - Keep all the existing validation logic and DAO calls unchanged
 
-4. **Ensure Topics CRUD within each subject works:**
-   - Expand a subject → shows grades → select grade → shows topics
-   - Create topic: name + grade → `CatalogDao.createTopic()`
-   - Update topic: name edit → `CatalogDao.updateTopic()`
-   - Delete topic: → `CatalogDao.deleteTopic()`
-
-5. **Ensure the create/edit sheets match the design system:**
-   - Use `EduSheet`/`showEduSheet` for responsive dialog/sheet
-   - Use `EduFormField` for text inputs
-   - Use `EduConfirmDialog` for delete confirmations
-
-6. **Ensure search works:** Subject search by name should be present.
+3. **Ensure the expandable subject list rows match the new data table aesthetic:**
+   - Thin dividers between rows
+   - Hover highlight on desktop
+   - Consistent typography (13px w500 name, 12px w400 subtitle)
 
 **Update after completion:**
 - [ ] Update `lib/ui/screens/system/CONTEXT.md` — note Subjects enhancements
@@ -492,33 +505,38 @@ The `SubjectsSection` already exists (~2378 lines) with full CRUD for subjects a
 
 **Bug:** On school dashboard → Academics → click grade → stream tab → subjects tab → assign subject teacher → select subject → select teacher → infinite loading.
 
-**Root cause:** The `_SubjectTeacherPickerSheet` in `grade_detail_page.dart` (line ~1716) uses the `_subjectsForGrade()` method (line ~1759) which builds subject candidates from **hardcoded enum indices** (`CbcSubject` / `EightFourFourSubject` in `curriculum_subjects.dart`). These are NOT real database records — they are legacy enum values retained only for label display. The `subject_teachers` table expects a foreign key reference to the `subjects.id` column (a text UUID), but the code is passing integer enum indices.
+**Root cause:** The `_SubjectTeacherPickerSheet` in `grade_detail_page.dart` (line ~1716) uses the `_subjectsForGrade()` method (line ~1759) which builds subject candidates from **hardcoded enum indices** (`CbcSubject` / `EightFourFourSubject` in `curriculum_subjects.dart`). These are NOT real database records — they are legacy enum values retained only for label display.
 
-When a user selects a subject and teacher, `_assign()` calls `_subjectsDao.assignSubjectTeacher()` with `subject: _selectedSubjectIndex!` (an integer) which doesn't match any real subject ID, causing the operation to fail silently or hang.
+The schema was migrated to use a normalized `subjects` table (auto-increment `int` PK) with FK constraint `FOREIGN KEY (subject) REFERENCES subjects(id)` on `subject_teachers`, but the UI still uses the old hardcoded enum indices. These enum index values (e.g. `CbcSubject.englishLanguage.index_ = 3`) have NO relationship to the auto-increment `subjects.id` values in the real table. The result is either a FK violation or a silent failure/hang.
+
+**Critical type information (from research):**
+- `subjects.id` is `IntColumn` with `autoIncrement()` — Dart type **`int`**
+- `subject_teachers.subject` is `IntColumn` — Dart type **`int`**
+- `SubjectsDao.assignSubjectTeacher` takes `subject` as **`int`**
+- `SubjectsDao.getSubjectAssignment` takes `subject` as **`int`**
+- `CatalogDao.watchSubjectsByCurriculum(CurriculumType)` returns `Stream<List<Subject>>` — already exists
+- The `Subject` Drift data class has `int id` and `String name`
+
+So the column types are correct (`int` → `int`), but the VALUES are wrong (enum indices vs real auto-increment IDs).
 
 **Fix:**
 
 1. **Replace `_subjectsForGrade()` with a query to the real `subjects` table:**
 
-   The `CatalogDao` has:
+   The `CatalogDao` already has:
    ```dart
    Stream<List<Subject>> watchSubjectsByCurriculum(CurriculumType curriculum)
    ```
-   
-   But we need subjects filtered by grade level too. Add a new method to `CatalogDao` if not already present:
-   ```dart
-   /// Watch subjects from the global catalog for a given curriculum.
-   /// The grade_detail_page will filter client-side by grade relevance.
-   Stream<List<Subject>> watchSubjectsByCurriculum(CurriculumType curriculum)
-   ```
+   This returns all subjects for a curriculum from the real `subjects` table. No new DAO method needed.
 
 2. **Rewrite `_loadSubjects()`:**
-   Instead of building candidates from enum indices, query the `subjects` table:
+   Instead of building candidates from hardcoded enum indices, query the `subjects` table:
    ```dart
    Future<void> _loadSubjects() async {
      setState(() => _loadingSubjects = true);
      
-     // Query real subjects from the catalog table
+     // Query real subjects from the catalog table (replaces _subjectsForGrade())
+     final catalogDao = CatalogDao(db);
      final subjectsStream = catalogDao.watchSubjectsByCurriculum(widget.curriculumType);
      final subjectsList = await subjectsStream.first;
      if (!mounted) return;
@@ -534,11 +552,11 @@ When a user selects a subject and teacher, `_assign()` calls `_subjectsDao.assig
      final assignedList = await assignedStream.first;
      if (!mounted) return;
      
-     // Build assigned map: subject ID → teacher name
-     final assignedMap = <String, String>{};
+     // Build assigned map: subject int ID → teacher name
+     final assignedMap = <int, String>{};
      for (final entry in assignedList) {
-       // entry.subject is SubjectTeacher row, entry.teacher is UsersData
-       // SubjectTeacher.subject is the subject ID (text)
+       // entry.subject is SubjectTeacher row — its .subject field is int (FK → subjects.id)
+       // entry.teacher is UsersData
        assignedMap[entry.subject.subject] = entry.teacher.name;
      }
      
@@ -546,8 +564,8 @@ When a user selects a subject and teacher, `_assign()` calls `_subjectsDao.assig
      final candidates = <_SubjectCandidate>[];
      for (final subject in subjectsList) {
        candidates.add(_SubjectCandidate(
-         subjectId: subject.id,          // TEXT UUID — real ID
-         subjectName: subject.name,      // from subjects table
+         subjectId: subject.id,              // int — real auto-increment ID
+         subjectName: subject.name,          // String — from subjects table
          assignedTeacherName: assignedMap[subject.id],
        ));
      }
@@ -564,8 +582,8 @@ When a user selects a subject and teacher, `_assign()` calls `_subjectsDao.assig
 3. **Update `_SubjectCandidate` class:**
    ```dart
    class _SubjectCandidate {
-     final String subjectId;    // was: int subjectIndex
-     final String subjectName;
+     final int subjectId;        // was: int subjectIndex (enum index)
+     final String subjectName;   // was: derived from subjectLabel() enum lookup
      final String? assignedTeacherName;
      
      _SubjectCandidate({
@@ -575,9 +593,11 @@ When a user selects a subject and teacher, `_assign()` calls `_subjectsDao.assig
      });
    }
    ```
+   The type stays `int` but the semantic changes from "hardcoded enum index" to "real subjects.id auto-increment value".
 
 4. **Update `_selectSubject` and `_loadTeachers`:**
-   Change all references from `subjectIndex` (int) to `subjectId` (String).
+   - Change `_selectedSubjectIndex` to `_selectedSubjectId` (rename for clarity — type stays `int?`)
+   - In `_loadTeachers`, the call to `_subjectsDao.getSubjectAssignment(subject: ...)` should pass the real `subjectId` (still `int`, no type change needed)
 
 5. **Update `_assign()`:**
    ```dart
@@ -587,26 +607,25 @@ When a user selects a subject and teacher, `_assign()` calls `_subjectsDao.assig
      term: widget.term,
      grade: widget.grade,
      stream: widget.streamCode,
-     subject: _selectedSubjectId!,  // String ID, not int index
+     subject: _selectedSubjectId!,  // int — now a real subjects.id, not enum index
      teacherUserId: candidate.teacher.user,
      accountId: accountId,
    );
    ```
+   No DAO method signature changes needed — `assignSubjectTeacher` already takes `int subject`.
 
-6. **Update `SubjectsDao.assignSubjectTeacher` if needed:** Verify that the `subject` parameter is `String` (matching the `subject_teachers.subject` column type which is `text` FK → `subjects.id`). If the DAO method expects `int`, change it to `String`.
+6. **Remove the `_subjectsForGrade()` method entirely** — it's no longer needed (it computed valid enum indices from hardcoded `kCbcLevels`/`k844Levels`).
 
-7. **Check `SubjectsDao.getSubjectAssignment`:** Same — verify `subject` parameter is `String`.
+7. **Remove the `subjectLabel()` import** — subject names now come from `Subject.name`, not from the enum label lookup.
 
-8. **Remove the `_subjectsForGrade()` method entirely** — it's no longer needed.
-
-9. **Add `CatalogDao` import and instance:**
+8. **Add `CatalogDao` import:**
    ```dart
    import '../../../../../database/daos/catalog_dao.dart';
-   // In state class:
-   late final CatalogDao _catalogDao = CatalogDao(db);
    ```
 
-10. **Handle empty subjects table gracefully:** If no subjects exist in the catalog yet, show an empty state message: "No subjects available. System administrators can add subjects in Settings."
+9. **Handle empty subjects table gracefully:** If no subjects exist in the catalog yet, show an empty state message: "No subjects available. System administrators can add subjects in Settings → Subjects."
+
+10. **Remove unused imports** after the change: `curriculum_subjects.dart` (for `CbcSubject`), `curriculum_levels.dart` (for `levelsFor`, `subjectLabel`) — only if no other code in the file uses them.
 
 **Update after completion:**
 - [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note bug fix in grade_detail_page
@@ -617,43 +636,54 @@ When a user selects a subject and teacher, `_assign()` calls `_subjectsDao.assig
 ---
 
 ### Task 402: Update `subjectLabel()` callers to handle real subject names
-**Files to create/modify:** `lib/ui/screens/school_dashboard/academics/tabs/subjects_tab.dart`, `lib/ui/screens/school_dashboard/exams/exams_grades_screen.dart`, `lib/ui/screens/school_dashboard/timetable/timetable_screen.dart`, `lib/models/curriculum_levels.dart`
-**Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
+**Files to create/modify:** `lib/ui/screens/school_dashboard/academics/tabs/subjects_tab.dart`, `lib/ui/screens/school_dashboard/exams/exams_grades_screen.dart`, `lib/ui/screens/school_dashboard/timetable/timetable_screen.dart`, `lib/models/curriculum_levels.dart`, `lib/database/daos/academics_dao.dart`, `lib/models/grade_analytics.dart`
+**Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`, `lib/database/daos/CONTEXT.md`
 **Depends on:** Task 401
 **Parallel group:** —
 
 **Specification:**
 
-After Task 401, subject identifiers are now `String` UUIDs (from the `subjects` table) instead of `int` enum indices. Several files still call `subjectLabel(curriculumType, intIndex)` which looks up labels from the `CbcSubject`/`EightFourFourSubject` enums. These need to be updated.
+After Task 401, subject identifiers in the `subject_teachers` table are now real `int` auto-increment IDs from the `subjects` table, NOT hardcoded enum indices. Several files still call `subjectLabel(curriculumType, intIndex)` which looks up labels from the `CbcSubject`/`EightFourFourSubject` enums. These need to be updated to look up names from the `subjects` table instead.
+
+**Critical type info:** `subject_teachers.subject` is `IntColumn` (Dart `int`), and `subjects.id` is also `IntColumn` with autoIncrement (Dart `int`). The FK is `FOREIGN KEY (subject) REFERENCES subjects(id)`. So the column type is `int` throughout — but the VALUES are now real subject IDs, not enum indices.
 
 **Files that use `subjectLabel()`:**
 
 1. **`subjects_tab.dart`** (line ~226): `final label = subjectLabel(widget.curriculumType, entry.subject.subject);`
-   - The `SubjectTeacherEntry.subject` is a `SubjectTeacher` row. Its `.subject` field should now be a `String` (subject ID).
-   - Instead of calling `subjectLabel(type, int)`, look up the subject name from the subject data.
-   - The `AcademicsDao.watchSubjectsForGrade()` already joins with users — it may need to also join with `subjects` table to get the name.
-   - If it doesn't already join, we need to either:
-     a) Add a `subjects` join in `AcademicsDao.watchSubjectsForGrade()` and extend `SubjectTeacherEntry` to include `subjectName`, OR
-     b) Store the subject name on the `subject_teachers` row (it's not there — the subject_teachers table has `subject TEXT` FK)
-   - **Recommended approach:** Extend the `AcademicsDao.watchSubjectsForGrade()` query to join `subjects` and return the name. Update `SubjectTeacherEntry`:
+   - The `SubjectTeacherEntry.subject` is a `SubjectTeacher` row. Its `.subject` field is `int` (FK → `subjects.id`).
+   - Instead of calling `subjectLabel(type, int)` (which looks up hardcoded enum labels), we need the actual subject name from the `subjects` table.
+   - **Recommended approach:** Extend the `AcademicsDao.watchSubjectsForGrade()` query to JOIN with the `subjects` table and return the name. Update `SubjectTeacherEntry` in `lib/models/grade_analytics.dart`:
      ```dart
      class SubjectTeacherEntry {
        final SubjectTeacher subject;
        final UsersData teacher;
-       final String subjectName;  // ADD THIS — from subjects.name join
+       final String subjectName;  // ADD THIS — from subjects.name via JOIN
        final double? streamMasteryAverage;
        final double? gradeMasteryAverage;
      }
      ```
+   - In `AcademicsDao.watchSubjectsForGrade()`, add `innerJoin(subjects, subjects.id.equalsExp(subjectTeachers.subject))` and select `subjects.name`.
+   - Then in `subjects_tab.dart`, replace:
+     ```dart
+     final label = subjectLabel(widget.curriculumType, entry.subject.subject);
+     ```
+     with:
+     ```dart
+     final label = entry.subjectName;
+     ```
 
 2. **`exams_grades_screen.dart`** (line ~9961): Uses `CbcSubject.values.firstWhere(...)` to look up labels.
-   - Replace with a lookup from the `subjects` table or pass subject names through the data model.
+   - This is used to display subject names on paper slots and exam detail views.
+   - Replace with a lookup from the `subjects` table. Options:
+     a) Pass subject name through the data model (preferred — add `subjectName` to relevant models)
+     b) Do a one-shot `CatalogDao(db).getSubject(subjectId)` lookup and cache the results
+   - The executor should choose the approach that minimises queries while keeping code clean.
 
 3. **`timetable_screen.dart`** (line ~2451): Same pattern — `CbcSubject.values.firstWhere(...)`.
    - Same fix as above.
 
 4. **`curriculum_levels.dart`** (line ~338): The `subjectLabel()` function itself.
-   - **Deprecate** but don't delete yet — some parts of the app may still use it for display.
+   - **Deprecate** but don't delete yet — some parts of the app may still use it as a fallback.
    - Add a `@Deprecated('Use subjects table name instead')` annotation.
 
 **Update after completion:**
@@ -910,7 +940,7 @@ Apply the same data table overhaul to schools:
 
 **Specification:**
 
-The members page is ~5400 lines and has 6 tabs. Each tab needs the same overhaul pattern:
+The members page is ~5400 lines and has 6 tabs. Only the Departments tab currently uses `EduDataTable` — all others use hand-rolled `_FlatMemberList` + `_UserDataRow` / `_FlatRow` patterns. Additionally, there is an N+1 query problem in Owners/Teachers/Staff tabs where each row does a `FutureBuilder<UsersData?>` lookup via `findUserById`.
 
 **For each member tab (Owners, Teachers, Staff, Students, Guardians):**
 
@@ -942,6 +972,7 @@ The members page is ~5400 lines and has 6 tabs. Each tab needs the same overhaul
    - Suspend / Restore
    - Unenroll
    - Search by name AND admission number
+   - Uses `_StudentAvatar` (loads from file system: `{appDir}/schools/{schoolId}/students/{adm}/image`)
    
    **Guardians:**
    - Edit → opens edit sheet
@@ -965,10 +996,16 @@ The members page is ~5400 lines and has 6 tabs. Each tab needs the same overhaul
 7. **Status baked into avatar badge** using the same dot/shield/star pattern adapted for member status colors.
 
 **For Departments tab:**
+- Already uses `EduDataTable<Department>` — update to use `actionsBuilder` for contextual actions
 - Department rows with member count
 - Click → department detail (existing flow)
 - Actions: Edit name, Delete (with confirmation)
 - Search by department name
+
+**Fix the N+1 query problem:**
+- Owners/Teachers/Staff tabs currently do per-row `FutureBuilder<UsersData?>` on `MembersDao(db).findUserById(member.user)` — this is an N+1 anti-pattern
+- Instead, the DAO should return joined data: `watchOwnersWithUsers(schoolId)` → `Stream<List<({Owner owner, UsersData user})>>`
+- If these joined DAO methods don't exist yet, create them (or the executor can do the join in the widget layer by pre-fetching all users in a single query before building the list)
 
 **Update after completion:**
 - [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note members page overhaul
@@ -985,11 +1022,18 @@ The members page is ~5400 lines and has 6 tabs. Each tab needs the same overhaul
 
 **Specification:**
 
-1. **Students tab:** Search by name and admission number. Status badge on avatar.
-2. **Teachers tab:** Search by name. Profile photo visible.
-3. **Subjects tab:** Already uses a flat list — ensure it uses the new divider style and hover pattern.
-4. **Grade list:** Search by grade name/number if there are many grades.
-5. **Ensure all lists use `EduDataTable` or the same thin-divider pattern.**
+**Research findings — current state:**
+- `students_tab.dart`: Hand-rolled `_StudentRow` with `MouseRegion` + hover + dividers (data-table-style manually). Has `_StudentAvatar` ✅. NO search ❌, NO actions ❌ (row tap only → `StudentGradePage`). Shows trajectory + average badge.
+- `teachers_tab.dart`: Fully custom card-based layout (NOT data-table). Three sections: Active class teacher card, Past class teachers, Subject teachers. Has `UserAvatar` ✅. NO search ❌, NO actions ❌. Purely informational.
+- `subjects_tab.dart`: Custom `_SubjectRow` with hover + dividers. Has `UserAvatar` for teacher ✅. NO search ❌, NO actions ❌.
+- `academics_screen.dart`: NOT a data table — it's a navigational grade/stream tree. Leave as-is (it's structural navigation, not entity listing).
+
+**Changes:**
+
+1. **Students tab:** Add search by name and admission number. Add `EduFilterToolbar`. Convert `_StudentRow` to use `EduDataTable<GradeStudentRow>` with proper row builder. Student avatar with status indicator. Row tap → `StudentGradePage` (keep existing).
+2. **Teachers tab:** This is more of an info panel than a data table — keep the card-based layout BUT ensure cards use the new border/divider aesthetic. Add `UserAvatar` consistently (already present). Consider adding search if the teacher list is long.
+3. **Subjects tab:** Add search by subject name. Convert to `EduDataTable` if practical. Ensure teacher avatar is visible (already present).
+4. **`academics_screen.dart`:** Leave the grade/stream tree as-is — it's navigational structure, not a data list.
 
 **Update after completion:**
 - [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -1006,9 +1050,15 @@ The members page is ~5400 lines and has 6 tabs. Each tab needs the same overhaul
 
 **Specification:**
 
-1. **Exam list:** Search by exam name. Filter by type (midterm, end-term, etc.), status.
-2. **Exam detail → papers list:** Use data table pattern with contextual actions.
-3. **Grade spreadsheet:** Already uses a custom pattern — verify it aligns with the thin-divider aesthetic.
+**Research findings — current state:**
+- Exam list uses hand-rolled `_ExamGroupRow` with `MouseRegion` + hover + `AnimatedContainer` + `AppTheme.tableRowDivider` — already data-table-style but NOT using `EduDataTable`. NO search ❌. NO filter chips ❌. No per-row actions — entire row is tappable to navigate.
+- FAB for exam creation is gated by `_canManage` (role-based).
+
+**Changes:**
+
+1. **Exam list:** Add search by exam name. Add filter chips for exam type (midterm, end-term, etc.). Convert `_ExamGroupRow` to use `EduDataTable<ExamGroup>` or at minimum ensure consistent styling. Row tap → exam detail (keep existing).
+2. **Exam detail → papers list:** Use data table pattern with contextual actions (edit paper, delete paper if pending).
+3. **Grade spreadsheet:** Already uses a sophisticated custom pattern (`_GradeSpreadsheet`) — verify it aligns with the thin-divider aesthetic but do NOT rewrite it (it's the reference implementation mentioned in AGENT.md §21).
 4. **Status baked into exam/paper indicators rather than badge columns.**
 
 **Update after completion:**
@@ -1026,11 +1076,18 @@ The members page is ~5400 lines and has 6 tabs. Each tab needs the same overhaul
 
 **Specification:**
 
-1. **Use enhanced `EduDataTable`** for the roles list.
-2. **Search by role name.**
-3. **Contextual actions:** View, Edit, Delete.
-4. **Row click → `SchoolRoleDetailScreen`.**
-5. **Permission count visible** in a subtle badge.
+**Research findings — current state:**
+- Hand-rolled `_RoleRow` with `MouseRegion` + hover + `AnimatedContainer` + `AppTheme.tableRowDivider`. NOT using `EduDataTable`.
+- Desktop: Inline `Edit` icon button (28×28, fades in on hover) + chevron for navigation. Mobile: three-dot → "Edit Role" bottom sheet.
+- NO search ❌. Actions are static (same for every role).
+
+**Changes:**
+
+1. **Convert to `EduDataTable`** with proper `actionsBuilder` for contextual actions.
+2. **Add search by role name** using `EduFilterToolbar`.
+3. **Contextual actions via `actionsBuilder`:** View (navigate), Edit (open sheet), Delete (with confirmation). Purge if super.
+4. **Row click → `SchoolRoleDetailScreen`** (keep existing navigation).
+5. **Permission count visible** in a subtle muted text (e.g., "5 perms").
 
 **Update after completion:**
 - [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
