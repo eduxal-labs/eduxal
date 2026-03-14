@@ -7,41 +7,67 @@
 
 ---
 
-## 0. Two-Agent Workflow
+## 0. Three-Agent Workflow
 
-This project uses two distinct agent roles that share this `AGENT.md` as their common rule book.
+This project uses three distinct agent roles that share this `AGENT.md` as their common rule book.
 
-### 0a. Orchestrator Agent
+### 0a. Examiner Agent
 
-**Trigger:** The user describes a feature, change, bug fix, or any non-trivial request.
-
-**Responsibilities:**
-1. Read `AGENT.md` in full.
-2. Read all relevant `CONTEXT.md` files in `lib/` and its subdirectories to understand current project state. Read actual source files if the context files are not detailed enough.
-3. Read `schema.sql` if the work touches the database layer.
-4. Ask the user as many clarifying questions as needed — do not guess.
-5. Produce a detailed, ordered task list and **insert it into `TASKS.md`** at the appropriate position (based on priority/dependency).
-6. Remove completed tasks from `TASKS.md` when the user confirms they are done or when the executor marks them.
-7. Each task MUST be **self-sufficient** for the executor — see §0c below.
-
-**The orchestrator never writes application code.** It only writes tasks.
-
-### 0b. Executor Agent
-
-**Trigger:** The user says simple words like "continue", "go ahead", "next", or similar.
+**Trigger:** The user describes a feature, change, bug fix, or any non-trivial request in conversational language.
 
 **Responsibilities:**
 1. Read `AGENT.md` in full.
-2. Read `TASKS.md` — pick up the first unchecked `[ ]` task.
-3. The task itself should contain everything needed. If clarification is needed, read the `CONTEXT.md` file(s) referenced in the task. Avoid exploring the broader codebase.
-4. Execute the task exactly as specified.
-5. **Update the relevant `CONTEXT.md` file(s)** to reflect what changed — new files, modified exports, new methods, changed status. This is mandatory. The next executor session depends on fresh context.
-6. Mark the task as `[x]` in `TASKS.md`.
-7. If the task list is now empty (all done), delete all content from `TASKS.md` except the header.
+2. Read all relevant `CONTEXT.md` files in `lib/` and its subdirectories to understand current project state.
+3. Read actual source files as needed — use sub-agents (spawned threads) in parallel or sequentially to gather as much detail as possible about the affected areas.
+4. Read `schema.sql` if the work touches the database layer.
+5. Ask the user as many clarifying questions as needed — do not guess.
+6. Research the codebase thoroughly: understand current implementations, identify patterns, find bugs, map dependencies.
+7. Produce a **comprehensive, detailed task list** organized into tracks with dependency annotations, and **write it into `TASKS.md`**.
+8. Each task MUST be **self-sufficient** for the executor — see §0c below.
+9. Annotate which tasks can run in parallel and which have blocking dependencies.
 
-**The executor never invents new tasks or architectural decisions.** It executes what the orchestrator wrote.
+**The examiner never writes application code.** It only researches and writes tasks. It is the "brain" that transforms user intent into actionable engineering specifications.
 
-### 0c. Self-Sufficient Task Format
+### 0b. Orchestrator Agent
+
+**Trigger:** The user says simple words like "continue", "go ahead", "next", or similar — when `TASKS.md` has unchecked tasks.
+
+**Responsibilities:**
+1. Read `AGENT.md` in full.
+2. Read `TASKS.md` — scan all unchecked `[ ]` tasks.
+3. Identify which tasks can be executed **in parallel** (no dependencies between them) and which must be **sequential** (blocking dependencies).
+4. For parallel-eligible tasks: spawn multiple executor sub-agents simultaneously, assigning each to different files/directories to avoid conflicts.
+5. For sequential/blocking tasks: execute them one at a time in dependency order.
+6. **Context window awareness:** The orchestrator's context window is ~140K tokens. Before starting a task or batch, estimate whether there is enough remaining context. If the orchestrator believes the context window may fill up, it MUST stop and notify the human: _"Context window nearing capacity. Please start a new session to continue from Task XX."_ — do NOT attempt a task that might be cut off.
+7. After each task (or parallel batch) completes, verify the task is marked `[x]` and the relevant `CONTEXT.md` files are updated.
+8. After each task or batch, trigger a git commit with a descriptive message for the changes made.
+9. If the task list is now empty (all done), delete all content from `TASKS.md` except the header.
+
+**The orchestrator never writes application code directly.** It delegates to executor agents and manages the execution flow.
+
+### 0b-i. Orchestrator Commit Convention
+
+After every completed task (or parallel batch), the orchestrator runs:
+```
+git add -A && git commit -m "<type>: <description>"
+```
+Where `<type>` is one of: `feat`, `fix`, `refactor`, `ui`, `docs`, `chore`, `db`, `test`.
+
+### 0c. Executor Agent
+
+**Trigger:** Spawned by the orchestrator (as a sub-agent) to execute a specific task.
+
+**Responsibilities:**
+1. Read `AGENT.md` in full (or receive relevant sections from orchestrator).
+2. The task specification (from `TASKS.md`) should contain everything needed. If clarification is needed, read the `CONTEXT.md` file(s) referenced in the task. Avoid exploring the broader codebase.
+3. Execute the task exactly as specified.
+4. **Update the relevant `CONTEXT.md` file(s)** to reflect what changed — new files, modified exports, new methods, changed status. This is mandatory. The next executor session depends on fresh context.
+5. Mark the task as `[x]` in `TASKS.md`.
+6. Report completion (or failure with details) back to the orchestrator.
+
+**The executor never invents new tasks or architectural decisions.** It executes what the examiner wrote and the orchestrator dispatched.
+
+### 0d. Self-Sufficient Task Format
 
 Every task in `TASKS.md` must follow this structure so the executor can work without exploration:
 
@@ -50,20 +76,22 @@ Every task in `TASKS.md` must follow this structure so the executor can work wit
 **Files to create/modify:** `lib/path/to/file.dart`, `lib/path/to/other.dart`
 **Context files to read (if needed):** `lib/layer/CONTEXT.md`
 **Depends on:** Task YY (if any)
+**Parallel group:** P1 (tasks sharing a group ID can run in parallel)
 
 **Specification:**
 Exact description: what to create, exact method signatures, exact types,
 exact imports, exact return types. If the executor needs content from another
-file, the orchestrator INLINES it here rather than saying "go look at X".
+file, the examiner INLINES it here rather than saying "go look at X".
 
 **Update after completion:**
 - [ ] Update `lib/layer/CONTEXT.md` — add/modify entries for changed files
 - [ ] Mark this task `[x]`
+- [ ] Orchestrator: git commit after this task
 ```
 
-The orchestrator should inline all necessary type definitions, method signatures, and code patterns that the executor will need. The goal is zero filesystem exploration by the executor.
+The examiner should inline all necessary type definitions, method signatures, and code patterns that the executor will need. The goal is zero filesystem exploration by the executor.
 
-### 0d. CONTEXT.md Files
+### 0e. CONTEXT.md Files
 
 Each significant directory in `lib/` has a `CONTEXT.md` file that serves as a living inventory of that layer. These files:
 - Are **created and maintained by the executor** as the final step of every task.

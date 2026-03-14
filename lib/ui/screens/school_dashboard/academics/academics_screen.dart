@@ -123,28 +123,15 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
   void _showAddGradeSheet(List<SchoolStream> allStreams) {
     final allGrades = allStreams.map((s) => s.grade).toSet();
 
-    // Determine which curricula are currently in use.
-    final hasCbc =
-        allGrades.any((g) => g >= 9 && g <= 14) ||
-        (allGrades.isNotEmpty && !allGrades.any((g) => g >= 41));
-    final has844 = allGrades.any((g) => g >= 41);
-
     if (allGrades.isEmpty) {
       // No grades yet — show curriculum picker first.
       _showAddCurriculumAndGradeSheet();
       return;
     }
 
-    if (hasCbc && has844) {
-      // Both curricula — let user pick which one.
-      _showCurriculumChooser(allGrades);
-    } else if (hasCbc) {
-      _showGradePickerForCurriculum(CurriculumType.cbc, allGrades);
-    } else if (has844) {
-      _showGradePickerForCurriculum(CurriculumType.eightFourFour, allGrades);
-    } else {
-      _showAddCurriculumAndGradeSheet();
-    }
+    // Always show the chooser so the user can pick either curriculum,
+    // even if only one is currently in use. A school may have both.
+    _showCurriculumChooser(allGrades);
   }
 
   void _showAddCurriculumAndGradeSheet() {
@@ -273,29 +260,15 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
     );
   }
 
-  /// Creating a grade means inserting a default stream (code=1, name="Main")
-  /// for that grade number. A grade with zero streams cannot exist in the DB.
-  Future<void> _createGrade(int gradeNum) async {
-    final accountId = cache.currentUser?.user.id;
-    if (accountId == null) return;
-
-    try {
-      await catalogDao.createSchoolStream(
-        schoolId: _schoolId,
-        grade: gradeNum,
-        streamCode: 1,
-        name: 'Main',
-        accountId: accountId,
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to add grade: $e'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
+  /// Creating a grade: prompt for the first stream name, then insert it.
+  /// A grade with zero streams cannot exist in the DB, so we require at least
+  /// one stream name up front instead of silently auto-creating "Main".
+  void _createGrade(int gradeNum) {
+    final gradeLabel =
+        gradeLabelsFor(CurriculumType.cbc)[gradeNum] ??
+        gradeLabelsFor(CurriculumType.eightFourFour)[gradeNum] ??
+        'Grade $gradeNum';
+    _showAddStreamDialog(gradeNum, gradeLabel, [], isFirstStream: true);
   }
 
   // ── Delete grade ───────────────────────────────────────────────────────────
@@ -382,8 +355,9 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
   void _showAddStreamDialog(
     int gradeNum,
     String gradeLabel,
-    List<SchoolStream> existingStreams,
-  ) {
+    List<SchoolStream> existingStreams, {
+    bool isFirstStream = false,
+  }) {
     final cs = Theme.of(context).colorScheme;
     final nameCtrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
@@ -394,7 +368,9 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
         backgroundColor: cs.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         title: Text(
-          'Add stream to $gradeLabel',
+          isFirstStream
+              ? 'Name the first stream for $gradeLabel'
+              : 'Add stream to $gradeLabel',
           style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w500,
@@ -457,6 +433,7 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
               nameCtrl,
               gradeNum,
               existingStreams,
+              isFirstStream: isFirstStream,
             ),
           ),
         ),
@@ -479,6 +456,7 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
               nameCtrl,
               gradeNum,
               existingStreams,
+              isFirstStream: isFirstStream,
             ),
             child: Text(
               'Add',
@@ -499,8 +477,9 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
     GlobalKey<FormState> formKey,
     TextEditingController nameCtrl,
     int gradeNum,
-    List<SchoolStream> existingStreams,
-  ) async {
+    List<SchoolStream> existingStreams, {
+    bool isFirstStream = false,
+  }) async {
     if (!formKey.currentState!.validate()) return;
     final name = nameCtrl.text.trim();
 
@@ -527,7 +506,11 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to add stream: $e'),
+          content: Text(
+            isFirstStream
+                ? 'Failed to add grade: $e'
+                : 'Failed to add stream: $e',
+          ),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -989,22 +972,11 @@ class _AddGradeFab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    return SizedBox(
-      width: 48,
-      height: 48,
-      child: Material(
-        color: cs.primary,
-        borderRadius: BorderRadius.circular(6),
-        elevation: 3,
-        shadowColor: cs.primary.withValues(alpha: 0.3),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(6),
-          child: Icon(Icons.add_rounded, size: 22, color: cs.onPrimary),
-        ),
-      ),
+    return FloatingActionButton.small(
+      heroTag: 'fab_add_grade',
+      onPressed: onTap,
+      tooltip: 'Add grade',
+      child: const Icon(Icons.add_rounded, size: 20),
     );
   }
 }
@@ -1384,6 +1356,74 @@ class _EditStreamsSheetState extends State<_EditStreamsSheet> {
   }
 
   void _removeStream(int index) {
+    final activeCount = _streams.where((s) => !s.removed).length;
+    if (activeCount == 1) {
+      // Last stream — confirm that removing it will delete the whole grade.
+      final cs = Theme.of(context).colorScheme;
+      showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: cs.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          title: Text(
+            'Remove grade?',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurface,
+            ),
+          ),
+          content: Text(
+            'This is the last stream for ${widget.gradeLabel}. '
+            'Removing it will also remove the grade. '
+            'Existing enrollments and records are not affected.',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant,
+              height: 1.45,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(
+                'Remove',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: cs.error,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ).then((confirmed) {
+        if (confirmed != true) return;
+        setState(() {
+          _streams[index].controller.dispose();
+          _streams[index] = _EditableStream(
+            code: _streams[index].code,
+            originalName: _streams[index].originalName,
+            controller: TextEditingController(),
+            removed: true,
+          );
+        });
+      });
+      return;
+    }
+
     setState(() {
       _streams[index].controller.dispose();
       _streams[index] = _EditableStream(
