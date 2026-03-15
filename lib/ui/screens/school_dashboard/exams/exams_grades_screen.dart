@@ -228,13 +228,15 @@ class _ExamsShellState extends State<_ExamsShell> {
           final match = groups
               .where((g) => g.groupKey == _selectedGroupKey)
               .firstOrNull;
-          if (match != null) _selectedGroup = match;
-          if (_selectedGroup == null) {
+          // Use the latest matching group from the stream, falling back to
+          // the previously selected group (avoids null during loading).
+          final group = match ?? _selectedGroup;
+          if (group == null) {
             WidgetsBinding.instance.addPostFrameCallback((_) => _popToList());
             return const SizedBox.shrink();
           }
           return _ExamGroupDetailView(
-            group: _selectedGroup!,
+            group: group,
             schoolId: schoolId,
             year: term.year,
             term: term.term,
@@ -5551,7 +5553,7 @@ class _FabOptionPill extends StatelessWidget {
 // (expanded in R04; this stub shows the papers list and delegates taps)
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _PaperContentArea extends StatelessWidget {
+class _PaperContentArea extends StatefulWidget {
   const _PaperContentArea({
     required this.streamEntry,
     required this.grade,
@@ -5574,30 +5576,48 @@ class _PaperContentArea extends StatelessWidget {
   final void Function(Paper paper, Exam exam, int grade) onPaperTap;
 
   @override
+  State<_PaperContentArea> createState() => _PaperContentAreaState();
+}
+
+class _PaperContentAreaState extends State<_PaperContentArea> {
+  late Stream<List<Paper>> _papersStream;
+  late String _examId;
+
+  @override
+  void initState() {
+    super.initState();
+    _examId = widget.streamEntry.exam.id;
+    _papersStream = widget.dao.watchPapersForExam(
+      schoolId: widget.schoolId,
+      examId: _examId,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _PaperContentArea old) {
+    super.didUpdateWidget(old);
+    final newId = widget.streamEntry.exam.id;
+    if (newId != _examId || widget.schoolId != old.schoolId) {
+      _examId = newId;
+      _papersStream = widget.dao.watchPapersForExam(
+        schoolId: widget.schoolId,
+        examId: _examId,
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    // Use the papers already loaded in the ExamGroup model as initial data
+    // so the grid renders immediately without a blank flash.
+    final initialPapers = widget.streamEntry.papers;
     return StreamBuilder<List<Paper>>(
-      stream: dao.watchPapersForExam(
-        schoolId: schoolId,
-        examId: streamEntry.exam.id,
-      ),
+      stream: _papersStream,
+      initialData: initialPapers.isNotEmpty ? initialPapers : null,
       builder: (context, snap) {
         final papers = snap.data ?? [];
-        debugPrint(
-          '[PaperContent] examId=${streamEntry.exam.id}, '
-          'schoolId=$schoolId, papers=${papers.length}, '
-          'connState=${snap.connectionState}',
-        );
-        for (final p in papers) {
-          debugPrint(
-            '[PaperContent]   subject=${p.subject}, '
-            'start=${p.start}, end=${p.end}, '
-            'grade=${p.grade}, stream=${p.stream}, '
-            'invigilator=${p.invigilator}',
-          );
-        }
         if (papers.isEmpty) {
-          debugPrint('[PaperContent] → EMPTY, showing empty state');
           return _EmptyPapersTimetableState(cs: cs);
         }
         return LayoutBuilder(
@@ -5605,24 +5625,24 @@ class _PaperContentArea extends StatelessWidget {
             if (constraints.maxWidth >= 600) {
               return _PaperTimetableGrid(
                 papers: papers,
-                exam: streamEntry.exam,
-                grade: grade,
-                config: config,
-                subjectNames: subjectNames,
-                teacherNames: teacherNames,
-                canManage: canManage,
-                onPaperTap: onPaperTap,
+                exam: widget.streamEntry.exam,
+                grade: widget.grade,
+                config: widget.config,
+                subjectNames: widget.subjectNames,
+                teacherNames: widget.teacherNames,
+                canManage: widget.canManage,
+                onPaperTap: widget.onPaperTap,
               );
             } else {
               return _PaperTimetableMobile(
                 papers: papers,
-                exam: streamEntry.exam,
-                grade: grade,
-                config: config,
-                subjectNames: subjectNames,
-                teacherNames: teacherNames,
-                canManage: canManage,
-                onPaperTap: onPaperTap,
+                exam: widget.streamEntry.exam,
+                grade: widget.grade,
+                config: widget.config,
+                subjectNames: widget.subjectNames,
+                teacherNames: widget.teacherNames,
+                canManage: widget.canManage,
+                onPaperTap: widget.onPaperTap,
               );
             }
           },
@@ -5641,16 +5661,8 @@ Map<DateTime, List<Paper>> _groupPapersByDate(List<Paper> papers) {
   for (final p in papers) {
     final dt = DateTime.fromMillisecondsSinceEpoch(p.start.toInt() * 1000);
     final day = DateTime(dt.year, dt.month, dt.day);
-    debugPrint(
-      '[GroupByDate] paper subject=${p.subject}, '
-      'start=${p.start} → dt=$dt → day=$day (ms=${day.millisecondsSinceEpoch})',
-    );
     map.putIfAbsent(day, () => []).add(p);
   }
-  debugPrint(
-    '[GroupByDate] ${map.length} date groups: '
-    '${map.entries.map((e) => "${e.key}: ${e.value.length} papers").join(", ")}',
-  );
   // Sort papers within each day by start time
   for (final list in map.values) {
     list.sort((a, b) => a.start.compareTo(b.start));
@@ -5687,20 +5699,10 @@ Paper? _paperAt(
 ) {
   final day = DateTime(date.year, date.month, date.day);
   final papers = grouped[day] ?? [];
-  debugPrint(
-    '[PaperAt] date=$date → day=$day (ms=${day.millisecondsSinceEpoch}), '
-    'startTime=$startTime, papersInDay=${papers.length}, '
-    'groupedKeys=${grouped.keys.map((k) => "$k (ms=${k.millisecondsSinceEpoch})").join(", ")}',
-  );
   for (final p in papers) {
     final dt = DateTime.fromMillisecondsSinceEpoch(p.start.toInt() * 1000);
-    final fmt = _fmtTime(dt);
-    debugPrint(
-      '[PaperAt]   checking subject=${p.subject}: fmt=$fmt vs startTime=$startTime → ${fmt == startTime ? "MATCH" : "no match"}',
-    );
-    if (fmt == startTime) return p;
+    if (_fmtTime(dt) == startTime) return p;
   }
-  debugPrint('[PaperAt]   → NO MATCH FOUND');
   return null;
 }
 
@@ -5747,13 +5749,6 @@ class _PaperTimetableGrid extends StatelessWidget {
     final grouped = _groupPapersByDate(papers);
     final dates = _sortedPaperDates(grouped);
     final timeslots = _uniquePaperStartTimes(papers);
-    debugPrint(
-      '[TimetableGrid] papers=${papers.length}, '
-      'dates=${dates.length}, timeslots=${timeslots.length}',
-    );
-    for (final ts in timeslots) {
-      debugPrint('[TimetableGrid]   slot: ${ts.start} – ${ts.end}');
-    }
 
     // Compute total grid width: time gutter + date columns
     const double gutterWidth = 72;
