@@ -14,7 +14,7 @@ import '../../../../database/daos/exams_grades_dao.dart';
 import '../../../../database/daos/members_dao.dart';
 import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../database/tables/enums.dart';
-import '../../../../models/curriculum_levels.dart';
+
 import '../../../../models/result.dart';
 import '../../../../models/membership.dart';
 import '../../../../models/school_context.dart';
@@ -43,6 +43,7 @@ class PaperDetailPage extends StatefulWidget {
     required this.grade,
     required this.curriculumType,
     required this.schoolContext,
+    this.subjectNames = const {},
   });
 
   final Paper paper;
@@ -53,6 +54,7 @@ class PaperDetailPage extends StatefulWidget {
   final int grade;
   final CurriculumType curriculumType;
   final SchoolContext schoolContext;
+  final Map<int, String> subjectNames;
 
   @override
   State<PaperDetailPage> createState() => _PaperDetailPageState();
@@ -200,7 +202,8 @@ class _PaperDetailPageState extends State<PaperDetailPage>
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final subjLabel = subjectLabel(widget.curriculumType, _paper.subject);
+    final subjLabel =
+        widget.subjectNames[_paper.subject] ?? 'Subject ${_paper.subject}';
     final paperNum = _paper.paper != null ? ' Paper ${_paper.paper}' : '';
 
     return Scaffold(
@@ -257,7 +260,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                           _PaperInfoCard(
                             paper: currentPaper,
                             exam: widget.exam,
-                            curriculumType: widget.curriculumType,
+                            subjectNames: widget.subjectNames,
                             cs: cs,
                             canEdit: _canManage,
                             onEditInvigilator: () =>
@@ -339,7 +342,7 @@ class _PaperInfoCard extends StatelessWidget {
   const _PaperInfoCard({
     required this.paper,
     required this.exam,
-    required this.curriculumType,
+    required this.subjectNames,
     required this.cs,
     required this.canEdit,
     this.onEditInvigilator,
@@ -347,7 +350,7 @@ class _PaperInfoCard extends StatelessWidget {
 
   final Paper paper;
   final ExamWithPapers exam;
-  final CurriculumType curriculumType;
+  final Map<int, String> subjectNames;
   final ColorScheme cs;
   final bool canEdit;
   final VoidCallback? onEditInvigilator;
@@ -356,7 +359,7 @@ class _PaperInfoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = cs.brightness == Brightness.dark;
     final isMobile = MediaQuery.sizeOf(context).width < 600;
-    final subjLabel = subjectLabel(curriculumType, paper.subject);
+    final subjLabel = subjectNames[paper.subject] ?? 'Subject ${paper.subject}';
     final startDt = DateTime.fromMillisecondsSinceEpoch(
       paper.start.toInt() * 1000,
     );

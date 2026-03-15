@@ -56,6 +56,7 @@ class _ExamsTabState extends State<ExamsTab>
   late Stream<List<ExamWithPapers>> _stream;
 
   SchoolConfig _config = SchoolConfig.defaults();
+  Map<int, String> _subjectNames = {};
   bool _configLoaded = false;
 
   // ── Filter state ───────────────────────────────────────────────────────────
@@ -76,6 +77,7 @@ class _ExamsTabState extends State<ExamsTab>
     _catalogDao = CatalogDao(db);
     _stream = _buildStream();
     _loadConfig();
+    _loadSubjectNames();
   }
 
   @override
@@ -98,6 +100,15 @@ class _ExamsTabState extends State<ExamsTab>
       grade: widget.grade,
       streamCode: widget.streamCode,
     );
+  }
+
+  Future<void> _loadSubjectNames() async {
+    _catalogDao.watchSubjects().listen((subjects) {
+      if (!mounted) return;
+      setState(() {
+        _subjectNames = {for (final s in subjects) s.id: s.name};
+      });
+    });
   }
 
   Future<void> _loadConfig() async {
@@ -504,6 +515,7 @@ class _ExamsTabState extends State<ExamsTab>
           streamName: widget.streamName,
           curriculumType: widget.curriculumType,
           schoolContext: widget.schoolContext,
+          subjectNames: _subjectNames,
         ),
       ),
     );

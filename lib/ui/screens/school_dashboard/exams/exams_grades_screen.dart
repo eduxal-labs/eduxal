@@ -72,6 +72,7 @@ class _ExamsShellState extends State<_ExamsShell> {
   Exam? _selectedExamRow;
   Paper? _selectedPaper;
   SchoolConfig _config = SchoolConfig.defaults();
+  Map<int, String> _subjectNames = {};
   late final ExamsGradesDao _dao;
   late final CatalogDao _catalogDao;
 
@@ -81,6 +82,16 @@ class _ExamsShellState extends State<_ExamsShell> {
     _dao = ExamsGradesDao(db);
     _catalogDao = CatalogDao(db);
     _loadConfig();
+    _loadSubjectNames();
+  }
+
+  Future<void> _loadSubjectNames() async {
+    _catalogDao.watchSubjects().listen((subjects) {
+      if (!mounted) return;
+      setState(() {
+        _subjectNames = {for (final s in subjects) s.id: s.name};
+      });
+    });
   }
 
   Future<void> _loadConfig() async {
@@ -202,6 +213,7 @@ class _ExamsShellState extends State<_ExamsShell> {
         term: term.term,
         schoolContext: widget.schoolContext,
         config: _config,
+        subjectNames: _subjectNames,
         entry: entry,
         onExamTap: _openExam,
       ),
@@ -227,6 +239,7 @@ class _ExamsShellState extends State<_ExamsShell> {
             year: term.year,
             term: term.term,
             config: _config,
+            subjectNames: _subjectNames,
             entry: entry,
             onBack: _popToList,
             onPaperTap: _openPaper,
@@ -250,6 +263,7 @@ class _ExamsShellState extends State<_ExamsShell> {
                 ? _selectedGroup!.grades.first.grade
                 : 0),
         config: _config,
+        subjectNames: _subjectNames,
         entry: entry,
         onBack: _popToExam,
       ),
@@ -268,6 +282,7 @@ class _ExamsListView extends StatefulWidget {
     required this.term,
     required this.schoolContext,
     required this.config,
+    required this.subjectNames,
     required this.entry,
     required this.onExamTap,
   });
@@ -276,6 +291,7 @@ class _ExamsListView extends StatefulWidget {
   final int term;
   final SchoolContext schoolContext;
   final SchoolConfig config;
+  final Map<int, String> subjectNames;
   final MembershipEntry entry;
   final ValueChanged<ExamGroup> onExamTap;
 
@@ -664,6 +680,7 @@ class _ExamGroupDetailView extends StatefulWidget {
     required this.year,
     required this.term,
     required this.config,
+    required this.subjectNames,
     required this.entry,
     required this.onBack,
     required this.onPaperTap,
@@ -674,6 +691,7 @@ class _ExamGroupDetailView extends StatefulWidget {
   final int year;
   final int term;
   final SchoolConfig config;
+  final Map<int, String> subjectNames;
   final MembershipEntry entry;
   final VoidCallback onBack;
   final void Function(Paper paper, Exam exam, int grade) onPaperTap;
@@ -813,6 +831,7 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
         grade: gradeEntry.grade,
         stream: streamEntry.streamCode,
         config: widget.config,
+        subjectNames: widget.subjectNames,
         dao: _dao,
         subjectsDao: SubjectsDao(db),
       ),
@@ -829,6 +848,7 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
         year: widget.year,
         term: widget.term,
         config: widget.config,
+        subjectNames: widget.subjectNames,
         dao: _dao,
         subjectsDao: SubjectsDao(db),
         membersDao: _membersDao,
@@ -847,6 +867,7 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
         year: widget.year,
         term: widget.term,
         config: widget.config,
+        subjectNames: widget.subjectNames,
         dao: _dao,
         subjectsDao: SubjectsDao(db),
         membersDao: _membersDao,
@@ -1225,6 +1246,7 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
                           : 0,
                       schoolId: widget.schoolId,
                       config: widget.config,
+                      subjectNames: widget.subjectNames,
                       teacherNames: _teacherNames,
                       dao: _dao,
                       canManage: _canManage,
@@ -1265,6 +1287,7 @@ class _AddStreamForm extends StatefulWidget {
     required this.year,
     required this.term,
     required this.config,
+    required this.subjectNames,
     required this.dao,
     required this.subjectsDao,
     required this.membersDao,
@@ -1276,6 +1299,7 @@ class _AddStreamForm extends StatefulWidget {
   final int year;
   final int term;
   final SchoolConfig config;
+  final Map<int, String> subjectNames;
   final ExamsGradesDao dao;
   final SubjectsDao subjectsDao;
   final MembersDao membersDao;
@@ -1965,6 +1989,7 @@ class _AddStreamFormState extends State<_AddStreamForm> {
                           teachers: _teachers,
                           teachersLoaded: _teachersLoaded,
                           config: widget.config,
+                          subjectNames: widget.subjectNames,
                           cs: cs,
                           isDark: isDark,
                           indigo: indigo,
@@ -2494,6 +2519,7 @@ class _AddGradeToExamForm extends StatefulWidget {
     required this.year,
     required this.term,
     required this.config,
+    required this.subjectNames,
     required this.dao,
     required this.subjectsDao,
     required this.membersDao,
@@ -2505,6 +2531,7 @@ class _AddGradeToExamForm extends StatefulWidget {
   final int year;
   final int term;
   final SchoolConfig config;
+  final Map<int, String> subjectNames;
   final ExamsGradesDao dao;
   final SubjectsDao subjectsDao;
   final MembersDao membersDao;
@@ -3313,6 +3340,7 @@ class _AddGradeToExamFormState extends State<_AddGradeToExamForm>
                         teachers: _teachers,
                         teachersLoaded: _teachersLoaded,
                         config: widget.config,
+                        subjectNames: widget.subjectNames,
                         cs: cs,
                         isDark: isDark,
                         indigo: indigo,
@@ -3724,6 +3752,7 @@ class _GradePaperSlotCard extends StatefulWidget {
     required this.teachers,
     required this.teachersLoaded,
     required this.config,
+    required this.subjectNames,
     required this.cs,
     required this.isDark,
     required this.indigo,
@@ -3738,6 +3767,7 @@ class _GradePaperSlotCard extends StatefulWidget {
   final List<({TeachersData teacher, UsersData user})> teachers;
   final bool teachersLoaded;
   final SchoolConfig config;
+  final Map<int, String> subjectNames;
   final ColorScheme cs;
   final bool isDark;
   final Color indigo;
@@ -3964,7 +3994,7 @@ class _GradePaperSlotCardState extends State<_GradePaperSlotCard> {
             child: _GradeSubjectSelector(
               value: slot.subjectCode,
               subjects: widget.subjects,
-              config: widget.config,
+              subjectNames: widget.subjectNames,
               cs: cs,
               isDark: isDark,
               indigo: indigo,
@@ -4570,7 +4600,7 @@ class _GradeSubjectSelector extends StatelessWidget {
   const _GradeSubjectSelector({
     required this.value,
     required this.subjects,
-    required this.config,
+    required this.subjectNames,
     required this.cs,
     required this.isDark,
     required this.indigo,
@@ -4579,7 +4609,7 @@ class _GradeSubjectSelector extends StatelessWidget {
 
   final int? value;
   final List<({SubjectTeacher subject, UsersData teacher})> subjects;
-  final SchoolConfig config;
+  final Map<int, String> subjectNames;
   final ColorScheme cs;
   final bool isDark;
   final Color indigo;
@@ -4588,7 +4618,7 @@ class _GradeSubjectSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = value != null
-        ? _subjectLabel(value!, config)
+        ? (subjectNames[value!] ?? 'Subject $value')
         : 'Select subject';
     final hasValue = value != null;
 
@@ -4600,7 +4630,7 @@ class _GradeSubjectSelector extends StatelessWidget {
           builder: (_) => _GradeSubjectPickerSheet(
             subjects: subjects,
             value: value,
-            config: config,
+            subjectNames: subjectNames,
             cs: cs,
             isDark: isDark,
             indigo: indigo,
@@ -4668,7 +4698,7 @@ class _GradeSubjectPickerSheet extends StatelessWidget {
   const _GradeSubjectPickerSheet({
     required this.subjects,
     required this.value,
-    required this.config,
+    required this.subjectNames,
     required this.cs,
     required this.isDark,
     required this.indigo,
@@ -4677,7 +4707,7 @@ class _GradeSubjectPickerSheet extends StatelessWidget {
 
   final List<({SubjectTeacher subject, UsersData teacher})> subjects;
   final int? value;
-  final SchoolConfig config;
+  final Map<int, String> subjectNames;
   final ColorScheme cs;
   final bool isDark;
   final Color indigo;
@@ -4731,7 +4761,9 @@ class _GradeSubjectPickerSheet extends StatelessWidget {
             itemCount: subjects.length,
             itemBuilder: (_, i) {
               final s = subjects[i];
-              final label = _subjectLabel(s.subject.subject, config);
+              final label =
+                  subjectNames[s.subject.subject] ??
+                  'Subject ${s.subject.subject}';
               final isSelected = s.subject.subject == value;
               return InkWell(
                 onTap: () => onSelected(s.subject.subject, s.subject.teacher),
@@ -5525,6 +5557,7 @@ class _PaperContentArea extends StatelessWidget {
     required this.grade,
     required this.schoolId,
     required this.config,
+    required this.subjectNames,
     required this.teacherNames,
     required this.dao,
     required this.canManage,
@@ -5534,6 +5567,7 @@ class _PaperContentArea extends StatelessWidget {
   final int grade;
   final String schoolId;
   final SchoolConfig config;
+  final Map<int, String> subjectNames;
   final Map<String, String> teacherNames;
   final ExamsGradesDao dao;
   final bool canManage;
@@ -5560,6 +5594,7 @@ class _PaperContentArea extends StatelessWidget {
                 exam: streamEntry.exam,
                 grade: grade,
                 config: config,
+                subjectNames: subjectNames,
                 teacherNames: teacherNames,
                 canManage: canManage,
                 onPaperTap: onPaperTap,
@@ -5570,6 +5605,7 @@ class _PaperContentArea extends StatelessWidget {
                 exam: streamEntry.exam,
                 grade: grade,
                 config: config,
+                subjectNames: subjectNames,
                 teacherNames: teacherNames,
                 canManage: canManage,
                 onPaperTap: onPaperTap,
@@ -5658,6 +5694,7 @@ class _PaperTimetableGrid extends StatelessWidget {
     required this.exam,
     required this.grade,
     required this.config,
+    required this.subjectNames,
     required this.teacherNames,
     required this.canManage,
     required this.onPaperTap,
@@ -5667,6 +5704,7 @@ class _PaperTimetableGrid extends StatelessWidget {
   final Exam exam;
   final int grade;
   final SchoolConfig config;
+  final Map<int, String> subjectNames;
   final Map<String, String> teacherNames;
   final bool canManage;
   final void Function(Paper paper, Exam exam, int grade) onPaperTap;
@@ -5678,12 +5716,18 @@ class _PaperTimetableGrid extends StatelessWidget {
     final dates = _sortedPaperDates(grouped);
     final timeslots = _uniquePaperStartTimes(papers);
 
+    // Compute total grid width: time gutter + date columns
+    const double gutterWidth = 72;
+    const double dateColWidth = 140;
+    final totalWidth = gutterWidth + dates.length * dateColWidth;
+
     return SingleChildScrollView(
       scrollDirection: Axis.vertical,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        child: IntrinsicWidth(
+        child: SizedBox(
+          width: totalWidth,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -5700,6 +5744,7 @@ class _PaperTimetableGrid extends StatelessWidget {
                   exam: exam,
                   grade: grade,
                   config: config,
+                  subjectNames: subjectNames,
                   teacherNames: teacherNames,
                   cs: cs,
                   onPaperTap: onPaperTap,
@@ -5724,14 +5769,12 @@ class _PaperGridHeaderRow extends StatelessWidget {
     return Row(
       children: [
         // Time gutter placeholder
-        SizedBox(
-          width: 72,
-          child: Text(
-            '',
-            style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+        const SizedBox(width: 72),
+        ...dates.map(
+          (d) => Expanded(
+            child: _PaperHeaderCell(date: d, cs: cs),
           ),
         ),
-        ...dates.map((d) => _PaperHeaderCell(date: d, cs: cs)),
       ],
     );
   }
@@ -5745,19 +5788,16 @@ class _PaperHeaderCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 140,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Text(
-          _fmtDayColumn(date),
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
-            color: cs.onSurfaceVariant,
-          ),
-          textAlign: TextAlign.center,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Text(
+        _fmtDayColumn(date),
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          color: cs.onSurfaceVariant,
         ),
+        textAlign: TextAlign.center,
       ),
     );
   }
@@ -5772,6 +5812,7 @@ class _PaperGridRow extends StatelessWidget {
     required this.exam,
     required this.grade,
     required this.config,
+    required this.subjectNames,
     required this.teacherNames,
     required this.cs,
     required this.onPaperTap,
@@ -5784,6 +5825,7 @@ class _PaperGridRow extends StatelessWidget {
   final Exam exam;
   final int grade;
   final SchoolConfig config;
+  final Map<int, String> subjectNames;
   final Map<String, String> teacherNames;
   final ColorScheme cs;
   final void Function(Paper paper, Exam exam, int grade) onPaperTap;
@@ -5792,30 +5834,41 @@ class _PaperGridRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Time label ─────────────────────────────────────────────────
-          _PaperTimeLabel(startTime: startTime, endTime: endTime, cs: cs),
-          // ── Day cells ──────────────────────────────────────────────────
-          ...dates.map((d) {
-            final paper = _paperAt(grouped, d, startTime);
-            if (paper == null) {
-              return _PaperEmptyCell(cs: cs);
-            }
-            final statusColor = _paperStatusColor(paper.status, cs);
-            final invName = teacherNames[paper.invigilator] ?? '';
-            return _PaperSlotBox(
-              paper: paper,
-              exam: exam,
-              config: config,
-              statusColor: statusColor,
-              invigilatorName: invName,
-              cs: cs,
-              onTap: () => onPaperTap(paper, exam, grade),
-            );
-          }),
-        ],
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Time label ─────────────────────────────────────────────────
+            SizedBox(
+              width: 72,
+              child: _PaperTimeLabel(
+                startTime: startTime,
+                endTime: endTime,
+                cs: cs,
+              ),
+            ),
+            // ── Day cells ──────────────────────────────────────────────────
+            ...dates.map((d) {
+              final paper = _paperAt(grouped, d, startTime);
+              if (paper == null) {
+                return Expanded(child: _PaperEmptyCell(cs: cs));
+              }
+              final statusColor = _paperStatusColor(paper.status, cs);
+              final invName = teacherNames[paper.invigilator] ?? '';
+              return Expanded(
+                child: _PaperSlotBox(
+                  paper: paper,
+                  exam: exam,
+                  subjectNames: subjectNames,
+                  statusColor: statusColor,
+                  invigilatorName: invName,
+                  cs: cs,
+                  onTap: () => onPaperTap(paper, exam, grade),
+                ),
+              );
+            }),
+          ],
+        ),
       ),
     );
   }
@@ -5834,33 +5887,32 @@ class _PaperTimeLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 72,
-      child: Padding(
-        padding: const EdgeInsets.only(right: 8, top: 4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              startTime,
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w500,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.65),
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
+    return Padding(
+      padding: const EdgeInsets.only(right: 8, top: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            startTime,
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
-            Text(
-              endTime,
-              style: TextStyle(
-                fontSize: 9.5,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.4),
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
+          ),
+          Text(
+            endTime,
+            style: TextStyle(
+              fontSize: 9.5,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -5870,7 +5922,7 @@ class _PaperSlotBox extends StatelessWidget {
   const _PaperSlotBox({
     required this.paper,
     required this.exam,
-    required this.config,
+    required this.subjectNames,
     required this.statusColor,
     required this.invigilatorName,
     required this.cs,
@@ -5879,7 +5931,7 @@ class _PaperSlotBox extends StatelessWidget {
 
   final Paper paper;
   final Exam exam;
-  final SchoolConfig config;
+  final Map<int, String> subjectNames;
   final Color statusColor;
   final String invigilatorName;
   final ColorScheme cs;
@@ -5887,11 +5939,9 @@ class _PaperSlotBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Subject fallback: if label resolves to empty-ish, show 'Subject N'
-    final rawSubject = _subjectLabel(paper.subject, config);
-    final subjectName = rawSubject.isNotEmpty
-        ? rawSubject
-        : 'Subject ${paper.subject}';
+    // Subject label from DB lookup
+    final subjectName =
+        subjectNames[paper.subject] ?? 'Subject ${paper.subject}';
     final paperLabel = (paper.paper ?? 1) > 1 ? ' · Paper ${paper.paper}' : '';
 
     // Time fallback: if start is 0 treat as unset
@@ -5906,81 +5956,76 @@ class _PaperSlotBox extends StatelessWidget {
     // Invigilator fallback: empty string (not found) → show '—'
     final invDisplay = invigilatorName.isNotEmpty ? invigilatorName : '—';
 
-    return SizedBox(
-      width: 140,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: InkWell(
-          onTap: onTap,
-          splashFactory: NoSplash.splashFactory,
-          borderRadius: BorderRadius.circular(4),
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 56),
-            decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(4),
-              border: Border(
-                left: BorderSide(color: statusColor, width: 2.5),
-                top: BorderSide(
-                  color: cs.outlineVariant.withValues(alpha: 0.2),
-                ),
-                right: BorderSide(
-                  color: cs.outlineVariant.withValues(alpha: 0.2),
-                ),
-                bottom: BorderSide(
-                  color: cs.outlineVariant.withValues(alpha: 0.2),
-                ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: InkWell(
+        onTap: onTap,
+        splashFactory: NoSplash.splashFactory,
+        borderRadius: BorderRadius.circular(4),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 56),
+          decoration: BoxDecoration(
+            color: statusColor.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(4),
+            border: Border(
+              left: BorderSide(color: statusColor, width: 2.5),
+              top: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.2)),
+              right: BorderSide(
+                color: cs.outlineVariant.withValues(alpha: 0.2),
+              ),
+              bottom: BorderSide(
+                color: cs.outlineVariant.withValues(alpha: 0.2),
               ),
             ),
-            padding: const EdgeInsets.fromLTRB(8, 7, 8, 7),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '$subjectName$paperLabel',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurface,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+          ),
+          padding: const EdgeInsets.fromLTRB(8, 7, 8, 7),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$subjectName$paperLabel',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurface,
                 ),
-                const SizedBox(height: 2),
-                if (timeUnset)
-                  Text(
-                    'Time not set',
-                    style: TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w400,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.45),
-                      fontStyle: FontStyle.italic,
-                    ),
-                  )
-                else
-                  Text(
-                    timeRange!,
-                    style: TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w400,
-                      color: cs.onSurfaceVariant,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                const SizedBox(height: 2),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              if (timeUnset)
                 Text(
-                  'Inv: $invDisplay',
+                  'Time not set',
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 9.5,
                     fontWeight: FontWeight.w400,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+                    fontStyle: FontStyle.italic,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                )
+              else
+                Text(
+                  timeRange!,
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurfaceVariant,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
                 ),
-              ],
-            ),
+              const SizedBox(height: 2),
+              Text(
+                'Inv: $invDisplay',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
         ),
       ),
@@ -5995,18 +6040,15 @@ class _PaperEmptyCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 140,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 56),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(
-              color: cs.outlineVariant.withValues(alpha: 0.2),
-              width: 1,
-            ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 56),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: cs.outlineVariant.withValues(alpha: 0.2),
+            width: 1,
           ),
         ),
       ),
@@ -6024,15 +6066,16 @@ class _PaperTimetableMobile extends StatefulWidget {
     required this.exam,
     required this.grade,
     required this.config,
+    required this.subjectNames,
     required this.teacherNames,
     required this.canManage,
     required this.onPaperTap,
   });
-
   final List<Paper> papers;
   final Exam exam;
   final int grade;
   final SchoolConfig config;
+  final Map<int, String> subjectNames;
   final Map<String, String> teacherNames;
   final bool canManage;
   final void Function(Paper paper, Exam exam, int grade) onPaperTap;
@@ -6135,7 +6178,7 @@ class _PaperTimetableMobileState extends State<_PaperTimetableMobile> {
                     return _PaperSlotCard(
                       paper: p,
                       exam: widget.exam,
-                      config: widget.config,
+                      subjectNames: widget.subjectNames,
                       cs: cs,
                       statusColor: statusColor,
                       invigilatorName: invName,
@@ -6279,7 +6322,7 @@ class _PaperSlotCard extends StatelessWidget {
   const _PaperSlotCard({
     required this.paper,
     required this.exam,
-    required this.config,
+    required this.subjectNames,
     required this.cs,
     required this.statusColor,
     required this.invigilatorName,
@@ -6287,7 +6330,7 @@ class _PaperSlotCard extends StatelessWidget {
   });
   final Paper paper;
   final Exam exam;
-  final SchoolConfig config;
+  final Map<int, String> subjectNames;
   final ColorScheme cs;
   final Color statusColor;
   final String invigilatorName;
@@ -6296,7 +6339,8 @@ class _PaperSlotCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final subjectName = _subjectLabel(paper.subject, config);
+    final subjectName =
+        subjectNames[paper.subject] ?? 'Subject ${paper.subject}';
     final paperLabel = (paper.paper ?? 1) > 1 ? 'Paper ${paper.paper}' : '';
     final startDt = DateTime.fromMillisecondsSinceEpoch(
       paper.start.toInt() * 1000,
@@ -6466,6 +6510,7 @@ class _PaperDetailView extends StatefulWidget {
     required this.term,
     required this.grade,
     required this.config,
+    required this.subjectNames,
     required this.entry,
     required this.onBack,
   });
@@ -6476,6 +6521,7 @@ class _PaperDetailView extends StatefulWidget {
   final int term;
   final int grade;
   final SchoolConfig config;
+  final Map<int, String> subjectNames;
   final MembershipEntry entry;
   final VoidCallback onBack;
 
@@ -6519,7 +6565,8 @@ class _PaperDetailViewState extends State<_PaperDetailView> {
     final cs = Theme.of(context).colorScheme;
     final paper = widget.paper;
     final exam = widget.exam.exam;
-    final subjectLabel = _subjectLabel(paper.subject, widget.config);
+    final subjectLabel =
+        widget.subjectNames[paper.subject] ?? 'Subject ${paper.subject}';
     final paperLabel = paper.paper != null ? ' Paper ${paper.paper}' : '';
     final gradeLabel = '';
 
@@ -7971,6 +8018,7 @@ class _CreatePaperSheet extends StatefulWidget {
     required this.grade,
     required this.stream,
     required this.config,
+    required this.subjectNames,
     required this.dao,
     required this.subjectsDao,
   });
@@ -7983,6 +8031,7 @@ class _CreatePaperSheet extends StatefulWidget {
   final int grade;
   final int? stream;
   final SchoolConfig config;
+  final Map<int, String> subjectNames;
   final ExamsGradesDao dao;
   final SubjectsDao subjectsDao;
 
@@ -8188,7 +8237,7 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
               child: _SubjectMenuOverlay(
                 subjects: _subjects,
                 selected: _selectedSubject,
-                config: widget.config,
+                subjectNames: widget.subjectNames,
                 cs: cs,
                 isDark: isDark,
                 indigo: indigo,
@@ -8486,7 +8535,8 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
   }) {
     final hasSubject = _selectedSubject != null;
     final label = hasSubject
-        ? _subjectLabel(_selectedSubject!, widget.config)
+        ? (widget.subjectNames[_selectedSubject!] ??
+              'Subject $_selectedSubject')
         : (_loadingSubjects ? 'Loading…' : 'Select subject…');
 
     return Column(
@@ -8947,7 +8997,7 @@ class _SubjectMenuOverlay extends StatefulWidget {
   const _SubjectMenuOverlay({
     required this.subjects,
     required this.selected,
-    required this.config,
+    required this.subjectNames,
     required this.cs,
     required this.isDark,
     required this.indigo,
@@ -8957,7 +9007,7 @@ class _SubjectMenuOverlay extends StatefulWidget {
 
   final List<SubjectTeacher> subjects;
   final int? selected;
-  final SchoolConfig config;
+  final Map<int, String> subjectNames;
   final ColorScheme cs;
   final bool isDark;
   final Color indigo;
@@ -9038,7 +9088,8 @@ class _SubjectMenuOverlayState extends State<_SubjectMenuOverlay>
                 final s = entry.value;
                 final isSelected = s.subject == widget.selected;
                 final isLast = idx == widget.subjects.length - 1;
-                final label = _subjectLabel(s.subject, widget.config);
+                final label =
+                    widget.subjectNames[s.subject] ?? 'Subject ${s.subject}';
                 final teacherDisplay = widget.teacherNames[s.teacher] ?? '';
                 final hasTeacher = teacherDisplay.isNotEmpty;
                 return Padding(
@@ -10023,23 +10074,6 @@ String _streamLabel(int grade, int streamCode, SchoolConfig config) {
     }
   }
   return 'Stream $streamCode';
-}
-
-String _subjectLabel(int subjectCode, SchoolConfig config) {
-  // Try CBC first, then 8-4-4
-  try {
-    final cbcSubject = CbcSubject.values.firstWhere(
-      (s) => s.index_ == subjectCode,
-    );
-    return cbcSubject.label;
-  } catch (_) {}
-  try {
-    final subject844 = EightFourFourSubject.values.firstWhere(
-      (s) => s.index_ == subjectCode,
-    );
-    return subject844.label;
-  } catch (_) {}
-  return 'Subject $subjectCode';
 }
 
 String _typeLabel(ExamType type) => switch (type) {

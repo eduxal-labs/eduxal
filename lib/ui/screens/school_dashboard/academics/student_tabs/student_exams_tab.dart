@@ -1,12 +1,13 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
 import '../../../../../database/database.dart';
+import '../../../../../database/daos/catalog_dao.dart';
 import '../../../../../database/daos/exams_grades_dao.dart';
 import '../../../../../database/tables/curriculum_subjects.dart';
 import '../../../../../database/tables/enums.dart';
-import '../../../../../models/curriculum_levels.dart';
 
 /// Exams tab for the Student Grade Page — shows all exams the student has
 /// participated in with per-subject grades, paper breakdowns, and totals.
@@ -41,7 +42,12 @@ class StudentExamsTab extends StatefulWidget {
 class _StudentExamsTabState extends State<StudentExamsTab>
     with AutomaticKeepAliveClientMixin {
   late final ExamsGradesDao _examsGradesDao;
+  late final CatalogDao _catalogDao;
   late Stream<List<Grade>> _gradesStream;
+  StreamSubscription<List<Subject>>? _subjectsSub;
+
+  /// Subject id → name, loaded reactively from the global catalog.
+  Map<int, String> _subjectNames = {};
 
   /// Cached exam lookups — avoids repeated DB calls for the same exam id.
   final Map<String, Exam?> _examCache = {};
@@ -53,7 +59,9 @@ class _StudentExamsTabState extends State<StudentExamsTab>
   void initState() {
     super.initState();
     _examsGradesDao = ExamsGradesDao(db);
+    _catalogDao = CatalogDao(db);
     _buildStream();
+    _loadSubjectNames();
   }
 
   @override
@@ -65,6 +73,21 @@ class _StudentExamsTabState extends State<StudentExamsTab>
       _buildStream();
       setState(() {});
     }
+  }
+
+  void _loadSubjectNames() {
+    _subjectsSub = _catalogDao.watchSubjects().listen((subjects) {
+      if (!mounted) return;
+      setState(() {
+        _subjectNames = {for (final s in subjects) s.id: s.name};
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _subjectsSub?.cancel();
+    super.dispose();
   }
 
   void _buildStream() {
@@ -203,7 +226,7 @@ class _StudentExamsTabState extends State<StudentExamsTab>
                         examId: examId,
                         exam: exam,
                         grades: examGrades,
-                        curriculumType: widget.curriculumType,
+                        subjectNames: _subjectNames,
                       );
                     },
                   ),
@@ -280,7 +303,7 @@ class _ExamCard extends StatelessWidget {
     required this.examId,
     required this.exam,
     required this.grades,
-    required this.curriculumType,
+    required this.subjectNames,
   });
 
   final ColorScheme cs;
@@ -288,7 +311,7 @@ class _ExamCard extends StatelessWidget {
   final String examId;
   final Exam? exam;
   final List<Grade> grades;
-  final CurriculumType curriculumType;
+  final Map<int, String> subjectNames;
 
   @override
   Widget build(BuildContext context) {
@@ -361,7 +384,7 @@ class _ExamCard extends StatelessWidget {
                     subjectIndex: sortedSubjects[i],
                     subjectTotal: subjectTotals[sortedSubjects[i]],
                     papers: paperGrades[sortedSubjects[i]],
-                    curriculumType: curriculumType,
+                    subjectNames: subjectNames,
                   ),
                   if (i < sortedSubjects.length - 1) const SizedBox(height: 8),
                 ],
@@ -513,7 +536,7 @@ class _SubjectGradeRow extends StatelessWidget {
     required this.subjectIndex,
     required this.subjectTotal,
     required this.papers,
-    required this.curriculumType,
+    required this.subjectNames,
   });
 
   final ColorScheme cs;
@@ -521,11 +544,11 @@ class _SubjectGradeRow extends StatelessWidget {
   final int subjectIndex;
   final Grade? subjectTotal;
   final List<Grade>? papers;
-  final CurriculumType curriculumType;
+  final Map<int, String> subjectNames;
 
   @override
   Widget build(BuildContext context) {
-    final label = subjectLabel(curriculumType, subjectIndex);
+    final label = subjectNames[subjectIndex] ?? 'Subject $subjectIndex';
     final hasPapers = papers != null && papers!.isNotEmpty;
 
     // Use subject-level total if available, otherwise sum papers.

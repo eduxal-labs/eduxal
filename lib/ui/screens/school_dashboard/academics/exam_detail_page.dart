@@ -7,7 +7,7 @@ import '../../../../database/database.dart';
 import '../../../../database/daos/exams_grades_dao.dart';
 import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../database/tables/enums.dart';
-import '../../../../models/curriculum_levels.dart';
+
 import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/edu_tab_bar.dart';
@@ -33,6 +33,7 @@ class ExamDetailPage extends StatefulWidget {
     this.streamName,
     required this.curriculumType,
     required this.schoolContext,
+    this.subjectNames = const {},
   });
 
   final ExamWithPapers exam;
@@ -44,6 +45,7 @@ class ExamDetailPage extends StatefulWidget {
   final String? streamName;
   final CurriculumType curriculumType;
   final SchoolContext schoolContext;
+  final Map<int, String> subjectNames;
 
   @override
   State<ExamDetailPage> createState() => _ExamDetailPageState();
@@ -157,6 +159,7 @@ class _ExamDetailPageState extends State<ExamDetailPage>
                       papersStream: _papersStream,
                       dao: _dao,
                       schoolContext: widget.schoolContext,
+                      subjectNames: widget.subjectNames,
                     ),
                     _GradesTab(
                       exam: widget.exam,
@@ -166,6 +169,7 @@ class _ExamDetailPageState extends State<ExamDetailPage>
                       grade: widget.grade,
                       curriculumType: widget.curriculumType,
                       dao: _dao,
+                      subjectNames: widget.subjectNames,
                     ),
                     _PerformanceTab(
                       exam: widget.exam,
@@ -175,6 +179,7 @@ class _ExamDetailPageState extends State<ExamDetailPage>
                       grade: widget.grade,
                       curriculumType: widget.curriculumType,
                       dao: _dao,
+                      subjectNames: widget.subjectNames,
                     ),
                   ],
                 ),
@@ -343,6 +348,7 @@ class _PapersTab extends StatelessWidget {
     required this.papersStream,
     required this.dao,
     required this.schoolContext,
+    required this.subjectNames,
   });
 
   final ExamWithPapers exam;
@@ -354,6 +360,7 @@ class _PapersTab extends StatelessWidget {
   final Stream<List<Paper>> papersStream;
   final ExamsGradesDao dao;
   final SchoolContext schoolContext;
+  final Map<int, String> subjectNames;
 
   @override
   Widget build(BuildContext context) {
@@ -380,7 +387,7 @@ class _PapersTab extends StatelessWidget {
             }
             return _PaperCard(
               paper: papers[i - 1],
-              curriculumType: curriculumType,
+              subjectNames: subjectNames,
               cs: cs,
               onTap: () => _onPaperTap(context, papers[i - 1]),
             );
@@ -416,6 +423,7 @@ class _PapersTab extends StatelessWidget {
           grade: grade,
           curriculumType: curriculumType,
           schoolContext: schoolContext,
+          subjectNames: subjectNames,
         ),
       ),
     );
@@ -435,6 +443,7 @@ class _GradesTab extends StatefulWidget {
     required this.grade,
     required this.curriculumType,
     required this.dao,
+    required this.subjectNames,
   });
 
   final ExamWithPapers exam;
@@ -444,6 +453,7 @@ class _GradesTab extends StatefulWidget {
   final int grade;
   final CurriculumType curriculumType;
   final ExamsGradesDao dao;
+  final Map<int, String> subjectNames;
 
   @override
   State<_GradesTab> createState() => _GradesTabState();
@@ -764,11 +774,10 @@ class _GradesTabState extends State<_GradesTab>
             Row(
               children: [
                 ...subjects.map((s) {
+                  final fullLabel = widget.subjectNames[s] ?? 'Subject $s';
                   final label = useAbbrev
-                      ? _abbreviateSubject(
-                          subjectLabel(widget.curriculumType, s),
-                        )
-                      : subjectLabel(widget.curriculumType, s);
+                      ? _abbreviateSubject(fullLabel)
+                      : fullLabel;
                   return Container(
                     width: cellWidth,
                     height: headerHeight,
@@ -781,7 +790,7 @@ class _GradesTabState extends State<_GradesTab>
                       ),
                     ),
                     child: Tooltip(
-                      message: subjectLabel(widget.curriculumType, s),
+                      message: fullLabel,
                       child: Text(
                         label,
                         style: headerStyle,
@@ -1008,7 +1017,7 @@ class _GradesTabState extends State<_GradesTab>
         return _MobileStudentGradeCard(
           row: row,
           subjects: subjects,
-          curriculumType: widget.curriculumType,
+          subjectNames: widget.subjectNames,
           cs: cs,
         );
       },
@@ -1060,13 +1069,13 @@ class _MobileStudentGradeCard extends StatefulWidget {
   const _MobileStudentGradeCard({
     required this.row,
     required this.subjects,
-    required this.curriculumType,
+    required this.subjectNames,
     required this.cs,
   });
 
   final _StudentGradeRow row;
   final List<int> subjects;
-  final CurriculumType curriculumType;
+  final Map<int, String> subjectNames;
   final ColorScheme cs;
 
   @override
@@ -1177,7 +1186,7 @@ class _MobileStudentGradeCardState extends State<_MobileStudentGradeCard> {
                   const SizedBox(height: 8),
                   ...widget.subjects.map((s) {
                     final g = row.subjectGrades[s];
-                    final label = subjectLabel(widget.curriculumType, s);
+                    final label = widget.subjectNames[s] ?? 'Subject $s';
                     if (g == null) {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 6),
@@ -1353,6 +1362,7 @@ class _PerformanceTab extends StatefulWidget {
     required this.grade,
     required this.curriculumType,
     required this.dao,
+    required this.subjectNames,
   });
 
   final ExamWithPapers exam;
@@ -1362,6 +1372,7 @@ class _PerformanceTab extends StatefulWidget {
   final int grade;
   final CurriculumType curriculumType;
   final ExamsGradesDao dao;
+  final Map<int, String> subjectNames;
 
   @override
   State<_PerformanceTab> createState() => _PerformanceTabState();
@@ -1623,7 +1634,7 @@ class _PerformanceTabState extends State<_PerformanceTab>
   }
 
   Widget _buildSubjectBar(ColorScheme cs, int subjectCode, PaperAnalytics pa) {
-    final label = subjectLabel(widget.curriculumType, subjectCode);
+    final label = widget.subjectNames[subjectCode] ?? 'Subject $subjectCode';
     final avg = pa.averagePercent;
     final barColor = avg >= 75
         ? AppTheme.brandGreen
@@ -2088,19 +2099,19 @@ class _StudentRankRow {
 class _PaperCard extends StatelessWidget {
   const _PaperCard({
     required this.paper,
-    required this.curriculumType,
+    required this.subjectNames,
     required this.cs,
     required this.onTap,
   });
 
   final Paper paper;
-  final CurriculumType curriculumType;
+  final Map<int, String> subjectNames;
   final ColorScheme cs;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final label = subjectLabel(curriculumType, paper.subject);
+    final label = subjectNames[paper.subject] ?? 'Subject ${paper.subject}';
     final paperLabel = paper.paper != null ? ' · Paper ${paper.paper}' : '';
     final startDt = DateTime.fromMillisecondsSinceEpoch(
       paper.start.toInt() * 1000,
