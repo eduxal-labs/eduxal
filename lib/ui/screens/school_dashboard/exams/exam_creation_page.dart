@@ -263,15 +263,13 @@ class _ExamCreationPageState extends State<ExamCreationPage>
   bool get _hasSelection => _gradeTabs.isNotEmpty;
 
   /// Derive the exam-level teacher from the entry (if teacher) or from the
-  /// first paper slot that has an invigilator assigned across all selected
+  /// first paper slot that has an invigilator assigned across ALL configured
   /// classes. Returns empty string if none found — the save method validates.
   String get _teacherId {
     final entry = widget.entry;
     if (entry is TeacherEntry) return entry.teacher.user;
-    // For non-teacher entries, use the first paper's invigilator
-    for (final cls in _selectedClasses) {
-      final key = _classKey(cls.grade, cls.stream);
-      final slots = _paperSlots[key] ?? [];
+    // For non-teacher entries, search ALL paper slots for the first invigilator
+    for (final slots in _paperSlots.values) {
       for (final slot in slots) {
         if (slot.invigilatorId != null && slot.invigilatorId!.isNotEmpty) {
           return slot.invigilatorId!;
@@ -279,21 +277,6 @@ class _ExamCreationPageState extends State<ExamCreationPage>
       }
     }
     return '';
-  }
-
-  List<({int grade, int? stream})> get _selectedClasses {
-    if (_gradeTabs.isEmpty) return [];
-    final tab = _gradeTabs[_activeGradeTabIndex];
-    if (tab.grade == null) return [];
-    final gc = _gradeConfigFor(tab.grade!);
-    if (gc != null && gc.streams.isNotEmpty) {
-      // Always one entry for the currently selected stream
-      final streamIdx = _activeStreamTabIndex[tab.grade!] ?? 0;
-      final stream = gc.streams[streamIdx];
-      return [(grade: tab.grade!, stream: stream.code as int?)];
-    }
-    // No streams configured → single exam with null stream
-    return [(grade: tab.grade!, stream: null)];
   }
 
   GradeConfig? _gradeConfigFor(int grade) {
@@ -820,69 +803,106 @@ class _ExamCreationPageState extends State<ExamCreationPage>
           (86400 * 1000);
       final teacherId = _teacherId;
 
-      final cls = _selectedClasses.first;
-      final examId = _generateId();
-      final exam = ExamsCompanion(
-        id: Value(examId),
-        school: Value(widget.schoolId),
-        year: Value(widget.year),
-        term: Value(widget.term),
-        name: Value(examName),
-        personalized: Value(_personalized),
-        type: Value(_type),
-        start: Value(startDays),
-        end: Value(endDays),
-        teacher: Value(teacherId),
-        created: Value(now),
-        updated: Value(now),
-      );
+      // ── Collect ALL grade+stream combos that have paper slots ──────────
+      // Each unique grade+stream gets its own exam row (the backend schema
+      // uses one exam per grade+stream). We iterate every entry in
+      // _paperSlots so papers configured on non-active tabs are included.
+      final entries = <ExamBatchEntry>[];
 
-      final paperRows = <PapersCompanion>[];
-      final key = _classKey(cls.grade, cls.stream);
-      final slots = _paperSlots[key] ?? [];
+      for (final entry in _paperSlots.entries) {
+        final slots = entry.value;
+        // Skip class keys with no actionable slots
+        final actionableSlots = slots
+            .where((s) => s.subjectCode != null)
+            .toList();
+        if (actionableSlots.isEmpty) continue;
 
-      for (final slot in slots) {
-        if (slot.subjectCode == null) continue;
-        final startDt = DateTime(
-          slot.date.year,
-          slot.date.month,
-          slot.date.day,
-          slot.startTime.hour,
-          slot.startTime.minute,
+        // Parse the class key ("grade:stream") back into grade + stream
+        final parts = entry.key.split(':');
+        final grade = int.parse(parts[0]);
+        final stream = parts[1] == 'null' ? null : int.tryParse(parts[1]);
+
+        final examId = _generateId();
+        final exam = ExamsCompanion(
+          id: Value(examId),
+          school: Value(widget.schoolId),
+          year: Value(widget.year),
+          term: Value(widget.term),
+          name: Value(examName),
+          personalized: Value(_personalized),
+          type: Value(_type),
+          start: Value(startDays),
+          end: Value(endDays),
+          teacher: Value(teacherId),
+          created: Value(now),
+          updated: Value(now),
         );
-        final endDt = DateTime(
-          slot.date.year,
-          slot.date.month,
-          slot.date.day,
-          slot.endTime.hour,
-          slot.endTime.minute,
-        );
-        final startSecs = BigInt.from(startDt.millisecondsSinceEpoch ~/ 1000);
-        final endSecs = BigInt.from(endDt.millisecondsSinceEpoch ~/ 1000);
 
-        paperRows.add(
-          PapersCompanion(
+        final paperRows = <PapersCompanion>[];
+        for (final slot in actionableSlots) {
+          final startDt = DateTime(
+            slot.date.year,
+            slot.date.month,
+            slot.date.day,
+            slot.startTime.hour,
+            slot.startTime.minute,
+          );
+          final endDt = DateTime(
+            slot.date.year,
+            slot.date.month,
+            slot.date.day,
+            slot.endTime.hour,
+            slot.endTime.minute,
+          );
+          final startSecs = BigInt.from(startDt.millisecondsSinceEpoch ~/ 1000);
+          final endSecs = BigInt.from(endDt.millisecondsSinceEpoch ~/ 1000);
+
+          paperRows.add(
+            PapersCompanion(
+              school: Value(widget.schoolId),
+              exam: Value(examId),
+              subject: Value(slot.subjectCode!),
+              paper: const Value(null),
+              invigilator: Value(slot.invigilatorId ?? teacherId),
+              grade: Value(grade),
+              stream: Value(stream),
+              start: Value(startSecs),
+              end: Value(endSecs),
+              status: Value(PaperStatus.pending),
+              created: Value(now),
+              updated: Value(now),
+            ),
+          );
+        }
+
+        entries.add((exam: exam, papers: paperRows));
+      }
+
+      // Fallback: if no paper slots are populated at all, create a single
+      // empty exam for the currently active tab so the user at least gets
+      // an exam row they can add papers to later.
+      if (entries.isEmpty) {
+        final examId = _generateId();
+        entries.add((
+          exam: ExamsCompanion(
+            id: Value(examId),
             school: Value(widget.schoolId),
-            exam: Value(examId),
-            subject: Value(slot.subjectCode!),
-            paper: const Value(null),
-            invigilator: Value(slot.invigilatorId ?? teacherId),
-            grade: Value(cls.grade),
-            stream: Value(cls.stream),
-            start: Value(startSecs),
-            end: Value(endSecs),
-            status: Value(PaperStatus.pending),
+            year: Value(widget.year),
+            term: Value(widget.term),
+            name: Value(examName),
+            personalized: Value(_personalized),
+            type: Value(_type),
+            start: Value(startDays),
+            end: Value(endDays),
+            teacher: Value(teacherId),
             created: Value(now),
             updated: Value(now),
           ),
-        );
+          papers: <PapersCompanion>[],
+        ));
       }
 
-      await _examsDao.createExamWithPapers(
-        exam: exam,
-        paperRows: paperRows,
-        accountId: accountId,
-      );
+      await _examsDao.createExamBatch(entries: entries, accountId: accountId);
 
       if (mounted) Navigator.of(context).pop();
     } catch (e, stack) {
