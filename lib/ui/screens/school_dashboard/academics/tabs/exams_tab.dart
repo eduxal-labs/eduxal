@@ -8,7 +8,7 @@ import '../../../../../database/tables/enums.dart';
 import '../../../../../models/membership.dart';
 import '../../../../../models/school_config.dart';
 import '../../../../../models/school_context.dart';
-import '../../exams/exam_creation_page.dart';
+import '../../../../widgets/create_exam_modal.dart';
 import '../exam_detail_page.dart';
 
 /// Exams tab — shows all exams for a specific stream within a grade, with
@@ -120,18 +120,11 @@ class _ExamsTabState extends State<ExamsTab>
   // ── Navigation ─────────────────────────────────────────────────────────────
 
   Future<void> _showCreateExam(BuildContext context) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ExamCreationPage(
-          schoolId: widget.schoolId,
-          year: widget.year,
-          term: widget.term,
-          config: _config,
-          entry: widget.schoolContext.currentEntry.value,
-          preselectedGrade: widget.grade,
-          preselectedStream: widget.streamCode,
-        ),
-      ),
+    await showCreateExamModal(
+      context: context,
+      schoolId: widget.schoolId,
+      year: widget.year,
+      term: widget.term,
     );
   }
 
