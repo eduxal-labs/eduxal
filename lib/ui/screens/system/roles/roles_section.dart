@@ -171,63 +171,95 @@ class _RolesSectionState extends State<RolesSection> {
             Expanded(
               child: !snapshot.hasData
                   ? const _ListShimmer()
-                  : SingleChildScrollView(
-                      child: EduDataTable<Role>(
-                        items: filtered,
-                        emptyIcon: Icons.verified_user_outlined,
-                        emptyTitle: 'No roles found',
-                        emptySubtitle: _searchQuery.isNotEmpty
-                            ? 'No roles match your search.'
-                            : 'Create a system role to get started.',
-                        onItemTap: (r) => _openDetail(context, r),
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                        actions: (role) => [
-                          EduDataTableAction<Role>(
+                  : filtered.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.verified_user_outlined,
+                            size: 48,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No roles found',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _searchQuery.isNotEmpty
+                                ? 'No roles match your search.'
+                                : 'Create a system role to get started.',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                      itemCount: filtered.length,
+                      itemBuilder: (context, index) {
+                        final role = filtered[index];
+                        final actions = <EduDataTableAction<Role>>[
+                          EduDataTableAction(
                             icon: Icons.open_in_new_rounded,
                             label: 'View',
                             onTap: (r) => _openDetail(context, r),
                           ),
-                          if (widget.permissions.can(
-                            models.Resource.roles,
-                            models.Action.update,
-                          ))
-                            EduDataTableAction<Role>(
+                        ];
+
+                        if (widget.permissions.can(
+                          models.Resource.roles,
+                          models.Action.update,
+                        )) {
+                          actions.add(
+                            EduDataTableAction(
                               icon: Icons.edit_outlined,
                               label: 'Edit',
                               onTap: (r) => _openEditSheet(context, r),
                             ),
-                          if (widget.permissions.can(
-                            models.Resource.roles,
-                            models.Action.delete,
-                          ))
-                            EduDataTableAction<Role>(
+                          );
+                        }
+
+                        if (widget.permissions.can(
+                          models.Resource.roles,
+                          models.Action.delete,
+                        )) {
+                          actions.add(
+                            EduDataTableAction(
                               icon: Icons.delete_outline_rounded,
                               label: 'Delete',
                               isDestructive: true,
                               onTap: (r) => _deleteRole(context, r),
                             ),
-                          if (widget.permissions.level == UserLevel.super_)
-                            EduDataTableAction<Role>(
+                          );
+                        }
+
+                        if (widget.permissions.level == UserLevel.super_) {
+                          actions.add(
+                            EduDataTableAction(
                               icon: Icons.delete_forever_rounded,
                               label: 'Purge',
                               isDestructive: true,
                               onTap: (r) => _purgeRole(context, r),
                             ),
-                        ],
-                        columns: const [
-                          EduDataTableColumn(label: 'Role', flex: 2),
-                          EduDataTableColumn(label: 'Description', flex: 3),
-                          EduDataTableColumn(label: 'Permissions', flex: 1),
-                        ],
-                        cellBuilder: (context, role, index, isHovered) {
-                          return switch (index) {
-                            0 => _RoleIdentityCell(role: role),
-                            1 => _RoleDescriptionCell(role: role),
-                            2 => _RolePermissionsBadge(role: role),
-                            _ => const SizedBox.shrink(),
-                          };
-                        },
-                      ),
+                          );
+                        }
+
+                        return _RoleCard(
+                          role: role,
+                          onTap: () => _openDetail(context, role),
+                          actions: actions,
+                        );
+                      },
                     ),
             ),
           ],
@@ -240,6 +272,157 @@ class _RolesSectionState extends State<RolesSection> {
 // ─────────────────────────────────────────────────────────────────────────────
 // Role identity cell — icon + name only
 // ─────────────────────────────────────────────────────────────────────────────
+
+class _RoleCard extends StatefulWidget {
+  const _RoleCard({
+    required this.role,
+    required this.onTap,
+    required this.actions,
+  });
+
+  final Role role;
+  final VoidCallback onTap;
+  final List<EduDataTableAction<Role>> actions;
+
+  @override
+  State<_RoleCard> createState() => _RoleCardState();
+}
+
+class _RoleCardState extends State<_RoleCard> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isMobile =
+        MediaQuery.of(context).size.width < AppTheme.kMobileBreakpoint;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.only(bottom: 8),
+        transform: Matrix4.translationValues(0, _isHovered ? -2 : 0, 0),
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: _isHovered
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            onTap: widget.onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: _RoleIdentityCell(role: widget.role),
+                  ),
+                  if (!isMobile)
+                    Expanded(
+                      flex: 3,
+                      child: _RoleDescriptionCell(role: widget.role),
+                    ),
+                  _RolePermissionsBadge(role: widget.role),
+                  if (widget.actions.isNotEmpty) ...[
+                    const SizedBox(width: 16),
+                    if (isMobile)
+                      MenuAnchor(
+                        builder: (context, controller, child) {
+                          return IconButton(
+                            icon: const Icon(Icons.more_vert_rounded, size: 18),
+                            onPressed: () {
+                              if (controller.isOpen) {
+                                controller.close();
+                              } else {
+                                controller.open();
+                              }
+                            },
+                          );
+                        },
+                        menuChildren: widget.actions.map((action) {
+                          return MenuItemButton(
+                            leadingIcon: Icon(
+                              action.icon,
+                              size: 18,
+                              color: action.color ?? cs.onSurfaceVariant,
+                            ),
+                            child: Text(
+                              action.label,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w400,
+                                color: action.color ?? cs.onSurface,
+                              ),
+                            ),
+                            onPressed: () => action.onTap(widget.role),
+                          );
+                        }).toList(),
+                      )
+                    else
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: widget.actions.map((action) {
+                          return Padding(
+                            padding: const EdgeInsets.only(left: 4),
+                            child: Tooltip(
+                              message: action.label,
+                              child: Material(
+                                color:
+                                    action.color?.withValues(alpha: 0.1) ??
+                                    cs.surfaceContainerHighest,
+                                shape: const CircleBorder(),
+                                child: InkWell(
+                                  customBorder: const CircleBorder(),
+                                  onTap: () => action.onTap(widget.role),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: const BoxDecoration(
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      action.icon,
+                                      size: 18,
+                                      color:
+                                          action.color ?? cs.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _RoleIdentityCell extends StatelessWidget {
   const _RoleIdentityCell({required this.role});
@@ -384,54 +567,54 @@ class _Toolbar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: SizedBox(
-              height: 38,
-              child: TextField(
-                controller: searchController,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurface,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'Search by role name…',
-                  hintStyle: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                  ),
-                  prefixIcon: Icon(
-                    Icons.search_rounded,
-                    size: 18,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                  ),
-                  filled: true,
-                  fillColor: cs.surfaceContainer,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.kRadius),
-                    borderSide: BorderSide(color: cs.outlineVariant),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.kRadius),
-                    borderSide: BorderSide(color: cs.outlineVariant, width: 1),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.kRadius),
-                    borderSide: BorderSide(color: cs.primary, width: 1),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 0,
-                  ),
-                  isDense: true,
-                ),
+      child: Container(
+        height: 42,
+        clipBehavior: Clip.hardEdge,
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+        ),
+        child: TextField(
+          controller: searchController,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            color: cs.onSurface,
+          ),
+          decoration: InputDecoration(
+            filled: false,
+            hintText: 'Search roles...',
+            hintStyle: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+            ),
+            prefixIcon: Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Icon(
+                Icons.search_rounded,
+                size: 20,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.7),
               ),
             ),
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 10,
+            ),
+            isDense: true,
           ),
-        ],
+        ),
       ),
     );
   }
@@ -481,7 +664,7 @@ class _ListShimmerState extends State<_ListShimmer>
         return ListView.separated(
           padding: const EdgeInsets.symmetric(vertical: 8),
           itemCount: 6,
-          separatorBuilder: (_, __) => Divider(
+          separatorBuilder: (context, index) => Divider(
             height: 1,
             thickness: 0.5,
             indent: 52,
