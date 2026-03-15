@@ -232,22 +232,50 @@ class _SchoolsSectionState extends State<SchoolsSection> {
             Expanded(
               child: !snapshot.hasData
                   ? const _ListShimmer()
-                  : SingleChildScrollView(
-                      child: EduDataTable<SchoolsData>(
-                        items: filtered,
-                        emptyIcon: Icons.school_outlined,
-                        emptyTitle: 'No schools found',
-                        emptySubtitle:
+                  : filtered.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.school_outlined,
+                            size: 48,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No schools found',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
                             _searchQuery.isNotEmpty || _hasActiveFilters
-                            ? 'No schools match your filters.'
-                            : 'Create a school to get started.',
-                        onItemTap: _openDetail,
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                        actions: (school) => [
-                          // ── Activate: if trial or suspended ──
-                          if (school.status == SchoolStatus.trial ||
-                              school.status == SchoolStatus.suspended)
-                            EduDataTableAction<SchoolsData>(
+                                ? 'No schools match your filters.'
+                                : 'Create a school to get started.',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                      itemCount: filtered.length,
+                      itemBuilder: (context, index) {
+                        final school = filtered[index];
+
+                        final actions = <EduDataTableAction<SchoolsData>>[];
+
+                        if (school.status == SchoolStatus.trial ||
+                            school.status == SchoolStatus.suspended) {
+                          actions.add(
+                            EduDataTableAction(
                               icon: Icons.check_circle_outline_rounded,
                               label: 'Activate',
                               color: const Color(0xFF26A69A),
@@ -257,10 +285,13 @@ class _SchoolsSectionState extends State<SchoolsSection> {
                                 'activated',
                               ),
                             ),
-                          // ── Suspend: if active or trial ──
-                          if (school.status == SchoolStatus.active ||
-                              school.status == SchoolStatus.trial)
-                            EduDataTableAction<SchoolsData>(
+                          );
+                        }
+
+                        if (school.status == SchoolStatus.active ||
+                            school.status == SchoolStatus.trial) {
+                          actions.add(
+                            EduDataTableAction(
                               icon: Icons.block_rounded,
                               label: 'Suspend',
                               color: const Color(0xFFFFB300),
@@ -270,10 +301,13 @@ class _SchoolsSectionState extends State<SchoolsSection> {
                                 'suspended',
                               ),
                             ),
-                          // ── Restore: if suspended or deleted ──
-                          if (school.status == SchoolStatus.suspended ||
-                              school.status == SchoolStatus.deleted)
-                            EduDataTableAction<SchoolsData>(
+                          );
+                        }
+
+                        if (school.status == SchoolStatus.suspended ||
+                            school.status == SchoolStatus.deleted) {
+                          actions.add(
+                            EduDataTableAction(
                               icon: Icons.restore_rounded,
                               label: 'Restore',
                               color: const Color(0xFF26A69A),
@@ -283,45 +317,37 @@ class _SchoolsSectionState extends State<SchoolsSection> {
                                 'restored',
                               ),
                             ),
-                          // ── Delete: if not already deleted ──
-                          if (school.status != SchoolStatus.deleted)
-                            EduDataTableAction<SchoolsData>(
+                          );
+                        }
+
+                        if (school.status != SchoolStatus.deleted) {
+                          actions.add(
+                            EduDataTableAction(
                               icon: Icons.delete_outline_rounded,
                               label: 'Delete',
                               isDestructive: true,
                               onTap: (s) => _trashSchool(s),
                             ),
-                          // ── Purge: super only ──
-                          if (widget.permissions.canSeeDeleted)
-                            EduDataTableAction<SchoolsData>(
+                          );
+                        }
+
+                        if (widget.permissions.canSeeDeleted) {
+                          actions.add(
+                            EduDataTableAction(
                               icon: Icons.delete_forever_rounded,
                               label: 'Purge',
                               isDestructive: true,
                               onTap: (s) => _purgeSchool(s),
                             ),
-                        ],
-                        columns: const [
-                          EduDataTableColumn(label: 'School', flex: 3),
-                          EduDataTableColumn(label: 'Status', flex: 1),
-                          EduDataTableColumn(label: 'Joined', flex: 1),
-                        ],
-                        cellBuilder: (context, school, index, isHovered) {
-                          final cs = Theme.of(context).colorScheme;
-                          return switch (index) {
-                            0 => _SchoolIdentityCell(school: school),
-                            1 => _SchoolStatusBadge(status: school.status),
-                            2 => Text(
-                              _formatRelativeDate(school.created.toInt()),
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w400,
-                                color: cs.onSurfaceVariant,
-                              ),
-                            ),
-                            _ => const SizedBox.shrink(),
-                          };
-                        },
-                      ),
+                          );
+                        }
+
+                        return _SchoolCard(
+                          school: school,
+                          onTap: () => _openDetail(school),
+                          actions: actions,
+                        );
+                      },
                     ),
             ),
           ],
@@ -331,45 +357,146 @@ class _SchoolsSectionState extends State<SchoolsSection> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// School status badge — compact chip
-// ─────────────────────────────────────────────────────────────────────────────
+class _SchoolCard extends StatefulWidget {
+  const _SchoolCard({
+    required this.school,
+    required this.onTap,
+    required this.actions,
+  });
 
-class _SchoolStatusBadge extends StatelessWidget {
-  const _SchoolStatusBadge({required this.status});
+  final SchoolsData school;
+  final VoidCallback onTap;
+  final List<EduDataTableAction<SchoolsData>> actions;
 
-  final SchoolStatus status;
+  @override
+  State<_SchoolCard> createState() => _SchoolCardState();
+}
+
+class _SchoolCardState extends State<_SchoolCard> {
+  bool _isHovered = false;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final isDark = cs.brightness == Brightness.dark;
+    final isMobile =
+        MediaQuery.of(context).size.width < AppTheme.kMobileBreakpoint;
 
-    final (label, color) = switch (status) {
-      SchoolStatus.trial => ('Trial', const Color(0xFF42A5F5)),
-      SchoolStatus.active => ('Active', const Color(0xFF26A69A)),
-      SchoolStatus.suspended => ('Suspended', const Color(0xFFFFB300)),
-      SchoolStatus.cancelled => ('Cancelled', cs.onSurfaceVariant),
-      SchoolStatus.deleted => ('Deleted', cs.error),
-    };
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: isDark ? 0.12 : 0.08),
-        borderRadius: BorderRadius.circular(4.0),
-        border: Border.all(
-          color: color.withValues(alpha: isDark ? 0.3 : 0.2),
-          width: 0.5,
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.only(bottom: 8),
+        transform: Matrix4.translationValues(0, _isHovered ? -2 : 0, 0),
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: _isHovered
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
         ),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-          color: color,
-          letterSpacing: 0.2,
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            onTap: widget.onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  Expanded(child: _SchoolIdentityCell(school: widget.school)),
+                  Text(
+                    _formatRelativeDate(widget.school.created.toInt()),
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                  ),
+                  if (widget.actions.isNotEmpty) ...[
+                    const SizedBox(width: 16),
+                    if (isMobile)
+                      MenuAnchor(
+                        builder: (context, controller, child) {
+                          return IconButton(
+                            icon: const Icon(Icons.more_vert_rounded, size: 18),
+                            onPressed: () {
+                              if (controller.isOpen) {
+                                controller.close();
+                              } else {
+                                controller.open();
+                              }
+                            },
+                          );
+                        },
+                        menuChildren: widget.actions.map((action) {
+                          return MenuItemButton(
+                            leadingIcon: Icon(
+                              action.icon,
+                              size: 18,
+                              color: action.color ?? cs.onSurfaceVariant,
+                            ),
+                            child: Text(
+                              action.label,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w400,
+                                color: action.color ?? cs.onSurface,
+                              ),
+                            ),
+                            onPressed: () => action.onTap(widget.school),
+                          );
+                        }).toList(),
+                      )
+                    else
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: widget.actions.map((action) {
+                          return Padding(
+                            padding: const EdgeInsets.only(left: 4),
+                            child: Tooltip(
+                              message: action.label,
+                              child: Material(
+                                color:
+                                    action.color?.withValues(alpha: 0.1) ??
+                                    cs.surfaceContainerHighest,
+                                shape: const CircleBorder(),
+                                child: InkWell(
+                                  customBorder: const CircleBorder(),
+                                  onTap: () => action.onTap(widget.school),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: const BoxDecoration(
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      action.icon,
+                                      size: 18,
+                                      color:
+                                          action.color ?? cs.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                  ],
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -470,51 +597,61 @@ class _Toolbar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Row(
         children: [
+          // Search field.
           Expanded(
-            child: SizedBox(
-              height: 38,
+            child: Container(
+              height: 42,
+              clipBehavior: Clip.hardEdge,
+              decoration: BoxDecoration(
+                color: cs.surface,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+                border: Border.all(
+                  color: cs.outlineVariant.withValues(alpha: 0.5),
+                ),
+              ),
               child: TextField(
                 controller: searchController,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: FontWeight.w400,
                   color: cs.onSurface,
                 ),
                 decoration: InputDecoration(
-                  hintText: 'Search by name or motto…',
+                  filled: false,
+                  hintText: 'Search schools...',
                   hintStyle: TextStyle(
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: FontWeight.w400,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                  ),
-                  prefixIcon: Icon(
-                    Icons.search_rounded,
-                    size: 18,
                     color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                   ),
-                  filled: true,
-                  fillColor: cs.surfaceContainer,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.kRadius),
-                    borderSide: BorderSide(color: cs.outlineVariant),
+                  prefixIcon: Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: Icon(
+                      Icons.search_rounded,
+                      size: 20,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                    ),
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.kRadius),
-                    borderSide: BorderSide(color: cs.outlineVariant, width: 1),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.kRadius),
-                    borderSide: BorderSide(color: cs.primary, width: 1),
-                  ),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 0,
+                    horizontal: 16,
+                    vertical: 10,
                   ),
                   isDense: true,
                 ),
               ),
             ),
           ),
+
           const SizedBox(width: 8),
           // Filter toggle.
           _ToolbarIcon(
@@ -548,22 +685,29 @@ class _ToolbarIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(AppTheme.kRadius),
+      borderRadius: BorderRadius.circular(24),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(AppTheme.kRadius),
+        borderRadius: BorderRadius.circular(24),
         child: Container(
-          width: 38,
-          height: 38,
+          width: 42,
+          height: 42,
           decoration: BoxDecoration(
-            color: active
-                ? cs.primary.withValues(alpha: 0.10)
-                : cs.surfaceContainer,
-            borderRadius: BorderRadius.circular(AppTheme.kRadius),
+            color: active ? cs.primary.withValues(alpha: 0.10) : cs.surface,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: active
+                ? null
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
             border: Border.all(
               color: active
                   ? cs.primary.withValues(alpha: 0.4)
-                  : cs.outlineVariant,
+                  : cs.outlineVariant.withValues(alpha: 0.5),
               width: 1,
             ),
           ),
