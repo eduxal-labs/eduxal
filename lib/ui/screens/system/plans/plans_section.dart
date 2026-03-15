@@ -138,102 +138,77 @@ class _PlansSectionState extends State<PlansSection> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        StreamBuilder<List<Plan>>(
-          stream: plansDao.watchAllPlans(),
-          builder: (context, snapshot) {
-            if (!snapshot.hasData) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.only(top: 48),
-                  child: SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 1.5),
-                  ),
-                ),
-              );
-            }
-
-            final plans = _applyFilters(snapshot.data!);
-
-            return EduDataTable<Plan>(
-              items: plans,
-              emptyIcon: Icons.credit_card_outlined,
-              emptyTitle: 'No plans yet',
-              emptySubtitle: 'Create a subscription plan to get started.',
-              onItemTap: (plan) => _openPlanDetail(context, plan),
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-              // ── Search & filters ───────────────────────────────────────
-              searchController: _searchCtrl,
-              searchHint: 'Search plans…',
-              onSearchChanged: (_) {},
-              showSearch: _searchVisible,
-              onToggleSearch: _toggleSearch,
-              filters: _buildFilterChips(),
-              showFilters: _filterVisible,
-              onToggleFilters: _toggleFilters,
-              // ── Actions ────────────────────────────────────────────────
-              actions: (plan) => [
-                EduDataTableAction<Plan>(
-                  icon: Icons.edit_outlined,
-                  label: 'Edit',
-                  onTap: (p) => _openPlanDetail(context, p),
-                ),
-                if (plan.status != PlanStatus.deleted &&
-                    permissions.can(Resource.plans, Action.delete))
-                  EduDataTableAction<Plan>(
-                    icon: Icons.delete_outline_rounded,
-                    label: 'Delete',
-                    isDestructive: true,
-                    onTap: (p) => _deletePlan(context, p),
-                  ),
-                if (plan.status == PlanStatus.deleted &&
-                    permissions.canSeeDeleted)
-                  EduDataTableAction<Plan>(
-                    icon: Icons.delete_forever_rounded,
-                    label: 'Purge',
-                    isDestructive: true,
-                    onTap: (p) => _purgePlan(context, p),
-                  ),
-              ],
-              columns: const [
-                EduDataTableColumn(label: 'Plan', flex: 3),
-                EduDataTableColumn(label: 'Status', flex: 1),
-              ],
-              cellBuilder: (context, plan, index, isHovered) {
-                final cs = Theme.of(context).colorScheme;
-                return switch (index) {
-                  0 => _PlanIdentityCell(plan: plan),
-                  1 => _PlanStatusBadge(status: plan.status, cs: cs),
-                  _ => const SizedBox.shrink(),
-                };
-              },
-            );
-          },
-        ),
-        // ── Inline FAB ─────────────────────────────────────────────────────
-        if (permissions.can(Resource.plans, Action.create))
-          Positioned(
-            right: 16,
-            bottom: 16,
-            child: FloatingActionButton.small(
-              heroTag: 'fab_plans',
-              backgroundColor: AppTheme.statusActive,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              onPressed: () => openCreatePlan(context, permissions),
-              tooltip: 'New Plan',
-              child: const Icon(
-                Icons.add_rounded,
-                size: 20,
-                color: Colors.white,
+    return StreamBuilder<List<Plan>>(
+      stream: plansDao.watchAllPlans(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.only(top: 48),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 1.5),
               ),
             ),
-          ),
-      ],
+          );
+        }
+
+        final plans = _applyFilters(snapshot.data!);
+
+        return EduDataTable<Plan>(
+          items: plans,
+          emptyIcon: Icons.credit_card_outlined,
+          emptyTitle: 'No plans yet',
+          emptySubtitle: 'Create a subscription plan to get started.',
+          onItemTap: (plan) => _openPlanDetail(context, plan),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          // ── Search & filters ───────────────────────────────────────
+          searchController: _searchCtrl,
+          searchHint: 'Search plans…',
+          onSearchChanged: (_) {},
+          showSearch: _searchVisible,
+          onToggleSearch: _toggleSearch,
+          filters: _buildFilterChips(),
+          showFilters: _filterVisible,
+          onToggleFilters: _toggleFilters,
+          // ── Actions ────────────────────────────────────────────────
+          actions: (plan) => [
+            EduDataTableAction<Plan>(
+              icon: Icons.edit_outlined,
+              label: 'Edit',
+              onTap: (p) => _openPlanDetail(context, p),
+            ),
+            if (plan.status != PlanStatus.deleted &&
+                permissions.can(Resource.plans, Action.delete))
+              EduDataTableAction<Plan>(
+                icon: Icons.delete_outline_rounded,
+                label: 'Delete',
+                isDestructive: true,
+                onTap: (p) => _deletePlan(context, p),
+              ),
+            if (plan.status == PlanStatus.deleted && permissions.canSeeDeleted)
+              EduDataTableAction<Plan>(
+                icon: Icons.delete_forever_rounded,
+                label: 'Purge',
+                isDestructive: true,
+                onTap: (p) => _purgePlan(context, p),
+              ),
+          ],
+          columns: const [
+            EduDataTableColumn(label: 'Plan', flex: 3),
+            EduDataTableColumn(label: 'Status', flex: 1),
+          ],
+          cellBuilder: (context, plan, index, isHovered) {
+            final cs = Theme.of(context).colorScheme;
+            return switch (index) {
+              0 => _PlanIdentityCell(plan: plan),
+              1 => _PlanStatusBadge(status: plan.status, cs: cs),
+              _ => const SizedBox.shrink(),
+            };
+          },
+        );
+      },
     );
   }
 

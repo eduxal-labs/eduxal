@@ -24,20 +24,23 @@ import '../../../widgets/edu_sheet.dart';
 ///
 /// Accepts [SystemPermissions] to gate create/edit/delete actions.
 class SubjectsSection extends StatefulWidget {
-  const SubjectsSection({super.key, required this.permissions});
+  const SubjectsSection({
+    super.key,
+    required this.permissions,
+    required this.curriculumNotifier,
+  });
 
   final SystemPermissions permissions;
+  final ValueNotifier<CurriculumType> curriculumNotifier;
 
   @override
   State<SubjectsSection> createState() => _SubjectsSectionState();
 }
 
 class _SubjectsSectionState extends State<SubjectsSection> {
-  CurriculumType _curriculum = CurriculumType.cbc;
   String _search = '';
   final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
-  bool _searchVisible = false;
 
   bool get _canCreate =>
       widget.permissions.can(Resource.subjects, Action.create);
@@ -52,107 +55,38 @@ class _SubjectsSectionState extends State<SubjectsSection> {
     super.dispose();
   }
 
-  void _toggleSearch() {
-    setState(() {
-      _searchVisible = !_searchVisible;
-      if (!_searchVisible) {
-        _searchCtrl.clear();
-        _search = '';
-      } else {
-        Future.delayed(const Duration(milliseconds: 100), () {
-          if (mounted) _searchFocus.requestFocus();
-        });
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
 
-    return Stack(
-      children: [
-        Column(
+    return ValueListenableBuilder<CurriculumType>(
+      valueListenable: widget.curriculumNotifier,
+      builder: (context, currentCurriculum, _) {
+        return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ── Header row ─────────────────────────────────────────────────────
+            // ── Search bar (always visible) ────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(0, 4, 0, 8),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.menu_book_outlined,
-                    size: 18,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Subjects',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: cs.onSurface,
-                      letterSpacing: 0.1,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  // ── Curriculum toggle ──────────────────────────────────────
-                  _CurriculumToggle(
-                    selected: _curriculum,
-                    onChanged: (c) => setState(() => _curriculum = c),
-                    cs: cs,
-                    isDark: isDark,
-                  ),
-                  const Spacer(),
-                  // ── Search toggle ──────────────────────────────────────────
-                  _SmallIconButton(
-                    icon: _searchVisible
-                        ? Icons.search_off_rounded
-                        : Icons.search_rounded,
-                    tooltip: _searchVisible
-                        ? 'Close search'
-                        : 'Search subjects',
-                    onTap: _toggleSearch,
-                    cs: cs,
-                  ),
-                  if (_canCreate) ...[
-                    const SizedBox(width: 4),
-                    _SmallIconButton(
-                      icon: Icons.add_rounded,
-                      tooltip: 'Add subject',
-                      onTap: () => _showCreateSubject(context),
-                      cs: cs,
-                      isPrimary: true,
-                    ),
-                  ],
-                ],
+              padding: const EdgeInsets.only(
+                bottom: 8,
+                top: 4,
+                left: 16,
+                right: 16,
               ),
-            ),
-
-            // ── Search bar ─────────────────────────────────────────────────────
-            AnimatedSize(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOutCubic,
-              alignment: Alignment.topCenter,
-              child: _searchVisible
-                  ? Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: _SearchField(
-                        controller: _searchCtrl,
-                        focusNode: _searchFocus,
-                        cs: cs,
-                        isDark: isDark,
-                        onChanged: (v) => setState(() => _search = v),
-                      ),
-                    )
-                  : const SizedBox.shrink(),
+              child: _SearchField(
+                controller: _searchCtrl,
+                focusNode: _searchFocus,
+                cs: cs,
+                isDark: isDark,
+                onChanged: (v) => setState(() => _search = v),
+              ),
             ),
 
             // ── Subject list ───────────────────────────────────────────────────
             Expanded(
               child: StreamBuilder<List<Subject>>(
-                stream: catalogDao.watchSubjectsByCurriculum(_curriculum),
+                stream: catalogDao.watchSubjectsByCurriculum(currentCurriculum),
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) {
                     return const Center(
@@ -177,7 +111,7 @@ class _SubjectsSectionState extends State<SubjectsSection> {
 
                   if (subjects.isEmpty) {
                     return _EmptyState(
-                      curriculum: _curriculum,
+                      curriculum: currentCurriculum,
                       isFiltered: _search.isNotEmpty,
                       cs: cs,
                     );
@@ -192,7 +126,7 @@ class _SubjectsSectionState extends State<SubjectsSection> {
                       final subject = subjects[index];
                       return _SubjectTile(
                         subject: subject,
-                        curriculum: _curriculum,
+                        curriculum: currentCurriculum,
                         canEdit: _canEdit,
                         canDelete: _canDelete,
                         canCreate: _canCreate,
@@ -207,38 +141,8 @@ class _SubjectsSectionState extends State<SubjectsSection> {
               ),
             ),
           ],
-        ),
-        if (_canCreate)
-          Positioned(
-            right: 16,
-            bottom: 16,
-            child: FloatingActionButton.small(
-              heroTag: 'fab_subjects',
-              backgroundColor: AppTheme.statusActive,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              onPressed: () => _showCreateSubject(context),
-              tooltip: 'New Subject',
-              child: const Icon(
-                Icons.add_rounded,
-                size: 20,
-                color: Colors.white,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  // ── Create subject ─────────────────────────────────────────────────────────
-
-  void _showCreateSubject(BuildContext context) {
-    showEduSheet(
-      context: context,
-      title: 'New Subject',
-      maxWidth: 420,
-      builder: (_) => _CreateSubjectSheet(curriculum: _curriculum),
+        );
+      },
     );
   }
 
@@ -290,117 +194,6 @@ class _SubjectsSectionState extends State<SubjectsSection> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Curriculum toggle — CBC / 8-4-4 pill switcher
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _CurriculumToggle extends StatelessWidget {
-  const _CurriculumToggle({
-    required this.selected,
-    required this.onChanged,
-    required this.cs,
-    required this.isDark,
-  });
-
-  final CurriculumType selected;
-  final ValueChanged<CurriculumType> onChanged;
-  final ColorScheme cs;
-  final bool isDark;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 28,
-      padding: const EdgeInsets.all(2),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: isDark ? 0.7 : 0.5),
-        borderRadius: BorderRadius.circular(7),
-        border: isDark
-            ? Border.all(
-                color: cs.outlineVariant.withValues(alpha: 0.3),
-                width: 0.5,
-              )
-            : null,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _TogglePill(
-            label: 'CBC',
-            isSelected: selected == CurriculumType.cbc,
-            onTap: () => onChanged(CurriculumType.cbc),
-            cs: cs,
-            isDark: isDark,
-          ),
-          _TogglePill(
-            label: '8-4-4',
-            isSelected: selected == CurriculumType.eightFourFour,
-            onTap: () => onChanged(CurriculumType.eightFourFour),
-            cs: cs,
-            isDark: isDark,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TogglePill extends StatelessWidget {
-  const _TogglePill({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-    required this.cs,
-    required this.isDark,
-  });
-
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-  final ColorScheme cs;
-  final bool isDark;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-        decoration: BoxDecoration(
-          color: isSelected ? cs.surface : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-          border: isSelected && isDark
-              ? Border.all(
-                  color: cs.outlineVariant.withValues(alpha: 0.4),
-                  width: 0.5,
-                )
-              : null,
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.12 : 0.04),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                  ),
-                ]
-              : null,
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
-            color: isSelected ? cs.onSurface : cs.onSurfaceVariant,
-            letterSpacing: 0.1,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Small icon button — used for toolbar actions
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -448,7 +241,7 @@ class _SmallIconButton extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Search field
+// Search Field
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _SearchField extends StatelessWidget {
@@ -1293,16 +1086,16 @@ class _EmptyState extends StatelessWidget {
 // Create subject sheet
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _CreateSubjectSheet extends StatefulWidget {
-  const _CreateSubjectSheet({required this.curriculum});
+class CreateSubjectSheet extends StatefulWidget {
+  const CreateSubjectSheet({super.key, required this.curriculum});
 
   final CurriculumType curriculum;
 
   @override
-  State<_CreateSubjectSheet> createState() => _CreateSubjectSheetState();
+  State<CreateSubjectSheet> createState() => _CreateSubjectSheetState();
 }
 
-class _CreateSubjectSheetState extends State<_CreateSubjectSheet> {
+class _CreateSubjectSheetState extends State<CreateSubjectSheet> {
   final _nameCtrl = TextEditingController();
   late CurriculumType _curriculum;
   String? _nameError;

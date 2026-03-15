@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' hide Action;
 
 import '../../../client.dart';
 import '../../../database/tables/enums.dart';
+import '../../../database/tables/curriculum_subjects.dart';
 import '../../../models/permissions.dart';
 import '../../../models/system_permissions.dart';
 import '../../theme/app_theme.dart';
@@ -495,40 +496,185 @@ class _SettingsTabBody extends StatefulWidget {
 class _SettingsTabBodyState extends State<_SettingsTabBody>
     with SingleTickerProviderStateMixin {
   late final TabController _innerTabController;
+  final ValueNotifier<CurriculumType> _curriculum = ValueNotifier(
+    CurriculumType.cbc,
+  );
 
   @override
   void initState() {
     super.initState();
     _innerTabController = TabController(length: 2, vsync: this);
+    _innerTabController.addListener(_handleTabChange);
+  }
+
+  void _handleTabChange() {
+    if (!_innerTabController.indexIsChanging) {
+      setState(() {});
+    }
   }
 
   @override
   void dispose() {
+    _innerTabController.removeListener(_handleTabChange);
     _innerTabController.dispose();
+    _curriculum.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+    final isPlans = _innerTabController.index == 0;
+    final isSubjects = _innerTabController.index == 1;
+
+    final canCreatePlan = widget.permissions.can(Resource.plans, Action.create);
+    final canCreateSubject = widget.permissions.can(
+      Resource.subjects,
+      Action.create,
+    );
+
     return Column(
       children: [
-        EduTabBar(
-          controller: _innerTabController,
-          tabs: const [
-            EduTab(label: 'Plans'),
-            EduTab(label: 'Subjects'),
-          ],
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Row(
+            children: [
+              Expanded(
+                child: EduTabBar(
+                  controller: _innerTabController,
+                  isScrollable: true,
+                  tabs: const [
+                    EduTab(label: 'Plans'),
+                    EduTab(label: 'Subjects'),
+                  ],
+                ),
+              ),
+              if (isSubjects) ...[
+                const SizedBox(width: 8),
+                _buildCurriculumToggle(cs, isDark),
+              ],
+              if ((isPlans && canCreatePlan) ||
+                  (isSubjects && canCreateSubject)) ...[
+                const SizedBox(width: 12),
+                FloatingActionButton.small(
+                  heroTag: 'fab_settings_add',
+                  backgroundColor: AppTheme.statusActive,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  onPressed: () {
+                    if (isPlans) {
+                      openCreatePlan(context, widget.permissions);
+                    } else if (isSubjects) {
+                      _showCreateSubject(context);
+                    }
+                  },
+                  tooltip: isPlans ? 'New Plan' : 'New Subject',
+                  child: const Icon(
+                    Icons.add_rounded,
+                    size: 20,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
         Expanded(
           child: TabBarView(
             controller: _innerTabController,
             children: [
               PlansSection(permissions: widget.permissions),
-              SubjectsSection(permissions: widget.permissions),
+              SubjectsSection(
+                permissions: widget.permissions,
+                curriculumNotifier: _curriculum,
+              ),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildCurriculumToggle(ColorScheme cs, bool isDark) {
+    return ValueListenableBuilder<CurriculumType>(
+      valueListenable: _curriculum,
+      builder: (context, current, _) {
+        return Container(
+          height: 32,
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            color: isDark
+                ? const Color(0xFF1E2A3A)
+                : cs.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildTogglePill('CBC', CurriculumType.cbc, current, cs, isDark),
+              _buildTogglePill(
+                '8-4-4',
+                CurriculumType.eightFourFour,
+                current,
+                cs,
+                isDark,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTogglePill(
+    String label,
+    CurriculumType type,
+    CurriculumType selected,
+    ColorScheme cs,
+    bool isDark,
+  ) {
+    final isSelected = type == selected;
+    return GestureDetector(
+      onTap: () => _curriculum.value = type,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isDark ? cs.surface : Colors.white)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 2,
+                    offset: const Offset(0, 1),
+                  ),
+                ]
+              : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
+            color: isSelected ? cs.onSurface : cs.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showCreateSubject(BuildContext context) {
+    showEduSheet(
+      context: context,
+      title: 'New Subject',
+      maxWidth: 420,
+      builder: (_) => CreateSubjectSheet(curriculum: _curriculum.value),
     );
   }
 }

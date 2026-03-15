@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' hide Action;
 
 import '../../../../client.dart';
+import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../database/tables/enums.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
@@ -35,6 +36,9 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen>
   late final Animation<Offset> _slideUp;
 
   int _selectedTab = 0;
+  final ValueNotifier<CurriculumType> _curriculumNotifier = ValueNotifier(
+    CurriculumType.cbc,
+  );
 
   @override
   void initState() {
@@ -56,6 +60,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen>
 
   @override
   void dispose() {
+    _curriculumNotifier.dispose();
     _entranceController.dispose();
     super.dispose();
   }
@@ -142,6 +147,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen>
                                 key: const ValueKey('subjects'),
                                 child: SubjectsSection(
                                   permissions: permissions,
+                                  curriculumNotifier: _curriculumNotifier,
                                 ),
                               ),
                       ),
