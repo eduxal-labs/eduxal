@@ -73,6 +73,19 @@ class StatusIndicator extends StatelessWidget {
     if (level == UserLevel.super_) {
       return _StarIndicator(color: color, backgroundColor: backgroundColor);
     }
+    if (level == UserLevel.system) {
+      return Container(
+        width: 14,
+        height: 14,
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          shape: BoxShape.circle,
+        ),
+        child: Center(
+          child: Icon(Icons.shield_rounded, size: 10, color: color),
+        ),
+      );
+    }
 
     return _DotIndicator(color: color, backgroundColor: backgroundColor);
   }

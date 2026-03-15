@@ -338,29 +338,53 @@ class _UsersSectionState extends State<UsersSection> {
             Expanded(
               child: !snapshot.hasData
                   ? const _ListShimmer()
-                  : SingleChildScrollView(
-                      child: EduDataTable<UsersData>(
-                        items: filtered,
-                        emptyIcon: Icons.person_search_outlined,
-                        emptyTitle: 'No users found',
-                        emptySubtitle:
+                  : filtered.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.person_search_outlined,
+                            size: 48,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No users found',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
                             _searchQuery.isNotEmpty || _hasActiveFilters
-                            ? 'No users match your filters.'
-                            : 'No users in the system yet.',
-                        onItemTap: _openDetail,
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                        actions: (user) {
-                          final isMe = user.id == cache.currentUser?.user.id;
-                          if (isMe) return [];
+                                ? 'No users match your filters.'
+                                : 'No users in the system yet.',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                      itemCount: filtered.length,
+                      itemBuilder: (context, index) {
+                        final user = filtered[index];
+                        final isMe = user.id == cache.currentUser?.user.id;
 
-                          final actions = <EduDataTableAction<UsersData>>[];
+                        final actions = <EduDataTableAction<UsersData>>[];
+                        if (!isMe) {
                           final canSeeDeleted =
                               widget.permissions.canSeeDeleted;
 
-                          // ── Promote to System: only if Normal ──
                           if (user.level == UserLevel.normal) {
                             actions.add(
-                              EduDataTableAction<UsersData>(
+                              EduDataTableAction(
                                 icon: Icons.shield_outlined,
                                 label: 'Promote to System',
                                 onTap: (u) => _promoteUser(u, UserLevel.system),
@@ -368,11 +392,9 @@ class _UsersSectionState extends State<UsersSection> {
                               ),
                             );
                           }
-
-                          // ── Elevate to Super: only if System & viewer is super ──
                           if (user.level == UserLevel.system && canSeeDeleted) {
                             actions.add(
-                              EduDataTableAction<UsersData>(
+                              EduDataTableAction(
                                 icon: Icons.star_outline_rounded,
                                 label: 'Elevate to Super',
                                 onTap: (u) => _promoteUser(u, UserLevel.super_),
@@ -380,11 +402,9 @@ class _UsersSectionState extends State<UsersSection> {
                               ),
                             );
                           }
-
-                          // ── Demote to Normal: only if System ──
                           if (user.level == UserLevel.system) {
                             actions.add(
-                              EduDataTableAction<UsersData>(
+                              EduDataTableAction(
                                 icon: Icons.arrow_downward_rounded,
                                 label: 'Demote to Normal',
                                 onTap: (u) => _demoteUser(u, UserLevel.normal),
@@ -392,11 +412,9 @@ class _UsersSectionState extends State<UsersSection> {
                               ),
                             );
                           }
-
-                          // ── Demote to System: only if Super & viewer is super ──
                           if (user.level == UserLevel.super_ && canSeeDeleted) {
                             actions.add(
-                              EduDataTableAction<UsersData>(
+                              EduDataTableAction(
                                 icon: Icons.arrow_downward_rounded,
                                 label: 'Demote to System',
                                 onTap: (u) => _demoteUser(u, UserLevel.system),
@@ -404,12 +422,10 @@ class _UsersSectionState extends State<UsersSection> {
                               ),
                             );
                           }
-
-                          // ── Suspend: only if active or invited ──
                           if (user.status == UserStatus.active ||
                               user.status == UserStatus.invited) {
                             actions.add(
-                              EduDataTableAction<UsersData>(
+                              EduDataTableAction(
                                 icon: Icons.block_rounded,
                                 label: 'Suspend',
                                 onTap: (u) => _suspendUser(u),
@@ -418,11 +434,9 @@ class _UsersSectionState extends State<UsersSection> {
                               ),
                             );
                           }
-
-                          // ── Restore: only if suspended ──
                           if (user.status == UserStatus.suspended) {
                             actions.add(
-                              EduDataTableAction<UsersData>(
+                              EduDataTableAction(
                                 icon: Icons.restore_rounded,
                                 label: 'Restore',
                                 onTap: (u) => _restoreUser(u),
@@ -430,11 +444,9 @@ class _UsersSectionState extends State<UsersSection> {
                               ),
                             );
                           }
-
-                          // ── Delete: only if NOT already deleted ──
                           if (user.status != UserStatus.deleted) {
                             actions.add(
-                              EduDataTableAction<UsersData>(
+                              EduDataTableAction(
                                 icon: Icons.delete_outline_rounded,
                                 label: 'Delete',
                                 onTap: (u) => _trashUser(u),
@@ -443,11 +455,9 @@ class _UsersSectionState extends State<UsersSection> {
                               ),
                             );
                           }
-
-                          // ── Restore from deleted: only if deleted ──
                           if (user.status == UserStatus.deleted) {
                             actions.add(
-                              EduDataTableAction<UsersData>(
+                              EduDataTableAction(
                                 icon: Icons.restore_rounded,
                                 label: 'Restore',
                                 onTap: (u) => _restoreUser(u),
@@ -455,11 +465,9 @@ class _UsersSectionState extends State<UsersSection> {
                               ),
                             );
                           }
-
-                          // ── Purge: super only ──
                           if (canSeeDeleted) {
                             actions.add(
-                              EduDataTableAction<UsersData>(
+                              EduDataTableAction(
                                 icon: Icons.delete_forever_rounded,
                                 label: 'Purge',
                                 onTap: (u) => _purgeUser(u),
@@ -468,36 +476,15 @@ class _UsersSectionState extends State<UsersSection> {
                               ),
                             );
                           }
+                        }
 
-                          return actions;
-                        },
-                        columns: const [
-                          EduDataTableColumn(label: 'User', flex: 3),
-                          EduDataTableColumn(label: 'Level', flex: 1),
-                          EduDataTableColumn(label: 'Status', flex: 1),
-                          EduDataTableColumn(label: 'Joined', flex: 1),
-                        ],
-                        cellBuilder: (context, user, index, isHovered) {
-                          final isMe = user.id == cache.currentUser?.user.id;
-                          final cs = Theme.of(context).colorScheme;
-                          return switch (index) {
-                            0 => _UserIdentityCell(user: user, isMe: isMe),
-                            1 => _UserLevelBadge(level: user.level),
-                            2 => _UserStatusBadge(status: user.status),
-                            3 => Text(
-                              _formatRelativeDate(user.created.toInt()),
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w400,
-                                color: cs.onSurfaceVariant.withValues(
-                                  alpha: 0.7,
-                                ),
-                              ),
-                            ),
-                            _ => const SizedBox.shrink(),
-                          };
-                        },
-                      ),
+                        return _UserCard(
+                          user: user,
+                          isMe: isMe,
+                          onTap: () => _openDetail(user),
+                          actions: actions,
+                        );
+                      },
                     ),
             ),
           ],
@@ -609,87 +596,153 @@ class _UserIdentityCell extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// User level badge — compact chip
-// ─────────────────────────────────────────────────────────────────────────────
+class _UserCard extends StatefulWidget {
+  const _UserCard({
+    required this.user,
+    required this.isMe,
+    required this.onTap,
+    required this.actions,
+  });
 
-class _UserLevelBadge extends StatelessWidget {
-  const _UserLevelBadge({required this.level});
-
-  final UserLevel level;
+  final UsersData user;
+  final bool isMe;
+  final VoidCallback onTap;
+  final List<EduDataTableAction<UsersData>> actions;
 
   @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isDark = cs.brightness == Brightness.dark;
-
-    final (label, color) = switch (level) {
-      UserLevel.normal => ('Normal', cs.onSurfaceVariant),
-      UserLevel.system => ('System', cs.primary),
-      UserLevel.super_ => ('Super', const Color(0xFFFF7043)),
-    };
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: isDark ? 0.12 : 0.08),
-        borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
-        border: Border.all(
-          color: color.withValues(alpha: isDark ? 0.3 : 0.2),
-          width: 0.5,
-        ),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-          color: color,
-          letterSpacing: 0.2,
-        ),
-      ),
-    );
-  }
+  State<_UserCard> createState() => _UserCardState();
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// User status badge — compact chip
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _UserStatusBadge extends StatelessWidget {
-  const _UserStatusBadge({required this.status});
-
-  final UserStatus status;
+class _UserCardState extends State<_UserCard> {
+  bool _isHovered = false;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final isDark = cs.brightness == Brightness.dark;
+    final isMobile =
+        MediaQuery.of(context).size.width < AppTheme.kMobileBreakpoint;
 
-    final (label, color) = switch (status) {
-      UserStatus.invited => ('Invited', const Color(0xFF42A5F5)),
-      UserStatus.active => ('Active', const Color(0xFF26A69A)),
-      UserStatus.suspended => ('Suspended', const Color(0xFFFFB300)),
-      UserStatus.deleted => ('Deleted', cs.error),
-    };
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: isDark ? 0.12 : 0.08),
-        borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
-        border: Border.all(
-          color: color.withValues(alpha: isDark ? 0.3 : 0.2),
-          width: 0.5,
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.only(bottom: 8),
+        transform: Matrix4.translationValues(0, _isHovered ? -2 : 0, 0),
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: _isHovered
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
         ),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-          color: color,
-          letterSpacing: 0.2,
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            onTap: widget.onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _UserIdentityCell(
+                      user: widget.user,
+                      isMe: widget.isMe,
+                    ),
+                  ),
+                  Text(
+                    _formatRelativeDate(widget.user.created.toInt()),
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                  ),
+                  if (widget.actions.isNotEmpty) ...[
+                    const SizedBox(width: 16),
+                    if (isMobile)
+                      MenuAnchor(
+                        builder: (context, controller, child) {
+                          return IconButton(
+                            icon: const Icon(Icons.more_vert_rounded, size: 18),
+                            onPressed: () {
+                              if (controller.isOpen) {
+                                controller.close();
+                              } else {
+                                controller.open();
+                              }
+                            },
+                          );
+                        },
+                        menuChildren: widget.actions.map((action) {
+                          return MenuItemButton(
+                            leadingIcon: Icon(
+                              action.icon,
+                              size: 18,
+                              color: action.color ?? cs.onSurfaceVariant,
+                            ),
+                            child: Text(
+                              action.label,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w400,
+                                color: action.color ?? cs.onSurface,
+                              ),
+                            ),
+                            onPressed: () => action.onTap(widget.user),
+                          );
+                        }).toList(),
+                      )
+                    else
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: widget.actions.map((action) {
+                          return Padding(
+                            padding: const EdgeInsets.only(left: 4),
+                            child: Tooltip(
+                              message: action.label,
+                              child: Material(
+                                color:
+                                    action.color?.withValues(alpha: 0.1) ??
+                                    cs.surfaceContainerHighest,
+                                shape: const CircleBorder(),
+                                child: InkWell(
+                                  customBorder: const CircleBorder(),
+                                  onTap: () => action.onTap(widget.user),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: const BoxDecoration(
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      action.icon,
+                                      size: 18,
+                                      color:
+                                          action.color ?? cs.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                  ],
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -723,44 +776,52 @@ class _Toolbar extends StatelessWidget {
         children: [
           // Search field.
           Expanded(
-            child: SizedBox(
-              height: 38,
+            child: Container(
+              height: 42,
+              clipBehavior: Clip.hardEdge,
+              decoration: BoxDecoration(
+                color: cs.surface,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+                border: Border.all(
+                  color: cs.outlineVariant.withValues(alpha: 0.5),
+                ),
+              ),
               child: TextField(
                 controller: searchController,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: FontWeight.w400,
                   color: cs.onSurface,
                 ),
                 decoration: InputDecoration(
-                  hintText: 'Search by name or phone…',
+                  filled: false,
+                  hintText: 'Search users...',
                   hintStyle: TextStyle(
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: FontWeight.w400,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                  ),
-                  prefixIcon: Icon(
-                    Icons.search_rounded,
-                    size: 18,
                     color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                   ),
-                  filled: true,
-                  fillColor: cs.surfaceContainer,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.kRadius),
-                    borderSide: BorderSide(color: cs.outlineVariant),
+                  prefixIcon: Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: Icon(
+                      Icons.search_rounded,
+                      size: 20,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                    ),
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.kRadius),
-                    borderSide: BorderSide(color: cs.outlineVariant, width: 1),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.kRadius),
-                    borderSide: BorderSide(color: cs.primary, width: 1),
-                  ),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 0,
+                    horizontal: 16,
+                    vertical: 10,
                   ),
                   isDense: true,
                 ),
@@ -802,22 +863,29 @@ class _ToolbarIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(AppTheme.kRadius),
+      borderRadius: BorderRadius.circular(24),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(AppTheme.kRadius),
+        borderRadius: BorderRadius.circular(24),
         child: Container(
-          width: 38,
-          height: 38,
+          width: 42,
+          height: 42,
           decoration: BoxDecoration(
-            color: active
-                ? cs.primary.withValues(alpha: 0.10)
-                : cs.surfaceContainer,
-            borderRadius: BorderRadius.circular(AppTheme.kRadius),
+            color: active ? cs.primary.withValues(alpha: 0.10) : cs.surface,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: active
+                ? null
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
             border: Border.all(
               color: active
                   ? cs.primary.withValues(alpha: 0.4)
-                  : cs.outlineVariant,
+                  : cs.outlineVariant.withValues(alpha: 0.5),
               width: 1,
             ),
           ),
