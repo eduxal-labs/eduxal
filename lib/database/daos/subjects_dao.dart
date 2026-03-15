@@ -235,7 +235,9 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
   /// Returns all subject assignments for a specific class
   /// (school, year, term, grade, stream) as a one-shot read.
   /// Each result includes the subject row and the teacher's [Users] row.
-  Future<List<({SubjectTeacher subject, UsersData teacher})>>
+  Future<
+    List<({SubjectTeacher subject, UsersData teacher, String subjectName})>
+  >
   getSubjectsForClass({
     required String schoolId,
     required int year,
@@ -246,6 +248,10 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
     final query =
         select(subjectTeachers).join([
             innerJoin(users, users.id.equalsExp(subjectTeachers.teacher)),
+            leftOuterJoin(
+              attachedDatabase.subjects,
+              attachedDatabase.subjects.id.equalsExp(subjectTeachers.subject),
+            ),
           ])
           ..where(
             subjectTeachers.school.equals(schoolId) &
@@ -257,14 +263,15 @@ class SubjectsDao extends DatabaseAccessor<AppDatabase>
           ..orderBy([OrderingTerm.asc(subjectTeachers.subject)]);
 
     return query.get().then(
-      (rows) => rows
-          .map(
-            (r) => (
-              subject: r.readTable(subjectTeachers),
-              teacher: r.readTable(users),
-            ),
-          )
-          .toList(),
+      (rows) => rows.map((r) {
+        final subjectRow = r.readTableOrNull(attachedDatabase.subjects);
+        final st = r.readTable(subjectTeachers);
+        return (
+          subject: st,
+          teacher: r.readTable(users),
+          subjectName: subjectRow?.name ?? 'Subject ${st.subject}',
+        );
+      }).toList(),
     );
   }
 

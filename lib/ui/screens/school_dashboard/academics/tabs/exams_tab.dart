@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 
 import '../../../../../database/database.dart';
-import '../../../../theme/app_theme.dart';
 import '../../../../../database/daos/academics_dao.dart';
+import '../../../../../database/daos/catalog_dao.dart';
 import '../../../../../database/daos/exams_grades_dao.dart' show ExamWithPapers;
+import '../../../../../database/tables/curriculum_subjects.dart';
 import '../../../../../database/tables/enums.dart';
 import '../../../../../models/membership.dart';
 import '../../../../../models/school_config.dart';
 import '../../../../../models/school_context.dart';
-import '../../../../widgets/create_exam_modal.dart';
+import '../../../../theme/app_theme.dart';
+import '../../exams/exam_creation_page.dart';
 import '../exam_detail_page.dart';
 
 /// Exams tab — shows all exams for a specific stream within a grade, with
@@ -50,10 +52,11 @@ class ExamsTab extends StatefulWidget {
 class _ExamsTabState extends State<ExamsTab>
     with AutomaticKeepAliveClientMixin {
   late final AcademicsDao _dao;
+  late final CatalogDao _catalogDao;
   late Stream<List<ExamWithPapers>> _stream;
 
-  final SchoolConfig _config = SchoolConfig.defaults();
-  final bool _configLoaded = false;
+  SchoolConfig _config = SchoolConfig.defaults();
+  bool _configLoaded = false;
 
   // ── Filter state ───────────────────────────────────────────────────────────
 
@@ -70,6 +73,7 @@ class _ExamsTabState extends State<ExamsTab>
   void initState() {
     super.initState();
     _dao = AcademicsDao(db);
+    _catalogDao = CatalogDao(db);
     _stream = _buildStream();
     _loadConfig();
   }
@@ -97,8 +101,66 @@ class _ExamsTabState extends State<ExamsTab>
   }
 
   Future<void> _loadConfig() async {
-    // settings table removed in schema v2 — config loaded elsewhere
-    if (!mounted) return;
+    final schoolId = widget.schoolContext.membership.school.id;
+    _catalogDao.watchAllStreamsForSchool(schoolId).listen((allStreams) {
+      if (!mounted) return;
+      setState(() {
+        _config = _buildConfigFromStreams(allStreams);
+        _configLoaded = true;
+      });
+    });
+  }
+
+  SchoolConfig _buildConfigFromStreams(List<SchoolStream> allStreams) {
+    if (allStreams.isEmpty) return SchoolConfig.defaults();
+
+    final allGrades = allStreams.map((s) => s.grade).toSet();
+    final byGrade = <int, List<SchoolStream>>{};
+    for (final s in allStreams) {
+      byGrade.putIfAbsent(s.grade, () => []).add(s);
+    }
+
+    CurriculumType curriculumForGrade(int grade) {
+      if (grade >= 41) return CurriculumType.eightFourFour;
+      if (grade >= 9) return CurriculumType.cbc;
+      if (allGrades.any((g) => g >= 41)) return CurriculumType.eightFourFour;
+      return CurriculumType.cbc;
+    }
+
+    final cbcGrades = <GradeConfig>[];
+    final eftGrades = <GradeConfig>[];
+
+    for (final entry in byGrade.entries) {
+      final gradeNum = entry.key;
+      final streamRows = entry.value
+        ..sort((a, b) => a.stream.compareTo(b.stream));
+      final gradeStreams = streamRows
+          .map((s) => GradeStream(name: s.name, code: s.stream))
+          .toList();
+      final gc = GradeConfig(grade: gradeNum, streams: gradeStreams);
+      if (curriculumForGrade(gradeNum) == CurriculumType.cbc) {
+        cbcGrades.add(gc);
+      } else {
+        eftGrades.add(gc);
+      }
+    }
+
+    cbcGrades.sort((a, b) => a.grade.compareTo(b.grade));
+    eftGrades.sort((a, b) => a.grade.compareTo(b.grade));
+
+    final curricula = <CurriculumConfig>[];
+    if (cbcGrades.isNotEmpty) {
+      curricula.add(
+        CurriculumConfig(type: CurriculumType.cbc, grades: cbcGrades),
+      );
+    }
+    if (eftGrades.isNotEmpty) {
+      curricula.add(
+        CurriculumConfig(type: CurriculumType.eightFourFour, grades: eftGrades),
+      );
+    }
+
+    return SchoolConfig(curricula: curricula);
   }
 
   List<ExamWithPapers> _applyFilters(List<ExamWithPapers> items) {
@@ -120,11 +182,18 @@ class _ExamsTabState extends State<ExamsTab>
   // ── Navigation ─────────────────────────────────────────────────────────────
 
   Future<void> _showCreateExam(BuildContext context) async {
-    await showCreateExamModal(
-      context: context,
-      schoolId: widget.schoolId,
-      year: widget.year,
-      term: widget.term,
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ExamCreationPage(
+          schoolId: widget.schoolId,
+          year: widget.year,
+          term: widget.term,
+          config: _config,
+          entry: widget.schoolContext.currentEntry.value,
+          preselectedGrade: widget.grade,
+          preselectedStream: widget.streamCode,
+        ),
+      ),
     );
   }
 

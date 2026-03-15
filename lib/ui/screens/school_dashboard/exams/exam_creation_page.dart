@@ -10,7 +10,7 @@ import '../../../../database/daos/members_dao.dart';
 import '../../../../database/daos/subjects_dao.dart';
 import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../database/tables/enums.dart';
-import '../../../../models/curriculum_levels.dart';
+
 import '../../../../models/membership.dart';
 import '../../../../models/school_config.dart';
 import '../../../theme/app_theme.dart';
@@ -74,13 +74,22 @@ class _GradeTabEntry {
 class _ClassSubjects {
   final int grade;
   final int? stream; // null = all-streams union
-  final List<({SubjectTeacher subject, UsersData teacher})> subjects;
+  final List<({SubjectTeacher subject, UsersData teacher, String subjectName})>
+  subjects;
 
   _ClassSubjects({
     required this.grade,
     required this.stream,
     required this.subjects,
   });
+
+  /// Returns the display name for a subject ID, falling back to 'Subject $id'.
+  String nameFor(int subjectId) {
+    final match = subjects
+        .where((s) => s.subject.subject == subjectId)
+        .firstOrNull;
+    return match?.subjectName ?? 'Subject $subjectId';
+  }
 }
 
 /// A single paper slot on the timetable — one row in the schedule.
@@ -122,6 +131,7 @@ class _ExamCreationPageState extends State<ExamCreationPage>
   bool _saving = false;
 
   // Section 1 — Exam details
+  final _nameCtrl = TextEditingController();
   ExamType _type = ExamType.exam;
   bool _personalized = false;
   DateTime? _startDate;
@@ -148,6 +158,9 @@ class _ExamCreationPageState extends State<ExamCreationPage>
   // Teachers list for invigilator picker
   List<({TeachersData teacher, UsersData user})> _teachers = [];
   bool _teachersLoaded = false;
+
+  // Invigilator time-slot conflict tracking (slot ID → error message)
+  Map<String, String> _slotConflicts = {};
 
   @override
   void initState() {
@@ -233,6 +246,7 @@ class _ExamCreationPageState extends State<ExamCreationPage>
 
   @override
   void dispose() {
+    _nameCtrl.dispose();
     _gradeTabController.dispose();
     for (final ctrl in _streamTabControllers.values) {
       ctrl.dispose();
@@ -338,6 +352,26 @@ class _ExamCreationPageState extends State<ExamCreationPage>
               .where((s) => s.subject.subject == slot.subjectCode)
               .firstOrNull;
           if (targetMatch != null) {
+            final startMin = slot.startTime.hour * 60 + slot.startTime.minute;
+            final endMin = slot.endTime.hour * 60 + slot.endTime.minute;
+
+            // Check if this teacher is busy at this time in other streams
+            String? invigilatorId = targetMatch.subject.teacher;
+            if (_isInvigilatorBusy(
+              invigilatorId,
+              slot.date,
+              startMin,
+              endMin,
+              targetKey,
+            )) {
+              invigilatorId = _findAvailableTeacher(
+                slot.date,
+                startMin,
+                endMin,
+                targetKey,
+              );
+            }
+
             copiedSlots.add(
               _PaperSlot(
                 id: _generateId(),
@@ -345,7 +379,7 @@ class _ExamCreationPageState extends State<ExamCreationPage>
                 startTime: slot.startTime,
                 endTime: slot.endTime,
                 subjectCode: slot.subjectCode,
-                invigilatorId: targetMatch.subject.teacher,
+                invigilatorId: invigilatorId,
               ),
             );
           }
@@ -353,6 +387,7 @@ class _ExamCreationPageState extends State<ExamCreationPage>
         }
         _paperSlots[targetKey] = copiedSlots;
       }
+      _recomputeConflicts();
     });
   }
 
@@ -448,7 +483,9 @@ class _ExamCreationPageState extends State<ExamCreationPage>
               grade: grade,
               stream: stream,
             )
-          : <({SubjectTeacher subject, UsersData teacher})>[];
+          : <
+              ({SubjectTeacher subject, UsersData teacher, String subjectName})
+            >[];
 
       if (!mounted) return;
       setState(() {
@@ -524,12 +561,14 @@ class _ExamCreationPageState extends State<ExamCreationPage>
           invigilatorId: autoInvigilator,
         ),
       );
+      _recomputeConflicts();
     });
   }
 
   void _removePaperSlot(String classKey, String slotId) {
     setState(() {
       _slotsFor(classKey).removeWhere((s) => s.id == slotId);
+      _recomputeConflicts();
     });
   }
 
@@ -556,6 +595,23 @@ class _ExamCreationPageState extends State<ExamCreationPage>
         final startMin = 8 * 60 + slotInDay * slotDuration;
         final endMin = startMin + slotDuration;
 
+        // Determine invigilator: use subject's teacher if not conflicting
+        String? invigilatorId = subj.subject.teacher;
+        if (_isInvigilatorBusy(
+          invigilatorId,
+          day,
+          startMin,
+          endMin,
+          classKey,
+        )) {
+          invigilatorId = _findAvailableTeacher(
+            day,
+            startMin,
+            endMin,
+            classKey,
+          );
+        }
+
         slots.add(
           _PaperSlot(
             id: _generateId(),
@@ -566,7 +622,7 @@ class _ExamCreationPageState extends State<ExamCreationPage>
               minute: endMin % 60,
             ),
             subjectCode: subj.subject.subject,
-            invigilatorId: subj.subject.teacher,
+            invigilatorId: invigilatorId,
           ),
         );
 
@@ -576,7 +632,106 @@ class _ExamCreationPageState extends State<ExamCreationPage>
           dayIdx++;
         }
       }
+      _recomputeConflicts();
     });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Invigilator conflict detection
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Returns a map of slot ID → error message for all slots that have
+  /// an invigilator time-slot conflict with a slot in a different stream.
+  Map<String, String> _findInvigilatorConflicts() {
+    final conflicts = <String, String>{};
+    // Collect all slots across all class keys with their metadata
+    final all = <({String classKey, _PaperSlot slot})>[];
+    for (final entry in _paperSlots.entries) {
+      for (final slot in entry.value) {
+        if (slot.invigilatorId != null &&
+            slot.invigilatorId!.isNotEmpty &&
+            slot.subjectCode != null) {
+          all.add((classKey: entry.key, slot: slot));
+        }
+      }
+    }
+
+    for (int i = 0; i < all.length; i++) {
+      for (int j = i + 1; j < all.length; j++) {
+        final a = all[i];
+        final b = all[j];
+        if (a.classKey == b.classKey) continue; // same stream, OK
+        if (a.slot.invigilatorId != b.slot.invigilatorId) continue;
+        if (!_sameDay(a.slot.date, b.slot.date)) continue;
+
+        final aStart = a.slot.startTime.hour * 60 + a.slot.startTime.minute;
+        final aEnd = a.slot.endTime.hour * 60 + a.slot.endTime.minute;
+        final bStart = b.slot.startTime.hour * 60 + b.slot.startTime.minute;
+        final bEnd = b.slot.endTime.hour * 60 + b.slot.endTime.minute;
+
+        if (aStart < bEnd && bStart < aEnd) {
+          // Find teacher name for the message
+          final teacherName =
+              _teachers
+                  .where((t) => t.user.id == a.slot.invigilatorId)
+                  .map((t) => t.user.name)
+                  .firstOrNull ??
+              'Teacher';
+          final msg = '$teacherName is assigned to another paper at this time';
+          conflicts[a.slot.id] = msg;
+          conflicts[b.slot.id] = msg;
+        }
+      }
+    }
+    return conflicts;
+  }
+
+  /// Checks if a teacher is already assigned to a paper slot at the same
+  /// time in a different stream (different classKey).
+  bool _isInvigilatorBusy(
+    String teacherId,
+    DateTime day,
+    int startMin,
+    int endMin,
+    String excludeClassKey,
+  ) {
+    for (final entry in _paperSlots.entries) {
+      if (entry.key == excludeClassKey) continue;
+      for (final slot in entry.value) {
+        if (slot.invigilatorId != teacherId) continue;
+        if (!_sameDay(slot.date, day)) continue;
+        final sStart = slot.startTime.hour * 60 + slot.startTime.minute;
+        final sEnd = slot.endTime.hour * 60 + slot.endTime.minute;
+        if (startMin < sEnd && sStart < endMin) return true;
+      }
+    }
+    return false;
+  }
+
+  /// Finds a teacher who is not busy at the given time in any stream.
+  /// Returns null if no teacher is available.
+  String? _findAvailableTeacher(
+    DateTime day,
+    int startMin,
+    int endMin,
+    String excludeClassKey,
+  ) {
+    for (final t in _teachers) {
+      if (!_isInvigilatorBusy(
+        t.user.id,
+        day,
+        startMin,
+        endMin,
+        excludeClassKey,
+      )) {
+        return t.user.id;
+      }
+    }
+    return null; // No available teacher found
+  }
+
+  void _recomputeConflicts() {
+    _slotConflicts = _findInvigilatorConflicts();
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -615,6 +770,11 @@ class _ExamCreationPageState extends State<ExamCreationPage>
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     if (!_hasSelection) return;
+    final examName = _nameCtrl.text.trim();
+    if (examName.isEmpty) {
+      _showError('Please enter a name for this exam.');
+      return;
+    }
     if (_startDate == null || _endDate == null) {
       _showError('Please select the exam date range.');
       return;
@@ -625,6 +785,15 @@ class _ExamCreationPageState extends State<ExamCreationPage>
     }
     if (!_isTeacherEntry && _teacherId.isEmpty) {
       _showError('Please assign an invigilator to at least one paper.');
+      return;
+    }
+
+    _recomputeConflicts();
+    if (_slotConflicts.isNotEmpty) {
+      _showError(
+        'Some papers have invigilator conflicts. Please resolve the highlighted conflicts before saving.',
+      );
+      setState(() => _saving = false);
       return;
     }
 
@@ -651,79 +820,76 @@ class _ExamCreationPageState extends State<ExamCreationPage>
           (86400 * 1000);
       final teacherId = _teacherId;
 
-      final entries = <ExamBatchEntry>[];
+      final cls = _selectedClasses.first;
+      final examId = _generateId();
+      final exam = ExamsCompanion(
+        id: Value(examId),
+        school: Value(widget.schoolId),
+        year: Value(widget.year),
+        term: Value(widget.term),
+        name: Value(examName),
+        personalized: Value(_personalized),
+        type: Value(_type),
+        start: Value(startDays),
+        end: Value(endDays),
+        teacher: Value(teacherId),
+        created: Value(now),
+        updated: Value(now),
+      );
 
-      for (final cls in _selectedClasses) {
-        final examId = _generateId();
-        final exam = ExamsCompanion(
-          id: Value(examId),
-          school: Value(widget.schoolId),
-          year: Value(widget.year),
-          term: Value(widget.term),
-          personalized: Value(_personalized),
-          type: Value(_type),
-          start: Value(startDays),
-          end: Value(endDays),
-          teacher: Value(teacherId),
-          created: Value(now),
-          updated: Value(now),
+      final paperRows = <PapersCompanion>[];
+      final key = _classKey(cls.grade, cls.stream);
+      final slots = _paperSlots[key] ?? [];
+
+      for (final slot in slots) {
+        if (slot.subjectCode == null) continue;
+        final startDt = DateTime(
+          slot.date.year,
+          slot.date.month,
+          slot.date.day,
+          slot.startTime.hour,
+          slot.startTime.minute,
         );
+        final endDt = DateTime(
+          slot.date.year,
+          slot.date.month,
+          slot.date.day,
+          slot.endTime.hour,
+          slot.endTime.minute,
+        );
+        final startSecs = BigInt.from(startDt.millisecondsSinceEpoch ~/ 1000);
+        final endSecs = BigInt.from(endDt.millisecondsSinceEpoch ~/ 1000);
 
-        final papers = <PapersCompanion>[];
-        final key = _classKey(cls.grade, cls.stream);
-        final slots = _paperSlots[key] ?? [];
-
-        for (final slot in slots) {
-          if (slot.subjectCode == null) continue;
-          final startDt = DateTime(
-            slot.date.year,
-            slot.date.month,
-            slot.date.day,
-            slot.startTime.hour,
-            slot.startTime.minute,
-          );
-          final endDt = DateTime(
-            slot.date.year,
-            slot.date.month,
-            slot.date.day,
-            slot.endTime.hour,
-            slot.endTime.minute,
-          );
-          final startSecs = BigInt.from(startDt.millisecondsSinceEpoch ~/ 1000);
-          final endSecs = BigInt.from(endDt.millisecondsSinceEpoch ~/ 1000);
-
-          papers.add(
-            PapersCompanion(
-              school: Value(widget.schoolId),
-              exam: Value(examId),
-              subject: Value(slot.subjectCode!),
-              paper: const Value(null),
-              invigilator: Value(slot.invigilatorId ?? teacherId),
-              start: Value(startSecs),
-              end: Value(endSecs),
-              status: Value(PaperStatus.pending),
-              created: Value(now),
-              updated: Value(now),
-            ),
-          );
-        }
-
-        entries.add((exam: exam, papers: papers));
+        paperRows.add(
+          PapersCompanion(
+            school: Value(widget.schoolId),
+            exam: Value(examId),
+            subject: Value(slot.subjectCode!),
+            paper: const Value(null),
+            invigilator: Value(slot.invigilatorId ?? teacherId),
+            grade: Value(cls.grade),
+            stream: Value(cls.stream),
+            start: Value(startSecs),
+            end: Value(endSecs),
+            status: Value(PaperStatus.pending),
+            created: Value(now),
+            updated: Value(now),
+          ),
+        );
       }
 
-      if (entries.isEmpty) {
-        _showError('No exams to create.');
-        setState(() => _saving = false);
-        return;
-      }
-
-      await _examsDao.createExamBatch(entries: entries, accountId: accountId);
+      await _examsDao.createExamWithPapers(
+        exam: exam,
+        paperRows: paperRows,
+        accountId: accountId,
+      );
 
       if (mounted) Navigator.of(context).pop();
     } catch (e, stack) {
       debugPrint('══════ EXAM CREATION ERROR ══════');
-      debugPrint('$e');
-      debugPrint('$stack');
+      debugPrint('Type : ${e.runtimeType}');
+      debugPrint('Error: $e');
+      debugPrint('Stack:\n$stack');
       debugPrint('═════════════════════════════════');
       if (mounted) {
         _showError(_friendlyExamError(e));
@@ -736,6 +902,7 @@ class _ExamCreationPageState extends State<ExamCreationPage>
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
+        backgroundColor: const Color(0xFFB71C1C),
         content: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -744,7 +911,11 @@ class _ExamCreationPageState extends State<ExamCreationPage>
             Expanded(
               child: Text(
                 message,
-                style: const TextStyle(fontSize: 13, height: 1.4),
+                style: const TextStyle(
+                  fontSize: 13,
+                  height: 1.4,
+                  color: Colors.white,
+                ),
               ),
             ),
           ],
@@ -794,6 +965,8 @@ class _ExamCreationPageState extends State<ExamCreationPage>
                 children: [
                   // ── Section 1: Exam Details ─────────────────────────────
                   _buildSectionHeader(cs, 'EXAM DETAILS'),
+                  const SizedBox(height: 12),
+                  _buildNameField(cs, isDark),
                   const SizedBox(height: 12),
                   _buildTypeSelector(cs),
                   const SizedBox(height: 16),
@@ -878,6 +1051,63 @@ class _ExamCreationPageState extends State<ExamCreationPage>
   // ─────────────────────────────────────────────────────────────────────────
   // Section builders
   // ─────────────────────────────────────────────────────────────────────────
+
+  Widget _buildNameField(ColorScheme cs, bool isDark) {
+    return TextFormField(
+      controller: _nameCtrl,
+      enabled: !_saving,
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w400,
+        color: cs.onSurface,
+      ),
+      decoration: InputDecoration(
+        hintText: 'e.g. Mid-Term Exam, End of Term…',
+        hintStyle: TextStyle(
+          fontSize: 13,
+          color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+        ),
+        filled: true,
+        fillColor: isDark
+            ? const Color(0xFF1E2C3C)
+            : cs.surfaceContainerHighest.withValues(alpha: 0.5),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 10,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(
+            color: cs.outlineVariant.withValues(alpha: isDark ? 0.3 : 0.5),
+          ),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(
+            color: cs.outlineVariant.withValues(alpha: isDark ? 0.25 : 0.4),
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: cs.primary.withValues(alpha: 0.7)),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: cs.error.withValues(alpha: 0.7)),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: cs.error),
+        ),
+      ),
+      validator: (v) {
+        if (v == null || v.trim().isEmpty) return 'Name is required.';
+        if (v.trim().length < 2) return 'Name must be at least 2 characters.';
+        return null;
+      },
+      textInputAction: TextInputAction.next,
+    );
+  }
 
   Widget _buildSectionHeader(ColorScheme cs, String label) {
     return Text(
@@ -1171,6 +1401,7 @@ class _ExamCreationPageState extends State<ExamCreationPage>
     final isLoading = _loadingSubjects[key] == true;
     final classData = _classSubjects[key];
     final indigo = isDark ? AppTheme.brandIndigoDark : AppTheme.brandIndigo;
+    final conflicts = _slotConflicts;
 
     if (isLoading) {
       return const Padding(
@@ -1277,8 +1508,11 @@ class _ExamCreationPageState extends State<ExamCreationPage>
               cs: cs,
               isDark: isDark,
               indigo: indigo,
+              slotConflicts: conflicts,
               onRemoveSlot: (id) => _removePaperSlot(key, id),
-              onSlotChanged: () => setState(() {}),
+              onSlotChanged: () => setState(() {
+                _recomputeConflicts();
+              }),
             );
           }),
 
@@ -1314,6 +1548,14 @@ bool _sameDay(DateTime a, DateTime? b) {
 String _friendlyExamError(Object e) {
   final raw = e.toString();
 
+  // Drift InvalidDataException — missing required (non-nullable) column value.
+  // This is a programmer error (missing field in companion), not a user error.
+  if (raw.contains('InvalidDataException') ||
+      raw.contains('null value') ||
+      raw.contains('required') && raw.contains('absent')) {
+    return 'Internal error: a required field is missing. Please report this.';
+  }
+
   // SQLite unique constraint (code 2067 / 1555)
   if (raw.contains('2067') || raw.contains('1555') || raw.contains('UNIQUE')) {
     return 'An exam for this grade and stream already exists in this term.';
@@ -1329,8 +1571,8 @@ String _friendlyExamError(Object e) {
     return 'A required record is missing. Make sure the term exists before creating exams.';
   }
 
-  // Generic fallback
-  return 'Something went wrong while saving. Please try again.';
+  // Generic fallback — include a short hint from the error itself
+  return 'Something went wrong while saving (${e.runtimeType}). Please try again.';
 }
 
 String _generateId() {
@@ -1539,6 +1781,7 @@ class _DayColumn extends StatelessWidget {
     required this.cs,
     required this.isDark,
     required this.indigo,
+    required this.slotConflicts,
     required this.onRemoveSlot,
     required this.onSlotChanged,
   });
@@ -1553,6 +1796,7 @@ class _DayColumn extends StatelessWidget {
   final ColorScheme cs;
   final bool isDark;
   final Color indigo;
+  final Map<String, String> slotConflicts;
   final ValueChanged<String> onRemoveSlot;
   final VoidCallback onSlotChanged;
 
@@ -1612,6 +1856,7 @@ class _DayColumn extends StatelessWidget {
               cs: cs,
               isDark: isDark,
               indigo: indigo,
+              errorMessage: slotConflicts[slot.id],
               onRemove: () => onRemoveSlot(slot.id),
               onChanged: onSlotChanged,
             );
@@ -1636,6 +1881,7 @@ class _PaperSlotCard extends StatefulWidget {
     required this.cs,
     required this.isDark,
     required this.indigo,
+    this.errorMessage,
     required this.onRemove,
     required this.onChanged,
   });
@@ -1648,6 +1894,7 @@ class _PaperSlotCard extends StatefulWidget {
   final ColorScheme cs;
   final bool isDark;
   final Color indigo;
+  final String? errorMessage;
   final VoidCallback onRemove;
   final VoidCallback onChanged;
 
@@ -1738,8 +1985,11 @@ class _PaperSlotCardState extends State<_PaperSlotCard> {
     final isDark = widget.isDark;
     final indigo = widget.indigo;
     final hasSubject = slot.subjectCode != null;
+    final hasConflict = widget.errorMessage != null;
 
-    final borderColor = hasSubject
+    final borderColor = hasConflict
+        ? cs.error.withValues(alpha: isDark ? 0.6 : 0.5)
+        : hasSubject
         ? indigo.withValues(alpha: isDark ? 0.18 : 0.12)
         : cs.outline.withValues(alpha: isDark ? 0.08 : 0.06);
 
@@ -1912,7 +2162,7 @@ class _PaperSlotCardState extends State<_PaperSlotCard> {
 
           // ── Invigilator ─────────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+            padding: EdgeInsets.fromLTRB(10, 0, 10, hasConflict ? 4 : 10),
             child: _InlineInvigilator(
               value: slot.invigilatorId,
               teachers: widget.teachers,
@@ -1926,6 +2176,33 @@ class _PaperSlotCardState extends State<_PaperSlotCard> {
               },
             ),
           ),
+
+          // ── Conflict error indicator ────────────────────────────────
+          if (hasConflict)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    size: 12,
+                    color: cs.error.withValues(alpha: 0.8),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      widget.errorMessage!,
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w400,
+                        color: cs.error.withValues(alpha: 0.85),
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
@@ -2375,11 +2652,7 @@ class _SubjectDropdown extends StatelessWidget {
   Widget build(BuildContext context) {
     final items = classSubjects.subjects;
     final hasValue = value != null;
-    final label = hasValue && curriculum != null
-        ? subjectLabel(curriculum!, value!)
-        : hasValue
-        ? 'Subject $value'
-        : 'Select subject';
+    final label = hasValue ? classSubjects.nameFor(value!) : 'Select subject';
 
     return GestureDetector(
       onTap: () => _showPicker(context, items),
@@ -2433,7 +2706,8 @@ class _SubjectDropdown extends StatelessWidget {
 
   void _showPicker(
     BuildContext context,
-    List<({SubjectTeacher subject, UsersData teacher})> items,
+    List<({SubjectTeacher subject, UsersData teacher, String subjectName})>
+    items,
   ) {
     final renderBox = context.findRenderObject() as RenderBox;
     final triggerSize = renderBox.size;
@@ -2476,7 +2750,8 @@ class _SubjectDropdownOverlay extends StatefulWidget {
     required this.onDismiss,
   });
 
-  final List<({SubjectTeacher subject, UsersData teacher})> items;
+  final List<({SubjectTeacher subject, UsersData teacher, String subjectName})>
+  items;
   final int? value;
   final CurriculumType? curriculum;
   final Offset triggerOffset;
@@ -2628,9 +2903,7 @@ class _SubjectDropdownOverlayState extends State<_SubjectDropdownOverlay>
                       }
                       final item = widget.items[i - 1];
                       final code = item.subject.subject;
-                      final name = widget.curriculum != null
-                          ? subjectLabel(widget.curriculum!, code)
-                          : 'Subject $code';
+                      final name = widget.items[i - 1].subjectName;
                       final isSelected = widget.value == code;
                       return _buildMenuItem(
                         label: name,
@@ -2673,45 +2946,47 @@ class _SubjectDropdownOverlayState extends State<_SubjectDropdownOverlay>
           }
           return Colors.transparent;
         }),
-        child: Container(
-          height: subtitle != null ? 44 : 36,
-          padding: EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: subtitle != null ? 6 : 8,
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: isSelected
-                            ? FontWeight.w500
-                            : FontWeight.w400,
-                        color: isSelected ? indigo : cs.onSurface,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (subtitle != null)
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: subtitle != null ? 44 : 36),
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: subtitle != null ? 6 : 8,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        subtitle,
+                        label,
                         style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w400,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                          fontSize: 12.5,
+                          fontWeight: isSelected
+                              ? FontWeight.w500
+                              : FontWeight.w400,
+                          color: isSelected ? indigo : cs.onSurface,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
-                  ],
+                      if (subtitle != null)
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w400,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-              if (isSelected) Icon(Icons.check, size: 13, color: indigo),
-            ],
+                if (isSelected) Icon(Icons.check, size: 13, color: indigo),
+              ],
+            ),
           ),
         ),
       ),

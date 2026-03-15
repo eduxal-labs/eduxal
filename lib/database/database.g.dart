@@ -11374,6 +11374,24 @@ class $PapersTable extends Papers with TableInfo<$PapersTable, Paper> {
         requiredDuringInsert: false,
         defaultValue: const Constant(0),
       ).withConverter<PaperStatus>($PapersTable.$converterstatus);
+  static const VerificationMeta _gradeMeta = const VerificationMeta('grade');
+  @override
+  late final GeneratedColumn<int> grade = GeneratedColumn<int>(
+    'grade',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _streamMeta = const VerificationMeta('stream');
+  @override
+  late final GeneratedColumn<int> stream = GeneratedColumn<int>(
+    'stream',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdMeta = const VerificationMeta(
     'created',
   );
@@ -11407,6 +11425,8 @@ class $PapersTable extends Papers with TableInfo<$PapersTable, Paper> {
     start,
     end,
     status,
+    grade,
+    stream,
     created,
     updated,
   ];
@@ -11485,6 +11505,20 @@ class $PapersTable extends Papers with TableInfo<$PapersTable, Paper> {
     } else if (isInserting) {
       context.missing(_endMeta);
     }
+    if (data.containsKey('grade')) {
+      context.handle(
+        _gradeMeta,
+        grade.isAcceptableOrUnknown(data['grade']!, _gradeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_gradeMeta);
+    }
+    if (data.containsKey('stream')) {
+      context.handle(
+        _streamMeta,
+        stream.isAcceptableOrUnknown(data['stream']!, _streamMeta),
+      );
+    }
     if (data.containsKey('created')) {
       context.handle(
         _createdMeta,
@@ -11548,6 +11582,14 @@ class $PapersTable extends Papers with TableInfo<$PapersTable, Paper> {
           data['${effectivePrefix}status'],
         )!,
       ),
+      grade: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}grade'],
+      )!,
+      stream: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}stream'],
+      ),
       created: attachedDatabase.typeMapping.read(
         DriftSqlType.bigInt,
         data['${effectivePrefix}created'],
@@ -11578,6 +11620,8 @@ class Paper extends DataClass implements Insertable<Paper> {
   final BigInt start;
   final BigInt end;
   final PaperStatus status;
+  final int grade;
+  final int? stream;
   final BigInt created;
   final BigInt updated;
   const Paper({
@@ -11590,6 +11634,8 @@ class Paper extends DataClass implements Insertable<Paper> {
     required this.start,
     required this.end,
     required this.status,
+    required this.grade,
+    this.stream,
     required this.created,
     required this.updated,
   });
@@ -11613,6 +11659,10 @@ class Paper extends DataClass implements Insertable<Paper> {
         $PapersTable.$converterstatus.toSql(status),
       );
     }
+    map['grade'] = Variable<int>(grade);
+    if (!nullToAbsent || stream != null) {
+      map['stream'] = Variable<int>(stream);
+    }
     map['created'] = Variable<BigInt>(created);
     map['updated'] = Variable<BigInt>(updated);
     return map;
@@ -11633,6 +11683,10 @@ class Paper extends DataClass implements Insertable<Paper> {
       start: Value(start),
       end: Value(end),
       status: Value(status),
+      grade: Value(grade),
+      stream: stream == null && nullToAbsent
+          ? const Value.absent()
+          : Value(stream),
       created: Value(created),
       updated: Value(updated),
     );
@@ -11653,6 +11707,8 @@ class Paper extends DataClass implements Insertable<Paper> {
       start: serializer.fromJson<BigInt>(json['start']),
       end: serializer.fromJson<BigInt>(json['end']),
       status: serializer.fromJson<PaperStatus>(json['status']),
+      grade: serializer.fromJson<int>(json['grade']),
+      stream: serializer.fromJson<int?>(json['stream']),
       created: serializer.fromJson<BigInt>(json['created']),
       updated: serializer.fromJson<BigInt>(json['updated']),
     );
@@ -11670,6 +11726,8 @@ class Paper extends DataClass implements Insertable<Paper> {
       'start': serializer.toJson<BigInt>(start),
       'end': serializer.toJson<BigInt>(end),
       'status': serializer.toJson<PaperStatus>(status),
+      'grade': serializer.toJson<int>(grade),
+      'stream': serializer.toJson<int?>(stream),
       'created': serializer.toJson<BigInt>(created),
       'updated': serializer.toJson<BigInt>(updated),
     };
@@ -11685,6 +11743,8 @@ class Paper extends DataClass implements Insertable<Paper> {
     BigInt? start,
     BigInt? end,
     PaperStatus? status,
+    int? grade,
+    Value<int?> stream = const Value.absent(),
     BigInt? created,
     BigInt? updated,
   }) => Paper(
@@ -11697,6 +11757,8 @@ class Paper extends DataClass implements Insertable<Paper> {
     start: start ?? this.start,
     end: end ?? this.end,
     status: status ?? this.status,
+    grade: grade ?? this.grade,
+    stream: stream.present ? stream.value : this.stream,
     created: created ?? this.created,
     updated: updated ?? this.updated,
   );
@@ -11713,6 +11775,8 @@ class Paper extends DataClass implements Insertable<Paper> {
       start: data.start.present ? data.start.value : this.start,
       end: data.end.present ? data.end.value : this.end,
       status: data.status.present ? data.status.value : this.status,
+      grade: data.grade.present ? data.grade.value : this.grade,
+      stream: data.stream.present ? data.stream.value : this.stream,
       created: data.created.present ? data.created.value : this.created,
       updated: data.updated.present ? data.updated.value : this.updated,
     );
@@ -11730,6 +11794,8 @@ class Paper extends DataClass implements Insertable<Paper> {
           ..write('start: $start, ')
           ..write('end: $end, ')
           ..write('status: $status, ')
+          ..write('grade: $grade, ')
+          ..write('stream: $stream, ')
           ..write('created: $created, ')
           ..write('updated: $updated')
           ..write(')'))
@@ -11747,6 +11813,8 @@ class Paper extends DataClass implements Insertable<Paper> {
     start,
     end,
     status,
+    grade,
+    stream,
     created,
     updated,
   );
@@ -11763,6 +11831,8 @@ class Paper extends DataClass implements Insertable<Paper> {
           other.start == this.start &&
           other.end == this.end &&
           other.status == this.status &&
+          other.grade == this.grade &&
+          other.stream == this.stream &&
           other.created == this.created &&
           other.updated == this.updated);
 }
@@ -11777,6 +11847,8 @@ class PapersCompanion extends UpdateCompanion<Paper> {
   final Value<BigInt> start;
   final Value<BigInt> end;
   final Value<PaperStatus> status;
+  final Value<int> grade;
+  final Value<int?> stream;
   final Value<BigInt> created;
   final Value<BigInt> updated;
   final Value<int> rowid;
@@ -11790,6 +11862,8 @@ class PapersCompanion extends UpdateCompanion<Paper> {
     this.start = const Value.absent(),
     this.end = const Value.absent(),
     this.status = const Value.absent(),
+    this.grade = const Value.absent(),
+    this.stream = const Value.absent(),
     this.created = const Value.absent(),
     this.updated = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -11804,6 +11878,8 @@ class PapersCompanion extends UpdateCompanion<Paper> {
     required BigInt start,
     required BigInt end,
     this.status = const Value.absent(),
+    required int grade,
+    this.stream = const Value.absent(),
     required BigInt created,
     required BigInt updated,
     this.rowid = const Value.absent(),
@@ -11813,6 +11889,7 @@ class PapersCompanion extends UpdateCompanion<Paper> {
        invigilator = Value(invigilator),
        start = Value(start),
        end = Value(end),
+       grade = Value(grade),
        created = Value(created),
        updated = Value(updated);
   static Insertable<Paper> custom({
@@ -11825,6 +11902,8 @@ class PapersCompanion extends UpdateCompanion<Paper> {
     Expression<BigInt>? start,
     Expression<BigInt>? end,
     Expression<int>? status,
+    Expression<int>? grade,
+    Expression<int>? stream,
     Expression<BigInt>? created,
     Expression<BigInt>? updated,
     Expression<int>? rowid,
@@ -11839,6 +11918,8 @@ class PapersCompanion extends UpdateCompanion<Paper> {
       if (start != null) 'start': start,
       if (end != null) 'end': end,
       if (status != null) 'status': status,
+      if (grade != null) 'grade': grade,
+      if (stream != null) 'stream': stream,
       if (created != null) 'created': created,
       if (updated != null) 'updated': updated,
       if (rowid != null) 'rowid': rowid,
@@ -11855,6 +11936,8 @@ class PapersCompanion extends UpdateCompanion<Paper> {
     Value<BigInt>? start,
     Value<BigInt>? end,
     Value<PaperStatus>? status,
+    Value<int>? grade,
+    Value<int?>? stream,
     Value<BigInt>? created,
     Value<BigInt>? updated,
     Value<int>? rowid,
@@ -11869,6 +11952,8 @@ class PapersCompanion extends UpdateCompanion<Paper> {
       start: start ?? this.start,
       end: end ?? this.end,
       status: status ?? this.status,
+      grade: grade ?? this.grade,
+      stream: stream ?? this.stream,
       created: created ?? this.created,
       updated: updated ?? this.updated,
       rowid: rowid ?? this.rowid,
@@ -11907,6 +11992,12 @@ class PapersCompanion extends UpdateCompanion<Paper> {
         $PapersTable.$converterstatus.toSql(status.value),
       );
     }
+    if (grade.present) {
+      map['grade'] = Variable<int>(grade.value);
+    }
+    if (stream.present) {
+      map['stream'] = Variable<int>(stream.value);
+    }
     if (created.present) {
       map['created'] = Variable<BigInt>(created.value);
     }
@@ -11931,6 +12022,8 @@ class PapersCompanion extends UpdateCompanion<Paper> {
           ..write('start: $start, ')
           ..write('end: $end, ')
           ..write('status: $status, ')
+          ..write('grade: $grade, ')
+          ..write('stream: $stream, ')
           ..write('created: $created, ')
           ..write('updated: $updated, ')
           ..write('rowid: $rowid')
@@ -16609,268 +16702,6 @@ class AiUsageCompanion extends UpdateCompanion<AiUsageData> {
   }
 }
 
-class $ExamGradesTable extends ExamGrades
-    with TableInfo<$ExamGradesTable, ExamGrade> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $ExamGradesTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _examMeta = const VerificationMeta('exam');
-  @override
-  late final GeneratedColumn<String> exam = GeneratedColumn<String>(
-    'exam',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES exams (id) ON DELETE CASCADE',
-    ),
-  );
-  static const VerificationMeta _gradeMeta = const VerificationMeta('grade');
-  @override
-  late final GeneratedColumn<int> grade = GeneratedColumn<int>(
-    'grade',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _streamMeta = const VerificationMeta('stream');
-  @override
-  late final GeneratedColumn<int> stream = GeneratedColumn<int>(
-    'stream',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-  );
-  @override
-  List<GeneratedColumn> get $columns => [exam, grade, stream];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'exam_grades';
-  @override
-  VerificationContext validateIntegrity(
-    Insertable<ExamGrade> instance, {
-    bool isInserting = false,
-  }) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('exam')) {
-      context.handle(
-        _examMeta,
-        exam.isAcceptableOrUnknown(data['exam']!, _examMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_examMeta);
-    }
-    if (data.containsKey('grade')) {
-      context.handle(
-        _gradeMeta,
-        grade.isAcceptableOrUnknown(data['grade']!, _gradeMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_gradeMeta);
-    }
-    if (data.containsKey('stream')) {
-      context.handle(
-        _streamMeta,
-        stream.isAcceptableOrUnknown(data['stream']!, _streamMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_streamMeta);
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {exam, grade, stream};
-  @override
-  ExamGrade map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return ExamGrade(
-      exam: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}exam'],
-      )!,
-      grade: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}grade'],
-      )!,
-      stream: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}stream'],
-      )!,
-    );
-  }
-
-  @override
-  $ExamGradesTable createAlias(String alias) {
-    return $ExamGradesTable(attachedDatabase, alias);
-  }
-}
-
-class ExamGrade extends DataClass implements Insertable<ExamGrade> {
-  final String exam;
-  final int grade;
-  final int stream;
-  const ExamGrade({
-    required this.exam,
-    required this.grade,
-    required this.stream,
-  });
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['exam'] = Variable<String>(exam);
-    map['grade'] = Variable<int>(grade);
-    map['stream'] = Variable<int>(stream);
-    return map;
-  }
-
-  ExamGradesCompanion toCompanion(bool nullToAbsent) {
-    return ExamGradesCompanion(
-      exam: Value(exam),
-      grade: Value(grade),
-      stream: Value(stream),
-    );
-  }
-
-  factory ExamGrade.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return ExamGrade(
-      exam: serializer.fromJson<String>(json['exam']),
-      grade: serializer.fromJson<int>(json['grade']),
-      stream: serializer.fromJson<int>(json['stream']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'exam': serializer.toJson<String>(exam),
-      'grade': serializer.toJson<int>(grade),
-      'stream': serializer.toJson<int>(stream),
-    };
-  }
-
-  ExamGrade copyWith({String? exam, int? grade, int? stream}) => ExamGrade(
-    exam: exam ?? this.exam,
-    grade: grade ?? this.grade,
-    stream: stream ?? this.stream,
-  );
-  ExamGrade copyWithCompanion(ExamGradesCompanion data) {
-    return ExamGrade(
-      exam: data.exam.present ? data.exam.value : this.exam,
-      grade: data.grade.present ? data.grade.value : this.grade,
-      stream: data.stream.present ? data.stream.value : this.stream,
-    );
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('ExamGrade(')
-          ..write('exam: $exam, ')
-          ..write('grade: $grade, ')
-          ..write('stream: $stream')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode => Object.hash(exam, grade, stream);
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is ExamGrade &&
-          other.exam == this.exam &&
-          other.grade == this.grade &&
-          other.stream == this.stream);
-}
-
-class ExamGradesCompanion extends UpdateCompanion<ExamGrade> {
-  final Value<String> exam;
-  final Value<int> grade;
-  final Value<int> stream;
-  final Value<int> rowid;
-  const ExamGradesCompanion({
-    this.exam = const Value.absent(),
-    this.grade = const Value.absent(),
-    this.stream = const Value.absent(),
-    this.rowid = const Value.absent(),
-  });
-  ExamGradesCompanion.insert({
-    required String exam,
-    required int grade,
-    required int stream,
-    this.rowid = const Value.absent(),
-  }) : exam = Value(exam),
-       grade = Value(grade),
-       stream = Value(stream);
-  static Insertable<ExamGrade> custom({
-    Expression<String>? exam,
-    Expression<int>? grade,
-    Expression<int>? stream,
-    Expression<int>? rowid,
-  }) {
-    return RawValuesInsertable({
-      if (exam != null) 'exam': exam,
-      if (grade != null) 'grade': grade,
-      if (stream != null) 'stream': stream,
-      if (rowid != null) 'rowid': rowid,
-    });
-  }
-
-  ExamGradesCompanion copyWith({
-    Value<String>? exam,
-    Value<int>? grade,
-    Value<int>? stream,
-    Value<int>? rowid,
-  }) {
-    return ExamGradesCompanion(
-      exam: exam ?? this.exam,
-      grade: grade ?? this.grade,
-      stream: stream ?? this.stream,
-      rowid: rowid ?? this.rowid,
-    );
-  }
-
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (exam.present) {
-      map['exam'] = Variable<String>(exam.value);
-    }
-    if (grade.present) {
-      map['grade'] = Variable<int>(grade.value);
-    }
-    if (stream.present) {
-      map['stream'] = Variable<int>(stream.value);
-    }
-    if (rowid.present) {
-      map['rowid'] = Variable<int>(rowid.value);
-    }
-    return map;
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('ExamGradesCompanion(')
-          ..write('exam: $exam, ')
-          ..write('grade: $grade, ')
-          ..write('stream: $stream, ')
-          ..write('rowid: $rowid')
-          ..write(')'))
-        .toString();
-  }
-}
-
 class $ScopesTable extends Scopes with TableInfo<$ScopesTable, Scope> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -19675,7 +19506,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $AnnouncementsTable announcements = $AnnouncementsTable(this);
   late final $MasteryTable mastery = $MasteryTable(this);
   late final $AiUsageTable aiUsage = $AiUsageTable(this);
-  late final $ExamGradesTable examGrades = $ExamGradesTable(this);
   late final $ScopesTable scopes = $ScopesTable(this);
   late final $SubscriptionsTable subscriptions = $SubscriptionsTable(this);
   late final $DiscountsTable discounts = $DiscountsTable(this);
@@ -19749,7 +19579,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     announcements,
     mastery,
     aiUsage,
-    examGrades,
     scopes,
     subscriptions,
     discounts,
@@ -20023,13 +19852,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('aiusage', kind: UpdateKind.delete)],
-    ),
-    WritePropagation(
-      on: TableUpdateQuery.onTableName(
-        'exams',
-        limitUpdateKind: UpdateKind.delete,
-      ),
-      result: [TableUpdate('exam_grades', kind: UpdateKind.delete)],
     ),
     WritePropagation(
       on: TableUpdateQuery.onTableName(
@@ -31969,24 +31791,6 @@ final class $$ExamsTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
-
-  static MultiTypedResultKey<$ExamGradesTable, List<ExamGrade>>
-  _examGradesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
-    db.examGrades,
-    aliasName: $_aliasNameGenerator(db.exams.id, db.examGrades.exam),
-  );
-
-  $$ExamGradesTableProcessedTableManager get examGradesRefs {
-    final manager = $$ExamGradesTableTableManager(
-      $_db,
-      $_db.examGrades,
-    ).filter((f) => f.exam.id.sqlEquals($_itemColumn<String>('id')!));
-
-    final cache = $_typedResult.readTableOrNull(_examGradesRefsTable($_db));
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: cache),
-    );
-  }
 }
 
 class $$ExamsTableFilterComposer extends Composer<_$AppDatabase, $ExamsTable> {
@@ -32092,31 +31896,6 @@ class $$ExamsTableFilterComposer extends Composer<_$AppDatabase, $ExamsTable> {
           }) => $$PapersTableFilterComposer(
             $db: $db,
             $table: $db.papers,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
-
-  Expression<bool> examGradesRefs(
-    Expression<bool> Function($$ExamGradesTableFilterComposer f) f,
-  ) {
-    final $$ExamGradesTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.examGrades,
-      getReferencedColumn: (t) => t.exam,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$ExamGradesTableFilterComposer(
-            $db: $db,
-            $table: $db.examGrades,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -32306,31 +32085,6 @@ class $$ExamsTableAnnotationComposer
     );
     return f(composer);
   }
-
-  Expression<T> examGradesRefs<T extends Object>(
-    Expression<T> Function($$ExamGradesTableAnnotationComposer a) f,
-  ) {
-    final $$ExamGradesTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.examGrades,
-      getReferencedColumn: (t) => t.exam,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$ExamGradesTableAnnotationComposer(
-            $db: $db,
-            $table: $db.examGrades,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
 }
 
 class $$ExamsTableTableManager
@@ -32346,11 +32100,7 @@ class $$ExamsTableTableManager
           $$ExamsTableUpdateCompanionBuilder,
           (Exam, $$ExamsTableReferences),
           Exam,
-          PrefetchHooks Function({
-            bool school,
-            bool papersRefs,
-            bool examGradesRefs,
-          })
+          PrefetchHooks Function({bool school, bool papersRefs})
         > {
   $$ExamsTableTableManager(_$AppDatabase db, $ExamsTable table)
     : super(
@@ -32429,82 +32179,60 @@ class $$ExamsTableTableManager
                     (e.readTable(table), $$ExamsTableReferences(db, table, e)),
               )
               .toList(),
-          prefetchHooksCallback:
-              ({school = false, papersRefs = false, examGradesRefs = false}) {
-                return PrefetchHooks(
-                  db: db,
-                  explicitlyWatchedTables: [
-                    if (papersRefs) db.papers,
-                    if (examGradesRefs) db.examGrades,
-                  ],
-                  addJoins:
-                      <
-                        T extends TableManagerState<
-                          dynamic,
-                          dynamic,
-                          dynamic,
-                          dynamic,
-                          dynamic,
-                          dynamic,
-                          dynamic,
-                          dynamic,
-                          dynamic,
-                          dynamic,
-                          dynamic
-                        >
-                      >(state) {
-                        if (school) {
-                          state =
-                              state.withJoin(
-                                    currentTable: table,
-                                    currentColumn: table.school,
-                                    referencedTable: $$ExamsTableReferences
-                                        ._schoolTable(db),
-                                    referencedColumn: $$ExamsTableReferences
-                                        ._schoolTable(db)
-                                        .id,
-                                  )
-                                  as T;
-                        }
+          prefetchHooksCallback: ({school = false, papersRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (papersRefs) db.papers],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (school) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.school,
+                                referencedTable: $$ExamsTableReferences
+                                    ._schoolTable(db),
+                                referencedColumn: $$ExamsTableReferences
+                                    ._schoolTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
 
-                        return state;
-                      },
-                  getPrefetchedDataCallback: (items) async {
-                    return [
-                      if (papersRefs)
-                        await $_getPrefetchedData<Exam, $ExamsTable, Paper>(
-                          currentTable: table,
-                          referencedTable: $$ExamsTableReferences
-                              ._papersRefsTable(db),
-                          managerFromTypedResult: (p0) =>
-                              $$ExamsTableReferences(db, table, p0).papersRefs,
-                          referencedItemsForCurrentItem:
-                              (item, referencedItems) => referencedItems.where(
-                                (e) => e.exam == item.id,
-                              ),
-                          typedResults: items,
-                        ),
-                      if (examGradesRefs)
-                        await $_getPrefetchedData<Exam, $ExamsTable, ExamGrade>(
-                          currentTable: table,
-                          referencedTable: $$ExamsTableReferences
-                              ._examGradesRefsTable(db),
-                          managerFromTypedResult: (p0) =>
-                              $$ExamsTableReferences(
-                                db,
-                                table,
-                                p0,
-                              ).examGradesRefs,
-                          referencedItemsForCurrentItem:
-                              (item, referencedItems) => referencedItems.where(
-                                (e) => e.exam == item.id,
-                              ),
-                          typedResults: items,
-                        ),
-                    ];
+                    return state;
                   },
-                );
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (papersRefs)
+                    await $_getPrefetchedData<Exam, $ExamsTable, Paper>(
+                      currentTable: table,
+                      referencedTable: $$ExamsTableReferences._papersRefsTable(
+                        db,
+                      ),
+                      managerFromTypedResult: (p0) =>
+                          $$ExamsTableReferences(db, table, p0).papersRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.exam == item.id),
+                      typedResults: items,
+                    ),
+                ];
               },
+            );
+          },
         ),
       );
 }
@@ -32521,11 +32249,7 @@ typedef $$ExamsTableProcessedTableManager =
       $$ExamsTableUpdateCompanionBuilder,
       (Exam, $$ExamsTableReferences),
       Exam,
-      PrefetchHooks Function({
-        bool school,
-        bool papersRefs,
-        bool examGradesRefs,
-      })
+      PrefetchHooks Function({bool school, bool papersRefs})
     >;
 typedef $$PapersTableCreateCompanionBuilder =
     PapersCompanion Function({
@@ -32538,6 +32262,8 @@ typedef $$PapersTableCreateCompanionBuilder =
       required BigInt start,
       required BigInt end,
       Value<PaperStatus> status,
+      required int grade,
+      Value<int?> stream,
       required BigInt created,
       required BigInt updated,
       Value<int> rowid,
@@ -32553,6 +32279,8 @@ typedef $$PapersTableUpdateCompanionBuilder =
       Value<BigInt> start,
       Value<BigInt> end,
       Value<PaperStatus> status,
+      Value<int> grade,
+      Value<int?> stream,
       Value<BigInt> created,
       Value<BigInt> updated,
       Value<int> rowid,
@@ -32642,6 +32370,16 @@ class $$PapersTableFilterComposer
         column: $table.status,
         builder: (column) => ColumnWithTypeConverterFilters(column),
       );
+
+  ColumnFilters<int> get grade => $composableBuilder(
+    column: $table.grade,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get stream => $composableBuilder(
+    column: $table.stream,
+    builder: (column) => ColumnFilters(column),
+  );
 
   ColumnFilters<BigInt> get created => $composableBuilder(
     column: $table.created,
@@ -32744,6 +32482,16 @@ class $$PapersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get grade => $composableBuilder(
+    column: $table.grade,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get stream => $composableBuilder(
+    column: $table.stream,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<BigInt> get created => $composableBuilder(
     column: $table.created,
     builder: (column) => ColumnOrderings(column),
@@ -32832,6 +32580,12 @@ class $$PapersTableAnnotationComposer
 
   GeneratedColumnWithTypeConverter<PaperStatus, int> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<int> get grade =>
+      $composableBuilder(column: $table.grade, builder: (column) => column);
+
+  GeneratedColumn<int> get stream =>
+      $composableBuilder(column: $table.stream, builder: (column) => column);
 
   GeneratedColumn<BigInt> get created =>
       $composableBuilder(column: $table.created, builder: (column) => column);
@@ -32923,6 +32677,8 @@ class $$PapersTableTableManager
                 Value<BigInt> start = const Value.absent(),
                 Value<BigInt> end = const Value.absent(),
                 Value<PaperStatus> status = const Value.absent(),
+                Value<int> grade = const Value.absent(),
+                Value<int?> stream = const Value.absent(),
                 Value<BigInt> created = const Value.absent(),
                 Value<BigInt> updated = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -32936,6 +32692,8 @@ class $$PapersTableTableManager
                 start: start,
                 end: end,
                 status: status,
+                grade: grade,
+                stream: stream,
                 created: created,
                 updated: updated,
                 rowid: rowid,
@@ -32951,6 +32709,8 @@ class $$PapersTableTableManager
                 required BigInt start,
                 required BigInt end,
                 Value<PaperStatus> status = const Value.absent(),
+                required int grade,
+                Value<int?> stream = const Value.absent(),
                 required BigInt created,
                 required BigInt updated,
                 Value<int> rowid = const Value.absent(),
@@ -32964,6 +32724,8 @@ class $$PapersTableTableManager
                 start: start,
                 end: end,
                 status: status,
+                grade: grade,
+                stream: stream,
                 created: created,
                 updated: updated,
                 rowid: rowid,
@@ -36972,286 +36734,6 @@ typedef $$AiUsageTableProcessedTableManager =
       AiUsageData,
       PrefetchHooks Function({bool school})
     >;
-typedef $$ExamGradesTableCreateCompanionBuilder =
-    ExamGradesCompanion Function({
-      required String exam,
-      required int grade,
-      required int stream,
-      Value<int> rowid,
-    });
-typedef $$ExamGradesTableUpdateCompanionBuilder =
-    ExamGradesCompanion Function({
-      Value<String> exam,
-      Value<int> grade,
-      Value<int> stream,
-      Value<int> rowid,
-    });
-
-final class $$ExamGradesTableReferences
-    extends BaseReferences<_$AppDatabase, $ExamGradesTable, ExamGrade> {
-  $$ExamGradesTableReferences(super.$_db, super.$_table, super.$_typedResult);
-
-  static $ExamsTable _examTable(_$AppDatabase db) => db.exams.createAlias(
-    $_aliasNameGenerator(db.examGrades.exam, db.exams.id),
-  );
-
-  $$ExamsTableProcessedTableManager get exam {
-    final $_column = $_itemColumn<String>('exam')!;
-
-    final manager = $$ExamsTableTableManager(
-      $_db,
-      $_db.exams,
-    ).filter((f) => f.id.sqlEquals($_column));
-    final item = $_typedResult.readTableOrNull(_examTable($_db));
-    if (item == null) return manager;
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: [item]),
-    );
-  }
-}
-
-class $$ExamGradesTableFilterComposer
-    extends Composer<_$AppDatabase, $ExamGradesTable> {
-  $$ExamGradesTableFilterComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnFilters<int> get grade => $composableBuilder(
-    column: $table.grade,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get stream => $composableBuilder(
-    column: $table.stream,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  $$ExamsTableFilterComposer get exam {
-    final $$ExamsTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.exam,
-      referencedTable: $db.exams,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$ExamsTableFilterComposer(
-            $db: $db,
-            $table: $db.exams,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-}
-
-class $$ExamGradesTableOrderingComposer
-    extends Composer<_$AppDatabase, $ExamGradesTable> {
-  $$ExamGradesTableOrderingComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnOrderings<int> get grade => $composableBuilder(
-    column: $table.grade,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get stream => $composableBuilder(
-    column: $table.stream,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  $$ExamsTableOrderingComposer get exam {
-    final $$ExamsTableOrderingComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.exam,
-      referencedTable: $db.exams,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$ExamsTableOrderingComposer(
-            $db: $db,
-            $table: $db.exams,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-}
-
-class $$ExamGradesTableAnnotationComposer
-    extends Composer<_$AppDatabase, $ExamGradesTable> {
-  $$ExamGradesTableAnnotationComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  GeneratedColumn<int> get grade =>
-      $composableBuilder(column: $table.grade, builder: (column) => column);
-
-  GeneratedColumn<int> get stream =>
-      $composableBuilder(column: $table.stream, builder: (column) => column);
-
-  $$ExamsTableAnnotationComposer get exam {
-    final $$ExamsTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.exam,
-      referencedTable: $db.exams,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$ExamsTableAnnotationComposer(
-            $db: $db,
-            $table: $db.exams,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-}
-
-class $$ExamGradesTableTableManager
-    extends
-        RootTableManager<
-          _$AppDatabase,
-          $ExamGradesTable,
-          ExamGrade,
-          $$ExamGradesTableFilterComposer,
-          $$ExamGradesTableOrderingComposer,
-          $$ExamGradesTableAnnotationComposer,
-          $$ExamGradesTableCreateCompanionBuilder,
-          $$ExamGradesTableUpdateCompanionBuilder,
-          (ExamGrade, $$ExamGradesTableReferences),
-          ExamGrade,
-          PrefetchHooks Function({bool exam})
-        > {
-  $$ExamGradesTableTableManager(_$AppDatabase db, $ExamGradesTable table)
-    : super(
-        TableManagerState(
-          db: db,
-          table: table,
-          createFilteringComposer: () =>
-              $$ExamGradesTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$ExamGradesTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$ExamGradesTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback:
-              ({
-                Value<String> exam = const Value.absent(),
-                Value<int> grade = const Value.absent(),
-                Value<int> stream = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
-              }) => ExamGradesCompanion(
-                exam: exam,
-                grade: grade,
-                stream: stream,
-                rowid: rowid,
-              ),
-          createCompanionCallback:
-              ({
-                required String exam,
-                required int grade,
-                required int stream,
-                Value<int> rowid = const Value.absent(),
-              }) => ExamGradesCompanion.insert(
-                exam: exam,
-                grade: grade,
-                stream: stream,
-                rowid: rowid,
-              ),
-          withReferenceMapper: (p0) => p0
-              .map(
-                (e) => (
-                  e.readTable(table),
-                  $$ExamGradesTableReferences(db, table, e),
-                ),
-              )
-              .toList(),
-          prefetchHooksCallback: ({exam = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [],
-              addJoins:
-                  <
-                    T extends TableManagerState<
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic
-                    >
-                  >(state) {
-                    if (exam) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.exam,
-                                referencedTable: $$ExamGradesTableReferences
-                                    ._examTable(db),
-                                referencedColumn: $$ExamGradesTableReferences
-                                    ._examTable(db)
-                                    .id,
-                              )
-                              as T;
-                    }
-
-                    return state;
-                  },
-              getPrefetchedDataCallback: (items) async {
-                return [];
-              },
-            );
-          },
-        ),
-      );
-}
-
-typedef $$ExamGradesTableProcessedTableManager =
-    ProcessedTableManager<
-      _$AppDatabase,
-      $ExamGradesTable,
-      ExamGrade,
-      $$ExamGradesTableFilterComposer,
-      $$ExamGradesTableOrderingComposer,
-      $$ExamGradesTableAnnotationComposer,
-      $$ExamGradesTableCreateCompanionBuilder,
-      $$ExamGradesTableUpdateCompanionBuilder,
-      (ExamGrade, $$ExamGradesTableReferences),
-      ExamGrade,
-      PrefetchHooks Function({bool exam})
-    >;
 typedef $$ScopesTableCreateCompanionBuilder =
     ScopesCompanion Function({
       Value<String?> school,
@@ -39562,8 +39044,6 @@ class $AppDatabaseManager {
       $$MasteryTableTableManager(_db, _db.mastery);
   $$AiUsageTableTableManager get aiUsage =>
       $$AiUsageTableTableManager(_db, _db.aiUsage);
-  $$ExamGradesTableTableManager get examGrades =>
-      $$ExamGradesTableTableManager(_db, _db.examGrades);
   $$ScopesTableTableManager get scopes =>
       $$ScopesTableTableManager(_db, _db.scopes);
   $$SubscriptionsTableTableManager get subscriptions =>

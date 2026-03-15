@@ -465,8 +465,12 @@ enum SyncAction {
   createMpesa(86),
   updateMpesa(87),
   deleteMpesa(88),
-  // Exam Grades (junction)
+  // Exam Grades — DEPRECATED (table removed, grade/stream moved to papers)
+  // ignore: deprecated_member_use_from_same_package
+  @Deprecated('ExamGrades removed — grade/stream moved to papers')
   addExamGrade(89),
+  // ignore: deprecated_member_use_from_same_package
+  @Deprecated('ExamGrades removed — grade/stream moved to papers')
   removeExamGrade(90);
 
   const SyncAction(this.value);

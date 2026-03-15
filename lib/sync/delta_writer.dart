@@ -174,7 +174,11 @@ class DeltaWriter {
       case 34:
         await _applyMpesa(delta);
       case 35:
-        await _applyExamGrade(delta);
+        // ExamGrades table removed — grade/stream moved to papers.
+        debugPrint(
+          '[DeltaWriter] ⚠ Received delta for removed exam_grades table '
+          '(table=35) — SKIPPED',
+        );
       default:
         debugPrint(
           '[DeltaWriter] ⚠ UNKNOWN table=${delta.table}, '
@@ -775,15 +779,18 @@ class DeltaWriter {
     // upsert because Drift's insertOnConflictUpdate cannot handle nullable PKs.
     final paperVal = _parseIntNullable(k[3]);
     final topicVal = row.hasTopic() ? row.topic : null;
+    final streamVal = row.hasStream() ? row.stream : null;
     await _db.customStatement(
-      'INSERT INTO papers (school, exam, subject, paper, topic, invigilator, start, "end", status, created, updated)'
-      ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO papers (school, exam, subject, paper, topic, invigilator, start, "end", status, grade, stream, created, updated)'
+      ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
       ' ON CONFLICT (school, exam, subject, paper) DO UPDATE SET'
       ' topic = excluded.topic,'
       ' invigilator = excluded.invigilator,'
       ' start = excluded.start,'
       ' "end" = excluded."end",'
       ' status = excluded.status,'
+      ' grade = excluded.grade,'
+      ' stream = excluded.stream,'
       ' created = excluded.created,'
       ' updated = excluded.updated',
       [
@@ -796,6 +803,8 @@ class DeltaWriter {
         row.start.toInt(),
         row.end.toInt(),
         row.status,
+        row.grade,
+        streamVal,
         now.toInt(),
         now.toInt(),
       ],
@@ -1356,41 +1365,5 @@ class DeltaWriter {
             updated: Value(now),
           ),
         );
-  }
-
-  // ---------------------------------------------------------------------------
-  // 35: exam_grades  — PK: (exam, grade, stream)
-  //     rowKey: "{exam}|{grade}|{stream}"
-  // ---------------------------------------------------------------------------
-
-  Future<void> _applyExamGrade(SyncDelta delta) async {
-    final k = _parseKey(delta.rowKey);
-    if (delta.operation == 2) {
-      await (_db.delete(_db.examGrades)..where(
-            (t) =>
-                t.exam.equals(k[0]) &
-                t.grade.equals(_parseInt(k[1])) &
-                t.stream.equals(_parseInt(k[2])),
-          ))
-          .go();
-      return;
-    }
-    if (!delta.hasData() || !delta.data.hasExamGrade()) {
-      debugPrint(
-        '[DeltaWriter] ⚠ _applyExamGrade — delta has NO examGrade data!',
-      );
-      return;
-    }
-    // ExamGradeInsert only carries the PK fields — upsert using rowKey parts.
-    await _db
-        .into(_db.examGrades)
-        .insertOnConflictUpdate(
-          ExamGradesCompanion(
-            exam: Value(k[0]),
-            grade: Value(_parseInt(k[1])),
-            stream: Value(_parseInt(k[2])),
-          ),
-        );
-    debugPrint('[DeltaWriter] _applyExamGrade — INSERT OK key=${delta.rowKey}');
   }
 }

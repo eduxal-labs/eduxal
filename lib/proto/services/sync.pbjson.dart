@@ -1126,20 +1126,6 @@ final $typed_data.Uint8List deleteLessonPayloadDescriptor = $convert.base64Decod
     'c3RyZWFtGAUgASgFUgZzdHJlYW0SEgoEZGF0ZRgGIAEoBVIEZGF0ZRIYCgdzdWJqZWN0GAcgAS'
     'gFUgdzdWJqZWN0EhgKB3RlYWNoZXIYCCABKAlSB3RlYWNoZXI=');
 
-@$core.Deprecated('Use examGradeEntryDescriptor instead')
-const ExamGradeEntry$json = {
-  '1': 'ExamGradeEntry',
-  '2': [
-    {'1': 'grade', '3': 1, '4': 1, '5': 5, '10': 'grade'},
-    {'1': 'stream', '3': 2, '4': 1, '5': 5, '10': 'stream'},
-  ],
-};
-
-/// Descriptor for `ExamGradeEntry`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List examGradeEntryDescriptor = $convert.base64Decode(
-    'Cg5FeGFtR3JhZGVFbnRyeRIUCgVncmFkZRgBIAEoBVIFZ3JhZGUSFgoGc3RyZWFtGAIgASgFUg'
-    'ZzdHJlYW0=');
-
 @$core.Deprecated('Use createExamPayloadDescriptor instead')
 const CreateExamPayload$json = {
   '1': 'CreateExamPayload',
@@ -1154,14 +1140,6 @@ const CreateExamPayload$json = {
     {'1': 'start', '3': 8, '4': 1, '5': 5, '10': 'start'},
     {'1': 'end', '3': 9, '4': 1, '5': 5, '10': 'end'},
     {'1': 'teacher', '3': 10, '4': 1, '5': 9, '10': 'teacher'},
-    {
-      '1': 'grades',
-      '3': 11,
-      '4': 3,
-      '5': 11,
-      '6': '.sync.ExamGradeEntry',
-      '10': 'grades'
-    },
   ],
 };
 
@@ -1171,8 +1149,7 @@ final $typed_data.Uint8List createExamPayloadDescriptor = $convert.base64Decode(
     'hvb2wSEgoEbmFtZRgDIAEoCVIEbmFtZRISCgR5ZWFyGAQgASgFUgR5ZWFyEhIKBHRlcm0YBSAB'
     'KAVSBHRlcm0SIgoMcGVyc29uYWxpemVkGAYgASgIUgxwZXJzb25hbGl6ZWQSEgoEdHlwZRgHIA'
     'EoBVIEdHlwZRIUCgVzdGFydBgIIAEoBVIFc3RhcnQSEAoDZW5kGAkgASgFUgNlbmQSGAoHdGVh'
-    'Y2hlchgKIAEoCVIHdGVhY2hlchIsCgZncmFkZXMYCyADKAsyFC5zeW5jLkV4YW1HcmFkZUVudH'
-    'J5UgZncmFkZXM=');
+    'Y2hlchgKIAEoCVIHdGVhY2hlcg==');
 
 @$core.Deprecated('Use updateExamPayloadDescriptor instead')
 const UpdateExamPayload$json = {
@@ -1244,10 +1221,21 @@ const CreatePaperPayload$json = {
     {'1': 'start', '3': 6, '4': 1, '5': 3, '10': 'start'},
     {'1': 'end', '3': 7, '4': 1, '5': 3, '10': 'end'},
     {'1': 'topic', '3': 8, '4': 1, '5': 5, '9': 1, '10': 'topic', '17': true},
+    {'1': 'grade', '3': 9, '4': 1, '5': 5, '10': 'grade'},
+    {
+      '1': 'stream',
+      '3': 10,
+      '4': 1,
+      '5': 5,
+      '9': 2,
+      '10': 'stream',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_paper'},
     {'1': '_topic'},
+    {'1': '_stream'},
   ],
 };
 
@@ -1256,8 +1244,9 @@ final $typed_data.Uint8List createPaperPayloadDescriptor = $convert.base64Decode
     'ChJDcmVhdGVQYXBlclBheWxvYWQSFgoGc2Nob29sGAEgASgJUgZzY2hvb2wSEgoEZXhhbRgCIA'
     'EoCVIEZXhhbRIYCgdzdWJqZWN0GAMgASgFUgdzdWJqZWN0EhkKBXBhcGVyGAQgASgFSABSBXBh'
     'cGVyiAEBEiAKC2ludmlnaWxhdG9yGAUgASgJUgtpbnZpZ2lsYXRvchIUCgVzdGFydBgGIAEoA1'
-    'IFc3RhcnQSEAoDZW5kGAcgASgDUgNlbmQSGQoFdG9waWMYCCABKAVIAVIFdG9waWOIAQFCCAoG'
-    'X3BhcGVyQggKBl90b3BpYw==');
+    'IFc3RhcnQSEAoDZW5kGAcgASgDUgNlbmQSGQoFdG9waWMYCCABKAVIAVIFdG9waWOIAQESFAoF'
+    'Z3JhZGUYCSABKAVSBWdyYWRlEhsKBnN0cmVhbRgKIAEoBUgCUgZzdHJlYW2IAQFCCAoGX3BhcG'
+    'VyQggKBl90b3BpY0IJCgdfc3RyZWFt');
 
 @$core.Deprecated('Use updatePaperPayloadDescriptor instead')
 const UpdatePaperPayload$json = {
@@ -1280,6 +1269,16 @@ const UpdatePaperPayload$json = {
     {'1': 'end', '3': 7, '4': 1, '5': 3, '9': 3, '10': 'end', '17': true},
     {'1': 'status', '3': 8, '4': 1, '5': 5, '9': 4, '10': 'status', '17': true},
     {'1': 'topic', '3': 9, '4': 1, '5': 5, '9': 5, '10': 'topic', '17': true},
+    {'1': 'grade', '3': 10, '4': 1, '5': 5, '9': 6, '10': 'grade', '17': true},
+    {
+      '1': 'stream',
+      '3': 11,
+      '4': 1,
+      '5': 5,
+      '9': 7,
+      '10': 'stream',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_paper'},
@@ -1288,6 +1287,8 @@ const UpdatePaperPayload$json = {
     {'1': '_end'},
     {'1': '_status'},
     {'1': '_topic'},
+    {'1': '_grade'},
+    {'1': '_stream'},
   ],
 };
 
@@ -1297,8 +1298,10 @@ final $typed_data.Uint8List updatePaperPayloadDescriptor = $convert.base64Decode
     'EoCVIEZXhhbRIYCgdzdWJqZWN0GAMgASgFUgdzdWJqZWN0EhkKBXBhcGVyGAQgASgFSABSBXBh'
     'cGVyiAEBEiUKC2ludmlnaWxhdG9yGAUgASgJSAFSC2ludmlnaWxhdG9yiAEBEhkKBXN0YXJ0GA'
     'YgASgDSAJSBXN0YXJ0iAEBEhUKA2VuZBgHIAEoA0gDUgNlbmSIAQESGwoGc3RhdHVzGAggASgF'
-    'SARSBnN0YXR1c4gBARIZCgV0b3BpYxgJIAEoBUgFUgV0b3BpY4gBAUIICgZfcGFwZXJCDgoMX2'
-    'ludmlnaWxhdG9yQggKBl9zdGFydEIGCgRfZW5kQgkKB19zdGF0dXNCCAoGX3RvcGlj');
+    'SARSBnN0YXR1c4gBARIZCgV0b3BpYxgJIAEoBUgFUgV0b3BpY4gBARIZCgVncmFkZRgKIAEoBU'
+    'gGUgVncmFkZYgBARIbCgZzdHJlYW0YCyABKAVIB1IGc3RyZWFtiAEBQggKBl9wYXBlckIOCgxf'
+    'aW52aWdpbGF0b3JCCAoGX3N0YXJ0QgYKBF9lbmRCCQoHX3N0YXR1c0IICgZfdG9waWNCCAoGX2'
+    'dyYWRlQgkKB19zdHJlYW0=');
 
 @$core.Deprecated('Use deletePaperPayloadDescriptor instead')
 const DeletePaperPayload$json = {
@@ -2239,37 +2242,6 @@ final $typed_data.Uint8List deleteMpesaPayloadDescriptor =
     $convert.base64Decode(
         'ChJEZWxldGVNcGVzYVBheWxvYWQSFgoGc2Nob29sGAEgASgJUgZzY2hvb2w=');
 
-@$core.Deprecated('Use addExamGradePayloadDescriptor instead')
-const AddExamGradePayload$json = {
-  '1': 'AddExamGradePayload',
-  '2': [
-    {'1': 'exam', '3': 1, '4': 1, '5': 9, '10': 'exam'},
-    {'1': 'grade', '3': 2, '4': 1, '5': 5, '10': 'grade'},
-    {'1': 'stream', '3': 3, '4': 1, '5': 5, '10': 'stream'},
-  ],
-};
-
-/// Descriptor for `AddExamGradePayload`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List addExamGradePayloadDescriptor = $convert.base64Decode(
-    'ChNBZGRFeGFtR3JhZGVQYXlsb2FkEhIKBGV4YW0YASABKAlSBGV4YW0SFAoFZ3JhZGUYAiABKA'
-    'VSBWdyYWRlEhYKBnN0cmVhbRgDIAEoBVIGc3RyZWFt');
-
-@$core.Deprecated('Use removeExamGradePayloadDescriptor instead')
-const RemoveExamGradePayload$json = {
-  '1': 'RemoveExamGradePayload',
-  '2': [
-    {'1': 'exam', '3': 1, '4': 1, '5': 9, '10': 'exam'},
-    {'1': 'grade', '3': 2, '4': 1, '5': 5, '10': 'grade'},
-    {'1': 'stream', '3': 3, '4': 1, '5': 5, '10': 'stream'},
-  ],
-};
-
-/// Descriptor for `RemoveExamGradePayload`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List removeExamGradePayloadDescriptor =
-    $convert.base64Decode(
-        'ChZSZW1vdmVFeGFtR3JhZGVQYXlsb2FkEhIKBGV4YW0YASABKAlSBGV4YW0SFAoFZ3JhZGUYAi'
-        'ABKAVSBWdyYWRlEhYKBnN0cmVhbRgDIAEoBVIGc3RyZWFt');
-
 @$core.Deprecated('Use createPlanPayloadDescriptor instead')
 const CreatePlanPayload$json = {
   '1': 'CreatePlanPayload',
@@ -2860,18 +2832,12 @@ const InsertData$json = {
       '9': 0,
       '10': 'mpesa'
     },
-    {
-      '1': 'exam_grade',
-      '3': 35,
-      '4': 1,
-      '5': 11,
-      '6': '.sync.ExamGradeInsert',
-      '9': 0,
-      '10': 'examGrade'
-    },
   ],
   '8': [
     {'1': 'row'},
+  ],
+  '9': [
+    {'1': 35, '2': 36},
   ],
 };
 
@@ -2906,9 +2872,8 @@ final $typed_data.Uint8List insertDataDescriptor = $convert.base64Decode(
     'SW5zZXJ0SABSCGRpc2NvdW50Ej4KD3N1YmplY3RfY2F0YWxvZxgfIAEoCzITLnN5bmMuU3Viam'
     'VjdEluc2VydEgAUg5zdWJqZWN0Q2F0YWxvZxIpCgV0b3BpYxggIAEoCzIRLnN5bmMuVG9waWNJ'
     'bnNlcnRIAFIFdG9waWMSLAoGc3RyZWFtGCEgASgLMhIuc3luYy5TdHJlYW1JbnNlcnRIAFIGc3'
-    'RyZWFtEikKBW1wZXNhGCIgASgLMhEuc3luYy5NcGVzYUluc2VydEgAUgVtcGVzYRI2CgpleGFt'
-    'X2dyYWRlGCMgASgLMhUuc3luYy5FeGFtR3JhZGVJbnNlcnRIAFIJZXhhbUdyYWRlQgUKA3Jvdw'
-    '==');
+    'RyZWFtEikKBW1wZXNhGCIgASgLMhEuc3luYy5NcGVzYUluc2VydEgAUgVtcGVzYUIFCgNyb3dK'
+    'BAgjECQ=');
 
 @$core.Deprecated('Use userInsertDescriptor instead')
 const UserInsert$json = {
@@ -3343,10 +3308,21 @@ const PaperInsert$json = {
     {'1': 'start', '3': 7, '4': 1, '5': 3, '10': 'start'},
     {'1': 'end', '3': 8, '4': 1, '5': 3, '10': 'end'},
     {'1': 'status', '3': 9, '4': 1, '5': 5, '10': 'status'},
+    {'1': 'grade', '3': 10, '4': 1, '5': 5, '10': 'grade'},
+    {
+      '1': 'stream',
+      '3': 11,
+      '4': 1,
+      '5': 5,
+      '9': 2,
+      '10': 'stream',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_paper'},
     {'1': '_topic'},
+    {'1': '_stream'},
   ],
 };
 
@@ -3356,7 +3332,8 @@ final $typed_data.Uint8List paperInsertDescriptor = $convert.base64Decode(
     'FtEhgKB3N1YmplY3QYAyABKAVSB3N1YmplY3QSGQoFcGFwZXIYBCABKAVIAFIFcGFwZXKIAQES'
     'GQoFdG9waWMYBSABKAVIAVIFdG9waWOIAQESIAoLaW52aWdpbGF0b3IYBiABKAlSC2ludmlnaW'
     'xhdG9yEhQKBXN0YXJ0GAcgASgDUgVzdGFydBIQCgNlbmQYCCABKANSA2VuZBIWCgZzdGF0dXMY'
-    'CSABKAVSBnN0YXR1c0IICgZfcGFwZXJCCAoGX3RvcGlj');
+    'CSABKAVSBnN0YXR1cxIUCgVncmFkZRgKIAEoBVIFZ3JhZGUSGwoGc3RyZWFtGAsgASgFSAJSBn'
+    'N0cmVhbYgBAUIICgZfcGFwZXJCCAoGX3RvcGljQgkKB19zdHJlYW0=');
 
 @$core.Deprecated('Use gradeInsertDescriptor instead')
 const GradeInsert$json = {
@@ -3643,21 +3620,6 @@ final $typed_data.Uint8List mpesaInsertDescriptor = $convert.base64Decode(
     'ABKAlSC2NvbnN1bWVyS2V5EicKD2NvbnN1bWVyX3NlY3JldBgDIAEoCVIOY29uc3VtZXJTZWNy'
     'ZXQSGAoHcGFzc2tleRgEIAEoCVIHcGFzc2tleRIcCglzaG9ydGNvZGUYBSABKAlSCXNob3J0Y2'
     '9kZRIQCgNlbnYYBiABKAVSA2Vudg==');
-
-@$core.Deprecated('Use examGradeInsertDescriptor instead')
-const ExamGradeInsert$json = {
-  '1': 'ExamGradeInsert',
-  '2': [
-    {'1': 'exam', '3': 1, '4': 1, '5': 9, '10': 'exam'},
-    {'1': 'grade', '3': 2, '4': 1, '5': 5, '10': 'grade'},
-    {'1': 'stream', '3': 3, '4': 1, '5': 5, '10': 'stream'},
-  ],
-};
-
-/// Descriptor for `ExamGradeInsert`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List examGradeInsertDescriptor = $convert.base64Decode(
-    'Cg9FeGFtR3JhZGVJbnNlcnQSEgoEZXhhbRgBIAEoCVIEZXhhbRIUCgVncmFkZRgCIAEoBVIFZ3'
-    'JhZGUSFgoGc3RyZWFtGAMgASgFUgZzdHJlYW0=');
 
 @$core.Deprecated('Use roleInsertDescriptor instead')
 const RoleInsert$json = {

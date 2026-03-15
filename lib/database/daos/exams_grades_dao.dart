@@ -17,7 +17,7 @@ import '../tables/teachers.dart';
 import '../tables/users.dart';
 import '../tables/enrollments.dart';
 import '../tables/subject_teachers.dart';
-import '../tables/exam_grades.dart';
+
 import '../../proto/services/sync.pb.dart' as sync_pb;
 
 part 'exams_grades_dao.g.dart';
@@ -83,7 +83,6 @@ class PaperAnalytics {
     Users,
     Enrollments,
     SubjectTeachers,
-    ExamGrades,
     Logs,
   ],
 )
@@ -157,17 +156,17 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     int? stream,
     String? teacherId,
   }) {
-    // Watch exam_grades rows for this grade (and optionally stream) to get
+    // Watch papers for this grade (and optionally stream) to get
     // the set of applicable exam IDs, then watch those exams.
-    final egQuery = select(examGrades)
-      ..where((eg) {
-        Expression<bool> f = eg.grade.equals(grade);
-        if (stream != null) f = f & eg.stream.equals(stream);
+    final paperQuery = select(papers)
+      ..where((p) {
+        Expression<bool> f = p.school.equals(schoolId) & p.grade.equals(grade);
+        if (stream != null) f = f & p.stream.equals(stream);
         return f;
       });
 
-    final examStream = egQuery.watch().asyncMap((egRows) async {
-      final ids = egRows.map((r) => r.exam).toList();
+    final examStream = paperQuery.watch().asyncMap((paperRows) async {
+      final ids = paperRows.map((r) => r.exam).toSet().toList();
       if (ids.isEmpty) return <Exam>[];
       return (select(exams)
             ..where((e) {
@@ -622,13 +621,90 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     sync.schedulePush();
   }
 
+  /// Creates a single exam row together with its papers in one atomic
+  /// transaction. Writes one [SyncAction.createExam] log entry and one
+  /// [SyncAction.createPaper] log entry per paper.
+  ///
+  /// This is the method used by the exam creation page, which always produces
+  /// exactly one exam row (one grade + one stream at a time).
+  Future<void> createExamWithPapers({
+    required ExamsCompanion exam,
+    required List<PapersCompanion> paperRows,
+    required String accountId,
+  }) async {
+    await transaction(() async {
+      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      // 1. Insert the exam row
+      await into(exams).insert(exam);
+
+      // 2. Write createExam log
+      final examPayload = sync_pb.CreateExamPayload(
+        id: exam.id.value,
+        school: exam.school.value,
+        year: exam.year.value,
+        term: exam.term.value,
+        name: exam.name.value,
+        type: exam.type.value.index,
+        start: exam.start.value,
+        end: exam.end.value,
+        teacher: exam.teacher.value,
+        personalized: exam.personalized.present
+            ? exam.personalized.value
+            : false,
+      );
+      await into(logs).insert(
+        LogsCompanion(
+          account: Value(accountId),
+          action: Value(SyncAction.createExam),
+          resource: Value(exam.name.value),
+          payload: Value(examPayload.writeToBuffer()),
+          created: Value(now),
+        ),
+      );
+
+      // 3. Insert each paper + its log
+      for (final p in paperRows) {
+        await into(papers).insert(p);
+        final paperPayload = sync_pb.CreatePaperPayload(
+          school: p.school.value,
+          exam: p.exam.value,
+          subject: p.subject.value,
+          invigilator: p.invigilator.value,
+          start: fixnum.Int64(p.start.value.toInt()),
+          end: fixnum.Int64(p.end.value.toInt()),
+        );
+        paperPayload.grade = p.grade.value;
+        if (p.stream.present && p.stream.value != null) {
+          paperPayload.stream = p.stream.value!;
+        }
+        if (p.paper.present && p.paper.value != null) {
+          paperPayload.paper = p.paper.value!;
+        }
+        final paperLabel = (p.paper.present && p.paper.value != null)
+            ? 'Paper ${p.paper.value}'
+            : 'Paper';
+        await into(logs).insert(
+          LogsCompanion(
+            account: Value(accountId),
+            action: Value(SyncAction.createPaper),
+            resource: Value(paperLabel),
+            payload: Value(paperPayload.writeToBuffer()),
+            created: Value(now),
+          ),
+        );
+      }
+    });
+    sync.schedulePush();
+  }
+
   /// Creates [entries] exams (and their papers) in one transaction.
   /// Writes one [SyncAction.createExam] log per exam and one
   /// [SyncAction.createPaper] log per paper.
   ///
-  /// This is the data-layer backbone of the multi-grade creation UI, which
-  /// fans out a single form submission into N exam rows (one per selected
-  /// grade+stream) and optionally M paper rows per exam.
+  /// Used by the "add stream" and "add grade" flows which may fan out into
+  /// multiple exam rows in a single submission. For single-exam creation
+  /// use [createExamWithPapers] instead.
   Future<void> createExamBatch({
     required List<ExamBatchEntry> entries,
     required String accountId,
@@ -674,6 +750,10 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
             start: fixnum.Int64(p.start.value.toInt()),
             end: fixnum.Int64(p.end.value.toInt()),
           );
+          paperPayload.grade = p.grade.value;
+          if (p.stream.present && p.stream.value != null) {
+            paperPayload.stream = p.stream.value!;
+          }
           if (p.paper.present && p.paper.value != null) {
             paperPayload.paper = p.paper.value!;
           }
@@ -820,7 +900,11 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         invigilator: paper.invigilator.value,
         start: fixnum.Int64(paper.start.value.toInt()),
         end: fixnum.Int64(paper.end.value.toInt()),
+        grade: paper.grade.value,
       );
+      if (paper.stream.present && paper.stream.value != null) {
+        payload.stream = paper.stream.value!;
+      }
       if (paper.paper.present && paper.paper.value != null) {
         payload.paper = paper.paper.value!;
       }
@@ -885,6 +969,14 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
       }
       if (changes.status.present) {
         payload.status = changes.status.value.index;
+        hasChanges = true;
+      }
+      if (changes.grade.present) {
+        payload.grade = changes.grade.value;
+        hasChanges = true;
+      }
+      if (changes.stream.present && changes.stream.value != null) {
+        payload.stream = changes.stream.value!;
         hasChanges = true;
       }
       if (!hasChanges) return;
@@ -1306,7 +1398,6 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
 
       final result = <ExamGroup>[];
       for (final group in groups.values) {
-        // Get teacher from first exam in group
         final firstExam = group.first;
         final teacherUser =
             await (select(users)
@@ -1315,60 +1406,48 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
                 .getSingleOrNull();
         if (teacherUser == null) continue;
 
-        // Load exam_grades rows for all exams in this group to determine
-        // which grades/streams each exam applies to.
+        // Load ALL papers for all exams in this group
         final examIds = group.map((e) => e.id).toList();
-        final egRows = await (select(
-          examGrades,
-        )..where((eg) => eg.exam.isIn(examIds))).get();
+        final allPapers =
+            await (select(papers)
+                  ..where(
+                    (p) => p.school.equals(schoolId) & p.exam.isIn(examIds),
+                  )
+                  ..orderBy([
+                    (p) => OrderingTerm.asc(p.subject),
+                    (p) => OrderingTerm.asc(p.paper),
+                  ]))
+                .get();
 
-        // Build a map: examId -> list of (grade, stream) pairs
-        final examGradeMap = <String, List<({int grade, int stream})>>{};
-        for (final eg in egRows) {
-          examGradeMap.putIfAbsent(eg.exam, () => []).add((
-            grade: eg.grade,
-            stream: eg.stream,
-          ));
+        // Group papers by grade, then by stream within each grade
+        final gradeMap = <int, Map<int?, List<Paper>>>{};
+        for (final paper in allPapers) {
+          final streamKey = paper.stream; // nullable int
+          gradeMap
+              .putIfAbsent(paper.grade, () => {})
+              .putIfAbsent(streamKey, () => [])
+              .add(paper);
         }
 
-        // Group by grade: collect all (exam, stream) combos per grade
-        final gradeMap = <int, List<({Exam exam, int stream})>>{};
-        for (final exam in group) {
-          final pairs = examGradeMap[exam.id] ?? [];
-          for (final pair in pairs) {
-            (gradeMap[pair.grade] ??= []).add((
-              exam: exam,
-              stream: pair.stream,
-            ));
-          }
-        }
-
+        // Find exam row for each (grade, stream) combination
+        // Since papers carry the exam id, we can find which exam each stream belongs to
         final gradeEntries = <ExamGradeEntry>[];
-        for (final entry in gradeMap.entries) {
+        for (final gradeEntry in gradeMap.entries) {
           final streamEntries = <ExamStreamEntry>[];
-          for (final item in entry.value) {
-            final paperList =
-                await (select(papers)
-                      ..where(
-                        (p) =>
-                            p.school.equals(schoolId) &
-                            p.exam.equals(item.exam.id),
-                      )
-                      ..orderBy([
-                        (p) => OrderingTerm.asc(p.subject),
-                        (p) => OrderingTerm.asc(p.paper),
-                      ]))
-                    .get();
+          for (final streamEntry in gradeEntry.value.entries) {
+            // All papers in this stream group should belong to the same exam
+            final examId = streamEntry.value.first.exam;
+            final exam = group.firstWhere((e) => e.id == examId);
             streamEntries.add(
               ExamStreamEntry(
-                exam: item.exam,
-                streamCode: item.stream,
-                papers: paperList,
+                exam: exam,
+                streamCode: streamEntry.key,
+                papers: streamEntry.value,
               ),
             );
           }
           gradeEntries.add(
-            ExamGradeEntry(grade: entry.key, streams: streamEntries),
+            ExamGradeEntry(grade: gradeEntry.key, streams: streamEntries),
           );
         }
 
@@ -1523,6 +1602,10 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
             start: fixnum.Int64(p.start.value.toInt()),
             end: fixnum.Int64(p.end.value.toInt()),
           );
+          paperPayload.grade = p.grade.value;
+          if (p.stream.present && p.stream.value != null) {
+            paperPayload.stream = p.stream.value!;
+          }
           if (p.paper.present && p.paper.value != null) {
             paperPayload.paper = p.paper.value!;
           }
@@ -1670,100 +1753,5 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         .toRadixString(16)
         .padLeft(4, '0');
     return 'ex_${now.toRadixString(36)}_$rand';
-  }
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // Exam grades (junction: exam ↔ grade+stream)
-  // ───────────────────────────────────────────────────────────────────────────
-
-  /// Reactively watches all (grade, stream) pairs that participate in [examId].
-  Stream<List<ExamGrade>> watchExamGrades(String examId) {
-    return (select(examGrades)
-          ..where((eg) => eg.exam.equals(examId))
-          ..orderBy([
-            (eg) => OrderingTerm.asc(eg.grade),
-            (eg) => OrderingTerm.asc(eg.stream),
-          ]))
-        .watch();
-  }
-
-  /// One-shot read of all (grade, stream) pairs for [examId].
-  Future<List<ExamGrade>> getExamGrades(String examId) =>
-      (select(examGrades)..where((eg) => eg.exam.equals(examId))).get();
-
-  /// Adds a (grade, stream) pair to an exam and writes a
-  /// [SyncAction.addExamGrade] log entry.
-  Future<void> addExamGrade({
-    required String examId,
-    required int grade,
-    required int stream,
-    required String accountId,
-  }) async {
-    await transaction(() async {
-      final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
-
-      await into(examGrades).insertOnConflictUpdate(
-        ExamGradesCompanion(
-          exam: Value(examId),
-          grade: Value(grade),
-          stream: Value(stream),
-        ),
-      );
-
-      final payload = sync_pb.AddExamGradePayload(
-        exam: examId,
-        grade: grade,
-        stream: stream,
-      );
-
-      await into(logs).insert(
-        LogsCompanion(
-          account: Value(accountId),
-          action: Value(SyncAction.addExamGrade),
-          resource: Value('Exam $examId Grade $grade/$stream'),
-          payload: Value(payload.writeToBuffer()),
-          created: Value(nowMs),
-        ),
-      );
-    });
-    sync.schedulePush();
-  }
-
-  /// Removes a (grade, stream) pair from an exam and writes a
-  /// [SyncAction.removeExamGrade] log entry.
-  Future<void> removeExamGrade({
-    required String examId,
-    required int grade,
-    required int stream,
-    required String accountId,
-  }) async {
-    await transaction(() async {
-      final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
-
-      final payload = sync_pb.RemoveExamGradePayload(
-        exam: examId,
-        grade: grade,
-        stream: stream,
-      );
-
-      await into(logs).insert(
-        LogsCompanion(
-          account: Value(accountId),
-          action: Value(SyncAction.removeExamGrade),
-          resource: Value('Exam $examId Grade $grade/$stream'),
-          payload: Value(payload.writeToBuffer()),
-          created: Value(nowMs),
-        ),
-      );
-
-      await (delete(examGrades)..where(
-            (eg) =>
-                eg.exam.equals(examId) &
-                eg.grade.equals(grade) &
-                eg.stream.equals(stream),
-          ))
-          .go();
-    });
-    sync.schedulePush();
   }
 }

@@ -26,6 +26,8 @@ class Papers extends Table {
   IntColumn get status => integer()
       .map(const PaperStatusConverter())
       .withDefault(const Constant(0))();
+  IntColumn get grade => integer()();
+  IntColumn get stream => integer().nullable()();
   Int64Column get created => int64()();
   Int64Column get updated => int64()();
 

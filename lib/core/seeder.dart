@@ -1761,19 +1761,6 @@ class _SeederImpl {
       ),
     );
 
-    // Register all streams for this grade as exam_grades entries.
-    for (var si = 0; si < gc.streamNames.length; si++) {
-      await _db
-          .into(_db.examGrades)
-          .insertOnConflictUpdate(
-            ExamGradesCompanion.insert(
-              exam: examId,
-              grade: gc.grade,
-              stream: si,
-            ),
-          );
-    }
-
     // Create papers for each subject
     for (final subj in gc.subjectIndices) {
       // Find the teacher for this subject
@@ -1795,6 +1782,8 @@ class _SeederImpl {
               school: _schoolId,
               exam: examId,
               subject: subj,
+              grade: gc.grade,
+              stream: const Value(null), // null = all streams
               paper: const Value(null), // single paper per subject
               invigilator: invigilator,
               start: paperStartSec,
@@ -1814,6 +1803,8 @@ class _SeederImpl {
           invigilator: invigilator,
           start: fixnum.Int64(paperStartSec.toInt()),
           end: fixnum.Int64(paperEndSec.toInt()),
+          grade: gc.grade,
+          // stream omitted = null/all streams
         ),
       );
 

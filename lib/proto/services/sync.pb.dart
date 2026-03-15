@@ -4712,73 +4712,6 @@ class DeleteLessonPayload extends $pb.GeneratedMessage {
   void clearTeacher() => $_clearField(8);
 }
 
-/// Helper for CreateExamPayload
-class ExamGradeEntry extends $pb.GeneratedMessage {
-  factory ExamGradeEntry({
-    $core.int? grade,
-    $core.int? stream,
-  }) {
-    final result = create();
-    if (grade != null) result.grade = grade;
-    if (stream != null) result.stream = stream;
-    return result;
-  }
-
-  ExamGradeEntry._();
-
-  factory ExamGradeEntry.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory ExamGradeEntry.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ExamGradeEntry',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aI(1, _omitFieldNames ? '' : 'grade')
-    ..aI(2, _omitFieldNames ? '' : 'stream')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ExamGradeEntry clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ExamGradeEntry copyWith(void Function(ExamGradeEntry) updates) =>
-      super.copyWith((message) => updates(message as ExamGradeEntry))
-          as ExamGradeEntry;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static ExamGradeEntry create() => ExamGradeEntry._();
-  @$core.override
-  ExamGradeEntry createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static ExamGradeEntry getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ExamGradeEntry>(create);
-  static ExamGradeEntry? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.int get grade => $_getIZ(0);
-  @$pb.TagNumber(1)
-  set grade($core.int value) => $_setSignedInt32(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasGrade() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearGrade() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.int get stream => $_getIZ(1);
-  @$pb.TagNumber(2)
-  set stream($core.int value) => $_setSignedInt32(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasStream() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearStream() => $_clearField(2);
-}
-
 class CreateExamPayload extends $pb.GeneratedMessage {
   factory CreateExamPayload({
     $core.String? id,
@@ -4791,7 +4724,6 @@ class CreateExamPayload extends $pb.GeneratedMessage {
     $core.int? start,
     $core.int? end,
     $core.String? teacher,
-    $core.Iterable<ExamGradeEntry>? grades,
   }) {
     final result = create();
     if (id != null) result.id = id;
@@ -4804,7 +4736,6 @@ class CreateExamPayload extends $pb.GeneratedMessage {
     if (start != null) result.start = start;
     if (end != null) result.end = end;
     if (teacher != null) result.teacher = teacher;
-    if (grades != null) result.grades.addAll(grades);
     return result;
   }
 
@@ -4831,8 +4762,6 @@ class CreateExamPayload extends $pb.GeneratedMessage {
     ..aI(8, _omitFieldNames ? '' : 'start')
     ..aI(9, _omitFieldNames ? '' : 'end')
     ..aOS(10, _omitFieldNames ? '' : 'teacher')
-    ..pPM<ExamGradeEntry>(11, _omitFieldNames ? '' : 'grades',
-        subBuilder: ExamGradeEntry.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4943,9 +4872,6 @@ class CreateExamPayload extends $pb.GeneratedMessage {
   $core.bool hasTeacher() => $_has(9);
   @$pb.TagNumber(10)
   void clearTeacher() => $_clearField(10);
-
-  @$pb.TagNumber(11)
-  $pb.PbList<ExamGradeEntry> get grades => $_getList(10);
 }
 
 class UpdateExamPayload extends $pb.GeneratedMessage {
@@ -5138,6 +5064,8 @@ class CreatePaperPayload extends $pb.GeneratedMessage {
     $fixnum.Int64? start,
     $fixnum.Int64? end,
     $core.int? topic,
+    $core.int? grade,
+    $core.int? stream,
   }) {
     final result = create();
     if (school != null) result.school = school;
@@ -5148,6 +5076,8 @@ class CreatePaperPayload extends $pb.GeneratedMessage {
     if (start != null) result.start = start;
     if (end != null) result.end = end;
     if (topic != null) result.topic = topic;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
     return result;
   }
 
@@ -5172,6 +5102,8 @@ class CreatePaperPayload extends $pb.GeneratedMessage {
     ..aInt64(6, _omitFieldNames ? '' : 'start')
     ..aInt64(7, _omitFieldNames ? '' : 'end')
     ..aI(8, _omitFieldNames ? '' : 'topic')
+    ..aI(9, _omitFieldNames ? '' : 'grade')
+    ..aI(10, _omitFieldNames ? '' : 'stream')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -5264,6 +5196,24 @@ class CreatePaperPayload extends $pb.GeneratedMessage {
   $core.bool hasTopic() => $_has(7);
   @$pb.TagNumber(8)
   void clearTopic() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.int get grade => $_getIZ(8);
+  @$pb.TagNumber(9)
+  set grade($core.int value) => $_setSignedInt32(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasGrade() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearGrade() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.int get stream => $_getIZ(9);
+  @$pb.TagNumber(10)
+  set stream($core.int value) => $_setSignedInt32(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasStream() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearStream() => $_clearField(10);
 }
 
 class UpdatePaperPayload extends $pb.GeneratedMessage {
@@ -5277,6 +5227,8 @@ class UpdatePaperPayload extends $pb.GeneratedMessage {
     $fixnum.Int64? end,
     $core.int? status,
     $core.int? topic,
+    $core.int? grade,
+    $core.int? stream,
   }) {
     final result = create();
     if (school != null) result.school = school;
@@ -5288,6 +5240,8 @@ class UpdatePaperPayload extends $pb.GeneratedMessage {
     if (end != null) result.end = end;
     if (status != null) result.status = status;
     if (topic != null) result.topic = topic;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
     return result;
   }
 
@@ -5313,6 +5267,8 @@ class UpdatePaperPayload extends $pb.GeneratedMessage {
     ..aInt64(7, _omitFieldNames ? '' : 'end')
     ..aI(8, _omitFieldNames ? '' : 'status')
     ..aI(9, _omitFieldNames ? '' : 'topic')
+    ..aI(10, _omitFieldNames ? '' : 'grade')
+    ..aI(11, _omitFieldNames ? '' : 'stream')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -5414,6 +5370,24 @@ class UpdatePaperPayload extends $pb.GeneratedMessage {
   $core.bool hasTopic() => $_has(8);
   @$pb.TagNumber(9)
   void clearTopic() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.int get grade => $_getIZ(9);
+  @$pb.TagNumber(10)
+  set grade($core.int value) => $_setSignedInt32(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasGrade() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearGrade() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $core.int get stream => $_getIZ(10);
+  @$pb.TagNumber(11)
+  set stream($core.int value) => $_setSignedInt32(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasStream() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearStream() => $_clearField(11);
 }
 
 class DeletePaperPayload extends $pb.GeneratedMessage {
@@ -8885,163 +8859,6 @@ class DeleteMpesaPayload extends $pb.GeneratedMessage {
   void clearSchool() => $_clearField(1);
 }
 
-class AddExamGradePayload extends $pb.GeneratedMessage {
-  factory AddExamGradePayload({
-    $core.String? exam,
-    $core.int? grade,
-    $core.int? stream,
-  }) {
-    final result = create();
-    if (exam != null) result.exam = exam;
-    if (grade != null) result.grade = grade;
-    if (stream != null) result.stream = stream;
-    return result;
-  }
-
-  AddExamGradePayload._();
-
-  factory AddExamGradePayload.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory AddExamGradePayload.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'AddExamGradePayload',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'exam')
-    ..aI(2, _omitFieldNames ? '' : 'grade')
-    ..aI(3, _omitFieldNames ? '' : 'stream')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  AddExamGradePayload clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  AddExamGradePayload copyWith(void Function(AddExamGradePayload) updates) =>
-      super.copyWith((message) => updates(message as AddExamGradePayload))
-          as AddExamGradePayload;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static AddExamGradePayload create() => AddExamGradePayload._();
-  @$core.override
-  AddExamGradePayload createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static AddExamGradePayload getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<AddExamGradePayload>(create);
-  static AddExamGradePayload? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get exam => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set exam($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasExam() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearExam() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.int get grade => $_getIZ(1);
-  @$pb.TagNumber(2)
-  set grade($core.int value) => $_setSignedInt32(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasGrade() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearGrade() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $core.int get stream => $_getIZ(2);
-  @$pb.TagNumber(3)
-  set stream($core.int value) => $_setSignedInt32(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasStream() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearStream() => $_clearField(3);
-}
-
-class RemoveExamGradePayload extends $pb.GeneratedMessage {
-  factory RemoveExamGradePayload({
-    $core.String? exam,
-    $core.int? grade,
-    $core.int? stream,
-  }) {
-    final result = create();
-    if (exam != null) result.exam = exam;
-    if (grade != null) result.grade = grade;
-    if (stream != null) result.stream = stream;
-    return result;
-  }
-
-  RemoveExamGradePayload._();
-
-  factory RemoveExamGradePayload.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory RemoveExamGradePayload.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'RemoveExamGradePayload',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'exam')
-    ..aI(2, _omitFieldNames ? '' : 'grade')
-    ..aI(3, _omitFieldNames ? '' : 'stream')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  RemoveExamGradePayload clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  RemoveExamGradePayload copyWith(
-          void Function(RemoveExamGradePayload) updates) =>
-      super.copyWith((message) => updates(message as RemoveExamGradePayload))
-          as RemoveExamGradePayload;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static RemoveExamGradePayload create() => RemoveExamGradePayload._();
-  @$core.override
-  RemoveExamGradePayload createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static RemoveExamGradePayload getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<RemoveExamGradePayload>(create);
-  static RemoveExamGradePayload? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get exam => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set exam($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasExam() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearExam() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.int get grade => $_getIZ(1);
-  @$pb.TagNumber(2)
-  set grade($core.int value) => $_setSignedInt32(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasGrade() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearGrade() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $core.int get stream => $_getIZ(2);
-  @$pb.TagNumber(3)
-  set stream($core.int value) => $_setSignedInt32(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasStream() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearStream() => $_clearField(3);
-}
-
 class CreatePlanPayload extends $pb.GeneratedMessage {
   factory CreatePlanPayload({
     $core.String? id,
@@ -10210,7 +10027,6 @@ enum InsertData_Row {
   topic,
   stream,
   mpesa,
-  examGrade,
   notSet
 }
 
@@ -10249,7 +10065,6 @@ class InsertData extends $pb.GeneratedMessage {
     TopicInsert? topic,
     StreamInsert? stream,
     MpesaInsert? mpesa,
-    ExamGradeInsert? examGrade,
   }) {
     final result = create();
     if (user != null) result.user = user;
@@ -10285,7 +10100,6 @@ class InsertData extends $pb.GeneratedMessage {
     if (topic != null) result.topic = topic;
     if (stream != null) result.stream = stream;
     if (mpesa != null) result.mpesa = mpesa;
-    if (examGrade != null) result.examGrade = examGrade;
     return result;
   }
 
@@ -10332,7 +10146,6 @@ class InsertData extends $pb.GeneratedMessage {
     32: InsertData_Row.topic,
     33: InsertData_Row.stream,
     34: InsertData_Row.mpesa,
-    35: InsertData_Row.examGrade,
     0: InsertData_Row.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -10372,8 +10185,7 @@ class InsertData extends $pb.GeneratedMessage {
       31,
       32,
       33,
-      34,
-      35
+      34
     ])
     ..aOM<UserInsert>(1, _omitFieldNames ? '' : 'user',
         subBuilder: UserInsert.create)
@@ -10441,8 +10253,6 @@ class InsertData extends $pb.GeneratedMessage {
         subBuilder: StreamInsert.create)
     ..aOM<MpesaInsert>(34, _omitFieldNames ? '' : 'mpesa',
         subBuilder: MpesaInsert.create)
-    ..aOM<ExamGradeInsert>(35, _omitFieldNames ? '' : 'examGrade',
-        subBuilder: ExamGradeInsert.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -10496,7 +10306,6 @@ class InsertData extends $pb.GeneratedMessage {
   @$pb.TagNumber(32)
   @$pb.TagNumber(33)
   @$pb.TagNumber(34)
-  @$pb.TagNumber(35)
   InsertData_Row whichRow() => _InsertData_RowByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(1)
   @$pb.TagNumber(2)
@@ -10531,7 +10340,6 @@ class InsertData extends $pb.GeneratedMessage {
   @$pb.TagNumber(32)
   @$pb.TagNumber(33)
   @$pb.TagNumber(34)
-  @$pb.TagNumber(35)
   void clearRow() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -10896,17 +10704,6 @@ class InsertData extends $pb.GeneratedMessage {
   void clearMpesa() => $_clearField(34);
   @$pb.TagNumber(34)
   MpesaInsert ensureMpesa() => $_ensure(32);
-
-  @$pb.TagNumber(35)
-  ExamGradeInsert get examGrade => $_getN(33);
-  @$pb.TagNumber(35)
-  set examGrade(ExamGradeInsert value) => $_setField(35, value);
-  @$pb.TagNumber(35)
-  $core.bool hasExamGrade() => $_has(33);
-  @$pb.TagNumber(35)
-  void clearExamGrade() => $_clearField(35);
-  @$pb.TagNumber(35)
-  ExamGradeInsert ensureExamGrade() => $_ensure(33);
 }
 
 class UserInsert extends $pb.GeneratedMessage {
@@ -12885,6 +12682,8 @@ class PaperInsert extends $pb.GeneratedMessage {
     $fixnum.Int64? start,
     $fixnum.Int64? end,
     $core.int? status,
+    $core.int? grade,
+    $core.int? stream,
   }) {
     final result = create();
     if (school != null) result.school = school;
@@ -12896,6 +12695,8 @@ class PaperInsert extends $pb.GeneratedMessage {
     if (start != null) result.start = start;
     if (end != null) result.end = end;
     if (status != null) result.status = status;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
     return result;
   }
 
@@ -12921,6 +12722,8 @@ class PaperInsert extends $pb.GeneratedMessage {
     ..aInt64(7, _omitFieldNames ? '' : 'start')
     ..aInt64(8, _omitFieldNames ? '' : 'end')
     ..aI(9, _omitFieldNames ? '' : 'status')
+    ..aI(10, _omitFieldNames ? '' : 'grade')
+    ..aI(11, _omitFieldNames ? '' : 'stream')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -13022,6 +12825,24 @@ class PaperInsert extends $pb.GeneratedMessage {
   $core.bool hasStatus() => $_has(8);
   @$pb.TagNumber(9)
   void clearStatus() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.int get grade => $_getIZ(9);
+  @$pb.TagNumber(10)
+  set grade($core.int value) => $_setSignedInt32(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasGrade() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearGrade() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $core.int get stream => $_getIZ(10);
+  @$pb.TagNumber(11)
+  set stream($core.int value) => $_setSignedInt32(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasStream() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearStream() => $_clearField(11);
 }
 
 class GradeInsert extends $pb.GeneratedMessage {
@@ -14347,84 +14168,6 @@ class MpesaInsert extends $pb.GeneratedMessage {
   $core.bool hasEnv() => $_has(5);
   @$pb.TagNumber(6)
   void clearEnv() => $_clearField(6);
-}
-
-class ExamGradeInsert extends $pb.GeneratedMessage {
-  factory ExamGradeInsert({
-    $core.String? exam,
-    $core.int? grade,
-    $core.int? stream,
-  }) {
-    final result = create();
-    if (exam != null) result.exam = exam;
-    if (grade != null) result.grade = grade;
-    if (stream != null) result.stream = stream;
-    return result;
-  }
-
-  ExamGradeInsert._();
-
-  factory ExamGradeInsert.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory ExamGradeInsert.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ExamGradeInsert',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'exam')
-    ..aI(2, _omitFieldNames ? '' : 'grade')
-    ..aI(3, _omitFieldNames ? '' : 'stream')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ExamGradeInsert clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ExamGradeInsert copyWith(void Function(ExamGradeInsert) updates) =>
-      super.copyWith((message) => updates(message as ExamGradeInsert))
-          as ExamGradeInsert;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static ExamGradeInsert create() => ExamGradeInsert._();
-  @$core.override
-  ExamGradeInsert createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static ExamGradeInsert getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ExamGradeInsert>(create);
-  static ExamGradeInsert? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get exam => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set exam($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasExam() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearExam() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.int get grade => $_getIZ(1);
-  @$pb.TagNumber(2)
-  set grade($core.int value) => $_setSignedInt32(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasGrade() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearGrade() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $core.int get stream => $_getIZ(2);
-  @$pb.TagNumber(3)
-  set stream($core.int value) => $_setSignedInt32(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasStream() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearStream() => $_clearField(3);
 }
 
 class RoleInsert extends $pb.GeneratedMessage {

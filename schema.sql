@@ -282,17 +282,6 @@ CREATE TABLE exams (
     foreign key (school, teacher) references teachers(school, user) ON DELETE CASCADE
 );
 
--- Junction table: which grade (and optionally which stream) participates in an exam.
--- stream IS NULL means all streams of that grade are included.
--- Composite PK on (exam, grade) — one entry per grade per exam (stream is informational/nullable).
-CREATE TABLE exam_grades (
-    exam text not null,
-    grade smallint not null,
-    stream smallint, -- null = all streams of this grade
-    primary key (exam, grade),
-    foreign key (exam) references exams(id) ON DELETE CASCADE
-);
-
 CREATE TABLE papers (
     school text not null,
     exam text not null,
@@ -303,6 +292,8 @@ CREATE TABLE papers (
     start bigint not null,
     end bigint not null,
     status smallint not null default 0, -- Pending = 0, Progress = 1, Done = 2, Marked = 3.
+    grade smallint not null,
+    stream smallint,
     created bigint not null default (unixepoch('now')),
     updated bigint not null default (unixepoch('now')),
     CHECK (start < end),
@@ -575,8 +566,8 @@ BEGIN
 END;
 
 -- Ensures a grade can only be recorded for a student who is enrolled in a class that
--- the exam covers (via the exam_grades junction table). A null stream in exam_grades
--- means any stream of that grade qualifies.
+-- the exam covers (via the papers table). A null stream in papers means any stream
+-- of that grade qualifies.
 CREATE TRIGGER grades_enrollment_check
     BEFORE INSERT ON grades
 BEGIN
@@ -584,13 +575,14 @@ BEGIN
     WHERE NOT EXISTS (
         SELECT 1 FROM enrollments
         INNER JOIN exams ON exams.id = NEW.exam AND exams.school = NEW.school
-        INNER JOIN exam_grades ON exam_grades.exam = NEW.exam
+        INNER JOIN papers p ON p.exam = exams.id AND p.school = exams.school
+                           AND p.subject = NEW.subject
         WHERE enrollments.school  = NEW.school
           AND enrollments.student = NEW.student
           AND enrollments.year    = exams.year
           AND enrollments.term    = exams.term
-          AND enrollments.grade   = exam_grades.grade
-          AND (exam_grades.stream IS NULL OR enrollments.stream = exam_grades.stream)
+          AND enrollments.grade   = p.grade
+          AND (p.stream IS NULL OR enrollments.stream = p.stream)
     );
 END;
 
@@ -624,13 +616,14 @@ BEGIN
     WHERE NOT EXISTS (
         SELECT 1 FROM enrollments
         INNER JOIN exams ON exams.id = NEW.exam AND exams.school = NEW.school
-        INNER JOIN exam_grades ON exam_grades.exam = NEW.exam
+        INNER JOIN papers p ON p.exam = exams.id AND p.school = exams.school
+                           AND p.subject = NEW.subject
         WHERE enrollments.school  = NEW.school
           AND enrollments.student = NEW.student
           AND enrollments.year    = exams.year
           AND enrollments.term    = exams.term
-          AND enrollments.grade   = exam_grades.grade
-          AND (exam_grades.stream IS NULL OR enrollments.stream = exam_grades.stream)
+          AND enrollments.grade   = p.grade
+          AND (p.stream IS NULL OR enrollments.stream = p.stream)
     );
 END;
 
@@ -848,10 +841,6 @@ CREATE INDEX idx_lessons_school_term_date ON lessons(school, year, term, date);
 -- (grade/stream columns removed from exams in v2 — use exam_grades for class targeting)
 CREATE INDEX idx_exams_school_term ON exams(school, year, term);
 CREATE INDEX idx_exams_school_teacher ON exams(school, teacher);
-
--- exam_grades: find all exams that cover a particular grade
-CREATE INDEX idx_exam_grades_exam ON exam_grades(exam);
-CREATE INDEX idx_exam_grades_grade ON exam_grades(grade);
 
 -- papers: list all papers for an exam filtered by status (school+exam covered by PK prefix)
 CREATE INDEX idx_papers_school_exam_status ON papers(school, exam, status);

@@ -522,6 +522,11 @@ class _ExamGroupRowState extends State<_ExamGroupRow> {
       0,
       (sum, g) => sum + g.streams.length,
     );
+    final examName =
+        widget.group.grades.isNotEmpty &&
+            widget.group.grades.first.streams.isNotEmpty
+        ? widget.group.grades.first.streams.first.exam.name
+        : typeLabel;
     final hoverColor = cs.primary.withValues(alpha: 0.04);
 
     return MouseRegion(
@@ -543,63 +548,74 @@ class _ExamGroupRowState extends State<_ExamGroupRow> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // ── Left column: type badge + date range ──────────────
-                  SizedBox(
-                    width: 130,
+                  // ── Left + middle: name, type badge, date, grade chips ─
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Type badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 7,
-                            vertical: 2,
+                        // Exam name — primary text
+                        Text(
+                          examName,
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w500,
+                            color: cs.onSurface,
                           ),
-                          decoration: BoxDecoration(
-                            color: typeColor.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(
-                              AppTheme.kChipRadius,
-                            ),
-                          ),
-                          child: Text(
-                            typeLabel,
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w500,
-                              color: typeColor,
-                              letterSpacing: 0.3,
-                            ),
-                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
-                        // Date range
-                        Text(
-                          '${_fmtDate(startDate)} – ${_fmtDate(endDate)}',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w400,
-                            color: cs.onSurfaceVariant,
-                          ),
+                        // Type badge + date range on same row
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 1,
+                              ),
+                              decoration: BoxDecoration(
+                                color: typeColor.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.kChipRadius,
+                                ),
+                              ),
+                              child: Text(
+                                typeLabel,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w500,
+                                  color: typeColor,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '${_fmtDate(startDate)} – ${_fmtDate(endDate)}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w400,
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 5),
+                        // Grade chips
+                        Wrap(
+                          spacing: 4,
+                          runSpacing: 4,
+                          children: widget.group.grades
+                              .map(
+                                (g) => _ClassChip(
+                                  label: _gradeLabel(g.grade, widget.config),
+                                  cs: cs,
+                                ),
+                              )
+                              .toList(),
                         ),
                       ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-
-                  // ── Middle: grade chips ───────────────────────────────
-                  Expanded(
-                    child: Wrap(
-                      spacing: 4,
-                      runSpacing: 4,
-                      children: widget.group.grades
-                          .map(
-                            (g) => _ClassChip(
-                              label: _gradeLabel(g.grade, widget.config),
-                              cs: cs,
-                            ),
-                          )
-                          .toList(),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -1105,15 +1121,20 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                typeLabel,
+                                group.grades.isNotEmpty &&
+                                        group.grades.first.streams.isNotEmpty
+                                    ? group.grades.first.streams.first.exam.name
+                                    : typeLabel,
                                 style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w500,
                                   color: cs.onSurface,
                                 ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                               Text(
-                                subtitle,
+                                '$typeLabel · $subtitle',
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w400,
@@ -1287,6 +1308,9 @@ class _AddStreamFormState extends State<_AddStreamForm> {
   // ── Misc ───────────────────────────────────────────────────────────────────
   bool _saving = false;
 
+  // ── Invigilator conflict tracking ──────────────────────────────────────────
+  Map<String, String> _slotConflicts = {};
+
   // ── Overlay for stream dropdown ────────────────────────────────────────────
   OverlayEntry? _streamOverlay;
   final GlobalKey _streamTriggerKey = GlobalKey();
@@ -1437,13 +1461,13 @@ class _AddStreamFormState extends State<_AddStreamForm> {
     setState(() => _loadingSubjects[streamCode] = true);
     try {
       final result = streamCode != null
-          ? await widget.subjectsDao.getSubjectsForClass(
+          ? (await widget.subjectsDao.getSubjectsForClass(
               schoolId: widget.schoolId,
               year: widget.year,
               term: widget.term,
               grade: grade,
               stream: streamCode,
-            )
+            )).map((s) => (subject: s.subject, teacher: s.teacher)).toList()
           : <({SubjectTeacher subject, UsersData teacher})>[];
       if (mounted) {
         setState(() {
@@ -1454,6 +1478,104 @@ class _AddStreamFormState extends State<_AddStreamForm> {
     } catch (_) {
       if (mounted) setState(() => _loadingSubjects[streamCode] = false);
     }
+  }
+
+  // ── Invigilator conflict helpers ──────────────────────────────────────────
+
+  /// Checks if a teacher is already assigned to a paper slot at the same
+  /// time in a different stream.
+  bool _isInvigilatorBusy(
+    String teacherId,
+    DateTime day,
+    int startMin,
+    int endMin,
+    int? excludeStreamCode,
+  ) {
+    for (final entry in _paperSlots.entries) {
+      if (entry.key == excludeStreamCode) continue;
+      for (final slot in entry.value) {
+        if (slot.invigilatorId != teacherId) continue;
+        if (!(slot.date.year == day.year &&
+            slot.date.month == day.month &&
+            slot.date.day == day.day)) {
+          continue;
+        }
+        final sStart = slot.startTime.hour * 60 + slot.startTime.minute;
+        final sEnd = slot.endTime.hour * 60 + slot.endTime.minute;
+        if (startMin < sEnd && sStart < endMin) return true;
+      }
+    }
+    return false;
+  }
+
+  /// Finds a teacher who is not busy at the given time in any stream.
+  String? _findAvailableTeacher(
+    DateTime day,
+    int startMin,
+    int endMin,
+    int? excludeStreamCode,
+  ) {
+    for (final t in _teachers) {
+      if (!_isInvigilatorBusy(
+        t.user.id,
+        day,
+        startMin,
+        endMin,
+        excludeStreamCode,
+      )) {
+        return t.user.id;
+      }
+    }
+    return null;
+  }
+
+  /// Scans all paper slots across all streams and returns a map of
+  /// slot ID → error message for conflicting invigilators.
+  Map<String, String> _findInvigilatorConflicts() {
+    final conflicts = <String, String>{};
+    final all = <({int? streamCode, _GradePaperSlot slot})>[];
+    for (final entry in _paperSlots.entries) {
+      for (final slot in entry.value) {
+        if (slot.invigilatorId != null &&
+            slot.invigilatorId!.isNotEmpty &&
+            slot.subjectCode != null) {
+          all.add((streamCode: entry.key, slot: slot));
+        }
+      }
+    }
+    for (int i = 0; i < all.length; i++) {
+      for (int j = i + 1; j < all.length; j++) {
+        final a = all[i];
+        final b = all[j];
+        if (a.streamCode == b.streamCode) continue;
+        if (a.slot.invigilatorId != b.slot.invigilatorId) continue;
+        if (!(a.slot.date.year == b.slot.date.year &&
+            a.slot.date.month == b.slot.date.month &&
+            a.slot.date.day == b.slot.date.day)) {
+          continue;
+        }
+        final aStart = a.slot.startTime.hour * 60 + a.slot.startTime.minute;
+        final aEnd = a.slot.endTime.hour * 60 + a.slot.endTime.minute;
+        final bStart = b.slot.startTime.hour * 60 + b.slot.startTime.minute;
+        final bEnd = b.slot.endTime.hour * 60 + b.slot.endTime.minute;
+        if (aStart < bEnd && bStart < aEnd) {
+          final teacherName =
+              _teachers
+                  .where((t) => t.user.id == a.slot.invigilatorId)
+                  .map((t) => t.user.name)
+                  .firstOrNull ??
+              'Teacher';
+          final msg = '$teacherName is assigned to another paper at this time';
+          conflicts[a.slot.id] = msg;
+          conflicts[b.slot.id] = msg;
+        }
+      }
+    }
+    return conflicts;
+  }
+
+  void _recomputeConflicts() {
+    _slotConflicts = _findInvigilatorConflicts();
   }
 
   // ── Auto-fill ─────────────────────────────────────────────────────────────
@@ -1477,6 +1599,24 @@ class _AddStreamFormState extends State<_AddStreamForm> {
       final day = days[dayIdx];
       final startMin = 8 * 60 + slotInDay * durationMin;
       final endMin = startMin + durationMin;
+
+      // Check if this teacher is busy in another stream at this time
+      String? invigilatorId = s.subject.teacher;
+      if (_isInvigilatorBusy(
+        invigilatorId,
+        day,
+        startMin,
+        endMin,
+        streamCode,
+      )) {
+        invigilatorId = _findAvailableTeacher(
+          day,
+          startMin,
+          endMin,
+          streamCode,
+        );
+      }
+
       slots.add(
         _GradePaperSlot(
           id: _generateId(),
@@ -1487,7 +1627,7 @@ class _AddStreamFormState extends State<_AddStreamForm> {
             minute: endMin % 60,
           ),
           subjectCode: s.subject.subject,
-          invigilatorId: s.subject.teacher,
+          invigilatorId: invigilatorId,
         ),
       );
       slotInDay++;
@@ -1496,6 +1636,7 @@ class _AddStreamFormState extends State<_AddStreamForm> {
         dayIdx++;
       }
     }
+    _recomputeConflicts();
     setState(() {});
   }
 
@@ -1579,6 +1720,22 @@ class _AddStreamFormState extends State<_AddStreamForm> {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;
 
+    // Validate invigilator conflicts
+    _recomputeConflicts();
+    if (_slotConflicts.isNotEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Some papers have invigilator time conflicts. Please resolve the highlighted conflicts before saving.',
+            ),
+          ),
+        );
+        setState(() {});
+      }
+      return;
+    }
+
     // Find the existing exam row for this grade (use first stream's exam as
     // the template for school/year/term/type/dates/teacher fields).
     final gradeEntry = widget.group.grades
@@ -1601,6 +1758,7 @@ class _AddStreamFormState extends State<_AddStreamForm> {
           school: Value(widget.schoolId),
           year: Value(widget.year),
           term: Value(widget.term),
+          name: Value(templateExam.name),
           personalized: Value(templateExam.personalized),
           type: Value(templateExam.type),
           start: Value(templateExam.start),
@@ -1636,6 +1794,8 @@ class _AddStreamFormState extends State<_AddStreamForm> {
               invigilator: Value(slot.invigilatorId ?? templateExam.teacher),
               start: Value(BigInt.from(startDt.millisecondsSinceEpoch ~/ 1000)),
               end: Value(BigInt.from(endDt.millisecondsSinceEpoch ~/ 1000)),
+              grade: Value(grade),
+              stream: Value(streamCode),
               status: const Value(PaperStatus.pending),
               created: Value(now),
               updated: Value(now),
@@ -1652,11 +1812,41 @@ class _AddStreamFormState extends State<_AddStreamForm> {
         );
       }
       if (mounted) widget.onClose();
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('══════ ADD STREAM ERROR ══════');
+      debugPrint('Type : ${e.runtimeType}');
+      debugPrint('Error: $e');
+      debugPrint('Stack:\n$stack');
+      debugPrint('══════════════════════════════');
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to add streams: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFFB71C1C),
+            content: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  size: 15,
+                  color: Colors.white70,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Failed to add stream (${e.runtimeType}). Please try again.',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      height: 1.4,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 5),
+          ),
+        );
         setState(() => _saving = false);
       }
     }
@@ -1779,9 +1969,16 @@ class _AddStreamFormState extends State<_AddStreamForm> {
                           isDark: isDark,
                           indigo: indigo,
                           examDays: _examDays,
-                          onChanged: (_) => setState(() {}),
+                          errorMessage: _slotConflicts[e.value.id],
+                          onChanged: (_) {
+                            _recomputeConflicts();
+                            setState(() {});
+                          },
                           onRemove: () {
-                            setState(() => activeSlots.remove(e.value));
+                            setState(() {
+                              activeSlots.remove(e.value);
+                              _recomputeConflicts();
+                            });
                           },
                         ),
                       ),
@@ -2340,6 +2537,9 @@ class _AddGradeToExamFormState extends State<_AddGradeToExamForm>
   bool _teachersLoaded = false;
   bool _saving = false;
 
+  // ── Invigilator conflict tracking ──────────────────────────────────────────
+  Map<String, String> _slotConflicts = {};
+
   @override
   void initState() {
     super.initState();
@@ -2413,13 +2613,13 @@ class _AddGradeToExamFormState extends State<_AddGradeToExamForm>
     setState(() => _loadingSubjects[streamCode] = true);
     try {
       final result = streamCode != null
-          ? await widget.subjectsDao.getSubjectsForClass(
+          ? (await widget.subjectsDao.getSubjectsForClass(
               schoolId: widget.schoolId,
               year: widget.year,
               term: widget.term,
               grade: grade,
               stream: streamCode,
-            )
+            )).map((s) => (subject: s.subject, teacher: s.teacher)).toList()
           : <({SubjectTeacher subject, UsersData teacher})>[];
       if (mounted) {
         setState(() {
@@ -2455,6 +2655,99 @@ class _AddGradeToExamFormState extends State<_AddGradeToExamForm>
     return days;
   }
 
+  // ── Invigilator conflict helpers ──────────────────────────────────────────
+
+  bool _isInvigilatorBusy(
+    String teacherId,
+    DateTime day,
+    int startMin,
+    int endMin,
+    int? excludeStreamCode,
+  ) {
+    for (final entry in _paperSlots.entries) {
+      if (entry.key == excludeStreamCode) continue;
+      for (final slot in entry.value) {
+        if (slot.invigilatorId != teacherId) continue;
+        if (!(slot.date.year == day.year &&
+            slot.date.month == day.month &&
+            slot.date.day == day.day)) {
+          continue;
+        }
+        final sStart = slot.startTime.hour * 60 + slot.startTime.minute;
+        final sEnd = slot.endTime.hour * 60 + slot.endTime.minute;
+        if (startMin < sEnd && sStart < endMin) return true;
+      }
+    }
+    return false;
+  }
+
+  String? _findAvailableTeacher(
+    DateTime day,
+    int startMin,
+    int endMin,
+    int? excludeStreamCode,
+  ) {
+    for (final t in _teachers) {
+      if (!_isInvigilatorBusy(
+        t.user.id,
+        day,
+        startMin,
+        endMin,
+        excludeStreamCode,
+      )) {
+        return t.user.id;
+      }
+    }
+    return null;
+  }
+
+  Map<String, String> _findInvigilatorConflicts() {
+    final conflicts = <String, String>{};
+    final all = <({int? streamCode, _GradePaperSlot slot})>[];
+    for (final entry in _paperSlots.entries) {
+      for (final slot in entry.value) {
+        if (slot.invigilatorId != null &&
+            slot.invigilatorId!.isNotEmpty &&
+            slot.subjectCode != null) {
+          all.add((streamCode: entry.key, slot: slot));
+        }
+      }
+    }
+    for (int i = 0; i < all.length; i++) {
+      for (int j = i + 1; j < all.length; j++) {
+        final a = all[i];
+        final b = all[j];
+        if (a.streamCode == b.streamCode) continue;
+        if (a.slot.invigilatorId != b.slot.invigilatorId) continue;
+        if (!(a.slot.date.year == b.slot.date.year &&
+            a.slot.date.month == b.slot.date.month &&
+            a.slot.date.day == b.slot.date.day)) {
+          continue;
+        }
+        final aStart = a.slot.startTime.hour * 60 + a.slot.startTime.minute;
+        final aEnd = a.slot.endTime.hour * 60 + a.slot.endTime.minute;
+        final bStart = b.slot.startTime.hour * 60 + b.slot.startTime.minute;
+        final bEnd = b.slot.endTime.hour * 60 + b.slot.endTime.minute;
+        if (aStart < bEnd && bStart < aEnd) {
+          final teacherName =
+              _teachers
+                  .where((t) => t.user.id == a.slot.invigilatorId)
+                  .map((t) => t.user.name)
+                  .firstOrNull ??
+              'Teacher';
+          final msg = '$teacherName is assigned to another paper at this time';
+          conflicts[a.slot.id] = msg;
+          conflicts[b.slot.id] = msg;
+        }
+      }
+    }
+    return conflicts;
+  }
+
+  void _recomputeConflicts() {
+    _slotConflicts = _findInvigilatorConflicts();
+  }
+
   void _autoFillStream(int? streamCode) {
     final grade = _selectedGrade;
     if (grade == null) return;
@@ -2476,6 +2769,24 @@ class _AddGradeToExamFormState extends State<_AddGradeToExamForm>
       final day = days[dayIdx];
       final startMin = 8 * 60 + slotInDay * durationMin;
       final endMin = startMin + durationMin;
+
+      // Check if this teacher is busy in another stream at this time
+      String? invigilatorId = s.subject.teacher;
+      if (_isInvigilatorBusy(
+        invigilatorId,
+        day,
+        startMin,
+        endMin,
+        streamCode,
+      )) {
+        invigilatorId = _findAvailableTeacher(
+          day,
+          startMin,
+          endMin,
+          streamCode,
+        );
+      }
+
       slots.add(
         _GradePaperSlot(
           id: _generateId(),
@@ -2486,7 +2797,7 @@ class _AddGradeToExamFormState extends State<_AddGradeToExamForm>
             minute: endMin % 60,
           ),
           subjectCode: s.subject.subject,
-          invigilatorId: s.subject.teacher,
+          invigilatorId: invigilatorId,
         ),
       );
       slotInDay++;
@@ -2495,6 +2806,7 @@ class _AddGradeToExamFormState extends State<_AddGradeToExamForm>
         dayIdx++;
       }
     }
+    _recomputeConflicts();
     setState(() {});
   }
 
@@ -2524,6 +2836,22 @@ class _AddGradeToExamFormState extends State<_AddGradeToExamForm>
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;
 
+    // Validate invigilator conflicts
+    _recomputeConflicts();
+    if (_slotConflicts.isNotEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Some papers have invigilator time conflicts. Please resolve the highlighted conflicts before saving.',
+            ),
+          ),
+        );
+        setState(() {});
+      }
+      return;
+    }
+
     setState(() => _saving = true);
     try {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
@@ -2532,11 +2860,17 @@ class _AddGradeToExamFormState extends State<_AddGradeToExamForm>
 
       for (final streamCode in _selectedStreams) {
         final examId = _generateId();
+        final groupName =
+            widget.group.grades.isNotEmpty &&
+                widget.group.grades.first.streams.isNotEmpty
+            ? widget.group.grades.first.streams.first.exam.name
+            : _typeLabel(widget.group.type);
         final exam = ExamsCompanion(
           id: Value(examId),
           school: Value(widget.schoolId),
           year: Value(widget.year),
           term: Value(widget.term),
+          name: Value(groupName),
           personalized: Value(widget.group.personalized),
           type: Value(widget.group.type),
           start: Value(widget.group.start),
@@ -2572,6 +2906,8 @@ class _AddGradeToExamFormState extends State<_AddGradeToExamForm>
               invigilator: Value(slot.invigilatorId ?? teacherId),
               start: Value(BigInt.from(startDt.millisecondsSinceEpoch ~/ 1000)),
               end: Value(BigInt.from(endDt.millisecondsSinceEpoch ~/ 1000)),
+              grade: Value(grade),
+              stream: Value(streamCode),
               status: const Value(PaperStatus.pending),
               created: Value(now),
               updated: Value(now),
@@ -2588,11 +2924,41 @@ class _AddGradeToExamFormState extends State<_AddGradeToExamForm>
         );
       }
       if (mounted) widget.onClose();
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('══════ ADD GRADE ERROR ══════');
+      debugPrint('Type : ${e.runtimeType}');
+      debugPrint('Error: $e');
+      debugPrint('Stack:\n$stack');
+      debugPrint('═════════════════════════════');
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to add grade: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFFB71C1C),
+            content: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  size: 15,
+                  color: Colors.white70,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Failed to add grade (${e.runtimeType}). Please try again.',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      height: 1.4,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 5),
+          ),
+        );
         setState(() => _saving = false);
       }
     }
@@ -2951,9 +3317,16 @@ class _AddGradeToExamFormState extends State<_AddGradeToExamForm>
                         isDark: isDark,
                         indigo: indigo,
                         examDays: _examDays,
-                        onChanged: (_) => setState(() {}),
+                        errorMessage: _slotConflicts[e.value.id],
+                        onChanged: (_) {
+                          _recomputeConflicts();
+                          setState(() {});
+                        },
                         onRemove: () {
-                          setState(() => currentSlots.remove(e.value));
+                          setState(() {
+                            currentSlots.remove(e.value);
+                            _recomputeConflicts();
+                          });
                         },
                       ),
                     ),
@@ -3357,6 +3730,7 @@ class _GradePaperSlotCard extends StatefulWidget {
     required this.examDays,
     required this.onChanged,
     required this.onRemove,
+    this.errorMessage,
   });
 
   final _GradePaperSlot slot;
@@ -3370,6 +3744,7 @@ class _GradePaperSlotCard extends StatefulWidget {
   final List<DateTime> examDays;
   final ValueChanged<_GradePaperSlot> onChanged;
   final VoidCallback onRemove;
+  final String? errorMessage;
 
   @override
   State<_GradePaperSlotCard> createState() => _GradePaperSlotCardState();
@@ -3459,6 +3834,7 @@ class _GradePaperSlotCardState extends State<_GradePaperSlotCard> {
     final timeSummary =
         '${_fmtTod(slot.startTime)} · ${_fmtDuration(_durationMinutes)}';
     final isInvalid = _durationMinutes <= 0;
+    final hasError = widget.errorMessage != null;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -3468,8 +3844,10 @@ class _GradePaperSlotCardState extends State<_GradePaperSlotCard> {
             : cs.surfaceContainerHighest.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: cs.outlineVariant.withValues(alpha: isDark ? 0.25 : 0.4),
-          width: 1,
+          color: hasError
+              ? cs.error.withValues(alpha: 0.6)
+              : cs.outlineVariant.withValues(alpha: isDark ? 0.25 : 0.4),
+          width: hasError ? 1.5 : 1,
         ),
       ),
       child: Column(
@@ -3600,7 +3978,7 @@ class _GradePaperSlotCardState extends State<_GradePaperSlotCard> {
           ),
           // Invigilator selector
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+            padding: EdgeInsets.fromLTRB(12, 0, 12, hasError ? 4 : 10),
             child: _GradeInvigilatorSelector(
               value: slot.invigilatorId,
               teachers: widget.teachers,
@@ -3614,6 +3992,31 @@ class _GradePaperSlotCardState extends State<_GradePaperSlotCard> {
               },
             ),
           ),
+          // Invigilator conflict error
+          if (hasError)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    size: 13,
+                    color: cs.error.withValues(alpha: 0.8),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      widget.errorMessage!,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: cs.error.withValues(alpha: 0.8),
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
@@ -7877,6 +8280,8 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
             BigInt.from(_startDateTime.millisecondsSinceEpoch ~/ 1000),
           ),
           end: Value(BigInt.from(_endDateTime.millisecondsSinceEpoch ~/ 1000)),
+          grade: Value(widget.grade),
+          stream: Value(widget.stream),
           status: const Value(PaperStatus.pending),
           created: Value(now),
           updated: Value(now),

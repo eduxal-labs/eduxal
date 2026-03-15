@@ -101,7 +101,7 @@ Each significant directory in `lib/` has a `CONTEXT.md` file that serves as a li
 
 See the existing `CONTEXT.md` files for the standard format. Every `CONTEXT.md` must include a `## Last Updated` line noting which task last modified it.
 
-> **Schema reference:** `schema.sql` is located at `eduxal/schema.sql`. It defines the backend tables, triggers, and indexes. Read it when working on database layer tasks. Note: schema v2 adds `subjects`, `topics`, `streams`, `mpesa`, `exam_grades` and removes `settings`. The old `subjects` table is renamed to `subject_teachers`.
+> **Schema reference:** `schema.sql` is located at `eduxal/schema.sql`. It defines the backend tables, triggers, and indexes. Read it when working on database layer tasks. Note: schema v2 adds `subjects`, `topics`, `streams`, `mpesa` and removes `settings`. The old `subjects` table is renamed to `subject_teachers`. Schema v3 removes `exam_grades` — grade/stream moved to `papers`.
 
 ---
 
@@ -224,14 +224,17 @@ lib/
 
 ### 5.1 Overview
 
-The Drift database contains **34 synced backend schema tables** exactly mirrored from the server SQL schema, plus **2 client-only tables**: `accounts` and `logs`.
+The Drift database contains **33 synced backend schema tables** exactly mirrored from the server SQL schema, plus **2 client-only tables**: `accounts` and `logs`.
 
 Schema v2 changes (applied in task group C):
 - **Removed:** `settings` table (school config now handled separately)
 - **Renamed:** old `subjects` table (subject-teacher assignments) → `subject_teachers`
 - **New global catalog tables:** `subjects` (id, name, curriculum), `topics` (subject subdivisions by grade)
 - **New per-school tables:** `streams` (named stream definitions), `mpesa` (Daraja API config)
-- **New junction table:** `exam_grades` (which grades/streams participate in an exam)
+
+Schema v3 changes:
+- **Removed:** `exam_grades` junction table (grade/stream participation now tracked directly on `papers`)
+- **Modified:** `papers` table gains `grade` (smallint, NOT NULL) and `stream` (text, nullable) columns
 
 The `logs` table uses an **action-based model**: each row stores a `SyncAction` enum value and a serialized protobuf payload (`blob`). The payload is self-contained — the sync engine does NOT read other tables to build the push message. See §7 for full details.
 
@@ -326,7 +329,7 @@ This is the **offline action queue**. Every local mutation produces one log entr
 CREATE TABLE logs (
     id        INTEGER  PRIMARY KEY AUTOINCREMENT,
     account   TEXT     NOT NULL,      -- FK → accounts.id (actions are per-account)
-    action    SMALLINT NOT NULL,      -- SyncAction enum (91 values, see §7a)
+    action    SMALLINT NOT NULL,      -- SyncAction enum (91 values, 89 active + 2 reserved; see §7a)
     resource  TEXT     NOT NULL,      -- Human-readable display key (school name, user phone, etc.)
     payload   BLOB     NOT NULL,      -- Serialized protobuf action message (self-contained)
     status    SMALLINT NOT NULL DEFAULT 0, -- LogStatus enum: 0=Pending, 1=Failed
@@ -361,7 +364,7 @@ Server responses include per-action error codes:
 
 ---
 
-## 7a. The `SyncAction` Enum (91 Values)
+## 7a. The `SyncAction` Enum (91 Values — 89 Active)
 
 Each value represents a single, self-contained operation that the client can push to the server. Values are fixed — do not reorder or renumber. Defined in `lib/database/tables/enums.dart`.
 
@@ -428,8 +431,11 @@ enum SyncAction {
   createStream(83), updateStream(84), deleteStream(85),
   // M-Pesa (per-school)
   createMpesa(86), updateMpesa(87), deleteMpesa(88),
-  // Exam Grades (junction: exam ↔ grade+stream)
-  addExamGrade(89), removeExamGrade(90);
+  // Exam Grades — DEPRECATED (exam_grades table removed in schema v3; values retained for wire compat)
+  @Deprecated('exam_grades table removed in schema v3 — grade/stream moved to papers')
+  addExamGrade(89),
+  @Deprecated('exam_grades table removed in schema v3 — grade/stream moved to papers')
+  removeExamGrade(90);
 
   const SyncAction(this.value);
   final int value;
@@ -581,7 +587,7 @@ These must be resolved before the relevant code is written. Do not guess — ask
 | `lib/proto/services/authentication.pbgrpc.dart` | ✅ Generated | login, verify, setup, refresh — all unary |
 | `lib/proto/services/authentication.pb.dart` | ✅ Generated | Login, Verify, Verified, Authenticated, Setup, Refresh message types |
 | `lib/proto/services/sync.pbgrpc.dart` | ✅ Generated | `SyncClient` with `pushActions` (bidirectional streaming: client sends `ActionRequest`, server returns `ActionResponse`) and `watchChanges` (server-streaming). |
-| `lib/proto/services/sync.pb.dart` | ✅ Generated | `ActionRequest` (action enum + oneof payload with 91 `*Payload` messages — includes new `CreateSubjectPayload`, `UpdateSubjectPayload`, `DeleteSubjectPayload`, `CreateTopicPayload`, `UpdateTopicPayload`, `DeleteTopicPayload`, `CreateStreamPayload`, `UpdateStreamPayload`, `DeleteStreamPayload`, `CreateMpesaPayload`, `UpdateMpesaPayload`, `DeleteMpesaPayload`, `AddExamGradePayload`, `RemoveExamGradePayload`; `UpdateSettingsPayload` retained for wire compat but deprecated), `ActionResponse` (success/failure + `ActionRow` with server data), `WatchRequest`, `SyncDelta` (with `InsertData data`), `FileUrl`, `InsertData` (oneof, 35 `*Insert` messages — includes new `SubjectInsert`, `TopicInsert`, `StreamInsert`, `MpesaInsert`, `ExamGradeInsert`; old `SubjectsInsert` renamed to `SubjectTeacherInsert`; `SettingsInsert` removed), `AttendanceRecord`, `GradeRecord` helper messages. |
+| `lib/proto/services/sync.pb.dart` | ✅ Generated | `ActionRequest` (action enum + oneof payload with 91 `*Payload` messages — includes new `CreateSubjectPayload`, `UpdateSubjectPayload`, `DeleteSubjectPayload`, `CreateTopicPayload`, `UpdateTopicPayload`, `DeleteTopicPayload`, `CreateStreamPayload`, `UpdateStreamPayload`, `DeleteStreamPayload`, `CreateMpesaPayload`, `UpdateMpesaPayload`, `DeleteMpesaPayload`; `AddExamGradePayload` and `RemoveExamGradePayload` retained for wire compat but deprecated; `UpdateSettingsPayload` retained for wire compat but deprecated), `ActionResponse` (success/failure + `ActionRow` with server data), `WatchRequest`, `SyncDelta` (with `InsertData data`), `FileUrl`, `InsertData` (oneof, 34 `*Insert` messages — includes new `SubjectInsert`, `TopicInsert`, `StreamInsert`, `MpesaInsert`; `ExamGradeInsert` removed (field 35 reserved); `PaperInsert`/`CreatePaperPayload`/`UpdatePaperPayload` now include `grade` and `stream` fields; old `SubjectsInsert` renamed to `SubjectTeacherInsert`; `SettingsInsert` removed), `AttendanceRecord`, `GradeRecord` helper messages. |
 | `lib/proto/types/user.pb.dart` | ✅ Generated | User, Update message types; Level and Status enums |
 | `lib/proto/types/verification.pb.dart` | ✅ Generated | Verification message type; Purpose enum |
 | `lib/proto/types/role.pb.dart` | ✅ Generated | Resource enum, Action enum, Permission message, Role message, Assignment message. |
@@ -801,7 +807,7 @@ Bits 9-15 are reserved for future expansion.
 | 8 | Classes | `class_teachers`, `subject_teachers`, `timetable` | Assign (teacher→subject, teacher→class, timetable entry), Unassign |
 | 9 | Attendance | `attendance` | Mark |
 | 10 | Lessons | `lessons` | |
-| 11 | Exams | `exams`, `papers`, `exam_grades` | |
+| 11 | Exams | `exams`, `papers` | |
 | 12 | Grades | `grades`, `mastery` | Mark |
 | 13 | Fees | `fees`, `invoices` | |
 | 14 | Payments | `payments` | Approve |

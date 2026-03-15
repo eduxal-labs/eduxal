@@ -18,7 +18,6 @@ mixin _$ExamsGradesDaoMixin on DatabaseAccessor<AppDatabase> {
   $TeachersTable get teachers => attachedDatabase.teachers;
   $EnrollmentsTable get enrollments => attachedDatabase.enrollments;
   $SubjectTeachersTable get subjectTeachers => attachedDatabase.subjectTeachers;
-  $ExamGradesTable get examGrades => attachedDatabase.examGrades;
   $AccountsTable get accounts => attachedDatabase.accounts;
   $LogsTable get logs => attachedDatabase.logs;
   ExamsGradesDaoManager get managers => ExamsGradesDaoManager(this);
@@ -59,8 +58,6 @@ class ExamsGradesDaoManager {
         _db.attachedDatabase,
         _db.subjectTeachers,
       );
-  $$ExamGradesTableTableManager get examGrades =>
-      $$ExamGradesTableTableManager(_db.attachedDatabase, _db.examGrades);
   $$AccountsTableTableManager get accounts =>
       $$AccountsTableTableManager(_db.attachedDatabase, _db.accounts);
   $$LogsTableTableManager get logs =>

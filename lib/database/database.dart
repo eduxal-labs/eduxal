@@ -47,7 +47,7 @@ import 'tables/curriculum_subjects.dart';
 import 'tables/topics.dart';
 import 'tables/streams.dart';
 import 'tables/mpesa.dart';
-import 'tables/exam_grades.dart';
+
 import 'tables/attendance.dart';
 import 'tables/timetable.dart';
 import 'tables/lessons.dart';
@@ -105,7 +105,7 @@ late final AppDatabase db;
     Announcements,
     Mastery,
     AiUsage,
-    ExamGrades,
+
     Scopes,
     Subscriptions,
     Discounts,
@@ -211,9 +211,6 @@ class AppDatabase extends _$AppDatabase {
       await delete(lessons).go();
       await delete(timetable).go();
 
-      // ── Exam grades (junction: depend on exams) ──
-      await delete(examGrades).go();
-
       // ── Subject teachers (depend on teachers, terms, schools) ──
       await delete(subjectTeachers).go();
 
@@ -280,7 +277,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -311,6 +308,66 @@ class AppDatabase extends _$AppDatabase {
         await customStatement(
           'ALTER TABLE accounts ADD COLUMN theme INTEGER NOT NULL DEFAULT 0',
         );
+      }
+      if (from < 7) {
+        // Exam/paper schema redesign: add grade/stream to papers, drop exam_grades.
+        await customStatement(
+          'ALTER TABLE papers ADD COLUMN grade INTEGER NOT NULL DEFAULT 0',
+        );
+        await customStatement('ALTER TABLE papers ADD COLUMN stream INTEGER');
+        // Backfill grade/stream from exam_grades if the table exists
+        await customStatement('''
+          UPDATE papers SET
+            grade = COALESCE((SELECT eg.grade FROM exam_grades eg WHERE eg.exam = papers.exam LIMIT 1), 0),
+            stream = (SELECT eg.stream FROM exam_grades eg WHERE eg.exam = papers.exam LIMIT 1)
+          WHERE EXISTS (SELECT 1 FROM exam_grades eg WHERE eg.exam = papers.exam)
+        ''');
+        await customStatement('DROP TABLE IF EXISTS exam_grades');
+        await customStatement('DROP INDEX IF EXISTS idx_exam_grades_grade');
+
+        // Recreate enrollment-check triggers to JOIN through papers instead of exam_grades
+        await customStatement('DROP TRIGGER IF EXISTS grades_enrollment_check');
+        await customStatement('''
+          CREATE TRIGGER grades_enrollment_check
+          BEFORE INSERT ON grades
+          BEGIN
+            SELECT RAISE(ABORT, 'student is not enrolled in a class that participates in this exam')
+            WHERE NOT EXISTS (
+              SELECT 1 FROM enrollments
+              INNER JOIN exams ON exams.id = NEW.exam AND exams.school = NEW.school
+              INNER JOIN papers p ON p.exam = exams.id AND p.school = exams.school
+                                 AND p.subject = NEW.subject
+              WHERE enrollments.school  = NEW.school
+                AND enrollments.student = NEW.student
+                AND enrollments.year    = exams.year
+                AND enrollments.term    = exams.term
+                AND enrollments.grade   = p.grade
+                AND (p.stream IS NULL OR enrollments.stream = p.stream)
+            );
+          END
+        ''');
+        await customStatement(
+          'DROP TRIGGER IF EXISTS grades_enrollment_check_update',
+        );
+        await customStatement('''
+          CREATE TRIGGER grades_enrollment_check_update
+          BEFORE UPDATE OF exam, student, school ON grades
+          BEGIN
+            SELECT RAISE(ABORT, 'student is not enrolled in a class that participates in this exam')
+            WHERE NOT EXISTS (
+              SELECT 1 FROM enrollments
+              INNER JOIN exams ON exams.id = NEW.exam AND exams.school = NEW.school
+              INNER JOIN papers p ON p.exam = exams.id AND p.school = exams.school
+                                 AND p.subject = NEW.subject
+              WHERE enrollments.school  = NEW.school
+                AND enrollments.student = NEW.student
+                AND enrollments.year    = exams.year
+                AND enrollments.term    = exams.term
+                AND enrollments.grade   = p.grade
+                AND (p.stream IS NULL OR enrollments.stream = p.stream)
+            );
+          END
+        ''');
       }
     },
     onCreate: (m) async {
@@ -360,7 +417,7 @@ class AppDatabase extends _$AppDatabase {
       ''');
 
     // Ensures a grade can only be recorded for a student enrolled in a
-    // grade/stream that participates in the exam (via exam_grades), INSERT.
+    // grade/stream that participates in the exam (via papers), INSERT.
     await customStatement('''
         CREATE TRIGGER IF NOT EXISTS grades_enrollment_check
         BEFORE INSERT ON grades
@@ -369,14 +426,14 @@ class AppDatabase extends _$AppDatabase {
           WHERE NOT EXISTS (
             SELECT 1 FROM enrollments
             INNER JOIN exams ON exams.id = NEW.exam AND exams.school = NEW.school
-            INNER JOIN exam_grades eg
-              ON eg.exam = NEW.exam
-             AND eg.grade = enrollments.grade
-             AND eg.stream = enrollments.stream
+            INNER JOIN papers p ON p.exam = exams.id AND p.school = exams.school
+                               AND p.subject = NEW.subject
             WHERE enrollments.school  = NEW.school
               AND enrollments.student = NEW.student
               AND enrollments.year    = exams.year
               AND enrollments.term    = exams.term
+              AND enrollments.grade   = p.grade
+              AND (p.stream IS NULL OR enrollments.stream = p.stream)
           );
         END
       ''');
@@ -406,7 +463,7 @@ class AppDatabase extends _$AppDatabase {
       ''');
 
     // Prevents UPDATE from moving a grade to an exam the student is not
-    // enrolled in (via exam_grades).
+    // enrolled in (via papers).
     await customStatement('''
         CREATE TRIGGER IF NOT EXISTS grades_enrollment_check_update
         BEFORE UPDATE OF exam, student, school ON grades
@@ -415,14 +472,14 @@ class AppDatabase extends _$AppDatabase {
           WHERE NOT EXISTS (
             SELECT 1 FROM enrollments
             INNER JOIN exams ON exams.id = NEW.exam AND exams.school = NEW.school
-            INNER JOIN exam_grades eg
-              ON eg.exam = NEW.exam
-             AND eg.grade = enrollments.grade
-             AND eg.stream = enrollments.stream
+            INNER JOIN papers p ON p.exam = exams.id AND p.school = exams.school
+                               AND p.subject = NEW.subject
             WHERE enrollments.school  = NEW.school
               AND enrollments.student = NEW.student
               AND enrollments.year    = exams.year
               AND enrollments.term    = exams.term
+              AND enrollments.grade   = p.grade
+              AND (p.stream IS NULL OR enrollments.stream = p.stream)
           );
         END
       ''');
@@ -763,10 +820,6 @@ class AppDatabase extends _$AppDatabase {
 
     await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_streams_school ON streams(school, grade)',
-    );
-
-    await customStatement(
-      'CREATE INDEX IF NOT EXISTS idx_exam_grades_grade ON exam_grades(grade, stream)',
     );
 
     await customStatement(
