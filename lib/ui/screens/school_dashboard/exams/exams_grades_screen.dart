@@ -5583,7 +5583,21 @@ class _PaperContentArea extends StatelessWidget {
       ),
       builder: (context, snap) {
         final papers = snap.data ?? [];
+        debugPrint(
+          '[PaperContent] examId=${streamEntry.exam.id}, '
+          'schoolId=$schoolId, papers=${papers.length}, '
+          'connState=${snap.connectionState}',
+        );
+        for (final p in papers) {
+          debugPrint(
+            '[PaperContent]   subject=${p.subject}, '
+            'start=${p.start}, end=${p.end}, '
+            'grade=${p.grade}, stream=${p.stream}, '
+            'invigilator=${p.invigilator}',
+          );
+        }
         if (papers.isEmpty) {
+          debugPrint('[PaperContent] → EMPTY, showing empty state');
           return _EmptyPapersTimetableState(cs: cs);
         }
         return LayoutBuilder(
@@ -5627,8 +5641,16 @@ Map<DateTime, List<Paper>> _groupPapersByDate(List<Paper> papers) {
   for (final p in papers) {
     final dt = DateTime.fromMillisecondsSinceEpoch(p.start.toInt() * 1000);
     final day = DateTime(dt.year, dt.month, dt.day);
+    debugPrint(
+      '[GroupByDate] paper subject=${p.subject}, '
+      'start=${p.start} → dt=$dt → day=$day (ms=${day.millisecondsSinceEpoch})',
+    );
     map.putIfAbsent(day, () => []).add(p);
   }
+  debugPrint(
+    '[GroupByDate] ${map.length} date groups: '
+    '${map.entries.map((e) => "${e.key}: ${e.value.length} papers").join(", ")}',
+  );
   // Sort papers within each day by start time
   for (final list in map.values) {
     list.sort((a, b) => a.start.compareTo(b.start));
@@ -5665,10 +5687,20 @@ Paper? _paperAt(
 ) {
   final day = DateTime(date.year, date.month, date.day);
   final papers = grouped[day] ?? [];
+  debugPrint(
+    '[PaperAt] date=$date → day=$day (ms=${day.millisecondsSinceEpoch}), '
+    'startTime=$startTime, papersInDay=${papers.length}, '
+    'groupedKeys=${grouped.keys.map((k) => "$k (ms=${k.millisecondsSinceEpoch})").join(", ")}',
+  );
   for (final p in papers) {
     final dt = DateTime.fromMillisecondsSinceEpoch(p.start.toInt() * 1000);
-    if (_fmtTime(dt) == startTime) return p;
+    final fmt = _fmtTime(dt);
+    debugPrint(
+      '[PaperAt]   checking subject=${p.subject}: fmt=$fmt vs startTime=$startTime → ${fmt == startTime ? "MATCH" : "no match"}',
+    );
+    if (fmt == startTime) return p;
   }
+  debugPrint('[PaperAt]   → NO MATCH FOUND');
   return null;
 }
 
@@ -5715,6 +5747,13 @@ class _PaperTimetableGrid extends StatelessWidget {
     final grouped = _groupPapersByDate(papers);
     final dates = _sortedPaperDates(grouped);
     final timeslots = _uniquePaperStartTimes(papers);
+    debugPrint(
+      '[TimetableGrid] papers=${papers.length}, '
+      'dates=${dates.length}, timeslots=${timeslots.length}',
+    );
+    for (final ts in timeslots) {
+      debugPrint('[TimetableGrid]   slot: ${ts.start} – ${ts.end}');
+    }
 
     // Compute total grid width: time gutter + date columns
     const double gutterWidth = 72;
