@@ -1,6 +1,3 @@
-import 'dart:math' as math;
-
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../database/database.dart';
@@ -142,7 +139,7 @@ class _ExamDetailPageState extends State<ExamDetailPage>
               ),
 
               // ── Tab bar ────────────────────────────────────────────────
-              EduTabBar(controller: _tabController, tabs: _tabs),
+              EduTabBar(controller: _tabController, tabs: _tabs, isScrollable: true),
 
               // ── Tab views ──────────────────────────────────────────────
               Expanded(
@@ -167,6 +164,7 @@ class _ExamDetailPageState extends State<ExamDetailPage>
                       year: widget.year,
                       term: widget.term,
                       grade: widget.grade,
+                      streamCode: widget.streamCode,
                       curriculumType: widget.curriculumType,
                       dao: _dao,
                       subjectNames: widget.subjectNames,
@@ -177,6 +175,7 @@ class _ExamDetailPageState extends State<ExamDetailPage>
                       year: widget.year,
                       term: widget.term,
                       grade: widget.grade,
+                      streamCode: widget.streamCode,
                       curriculumType: widget.curriculumType,
                       dao: _dao,
                       subjectNames: widget.subjectNames,
@@ -441,6 +440,7 @@ class _GradesTab extends StatefulWidget {
     required this.year,
     required this.term,
     required this.grade,
+    this.streamCode,
     required this.curriculumType,
     required this.dao,
     required this.subjectNames,
@@ -451,6 +451,7 @@ class _GradesTab extends StatefulWidget {
   final int year;
   final int term;
   final int grade;
+  final int? streamCode;
   final CurriculumType curriculumType;
   final ExamsGradesDao dao;
   final Map<int, String> subjectNames;
@@ -508,6 +509,7 @@ class _GradesTabState extends State<_GradesTab>
       year: widget.year,
       term: widget.term,
       grade: widget.grade,
+      stream: widget.streamCode,
     );
     if (!mounted) return;
     setState(() {
@@ -1360,6 +1362,7 @@ class _PerformanceTab extends StatefulWidget {
     required this.year,
     required this.term,
     required this.grade,
+    this.streamCode,
     required this.curriculumType,
     required this.dao,
     required this.subjectNames,
@@ -1370,6 +1373,7 @@ class _PerformanceTab extends StatefulWidget {
   final int year;
   final int term;
   final int grade;
+  final int? streamCode;
   final CurriculumType curriculumType;
   final ExamsGradesDao dao;
   final Map<int, String> subjectNames;
@@ -1384,6 +1388,7 @@ class _PerformanceTabState extends State<_PerformanceTab>
   List<_StudentRankRow>? _rankings;
   List<StudentsData>? _enrolled;
   bool _loading = true;
+  int _selectedInsight = 0; // 0 = Overview, 1 = Subjects, 2 = Rankings
 
   @override
   bool get wantKeepAlive => true;
@@ -1407,6 +1412,7 @@ class _PerformanceTabState extends State<_PerformanceTab>
       year: widget.year,
       term: widget.term,
       grade: widget.grade,
+      stream: widget.streamCode,
     );
 
     // Fetch all grades for this exam
@@ -1474,10 +1480,13 @@ class _PerformanceTabState extends State<_PerformanceTab>
     });
   }
 
+  // ── Build ──────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
     final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
 
     if (_loading) return _buildLoading(cs);
 
@@ -1489,200 +1498,210 @@ class _PerformanceTabState extends State<_PerformanceTab>
       return _buildEmpty(cs, 'No grades recorded for this exam yet');
     }
 
-    // Overall class average
+    // Overall stats
     double totalAvg = 0;
+    double highest = 0;
+    double lowest = 100;
     for (final a in analytics.values) {
       totalAvg += a.averagePercent;
+      if (a.averagePercent > highest) highest = a.averagePercent;
+      if (a.averagePercent < lowest) lowest = a.averagePercent;
     }
     final overallAvg = totalAvg / analytics.length;
     final totalGraded = rankings?.length ?? 0;
     final totalEnrolled = enrolled?.length ?? 0;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+    return Column(
       children: [
-        // ── Summary card ──
-        _buildSummaryCard(
-          cs,
-          overallAvg,
-          totalGraded,
-          totalEnrolled,
-          analytics.length,
+        // ── Insight selector ──
+        _buildInsightSelector(cs, isDark),
+        // ── Content ──
+        Expanded(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: _selectedInsight == 0
+                ? _buildOverviewInsight(
+                    cs, isDark, overallAvg, highest, lowest,
+                    totalGraded, totalEnrolled, analytics,
+                  )
+                : _selectedInsight == 1
+                    ? _buildSubjectsInsight(cs, isDark, analytics)
+                    : _buildRankingsInsight(cs, isDark, rankings ?? []),
+          ),
         ),
-        const SizedBox(height: 20),
-
-        // ── Grade distribution chart ──
-        _buildDistributionChart(cs, analytics),
-        const SizedBox(height: 20),
-
-        // ── Subject performance bars ──
-        _buildSectionLabel(cs, 'Subject Performance'),
-        const SizedBox(height: 10),
-        ...analytics.entries.map(
-          (entry) => _buildSubjectBar(cs, entry.key, entry.value),
-        ),
-
-        if (rankings != null && rankings.isNotEmpty) ...[
-          const SizedBox(height: 20),
-          _buildSectionLabel(cs, 'Student Ranking'),
-          const SizedBox(height: 10),
-          _buildRankingTable(cs, rankings),
-        ],
       ],
     );
   }
 
-  Widget _buildSummaryCard(
-    ColorScheme cs,
-    double overallAvg,
-    int totalGraded,
-    int totalEnrolled,
-    int subjectCount,
-  ) {
-    return Material(
-      color: cs.surfaceContainerLowest,
-      borderRadius: BorderRadius.circular(AppTheme.kRadius),
-      elevation: 0,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppTheme.kRadius),
-          border: Border.all(color: cs.outlineVariant, width: 1),
-        ),
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${overallAvg.toStringAsFixed(1)}%',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w300,
-                      color: _pctColor(overallAvg, cs),
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Class Average',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Container(width: 1, height: 40, color: cs.outlineVariant),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '$totalGraded / $totalEnrolled',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w300,
-                      color: cs.onSurface,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Students Graded',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  '$subjectCount',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w300,
-                    color: cs.onSurface,
-                    letterSpacing: -0.5,
+  // ── Insight Selector ───────────────────────────────────────────────────────
+
+  Widget _buildInsightSelector(ColorScheme cs, bool isDark) {
+    const labels = ['Overview', 'Subjects', 'Rankings'];
+    const icons = [
+      Icons.insights_rounded,
+      Icons.menu_book_rounded,
+      Icons.emoji_events_rounded,
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Row(
+        children: List.generate(3, (i) {
+          final selected = _selectedInsight == i;
+          return Padding(
+            padding: EdgeInsets.only(right: i < 2 ? 8 : 0),
+            child: GestureDetector(
+              onTap: () => setState(() => _selectedInsight = i),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOut,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? cs.primary.withValues(alpha: isDark ? 0.15 : 0.1)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: selected
+                        ? cs.primary.withValues(alpha: 0.3)
+                        : cs.outlineVariant.withValues(alpha: 0.3),
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  'Subjects',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    color: cs.onSurfaceVariant,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      icons[i],
+                      size: 14,
+                      color: selected
+                          ? cs.primary
+                          : cs.onSurfaceVariant.withValues(alpha: 0.5),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      labels[i],
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight:
+                            selected ? FontWeight.w500 : FontWeight.w400,
+                        color: selected ? cs.primary : cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ],
-        ),
+          );
+        }),
       ),
     );
   }
 
-  Widget _buildSubjectBar(ColorScheme cs, int subjectCode, PaperAnalytics pa) {
-    final label = widget.subjectNames[subjectCode] ?? 'Subject $subjectCode';
-    final avg = pa.averagePercent;
-    final barColor = avg >= 75
-        ? AppTheme.brandGreen
-        : avg >= 50
-        ? const Color(0xFFF59E0B)
-        : cs.error;
+  // ── Overview Insight ───────────────────────────────────────────────────────
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    color: cs.onSurface,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '${avg.toStringAsFixed(1)}%',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: barColor,
-                ),
-              ),
-            ],
+  Widget _buildOverviewInsight(
+    ColorScheme cs,
+    bool isDark,
+    double overallAvg,
+    double highest,
+    double lowest,
+    int totalGraded,
+    int totalEnrolled,
+    Map<int, PaperAnalytics> analytics,
+  ) {
+    return ListView(
+      key: const ValueKey('overview'),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      children: [
+        _buildHeroMetrics(
+          cs, isDark, overallAvg, highest, lowest, totalGraded, totalEnrolled,
+        ),
+        const SizedBox(height: 16),
+        _buildDistribution(cs, isDark, analytics),
+        const SizedBox(height: 16),
+        _buildStrengthsWeaknesses(cs, isDark, analytics),
+      ],
+    );
+  }
+
+  Widget _buildHeroMetrics(
+    ColorScheme cs,
+    bool isDark,
+    double avg,
+    double highest,
+    double lowest,
+    int graded,
+    int enrolled,
+  ) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildMetricTile(
+            cs, isDark,
+            '${avg.toStringAsFixed(1)}%',
+            'Class Average',
+            _pctColor(avg, cs),
           ),
-          const SizedBox(height: 4),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: SizedBox(
-              height: 6,
-              child: LinearProgressIndicator(
-                value: (avg / 100).clamp(0.0, 1.0),
-                backgroundColor: cs.surfaceContainerHighest.withValues(
-                  alpha: 0.5,
-                ),
-                valueColor: AlwaysStoppedAnimation(barColor),
-              ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildMetricTile(
+            cs, isDark,
+            '$graded / $enrolled',
+            'Graded',
+            cs.onSurface,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildMetricTile(
+            cs, isDark,
+            '${(highest - lowest).toStringAsFixed(1)}%',
+            'Spread',
+            cs.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMetricTile(
+    ColorScheme cs,
+    bool isDark,
+    String value,
+    String label,
+    Color valueColor,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: isDark
+            ? cs.surfaceContainerHighest.withValues(alpha: 0.3)
+            : cs.surfaceContainerHighest.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w500,
+              color: valueColor,
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
             ),
           ),
         ],
@@ -1690,9 +1709,11 @@ class _PerformanceTabState extends State<_PerformanceTab>
     );
   }
 
-  /// Aggregate distribution across all subjects and render a bar chart.
-  Widget _buildDistributionChart(
+  // ── Distribution ───────────────────────────────────────────────────────────
+
+  Widget _buildDistribution(
     ColorScheme cs,
+    bool isDark,
     Map<int, PaperAnalytics> analytics,
   ) {
     // Merge distributions from all subjects into one aggregate map.
@@ -1704,362 +1725,557 @@ class _PerformanceTabState extends State<_PerformanceTab>
     }
     if (aggregate.isEmpty) return const SizedBox.shrink();
 
-    // Ensure consistent bucket order.
-    const bucketOrder = ['0–39', '40–49', '50–59', '60–69', '70–79', '80–100'];
-    final keys = <String>[];
-    final values = <int>[];
-    for (final b in bucketOrder) {
-      if (aggregate.containsKey(b)) {
-        keys.add(b);
-        values.add(aggregate[b]!);
-      }
-    }
-    // Append any extra keys not in predefined order (safety fallback).
-    for (final k in aggregate.keys) {
-      if (!bucketOrder.contains(k)) {
-        keys.add(k);
-        values.add(aggregate[k]!);
-      }
-    }
+    const buckets = ['0–39', '40–49', '50–59', '60–69', '70–79', '80–100'];
+    const bucketColors = [
+      Color(0xFFEF4444), // red
+      Color(0xFFF97316), // orange
+      Color(0xFFF59E0B), // amber
+      Color(0xFF84CC16), // lime
+      Color(0xFF22C55E), // green
+      Color(0xFF10B981), // emerald
+    ];
 
-    final maxVal = values.fold(0, math.max).toDouble();
+    final counts = <int>[];
+    final labels = <String>[];
+    final colors = <Color>[];
+    int total = 0;
+    for (int i = 0; i < buckets.length; i++) {
+      final c = aggregate[buckets[i]] ?? 0;
+      counts.add(c);
+      labels.add(buckets[i]);
+      colors.add(bucketColors[i]);
+      total += c;
+    }
+    if (total == 0) return const SizedBox.shrink();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionLabel(cs, 'Grade Distribution'),
-        const SizedBox(height: 10),
-        Material(
-          color: cs.surfaceContainerLowest,
-          borderRadius: BorderRadius.circular(AppTheme.kRadius),
-          elevation: 0,
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppTheme.kRadius),
-              border: Border.all(color: cs.outlineVariant, width: 1),
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark
+            ? cs.surfaceContainerHighest.withValues(alpha: 0.2)
+            : cs.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Score Distribution',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+              letterSpacing: 0.3,
             ),
-            padding: const EdgeInsets.fromLTRB(12, 14, 12, 8),
+          ),
+          const SizedBox(height: 12),
+          // Stacked horizontal bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
             child: SizedBox(
-              height: 90,
-              child: BarChart(
-                BarChartData(
-                  maxY: maxVal <= 0 ? 5 : maxVal * 1.2,
-                  gridData: FlGridData(
-                    show: true,
-                    drawVerticalLine: false,
-                    getDrawingHorizontalLine: (v) => FlLine(
-                      color: cs.outlineVariant.withValues(alpha: 0.3),
-                      strokeWidth: 0.5,
-                    ),
-                  ),
-                  borderData: FlBorderData(show: false),
-                  titlesData: FlTitlesData(
-                    leftTitles: const AxisTitles(),
-                    rightTitles: const AxisTitles(),
-                    topTitles: const AxisTitles(),
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        getTitlesWidget: (v, meta) {
-                          final idx = v.toInt();
-                          if (idx < 0 || idx >= keys.length) {
-                            return const SizedBox.shrink();
-                          }
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Text(
-                              keys[idx],
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w400,
-                                color: cs.onSurfaceVariant.withValues(
-                                  alpha: 0.7,
+              height: 28,
+              child: Row(
+                children: List.generate(counts.length, (i) {
+                  if (counts[i] == 0) return const SizedBox.shrink();
+                  final fraction = counts[i] / total;
+                  return Expanded(
+                    flex: (fraction * 1000).round().clamp(1, 1000),
+                    child: Tooltip(
+                      message:
+                          '${labels[i]}: ${counts[i]} student${counts[i] == 1 ? '' : 's'}',
+                      child: Container(
+                        color: colors[i].withValues(
+                          alpha: isDark ? 0.7 : 0.8,
+                        ),
+                        alignment: Alignment.center,
+                        child: fraction > 0.08
+                            ? Text(
+                                '${counts[i]}',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.white,
                                 ),
-                              ),
-                            ),
-                          );
-                        },
-                        reservedSize: 20,
+                              )
+                            : null,
                       ),
                     ),
-                  ),
-                  barTouchData: BarTouchData(
-                    touchTooltipData: BarTouchTooltipData(
-                      getTooltipColor: (_) => cs.surfaceContainer,
-                      tooltipRoundedRadius: 4,
-                      getTooltipItem: (group, gIdx, rod, rIdx) {
-                        final idx = group.x;
-                        if (idx < 0 || idx >= keys.length) return null;
-                        return BarTooltipItem(
-                          '${keys[idx]}: ${values[idx]}',
-                          TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: cs.onSurface,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  barGroups: List.generate(values.length, (i) {
-                    final pct = values.length > 1
-                        ? i / (values.length - 1)
-                        : 0.5;
-                    final barColor = Color.lerp(
-                      const Color(0xFFE57373),
-                      AppTheme.brandGreen,
-                      pct,
-                    )!;
-                    return BarChartGroupData(
-                      x: i,
-                      barRods: [
-                        BarChartRodData(
-                          toY: values[i].toDouble(),
-                          color: barColor.withValues(
-                            alpha: cs.brightness == Brightness.dark
-                                ? 0.8
-                                : 0.75,
-                          ),
-                          width: 14,
-                          borderRadius: BorderRadius.circular(3),
-                          backDrawRodData: BackgroundBarChartRodData(
-                            show: true,
-                            toY: maxVal <= 0 ? 5 : maxVal * 1.2,
-                            color: cs.surfaceContainerHighest.withValues(
-                              alpha: 0.3,
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  }),
-                ),
+                  );
+                }),
               ),
             ),
+          ),
+          const SizedBox(height: 10),
+          // Legend
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            children: List.generate(counts.length, (i) {
+              if (counts[i] == 0) return const SizedBox.shrink();
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: colors[i].withValues(
+                        alpha: isDark ? 0.7 : 0.8,
+                      ),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${labels[i]}%',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w400,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ],
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Strengths & Weaknesses ─────────────────────────────────────────────────
+
+  Widget _buildStrengthsWeaknesses(
+    ColorScheme cs,
+    bool isDark,
+    Map<int, PaperAnalytics> analytics,
+  ) {
+    if (analytics.length < 2) return const SizedBox.shrink();
+
+    final sorted = analytics.entries.toList()
+      ..sort(
+        (a, b) => b.value.averagePercent.compareTo(a.value.averagePercent),
+      );
+
+    final best = sorted.first;
+    final worst = sorted.last;
+    final bestName =
+        widget.subjectNames[best.key] ?? 'Subject ${best.key}';
+    final worstName =
+        widget.subjectNames[worst.key] ?? 'Subject ${worst.key}';
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark
+            ? cs.surfaceContainerHighest.withValues(alpha: 0.2)
+            : cs.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Key Insights',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+              letterSpacing: 0.3,
+            ),
+          ),
+          const SizedBox(height: 10),
+          _buildInsightRow(
+            cs,
+            icon: Icons.trending_up_rounded,
+            iconColor: AppTheme.brandGreen,
+            title: 'Strongest Subject',
+            subtitle: bestName,
+            value: '${best.value.averagePercent.toStringAsFixed(1)}%',
+            valueColor: AppTheme.brandGreen,
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Divider(
+              height: 1,
+              thickness: 0.5,
+              color: cs.outlineVariant.withValues(alpha: 0.2),
+            ),
+          ),
+          _buildInsightRow(
+            cs,
+            icon: Icons.trending_down_rounded,
+            iconColor: cs.error,
+            title: 'Needs Attention',
+            subtitle: worstName,
+            value: '${worst.value.averagePercent.toStringAsFixed(1)}%',
+            valueColor: cs.error,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInsightRow(
+    ColorScheme cs, {
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required String value,
+    required Color valueColor,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: iconColor.withValues(alpha: 0.7)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+              ),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurface,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            color: valueColor,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildRankingTable(ColorScheme cs, List<_StudentRankRow> rankings) {
-    // Medal colors for top 3.
-    const goldColor = Color(0xFFFFD700);
-    const silverColor = Color(0xFFC0C0C0);
-    const bronzeColor = Color(0xFFCD7F32);
+  // ── Subjects Insight ───────────────────────────────────────────────────────
 
-    Color? _medalTint(int rank) {
-      switch (rank) {
-        case 1:
-          return goldColor;
-        case 2:
-          return silverColor;
-        case 3:
-          return bronzeColor;
-        default:
-          return null;
-      }
-    }
+  Widget _buildSubjectsInsight(
+    ColorScheme cs,
+    bool isDark,
+    Map<int, PaperAnalytics> analytics,
+  ) {
+    final sorted = analytics.entries.toList()
+      ..sort(
+        (a, b) => b.value.averagePercent.compareTo(a.value.averagePercent),
+      );
 
-    return Material(
-      color: cs.surfaceContainerLowest,
-      borderRadius: BorderRadius.circular(AppTheme.kRadius),
-      elevation: 0,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppTheme.kRadius),
-          border: Border.all(color: cs.outlineVariant, width: 1),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          children: [
-            // Header row
-            Container(
-              color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 36,
-                    child: Text(
-                      '#',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    flex: 3,
-                    child: Text(
-                      'Student',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                  SizedBox(
-                    width: 60,
-                    child: Text(
-                      'Score',
-                      textAlign: TextAlign.end,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    width: 50,
-                    child: Text(
-                      '%',
-                      textAlign: TextAlign.end,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ],
+    return ListView.builder(
+      key: const ValueKey('subjects'),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      itemCount: sorted.length,
+      itemBuilder: (context, i) {
+        final entry = sorted[i];
+        final name =
+            widget.subjectNames[entry.key] ?? 'Subject ${entry.key}';
+        final pa = entry.value;
+        final avg = pa.averagePercent;
+        final barColor = avg >= 75
+            ? AppTheme.brandGreen
+            : avg >= 50
+                ? const Color(0xFFF59E0B)
+                : cs.error;
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? cs.surfaceContainerHighest.withValues(alpha: 0.2)
+                  : cs.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: cs.outlineVariant.withValues(alpha: 0.2),
               ),
             ),
-            // Data rows
-            ...List.generate(rankings.length, (i) {
-              final r = rankings[i];
-              final isEven = i.isEven;
-              final pctColor = _pctColor(r.percentage, cs);
-              final medal = _medalTint(r.rank);
-              final rowBg = medal != null
-                  ? medal.withValues(
-                      alpha: cs.brightness == Brightness.dark ? 0.08 : 0.06,
-                    )
-                  : isEven
-                  ? Colors.transparent
-                  : cs.surfaceContainerHighest.withValues(alpha: 0.15);
-              return Container(
-                decoration: BoxDecoration(
-                  color: rowBg,
-                  border: medal != null
-                      ? Border(
-                          left: BorderSide(
-                            color: medal.withValues(alpha: 0.5),
-                            width: 2.5,
-                          ),
-                        )
-                      : null,
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    SizedBox(
-                      width: 36,
-                      child: Text(
-                        '${r.rank}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: medal != null
-                              ? FontWeight.w500
-                              : FontWeight.w400,
-                          color: medal ?? cs.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
                     Expanded(
-                      flex: 3,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            r.name,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w400,
-                              color: cs.onSurface,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            '${r.adm}',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w400,
-                              color: cs.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(
-                      width: 60,
                       child: Text(
-                        '${_fmtScore(r.totalScore)}/${r.totalPossible}',
-                        textAlign: TextAlign.end,
+                        name,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 13,
                           fontWeight: FontWeight.w400,
                           color: cs.onSurface,
                         ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 50,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            '${r.percentage.toStringAsFixed(1)}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: pctColor,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(2),
-                            child: SizedBox(
-                              height: 3,
-                              width: 50,
-                              child: LinearProgressIndicator(
-                                value: (r.percentage / 100).clamp(0.0, 1.0),
-                                backgroundColor: cs.surfaceContainerHighest
-                                    .withValues(alpha: 0.5),
-                                valueColor: AlwaysStoppedAnimation(pctColor),
-                              ),
-                            ),
-                          ),
-                        ],
+                    Text(
+                      '${avg.toStringAsFixed(1)}%',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: barColor,
                       ),
                     ),
                   ],
                 ),
-              );
-            }),
-          ],
-        ),
-      ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: SizedBox(
+                    height: 6,
+                    child: LinearProgressIndicator(
+                      value: (avg / 100).clamp(0.0, 1.0),
+                      backgroundColor: cs.surfaceContainerHighest.withValues(
+                        alpha: 0.5,
+                      ),
+                      valueColor: AlwaysStoppedAnimation(
+                        barColor.withValues(alpha: isDark ? 0.7 : 0.8),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Text(
+                      '${pa.gradedStudents} of ${pa.totalStudents} graded',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    const Spacer(),
+                    if (pa.averageScore > 0)
+                      Text(
+                        'Avg score: ${pa.averageScore.toStringAsFixed(1)}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w400,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildSectionLabel(ColorScheme cs, String label) {
-    return Text(
-      label,
-      style: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-        letterSpacing: 0.3,
-      ),
+  // ── Rankings Insight ────────────────────────────────────────────────────────
+
+  Widget _buildRankingsInsight(
+    ColorScheme cs,
+    bool isDark,
+    List<_StudentRankRow> rankings,
+  ) {
+    if (rankings.isEmpty) {
+      return _buildEmpty(cs, 'No student rankings available');
+    }
+
+    return ListView.builder(
+      key: const ValueKey('rankings'),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+      itemCount: rankings.length + 1, // +1 for header
+      itemBuilder: (context, i) {
+        if (i == 0) {
+          // Header
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest.withValues(
+                alpha: isDark ? 0.2 : 0.3,
+              ),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(8),
+              ),
+            ),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 32,
+                  child: Text(
+                    '#',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    'Student',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 56,
+                  child: Text(
+                    'Score',
+                    textAlign: TextAlign.end,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 46,
+                  child: Text(
+                    '%',
+                    textAlign: TextAlign.end,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final r = rankings[i - 1];
+        final pctColor = _pctColor(r.percentage, cs);
+
+        // Medal colors for top 3
+        Color? medal;
+        if (r.rank == 1) medal = const Color(0xFFFFD700);
+        if (r.rank == 2) medal = const Color(0xFFC0C0C0);
+        if (r.rank == 3) medal = const Color(0xFFCD7F32);
+
+        return Container(
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: cs.outlineVariant.withValues(
+                  alpha: isDark ? 0.1 : 0.15,
+                ),
+                width: 0.5,
+              ),
+              left: medal != null
+                  ? BorderSide(
+                      color: medal.withValues(alpha: 0.6),
+                      width: 2.5,
+                    )
+                  : BorderSide.none,
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 32,
+                child: medal != null
+                    ? Icon(
+                        Icons.emoji_events_rounded,
+                        size: 16,
+                        color: medal,
+                      )
+                    : Text(
+                        '${r.rank}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                        ),
+                      ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      r.name,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurface,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      'ADM ${r.adm}',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(
+                width: 56,
+                child: Text(
+                  '${_fmtScore(r.totalScore)}/${r.totalPossible}',
+                  textAlign: TextAlign.end,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurface,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 46,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: pctColor.withValues(alpha: isDark ? 0.12 : 0.08),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '${r.percentage.toStringAsFixed(1)}',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: pctColor,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

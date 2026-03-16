@@ -333,6 +333,9 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                           onDirtyChanged: (dirty) {
                             if (mounted) setState(() => _hasDirtyGrades = dirty);
                           },
+                          onSubmissionsChanged: () {
+                            if (mounted) setState(() {});
+                          },
                           onAiPhaseChanged: (phase) {
                             setState(() => _aiPhase = phase);
                             if (phase == _AiPhase.done) {
@@ -364,6 +367,9 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                           cs: cs,
                           onDirtyChanged: (dirty) {
                             if (mounted) setState(() => _hasDirtyGrades = dirty);
+                          },
+                          onSubmissionsChanged: () {
+                            if (mounted) setState(() {});
                           },
                           onAiPhaseChanged: (phase) {
                             setState(() => _aiPhase = phase);
@@ -964,9 +970,7 @@ class _PaperHeaderState extends State<_PaperHeader>
     }
 
     // State 3: Has unmarked submissions → indigo AI button
-    if (widget.hasUnmarkedSubmissions &&
-        (status == PaperStatus.done || status == PaperStatus.marked) &&
-        !isMarked) {
+    if (widget.hasUnmarkedSubmissions) {
       return _buildAiMarkButton();
     }
 
@@ -1312,6 +1316,7 @@ class _GradeSpreadsheet extends StatefulWidget {
     this.onAiPhaseChanged,
     this.onAiProgressChanged,
     this.onAiMarkedCountChanged,
+    this.onSubmissionsChanged,
   });
 
   final List<StudentsData> students;
@@ -1326,6 +1331,7 @@ class _GradeSpreadsheet extends StatefulWidget {
   final ValueChanged<_AiPhase>? onAiPhaseChanged;
   final ValueChanged<double>? onAiProgressChanged;
   final ValueChanged<int>? onAiMarkedCountChanged;
+  final VoidCallback? onSubmissionsChanged;
 
   @override
   State<_GradeSpreadsheet> createState() => _GradeSpreadsheetState();
@@ -1385,6 +1391,7 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
     );
     if (mounted) {
       setState(() => _submissions.addAll(persisted));
+      widget.onSubmissionsChanged?.call();
     }
   }
 
@@ -1492,19 +1499,31 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
       _aiMarkedCount = 0;
     });
     widget.onAiPhaseChanged?.call(_AiPhase.analyzing);
+    widget.onAiProgressChanged?.call(0.0);
 
-    // Phase 2 — progress bar fill over 2 seconds
-    _progressCtrl.forward(from: 0.0);
-    await Future.delayed(const Duration(milliseconds: 2000));
+    // Phase 2 — "analyzing" with smooth progress from 0% to 40% over ~3.5s
+    const analyzeMs = 3500;
+    const analyzeTicks = 35;
+    const analyzeInterval = analyzeMs ~/ analyzeTicks;
+    for (int tick = 1; tick <= analyzeTicks; tick++) {
+      await Future.delayed(const Duration(milliseconds: analyzeInterval));
+      if (!mounted) return;
+      final analyzeProgress = (tick / analyzeTicks) * 0.4; // 0.0 → 0.4
+      widget.onAiProgressChanged?.call(analyzeProgress);
+    }
 
     if (!mounted) return;
     setState(() => _aiPhase = _AiPhase.assigning);
     widget.onAiPhaseChanged?.call(_AiPhase.assigning);
 
-    // Phase 3 — assign grades with staggered row flash
+    // Phase 3 — assign grades with staggered delays for 5-7s total grading
+    // Compute per-student delay: target ~6s total, clamped 250ms–600ms
     final rng = math.Random();
     int marked = 0;
     final total = studentsWithSubmissions.length;
+    final perStudentDelay = total > 0
+        ? (6000 ~/ total).clamp(250, 600)
+        : 400;
     final List<int> gradedAdms = [];
     for (int i = 0; i < studentsWithSubmissions.length; i++) {
       final student = studentsWithSubmissions[i];
@@ -1533,12 +1552,17 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
           marked++;
           setState(() => _aiMarkedCount = marked);
           widget.onAiMarkedCountChanged?.call(marked);
-          widget.onAiProgressChanged?.call(total > 0 ? marked / total : 1.0);
+          // Progress: 40%–100% mapped across graded students
+          final gradingProgress = 0.4 + (marked / total) * 0.6;
+          widget.onAiProgressChanged?.call(gradingProgress);
         }
       } catch (_) {
         // skip failed rows — don't abort the whole batch
       }
-      await Future.delayed(const Duration(milliseconds: 50));
+      // Add jitter: ±30% of base delay for natural feel
+      final jitter = (perStudentDelay * 0.3).toInt();
+      final delay = perStudentDelay + rng.nextInt(jitter * 2 + 1) - jitter;
+      await Future.delayed(Duration(milliseconds: delay));
     }
 
     // Wave flash — staggered 30ms per row for a satisfying top-to-bottom effect
@@ -1670,6 +1694,7 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
               _submissions[adm] = paths;
               if (paths.isNotEmpty) _dirtySubmissions.add(adm);
             });
+            widget.onSubmissionsChanged?.call();
           }
         },
         dao: widget.dao,
@@ -2046,6 +2071,7 @@ class _GradeList extends StatefulWidget {
     this.onAiPhaseChanged,
     this.onAiProgressChanged,
     this.onAiMarkedCountChanged,
+    this.onSubmissionsChanged,
   });
 
   final List<StudentsData> students;
@@ -2060,6 +2086,7 @@ class _GradeList extends StatefulWidget {
   final ValueChanged<_AiPhase>? onAiPhaseChanged;
   final ValueChanged<double>? onAiProgressChanged;
   final ValueChanged<int>? onAiMarkedCountChanged;
+  final VoidCallback? onSubmissionsChanged;
 
   @override
   State<_GradeList> createState() => _GradeListState();
@@ -2129,6 +2156,7 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
     );
     if (mounted) {
       setState(() => _submissions.addAll(persisted));
+      widget.onSubmissionsChanged?.call();
     }
   }
 
@@ -2152,19 +2180,31 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
       _aiMarkedCount = 0;
     });
     widget.onAiPhaseChanged?.call(_AiPhase.analyzing);
+    widget.onAiProgressChanged?.call(0.0);
 
-    // Phase 2 — progress bar fill over 2 seconds
-    _progressCtrl.forward(from: 0.0);
-    await Future.delayed(const Duration(milliseconds: 2000));
+    // Phase 2 — "analyzing" with smooth progress from 0% to 40% over ~3.5s
+    const analyzeMs = 3500;
+    const analyzeTicks = 35;
+    const analyzeInterval = analyzeMs ~/ analyzeTicks;
+    for (int tick = 1; tick <= analyzeTicks; tick++) {
+      await Future.delayed(const Duration(milliseconds: analyzeInterval));
+      if (!mounted) return;
+      final analyzeProgress = (tick / analyzeTicks) * 0.4; // 0.0 → 0.4
+      widget.onAiProgressChanged?.call(analyzeProgress);
+    }
 
     if (!mounted) return;
     setState(() => _aiPhase = _AiPhase.assigning);
     widget.onAiPhaseChanged?.call(_AiPhase.assigning);
 
-    // Phase 3 — assign grades with staggered row flash
+    // Phase 3 — assign grades with staggered delays for 5-7s total grading
+    // Compute per-student delay: target ~6s total, clamped 250ms–600ms
     final rng = math.Random();
     int marked = 0;
     final total = studentsWithSubmissions.length;
+    final perStudentDelay = total > 0
+        ? (6000 ~/ total).clamp(250, 600)
+        : 400;
     final List<int> gradedAdms = [];
     for (int i = 0; i < studentsWithSubmissions.length; i++) {
       final student = studentsWithSubmissions[i];
@@ -2192,12 +2232,17 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
           marked++;
           setState(() => _aiMarkedCount = marked);
           widget.onAiMarkedCountChanged?.call(marked);
-          widget.onAiProgressChanged?.call(total > 0 ? marked / total : 1.0);
+          // Progress: 40%–100% mapped across graded students
+          final gradingProgress = 0.4 + (marked / total) * 0.6;
+          widget.onAiProgressChanged?.call(gradingProgress);
         }
       } catch (_) {
         // skip failed rows — don't abort the whole batch
       }
-      await Future.delayed(const Duration(milliseconds: 50));
+      // Add jitter: ±30% of base delay for natural feel
+      final jitter = (perStudentDelay * 0.3).toInt();
+      final delay = perStudentDelay + rng.nextInt(jitter * 2 + 1) - jitter;
+      await Future.delayed(Duration(milliseconds: delay));
     }
 
     // Wave flash — staggered 30ms per row for a satisfying top-to-bottom effect
@@ -2247,6 +2292,7 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
               _submissions[adm] = paths;
               if (paths.isNotEmpty) _dirtySubmissions.add(adm);
             });
+            widget.onSubmissionsChanged?.call();
           }
         },
         dao: widget.dao,
