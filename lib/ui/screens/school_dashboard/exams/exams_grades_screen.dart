@@ -5996,11 +5996,12 @@ class _PaperSlotBox extends StatelessWidget {
         onTap: onTap,
         splashFactory: NoSplash.splashFactory,
         borderRadius: BorderRadius.circular(4),
-        child: Container(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: Container(
           constraints: const BoxConstraints(minHeight: 56),
           decoration: BoxDecoration(
             color: statusColor.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(4),
             border: Border(
               left: BorderSide(color: statusColor, width: 2.5),
               top: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.2)),
@@ -6062,6 +6063,7 @@ class _PaperSlotBox extends StatelessWidget {
             ],
           ),
         ),
+        ),
       ),
     );
   }
@@ -6118,10 +6120,12 @@ class _PaperTimetableMobile extends StatefulWidget {
   State<_PaperTimetableMobile> createState() => _PaperTimetableMobileState();
 }
 
-class _PaperTimetableMobileState extends State<_PaperTimetableMobile> {
+class _PaperTimetableMobileState extends State<_PaperTimetableMobile>
+    with TickerProviderStateMixin {
   Map<DateTime, List<Paper>> _grouped = {};
   List<DateTime> _dates = [];
   int _selectedDayIndex = 0;
+  TabController? _dayTabController;
 
   @override
   void initState() {
@@ -6137,6 +6141,12 @@ class _PaperTimetableMobileState extends State<_PaperTimetableMobile> {
     }
   }
 
+  @override
+  void dispose() {
+    _dayTabController?.dispose();
+    super.dispose();
+  }
+
   void _rebuildGroups() {
     _grouped = _groupPapersByDate(widget.papers);
     _dates = _sortedPaperDates(_grouped);
@@ -6144,6 +6154,21 @@ class _PaperTimetableMobileState extends State<_PaperTimetableMobile> {
       0,
       (_dates.length - 1).clamp(0, 999),
     );
+    _rebuildTabController();
+  }
+
+  void _rebuildTabController() {
+    _dayTabController?.dispose();
+    _dayTabController = null;
+    if (_dates.isEmpty) return;
+    _dayTabController = TabController(
+      length: _dates.length,
+      initialIndex: _selectedDayIndex,
+      vsync: this,
+    )..addListener(() {
+        if (_dayTabController!.indexIsChanging) return;
+        setState(() => _selectedDayIndex = _dayTabController!.index);
+      });
   }
 
   @override
@@ -6160,23 +6185,12 @@ class _PaperTimetableMobileState extends State<_PaperTimetableMobile> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // ── Day chip selector ────────────────────────────────────────────
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-          child: Row(
-            children: _dates.asMap().entries.map((entry) {
-              final i = entry.key;
-              final d = entry.value;
-              return _PaperDayChip(
-                date: d,
-                isSelected: i == _selectedDayIndex,
-                cs: cs,
-                onTap: () => setState(() => _selectedDayIndex = i),
-              );
-            }).toList(),
+        // ── Day tab strip (EduTabBar aesthetic) ──────────────────────────
+        if (_dayTabController != null)
+          _PaperDayTabStrip(
+            controller: _dayTabController!,
+            dates: _dates,
           ),
-        ),
         // ── Day heading ──────────────────────────────────────────────────
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 6, 20, 8),
@@ -6227,79 +6241,110 @@ class _PaperTimetableMobileState extends State<_PaperTimetableMobile> {
   }
 }
 
-class _PaperDayChip extends StatelessWidget {
-  const _PaperDayChip({
-    required this.date,
-    required this.isSelected,
-    required this.cs,
-    required this.onTap,
+/// Day tab strip matching the EduTabBar aesthetic — tinted background strip
+/// with an elevated, shadow-based sliding indicator. Each tab shows a two-line
+/// layout: abbreviated day name + date number.
+class _PaperDayTabStrip extends StatelessWidget {
+  const _PaperDayTabStrip({
+    required this.controller,
+    required this.dates,
   });
 
-  final DateTime date;
-  final bool isSelected;
-  final ColorScheme cs;
-  final VoidCallback onTap;
+  final TabController controller;
+  final List<DateTime> dates;
 
   static const _dayAbbr = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  static const double _stripHeight = 46.0;
 
   @override
   Widget build(BuildContext context) {
-    final dayName = _dayAbbr[date.weekday % 7];
-    final dayNum = date.day.toString();
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    Widget strip = Container(
+      height: _stripHeight,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: isDark
+            ? cs.surfaceContainerHighest.withValues(alpha: 0.6)
+            : cs.surfaceContainerHighest.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.08 : 0.03),
+            blurRadius: 2,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: TabBar(
+        controller: controller,
+        isScrollable: true,
+        tabAlignment: TabAlignment.start,
+        splashBorderRadius: BorderRadius.circular(8),
+        dividerColor: Colors.transparent,
+        dividerHeight: 0,
+        indicatorSize: TabBarIndicatorSize.tab,
+        indicator: BoxDecoration(
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.16 : 0.07),
+              blurRadius: 5,
+              offset: const Offset(0, 1.5),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.06 : 0.02),
+              blurRadius: 1,
+              offset: const Offset(0, 0.5),
+            ),
+          ],
+        ),
+        labelColor: cs.onSurface,
+        unselectedLabelColor: cs.onSurfaceVariant.withValues(alpha: 0.7),
+        labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+        overlayColor: WidgetStateProperty.all(Colors.transparent),
+        splashFactory: NoSplash.splashFactory,
+        tabs: dates.map((d) {
+          final dayName = _dayAbbr[d.weekday % 7];
+          final dayNum = d.day.toString();
+          return Tab(
+            height: _stripHeight - 8,
+            child: SizedBox(
+              width: 36,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    dayName,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w400,
+                      letterSpacing: 0.15,
+                    ),
+                  ),
+                  Text(
+                    dayNum,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.15,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+
+    strip = Align(alignment: Alignment.centerLeft, child: strip);
 
     return Padding(
-      padding: const EdgeInsets.only(right: 6),
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          height: 34,
-          width: 44,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: isSelected ? cs.primary : Colors.transparent,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(
-              color: isSelected
-                  ? cs.primary
-                  : cs.outlineVariant.withValues(alpha: 0.2),
-              width: 1,
-            ),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: cs.primary.withValues(alpha: 0.25),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                dayName,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w400,
-                  color: isSelected
-                      ? cs.onPrimary.withValues(alpha: 0.8)
-                      : cs.onSurfaceVariant,
-                ),
-              ),
-              Text(
-                dayNum,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: isSelected ? cs.onPrimary : cs.onSurface,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: strip,
     );
   }
 }
@@ -6386,10 +6431,11 @@ class _PaperSlotCard extends StatelessWidget {
       onTap: onTap,
       splashFactory: NoSplash.splashFactory,
       borderRadius: BorderRadius.circular(4),
-      child: Container(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: Container(
         decoration: BoxDecoration(
           color: statusColor.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(4),
           border: Border(
             left: BorderSide(color: statusColor, width: 2.5),
             top: BorderSide(
@@ -6471,6 +6517,7 @@ class _PaperSlotCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }
