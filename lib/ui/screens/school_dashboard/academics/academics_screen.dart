@@ -6,6 +6,7 @@ import '../../../../database/tables/curriculum_subjects.dart';
 
 import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
+import '../../../theme/app_theme.dart';
 import '../../../widgets/active_term_provider.dart';
 import '../../../widgets/edu_form_field.dart';
 import '../../../widgets/edu_sheet.dart';
@@ -649,7 +650,7 @@ class _GradeGroup {
 // Grade Card
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _GradeCard extends StatelessWidget {
+class _GradeCard extends StatefulWidget {
   const _GradeCard({
     required this.curriculumType,
     required this.gradeNum,
@@ -671,93 +672,247 @@ class _GradeCard extends StatelessWidget {
   final VoidCallback onDelete;
 
   @override
+  State<_GradeCard> createState() => _GradeCardState();
+}
+
+class _GradeCardState extends State<_GradeCard>
+    with SingleTickerProviderStateMixin {
+  bool _isHovered = false;
+  bool _isPressed = false;
+  late final AnimationController _pressCtrl;
+  late final Animation<double> _scaleAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pressCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+      reverseDuration: const Duration(milliseconds: 150),
+    );
+    _scaleAnim = Tween<double>(begin: 1.0, end: 0.98).animate(
+      CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pressCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails _) {
+    setState(() => _isPressed = true);
+    _pressCtrl.forward();
+  }
+
+  void _onTapUp(TapUpDetails _) {
+    _pressCtrl.reverse();
+    setState(() => _isPressed = false);
+  }
+
+  void _onTapCancel() {
+    _pressCtrl.reverse();
+    setState(() => _isPressed = false);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
 
-    return Material(
-      color: isDark
-          ? cs.surfaceContainerHighest.withValues(alpha: 0.45)
-          : cs.surfaceContainerHighest.withValues(alpha: 0.35),
-      borderRadius: BorderRadius.circular(6),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(6),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Grade label + actions ──────────────────────────────────
-              Row(
-                children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Text(
-                          gradeLabel,
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w500,
-                            color: cs.onSurface,
-                            letterSpacing: 0.1,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Icon(
-                          Icons.chevron_right_rounded,
-                          size: 16,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.35),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Action icons
-                  _CardIconBtn(
-                    icon: Icons.add_rounded,
-                    tooltip: 'Add stream',
-                    onTap: onAddStream,
-                  ),
-                  if (onEditStreams != null)
-                    _CardIconBtn(
-                      icon: Icons.edit_outlined,
-                      tooltip: 'Edit streams',
-                      onTap: onEditStreams!,
-                    ),
-                  _CardIconBtn(
-                    icon: Icons.delete_outline_rounded,
-                    tooltip: 'Remove grade',
-                    onTap: onDelete,
-                    isDestructive: true,
-                  ),
-                ],
-              ),
+    // Curriculum-aware accent colour
+    final accentColor = widget.curriculumType == CurriculumType.cbc
+        ? cs.primary
+        : const Color(0xFF26A69A); // teal for 8-4-4
 
-              // ── Stream chips ──────────────────────────────────────────
-              const SizedBox(height: 8),
-              if (streams.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2, bottom: 2),
-                  child: Text(
-                    'No streams',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.4),
-                      fontStyle: FontStyle.italic,
+    final idleBg = isDark
+        ? cs.primary.withValues(alpha: 0.06)
+        : cs.primary.withValues(alpha: 0.04);
+    final hoverBg = isDark
+        ? accentColor.withValues(alpha: 0.12)
+        : accentColor.withValues(alpha: 0.08);
+    final pressBg = isDark
+        ? accentColor.withValues(alpha: 0.18)
+        : accentColor.withValues(alpha: 0.12);
+
+    return ScaleTransition(
+      scale: _scaleAnim,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTapDown: _onTapDown,
+          onTapUp: _onTapUp,
+          onTapCancel: _onTapCancel,
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOut,
+            decoration: BoxDecoration(
+              color: _isPressed
+                  ? pressBg
+                  : _isHovered
+                      ? hoverBg
+                      : idleBg,
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              border: Border.all(
+                color: _isHovered || _isPressed
+                    ? accentColor.withValues(alpha: isDark ? 0.35 : 0.25)
+                    : cs.outline.withValues(alpha: isDark ? 0.10 : 0.08),
+                width: 0.5,
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // ── Colored accent bar ─────────────────────────────
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: _isHovered || _isPressed ? 4 : 3,
+                      decoration: BoxDecoration(
+                        color: accentColor.withValues(
+                          alpha: _isHovered || _isPressed ? 1.0 : 0.7,
+                        ),
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(4),
+                          bottomLeft: Radius.circular(4),
+                        ),
+                      ),
                     ),
-                  ),
-                )
-              else
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 5,
-                  children: streams.map((stream) {
-                    return _StreamChip(name: stream.name);
-                  }).toList(),
+
+                    // ── Content ────────────────────────────────────────
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // ── Grade label + actions ──────────────────
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      Text(
+                                        widget.gradeLabel,
+                                        style: TextStyle(
+                                          fontSize: 13.5,
+                                          fontWeight: FontWeight.w500,
+                                          color: cs.onSurface,
+                                          letterSpacing: 0.1,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      // Stream count badge
+                                      if (widget.streams.isNotEmpty)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 1.5,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: accentColor.withValues(
+                                              alpha: isDark ? 0.18 : 0.10,
+                                            ),
+                                            borderRadius:
+                                                BorderRadius.circular(
+                                                    AppTheme.kChipRadius),
+                                          ),
+                                          child: Text(
+                                            '${widget.streams.length} stream${widget.streams.length == 1 ? '' : 's'}',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w500,
+                                              color: accentColor,
+                                              letterSpacing: 0.2,
+                                            ),
+                                          ),
+                                        ),
+                                      const Spacer(),
+                                      AnimatedSlide(
+                                        duration:
+                                            const Duration(milliseconds: 200),
+                                        curve: Curves.easeOut,
+                                        offset: Offset(
+                                          _isHovered ? 0.15 : 0.0,
+                                          0,
+                                        ),
+                                        child: AnimatedOpacity(
+                                          duration: const Duration(
+                                              milliseconds: 200),
+                                          opacity: _isHovered ? 0.8 : 0.35,
+                                          child: Icon(
+                                            Icons.chevron_right_rounded,
+                                            size: 18,
+                                            color: _isHovered
+                                                ? accentColor
+                                                : cs.onSurfaceVariant,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                // Action icons
+                                _CardIconBtn(
+                                  icon: Icons.add_rounded,
+                                  tooltip: 'Add stream',
+                                  onTap: widget.onAddStream,
+                                ),
+                                if (widget.onEditStreams != null)
+                                  _CardIconBtn(
+                                    icon: Icons.edit_outlined,
+                                    tooltip: 'Edit streams',
+                                    onTap: widget.onEditStreams!,
+                                  ),
+                                _CardIconBtn(
+                                  icon: Icons.delete_outline_rounded,
+                                  tooltip: 'Remove grade',
+                                  onTap: widget.onDelete,
+                                  isDestructive: true,
+                                ),
+                              ],
+                            ),
+
+                            // ── Stream chips ──────────────────────────
+                            const SizedBox(height: 8),
+                            if (widget.streams.isEmpty)
+                              Padding(
+                                padding:
+                                    const EdgeInsets.only(top: 2, bottom: 2),
+                                child: Text(
+                                  'No streams',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w400,
+                                    color: cs.onSurfaceVariant
+                                        .withValues(alpha: 0.4),
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              )
+                            else
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 5,
+                                children: widget.streams.map((stream) {
+                                  return _StreamChip(name: stream.name);
+                                }).toList(),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-            ],
+              ),
+            ),
           ),
         ),
       ),

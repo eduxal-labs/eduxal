@@ -459,16 +459,13 @@ class _ExamsTabState extends State<ExamsTab>
           padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
           child: _buildHeader(cs, items.length),
         ),
-        AppTheme.tableRowDivider(isDark, cs),
+        const SizedBox(height: 4),
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.only(bottom: 80),
-            itemCount: items.length * 2 - 1,
+            itemCount: items.length,
             itemBuilder: (context, index) {
-              if (index.isOdd) {
-                return AppTheme.tableRowDivider(isDark, cs);
-              }
-              return _buildExamRow(cs, items[index ~/ 2], isDark);
+              return _buildExamRow(cs, items[index], isDark);
             },
           ),
         ),
@@ -543,8 +540,46 @@ class _ExamRow extends StatefulWidget {
   State<_ExamRow> createState() => _ExamRowState();
 }
 
-class _ExamRowState extends State<_ExamRow> {
+class _ExamRowState extends State<_ExamRow>
+    with SingleTickerProviderStateMixin {
   bool _isHovered = false;
+  bool _isPressed = false;
+  late final AnimationController _pressCtrl;
+  late final Animation<double> _scaleAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pressCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+      reverseDuration: const Duration(milliseconds: 150),
+    );
+    _scaleAnim = Tween<double>(begin: 1.0, end: 0.98).animate(
+      CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pressCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails _) {
+    setState(() => _isPressed = true);
+    _pressCtrl.forward();
+  }
+
+  void _onTapUp(TapUpDetails _) {
+    _pressCtrl.reverse();
+    setState(() => _isPressed = false);
+  }
+
+  void _onTapCancel() {
+    _pressCtrl.reverse();
+    setState(() => _isPressed = false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -562,135 +597,239 @@ class _ExamRowState extends State<_ExamRow> {
       exam.end * 86400 * 1000,
     );
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      cursor: SystemMouseCursors.click,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 100),
-        color: _isHovered
-            ? cs.primary.withValues(alpha: 0.04)
-            : Colors.transparent,
-        child: InkWell(
-          onTap: widget.onTap,
-          splashFactory: NoSplash.splashFactory,
-          highlightColor: Colors.transparent,
-          hoverColor: Colors.transparent,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-            child: Row(
-              children: [
-                // ── Type badge ─────────────────────────────────────────────
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: typeColor.withValues(alpha: isDark ? 0.2 : 0.12),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    typeLabel,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: typeColor,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
+    final idleBg = isDark
+        ? cs.primary.withValues(alpha: 0.06)
+        : cs.primary.withValues(alpha: 0.04);
+    final hoverBg = isDark
+        ? typeColor.withValues(alpha: 0.12)
+        : typeColor.withValues(alpha: 0.08);
+    final pressBg = isDark
+        ? typeColor.withValues(alpha: 0.18)
+        : typeColor.withValues(alpha: 0.12);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: ScaleTransition(
+        scale: _scaleAnim,
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTapDown: _onTapDown,
+            onTapUp: _onTapUp,
+            onTapCancel: _onTapCancel,
+            onTap: widget.onTap,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              curve: Curves.easeOut,
+              decoration: BoxDecoration(
+                color: _isPressed
+                    ? pressBg
+                    : _isHovered
+                        ? hoverBg
+                        : idleBg,
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                border: Border.all(
+                  color: _isHovered || _isPressed
+                      ? typeColor.withValues(alpha: isDark ? 0.35 : 0.25)
+                      : cs.outline.withValues(alpha: isDark ? 0.10 : 0.08),
+                  width: 0.5,
                 ),
-
-                const SizedBox(width: 10),
-
-                // ── Date range + teacher ───────────────────────────────────
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                child: IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(
-                        '${_fmtDate(startDate)} – ${_fmtDate(endDate)}',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: cs.onSurface,
+                      // ── Colored accent bar ──────────────────────────────
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: _isHovered || _isPressed ? 4 : 3,
+                        decoration: BoxDecoration(
+                          color: typeColor.withValues(
+                            alpha: _isHovered || _isPressed ? 1.0 : 0.7,
+                          ),
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(4),
+                            bottomLeft: Radius.circular(4),
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        ep.teacher.name,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w400,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+
+                      // ── Content ─────────────────────────────────────────
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                          child: Row(
+                            children: [
+                              // ── Type badge ──────────────────────────────
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: typeColor.withValues(
+                                    alpha: isDark ? 0.2 : 0.12,
+                                  ),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  typeLabel,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    color: typeColor,
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(width: 10),
+
+                              // ── Date range + teacher ────────────────────
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.calendar_today_rounded,
+                                          size: 11,
+                                          color: cs.onSurfaceVariant.withValues(
+                                            alpha: 0.4,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          '${_fmtDate(startDate)} – ${_fmtDate(endDate)}',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w400,
+                                            color: cs.onSurface,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.person_outline_rounded,
+                                          size: 11,
+                                          color: cs.onSurfaceVariant.withValues(
+                                            alpha: 0.35,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 3),
+                                        Flexible(
+                                          child: Text(
+                                            ep.teacher.name,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w400,
+                                              color: cs.onSurfaceVariant
+                                                  .withValues(alpha: 0.55),
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              const SizedBox(width: 8),
+
+                              // ── Scope badges ───────────────────────────
+                              if (exam.personalized)
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 6),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                        color: cs.outline.withValues(
+                                          alpha: isDark ? 0.15 : 0.12,
+                                        ),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'Personalized',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w400,
+                                        color: cs.onSurfaceVariant
+                                            .withValues(alpha: 0.55),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+
+                              // ── Paper count badge ───────────────────────
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: cs.surfaceContainerHighest.withValues(
+                                    alpha: 0.6,
+                                  ),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  '${ep.papers.length}p',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    color: cs.onSurfaceVariant.withValues(
+                                      alpha: 0.6,
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(width: 4),
+
+                              // ── Chevron ─────────────────────────────────
+                              AnimatedSlide(
+                                duration: const Duration(milliseconds: 200),
+                                curve: Curves.easeOut,
+                                offset: Offset(
+                                  _isHovered ? 0.15 : 0.0,
+                                  0,
+                                ),
+                                child: AnimatedOpacity(
+                                  duration: const Duration(milliseconds: 200),
+                                  opacity: _isHovered ? 0.8 : 0.35,
+                                  child: Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 18,
+                                    color: _isHovered
+                                        ? typeColor
+                                        : cs.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
                 ),
-
-                const SizedBox(width: 8),
-
-                // ── Scope badges ───────────────────────────────────────────
-                if (exam.personalized)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: cs.outline.withValues(
-                            alpha: isDark ? 0.15 : 0.12,
-                          ),
-                        ),
-                      ),
-                      child: Text(
-                        'Personalized',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w400,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                // ── Paper count badge ──────────────────────────────────────
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: cs.surfaceContainerHighest.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    '${ep.papers.length}p',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(width: 4),
-
-                // ── Chevron ────────────────────────────────────────────────
-                Icon(
-                  Icons.chevron_right_rounded,
-                  size: 18,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.35),
-                ),
-              ],
+              ),
             ),
           ),
         ),
