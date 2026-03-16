@@ -77,9 +77,33 @@ class _PaperDetailPageState extends State<PaperDetailPage>
 
   bool _hasDirtyGrades = false;
   final GlobalKey<_GradeSpreadsheetState> _spreadsheetKey = GlobalKey();
+  final GlobalKey<_GradeListState> _gradeListKey = GlobalKey();
+
+  // ── AI marking state (driven by callbacks from child widgets) ──────────
+  bool _aiMarking = false;
+  _AiPhase _aiPhase = _AiPhase.idle;
+  int _aiMarkedCount = 0;
+  double _aiProgress = 0.0;
 
   Paper get _paper => widget.paper;
   Exam get _exam => widget.exam.exam;
+
+  bool get _hasUnmarkedSubmissions {
+    if (_spreadsheetKey.currentState != null) {
+      return _spreadsheetKey.currentState?.hasUnmarkedSubmissions ?? false;
+    } else {
+      return _gradeListKey.currentState?.hasUnmarkedSubmissions ?? false;
+    }
+  }
+
+  Future<void> _runAiMarking() async {
+    setState(() => _aiMarking = true);
+    if (_spreadsheetKey.currentState != null) {
+      await _spreadsheetKey.currentState?.runAiMarking();
+    } else if (_gradeListKey.currentState != null) {
+      await _gradeListKey.currentState?.runAiMarking();
+    }
+  }
 
   bool get _canManage {
     final entry = widget.schoolContext.currentEntry.value;
@@ -283,9 +307,9 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                           await _spreadsheetKey.currentState?.saveAllDirty();
                           if (mounted) setState(() => _hasDirtyGrades = false);
                         },
-                        hasUnmarkedSubmissions: false,
-                        onAiMark: null,
-                        aiProgress: null,
+                        hasUnmarkedSubmissions: _hasUnmarkedSubmissions,
+                        onAiMark: _runAiMarking,
+                        aiProgress: _aiMarking ? _aiProgress : null,
                       ),
                       const SizedBox(height: 16),
 
@@ -309,9 +333,27 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                           onDirtyChanged: (dirty) {
                             if (mounted) setState(() => _hasDirtyGrades = dirty);
                           },
+                          onAiPhaseChanged: (phase) {
+                            setState(() => _aiPhase = phase);
+                            if (phase == _AiPhase.done) {
+                              Future.delayed(const Duration(seconds: 2), () {
+                                if (mounted) {
+                                  setState(() {
+                                    _aiMarking = false;
+                                    _aiPhase = _AiPhase.idle;
+                                    _aiProgress = 0.0;
+                                    _aiMarkedCount = 0;
+                                  });
+                                }
+                              });
+                            }
+                          },
+                          onAiProgressChanged: (p) => setState(() => _aiProgress = p),
+                          onAiMarkedCountChanged: (c) => setState(() => _aiMarkedCount = c),
                         )
                       else
                         _GradeList(
+                          key: _gradeListKey,
                           students: _students,
                           gradeMap: gradeMap,
                           paper: currentPaper,
@@ -320,6 +362,26 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                           dao: _dao,
                           canGrade: _canManage,
                           cs: cs,
+                          onDirtyChanged: (dirty) {
+                            if (mounted) setState(() => _hasDirtyGrades = dirty);
+                          },
+                          onAiPhaseChanged: (phase) {
+                            setState(() => _aiPhase = phase);
+                            if (phase == _AiPhase.done) {
+                              Future.delayed(const Duration(seconds: 2), () {
+                                if (mounted) {
+                                  setState(() {
+                                    _aiMarking = false;
+                                    _aiPhase = _AiPhase.idle;
+                                    _aiProgress = 0.0;
+                                    _aiMarkedCount = 0;
+                                  });
+                                }
+                              });
+                            }
+                          },
+                          onAiProgressChanged: (p) => setState(() => _aiProgress = p),
+                          onAiMarkedCountChanged: (c) => setState(() => _aiMarkedCount = c),
                         ),
                     ],
                   );
@@ -802,10 +864,8 @@ class _PaperHeaderState extends State<_PaperHeader>
                         _scaleCtrl.isAnimating ? _scaleAnimation.value : 1.0;
                     return Transform.scale(
                       scale: scale,
-                      child: widget.hasDirtyGrades && !isMarked
-                          ? _buildDirtySaveButton()
-                          : _buildCircularButton(
-                              status, isMarked, color, nextColor),
+                      child: _buildActionButton(
+                          status, isMarked, color, nextColor),
                     );
                   },
                 ),
@@ -882,6 +942,88 @@ class _PaperHeaderState extends State<_PaperHeader>
           ),
         ),
       ],
+    );
+  }
+
+  // ── Unified action button dispatcher ──────────────────────────────────
+
+  Widget _buildActionButton(
+    PaperStatus status,
+    bool isMarked,
+    Color color,
+    Color nextColor,
+  ) {
+    // State 1: Has dirty grades → orange save
+    if (widget.hasDirtyGrades && !isMarked) {
+      return _buildDirtySaveButton();
+    }
+
+    // State 2: AI marking in progress → radial progress fill
+    if (widget.aiProgress != null) {
+      return _buildAiProgressButton();
+    }
+
+    // State 3: Has unmarked submissions → indigo AI button
+    if (widget.hasUnmarkedSubmissions &&
+        (status == PaperStatus.done || status == PaperStatus.marked) &&
+        !isMarked) {
+      return _buildAiMarkButton();
+    }
+
+    // State 4: Normal advance or fully marked
+    return _buildCircularButton(status, isMarked, color, nextColor);
+  }
+
+  // ── AI progress button ────────────────────────────────────────────────
+
+  Widget _buildAiProgressButton() {
+    final progress = widget.aiProgress ?? 0.0;
+    final pctText = '${(progress * 100).toInt()}%';
+    return SizedBox(
+      width: 40,
+      height: 40,
+      child: CustomPaint(
+        painter: _RadialFillPainter(
+          progress: progress,
+          fillColor: const Color(0xFF6366F1).withValues(alpha: 0.2),
+          borderColor: const Color(0xFF6366F1),
+          strokeWidth: 2.5,
+        ),
+        child: Center(
+          child: Text(
+            pctText,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF6366F1),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── AI mark button ────────────────────────────────────────────────────
+
+  Widget _buildAiMarkButton() {
+    return Tooltip(
+      message: 'Mark with AI',
+      child: GestureDetector(
+        onTap: widget.onAiMark,
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+                color: const Color(0xFF6366F1), width: 2.5),
+          ),
+          child: const Center(
+            child: Icon(Icons.auto_fix_high,
+                size: 18, color: Color(0xFF6366F1)),
+          ),
+        ),
+      ),
     );
   }
 
@@ -1050,6 +1192,48 @@ class _DonutPainter extends CustomPainter {
 // Arc Progress Painter (reused by header + mini indicator)
 // ═════════════════════════════════════════════════════════════════════════════
 
+class _RadialFillPainter extends CustomPainter {
+  _RadialFillPainter({
+    required this.progress,
+    required this.fillColor,
+    required this.borderColor,
+    required this.strokeWidth,
+  });
+  final double progress;
+  final Color fillColor;
+  final Color borderColor;
+  final double strokeWidth;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.shortestSide / 2) - strokeWidth / 2;
+
+    // Fill arc (from top, clockwise)
+    final fillPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = fillColor;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -math.pi / 2,
+      progress * 2 * math.pi,
+      true,
+      fillPaint,
+    );
+
+    // Border circle
+    final borderPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..color = borderColor;
+    canvas.drawCircle(center, radius, borderPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _RadialFillPainter old) =>
+      old.progress != progress;
+}
+
 class _ArcProgressPainter extends CustomPainter {
   _ArcProgressPainter({
     required this.progress,
@@ -1125,6 +1309,9 @@ class _GradeSpreadsheet extends StatefulWidget {
     required this.canGrade,
     required this.cs,
     this.onDirtyChanged,
+    this.onAiPhaseChanged,
+    this.onAiProgressChanged,
+    this.onAiMarkedCountChanged,
   });
 
   final List<StudentsData> students;
@@ -1136,6 +1323,9 @@ class _GradeSpreadsheet extends StatefulWidget {
   final bool canGrade;
   final ColorScheme cs;
   final ValueChanged<bool>? onDirtyChanged;
+  final ValueChanged<_AiPhase>? onAiPhaseChanged;
+  final ValueChanged<double>? onAiProgressChanged;
+  final ValueChanged<int>? onAiMarkedCountChanged;
 
   @override
   State<_GradeSpreadsheet> createState() => _GradeSpreadsheetState();
@@ -1251,6 +1441,11 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
   int get _submissionCount =>
       _submissions.values.where((list) => list.isNotEmpty).length;
 
+  bool get hasUnmarkedSubmissions {
+    return _submissions.entries.any((e) =>
+        e.value.isNotEmpty && !widget.gradeMap.containsKey(e.key));
+  }
+
   bool get hasDirtyGrades {
     for (final student in widget.students) {
       final adm = student.adm;
@@ -1276,7 +1471,7 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
     }
   }
 
-  Future<void> _runAiMarking() async {
+  Future<void> runAiMarking() async {
     if (!_hasSubmissions || !widget.canGrade || _aiMarking) return;
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;
@@ -1296,6 +1491,7 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
       _aiPhase = _AiPhase.analyzing;
       _aiMarkedCount = 0;
     });
+    widget.onAiPhaseChanged?.call(_AiPhase.analyzing);
 
     // Phase 2 — progress bar fill over 2 seconds
     _progressCtrl.forward(from: 0.0);
@@ -1303,10 +1499,12 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
 
     if (!mounted) return;
     setState(() => _aiPhase = _AiPhase.assigning);
+    widget.onAiPhaseChanged?.call(_AiPhase.assigning);
 
     // Phase 3 — assign grades with staggered row flash
     final rng = math.Random();
     int marked = 0;
+    final total = studentsWithSubmissions.length;
     final List<int> gradedAdms = [];
     for (int i = 0; i < studentsWithSubmissions.length; i++) {
       final student = studentsWithSubmissions[i];
@@ -1334,6 +1532,8 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
           gradedAdms.add(adm);
           marked++;
           setState(() => _aiMarkedCount = marked);
+          widget.onAiMarkedCountChanged?.call(marked);
+          widget.onAiProgressChanged?.call(total > 0 ? marked / total : 1.0);
         }
       } catch (_) {
         // skip failed rows — don't abort the whole batch
@@ -1346,6 +1546,7 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
 
     if (!mounted) return;
     setState(() => _aiPhase = _AiPhase.done);
+    widget.onAiPhaseChanged?.call(_AiPhase.done);
 
     // Phase 4 — show completion label for 2 seconds then reset
     await Future.delayed(const Duration(milliseconds: 2000));
@@ -1483,33 +1684,9 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
     final isDark = cs.brightness == Brightness.dark;
     final headerBg = isDark ? const Color(0xFF1A2435) : const Color(0xFFF1F3F5);
 
-    final showAiButton =
-        (widget.paper.status == PaperStatus.done ||
-            widget.paper.status == PaperStatus.marked) &&
-        widget.canGrade;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // ── AI Mark All button (desktop — appears in header row) ──────────
-        if (showAiButton) ...[
-          Align(
-            alignment: Alignment.centerRight,
-            child: _AiMarkButton(
-              hasSubmissions: _hasSubmissions,
-              submissionCount: _submissionCount,
-              isMarking: _aiMarking,
-              phase: _aiPhase,
-              markedCount: _aiMarkedCount,
-              shimmerCtrl: _shimmerCtrl,
-              progressCtrl: _progressCtrl,
-              onTap: _runAiMarking,
-              cs: cs,
-              pendingCount: _dirtySubmissions.length,
-            ),
-          ),
-          const SizedBox(height: 8),
-        ],
         // Header row
         Container(
           decoration: BoxDecoration(
@@ -1621,173 +1798,6 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
 // ─────────────────────────────────────────────────────────────────────────────
 
 enum _AiPhase { idle, analyzing, assigning, done }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// AI Mark Button — shared between desktop spreadsheet and mobile list
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _AiMarkButton extends StatelessWidget {
-  const _AiMarkButton({
-    required this.hasSubmissions,
-    required this.submissionCount,
-    required this.isMarking,
-    required this.phase,
-    required this.markedCount,
-    required this.shimmerCtrl,
-    required this.progressCtrl,
-    required this.onTap,
-    required this.cs,
-    this.fullWidth = false,
-    this.pendingCount = 0,
-  });
-
-  final bool hasSubmissions;
-  final int submissionCount;
-  final int pendingCount;
-  final bool isMarking;
-  final _AiPhase phase;
-  final int markedCount;
-  final AnimationController shimmerCtrl;
-  final AnimationController progressCtrl;
-  final VoidCallback onTap;
-  final ColorScheme cs;
-  final bool fullWidth;
-
-  @override
-  Widget build(BuildContext context) {
-    final isIdle = phase == _AiPhase.idle;
-    final isDone = phase == _AiPhase.done;
-    final isAnalyzing = phase == _AiPhase.analyzing;
-    final isAssigning = phase == _AiPhase.assigning;
-
-    final String label;
-    if (isDone) {
-      label = 'Marked $markedCount papers';
-    } else if (isAnalyzing) {
-      label = 'Analyzing papers…';
-    } else if (isAssigning) {
-      label = 'Marking…';
-    } else {
-      label = pendingCount > 0
-          ? 'Mark $pendingCount new with AI'
-          : 'Mark with AI';
-    }
-
-    final IconData icon = isDone ? Icons.check : Icons.auto_awesome;
-
-    Widget buttonContent = Row(
-      mainAxisSize: fullWidth ? MainAxisSize.max : MainAxisSize.min,
-      mainAxisAlignment: fullWidth
-          ? MainAxisAlignment.center
-          : MainAxisAlignment.start,
-      children: [
-        Icon(icon, size: 15, color: Colors.white),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w500,
-            color: Colors.white,
-          ),
-        ),
-      ],
-    );
-
-    // Shimmer mask during analyzing phase
-    if (isAnalyzing) {
-      buttonContent = AnimatedBuilder(
-        animation: shimmerCtrl,
-        builder: (context, child) {
-          return ShaderMask(
-            shaderCallback: (bounds) {
-              final shimmerPos = shimmerCtrl.value * 2 - 0.5;
-              return LinearGradient(
-                begin: Alignment(shimmerPos - 1, 0),
-                end: Alignment(shimmerPos + 1, 0),
-                colors: [
-                  Colors.white.withValues(alpha: 0.35),
-                  Colors.white,
-                  Colors.white.withValues(alpha: 0.35),
-                ],
-                stops: const [0.0, 0.5, 1.0],
-              ).createShader(bounds);
-            },
-            child: child,
-          );
-        },
-        child: buttonContent,
-      );
-    }
-
-    final disabled = !hasSubmissions && isIdle;
-
-    Widget button = Opacity(
-      opacity: disabled ? 0.4 : 1.0,
-      child: Tooltip(
-        message: disabled ? 'Submit student answer papers first' : '',
-        child: GestureDetector(
-          onTap: (disabled || isMarking) ? null : onTap,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-              ),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: buttonContent,
-          ),
-        ),
-      ),
-    );
-
-    return Column(
-      crossAxisAlignment: fullWidth
-          ? CrossAxisAlignment.stretch
-          : CrossAxisAlignment.end,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        button,
-        // Progress bar (phases: analyzing + assigning)
-        if (isMarking && !isDone) ...[
-          const SizedBox(height: 6),
-          AnimatedBuilder(
-            animation: progressCtrl,
-            builder: (context, _) {
-              return ClipRRect(
-                borderRadius: BorderRadius.circular(1),
-                child: LinearProgressIndicator(
-                  value: progressCtrl.isAnimating
-                      ? progressCtrl.value
-                      : (isAssigning ? null : 0.0),
-                  minHeight: 2,
-                  backgroundColor: const Color(
-                    0xFF6366F1,
-                  ).withValues(alpha: 0.18),
-                  valueColor: const AlwaysStoppedAnimation(Color(0xFF6366F1)),
-                ),
-              );
-            },
-          ),
-        ],
-        // Submission count subtitle
-        const SizedBox(height: 4),
-        Text(
-          hasSubmissions
-              ? '$submissionCount ${submissionCount == 1 ? 'paper' : 'papers'} submitted'
-              : 'No papers submitted',
-          style: TextStyle(
-            fontSize: 10.5,
-            fontWeight: FontWeight.w400,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-          ),
-          textAlign: fullWidth ? TextAlign.center : TextAlign.right,
-        ),
-      ],
-    );
-  }
-}
 
 class _SpreadsheetRow extends StatefulWidget {
   const _SpreadsheetRow({
@@ -2023,6 +2033,7 @@ class _SpreadsheetRowState extends State<_SpreadsheetRow> {
 
 class _GradeList extends StatefulWidget {
   const _GradeList({
+    super.key,
     required this.students,
     required this.gradeMap,
     required this.paper,
@@ -2032,6 +2043,9 @@ class _GradeList extends StatefulWidget {
     required this.canGrade,
     required this.cs,
     this.onDirtyChanged,
+    this.onAiPhaseChanged,
+    this.onAiProgressChanged,
+    this.onAiMarkedCountChanged,
   });
 
   final List<StudentsData> students;
@@ -2043,6 +2057,9 @@ class _GradeList extends StatefulWidget {
   final bool canGrade;
   final ColorScheme cs;
   final ValueChanged<bool>? onDirtyChanged;
+  final ValueChanged<_AiPhase>? onAiPhaseChanged;
+  final ValueChanged<double>? onAiProgressChanged;
+  final ValueChanged<int>? onAiMarkedCountChanged;
 
   @override
   State<_GradeList> createState() => _GradeListState();
@@ -2075,6 +2092,11 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
 
   int get _submissionCount =>
       _submissions.values.where((list) => list.isNotEmpty).length;
+
+  bool get hasUnmarkedSubmissions {
+    return _submissions.entries.any((e) =>
+        e.value.isNotEmpty && !widget.gradeMap.containsKey(e.key));
+  }
 
   @override
   void initState() {
@@ -2110,7 +2132,7 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
     }
   }
 
-  Future<void> _runAiMarking() async {
+  Future<void> runAiMarking() async {
     if (!_hasSubmissions || !widget.canGrade || _aiMarking) return;
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;
@@ -2129,6 +2151,7 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
       _aiPhase = _AiPhase.analyzing;
       _aiMarkedCount = 0;
     });
+    widget.onAiPhaseChanged?.call(_AiPhase.analyzing);
 
     // Phase 2 — progress bar fill over 2 seconds
     _progressCtrl.forward(from: 0.0);
@@ -2136,10 +2159,12 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
 
     if (!mounted) return;
     setState(() => _aiPhase = _AiPhase.assigning);
+    widget.onAiPhaseChanged?.call(_AiPhase.assigning);
 
     // Phase 3 — assign grades with staggered row flash
     final rng = math.Random();
     int marked = 0;
+    final total = studentsWithSubmissions.length;
     final List<int> gradedAdms = [];
     for (int i = 0; i < studentsWithSubmissions.length; i++) {
       final student = studentsWithSubmissions[i];
@@ -2166,6 +2191,8 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
           gradedAdms.add(adm);
           marked++;
           setState(() => _aiMarkedCount = marked);
+          widget.onAiMarkedCountChanged?.call(marked);
+          widget.onAiProgressChanged?.call(total > 0 ? marked / total : 1.0);
         }
       } catch (_) {
         // skip failed rows — don't abort the whole batch
@@ -2178,6 +2205,7 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
 
     if (!mounted) return;
     setState(() => _aiPhase = _AiPhase.done);
+    widget.onAiPhaseChanged?.call(_AiPhase.done);
 
     // Phase 4 — show completion label for 2 seconds then reset
     await Future.delayed(const Duration(milliseconds: 2000));
@@ -2340,31 +2368,11 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final cs = widget.cs;
     final isDark = cs.brightness == Brightness.dark;
-    final showAiGrade =
-        widget.paper.status == PaperStatus.done ||
-        widget.paper.status == PaperStatus.marked;
-    final showAiButton = showAiGrade && widget.canGrade;
+
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // ── AI Mark All button (mobile — full-width card above list) ──────
-        if (showAiButton) ...[
-          _AiMarkButton(
-            hasSubmissions: _hasSubmissions,
-            submissionCount: _submissionCount,
-            isMarking: _aiMarking,
-            phase: _aiPhase,
-            markedCount: _aiMarkedCount,
-            shimmerCtrl: _shimmerCtrl,
-            progressCtrl: _progressCtrl,
-            onTap: _runAiMarking,
-            cs: cs,
-            fullWidth: true,
-            pendingCount: _dirtySubmissions.length,
-          ),
-          const SizedBox(height: 10),
-        ],
         Material(
           color: cs.surface,
           borderRadius: BorderRadius.circular(AppTheme.kRadius),

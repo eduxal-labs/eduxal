@@ -924,8 +924,8 @@ if (phase == _AiPhase.done) {
 ```
 
 **Update after completion:**
-- [ ] Update `eduxal/lib/ui/screens/school_dashboard/CONTEXT.md` — note `_AiMarkButton` deleted, unified action circle in `_PaperHeader`, AI marking triggered from header
-- [ ] Mark this task `[x]`
+- [x] Update `eduxal/lib/ui/screens/school_dashboard/CONTEXT.md` — note `_AiMarkButton` deleted, unified action circle in `_PaperHeader`, AI marking triggered from header
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
