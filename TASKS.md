@@ -581,7 +581,7 @@ Make sure to add `import 'dart:math' as math;` at the top if not already present
 
 ---
 
-### Task C2: Fix status advance button in exams_grades_screen.dart — same visual fixes + reactive status update
+### Task C2: ~~Fix status advance button in exams_grades_screen.dart — same visual fixes + reactive status update~~ [x]
 
 **Files to modify:** `lib/ui/screens/school_dashboard/exams/exams_grades_screen.dart`
 **Context files to read (if needed):** None

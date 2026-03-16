@@ -6624,11 +6624,18 @@ class _PaperDetailViewState extends State<_PaperDetailView> {
   late final ExamsGradesDao _dao;
   List<StudentsData> _students = [];
   bool _loadingStudents = true;
+  late Stream<Paper?> _paperStream;
 
   @override
   void initState() {
     super.initState();
     _dao = ExamsGradesDao(db);
+    _paperStream = _dao.watchPaper(
+      schoolId: widget.schoolId,
+      examId: widget.exam.exam.id,
+      subject: widget.paper.subject,
+      paperNum: widget.paper.paper,
+    );
     _loadStudents();
   }
 
@@ -6655,107 +6662,109 @@ class _PaperDetailViewState extends State<_PaperDetailView> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final paper = widget.paper;
-    final exam = widget.exam.exam;
-    final subjectLabel =
-        widget.subjectNames[paper.subject] ?? 'Subject ${paper.subject}';
-    final paperLabel = paper.paper != null ? ' Paper ${paper.paper}' : '';
-    final gradeLabel = '';
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _SectionHeader(
-          title: '$subjectLabel$paperLabel',
-          subtitle: '$gradeLabel · ${widget.year} T${widget.term}',
-          leadingAction: _HeaderAction(
-            icon: Icons.chevron_left,
-            label: 'Back',
-            onTap: widget.onBack,
-          ),
-        ),
-        Expanded(
-          child: StreamBuilder<List<GradeRow>>(
-            stream: _dao.watchGradesForPaper(
-              schoolId: widget.schoolId,
-              examId: exam.id,
-              subject: paper.subject,
-              paper: paper.paper,
+    return StreamBuilder<Paper?>(
+      stream: _paperStream,
+      builder: (context, paperSnap) {
+        final paper = paperSnap.data ?? widget.paper;
+        final exam = widget.exam.exam;
+        final subjectLabel =
+            widget.subjectNames[paper.subject] ?? 'Subject ${paper.subject}';
+        final paperLabel = paper.paper != null ? ' Paper ${paper.paper}' : '';
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _SectionHeader(
+              title: '$subjectLabel$paperLabel',
+              subtitle: '${widget.year} T${widget.term}',
+              leadingAction: _HeaderAction(
+                icon: Icons.chevron_left,
+                label: 'Back',
+                onTap: widget.onBack,
+              ),
             ),
-            builder: (context, snap) {
-              if (_loadingStudents ||
-                  snap.connectionState == ConnectionState.waiting) {
-                return const Center(
-                  child: CircularProgressIndicator(strokeWidth: 1.5),
-                );
-              }
-              final gradeRows = snap.data ?? [];
-              final gradeMap = {
-                for (final r in gradeRows) r.student.adm: r.grade,
-              };
+            Expanded(
+              child: StreamBuilder<List<GradeRow>>(
+                stream: _dao.watchGradesForPaper(
+                  schoolId: widget.schoolId,
+                  examId: exam.id,
+                  subject: paper.subject,
+                  paper: paper.paper,
+                ),
+                builder: (context, snap) {
+                  if (_loadingStudents ||
+                      snap.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(strokeWidth: 1.5),
+                    );
+                  }
+                  final gradeRows = snap.data ?? [];
+                  final gradeMap = {
+                    for (final r in gradeRows) r.student.adm: r.grade,
+                  };
 
-              return LayoutBuilder(
-                builder: (context, constraints) {
-                  final isDesktop =
-                      constraints.maxWidth >= AppTheme.kMobileBreakpoint;
-                  return ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                    children: [
-                      // ── Analytics header ───────────────────────────────
-                      _AnalyticsHeader(
-                        schoolId: widget.schoolId,
-                        examId: exam.id,
-                        subject: paper.subject,
-                        paper: paper.paper,
-                        gradeRows: gradeRows,
-                        totalStudents: _students.length,
-                        dao: _dao,
-                        cs: cs,
-                      ),
-                      const SizedBox(height: 20),
-                      // ── Paper status chip ───────────────────────────────
-                      _PaperStatusRow(
-                        paper: paper,
-                        schoolId: widget.schoolId,
-                        exam: exam,
-                        dao: _dao,
-                        canManage: _canGrade,
-                        cs: cs,
-                      ),
-                      const SizedBox(height: 20),
-                      // ── Grading view ───────────────────────────────────
-                      if (_students.isEmpty)
-                        _NoStudentsState(cs: cs)
-                      else if (isDesktop)
-                        _GradeSpreadsheet(
-                          students: _students,
-                          gradeMap: gradeMap,
-                          paper: paper,
-                          exam: exam,
-                          schoolId: widget.schoolId,
-                          dao: _dao,
-                          canGrade: _canGrade,
-                          cs: cs,
-                        )
-                      else
-                        _GradeList(
-                          students: _students,
-                          gradeMap: gradeMap,
-                          paper: paper,
-                          exam: exam,
-                          schoolId: widget.schoolId,
-                          dao: _dao,
-                          canGrade: _canGrade,
-                          cs: cs,
-                        ),
-                    ],
+                  return LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isDesktop =
+                          constraints.maxWidth >= AppTheme.kMobileBreakpoint;
+                      return ListView(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                        children: [
+                          _AnalyticsHeader(
+                            schoolId: widget.schoolId,
+                            examId: exam.id,
+                            subject: paper.subject,
+                            paper: paper.paper,
+                            gradeRows: gradeRows,
+                            totalStudents: _students.length,
+                            dao: _dao,
+                            cs: cs,
+                          ),
+                          const SizedBox(height: 20),
+                          _PaperStatusRow(
+                            paper: paper,
+                            schoolId: widget.schoolId,
+                            exam: exam,
+                            dao: _dao,
+                            canManage: _canGrade,
+                            cs: cs,
+                          ),
+                          const SizedBox(height: 20),
+                          if (_students.isEmpty)
+                            _NoStudentsState(cs: cs)
+                          else if (isDesktop)
+                            _GradeSpreadsheet(
+                              students: _students,
+                              gradeMap: gradeMap,
+                              paper: paper,
+                              exam: exam,
+                              schoolId: widget.schoolId,
+                              dao: _dao,
+                              canGrade: _canGrade,
+                              cs: cs,
+                            )
+                          else
+                            _GradeList(
+                              students: _students,
+                              gradeMap: gradeMap,
+                              paper: paper,
+                              exam: exam,
+                              schoolId: widget.schoolId,
+                              dao: _dao,
+                              canGrade: _canGrade,
+                              cs: cs,
+                            ),
+                        ],
+                      );
+                    },
                   );
                 },
-              );
-            },
-          ),
-        ),
-      ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -7193,7 +7202,7 @@ class _PaperStatusRow extends StatelessWidget {
         _StatusChip(status: paper.status, cs: cs),
         const Spacer(),
         if (canManage)
-          _StatusAdvanceButton(
+          _StatusAdvanceCircle(
             paper: paper,
             schoolId: schoolId,
             exam: exam,
@@ -7205,8 +7214,8 @@ class _PaperStatusRow extends StatelessWidget {
   }
 }
 
-class _StatusAdvanceButton extends StatefulWidget {
-  const _StatusAdvanceButton({
+class _StatusAdvanceCircle extends StatefulWidget {
+  const _StatusAdvanceCircle({
     required this.paper,
     required this.schoolId,
     required this.exam,
@@ -7220,11 +7229,104 @@ class _StatusAdvanceButton extends StatefulWidget {
   final ColorScheme cs;
 
   @override
-  State<_StatusAdvanceButton> createState() => _StatusAdvanceButtonState();
+  State<_StatusAdvanceCircle> createState() => _StatusAdvanceCircleState();
 }
 
-class _StatusAdvanceButtonState extends State<_StatusAdvanceButton> {
+class _StatusAdvanceCircleState extends State<_StatusAdvanceCircle>
+    with TickerProviderStateMixin {
   bool _busy = false;
+  late AnimationController _arcCtrl;
+  late AnimationController _scaleCtrl;
+  late AnimationController _flashCtrl;
+  late Animation<double> _arcAnimation;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _arcCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _scaleCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _flashCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _arcAnimation = Tween<double>(
+      begin: _arcFraction(widget.paper.status),
+      end: _arcFraction(widget.paper.status),
+    ).animate(CurvedAnimation(parent: _arcCtrl, curve: Curves.easeInOut));
+    _scaleAnimation = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.88), weight: 40),
+      TweenSequenceItem(
+        tween: Tween(begin: 0.88, end: 1.0)
+            .chain(CurveTween(curve: Curves.elasticOut)),
+        weight: 60,
+      ),
+    ]).animate(_scaleCtrl);
+  }
+
+  @override
+  void didUpdateWidget(_StatusAdvanceCircle old) {
+    super.didUpdateWidget(old);
+    if (old.paper.status != widget.paper.status) {
+      _arcAnimation = Tween<double>(
+        begin: _arcFraction(old.paper.status),
+        end: _arcFraction(widget.paper.status),
+      ).animate(CurvedAnimation(parent: _arcCtrl, curve: Curves.easeInOut));
+      _arcCtrl.forward(from: 0);
+      _flashCtrl.forward(from: 0).then((_) {
+        if (mounted) _flashCtrl.reverse();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _arcCtrl.dispose();
+    _scaleCtrl.dispose();
+    _flashCtrl.dispose();
+    super.dispose();
+  }
+
+  double _arcFraction(PaperStatus s) => switch (s) {
+    PaperStatus.pending => 0.0,
+    PaperStatus.progress => 0.33,
+    PaperStatus.done => 0.66,
+    PaperStatus.marked => 1.0,
+  };
+
+  Color _statusColor(PaperStatus s) => switch (s) {
+    PaperStatus.pending => const Color(0xFF42A5F5),
+    PaperStatus.progress => const Color(0xFFFFA726),
+    PaperStatus.done => const Color(0xFF66BB6A),
+    PaperStatus.marked => const Color(0xFF43A047),
+  };
+
+  IconData _statusIcon(PaperStatus s) => switch (s) {
+    PaperStatus.pending => Icons.play_arrow_rounded,
+    PaperStatus.progress => Icons.check_circle_outline_rounded,
+    PaperStatus.done => Icons.grading_rounded,
+    PaperStatus.marked => Icons.check_rounded,
+  };
+
+  String _statusActionLabel(PaperStatus s) => switch (s) {
+    PaperStatus.pending => 'Start exam',
+    PaperStatus.progress => 'Mark as done',
+    PaperStatus.done => 'Mark as graded',
+    PaperStatus.marked => 'Fully graded',
+  };
+
+  PaperStatus? _nextStatus(PaperStatus s) => switch (s) {
+    PaperStatus.pending => PaperStatus.progress,
+    PaperStatus.progress => PaperStatus.done,
+    PaperStatus.done => PaperStatus.marked,
+    PaperStatus.marked => null,
+  };
 
   Future<void> _advance() async {
     final next = _nextStatus(widget.paper.status);
@@ -7232,6 +7334,7 @@ class _StatusAdvanceButtonState extends State<_StatusAdvanceButton> {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;
     setState(() => _busy = true);
+    _scaleCtrl.forward(from: 0);
     try {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
       await widget.dao.updatePaper(
@@ -7247,20 +7350,148 @@ class _StatusAdvanceButtonState extends State<_StatusAdvanceButton> {
     }
   }
 
-  PaperStatus? _nextStatus(PaperStatus s) => switch (s) {
-    PaperStatus.pending => PaperStatus.progress,
-    PaperStatus.progress => PaperStatus.done,
-    PaperStatus.done => PaperStatus.marked,
-    PaperStatus.marked => null,
-  };
-
   @override
   Widget build(BuildContext context) {
-    final next = _nextStatus(widget.paper.status);
-    if (next == null) return const SizedBox.shrink();
+    final status = widget.paper.status;
+    final isMarked = status == PaperStatus.marked;
+    final next = _nextStatus(status);
+    final color = _statusColor(status);
+    final nextColor = next != null ? _statusColor(next) : color;
 
-    return AnimatedSaveButton(isDirty: true, isSaving: _busy, onSave: _advance);
+    return AnimatedBuilder(
+      animation: Listenable.merge([_arcCtrl, _scaleCtrl, _flashCtrl]),
+      builder: (context, _) {
+        final scale = _scaleCtrl.isAnimating ? _scaleAnimation.value : 1.0;
+        final arcValue = _arcCtrl.isAnimating
+            ? _arcAnimation.value
+            : _arcFraction(status);
+        final flashValue = _flashCtrl.value;
+        const size = 36.0;
+
+        if (isMarked) {
+          return Transform.scale(
+            scale: scale,
+            child: Tooltip(
+              message: 'Fully graded',
+              child: Container(
+                width: size,
+                height: size,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color.lerp(
+                    const Color(0xFF43A047),
+                    const Color(0xFF66BB6A),
+                    flashValue,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.check_rounded,
+                  size: 18,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          );
+        }
+
+        return Transform.scale(
+          scale: scale,
+          child: Tooltip(
+            message: _statusActionLabel(status),
+            child: GestureDetector(
+              onTap: _busy ? null : _advance,
+              child: SizedBox(
+                width: size,
+                height: size,
+                child: CustomPaint(
+                  painter: _ArcProgressPainter(
+                    progress: arcValue,
+                    arcColor: nextColor,
+                    trackColor: widget.cs.outlineVariant.withValues(alpha: 0.25),
+                    strokeWidth: 2.5,
+                    flashColor: flashValue > 0
+                        ? const Color(0xFF66BB6A)
+                            .withValues(alpha: flashValue * 0.4)
+                        : null,
+                  ),
+                  child: Center(
+                    child: _busy
+                        ? SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 1.5,
+                              color: nextColor,
+                            ),
+                          )
+                        : Icon(
+                            _statusIcon(status),
+                            size: 16,
+                            color: nextColor,
+                          ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
+}
+
+class _ArcProgressPainter extends CustomPainter {
+  _ArcProgressPainter({
+    required this.progress,
+    required this.arcColor,
+    required this.trackColor,
+    required this.strokeWidth,
+    this.flashColor,
+  });
+
+  final double progress;
+  final Color arcColor;
+  final Color trackColor;
+  final double strokeWidth;
+  final Color? flashColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width - strokeWidth) / 2;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    final trackPaint = Paint()
+      ..color = trackColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+    canvas.drawCircle(center, radius, trackPaint);
+
+    if (flashColor != null) {
+      final flashPaint = Paint()
+        ..color = flashColor!
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(center, radius - strokeWidth / 2, flashPaint);
+    }
+
+    if (progress > 0) {
+      final arcPaint = Paint()
+        ..color = arcColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round;
+      const startAngle = -math.pi / 2;
+      final sweepAngle = 2 * math.pi * progress;
+      canvas.drawArc(rect, startAngle, sweepAngle, false, arcPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ArcProgressPainter old) =>
+      old.progress != progress ||
+      old.arcColor != arcColor ||
+      old.flashColor != flashColor;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
