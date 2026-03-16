@@ -73,6 +73,9 @@ class _PaperDetailPageState extends State<PaperDetailPage>
   bool _loadingStudents = true;
   bool? _lastIsDesktop;
 
+  bool _hasDirtyGrades = false;
+  final GlobalKey<_GradeSpreadsheetState> _spreadsheetKey = GlobalKey();
+
   Paper get _paper => widget.paper;
   Exam get _exam => widget.exam.exam;
 
@@ -279,6 +282,11 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                         canManage: _canManage,
                         cs: cs,
                         onDeleted: () => Navigator.of(context).pop(),
+                        hasDirtyGrades: _hasDirtyGrades,
+                        onSaveAllGrades: () async {
+                          await _spreadsheetKey.currentState?.saveAllDirty();
+                          if (mounted) setState(() => _hasDirtyGrades = false);
+                        },
                       ),
 
                       const SizedBox(height: 16),
@@ -301,6 +309,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                         _buildEmpty(cs, 'No students enrolled')
                       else if (isDesktop)
                         _GradeSpreadsheet(
+                          key: _spreadsheetKey,
                           students: _students,
                           gradeMap: gradeMap,
                           paper: currentPaper,
@@ -309,6 +318,9 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                           dao: _dao,
                           canGrade: _canManage,
                           cs: cs,
+                          onDirtyChanged: (dirty) {
+                            if (mounted) setState(() => _hasDirtyGrades = dirty);
+                          },
                         )
                       else
                         _GradeList(
@@ -678,6 +690,8 @@ class _PaperActionBar extends StatefulWidget {
     required this.canManage,
     required this.cs,
     this.onDeleted,
+    this.hasDirtyGrades = false,
+    this.onSaveAllGrades,
   });
 
   final Paper paper;
@@ -687,6 +701,8 @@ class _PaperActionBar extends StatefulWidget {
   final bool canManage;
   final ColorScheme cs;
   final VoidCallback? onDeleted;
+  final bool hasDirtyGrades;
+  final VoidCallback? onSaveAllGrades;
 
   @override
   State<_PaperActionBar> createState() => _PaperActionBarState();
@@ -895,11 +911,53 @@ class _PaperActionBarState extends State<_PaperActionBar>
               final scale = _scaleCtrl.isAnimating ? _scaleAnimation.value : 1.0;
               return Transform.scale(
                 scale: scale,
-                child: _buildCircularButton(status, isMarked, color, nextColor),
+                child: widget.hasDirtyGrades && !isMarked
+                    ? _buildDirtySaveButton(nextColor)
+                    : _buildCircularButton(status, isMarked, color, nextColor),
               );
             },
           ),
       ],
+    );
+  }
+
+  Widget _buildDirtySaveButton(Color nextColor) {
+    const size = 40.0;
+    return Tooltip(
+      message: 'Save all grades',
+      child: GestureDetector(
+        onTap: _busy ? null : () {
+          widget.onSaveAllGrades?.call();
+        },
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: const Color(0xFFFFA726).withValues(alpha: 0.15),
+            border: Border.all(
+              color: const Color(0xFFFFA726),
+              width: 2.0,
+            ),
+          ),
+          child: Center(
+            child: _busy
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      color: Color(0xFFFFA726),
+                    ),
+                  )
+                : const Icon(
+                    Icons.save_rounded,
+                    size: 18,
+                    color: Color(0xFFFFA726),
+                  ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -1366,6 +1424,7 @@ class _CompactBarChart extends StatelessWidget {
 
 class _GradeSpreadsheet extends StatefulWidget {
   const _GradeSpreadsheet({
+    super.key,
     required this.students,
     required this.gradeMap,
     required this.paper,
@@ -1374,6 +1433,7 @@ class _GradeSpreadsheet extends StatefulWidget {
     required this.dao,
     required this.canGrade,
     required this.cs,
+    this.onDirtyChanged,
   });
 
   final List<StudentsData> students;
@@ -1384,6 +1444,7 @@ class _GradeSpreadsheet extends StatefulWidget {
   final ExamsGradesDao dao;
   final bool canGrade;
   final ColorScheme cs;
+  final ValueChanged<bool>? onDirtyChanged;
 
   @override
   State<_GradeSpreadsheet> createState() => _GradeSpreadsheetState();
@@ -1498,6 +1559,31 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
 
   int get _submissionCount =>
       _submissions.values.where((list) => list.isNotEmpty).length;
+
+  bool get hasDirtyGrades {
+    for (final student in widget.students) {
+      final adm = student.adm;
+      if (_drafts.containsKey(adm)) {
+        final existingGrade = widget.gradeMap[adm];
+        final existingText = existingGrade != null ? _fmtScore(existingGrade.score) : '';
+        if (_drafts[adm] != existingText) return true;
+      }
+    }
+    return false;
+  }
+
+  Future<void> saveAllDirty() async {
+    for (final student in widget.students) {
+      final adm = student.adm;
+      if (_drafts.containsKey(adm)) {
+        final existingGrade = widget.gradeMap[adm];
+        final existingText = existingGrade != null ? _fmtScore(existingGrade.score) : '';
+        if (_drafts[adm] != existingText) {
+          await _saveRow(adm, _controllers[adm]?.text ?? _drafts[adm]!);
+        }
+      }
+    }
+  }
 
   Future<void> _runAiMarking() async {
     if (!_hasSubmissions || !widget.canGrade || _aiMarking) return;
@@ -1623,6 +1709,9 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
       if (fc != null && mounted) {
         fc.forward(from: 0.0).then((_) => fc.reverse());
       }
+      // Clear draft for this adm since it's been saved
+      _drafts.remove(adm);
+      widget.onDirtyChanged?.call(hasDirtyGrades);
     } finally {
       if (mounted) setState(() => _saving[adm] = false);
     }
@@ -1812,7 +1901,12 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
                 flashController: _flashControllers[adm]!,
                 cs: cs,
                 onChanged: (v) {
+                  final wasDirty = hasDirtyGrades;
                   setState(() => _drafts[adm] = v);
+                  final isDirtyNow = hasDirtyGrades;
+                  if (wasDirty != isDirtyNow) {
+                    widget.onDirtyChanged?.call(isDirtyNow);
+                  }
                 },
                 onSave: () => _saveRow(adm, _controllers[adm]!.text),
                 onSubmitted: (_) {
@@ -2389,6 +2483,7 @@ class _GradeList extends StatefulWidget {
     required this.dao,
     required this.canGrade,
     required this.cs,
+    this.onDirtyChanged,
   });
 
   final List<StudentsData> students;
@@ -2399,6 +2494,7 @@ class _GradeList extends StatefulWidget {
   final ExamsGradesDao dao;
   final bool canGrade;
   final ColorScheme cs;
+  final ValueChanged<bool>? onDirtyChanged;
 
   @override
   State<_GradeList> createState() => _GradeListState();
