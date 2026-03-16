@@ -41,9 +41,10 @@ class PaperDetailPage extends StatefulWidget {
     required this.year,
     required this.term,
     required this.grade,
-    required this.curriculumType,
+    this.curriculumType = CurriculumType.cbc,
     required this.schoolContext,
     this.subjectNames = const {},
+    this.onBack,
   });
 
   final Paper paper;
@@ -55,6 +56,7 @@ class PaperDetailPage extends StatefulWidget {
   final CurriculumType curriculumType;
   final SchoolContext schoolContext;
   final Map<int, String> subjectNames;
+  final VoidCallback? onBack;
 
   @override
   State<PaperDetailPage> createState() => _PaperDetailPageState();
@@ -215,7 +217,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
       appBar: AppBar(
         leading: IconButton(
           icon: Icon(Icons.chevron_left_rounded, size: 24, color: cs.onSurface),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: widget.onBack ?? () => Navigator.of(context).pop(),
         ),
         title: Text(
           '$subjLabel$paperNum',
@@ -281,7 +283,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                         dao: _dao,
                         canManage: _canManage,
                         cs: cs,
-                        onDeleted: () => Navigator.of(context).pop(),
+                        onDeleted: widget.onBack ?? () => Navigator.of(context).pop(),
                         hasDirtyGrades: _hasDirtyGrades,
                         onSaveAllGrades: () async {
                           await _spreadsheetKey.currentState?.saveAllDirty();

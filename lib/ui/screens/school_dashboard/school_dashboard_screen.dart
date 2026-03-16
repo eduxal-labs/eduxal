@@ -314,7 +314,10 @@ class _DashboardShellState extends State<_DashboardShell>
       valueListenable: widget.schoolContext.currentEntry,
       builder: (context, currentEntry, _) {
         // Build content OUTSIDE LayoutBuilder so it's stable across resizes
-        final content = _buildContentArea(context, currentEntry);
+        final content = KeyedSubtree(
+          key: const ValueKey('dashboard-content'),
+          child: _buildContentArea(context, currentEntry),
+        );
         return LayoutBuilder(
           builder: (context, constraints) {
             final w = constraints.maxWidth;
