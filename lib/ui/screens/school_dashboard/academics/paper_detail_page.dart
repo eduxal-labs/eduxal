@@ -191,6 +191,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
       year: widget.year,
       term: widget.term,
       grade: widget.grade,
+      stream: _paper.stream,
     );
     if (!mounted) return;
     setState(() {

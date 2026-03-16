@@ -95,7 +95,7 @@ Widget build(BuildContext context) {
 
 **Update after completion:**
 - [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note resize fix
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task with message `fix: prevent navigation state loss on window resize in exams screen`
 
 ---
@@ -156,8 +156,8 @@ Future<void> _loadStudents() async {
 The DAO method `getEnrolledStudents` already has the `stream` parameter with a `null` default (meaning "all streams"). No DAO changes needed.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note student filtering fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note student filtering fix
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task with message `fix: filter students by paper's grade/stream in paper detail pages`
 
 ---

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:drift/drift.dart' hide Column;
@@ -75,6 +76,8 @@ class _ExamsShellState extends State<_ExamsShell> {
   Map<int, String> _subjectNames = {};
   late final ExamsGradesDao _dao;
   late final CatalogDao _catalogDao;
+  StreamSubscription? _configSub;
+  StreamSubscription? _subjectNamesSub;
 
   @override
   void initState() {
@@ -86,7 +89,7 @@ class _ExamsShellState extends State<_ExamsShell> {
   }
 
   Future<void> _loadSubjectNames() async {
-    _catalogDao.watchSubjects().listen((subjects) {
+    _subjectNamesSub = _catalogDao.watchSubjects().listen((subjects) {
       if (!mounted) return;
       setState(() {
         _subjectNames = {for (final s in subjects) s.id: s.name};
@@ -96,12 +99,19 @@ class _ExamsShellState extends State<_ExamsShell> {
 
   Future<void> _loadConfig() async {
     final schoolId = widget.schoolContext.membership.school.id;
-    _catalogDao.watchAllStreamsForSchool(schoolId).listen((allStreams) {
+    _configSub = _catalogDao.watchAllStreamsForSchool(schoolId).listen((allStreams) {
       if (!mounted) return;
       setState(() {
         _config = _buildConfigFromStreams(allStreams);
       });
     });
+  }
+
+  @override
+  void dispose() {
+    _configSub?.cancel();
+    _subjectNamesSub?.cancel();
+    super.dispose();
   }
 
   /// Builds a [SchoolConfig] from raw [SchoolStream] rows using the same
@@ -6628,6 +6638,7 @@ class _PaperDetailViewState extends State<_PaperDetailView> {
       year: widget.year,
       term: widget.term,
       grade: widget.grade,
+      stream: widget.paper.stream,
     );
     if (!mounted) return;
     setState(() {

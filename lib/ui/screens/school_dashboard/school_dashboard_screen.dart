@@ -205,7 +205,7 @@ class _DashboardShellState extends State<_DashboardShell>
   late TabController _tabController;
   List<_NavItem> _currentItems = [];
   int _selectedIndex = 0;
-  _LayoutMode _layoutMode = _LayoutMode.full;
+
 
   // ── lifecycle ──────────────────────────────────────────────────────────────
 
@@ -303,8 +303,8 @@ class _DashboardShellState extends State<_DashboardShell>
 
   // ── build — single Scaffold, layout mode drives navigation chrome ─────────
   //
-  // A single Scaffold persists across all breakpoints. The LayoutBuilder only
-  // updates `_layoutMode` — the navigation chrome (sidebar / rail / tabs) is
+  // A single Scaffold persists across all breakpoints. The LayoutBuilder
+  // computes `mode` inline — the navigation chrome (sidebar / rail / tabs) is
   // swapped but the content area widget tree is NEVER torn down. This ensures
   // that any Navigator.push-based detail pages survive a window resize.
 
@@ -316,18 +316,12 @@ class _DashboardShellState extends State<_DashboardShell>
         return LayoutBuilder(
           builder: (context, constraints) {
             final w = constraints.maxWidth;
-            final newMode = w >= AppTheme.kDesktopBreakpoint
+            final mode = w >= AppTheme.kDesktopBreakpoint
                 ? _LayoutMode.full
                 : w >= AppTheme.kMobileBreakpoint
                 ? _LayoutMode.rail
                 : _LayoutMode.mobile;
-            // Schedule mode update if changed — don't rebuild during build.
-            if (newMode != _layoutMode) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) setState(() => _layoutMode = newMode);
-              });
-            }
-            return _buildLayout(context, currentEntry, newMode);
+            return _buildLayout(context, currentEntry, mode);
           },
         );
       },
