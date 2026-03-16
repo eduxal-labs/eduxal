@@ -78,6 +78,7 @@ class _ExamsShellState extends State<_ExamsShell> {
   late final CatalogDao _catalogDao;
   StreamSubscription? _configSub;
   StreamSubscription? _subjectNamesSub;
+  int? _selectedStreamIndex;
 
   @override
   void initState() {
@@ -181,11 +182,12 @@ class _ExamsShellState extends State<_ExamsShell> {
 
   int? _selectedExamGrade;
 
-  void _openPaper(Paper paper, Exam exam, int grade) {
+  void _openPaper(Paper paper, Exam exam, int grade, {int streamIndex = 0}) {
     setState(() {
       _selectedPaper = paper;
       _selectedExamRow = exam;
       _selectedExamGrade = grade;
+      _selectedStreamIndex = streamIndex;
       _view = _ExamsView.paperDetail;
     });
   }
@@ -194,7 +196,7 @@ class _ExamsShellState extends State<_ExamsShell> {
     setState(() {
       _selectedPaper = null;
       _selectedExamRow = null;
-      _selectedExamGrade = null;
+      // Keep _selectedExamGrade and _selectedStreamIndex so the tabs restore
       _view = _ExamsView.examDetail;
     });
   }
@@ -206,6 +208,7 @@ class _ExamsShellState extends State<_ExamsShell> {
       _selectedExamRow = null;
       _selectedPaper = null;
       _selectedExamGrade = null;
+      _selectedStreamIndex = null;
       _view = _ExamsView.list;
     });
   }
@@ -256,6 +259,12 @@ class _ExamsShellState extends State<_ExamsShell> {
             onBack: _popToList,
             onPaperTap: _openPaper,
             onDeleted: _popToList,
+            initialGradeIndex: () {
+              if (_selectedExamGrade == null) return 0;
+              final idx = group.grades.indexWhere((g) => g.grade == _selectedExamGrade);
+              return idx >= 0 ? idx : 0;
+            }(),
+            initialStreamIndex: _selectedStreamIndex ?? 0,
           );
         },
       ),
@@ -697,6 +706,8 @@ class _ExamGroupDetailView extends StatefulWidget {
     required this.onBack,
     required this.onPaperTap,
     required this.onDeleted,
+    this.initialGradeIndex = 0,
+    this.initialStreamIndex = 0,
   });
   final ExamGroup group;
   final String schoolId;
@@ -706,8 +717,10 @@ class _ExamGroupDetailView extends StatefulWidget {
   final Map<int, String> subjectNames;
   final MembershipEntry entry;
   final VoidCallback onBack;
-  final void Function(Paper paper, Exam exam, int grade) onPaperTap;
+  final void Function(Paper paper, Exam exam, int grade, {int streamIndex}) onPaperTap;
   final VoidCallback onDeleted;
+  final int initialGradeIndex;
+  final int initialStreamIndex;
 
   @override
   State<_ExamGroupDetailView> createState() => _ExamGroupDetailViewState();
@@ -728,9 +741,14 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
     super.initState();
     _dao = ExamsGradesDao(db);
     _membersDao = MembersDao(db);
+    _selectedGradeIndex = widget.initialGradeIndex.clamp(0, (widget.group.grades.length - 1).clamp(0, 999));
+    _selectedStreamIndex = widget.initialStreamIndex;
     _gradeTabController =
-        TabController(length: widget.group.grades.length, vsync: this)
-          ..addListener(() {
+        TabController(
+          length: widget.group.grades.length,
+          initialIndex: _selectedGradeIndex,
+          vsync: this,
+        )..addListener(() {
             if (_gradeTabController.indexIsChanging) return;
             _onGradeTabChanged(_gradeTabController.index);
           });
@@ -783,14 +801,18 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
     if (grades.isEmpty) return;
     final gradeEntry = grades[_selectedGradeIndex];
     if (gradeEntry.streams.length > 1) {
+      final initialIdx = _selectedStreamIndex.clamp(0, gradeEntry.streams.length - 1);
       _streamTabController =
           TabController(
             length: gradeEntry.streams.length,
+            initialIndex: initialIdx,
             vsync: this,
           )..addListener(() {
             if (_streamTabController!.indexIsChanging) return;
             setState(() => _selectedStreamIndex = _streamTabController!.index);
           });
+    } else {
+      _selectedStreamIndex = 0;
     }
   }
 
@@ -1262,7 +1284,9 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
                       teacherNames: _teacherNames,
                       dao: _dao,
                       canManage: _canManage,
-                      onPaperTap: widget.onPaperTap,
+                      onPaperTap: (paper, exam, grade, {int streamIndex = 0}) {
+                        widget.onPaperTap(paper, exam, grade, streamIndex: _selectedStreamIndex);
+                      },
                     ),
             ),
           ],
@@ -5583,7 +5607,7 @@ class _PaperContentArea extends StatefulWidget {
   final Map<String, String> teacherNames;
   final ExamsGradesDao dao;
   final bool canManage;
-  final void Function(Paper paper, Exam exam, int grade) onPaperTap;
+  final void Function(Paper paper, Exam exam, int grade, {int streamIndex}) onPaperTap;
 
   @override
   State<_PaperContentArea> createState() => _PaperContentAreaState();
@@ -5751,7 +5775,7 @@ class _PaperTimetableGrid extends StatelessWidget {
   final Map<int, String> subjectNames;
   final Map<String, String> teacherNames;
   final bool canManage;
-  final void Function(Paper paper, Exam exam, int grade) onPaperTap;
+  final void Function(Paper paper, Exam exam, int grade, {int streamIndex}) onPaperTap;
 
   @override
   Widget build(BuildContext context) {
@@ -5872,7 +5896,7 @@ class _PaperGridRow extends StatelessWidget {
   final Map<int, String> subjectNames;
   final Map<String, String> teacherNames;
   final ColorScheme cs;
-  final void Function(Paper paper, Exam exam, int grade) onPaperTap;
+  final void Function(Paper paper, Exam exam, int grade, {int streamIndex}) onPaperTap;
 
   @override
   Widget build(BuildContext context) {
@@ -6124,7 +6148,7 @@ class _PaperTimetableMobile extends StatefulWidget {
   final Map<int, String> subjectNames;
   final Map<String, String> teacherNames;
   final bool canManage;
-  final void Function(Paper paper, Exam exam, int grade) onPaperTap;
+  final void Function(Paper paper, Exam exam, int grade, {int streamIndex}) onPaperTap;
 
   @override
   State<_PaperTimetableMobile> createState() => _PaperTimetableMobileState();

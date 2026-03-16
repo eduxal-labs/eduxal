@@ -2077,7 +2077,8 @@ class _SpreadsheetRowState extends State<_SpreadsheetRow> {
     final cs = widget.cs;
     final pct = widget._pct;
     final showGradeButton = widget.canGrade;
-    final showSubmit =
+    final showSubmit = true; // Always show file upload button
+    final showAiGrade =
         widget.paperStatus == PaperStatus.done ||
         widget.paperStatus == PaperStatus.marked;
 
@@ -2254,8 +2255,8 @@ class _SpreadsheetRowState extends State<_SpreadsheetRow> {
                     )
                   : const SizedBox.shrink(),
             ),
-            // Quick-grade AI button (visible when submissions exist)
-            if (showSubmit && widget.submissionCount > 0) ...[
+            // Quick-grade AI button (visible when submissions exist and paper is done/marked)
+            if (showAiGrade && widget.submissionCount > 0) ...[
               GestureDetector(
                 onTap: (widget.isQuickGrading || !widget.canGrade)
                     ? null
@@ -2656,7 +2657,7 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
     final isDark = cs.brightness == Brightness.dark;
     final adm = student.adm;
     final subCount = (_submissions[adm] ?? []).length;
-    final showSubmit =
+    final showAiGrade =
         widget.paper.status == PaperStatus.done ||
         widget.paper.status == PaperStatus.marked;
 
@@ -2666,20 +2667,19 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
       builder: (ctx) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Action: Submit Answer Sheets (only when done/marked)
-          if (showSubmit)
-            _ActionSheetRow(
-              icon: Icons.upload_file_outlined,
-              label: 'Submit Answer Sheets',
-              cs: cs,
-              isDark: isDark,
-              onTap: () {
-                Navigator.pop(ctx);
-                _openSubmissionSheet(context, student);
-              },
-            ),
-          // Action: Quick Grade with AI (only when submissions exist)
-          if (showSubmit && subCount > 0)
+          // Action: Submit Answer Sheets (always available)
+          _ActionSheetRow(
+            icon: Icons.upload_file_outlined,
+            label: 'Submit Answer Sheets',
+            cs: cs,
+            isDark: isDark,
+            onTap: () {
+              Navigator.pop(ctx);
+              _openSubmissionSheet(context, student);
+            },
+          ),
+          // Action: Quick Grade with AI (only when submissions exist and paper is done/marked)
+          if (showAiGrade && subCount > 0)
             _ActionSheetRow(
               icon: Icons.auto_fix_high,
               label: 'Quick Grade with AI',
@@ -2728,10 +2728,10 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final cs = widget.cs;
     final isDark = cs.brightness == Brightness.dark;
-    final showSubmit =
+    final showAiGrade =
         widget.paper.status == PaperStatus.done ||
         widget.paper.status == PaperStatus.marked;
-    final showAiButton = showSubmit && widget.canGrade;
+    final showAiButton = showAiGrade && widget.canGrade;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
