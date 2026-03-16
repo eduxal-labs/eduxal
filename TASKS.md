@@ -535,7 +535,7 @@ States 1 and 2 come from the old `_PaperActionBar`. The AI marking state (state 
 
 ---
 
-### Task 04: Clean up student row buttons in spreadsheet and mobile list
+### Task 04: Clean up student row buttons in spreadsheet and mobile list ✅
 **Files to create/modify:** `eduxal/lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`
 **Context files to read (if needed):** None (same file as Task 03)
 **Depends on:** None
@@ -653,8 +653,8 @@ Find the mobile row widget (the `ListTile` or custom row used in `_GradeList.bui
 - The mobile row's three-dot menu calls `_openStudentActionSheet` which is already cleaned up in Part B
 
 **Update after completion:**
-- [ ] Update `eduxal/lib/ui/screens/school_dashboard/CONTEXT.md` — note `_MiniArcIndicator` deleted, `_SpreadsheetRow` simplified, mobile action sheet cleaned up
-- [ ] Mark this task `[x]`
+- [x] Update `eduxal/lib/ui/screens/school_dashboard/CONTEXT.md` — note `_MiniArcIndicator` deleted, `_SpreadsheetRow` simplified, mobile action sheet cleaned up
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---

@@ -1607,20 +1607,6 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
                 onSubmitTap: _aiMarking
                     ? () {}
                     : () => _openSubmissionSheet(context, student),
-                onGradeButtonTap: () {
-                  final fn = _focusNodes[adm]!;
-                  if (fn.hasFocus) {
-                    _saveRow(adm, _controllers[adm]!.text);
-                  } else {
-                    fn.requestFocus();
-                    _controllers[adm]!.selection = TextSelection(
-                      baseOffset: 0,
-                      extentOffset: _controllers[adm]!.text.length,
-                    );
-                  }
-                },
-                onQuickGradeTap: _aiMarking ? () {} : () => _quickGrade(adm),
-                isQuickGrading: _quickGrading[adm] ?? false,
               );
             },
           ),
@@ -1821,9 +1807,6 @@ class _SpreadsheetRow extends StatefulWidget {
     required this.onSave,
     required this.onSubmitted,
     required this.onSubmitTap,
-    required this.onGradeButtonTap,
-    required this.onQuickGradeTap,
-    required this.isQuickGrading,
   });
 
   final StudentsData student;
@@ -1842,9 +1825,6 @@ class _SpreadsheetRow extends StatefulWidget {
   final VoidCallback onSave;
   final ValueChanged<String> onSubmitted;
   final VoidCallback onSubmitTap;
-  final VoidCallback onGradeButtonTap;
-  final VoidCallback onQuickGradeTap;
-  final bool isQuickGrading;
 
   double? get _pct {
     if (existingGrade == null) return null;
@@ -1861,11 +1841,7 @@ class _SpreadsheetRowState extends State<_SpreadsheetRow> {
   Widget build(BuildContext context) {
     final cs = widget.cs;
     final pct = widget._pct;
-    final showGradeButton = widget.canGrade;
     final showSubmit = true; // Always show file upload button
-    final showAiGrade =
-        widget.paperStatus == PaperStatus.done ||
-        widget.paperStatus == PaperStatus.marked;
 
     return AnimatedBuilder(
       animation: widget.flashController,
@@ -1896,55 +1872,17 @@ class _SpreadsheetRowState extends State<_SpreadsheetRow> {
               ),
             ),
             const SizedBox(width: 8),
-            // Name + submission badge
+            // Name
             Expanded(
               flex: 3,
-              child: Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      widget.student.name,
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w400,
-                        color: cs.onSurface,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (widget.submissionCount > 0) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 5,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.brandGreen.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.description_outlined,
-                            size: 10,
-                            color: AppTheme.brandGreen,
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            '${widget.submissionCount}',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                              color: AppTheme.brandGreen,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
+              child: Text(
+                widget.student.name,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurface,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             // Score input
@@ -2003,28 +1941,6 @@ class _SpreadsheetRowState extends State<_SpreadsheetRow> {
                     ),
             ),
             const SizedBox(width: 4),
-            // Pencil "Grade" icon button — only when paper is done/marked
-            if (showGradeButton)
-              Tooltip(
-                message: widget.focusNode.hasFocus
-                    ? 'Save grade'
-                    : 'Edit grade',
-                child: InkWell(
-                  onTap: widget.onGradeButtonTap,
-                  borderRadius: BorderRadius.circular(4),
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Icon(
-                      Icons.edit_outlined,
-                      size: 14,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-                    ),
-                  ),
-                ),
-              )
-            else
-              const SizedBox(width: 22),
-            const SizedBox(width: 4),
             // Percentage badge
             SizedBox(
               width: 44,
@@ -2040,25 +1956,7 @@ class _SpreadsheetRowState extends State<_SpreadsheetRow> {
                     )
                   : const SizedBox.shrink(),
             ),
-            // Quick-grade AI button (visible when submissions exist and paper is done/marked)
-            if (showAiGrade && widget.submissionCount > 0) ...[
-              GestureDetector(
-                onTap: (widget.isQuickGrading || !widget.canGrade)
-                    ? null
-                    : widget.onQuickGradeTap,
-                child: Tooltip(
-                  message: widget.existingGrade != null
-                      ? 'AI graded'
-                      : 'Quick-grade with AI',
-                  child: _MiniArcIndicator(
-                    hasGrade: widget.existingGrade != null,
-                    isProcessing: widget.isQuickGrading,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 4),
-            ],
-            // Submit answers button (visible when paper is Done)
+            // Submit answers button
             if (showSubmit)
               GestureDetector(
                 onTap: widget.onSubmitTap,
@@ -2066,17 +1964,42 @@ class _SpreadsheetRowState extends State<_SpreadsheetRow> {
                   message: widget.submissionCount > 0
                       ? '${widget.submissionCount} page(s) submitted'
                       : 'Submit answer sheets',
-                  child: widget.submissionCount > 0
-                      ? Icon(
-                          Icons.check_circle,
-                          size: 16,
-                          color: AppTheme.brandGreen,
-                        )
-                      : Icon(
-                          Icons.upload_file_outlined,
-                          size: 16,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Center(
+                          child: Icon(
+                            Icons.upload_file_outlined,
+                            size: 16,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                          ),
                         ),
+                        if (widget.submissionCount > 0)
+                          Positioned(
+                            top: -2,
+                            right: -2,
+                            child: Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: BoxDecoration(
+                                color: AppTheme.brandGreen,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Text(
+                                '${widget.submissionCount}',
+                                style: const TextStyle(
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             if (showSubmit) const SizedBox(width: 4),
@@ -2088,72 +2011,6 @@ class _SpreadsheetRowState extends State<_SpreadsheetRow> {
                 onSave: widget.isDirty ? widget.onSave : null,
               ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Small 28×28 circular indicator for per-student AI quick-grade status.
-/// - No grade + has submissions → indigo arc at 50% + auto_fix icon
-/// - Processing → spinner
-/// - Graded → green filled circle with check
-class _MiniArcIndicator extends StatelessWidget {
-  const _MiniArcIndicator({
-    required this.hasGrade,
-    required this.isProcessing,
-  });
-
-  final bool hasGrade;
-  final bool isProcessing;
-
-  @override
-  Widget build(BuildContext context) {
-    if (isProcessing) {
-      return const SizedBox(
-        width: 28,
-        height: 28,
-        child: Padding(
-          padding: EdgeInsets.all(7),
-          child: CircularProgressIndicator(
-            strokeWidth: 1.5,
-            color: Color(0xFF6366F1),
-          ),
-        ),
-      );
-    }
-    if (hasGrade) {
-      return Container(
-        width: 28,
-        height: 28,
-        decoration: BoxDecoration(
-          color: const Color(0xFF66BB6A).withValues(alpha: 0.15),
-          shape: BoxShape.circle,
-        ),
-        child: const Icon(
-          Icons.check_rounded,
-          size: 15,
-          color: Color(0xFF66BB6A),
-        ),
-      );
-    }
-    // Not graded yet — show indigo arc at 50%
-    return SizedBox(
-      width: 28,
-      height: 28,
-      child: CustomPaint(
-        painter: _ArcProgressPainter(
-          progress: 0.5,
-          arcColor: const Color(0xFF6366F1),
-          trackColor: const Color(0xFF6366F1).withValues(alpha: 0.15),
-          strokeWidth: 2.0,
-        ),
-        child: const Center(
-          child: Icon(
-            Icons.auto_fix_high,
-            size: 13,
-            color: Color(0xFF6366F1),
-          ),
         ),
       ),
     );
@@ -2442,11 +2299,6 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
   void _openStudentActionSheet(BuildContext context, StudentsData student) {
     final cs = widget.cs;
     final isDark = cs.brightness == Brightness.dark;
-    final adm = student.adm;
-    final subCount = (_submissions[adm] ?? []).length;
-    final showAiGrade =
-        widget.paper.status == PaperStatus.done ||
-        widget.paper.status == PaperStatus.marked;
 
     showEduSheet(
       context: context,
@@ -2465,21 +2317,6 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
               _openSubmissionSheet(context, student);
             },
           ),
-          // Action: Quick Grade with AI (only when submissions exist and paper is done/marked)
-          if (showAiGrade && subCount > 0)
-            _ActionSheetRow(
-              icon: Icons.auto_fix_high,
-              label: 'Quick Grade with AI',
-              cs: cs,
-              isDark: isDark,
-              onTap:
-                  (_quickGrading[adm] == true || _aiMarking || !widget.canGrade)
-                  ? null
-                  : () {
-                      Navigator.pop(ctx);
-                      _quickGrade(adm);
-                    },
-            ),
           // Action: Enter Grade (always shown)
           _ActionSheetRow(
             icon: Icons.edit_outlined,
@@ -2493,18 +2330,6 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
                   }
                 : null,
           ),
-          // Action: View Submissions (only when submissions exist)
-          if (subCount > 0)
-            _ActionSheetRow(
-              icon: Icons.photo_library_outlined,
-              label: 'View Submissions ($subCount)',
-              cs: cs,
-              isDark: isDark,
-              onTap: () {
-                Navigator.pop(ctx);
-                _openSubmissionSheet(context, student);
-              },
-            ),
           const SizedBox(height: 8),
         ],
       ),
@@ -2576,43 +2401,14 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Row(
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      student.name,
-                                      style: TextStyle(
-                                        fontSize: 13.5,
-                                        fontWeight: FontWeight.w400,
-                                        color: cs.onSurface,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  if (subCount > 0) ...[
-                                    const SizedBox(width: 5),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 4,
-                                        vertical: 1,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.brandGreen.withValues(
-                                          alpha: 0.12,
-                                        ),
-                                        borderRadius: BorderRadius.circular(3),
-                                      ),
-                                      child: Text(
-                                        '$subCount',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w500,
-                                          color: AppTheme.brandGreen,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ],
+                              Text(
+                                student.name,
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w400,
+                                  color: cs.onSurface,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                               Text(
                                 'Adm: $adm',
