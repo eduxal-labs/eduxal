@@ -231,20 +231,16 @@ class _StudentsTabState extends State<StudentsTab>
             ),
           ),
         ),
-        AppTheme.tableRowDivider(isDark, cs),
 
         // ── List ───────────────────────────────────────────────────────
         Expanded(
           child: rows.isEmpty
               ? _buildNoResults(cs)
               : ListView.builder(
-                  padding: const EdgeInsets.only(bottom: 24),
-                  itemCount: rows.length * 2 - 1,
+                  padding: const EdgeInsets.only(top: 4, bottom: 24),
+                  itemCount: rows.length,
                   itemBuilder: (context, index) {
-                    if (index.isOdd) {
-                      return AppTheme.tableRowDivider(isDark, cs);
-                    }
-                    return _buildStudentItem(cs, rows[index ~/ 2], isDark);
+                    return _buildStudentItem(cs, rows[index], isDark);
                   },
                 ),
         ),
@@ -401,7 +397,7 @@ class _SearchToolbar extends StatelessWidget {
   }
 }
 
-// ─── Flat student row with hover ─────────────────────────────────────────────
+// ─── Interactive student row with press animation ────────────────────────────
 
 class _StudentRow extends StatefulWidget {
   const _StudentRow({
@@ -422,84 +418,219 @@ class _StudentRow extends StatefulWidget {
   State<_StudentRow> createState() => _StudentRowState();
 }
 
-class _StudentRowState extends State<_StudentRow> {
+class _StudentRowState extends State<_StudentRow>
+    with SingleTickerProviderStateMixin {
   bool _isHovered = false;
+  bool _isPressed = false;
+  late final AnimationController _pressCtrl;
+  late final Animation<double> _scaleAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pressCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+      reverseDuration: const Duration(milliseconds: 150),
+    );
+    _scaleAnim = Tween<double>(begin: 1.0, end: 0.98).animate(
+      CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pressCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails _) {
+    setState(() => _isPressed = true);
+    _pressCtrl.forward();
+  }
+
+  void _onTapUp(TapUpDetails _) {
+    _pressCtrl.reverse();
+    setState(() => _isPressed = false);
+  }
+
+  void _onTapCancel() {
+    _pressCtrl.reverse();
+    setState(() => _isPressed = false);
+  }
+
+  /// Accent color derived from student trajectory.
+  Color _trajectoryColor(Trajectory trajectory, ColorScheme cs) {
+    return switch (trajectory) {
+      Trajectory.improving => const Color(0xFF4CAF50),
+      Trajectory.declining => const Color(0xFFF44336),
+      Trajectory.stable => const Color(0xFF42A5F5),
+      Trajectory.insufficientData => cs.onSurfaceVariant.withValues(alpha: 0.3),
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
     final cs = widget.cs;
+    final isDark = widget.isDark;
     final row = widget.row;
+    final accentColor = _trajectoryColor(row.trajectory, cs);
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      cursor: SystemMouseCursors.click,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 100),
-        color: _isHovered
-            ? cs.primary.withValues(alpha: 0.04)
-            : Colors.transparent,
-        child: InkWell(
-          onTap: widget.onTap,
-          splashFactory: NoSplash.splashFactory,
-          highlightColor: Colors.transparent,
-          hoverColor: Colors.transparent,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            child: Row(
-              children: [
-                // ── Avatar ─────────────────────────────────────────────────
-                _StudentAvatar(
-                  schoolId: widget.schoolId,
-                  adm: row.student.adm,
-                  cs: cs,
+    final idleBg = isDark
+        ? cs.primary.withValues(alpha: 0.06)
+        : cs.primary.withValues(alpha: 0.04);
+    final hoverBg = isDark
+        ? accentColor.withValues(alpha: 0.12)
+        : accentColor.withValues(alpha: 0.08);
+    final pressBg = isDark
+        ? accentColor.withValues(alpha: 0.18)
+        : accentColor.withValues(alpha: 0.12);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: ScaleTransition(
+        scale: _scaleAnim,
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTapDown: _onTapDown,
+            onTapUp: _onTapUp,
+            onTapCancel: _onTapCancel,
+            onTap: widget.onTap,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              curve: Curves.easeOut,
+              decoration: BoxDecoration(
+                color: _isPressed
+                    ? pressBg
+                    : _isHovered
+                        ? hoverBg
+                        : idleBg,
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                border: Border.all(
+                  color: _isHovered || _isPressed
+                      ? accentColor.withValues(alpha: isDark ? 0.35 : 0.25)
+                      : cs.outline.withValues(alpha: isDark ? 0.10 : 0.08),
+                  width: 0.5,
                 ),
-
-                const SizedBox(width: 12),
-
-                // ── Name + ADM ─────────────────────────────────────────────
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                child: IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(
-                        row.student.name,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: cs.onSurface,
+                      // ── Accent bar ───────────────────────────────────────
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: _isHovered || _isPressed ? 4 : 3,
+                        decoration: BoxDecoration(
+                          color: accentColor.withValues(
+                            alpha: _isHovered || _isPressed ? 1.0 : 0.7,
+                          ),
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(4),
+                            bottomLeft: Radius.circular(4),
+                          ),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'ADM: ${row.student.adm}',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w400,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+
+                      // ── Content ──────────────────────────────────────────
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                          child: Row(
+                            children: [
+                              // ── Avatar with ring ─────────────────────────
+                              _StudentAvatar(
+                                schoolId: widget.schoolId,
+                                adm: row.student.adm,
+                                cs: cs,
+                                accentColor: accentColor,
+                                isHighlighted: _isHovered || _isPressed,
+                              ),
+
+                              const SizedBox(width: 12),
+
+                              // ── Name + ADM ──────────────────────────────
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      row.student.name,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: cs.onSurface,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'ADM: ${row.student.adm}',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w400,
+                                        color: cs.onSurfaceVariant
+                                            .withValues(alpha: 0.5),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              const SizedBox(width: 10),
+
+                              // ── Trajectory icon ─────────────────────────
+                              _TrajectoryIcon(
+                                trajectory: row.trajectory,
+                                cs: cs,
+                              ),
+
+                              const SizedBox(width: 8),
+
+                              // ── Average badge ───────────────────────────
+                              _AverageBadge(
+                                percent: row.overallAverage,
+                                cs: cs,
+                                isDark: isDark,
+                              ),
+
+                              const SizedBox(width: 4),
+
+                              // ── Chevron ─────────────────────────────────
+                              AnimatedSlide(
+                                duration: const Duration(milliseconds: 200),
+                                curve: Curves.easeOut,
+                                offset: Offset(
+                                  _isHovered ? 0.15 : 0.0,
+                                  0,
+                                ),
+                                child: AnimatedOpacity(
+                                  duration: const Duration(milliseconds: 200),
+                                  opacity: _isHovered ? 0.8 : 0.35,
+                                  child: Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 18,
+                                    color: _isHovered
+                                        ? accentColor
+                                        : cs.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-
-                const SizedBox(width: 10),
-
-                // ── Trajectory icon ────────────────────────────────────────
-                _TrajectoryIcon(trajectory: row.trajectory, cs: cs),
-
-                const SizedBox(width: 8),
-
-                // ── Average badge ──────────────────────────────────────────
-                _AverageBadge(
-                  percent: row.overallAverage,
-                  cs: cs,
-                  isDark: widget.isDark,
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -515,11 +646,15 @@ class _StudentAvatar extends StatelessWidget {
     required this.schoolId,
     required this.adm,
     required this.cs,
+    required this.accentColor,
+    this.isHighlighted = false,
   });
 
   final String schoolId;
   final int adm;
   final ColorScheme cs;
+  final Color accentColor;
+  final bool isHighlighted;
 
   @override
   Widget build(BuildContext context) {
@@ -529,22 +664,42 @@ class _StudentAvatar extends StatelessWidget {
         final file = snapshot.data;
         final hasImage = file != null && file.existsSync();
 
-        if (hasImage) {
-          return CircleAvatar(
-            radius: 18,
-            backgroundImage: FileImage(file),
-            backgroundColor: cs.surfaceContainerHighest,
-          );
-        }
-
-        return CircleAvatar(
-          radius: 18,
-          backgroundColor: cs.surfaceContainerHighest,
-          child: Icon(
-            Icons.person,
-            size: 16,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.all(1.5),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: accentColor.withValues(
+                alpha: isHighlighted ? 0.7 : 0.25,
+              ),
+              width: isHighlighted ? 1.5 : 1.0,
+            ),
+            boxShadow: isHighlighted
+                ? [
+                    BoxShadow(
+                      color: accentColor.withValues(alpha: 0.15),
+                      blurRadius: 6,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : null,
           ),
+          child: hasImage
+              ? CircleAvatar(
+                  radius: 17,
+                  backgroundImage: FileImage(file),
+                  backgroundColor: cs.surfaceContainerHighest,
+                )
+              : CircleAvatar(
+                  radius: 17,
+                  backgroundColor: cs.surfaceContainerHighest,
+                  child: Icon(
+                    Icons.person,
+                    size: 16,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                  ),
+                ),
         );
       },
     );

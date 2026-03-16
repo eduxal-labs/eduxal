@@ -195,7 +195,6 @@ class _LessonsTabState extends State<LessonsTab>
     Map<int, List<LessonEntry>> grouped,
     ColorScheme cs,
   ) {
-    final isDark = cs.brightness == Brightness.dark;
     int running = 0;
     for (final d in dates) {
       final entries = grouped[d]!;
@@ -210,18 +209,11 @@ class _LessonsTabState extends State<LessonsTab>
       if (index < running + entries.length) {
         final entryIndex = index - running;
         final entry = entries[entryIndex];
-        final isLast = entryIndex == entries.length - 1;
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _LessonRow(
-              entry: entry,
-              curriculumType: widget.curriculumType,
-              schoolId: widget.schoolId,
-              cs: cs,
-            ),
-            if (!isLast) AppTheme.tableRowDivider(isDark, cs),
-          ],
+        return _LessonRow(
+          entry: entry,
+          curriculumType: widget.curriculumType,
+          schoolId: widget.schoolId,
+          cs: cs,
         );
       }
       running += entries.length;
@@ -571,16 +563,56 @@ class _DateHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = cs.brightness == Brightness.dark;
     return Padding(
-      padding: const EdgeInsets.only(top: 16, bottom: 8),
-      child: Text(
-        _formatDate(date),
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-          color: cs.onSurface.withValues(alpha: 0.7),
-          letterSpacing: 0.1,
-        ),
+      padding: const EdgeInsets.only(top: 20, bottom: 10),
+      child: Row(
+        children: [
+          // ── Calendar icon + date label ──────────────────────────────
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? cs.primary.withValues(alpha: 0.08)
+                  : cs.primary.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+              border: Border.all(
+                color: cs.primary.withValues(alpha: isDark ? 0.15 : 0.10),
+                width: 0.5,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.calendar_today_rounded,
+                  size: 11,
+                  color: cs.primary.withValues(alpha: 0.6),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  _formatDate(date),
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface.withValues(alpha: 0.75),
+                    letterSpacing: 0.1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(width: 10),
+
+          // ── Decorative line extending to the right ──────────────────
+          Expanded(
+            child: Container(
+              height: 0.5,
+              color: cs.outlineVariant.withValues(alpha: isDark ? 0.15 : 0.12),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -624,92 +656,211 @@ class _LessonRow extends StatefulWidget {
   State<_LessonRow> createState() => _LessonRowState();
 }
 
-class _LessonRowState extends State<_LessonRow> {
+class _LessonRowState extends State<_LessonRow>
+    with SingleTickerProviderStateMixin {
   bool _isHovered = false;
+  bool _isPressed = false;
+  late final AnimationController _pressCtrl;
+  late final Animation<double> _scaleAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pressCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+      reverseDuration: const Duration(milliseconds: 150),
+    );
+    _scaleAnim = Tween<double>(begin: 1.0, end: 0.98).animate(
+      CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pressCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails _) {
+    setState(() => _isPressed = true);
+    _pressCtrl.forward();
+  }
+
+  void _onTapUp(TapUpDetails _) {
+    _pressCtrl.reverse();
+    setState(() => _isPressed = false);
+  }
+
+  void _onTapCancel() {
+    _pressCtrl.reverse();
+    setState(() => _isPressed = false);
+  }
 
   @override
   Widget build(BuildContext context) {
     final cs = widget.cs;
+    final isDark = cs.brightness == Brightness.dark;
     final entry = widget.entry;
     final subjectName = entry.subjectName;
     final teacherName = entry.teacher.name;
     final color = _subjectColor(entry.lesson.subject);
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      cursor: SystemMouseCursors.basic,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 100),
-        color: _isHovered
-            ? cs.primary.withValues(alpha: 0.04)
-            : Colors.transparent,
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // ── 3px left color accent border ───────────────────────────
-              Container(
-                width: 3,
-                decoration: BoxDecoration(color: color.withValues(alpha: 0.65)),
-              ),
+    final idleBg = isDark
+        ? color.withValues(alpha: 0.06)
+        : color.withValues(alpha: 0.03);
+    final hoverBg = isDark
+        ? color.withValues(alpha: 0.12)
+        : color.withValues(alpha: 0.07);
+    final pressBg = isDark
+        ? color.withValues(alpha: 0.18)
+        : color.withValues(alpha: 0.11);
 
-              // ── Row content ────────────────────────────────────────────
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: ScaleTransition(
+        scale: _scaleAnim,
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTapDown: _onTapDown,
+            onTapUp: _onTapUp,
+            onTapCancel: _onTapCancel,
+            onTap: () {
+              // TODO: navigate to lesson detail
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              curve: Curves.easeOut,
+              decoration: BoxDecoration(
+                color: _isPressed
+                    ? pressBg
+                    : _isHovered
+                        ? hoverBg
+                        : idleBg,
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                border: Border.all(
+                  color: _isHovered || _isPressed
+                      ? color.withValues(alpha: isDark ? 0.35 : 0.25)
+                      : cs.outline.withValues(alpha: isDark ? 0.10 : 0.08),
+                  width: 0.5,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                child: IntrinsicHeight(
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // ── Subject name + teacher ─────────────────────────
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              subjectName,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: cs.onSurface,
-                                height: 1.2,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              teacherName,
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w400,
-                                color: cs.onSurfaceVariant.withValues(
-                                  alpha: 0.55,
-                                ),
-                                height: 1.2,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
+                      // ── Animated left accent bar ───────────────────────
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: _isHovered || _isPressed ? 4 : 3,
+                        decoration: BoxDecoration(
+                          color: color.withValues(
+                            alpha: _isHovered || _isPressed ? 1.0 : 0.65,
+                          ),
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(4),
+                            bottomLeft: Radius.circular(4),
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 8),
 
-                      // ── Teacher avatar ─────────────────────────────────
-                      _TeacherAvatar(
-                        userId: entry.teacher.id,
-                        name: teacherName,
-                        cs: cs,
+                      // ── Row content ────────────────────────────────────
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                          child: Row(
+                            children: [
+                              // ── Subject name + teacher ─────────────────
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      subjectName,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: cs.onSurface,
+                                        height: 1.2,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.person_outline_rounded,
+                                          size: 11,
+                                          color: cs.onSurfaceVariant
+                                              .withValues(alpha: 0.35),
+                                        ),
+                                        const SizedBox(width: 3),
+                                        Flexible(
+                                          child: Text(
+                                            teacherName,
+                                            style: TextStyle(
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.w400,
+                                              color: cs.onSurfaceVariant
+                                                  .withValues(alpha: 0.55),
+                                              height: 1.2,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+
+                              // ── Teacher avatar ─────────────────────────
+                              _TeacherAvatar(
+                                userId: entry.teacher.id,
+                                name: teacherName,
+                                cs: cs,
+                              ),
+
+                              const SizedBox(width: 4),
+
+                              // ── Animated chevron ───────────────────────
+                              AnimatedSlide(
+                                duration: const Duration(milliseconds: 200),
+                                curve: Curves.easeOut,
+                                offset: Offset(
+                                  _isHovered ? 0.15 : 0.0,
+                                  0,
+                                ),
+                                child: AnimatedOpacity(
+                                  duration: const Duration(milliseconds: 200),
+                                  opacity: _isHovered ? 0.8 : 0.35,
+                                  child: Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 18,
+                                    color: _isHovered
+                                        ? color
+                                        : cs.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ),
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),

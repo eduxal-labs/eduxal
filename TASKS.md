@@ -20,7 +20,7 @@ The "Comparisons" tab should be renamed to "All" and when selected, it should sh
 The executor should study how the existing stream-specific content tabs work (with `_contentTabController` and `TabBarView`) and create an analogous sub-tab system for the "All" tab. The exams shown under "All → Exams" should use `watchExamsForGradeStream` from `AcademicsDao` which already supports querying across all streams for a grade.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: `git commit -m "ui: restructure Comparisons tab into All with Stats/Exams/Timetable sub-tabs"`
 
 ---
@@ -61,7 +61,7 @@ The `_StudentRow` widget in the Students tab of a grade/stream is a flat, lifele
 The executor should make these rows feel alive and clickable — studying the recently improved `_ExamRow` and `_ExamGroupRow` in `exams_tab.dart` and `exams_grades_screen.dart` as reference for the interaction pattern (accent bar, scale animation, hover/press states, animated chevron). The executor should be creative in how student-specific data (avatar, name, trajectory, average) is presented within this pattern.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: `git commit -m "ui: improve Students tab list rows with interactive card treatment"`
 
 ---
@@ -78,7 +78,7 @@ The `_SubjectRow` widget is a flat row with only a basic hover highlight. The su
 The executor should make these rows feel like interactive, tappable cards. Study the improved exam rows for the interaction pattern. Be creative with how to integrate the subject color, mastery data, and teacher info into a more visually compelling row design.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: `git commit -m "ui: improve Subjects tab list rows with interactive design"`
 
 ---
@@ -95,7 +95,7 @@ The `_LessonRow` widget has a 3px left color accent (which is good) but is other
 The executor should enhance the lesson rows to feel alive and polished — building on the existing accent bar concept but adding the full interactive treatment (press animation, container, border states). The date headers should also be improved to be more visually distinct section separators.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: `git commit -m "ui: improve Lessons tab rows and date headers"`
 
 ---
@@ -112,7 +112,7 @@ The Teachers tab has three sections: active class teacher card, past class teach
 The executor should make all three card types feel more alive and polished. The active class teacher should feel prominent and important. Subject teacher cards should feel like tappable items. The section headers and collapsible "Previous Class Teachers" section could also use visual improvement.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: `git commit -m "ui: improve Teachers tab card designs"`
 
 ---
@@ -150,7 +150,7 @@ The `_FlatRow` widget (around line 1651) is a near-identical copy of `_UserDataR
 The executor should apply the same interactive card treatment to `_FlatRow`, making student rows on the Members page feel alive and clickable. The student avatar (which uses a file-cached image with fallback initials) should be nicely integrated into the design. Both mobile and desktop layouts must be considered.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: `git commit -m "ui: improve _FlatRow and student rows on Members page"`
 
 ---
@@ -167,7 +167,7 @@ The `_DepartmentsTab` (around line 235) shows a list of departments. Looking at 
 The executor should improve the department list items and the member rows within department details to feel alive and interactive, consistent with the improvements being made across the rest of the app. Department cards should feel like tappable entities with clear visual hierarchy.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: `git commit -m "ui: improve Departments tab and department detail member rows"`
 
 ---

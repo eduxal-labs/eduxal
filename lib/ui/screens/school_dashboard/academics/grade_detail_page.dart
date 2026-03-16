@@ -34,14 +34,15 @@ import 'tabs/timetable_tab.dart';
 /// content tabs below when a specific stream is selected.
 ///
 /// **Layer 1 — Stream Tabs (top):**
-///   "Comparisons" | one tab per stream from [GradeConfig.streams].
+///   "All" | one tab per stream from [GradeConfig.streams].
 ///
-/// **Layer 2 — Content Tabs (below, only when a stream is selected):**
-///   Students | Exams | Subjects | Attendance | Timetable | Lessons | Teachers
+/// **Layer 2 — Content Tabs (below):**
+///   When "All" is selected: Stats | Exams | Timetable
+///   When a specific stream is selected: Students | Exams | Subjects | Attendance | Timetable | Lessons | Teachers
 ///
 /// A contextual FAB appears when a specific stream is selected, offering
 /// actions scoped to that stream (Add Student, Assign Class Teacher, Assign
-/// Subject Teacher).
+/// Subject Teacher). The FAB is hidden on the "All" tab.
 class GradeDetailPage extends StatefulWidget {
   const GradeDetailPage({
     super.key,
@@ -58,8 +59,8 @@ class GradeDetailPage extends StatefulWidget {
   final GradeConfig grade;
   final String gradeLabel;
 
-  /// Optional initial stream tab index. 0 = Comparisons, 1+ = specific stream.
-  /// When null, defaults to 0 (Comparisons).
+  /// Optional initial stream tab index. 0 = All, 1+ = specific stream.
+  /// When null, defaults to 0 (All).
   final int? initialStreamIndex;
 
   /// Optional initial content tab index (Students=0, Exams=1, Subjects=2,
@@ -77,12 +78,16 @@ class _GradeDetailPageState extends State<GradeDetailPage>
 
   late TabController _streamTabController;
   late TabController _contentTabController;
+  late TabController _allSubTabController;
 
-  /// 0 = Comparisons, 1+ = specific stream.
+  /// 0 = All, 1+ = specific stream.
   late int _selectedStreamIndex;
 
   /// Tracks the currently visible content tab index for FAB context.
   late int _selectedContentIndex;
+
+  /// Tracks the currently visible "All" sub-tab index.
+  int _selectedAllSubTabIndex = 0;
 
   // ── FAB animation ──────────────────────────────────────────────────────────
 
@@ -105,6 +110,14 @@ class _GradeDetailPageState extends State<GradeDetailPage>
     EduTab(label: 'Timetable'),
     EduTab(label: 'Lessons'),
     EduTab(label: 'Teachers'),
+  ];
+
+  // ── "All" sub-tab definitions ──────────────────────────────────────────────
+
+  static const _allSubTabs = [
+    EduTab(label: 'Stats'),
+    EduTab(label: 'Exams'),
+    EduTab(label: 'Timetable'),
   ];
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
@@ -132,16 +145,23 @@ class _GradeDetailPageState extends State<GradeDetailPage>
 
     // Resolve initial stream index — clamp to valid range.
     final maxStreamIdx =
-        streamCount; // 0 = Comparisons, streamCount = last stream
+        streamCount; // 0 = All, streamCount = last stream
     final initStream = (widget.initialStreamIndex ?? 0).clamp(0, maxStreamIdx);
     _selectedStreamIndex = initStream;
 
     _streamTabController = TabController(
-      length: 1 + streamCount, // "Comparisons" + N streams
+      length: 1 + streamCount, // "All" + N streams
       initialIndex: initStream,
       vsync: this,
     );
     _streamTabController.addListener(_onStreamTabChanged);
+
+    // "All" sub-tab controller (Stats, Exams, Timetable).
+    _allSubTabController = TabController(
+      length: _allSubTabs.length,
+      vsync: this,
+    );
+    _allSubTabController.addListener(_onAllSubTabChanged);
 
     // Resolve initial content tab index — clamp to valid range.
     final initContent = (widget.initialContentTabIndex ?? 0).clamp(
@@ -177,6 +197,8 @@ class _GradeDetailPageState extends State<GradeDetailPage>
     _streamTabController.dispose();
     _contentTabController.removeListener(_onContentTabChanged);
     _contentTabController.dispose();
+    _allSubTabController.removeListener(_onAllSubTabChanged);
+    _allSubTabController.dispose();
     _fabScaleController.dispose();
     super.dispose();
   }
@@ -187,12 +209,12 @@ class _GradeDetailPageState extends State<GradeDetailPage>
     if (newIndex != _selectedStreamIndex) {
       final oldIndex = _selectedStreamIndex;
       setState(() => _selectedStreamIndex = newIndex);
-      // Animate FAB in/out when switching to/from Comparisons.
+      // Animate FAB in/out when switching to/from All.
       if (newIndex == 0) {
-        // Moving to Comparisons — hide FAB.
+        // Moving to All — hide FAB.
         _fabScaleController.reverse();
       } else if (oldIndex == 0) {
-        // Was on Comparisons — show FAB (if current content tab has one).
+        // Was on All — show FAB (if current content tab has one).
         if (_hasFabForContentTab(_selectedContentIndex)) {
           _fabScaleController.forward();
         }
@@ -200,6 +222,14 @@ class _GradeDetailPageState extends State<GradeDetailPage>
         // Switching between streams — subtle bounce.
         _bounceFab();
       }
+    }
+  }
+
+  void _onAllSubTabChanged() {
+    if (_allSubTabController.indexIsChanging) return;
+    final newIndex = _allSubTabController.index;
+    if (newIndex != _selectedAllSubTabIndex) {
+      setState(() => _selectedAllSubTabIndex = newIndex);
     }
   }
 
@@ -236,6 +266,7 @@ class _GradeDetailPageState extends State<GradeDetailPage>
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   bool get _isComparisons => _selectedStreamIndex == 0;
+  bool get _isAllTab => _selectedStreamIndex == 0;
 
   GradeStream? get _selectedStream {
     if (_isComparisons) return null;
@@ -258,9 +289,9 @@ class _GradeDetailPageState extends State<GradeDetailPage>
     final termCtx = ActiveTermProvider.read(context);
     final streams = widget.grade.streams;
 
-    // Build stream tab descriptors: "Comparisons" + one per stream.
+    // Build stream tab descriptors: "All" + one per stream.
     final streamTabs = <EduTab>[
-      const EduTab(label: 'Comparisons'),
+      const EduTab(label: 'All'),
       for (final s in streams) EduTab(label: s.name),
     ];
 
@@ -333,8 +364,18 @@ class _GradeDetailPageState extends State<GradeDetailPage>
                     ),
                   ),
 
-                  // ── Layer 2: Content tabs (hidden on Comparisons) ────────
-                  if (!_isComparisons)
+                  // ── Layer 2: Content / All sub-tabs ──────────────────────
+                  if (_isAllTab)
+                    Container(
+                      color: cs.surface,
+                      child: EduTabBar(
+                        controller: _allSubTabController,
+                        tabs: _allSubTabs,
+                        isScrollable: true,
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      ),
+                    )
+                  else
                     Container(
                       color: cs.surface,
                       child: EduTabBar(
@@ -353,8 +394,15 @@ class _GradeDetailPageState extends State<GradeDetailPage>
 
                   // ── Content area ─────────────────────────────────────────
                   Expanded(
-                    child: _isComparisons
-                        ? _buildComparisonsTab(cs, term)
+                    child: _isAllTab
+                        ? TabBarView(
+                            controller: _allSubTabController,
+                            children: [
+                              _buildComparisonsTab(cs, term),
+                              _buildAllExamsTab(cs, term),
+                              _buildAllTimetableTab(cs, term),
+                            ],
+                          )
                         : TabBarView(
                             controller: _contentTabController,
                             children: [
@@ -378,7 +426,7 @@ class _GradeDetailPageState extends State<GradeDetailPage>
     );
   }
 
-  // ── Comparisons tab ────────────────────────────────────────────────────────
+  // ── Comparisons / Stats tab ────────────────────────────────────────────────
 
   Widget _buildComparisonsTab(ColorScheme cs, Term term) {
     return ComparisonsTab(
@@ -387,6 +435,36 @@ class _GradeDetailPageState extends State<GradeDetailPage>
       term: term.term,
       grade: widget.grade.grade,
       streams: widget.grade.streams,
+    );
+  }
+
+  // ── "All" sub-tab helpers ──────────────────────────────────────────────────
+
+  Widget _buildAllExamsTab(ColorScheme cs, Term term) {
+    final firstStream = widget.grade.streams.first;
+    return ExamsTab(
+      schoolId: widget.schoolContext.membership.school.id,
+      year: term.year,
+      term: term.term,
+      grade: widget.grade.grade,
+      streamCode: firstStream.code,
+      streamName: 'All',
+      curriculumType: widget.curriculumType,
+      schoolContext: widget.schoolContext,
+    );
+  }
+
+  Widget _buildAllTimetableTab(ColorScheme cs, Term term) {
+    final firstStream = widget.grade.streams.first;
+    return TimetableTab(
+      schoolId: widget.schoolContext.membership.school.id,
+      year: term.year,
+      term: term.term,
+      grade: widget.grade.grade,
+      streamCode: firstStream.code,
+      streamName: 'All',
+      curriculumType: widget.curriculumType,
+      schoolContext: widget.schoolContext,
     );
   }
 

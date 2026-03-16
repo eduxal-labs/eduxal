@@ -228,20 +228,16 @@ class _SubjectsTabState extends State<SubjectsTab>
             ),
           ),
         ),
-        AppTheme.tableRowDivider(isDark, cs),
 
-        // ── List ───────────────────────────────────────────────────────
+        // ── List (card-based, no dividers) ─────────────────────────────
         Expanded(
           child: entries.isEmpty
               ? _buildNoResults(cs)
               : ListView.builder(
-                  padding: const EdgeInsets.only(bottom: 24),
-                  itemCount: entries.length * 2 - 1,
+                  padding: const EdgeInsets.only(top: 4, bottom: 24),
+                  itemCount: entries.length,
                   itemBuilder: (context, index) {
-                    if (index.isOdd) {
-                      return AppTheme.tableRowDivider(isDark, cs);
-                    }
-                    return _buildSubjectRow(cs, entries[index ~/ 2], isDark);
+                    return _buildSubjectRow(cs, entries[index], isDark);
                   },
                 ),
         ),
@@ -381,7 +377,24 @@ class _SearchToolbar extends StatelessWidget {
   }
 }
 
-// ─── Flat subject row with hover ──────────────────────────────────────────────
+// ─── Interactive subject card row ─────────────────────────────────────────────
+
+/// Deterministic subject color from a 10-color palette.
+Color _subjectColor(int subject) {
+  const palette = [
+    Color(0xFF42A5F5), // blue
+    Color(0xFF66BB6A), // green
+    Color(0xFFAB47BC), // purple
+    Color(0xFFEF5350), // red
+    Color(0xFFFFA726), // orange
+    Color(0xFF26A69A), // teal
+    Color(0xFF5C6BC0), // indigo
+    Color(0xFFEC407A), // pink
+    Color(0xFF8D6E63), // brown
+    Color(0xFF78909C), // blue grey
+  ];
+  return palette[subject % palette.length];
+}
 
 class _SubjectRow extends StatefulWidget {
   const _SubjectRow({
@@ -400,8 +413,46 @@ class _SubjectRow extends StatefulWidget {
   State<_SubjectRow> createState() => _SubjectRowState();
 }
 
-class _SubjectRowState extends State<_SubjectRow> {
+class _SubjectRowState extends State<_SubjectRow>
+    with SingleTickerProviderStateMixin {
   bool _isHovered = false;
+  bool _isPressed = false;
+  late final AnimationController _pressCtrl;
+  late final Animation<double> _scaleAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pressCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+      reverseDuration: const Duration(milliseconds: 150),
+    );
+    _scaleAnim = Tween<double>(begin: 1.0, end: 0.98).animate(
+      CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pressCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails _) {
+    setState(() => _isPressed = true);
+    _pressCtrl.forward();
+  }
+
+  void _onTapUp(TapUpDetails _) {
+    _pressCtrl.reverse();
+    setState(() => _isPressed = false);
+  }
+
+  void _onTapCancel() {
+    _pressCtrl.reverse();
+    setState(() => _isPressed = false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -409,77 +460,168 @@ class _SubjectRowState extends State<_SubjectRow> {
     final isDark = widget.isDark;
     final entry = widget.entry;
     final label = entry.subjectName;
+    final color = _subjectColor(entry.subject.subject);
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      cursor: SystemMouseCursors.basic,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 100),
-        color: _isHovered
-            ? cs.primary.withValues(alpha: 0.04)
-            : Colors.transparent,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // ── Subject name + teacher ─────────────────────────────────
-              Expanded(
-                flex: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: cs.onSurface,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 3),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        UserAvatar(userId: entry.teacher.id, radius: 10),
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            entry.teacher.name,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w400,
-                              color: cs.onSurfaceVariant.withValues(
-                                alpha: 0.65,
-                              ),
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+    final idleBg = isDark
+        ? cs.primary.withValues(alpha: 0.06)
+        : cs.primary.withValues(alpha: 0.04);
+    final hoverBg = isDark
+        ? color.withValues(alpha: 0.12)
+        : color.withValues(alpha: 0.08);
+    final pressBg = isDark
+        ? color.withValues(alpha: 0.18)
+        : color.withValues(alpha: 0.12);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: ScaleTransition(
+        scale: _scaleAnim,
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTapDown: _onTapDown,
+            onTapUp: _onTapUp,
+            onTapCancel: _onTapCancel,
+            onTap: () {
+              // TODO: navigate to subject detail
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              curve: Curves.easeOut,
+              decoration: BoxDecoration(
+                color: _isPressed
+                    ? pressBg
+                    : _isHovered
+                        ? hoverBg
+                        : idleBg,
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                border: Border.all(
+                  color: _isHovered || _isPressed
+                      ? color.withValues(alpha: isDark ? 0.35 : 0.25)
+                      : cs.outline.withValues(alpha: isDark ? 0.10 : 0.08),
+                  width: 0.5,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                child: IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // ── Colored accent bar ──────────────────────────────
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: _isHovered || _isPressed ? 4 : 3,
+                        decoration: BoxDecoration(
+                          color: color.withValues(
+                            alpha: _isHovered || _isPressed ? 1.0 : 0.7,
+                          ),
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(4),
+                            bottomLeft: Radius.circular(4),
                           ),
                         ),
-                      ],
-                    ),
-                  ],
+                      ),
+
+                      // ── Content ─────────────────────────────────────────
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              // ── Subject name + teacher ──────────────────
+                              Expanded(
+                                flex: 2,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      label,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: cs.onSurface,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        UserAvatar(
+                                          userId: entry.teacher.id,
+                                          radius: 10,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Flexible(
+                                          child: Text(
+                                            entry.teacher.name,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w400,
+                                              color: cs.onSurfaceVariant
+                                                  .withValues(alpha: 0.65),
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              const SizedBox(width: 12),
+
+                              // ── Mastery bars (compact) ──────────────────
+                              Expanded(
+                                flex: 3,
+                                child: _MasterySection(
+                                  streamAvg: entry.streamMasteryAverage,
+                                  gradeAvg: entry.gradeMasteryAverage,
+                                  accentColor: color,
+                                  cs: cs,
+                                  isDark: isDark,
+                                ),
+                              ),
+
+                              const SizedBox(width: 4),
+
+                              // ── Chevron ─────────────────────────────────
+                              AnimatedSlide(
+                                duration: const Duration(milliseconds: 200),
+                                curve: Curves.easeOut,
+                                offset: Offset(
+                                  _isHovered ? 0.15 : 0.0,
+                                  0,
+                                ),
+                                child: AnimatedOpacity(
+                                  duration: const Duration(milliseconds: 200),
+                                  opacity: _isHovered ? 0.8 : 0.35,
+                                  child: Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 18,
+                                    color: _isHovered
+                                        ? color
+                                        : cs.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-
-              const SizedBox(width: 12),
-
-              // ── Mastery bars (compact) ─────────────────────────────────
-              Expanded(
-                flex: 3,
-                child: _MasterySection(
-                  streamAvg: entry.streamMasteryAverage,
-                  gradeAvg: entry.gradeMasteryAverage,
-                  cs: cs,
-                  isDark: isDark,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -493,56 +635,82 @@ class _MasterySection extends StatelessWidget {
   const _MasterySection({
     required this.streamAvg,
     required this.gradeAvg,
+    required this.accentColor,
     required this.cs,
     required this.isDark,
   });
 
   final double? streamAvg;
   final double? gradeAvg;
+  final Color accentColor;
   final ColorScheme cs;
   final bool isDark;
 
   @override
   Widget build(BuildContext context) {
     if (streamAvg == null && gradeAvg == null) {
-      return Text(
-        'No mastery data',
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w400,
-          color: cs.onSurfaceVariant.withValues(alpha: 0.35),
-        ),
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.bar_chart_rounded,
+            size: 13,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.25),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            'No mastery data',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.35),
+            ),
+          ),
+        ],
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // ── Stream average bar ─────────────────────────────────────────
-        _MasteryBar(
-          label: 'Stream Avg',
-          value: streamAvg,
-          cs: cs,
-          isDark: isDark,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark
+            ? accentColor.withValues(alpha: 0.06)
+            : accentColor.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: accentColor.withValues(alpha: isDark ? 0.10 : 0.06),
+          width: 0.5,
         ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── Stream average bar ─────────────────────────────────────────
+          _MasteryBar(
+            label: 'Stream Avg',
+            value: streamAvg,
+            cs: cs,
+            isDark: isDark,
+          ),
 
-        const SizedBox(height: 6),
+          const SizedBox(height: 6),
 
-        // ── Grade average bar ──────────────────────────────────────────
-        _MasteryBar(
-          label: 'Grade Avg',
-          value: gradeAvg,
-          cs: cs,
-          isDark: isDark,
-        ),
+          // ── Grade average bar ──────────────────────────────────────────
+          _MasteryBar(
+            label: 'Grade Avg',
+            value: gradeAvg,
+            cs: cs,
+            isDark: isDark,
+          ),
 
-        // ── Delta indicator ────────────────────────────────────────────
-        if (streamAvg != null && gradeAvg != null) ...[
-          const SizedBox(height: 8),
-          _buildDelta(streamAvg!, gradeAvg!),
+          // ── Delta indicator ────────────────────────────────────────────
+          if (streamAvg != null && gradeAvg != null) ...[
+            const SizedBox(height: 6),
+            _buildDelta(streamAvg!, gradeAvg!),
+          ],
         ],
-      ],
+      ),
     );
   }
 
