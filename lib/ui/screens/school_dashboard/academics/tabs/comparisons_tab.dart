@@ -860,95 +860,109 @@ class _RankingTableState extends State<_RankingTable>
           ),
         ),
 
-        // Table container
-        Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-            border: Border.all(
-              color: AppTheme.borderColor(isDark, cs).withValues(
-                alpha: isDark ? 0.6 : 0.5,
-              ),
+        // Table container — horizontally scrollable to prevent overflow
+        // on narrow screens where fixed-width columns would squeeze the
+        // stream name column.
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minWidth: MediaQuery.of(context).size.width - 32,
             ),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: [
-              // ── Table header ─────────────────────────────────────────
-              Container(
-                color: isDark
-                    ? cs.surfaceContainerHighest.withValues(alpha: 0.4)
-                    : cs.surfaceContainerHighest.withValues(alpha: 0.5),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 9,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                border: Border.all(
+                  color: AppTheme.borderColor(isDark, cs).withValues(
+                    alpha: isDark ? 0.6 : 0.5,
+                  ),
                 ),
-                child: Row(
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: IntrinsicWidth(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    SizedBox(
-                      width: 36,
-                      child: Text('Rank', style: _headerStyle(cs)),
-                    ),
-                    Expanded(
-                      flex: 3,
-                      child: Text('Stream', style: _headerStyle(cs)),
-                    ),
-                    SizedBox(
-                      width: 52,
-                      child: Text(
-                        'Students',
-                        style: _headerStyle(cs),
-                        textAlign: TextAlign.right,
+                    // ── Table header ───────────────────────────────────
+                    Container(
+                      color: isDark
+                          ? cs.surfaceContainerHighest.withValues(alpha: 0.4)
+                          : cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 9,
+                      ),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 36,
+                            child: Text('Rank', style: _headerStyle(cs)),
+                          ),
+                          const SizedBox(
+                            width: 80,
+                            child: SizedBox.shrink(),
+                          ),
+                          const Spacer(),
+                          SizedBox(
+                            width: 52,
+                            child: Text(
+                              'Students',
+                              style: _headerStyle(cs),
+                              textAlign: TextAlign.right,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            width: 58,
+                            child: Text(
+                              'Last Exam',
+                              style: _headerStyle(cs),
+                              textAlign: TextAlign.right,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            width: 58,
+                            child: Text(
+                              'Overall',
+                              style: _headerStyle(cs),
+                              textAlign: TextAlign.right,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            width: 24,
+                            child: Text(
+                              '',
+                              style: _headerStyle(cs),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 58,
-                      child: Text(
-                        'Last Exam',
-                        style: _headerStyle(cs),
-                        textAlign: TextAlign.right,
+
+                    // ── Table rows ─────────────────────────────────────
+                    for (int i = 0; i < ranked.length; i++)
+                      SlideTransition(
+                        position: i < _slideAnimations.length
+                            ? _slideAnimations[i]
+                            : const AlwaysStoppedAnimation(Offset.zero),
+                        child: FadeTransition(
+                          opacity: i < _fadeAnimations.length
+                              ? _fadeAnimations[i]
+                              : const AlwaysStoppedAnimation(1.0),
+                          child: _RankingRow(
+                            rank: i + 1,
+                            stats: ranked[i],
+                            isAlternate: i.isOdd,
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 58,
-                      child: Text(
-                        'Overall',
-                        style: _headerStyle(cs),
-                        textAlign: TextAlign.right,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 24,
-                      child: Text(
-                        '',
-                        style: _headerStyle(cs),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
                   ],
                 ),
               ),
-
-              // ── Table rows ───────────────────────────────────────────
-              for (int i = 0; i < ranked.length; i++)
-                SlideTransition(
-                  position: i < _slideAnimations.length
-                      ? _slideAnimations[i]
-                      : const AlwaysStoppedAnimation(Offset.zero),
-                  child: FadeTransition(
-                    opacity: i < _fadeAnimations.length
-                        ? _fadeAnimations[i]
-                        : const AlwaysStoppedAnimation(1.0),
-                    child: _RankingRow(
-                      rank: i + 1,
-                      stats: ranked[i],
-                      isAlternate: i.isOdd,
-                    ),
-                  ),
-                ),
-            ],
+            ),
           ),
         ),
       ],
@@ -1069,36 +1083,32 @@ class _RankingRowState extends State<_RankingRow> {
         child: Row(
           children: [
             SizedBox(width: 36, child: Center(child: rankWidget)),
-            Expanded(
-              flex: 3,
-              child: Row(
-                children: [
-                  // Stream color dot
-                  Container(
-                    width: 6,
-                    height: 6,
-                    margin: const EdgeInsets.only(right: 6),
-                    decoration: BoxDecoration(
-                      color: _streamColor(widget.stats.streamCode),
-                      shape: BoxShape.circle,
-                    ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Stream color dot
+                Container(
+                  width: 6,
+                  height: 6,
+                  margin: const EdgeInsets.only(right: 6),
+                  decoration: BoxDecoration(
+                    color: _streamColor(widget.stats.streamCode),
+                    shape: BoxShape.circle,
                   ),
-                  Expanded(
-                    child: Text(
-                      widget.stats.streamName,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: rank == 1
-                            ? FontWeight.w500
-                            : FontWeight.w400,
-                        color: cs.onSurface,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                ),
+                Text(
+                  widget.stats.streamName,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: rank == 1
+                        ? FontWeight.w500
+                        : FontWeight.w400,
+                    color: cs.onSurface,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
+            const Spacer(),
             SizedBox(
               width: 52,
               child: Text(
