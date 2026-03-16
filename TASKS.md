@@ -529,8 +529,8 @@ States 1 and 2 come from the old `_PaperActionBar`. The AI marking state (state 
 - Keep `_ArcProgressPainter` — it's reused by `_PaperHeader`.
 
 **Update after completion:**
-- [ ] Update `eduxal/lib/ui/screens/school_dashboard/CONTEXT.md` — note `_PaperInfoCard`, `_PaperActionBar`, `_AnalyticsSection`, `_CompactBarChart` deleted; replaced by `_PaperHeader`
-- [ ] Mark this task `[x]`
+- [x] Update `eduxal/lib/ui/screens/school_dashboard/CONTEXT.md` — note `_PaperInfoCard`, `_PaperActionBar`, `_AnalyticsSection`, `_CompactBarChart` deleted; replaced by `_PaperHeader`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---

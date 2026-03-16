@@ -262,46 +262,32 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                         ? const EdgeInsets.fromLTRB(16, 4, 16, 32)
                         : const EdgeInsets.fromLTRB(12, 4, 12, 24),
                     children: [
-                      // ── Paper Info Card ──────────────────────────────────
-                      _PaperInfoCard(
+                      // ── Paper Header (info + action + analytics) ────────
+                      _PaperHeader(
                         paper: currentPaper,
                         exam: widget.exam,
+                        schoolId: widget.schoolId,
                         subjectNames: widget.subjectNames,
                         cs: cs,
                         canEdit: _canManage,
+                        canManage: _canManage,
+                        dao: _dao,
+                        gradeRows: gradeRows,
+                        totalStudents: _students.length,
+                        hasDirtyGrades: _hasDirtyGrades,
                         onEditInvigilator: () =>
                             _showInvigilatorPicker(context, currentPaper),
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      // ── Status Advance ──────────────────────────────────
-                      _PaperActionBar(
-                        paper: currentPaper,
-                        schoolId: widget.schoolId,
-                        exam: _exam,
-                        dao: _dao,
-                        canManage: _canManage,
-                        cs: cs,
-                        onDeleted: widget.onBack ?? () => Navigator.of(context).pop(),
-                        hasDirtyGrades: _hasDirtyGrades,
+                        onDeleted:
+                            widget.onBack ?? () => Navigator.of(context).pop(),
                         onSaveAllGrades: () async {
                           await _spreadsheetKey.currentState?.saveAllDirty();
                           if (mounted) setState(() => _hasDirtyGrades = false);
                         },
+                        hasUnmarkedSubmissions: false,
+                        onAiMark: null,
+                        aiProgress: null,
                       ),
-
                       const SizedBox(height: 16),
-
-                      // ── Analytics (when marked) ─────────────────────────
-                      if (currentPaper.status == PaperStatus.marked) ...[
-                        _AnalyticsSection(
-                          gradeRows: gradeRows,
-                          totalStudents: _students.length,
-                          cs: cs,
-                        ),
-                        const SizedBox(height: 20),
-                      ],
 
                       // ── Grade Entry Section ─────────────────────────────
                       _SectionLabel(label: 'Grades', cs: cs),
@@ -348,369 +334,55 @@ class _PaperDetailPageState extends State<PaperDetailPage>
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// Paper Info Card
+// Paper Header — unified info + action bar + analytics
 // ═════════════════════════════════════════════════════════════════════════════
 
-class _PaperInfoCard extends StatelessWidget {
-  const _PaperInfoCard({
+const _kDayAbbr = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+class _PaperHeader extends StatefulWidget {
+  const _PaperHeader({
     required this.paper,
     required this.exam,
+    required this.schoolId,
     required this.subjectNames,
     required this.cs,
     required this.canEdit,
-    this.onEditInvigilator,
+    required this.canManage,
+    required this.dao,
+    required this.gradeRows,
+    required this.totalStudents,
+    required this.hasDirtyGrades,
+    required this.onEditInvigilator,
+    required this.onDeleted,
+    required this.onSaveAllGrades,
+    this.hasUnmarkedSubmissions = false,
+    this.onAiMark,
+    this.aiProgress,
   });
 
   final Paper paper;
   final ExamWithPapers exam;
+  final String schoolId;
   final Map<int, String> subjectNames;
   final ColorScheme cs;
   final bool canEdit;
-  final VoidCallback? onEditInvigilator;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = cs.brightness == Brightness.dark;
-    final isMobile = MediaQuery.sizeOf(context).width < 600;
-    final subjLabel = subjectNames[paper.subject] ?? 'Subject ${paper.subject}';
-    final startDt = DateTime.fromMillisecondsSinceEpoch(
-      paper.start.toInt() * 1000,
-    );
-    final endDt = DateTime.fromMillisecondsSinceEpoch(paper.end.toInt() * 1000);
-
-    return Material(
-      color: cs.surfaceContainerLowest,
-      borderRadius: BorderRadius.circular(8),
-      elevation: 0,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: cs.outlineVariant.withValues(alpha: isDark ? 0.2 : 0.15),
-          ),
-        ),
-        padding: EdgeInsets.all(isMobile ? 12 : 14),
-        child: isMobile
-            ? _buildMobileLayout(cs, isDark, subjLabel, startDt, endDt)
-            : _buildDesktopLayout(cs, isDark, subjLabel, startDt, endDt),
-      ),
-    );
-  }
-
-  Widget _buildDesktopLayout(
-    ColorScheme cs,
-    bool isDark,
-    String subjLabel,
-    DateTime startDt,
-    DateTime endDt,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // ── Subject + paper number row ──
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                paper.paper != null
-                    ? '$subjLabel — Paper ${paper.paper}'
-                    : subjLabel,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                  color: cs.onSurface,
-                  letterSpacing: -0.2,
-                ),
-              ),
-            ),
-            _PaperStatusChip(status: paper.status, cs: cs),
-          ],
-        ),
-
-        const SizedBox(height: 10),
-
-        // ── Scheduled time ──
-        Row(
-          children: [
-            Icon(
-              Icons.schedule_outlined,
-              size: 14,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              '${_fmtDate(startDt)} · ${_fmtTime(startDt)} – ${_fmtTime(endDt)}',
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurface,
-              ),
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 6),
-
-        // ── Invigilator ──
-        GestureDetector(
-          onTap: (canEdit && paper.status == PaperStatus.pending)
-              ? onEditInvigilator
-              : null,
-          child: Row(
-            children: [
-              UserAvatar(userId: exam.teacher.id, radius: 10),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  exam.teacher.name,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w400,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (canEdit && paper.status == PaperStatus.pending)
-                Icon(
-                  Icons.edit_outlined,
-                  size: 14,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.45),
-                ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 6),
-
-        // ── Exam type badge ──
-        Row(
-          children: [
-            Icon(
-              Icons.quiz_outlined,
-              size: 14,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              _typeLabel(exam.exam.type),
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w400,
-                color: _typeColor(exam.exam.type, cs),
-              ),
-            ),
-            if (exam.exam.personalized) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(3),
-                  border: Border.all(
-                    color: cs.outlineVariant.withValues(alpha: 0.4),
-                  ),
-                ),
-                child: Text(
-                  'Personalized',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w400,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                    letterSpacing: 0.2,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMobileLayout(
-    ColorScheme cs,
-    bool isDark,
-    String subjLabel,
-    DateTime startDt,
-    DateTime endDt,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // ── Subject header + status chip inline ──
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Text(
-                subjLabel,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                  color: cs.onSurface,
-                  letterSpacing: -0.2,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            // Paper number badge + status chip
-            if (paper.paper != null) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(4),
-                  color: cs.primary.withValues(alpha: isDark ? 0.15 : 0.08),
-                ),
-                child: Text(
-                  'P${paper.paper}',
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w500,
-                    color: cs.primary,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-            ],
-            _PaperStatusChip(status: paper.status, cs: cs),
-          ],
-        ),
-
-        const SizedBox(height: 10),
-
-        // ── Scheduled time ──
-        Row(
-          children: [
-            Icon(
-              Icons.schedule_outlined,
-              size: 14,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                '${_fmtDate(startDt)} · ${_fmtTime(startDt)} – ${_fmtTime(endDt)}',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurface,
-                ),
-              ),
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 6),
-
-        // ── Invigilator ──
-        GestureDetector(
-          onTap: (canEdit && paper.status == PaperStatus.pending)
-              ? onEditInvigilator
-              : null,
-          child: Row(
-            children: [
-              UserAvatar(userId: exam.teacher.id, radius: 10),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  exam.teacher.name,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w400,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (canEdit && paper.status == PaperStatus.pending)
-                Icon(
-                  Icons.edit_outlined,
-                  size: 14,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.45),
-                ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 6),
-
-        // ── Exam type badge ──
-        Row(
-          children: [
-            Icon(
-              Icons.quiz_outlined,
-              size: 14,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              _typeLabel(exam.exam.type),
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w400,
-                color: _typeColor(exam.exam.type, cs),
-              ),
-            ),
-            if (exam.exam.personalized) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(3),
-                  border: Border.all(
-                    color: cs.outlineVariant.withValues(alpha: 0.4),
-                  ),
-                ),
-                child: Text(
-                  'Personalized',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w400,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                    letterSpacing: 0.2,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
-// Paper Status Row + Advance Button
-// ═════════════════════════════════════════════════════════════════════════════
-
-class _PaperActionBar extends StatefulWidget {
-  const _PaperActionBar({
-    required this.paper,
-    required this.schoolId,
-    required this.exam,
-    required this.dao,
-    required this.canManage,
-    required this.cs,
-    this.onDeleted,
-    this.hasDirtyGrades = false,
-    this.onSaveAllGrades,
-  });
-
-  final Paper paper;
-  final String schoolId;
-  final Exam exam;
-  final ExamsGradesDao dao;
   final bool canManage;
-  final ColorScheme cs;
-  final VoidCallback? onDeleted;
+  final ExamsGradesDao dao;
+  final List<GradeRow> gradeRows;
+  final int totalStudents;
   final bool hasDirtyGrades;
-  final VoidCallback? onSaveAllGrades;
+  final VoidCallback onEditInvigilator;
+  final VoidCallback onDeleted;
+  final VoidCallback onSaveAllGrades;
+  final bool hasUnmarkedSubmissions;
+  final VoidCallback? onAiMark;
+  final double? aiProgress;
 
   @override
-  State<_PaperActionBar> createState() => _PaperActionBarState();
+  State<_PaperHeader> createState() => _PaperHeaderState();
 }
 
-class _PaperActionBarState extends State<_PaperActionBar>
+class _PaperHeaderState extends State<_PaperHeader>
     with TickerProviderStateMixin {
   bool _busy = false;
   late AnimationController _arcCtrl;
@@ -749,7 +421,7 @@ class _PaperActionBarState extends State<_PaperActionBar>
   }
 
   @override
-  void didUpdateWidget(_PaperActionBar old) {
+  void didUpdateWidget(_PaperHeader old) {
     super.didUpdateWidget(old);
     if (old.paper.status != widget.paper.status) {
       _arcAnimation = Tween<double>(
@@ -770,6 +442,8 @@ class _PaperActionBarState extends State<_PaperActionBar>
     _flashCtrl.dispose();
     super.dispose();
   }
+
+  // ── Status helpers (moved from _PaperActionBar) ─────────────────────────
 
   double _arcFraction(PaperStatus s) => switch (s) {
     PaperStatus.pending => 0.0,
@@ -823,12 +497,12 @@ class _PaperActionBarState extends State<_PaperActionBar>
     try {
       await widget.dao.deletePaper(
         schoolId: widget.schoolId,
-        examId: widget.exam.id,
+        examId: widget.exam.exam.id,
         subject: widget.paper.subject,
         paperNum: widget.paper.paper,
         accountId: accountId,
       );
-      widget.onDeleted?.call();
+      widget.onDeleted.call();
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -845,7 +519,7 @@ class _PaperActionBarState extends State<_PaperActionBar>
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
       await widget.dao.updatePaper(
         schoolId: widget.schoolId,
-        examId: widget.exam.id,
+        examId: widget.exam.exam.id,
         subject: widget.paper.subject,
         paperNum: widget.paper.paper,
         changes: PapersCompanion(status: Value(next), updated: Value(now)),
@@ -856,91 +530,376 @@ class _PaperActionBarState extends State<_PaperActionBar>
     }
   }
 
-  String _statusDescription(PaperStatus s) => switch (s) {
-    PaperStatus.pending => 'Not yet started',
-    PaperStatus.progress => 'Exam in progress',
-    PaperStatus.done => 'Exam completed, awaiting grading',
-    PaperStatus.marked => 'Fully graded',
-  };
+  // ── Analytics computation (moved from _AnalyticsSection) ────────────────
+
+  static const _buckets = [
+    (label: '0–49', color: Color(0xFFEF5350)),
+    (label: '50–59', color: Color(0xFFFF9800)),
+    (label: '60–69', color: Color(0xFFFFC107)),
+    (label: '70–79', color: Color(0xFF8BC34A)),
+    (label: '80–89', color: Color(0xFF4CAF50)),
+    (label: '90–100', color: Color(0xFF2E7D32)),
+  ];
+
+  ({int gradedCount, double averagePercent, List<_DonutSegment> segments})
+      _computeAnalytics() {
+    final gradeRows = widget.gradeRows;
+    if (gradeRows.isEmpty) {
+      return (gradedCount: 0, averagePercent: 0, segments: []);
+    }
+
+    double totalPercent = 0;
+    final dist = <String, int>{for (final b in _buckets) b.label: 0};
+    final actuallyGraded = gradeRows.where((r) => r.grade.score > 0).toList();
+
+    for (final row in actuallyGraded) {
+      final pct = row.grade.total > 0
+          ? (row.grade.score / row.grade.total) * 100
+          : 0.0;
+      totalPercent += pct;
+      if (pct < 50) {
+        dist['0–49'] = dist['0–49']! + 1;
+      } else if (pct < 60) {
+        dist['50–59'] = dist['50–59']! + 1;
+      } else if (pct < 70) {
+        dist['60–69'] = dist['60–69']! + 1;
+      } else if (pct < 80) {
+        dist['70–79'] = dist['70–79']! + 1;
+      } else if (pct < 90) {
+        dist['80–89'] = dist['80–89']! + 1;
+      } else {
+        dist['90–100'] = dist['90–100']! + 1;
+      }
+    }
+
+    final gradedCount = actuallyGraded.length;
+    final averagePercent =
+        gradedCount > 0 ? totalPercent / gradedCount : 0.0;
+
+    // Build donut segments
+    final segments = <_DonutSegment>[];
+    if (gradedCount > 0) {
+      for (final b in _buckets) {
+        final count = dist[b.label]!;
+        if (count > 0) {
+          segments.add(_DonutSegment(count / gradedCount, b.color));
+        }
+      }
+    }
+
+    return (
+      gradedCount: gradedCount,
+      averagePercent: averagePercent,
+      segments: segments,
+    );
+  }
+
+  Color _avgColor(double pct) {
+    if (pct < 50) return const Color(0xFFEF5350);
+    if (pct < 60) return Colors.orange;
+    if (pct < 70) return Colors.amber;
+    if (pct < 80) return Colors.lightGreen;
+    if (pct < 90) return Colors.green;
+    return const Color(0xFF2E7D32);
+  }
+
+  // ── Build ───────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    final status = widget.paper.status;
+    final cs = widget.cs;
+    final isDark = cs.brightness == Brightness.dark;
+    final paper = widget.paper;
+    final exam = widget.exam;
+    final subjLabel =
+        widget.subjectNames[paper.subject] ?? 'Subject ${paper.subject}';
+    final startDt = DateTime.fromMillisecondsSinceEpoch(
+      paper.start.toInt() * 1000,
+    );
+    final endDt = DateTime.fromMillisecondsSinceEpoch(paper.end.toInt() * 1000);
+
+    final status = paper.status;
     final isPending = status == PaperStatus.pending;
     final isMarked = status == PaperStatus.marked;
     final color = _statusColor(status);
     final next = _nextStatus(status);
     final nextColor = next != null ? _statusColor(next) : color;
 
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.2 : 0.15),
+        ),
+        color: cs.surfaceContainerLowest,
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Row 1: Title + Status ─────────────────────────────────────
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  paper.paper != null
+                      ? '$subjLabel — Paper ${paper.paper}'
+                      : subjLabel,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+              ),
+              _PaperStatusChip(status: status, cs: cs),
+            ],
+          ),
+
+          const SizedBox(height: 8),
+
+          // ── Row 2: Date/Time ──────────────────────────────────────────
+          Row(
+            children: [
+              Icon(
+                Icons.schedule_outlined,
+                size: 14,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  '${_kDayAbbr[startDt.weekday - 1]}, ${startDt.day} ${_months[startDt.month - 1]} ${startDt.year} · ${_fmtTime(startDt)} – ${_fmtTime(endDt)}',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurface,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 6),
+
+          // ── Row 3: Exam Type ──────────────────────────────────────────
+          Row(
+            children: [
+              Icon(
+                Icons.quiz_outlined,
+                size: 14,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                _typeLabel(exam.exam.type),
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w400,
+                  color: _typeColor(exam.exam.type, cs),
+                ),
+              ),
+              if (exam.exam.personalized) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(3),
+                    border: Border.all(
+                      color: cs.outlineVariant.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Text(
+                    'Personalized',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w400,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+
+          const SizedBox(height: 6),
+
+          // ── Row 4: Invigilator ────────────────────────────────────────
+          GestureDetector(
+            onTap: widget.canEdit ? widget.onEditInvigilator : null,
+            child: Row(
+              children: [
+                UserAvatar(userId: exam.teacher.id, radius: 14),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    exam.teacher.name,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w400,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (widget.canEdit)
+                  Icon(
+                    Icons.edit_outlined,
+                    size: 14,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+                  ),
+              ],
+            ),
+          ),
+
+          // ── Row 5: Analytics (when gradeRows not empty) ───────────────
+          if (widget.gradeRows.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Divider(
+              height: 1,
+              color: cs.outlineVariant.withValues(alpha: isDark ? 0.15 : 0.1),
+            ),
+            const SizedBox(height: 10),
+            _buildAnalyticsRow(cs, isDark),
+          ],
+
+          // ── Row 6: Bottom action row ──────────────────────────────────
+          const SizedBox(height: 10),
+          Divider(
+            height: 1,
+            color: cs.outlineVariant.withValues(alpha: isDark ? 0.15 : 0.1),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              if (widget.canManage && isPending) ...[
+                Tooltip(
+                  message: 'Delete paper',
+                  child: InkWell(
+                    onTap: _busy ? null : () => _deletePaper(context),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.all(6),
+                      child: Icon(
+                        Icons.delete_outline_rounded,
+                        size: 18,
+                        color: cs.error.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+              const Spacer(),
+              if (widget.canManage)
+                AnimatedBuilder(
+                  animation:
+                      Listenable.merge([_arcCtrl, _scaleCtrl, _flashCtrl]),
+                  builder: (context, _) {
+                    final scale =
+                        _scaleCtrl.isAnimating ? _scaleAnimation.value : 1.0;
+                    return Transform.scale(
+                      scale: scale,
+                      child: widget.hasDirtyGrades && !isMarked
+                          ? _buildDirtySaveButton()
+                          : _buildCircularButton(
+                              status, isMarked, color, nextColor),
+                    );
+                  },
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Analytics row with donut chart ────────────────────────────────────
+
+  Widget _buildAnalyticsRow(ColorScheme cs, bool isDark) {
+    final analytics = _computeAnalytics();
+    final gradedCount = analytics.gradedCount;
+    final averagePercent = analytics.averagePercent;
+    final segments = analytics.segments;
+
     return Row(
       children: [
-        if (widget.canManage && isPending) ...[
-          Tooltip(
-            message: 'Delete paper',
-            child: InkWell(
-              onTap: _busy ? null : () => _deletePaper(context),
-              borderRadius: BorderRadius.circular(4),
-              child: Padding(
-                padding: const EdgeInsets.all(6),
-                child: Icon(
-                  Icons.delete_outline_rounded,
-                  size: 18,
-                  color: widget.cs.error.withValues(alpha: 0.6),
+        // Donut chart
+        SizedBox(
+          width: 80,
+          height: 80,
+          child: CustomPaint(
+            painter: _DonutPainter(
+              segments: segments.isEmpty
+                  ? [_DonutSegment(1.0, isDark
+                      ? const Color(0xFF2A3848)
+                      : const Color(0xFFE0E0E0))]
+                  : segments,
+              strokeWidth: 10,
+              trackColor: isDark
+                  ? const Color(0xFF2A3848)
+                  : const Color(0xFFE0E0E0),
+            ),
+            child: Center(
+              child: Text(
+                '$gradedCount',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurface,
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 6),
-        ],
-        _PaperStatusChip(status: status, cs: widget.cs),
-        const SizedBox(width: 8),
-        Flexible(
-          child: Text(
-            _statusDescription(status),
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
-              color: widget.cs.onSurfaceVariant.withValues(alpha: 0.6),
-            ),
-            overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(width: 12),
+        // Stats
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$gradedCount / ${widget.totalStudents} graded',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${averagePercent.toStringAsFixed(0)}% avg',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w500,
+                  color: _avgColor(averagePercent),
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(width: 8),
-        if (widget.canManage)
-          AnimatedBuilder(
-            animation: Listenable.merge([_arcCtrl, _scaleCtrl, _flashCtrl]),
-            builder: (context, _) {
-              final scale = _scaleCtrl.isAnimating ? _scaleAnimation.value : 1.0;
-              return Transform.scale(
-                scale: scale,
-                child: widget.hasDirtyGrades && !isMarked
-                    ? _buildDirtySaveButton(nextColor)
-                    : _buildCircularButton(status, isMarked, color, nextColor),
-              );
-            },
-          ),
       ],
     );
   }
 
-  Widget _buildDirtySaveButton(Color nextColor) {
+  // ── Dirty-save button ─────────────────────────────────────────────────
+
+  Widget _buildDirtySaveButton() {
     const size = 40.0;
     return Tooltip(
       message: 'Save all grades',
       child: GestureDetector(
-        onTap: _busy ? null : () {
-          widget.onSaveAllGrades?.call();
-        },
+        onTap: _busy ? null : widget.onSaveAllGrades,
         child: Container(
           width: size,
           height: size,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: const Color(0xFFFFA726).withValues(alpha: 0.15),
-            border: Border.all(
-              color: const Color(0xFFFFA726),
-              width: 2.0,
-            ),
+            border: Border.all(color: const Color(0xFFFFA726), width: 2.0),
           ),
           child: Center(
             child: _busy
@@ -963,6 +922,8 @@ class _PaperActionBarState extends State<_PaperActionBar>
     );
   }
 
+  // ── Circular advance button ───────────────────────────────────────────
+
   Widget _buildCircularButton(
     PaperStatus status,
     bool isMarked,
@@ -970,9 +931,8 @@ class _PaperActionBarState extends State<_PaperActionBar>
     Color nextColor,
   ) {
     const size = 40.0;
-    final arcValue = _arcCtrl.isAnimating
-        ? _arcAnimation.value
-        : _arcFraction(status);
+    final arcValue =
+        _arcCtrl.isAnimating ? _arcAnimation.value : _arcFraction(status);
     final flashValue = _flashCtrl.value;
 
     if (isMarked) {
@@ -1005,10 +965,12 @@ class _PaperActionBarState extends State<_PaperActionBar>
             painter: _ArcProgressPainter(
               progress: arcValue,
               arcColor: nextColor,
-              trackColor: widget.cs.outlineVariant.withValues(alpha: 0.25),
+              trackColor:
+                  widget.cs.outlineVariant.withValues(alpha: 0.25),
               strokeWidth: 3.0,
               flashColor: flashValue > 0
-                  ? const Color(0xFF66BB6A).withValues(alpha: flashValue * 0.4)
+                  ? const Color(0xFF66BB6A)
+                      .withValues(alpha: flashValue * 0.4)
                   : null,
             ),
             child: Center(
@@ -1029,6 +991,64 @@ class _PaperActionBarState extends State<_PaperActionBar>
     );
   }
 }
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Donut Chart Painter
+// ═════════════════════════════════════════════════════════════════════════════
+
+class _DonutSegment {
+  const _DonutSegment(this.fraction, this.color);
+  final double fraction;
+  final Color color;
+}
+
+class _DonutPainter extends CustomPainter {
+  _DonutPainter({
+    required this.segments,
+    required this.strokeWidth,
+    required this.trackColor,
+  });
+
+  final List<_DonutSegment> segments;
+  final double strokeWidth;
+  final Color trackColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.shortestSide / 2) - strokeWidth / 2;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    // Track background
+    final trackPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..color = trackColor;
+    canvas.drawCircle(center, radius, trackPaint);
+
+    // Draw segments
+    double startAngle = -math.pi / 2; // start from top
+    for (final seg in segments) {
+      if (seg.fraction <= 0) continue;
+      final sweep = seg.fraction * 2 * math.pi;
+      final paint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.butt
+        ..color = seg.color;
+      canvas.drawArc(rect, startAngle, sweep, false, paint);
+      startAngle += sweep;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DonutPainter old) =>
+      old.segments != segments || old.trackColor != trackColor;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Arc Progress Painter (reused by header + mini indicator)
+// ═════════════════════════════════════════════════════════════════════════════
 
 class _ArcProgressPainter extends CustomPainter {
   _ArcProgressPainter({
@@ -1087,338 +1107,7 @@ class _ArcProgressPainter extends CustomPainter {
       old.flashColor != flashColor;
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// Analytics Section (visible when paper is Marked)
-// ═════════════════════════════════════════════════════════════════════════════
 
-class _AnalyticsSection extends StatelessWidget {
-  const _AnalyticsSection({
-    required this.gradeRows,
-    required this.totalStudents,
-    required this.cs,
-  });
-
-  final List<GradeRow> gradeRows;
-  final int totalStudents;
-  final ColorScheme cs;
-
-  // Distribution buckets aligned to the task-specified grade bands.
-  static const _buckets = [
-    (label: '0–49', color: Color(0xFFEF5350)), // cs.error equivalent
-    (label: '50–59', color: Colors.orange),
-    (label: '60–69', color: Colors.amber),
-    (label: '70–79', color: Colors.lightGreen),
-    (label: '80–89', color: Colors.green),
-    (label: '90–100', color: Color(0xFF2E7D32)),
-  ];
-
-  PaperAnalytics _compute() {
-    final emptyDist = <String, int>{for (final b in _buckets) b.label: 0};
-
-    if (gradeRows.isEmpty) {
-      return PaperAnalytics(
-        totalStudents: totalStudents,
-        gradedStudents: 0,
-        averageScore: 0,
-        averagePercent: 0,
-        distribution: emptyDist,
-      );
-    }
-
-    double totalScore = 0;
-    double totalPercent = 0;
-    final dist = <String, int>{for (final b in _buckets) b.label: 0};
-
-    // Only count students with a real (non-zero) score as graded.
-    final actuallyGraded = gradeRows.where((r) => r.grade.score > 0).toList();
-
-    for (final row in actuallyGraded) {
-      final pct = row.grade.total > 0
-          ? (row.grade.score / row.grade.total) * 100
-          : 0.0;
-      totalScore += row.grade.score;
-      totalPercent += pct;
-      if (pct < 50) {
-        dist['0–49'] = dist['0–49']! + 1;
-      } else if (pct < 60) {
-        dist['50–59'] = dist['50–59']! + 1;
-      } else if (pct < 70) {
-        dist['60–69'] = dist['60–69']! + 1;
-      } else if (pct < 80) {
-        dist['70–79'] = dist['70–79']! + 1;
-      } else if (pct < 90) {
-        dist['80–89'] = dist['80–89']! + 1;
-      } else {
-        dist['90–100'] = dist['90–100']! + 1;
-      }
-    }
-
-    return PaperAnalytics(
-      totalStudents: totalStudents,
-      gradedStudents: actuallyGraded.length,
-      averageScore: actuallyGraded.isEmpty
-          ? 0
-          : totalScore / actuallyGraded.length,
-      averagePercent: actuallyGraded.isEmpty
-          ? 0
-          : totalPercent / actuallyGraded.length,
-      distribution: dist,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = cs.brightness == Brightness.dark;
-    final analytics = _compute();
-    final gradedPct = totalStudents > 0
-        ? analytics.gradedStudents / totalStudents
-        : 0.0;
-    final avgPct = analytics.averagePercent;
-
-    // Average colour: red below 50, orange 50-60, amber 60-70,
-    // lightGreen 70-80, green 80-90, dark-green 90+.
-    final avgColor = avgPct < 50
-        ? const Color(0xFFEF5350)
-        : avgPct < 60
-        ? Colors.orange
-        : avgPct < 70
-        ? Colors.amber
-        : avgPct < 80
-        ? Colors.lightGreen
-        : avgPct < 90
-        ? Colors.green
-        : const Color(0xFF2E7D32);
-
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-        border: Border.all(color: AppTheme.borderColor(isDark, cs)),
-      ),
-      padding: const EdgeInsets.all(14),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final wide = constraints.maxWidth > 560;
-
-          // ── Stats summary panel ───────────────────────────────────────────
-          final statsPanel = Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Graded progress bar row
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(2),
-                          child: SizedBox(
-                            height: 4,
-                            child: LinearProgressIndicator(
-                              value: gradedPct,
-                              backgroundColor: isDark
-                                  ? const Color(0xFF2A3848)
-                                  : cs.outlineVariant.withValues(alpha: 0.25),
-                              color: cs.primary,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          '${analytics.gradedStudents}/${analytics.totalStudents} graded',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w400,
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 20),
-                  // Class average big number
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        '${avgPct.toStringAsFixed(1)}%',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w300,
-                          color: avgColor,
-                          letterSpacing: -0.5,
-                          height: 1.0,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'class average',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w400,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
-          );
-
-          // ── Distribution bar chart ────────────────────────────────────────
-          final distPanel = _CompactBarChart(
-            distribution: analytics.distribution,
-            buckets: _buckets,
-            cs: cs,
-            isDark: isDark,
-          );
-
-          if (wide) {
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(child: statsPanel),
-                const SizedBox(width: 24),
-                distPanel,
-              ],
-            );
-          }
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [statsPanel, const SizedBox(height: 14), distPanel],
-          );
-        },
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Compact vertical bar chart — no fl_chart dependency
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _CompactBarChart extends StatelessWidget {
-  const _CompactBarChart({
-    required this.distribution,
-    required this.buckets,
-    required this.cs,
-    required this.isDark,
-  });
-
-  final Map<String, int> distribution;
-  final List<({String label, Color color})> buckets;
-  final ColorScheme cs;
-  final bool isDark;
-
-  @override
-  Widget build(BuildContext context) {
-    final values = [for (final b in buckets) distribution[b.label] ?? 0];
-    final maxVal = values.fold(0, math.max);
-    // Bar height area: 48px. Each bar is 24px wide.
-    const barAreaHeight = 48.0;
-    const barWidth = 22.0;
-
-    return SizedBox(
-      width: buckets.length * (barWidth + 4) - 4,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Distribution',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w400,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-              letterSpacing: 0.2,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              for (int i = 0; i < buckets.length; i++) ...[
-                if (i > 0) const SizedBox(width: 4),
-                SizedBox(
-                  width: barWidth,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Count label above bar
-                      SizedBox(
-                        height: 14,
-                        child: Center(
-                          child: Text(
-                            values[i] > 0 ? '${values[i]}' : '',
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w500,
-                              color: cs.onSurface.withValues(alpha: 0.65),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      // Bar itself
-                      ClipRRect(
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(3),
-                        ),
-                        child: Container(
-                          width: barWidth,
-                          height: maxVal <= 0
-                              ? 4
-                              : math.max(4, barAreaHeight * values[i] / maxVal),
-                          color: buckets[i].color.withValues(
-                            alpha: isDark ? 0.75 : 0.7,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 4),
-          // Range labels row
-          Row(
-            children: [
-              for (int i = 0; i < buckets.length; i++) ...[
-                if (i > 0) const SizedBox(width: 4),
-                SizedBox(
-                  width: barWidth,
-                  child: Text(
-                    _shortLabel(buckets[i].label),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 8,
-                      fontWeight: FontWeight.w400,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Shorten labels: "0–49" → "F", "50–59" → "C", etc.
-  String _shortLabel(String label) => switch (label) {
-    '0–49' => 'F',
-    '50–59' => 'C',
-    '60–69' => 'B',
-    '70–79' => 'A-',
-    '80–89' => 'A',
-    '90–100' => 'A+',
-    _ => label,
-  };
-}
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Grade Spreadsheet — Desktop (≥ 600px)
