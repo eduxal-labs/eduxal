@@ -10,6 +10,7 @@ import '../../../../database/tables/enums.dart';
 import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/edu_tab_bar.dart';
+import '../../../widgets/student_avatar.dart';
 import '../../../widgets/user_avatar.dart';
 import 'paper_detail_page.dart';
 
@@ -776,27 +777,42 @@ class _GradesTabState extends State<_GradesTab>
                     right: BorderSide(color: borderColor),
                   ),
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    Text(
-                      rows[index].student.name,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w500,
-                        color: cs.onSurface,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
+                    StudentAvatar(
+                      schoolId: widget.schoolId,
+                      adm: rows[index].student.adm,
+                      name: rows[index].student.name,
+                      radius: 13,
                     ),
-                    const SizedBox(height: 1),
-                    Text(
-                      'ADM ${rows[index].student.adm}',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w400,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            rows[index].student.name,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w500,
+                              color: cs.onSurface,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                          const SizedBox(height: 1),
+                          Text(
+                            'ADM ${rows[index].student.adm}',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w400,
+                              color: cs.onSurfaceVariant.withValues(
+                                alpha: 0.45,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -1082,6 +1098,7 @@ class _GradesTabState extends State<_GradesTab>
           subjects: subjects,
           subjectNames: widget.subjectNames,
           cs: cs,
+          schoolId: widget.schoolId,
         );
       },
     );
@@ -1134,12 +1151,14 @@ class _MobileStudentGradeCard extends StatefulWidget {
     required this.subjects,
     required this.subjectNames,
     required this.cs,
+    required this.schoolId,
   });
 
   final _StudentGradeRow row;
   final List<int> subjects;
   final Map<int, String> subjectNames;
   final ColorScheme cs;
+  final String schoolId;
 
   @override
   State<_MobileStudentGradeCard> createState() =>
@@ -1173,6 +1192,13 @@ class _MobileStudentGradeCardState extends State<_MobileStudentGradeCard> {
                 // ── Header ──
                 Row(
                   children: [
+                    StudentAvatar(
+                      schoolId: widget.schoolId,
+                      adm: widget.row.student.adm,
+                      name: widget.row.student.name,
+                      radius: 14,
+                    ),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2225,6 +2251,13 @@ class _PerformanceTabState extends State<_PerformanceTab>
           children: [
             Icon(Icons.emoji_events_rounded, size: iconSize, color: medalColor),
             const SizedBox(height: 4),
+            StudentAvatar(
+              schoolId: widget.schoolId,
+              adm: r.adm,
+              name: r.name,
+              radius: 18,
+            ),
+            const SizedBox(height: 4),
             Text(
               r.name,
               style: TextStyle(
@@ -2405,7 +2438,13 @@ class _PerformanceTabState extends State<_PerformanceTab>
                         ),
                       ),
               ),
-              const SizedBox(width: 28), // avatar placeholder
+              StudentAvatar(
+                schoolId: widget.schoolId,
+                adm: r.adm,
+                name: r.name,
+                radius: 13,
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 flex: 3,
                 child: Column(

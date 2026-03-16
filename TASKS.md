@@ -670,7 +670,7 @@ Add `StudentAvatar` to both desktop spreadsheet rows and mobile grade list rows.
 
 ---
 
-### Task E3: Add student avatars to exam_detail_page.dart grades and rankings
+### Task E3: Add student avatars to exam_detail_page.dart grades and rankings ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/academics/exam_detail_page.dart`
 **Context files to read (if needed):** None
 **Depends on:** Task E1
@@ -731,7 +731,7 @@ Add `StudentAvatar` to the Grades tab (both desktop and mobile) and Rankings tab
 5. **Rankings podium (if Task D3 added one):** Also add `StudentAvatar` in each podium card, above the student name, with `radius: 18`.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
