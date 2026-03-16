@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
@@ -10,9 +12,9 @@ import '../../../../theme/app_theme.dart';
 /// Comparisons tab — compares all streams within a grade on key metrics.
 ///
 /// Shows:
-/// 1. A horizontal summary row of compact stat cards.
-/// 2. One comparison card per stream with stats grid.
-/// 3. A ranking table (when 2+ streams exist).
+/// 1. A wrapping summary row of compact stat cards.
+/// 2. Responsive stream cards (compact on mobile, donut charts on desktop).
+/// 3. A ranking table with podium (when 2+ streams exist).
 /// 4. A performance trend chart (fl_chart LineChart).
 class ComparisonsTab extends StatefulWidget {
   const ComparisonsTab({
@@ -121,11 +123,30 @@ class _ComparisonsTabState extends State<ComparisonsTab> {
         _SummaryRow(stats: stats),
         const SizedBox(height: 20),
 
-        // ── 2. Stream comparison cards ───────────────────────────────
-        for (int i = 0; i < stats.length; i++) ...[
-          _StreamComparisonCard(stats: stats[i]),
-          if (i < stats.length - 1) const SizedBox(height: 10),
-        ],
+        // ── 2. Stream comparison cards (responsive) ──────────────────
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isDesktop = constraints.maxWidth >= 600;
+            return Wrap(
+              spacing: isDesktop ? 10 : 8,
+              runSpacing: isDesktop ? 10 : 8,
+              children: stats.map((s) {
+                if (isDesktop) {
+                  return _StreamDonutCard(
+                    stats: s,
+                    availableWidth: constraints.maxWidth,
+                    streamCount: stats.length,
+                  );
+                }
+                return _CompactStreamCard(
+                  stats: s,
+                  availableWidth: constraints.maxWidth,
+                  streamCount: stats.length,
+                );
+              }).toList(),
+            );
+          },
+        ),
 
         // ── 3. Ranking table (2+ streams) ────────────────────────────
         if (stats.length >= 2) ...[
@@ -208,7 +229,7 @@ class _ComparisonsTabState extends State<ComparisonsTab> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Summary Row — horizontal scrollable row of compact stat cards
+// Summary Row — wrapping row of compact stat cards (Task A1)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _SummaryRow extends StatelessWidget {
@@ -243,40 +264,47 @@ class _SummaryRow extends StatelessWidget {
       mostImproved = improving.first.streamName;
     }
 
-    return SizedBox(
-      height: 72,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: [
-          _SummaryCard(
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 130, maxWidth: 180),
+          child: _SummaryCard(
             label: 'Total Students',
             value: '$totalStudents',
             icon: Icons.people_outline_rounded,
             accentColor: const Color(0xFF42A5F5),
           ),
-          const SizedBox(width: 8),
-          _SummaryCard(
+        ),
+        ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 130, maxWidth: 180),
+          child: _SummaryCard(
             label: 'Streams',
             value: '$streamCount',
             icon: Icons.view_stream_outlined,
             accentColor: const Color(0xFF26A69A),
           ),
-          const SizedBox(width: 8),
-          _SummaryCard(
+        ),
+        ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 130, maxWidth: 180),
+          child: _SummaryCard(
             label: 'Best Performing',
             value: bestPerforming,
             icon: Icons.emoji_events_outlined,
             accentColor: const Color(0xFFFFA726),
           ),
-          const SizedBox(width: 8),
-          _SummaryCard(
+        ),
+        ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 130, maxWidth: 180),
+          child: _SummaryCard(
             label: 'Most Improved',
             value: mostImproved,
             icon: Icons.trending_up_rounded,
             accentColor: const Color(0xFF66BB6A),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -300,7 +328,7 @@ class _SummaryCard extends StatelessWidget {
     final isDark = cs.brightness == Brightness.dark;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: isDark
             ? cs.surfaceContainerHighest.withValues(alpha: 0.35)
@@ -315,8 +343,8 @@ class _SummaryCard extends StatelessWidget {
         children: [
           // Icon container with accent background
           Container(
-            width: 34,
-            height: 34,
+            width: 28,
+            height: 28,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
@@ -328,33 +356,39 @@ class _SummaryCard extends StatelessWidget {
               ),
               borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
             ),
-            child: Icon(icon, size: 16, color: accentColor),
+            child: Icon(icon, size: 14, color: accentColor),
           ),
-          const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-                  letterSpacing: 0.2,
+          const SizedBox(width: 8),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                    letterSpacing: 0.2,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: cs.onSurface,
-                  letterSpacing: 0.1,
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                    letterSpacing: 0.1,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -363,220 +397,157 @@ class _SummaryCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Stream Comparison Card — one per stream with stats grid
+// Compact Stream Card — mobile layout (Task A2)
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _StreamComparisonCard extends StatefulWidget {
-  const _StreamComparisonCard({required this.stats});
+class _CompactStreamCard extends StatelessWidget {
+  const _CompactStreamCard({
+    required this.stats,
+    required this.availableWidth,
+    required this.streamCount,
+  });
 
   final StreamStats stats;
-
-  @override
-  State<_StreamComparisonCard> createState() => _StreamComparisonCardState();
-}
-
-class _StreamComparisonCardState extends State<_StreamComparisonCard>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _hoverCtrl;
-  late final Animation<double> _borderAlpha;
-  bool _isHovered = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _hoverCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 180),
-    );
-    _borderAlpha = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _hoverCtrl, curve: Curves.easeOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _hoverCtrl.dispose();
-    super.dispose();
-  }
-
-  void _onHover(bool hovering) {
-    if (hovering == _isHovered) return;
-    setState(() => _isHovered = hovering);
-    if (hovering) {
-      _hoverCtrl.forward();
-    } else {
-      _hoverCtrl.reverse();
-    }
-  }
+  final double availableWidth;
+  final int streamCount;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
-    final streamColor = _streamColor(widget.stats.streamCode);
+    final streamColor = _streamColor(stats.streamCode);
 
-    return MouseRegion(
-      onEnter: (_) => _onHover(true),
-      onExit: (_) => _onHover(false),
-      child: AnimatedBuilder(
-        animation: _borderAlpha,
-        builder: (context, child) {
-          return Container(
-            clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(
-              color: isDark
-                  ? cs.surfaceContainerHighest.withValues(alpha: 0.3)
-                  : cs.surfaceContainerHighest.withValues(alpha: 0.35),
-              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-              border: Border.all(
-                color: Color.lerp(
-                  cs.outline.withValues(alpha: isDark ? 0.06 : 0.04),
-                  streamColor.withValues(alpha: isDark ? 0.35 : 0.3),
-                  _borderAlpha.value,
-                )!,
-              ),
-            ),
-            child: child,
-          );
-        },
+    final cols = math.max(streamCount, 3).clamp(3, 4);
+    final spacing = 8.0;
+    final cardWidth = (availableWidth - (spacing * (cols - 1))) / cols;
+
+    return SizedBox(
+      width: cardWidth,
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+          border: Border.all(
+            color: cs.outline.withValues(alpha: isDark ? 0.06 : 0.04),
+          ),
+        ),
         child: IntrinsicHeight(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-            // ── Left accent bar ────────────────────────────────────
-            Container(
-              width: 4,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    streamColor,
-                    streamColor.withValues(alpha: 0.4),
-                  ],
+              // Left accent bar
+              Container(
+                width: 3,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [streamColor, streamColor.withValues(alpha: 0.4)],
+                  ),
                 ),
               ),
-              ),
-              // ── Card content ───────────────────────────────────────
+              // Card content
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 14, 16, 16),
+                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ── Header row ─────────────────────────────────
+                      // Stream name with dot
                       Row(
                         children: [
                           Container(
-                            width: 8,
-                            height: 8,
+                            width: 6,
+                            height: 6,
                             decoration: BoxDecoration(
                               color: streamColor,
                               shape: BoxShape.circle,
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 4),
                           Expanded(
                             child: Text(
-                              widget.stats.streamName,
+                              stats.streamName,
                               style: TextStyle(
-                                fontSize: 14,
+                                fontSize: 11.5,
                                 fontWeight: FontWeight.w500,
                                 color: cs.onSurface,
-                                letterSpacing: 0.1,
                               ),
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: streamColor.withValues(
-                                alpha: isDark ? 0.12 : 0.08,
-                              ),
-                              borderRadius: BorderRadius.circular(
-                                AppTheme.kChipRadius,
-                              ),
-                            ),
-                            child: Text(
-                              '${widget.stats.studentCount} student${widget.stats.studentCount == 1 ? '' : 's'}',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w400,
-                                color: streamColor,
-                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 14),
-
-                      // ── Stats grid (2 columns × 3 rows) ───────────
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _StatCell(
-                              label: 'Overall Avg',
-                              value: _fmtPercent(widget.stats.averageScore),
-                              percent: widget.stats.averageScore / 100.0,
-                              barColor: _percentColor(widget.stats.averageScore),
-                            ),
+                      const SizedBox(height: 4),
+                      // Students badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: streamColor.withValues(
+                            alpha: isDark ? 0.12 : 0.08,
                           ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: _StatCell(
-                              label: 'Last Exam',
-                              value: widget.stats.lastExamAverage != null
-                                  ? _fmtPercent(widget.stats.lastExamAverage!)
-                                  : '—',
-                              percent: widget.stats.lastExamAverage != null
-                                  ? widget.stats.lastExamAverage! / 100.0
-                                  : null,
-                              barColor: widget.stats.lastExamAverage != null
-                                  ? _percentColor(widget.stats.lastExamAverage!)
-                                  : null,
-                            ),
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.kChipRadius,
                           ),
-                        ],
+                        ),
+                        child: Text(
+                          '${stats.studentCount} student${stats.studentCount == 1 ? '' : 's'}',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w400,
+                            color: streamColor,
+                          ),
+                        ),
                       ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _StatCell(
-                              label: 'Attendance',
-                              value: widget.stats.attendanceRate != null
-                                  ? _fmtPercent(widget.stats.attendanceRate!)
-                                  : '—',
-                              percent: widget.stats.attendanceRate != null
-                                  ? widget.stats.attendanceRate! / 100.0
-                                  : null,
-                              barColor: widget.stats.attendanceRate != null
-                                  ? _percentColor(widget.stats.attendanceRate!)
-                                  : null,
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: _StatCell(
-                              label: 'Mastery',
-                              value: widget.stats.masteryAverage != null
-                                  ? _fmtPercent(widget.stats.masteryAverage!)
-                                  : '—',
-                              percent: widget.stats.masteryAverage != null
-                                  ? widget.stats.masteryAverage! / 100.0
-                                  : null,
-                              barColor: widget.stats.masteryAverage != null
-                                  ? _percentColor(widget.stats.masteryAverage!)
-                                  : null,
-                            ),
-                          ),
-                        ],
+                      const SizedBox(height: 6),
+                      // 4 stat rows
+                      _compactStatRow(
+                        'Avg',
+                        _fmtPercent(stats.averageScore),
+                        _percentColor(stats.averageScore),
+                        cs,
                       ),
-                      const SizedBox(height: 12),
-                      _TrajectoryBadge(trajectory: widget.stats.trajectory),
+                      const SizedBox(height: 3),
+                      _compactStatRow(
+                        'Last',
+                        stats.lastExamAverage != null
+                            ? _fmtPercent(stats.lastExamAverage!)
+                            : '—',
+                        stats.lastExamAverage != null
+                            ? _percentColor(stats.lastExamAverage!)
+                            : cs.onSurfaceVariant.withValues(alpha: 0.4),
+                        cs,
+                      ),
+                      const SizedBox(height: 3),
+                      _compactStatRow(
+                        'Att',
+                        stats.attendanceRate != null
+                            ? _fmtPercent(stats.attendanceRate!)
+                            : '—',
+                        stats.attendanceRate != null
+                            ? _percentColor(stats.attendanceRate!)
+                            : cs.onSurfaceVariant.withValues(alpha: 0.4),
+                        cs,
+                      ),
+                      const SizedBox(height: 3),
+                      _compactStatRow(
+                        'Mastery',
+                        stats.masteryAverage != null
+                            ? _fmtPercent(stats.masteryAverage!)
+                            : '—',
+                        stats.masteryAverage != null
+                            ? _percentColor(stats.masteryAverage!)
+                            : cs.onSurfaceVariant.withValues(alpha: 0.4),
+                        cs,
+                      ),
+                      const SizedBox(height: 6),
+                      // Trajectory badge
+                      _TrajectoryBadge(trajectory: stats.trajectory),
                     ],
                   ),
                 ),
@@ -587,95 +558,272 @@ class _StreamComparisonCardState extends State<_StreamComparisonCard>
       ),
     );
   }
+
+  Widget _compactStatRow(
+    String label,
+    String value,
+    Color valueColor,
+    ColorScheme cs,
+  ) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          '$label:',
+          style: TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w400,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 10.5,
+            fontWeight: FontWeight.w500,
+            color: valueColor,
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Stat Cell — label + value + thin horizontal progress bar
+// Stream Donut Card — desktop layout (Task A2)
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _StatCell extends StatelessWidget {
-  const _StatCell({
-    required this.label,
-    required this.value,
-    this.percent,
-    this.barColor,
+class _StreamDonutCard extends StatelessWidget {
+  const _StreamDonutCard({
+    required this.stats,
+    required this.availableWidth,
+    required this.streamCount,
   });
 
-  final String label;
-  final String value;
-
-  /// 0.0 – 1.0 fraction for the bar. null → no bar shown.
-  final double? percent;
-
-  /// Color for the bar fill. null → no bar shown.
-  final Color? barColor;
+  final StreamStats stats;
+  final double availableWidth;
+  final int streamCount;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
+    final streamColor = _streamColor(stats.streamCode);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final cols = math.max(streamCount, 3).clamp(3, 5);
+    final spacing = 10.0;
+    final cardWidth = ((availableWidth - (spacing * (cols - 1))) / cols).clamp(
+      160.0,
+      260.0,
+    );
+
+    const attendanceColor = Color(0xFF42A5F5);
+    const lastExamColor = Color(0xFFFFA726);
+    final averageColor = _percentColor(stats.averageScore);
+
+    return SizedBox(
+      width: cardWidth,
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+          border: Border.all(
+            color: cs.outline.withValues(alpha: isDark ? 0.06 : 0.04),
+          ),
+        ),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Left accent bar
+              Container(
+                width: 3,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [streamColor, streamColor.withValues(alpha: 0.4)],
+                  ),
+                ),
+              ),
+              // Card content
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 12, 10, 12),
+                  child: Column(
+                    children: [
+                      // Triple-ring donut chart
+                      SizedBox(
+                        width: 90,
+                        height: 90,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            CustomPaint(
+                              size: const Size(90, 90),
+                              painter: _TripleDonutPainter(
+                                averagePercent: stats.averageScore,
+                                attendancePercent: stats.attendanceRate,
+                                lastExamPercent: stats.lastExamAverage,
+                                averageColor: averageColor,
+                                attendanceColor: attendanceColor,
+                                lastExamColor: lastExamColor,
+                                trackColor: cs.surfaceContainerHighest
+                                    .withValues(alpha: 0.5),
+                              ),
+                            ),
+                            // Center text
+                            Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  stats.streamName,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    color: cs.onSurface,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  '${stats.studentCount}',
+                                  style: TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w400,
+                                    color: cs.onSurfaceVariant.withValues(
+                                      alpha: 0.6,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Legend row
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        alignment: WrapAlignment.center,
+                        children: [
+                          _donutLegendItem(averageColor, 'Average', cs),
+                          _donutLegendItem(attendanceColor, 'Attendance', cs),
+                          _donutLegendItem(lastExamColor, 'Last Exam', cs),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      // Trajectory badge
+                      _TrajectoryBadge(trajectory: stats.trajectory),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _donutLegendItem(Color color, String label, ColorScheme cs) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
+        Container(
+          width: 6,
+          height: 6,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 3),
         Text(
           label,
           style: TextStyle(
-            fontSize: 11,
+            fontSize: 9,
             fontWeight: FontWeight.w400,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-            letterSpacing: 0.15,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
           ),
         ),
-        const SizedBox(height: 3),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: cs.onSurface,
-          ),
-        ),
-        if (percent != null && barColor != null) ...[
-          const SizedBox(height: 5),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: SizedBox(
-              height: 4,
-              child: Stack(
-                children: [
-                  // Background track
-                  Container(
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? cs.surfaceContainerHighest.withValues(alpha: 0.6)
-                          : cs.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                  ),
-                  // Filled portion with gradient
-                  FractionallySizedBox(
-                    widthFactor: percent!.clamp(0.0, 1.0),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            barColor!.withValues(alpha: 0.7),
-                            barColor!,
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
       ],
     );
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Triple Donut Painter (Task A2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _TripleDonutPainter extends CustomPainter {
+  _TripleDonutPainter({
+    required this.averagePercent,
+    required this.attendancePercent,
+    required this.lastExamPercent,
+    required this.averageColor,
+    required this.attendanceColor,
+    required this.lastExamColor,
+    required this.trackColor,
+  });
+
+  final double averagePercent;
+  final double? attendancePercent;
+  final double? lastExamPercent;
+  final Color averageColor;
+  final Color attendanceColor;
+  final Color lastExamColor;
+  final Color trackColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    const outerStroke = 8.0;
+    const middleStroke = 6.0;
+    const innerStroke = 4.0;
+    const gap = 3.0;
+
+    final outerRadius = size.width / 2 - outerStroke / 2;
+    final middleRadius = outerRadius - outerStroke / 2 - gap - middleStroke / 2;
+    final innerRadius = middleRadius - middleStroke / 2 - gap - innerStroke / 2;
+    const startAngle = -math.pi / 2;
+
+    void drawRing(double radius, double stroke, double? percent, Color color) {
+      // Track
+      canvas.drawCircle(
+        center,
+        radius,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = stroke
+          ..color = trackColor,
+      );
+      // Filled arc
+      if (percent != null && percent > 0) {
+        final sweep = (percent.clamp(0, 100) / 100) * 2 * math.pi;
+        canvas.drawArc(
+          Rect.fromCircle(center: center, radius: radius),
+          startAngle,
+          sweep,
+          false,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = stroke
+            ..strokeCap = StrokeCap.round
+            ..color = color,
+        );
+      }
+    }
+
+    drawRing(outerRadius, outerStroke, averagePercent, averageColor);
+    drawRing(middleRadius, middleStroke, attendancePercent, attendanceColor);
+    drawRing(innerRadius, innerStroke, lastExamPercent, lastExamColor);
+  }
+
+  @override
+  bool shouldRepaint(covariant _TripleDonutPainter old) =>
+      averagePercent != old.averagePercent ||
+      attendancePercent != old.attendancePercent ||
+      lastExamPercent != old.lastExamPercent;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -745,7 +893,146 @@ class _TrajectoryBadge extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Podium Section — visual top-3 display (Task A3)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PodiumSection extends StatelessWidget {
+  const _PodiumSection({required this.topThree});
+
+  /// Already sorted by rank. Max length 3.
+  final List<StreamStats> topThree;
+
+  static const _goldColor = Color(0xFFFFD700);
+  static const _silverColor = Color(0xFFC0C0C0);
+  static const _bronzeColor = Color(0xFFCD7F32);
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    // Reorder for visual podium: [2nd, 1st, 3rd]
+    final ordered = <(StreamStats, int, Color, double)>[];
+    if (topThree.length >= 2) {
+      ordered.add((topThree[1], 2, _silverColor, 40));
+    }
+    ordered.add((topThree[0], 1, _goldColor, 56));
+    if (topThree.length >= 3) {
+      ordered.add((topThree[2], 3, _bronzeColor, 28));
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        border: Border.all(
+          color: AppTheme.borderColor(
+            isDark,
+            cs,
+          ).withValues(alpha: isDark ? 0.4 : 0.3),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          for (int i = 0; i < ordered.length; i++) ...[
+            if (i > 0) const SizedBox(width: 4),
+            Expanded(
+              child: _buildPodiumItem(
+                ordered[i].$1,
+                ordered[i].$2,
+                ordered[i].$3,
+                ordered[i].$4,
+                cs,
+                isDark,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPodiumItem(
+    StreamStats stats,
+    int rank,
+    Color medalColor,
+    double podiumHeight,
+    ColorScheme cs,
+    bool isDark,
+  ) {
+    final displayScore = stats.lastExamAverage ?? stats.averageScore;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Medal icon
+        Icon(Icons.emoji_events_rounded, size: 22, color: medalColor),
+        const SizedBox(height: 4),
+        // Stream color dot + name
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: _streamColor(stats.streamCode),
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                stats.streamName,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurface,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        // Average percentage
+        Text(
+          _fmtPercent(displayScore),
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: _percentColor(displayScore),
+          ),
+        ),
+        const SizedBox(height: 6),
+        // Podium bar
+        Container(
+          height: podiumHeight,
+          width: double.infinity,
+          margin: const EdgeInsets.symmetric(horizontal: 6),
+          decoration: BoxDecoration(
+            color: medalColor.withValues(alpha: isDark ? 0.15 : 0.1),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+            border: Border(
+              top: BorderSide(
+                color: medalColor.withValues(alpha: 0.5),
+                width: 2,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Ranking Table — compact table ranking streams by lastExamAverage desc
+// (Task A3: + podium, divider, mobile responsiveness)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _RankingTable extends StatefulWidget {
@@ -860,110 +1147,133 @@ class _RankingTableState extends State<_RankingTable>
           ),
         ),
 
-        // Table container — horizontally scrollable to prevent overflow
-        // on narrow screens where fixed-width columns would squeeze the
-        // stream name column.
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minWidth: MediaQuery.of(context).size.width - 32,
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                border: Border.all(
-                  color: AppTheme.borderColor(isDark, cs).withValues(
-                    alpha: isDark ? 0.6 : 0.5,
+        // Podium section (top 3)
+        if (ranked.length >= 3)
+          _PodiumSection(topThree: ranked.take(3).toList()),
+
+        // Table container — responsive
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 500;
+
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                    border: Border.all(
+                      color: AppTheme.borderColor(
+                        isDark,
+                        cs,
+                      ).withValues(alpha: isDark ? 0.6 : 0.5),
+                    ),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: IntrinsicWidth(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // ── Table header ──────────────────────────────
+                        Container(
+                          color: isDark
+                              ? cs.surfaceContainerHighest.withValues(
+                                  alpha: 0.4,
+                                )
+                              : cs.surfaceContainerHighest.withValues(
+                                  alpha: 0.5,
+                                ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 9,
+                          ),
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 36,
+                                child: Text('Rank', style: _headerStyle(cs)),
+                              ),
+                              const SizedBox(
+                                width: 80,
+                                child: SizedBox.shrink(),
+                              ),
+                              const Spacer(),
+                              if (!compact) ...[
+                                SizedBox(
+                                  width: 52,
+                                  child: Text(
+                                    'Students',
+                                    style: _headerStyle(cs),
+                                    textAlign: TextAlign.right,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                              ],
+                              SizedBox(
+                                width: 58,
+                                child: Text(
+                                  'Last Exam',
+                                  style: _headerStyle(cs),
+                                  textAlign: TextAlign.right,
+                                ),
+                              ),
+                              if (!compact) ...[
+                                const SizedBox(width: 8),
+                                SizedBox(
+                                  width: 58,
+                                  child: Text(
+                                    'Overall',
+                                    style: _headerStyle(cs),
+                                    textAlign: TextAlign.right,
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(width: 8),
+                              SizedBox(
+                                width: 24,
+                                child: Text(
+                                  '',
+                                  style: _headerStyle(cs),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // ── Divider between header and rows ──────────
+                        Divider(
+                          height: 1,
+                          thickness: 0.5,
+                          color: AppTheme.borderColor(isDark, cs),
+                        ),
+
+                        // ── Table rows ────────────────────────────────
+                        for (int i = 0; i < ranked.length; i++)
+                          SlideTransition(
+                            position: i < _slideAnimations.length
+                                ? _slideAnimations[i]
+                                : const AlwaysStoppedAnimation(Offset.zero),
+                            child: FadeTransition(
+                              opacity: i < _fadeAnimations.length
+                                  ? _fadeAnimations[i]
+                                  : const AlwaysStoppedAnimation(1.0),
+                              child: _RankingRow(
+                                rank: i + 1,
+                                stats: ranked[i],
+                                isAlternate: i.isOdd,
+                                compact: compact,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-              clipBehavior: Clip.antiAlias,
-              child: IntrinsicWidth(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // ── Table header ───────────────────────────────────
-                    Container(
-                      color: isDark
-                          ? cs.surfaceContainerHighest.withValues(alpha: 0.4)
-                          : cs.surfaceContainerHighest.withValues(alpha: 0.5),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 9,
-                      ),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: 36,
-                            child: Text('Rank', style: _headerStyle(cs)),
-                          ),
-                          const SizedBox(
-                            width: 80,
-                            child: SizedBox.shrink(),
-                          ),
-                          const Spacer(),
-                          SizedBox(
-                            width: 52,
-                            child: Text(
-                              'Students',
-                              style: _headerStyle(cs),
-                              textAlign: TextAlign.right,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          SizedBox(
-                            width: 58,
-                            child: Text(
-                              'Last Exam',
-                              style: _headerStyle(cs),
-                              textAlign: TextAlign.right,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          SizedBox(
-                            width: 58,
-                            child: Text(
-                              'Overall',
-                              style: _headerStyle(cs),
-                              textAlign: TextAlign.right,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          SizedBox(
-                            width: 24,
-                            child: Text(
-                              '',
-                              style: _headerStyle(cs),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // ── Table rows ─────────────────────────────────────
-                    for (int i = 0; i < ranked.length; i++)
-                      SlideTransition(
-                        position: i < _slideAnimations.length
-                            ? _slideAnimations[i]
-                            : const AlwaysStoppedAnimation(Offset.zero),
-                        child: FadeTransition(
-                          opacity: i < _fadeAnimations.length
-                              ? _fadeAnimations[i]
-                              : const AlwaysStoppedAnimation(1.0),
-                          child: _RankingRow(
-                            rank: i + 1,
-                            stats: ranked[i],
-                            isAlternate: i.isOdd,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+            );
+          },
         ),
       ],
     );
@@ -982,11 +1292,13 @@ class _RankingRow extends StatefulWidget {
     required this.rank,
     required this.stats,
     required this.isAlternate,
+    required this.compact,
   });
 
   final int rank;
   final StreamStats stats;
   final bool isAlternate;
+  final bool compact;
 
   @override
   State<_RankingRow> createState() => _RankingRowState();
@@ -1100,24 +1412,24 @@ class _RankingRowState extends State<_RankingRow> {
                   widget.stats.streamName,
                   style: TextStyle(
                     fontSize: 12.5,
-                    fontWeight: rank == 1
-                        ? FontWeight.w500
-                        : FontWeight.w400,
+                    fontWeight: rank == 1 ? FontWeight.w500 : FontWeight.w400,
                     color: cs.onSurface,
                   ),
                 ),
               ],
             ),
             const Spacer(),
-            SizedBox(
-              width: 52,
-              child: Text(
-                '${widget.stats.studentCount}',
-                style: valueStyle,
-                textAlign: TextAlign.right,
+            if (!widget.compact) ...[
+              SizedBox(
+                width: 52,
+                child: Text(
+                  '${widget.stats.studentCount}',
+                  style: valueStyle,
+                  textAlign: TextAlign.right,
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
+              const SizedBox(width: 8),
+            ],
             SizedBox(
               width: 58,
               child: Text(
@@ -1132,15 +1444,17 @@ class _RankingRowState extends State<_RankingRow> {
                 textAlign: TextAlign.right,
               ),
             ),
-            const SizedBox(width: 8),
-            SizedBox(
-              width: 58,
-              child: Text(
-                _fmtPercent(widget.stats.averageScore),
-                style: valueStyle,
-                textAlign: TextAlign.right,
+            if (!widget.compact) ...[
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 58,
+                child: Text(
+                  _fmtPercent(widget.stats.averageScore),
+                  style: valueStyle,
+                  textAlign: TextAlign.right,
+                ),
               ),
-            ),
+            ],
             const SizedBox(width: 8),
             SizedBox(width: 24, child: Icon(tIcon, size: 16, color: tColor)),
           ],
@@ -1304,9 +1618,7 @@ class _TrendSection extends StatelessWidget {
                 radius: 3,
                 color: color,
                 strokeWidth: 1.5,
-                strokeColor: isDark
-                    ? cs.surface
-                    : Colors.white,
+                strokeColor: isDark ? cs.surface : Colors.white,
               );
             },
           ),
@@ -1413,9 +1725,8 @@ class _TrendSection extends StatelessWidget {
                 lineTouchData: LineTouchData(
                   handleBuiltInTouches: true,
                   touchTooltipData: LineTouchTooltipData(
-                    getTooltipColor: (touchedSpot) => isDark
-                        ? const Color(0xFF1E2A3A)
-                        : cs.surface,
+                    getTooltipColor: (touchedSpot) =>
+                        isDark ? const Color(0xFF1E2A3A) : cs.surface,
                     tooltipRoundedRadius: AppTheme.kChipRadius,
                     tooltipPadding: const EdgeInsets.symmetric(
                       horizontal: 10,
