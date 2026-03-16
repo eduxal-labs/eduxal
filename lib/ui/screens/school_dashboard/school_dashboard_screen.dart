@@ -343,42 +343,55 @@ class _DashboardShellState extends State<_DashboardShell>
   ) {
     final cs = Theme.of(ctx).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
+    final isMobile = mode == _LayoutMode.mobile;
+
+    // Build the sidebar/rail widget — zero-width SizedBox for mobile
+    Widget navigationChrome;
+    switch (mode) {
+      case _LayoutMode.full:
+        navigationChrome = _FullSidebar(
+          schoolContext: widget.schoolContext,
+          currentEntry: currentEntry,
+          items: _currentItems,
+          selectedIndex: _selectedIndex,
+          onItemSelected: _selectIndex,
+          onRoleSwitchTap: () => _showRoleSwitcherSheet(ctx),
+          activeTermContext: widget.activeTermContext,
+        );
+      case _LayoutMode.rail:
+        navigationChrome = _IconRail(
+          schoolContext: widget.schoolContext,
+          currentEntry: currentEntry,
+          items: _currentItems,
+          selectedIndex: _selectedIndex,
+          onItemSelected: _selectIndex,
+          onRoleSwitchTap: () => _showRoleSwitcherSheet(ctx),
+          activeTermContext: widget.activeTermContext,
+        );
+      case _LayoutMode.mobile:
+        navigationChrome = const SizedBox.shrink();
+    }
+
+    // Wrap content the same way for desktop/rail (padded card); raw for mobile
+    final wrappedContent = isMobile
+        ? Expanded(child: content)
+        : Expanded(child: _wrapSidebarContent(cs, content));
+
+    // The Row is always present. For mobile, navigationChrome is zero-width.
+    final mainRow = Row(
+      children: [
+        navigationChrome,
+        wrappedContent,
+      ],
+    );
 
     return Scaffold(
       backgroundColor: cs.surfaceContainerLowest,
-      body: switch (mode) {
-        _LayoutMode.full => Row(
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _FullSidebar(
-              schoolContext: widget.schoolContext,
-              currentEntry: currentEntry,
-              items: _currentItems,
-              selectedIndex: _selectedIndex,
-              onItemSelected: _selectIndex,
-              onRoleSwitchTap: () => _showRoleSwitcherSheet(ctx),
-              activeTermContext: widget.activeTermContext,
-            ),
-            Expanded(child: _wrapSidebarContent(cs, content)),
-          ],
-        ),
-        _LayoutMode.rail => Row(
-          children: [
-            _IconRail(
-              schoolContext: widget.schoolContext,
-              currentEntry: currentEntry,
-              items: _currentItems,
-              selectedIndex: _selectedIndex,
-              onItemSelected: _selectIndex,
-              onRoleSwitchTap: () => _showRoleSwitcherSheet(ctx),
-              activeTermContext: widget.activeTermContext,
-            ),
-            Expanded(child: _wrapSidebarContent(cs, content)),
-          ],
-        ),
-        _LayoutMode.mobile => SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+            if (isMobile)
               _TabLayoutTopBar(
                 schoolContext: widget.schoolContext,
                 currentEntry: currentEntry,
@@ -387,6 +400,7 @@ class _DashboardShellState extends State<_DashboardShell>
                     ? () => _showRoleSwitcherSheet(ctx)
                     : null,
               ),
+            if (isMobile)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
                 child: _PillTabStrip(
@@ -396,11 +410,10 @@ class _DashboardShellState extends State<_DashboardShell>
                   cs: cs,
                 ),
               ),
-              Expanded(child: content),
-            ],
-          ),
+            Expanded(child: mainRow),
+          ],
         ),
-      },
+      ),
     );
   }
 

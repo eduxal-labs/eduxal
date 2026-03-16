@@ -80,6 +80,7 @@ class _ExamsShellState extends State<_ExamsShell> {
   StreamSubscription? _configSub;
   StreamSubscription? _subjectNamesSub;
   int? _selectedStreamIndex;
+  int? _selectedDayIndex;
 
   @override
   void initState() {
@@ -210,6 +211,7 @@ class _ExamsShellState extends State<_ExamsShell> {
       _selectedPaper = null;
       _selectedExamGrade = null;
       _selectedStreamIndex = null;
+      _selectedDayIndex = null;
       _view = _ExamsView.list;
     });
   }
@@ -266,6 +268,10 @@ class _ExamsShellState extends State<_ExamsShell> {
               return idx >= 0 ? idx : 0;
             }(),
             initialStreamIndex: _selectedStreamIndex ?? 0,
+            initialDayIndex: _selectedDayIndex ?? 0,
+            onDayChanged: (index) {
+              _selectedDayIndex = index;
+            },
           );
         },
       ),
@@ -709,6 +715,8 @@ class _ExamGroupDetailView extends StatefulWidget {
     required this.onDeleted,
     this.initialGradeIndex = 0,
     this.initialStreamIndex = 0,
+    this.initialDayIndex = 0,
+    this.onDayChanged,
   });
   final ExamGroup group;
   final String schoolId;
@@ -722,6 +730,8 @@ class _ExamGroupDetailView extends StatefulWidget {
   final VoidCallback onDeleted;
   final int initialGradeIndex;
   final int initialStreamIndex;
+  final int initialDayIndex;
+  final ValueChanged<int>? onDayChanged;
 
   @override
   State<_ExamGroupDetailView> createState() => _ExamGroupDetailViewState();
@@ -1288,6 +1298,8 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
                       onPaperTap: (paper, exam, grade, {int streamIndex = 0}) {
                         widget.onPaperTap(paper, exam, grade, streamIndex: _selectedStreamIndex);
                       },
+                      initialDayIndex: widget.initialDayIndex,
+                      onDayChanged: widget.onDayChanged,
                     ),
             ),
           ],
@@ -5599,6 +5611,8 @@ class _PaperContentArea extends StatefulWidget {
     required this.dao,
     required this.canManage,
     required this.onPaperTap,
+    this.initialDayIndex = 0,
+    this.onDayChanged,
   });
   final ExamStreamEntry streamEntry;
   final int grade;
@@ -5609,6 +5623,8 @@ class _PaperContentArea extends StatefulWidget {
   final ExamsGradesDao dao;
   final bool canManage;
   final void Function(Paper paper, Exam exam, int grade, {int streamIndex}) onPaperTap;
+  final int initialDayIndex;
+  final ValueChanged<int>? onDayChanged;
 
   @override
   State<_PaperContentArea> createState() => _PaperContentAreaState();
@@ -5678,6 +5694,8 @@ class _PaperContentAreaState extends State<_PaperContentArea> {
                 teacherNames: widget.teacherNames,
                 canManage: widget.canManage,
                 onPaperTap: widget.onPaperTap,
+                initialDayIndex: widget.initialDayIndex,
+                onDayChanged: widget.onDayChanged,
               );
             }
           },
@@ -6141,6 +6159,8 @@ class _PaperTimetableMobile extends StatefulWidget {
     required this.teacherNames,
     required this.canManage,
     required this.onPaperTap,
+    this.initialDayIndex = 0,
+    this.onDayChanged,
   });
   final List<Paper> papers;
   final Exam exam;
@@ -6150,6 +6170,8 @@ class _PaperTimetableMobile extends StatefulWidget {
   final Map<String, String> teacherNames;
   final bool canManage;
   final void Function(Paper paper, Exam exam, int grade, {int streamIndex}) onPaperTap;
+  final int initialDayIndex;
+  final ValueChanged<int>? onDayChanged;
 
   @override
   State<_PaperTimetableMobile> createState() => _PaperTimetableMobileState();
@@ -6165,6 +6187,7 @@ class _PaperTimetableMobileState extends State<_PaperTimetableMobile>
   @override
   void initState() {
     super.initState();
+    _selectedDayIndex = widget.initialDayIndex;
     _rebuildGroups();
   }
 
@@ -6202,7 +6225,10 @@ class _PaperTimetableMobileState extends State<_PaperTimetableMobile>
       vsync: this,
     )..addListener(() {
         if (_dayTabController!.indexIsChanging) return;
-        setState(() => _selectedDayIndex = _dayTabController!.index);
+        setState(() {
+          _selectedDayIndex = _dayTabController!.index;
+          widget.onDayChanged?.call(_selectedDayIndex);
+        });
       });
   }
 
