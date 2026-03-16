@@ -71,6 +71,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
   late Stream<Paper?> _paperStream;
   List<StudentsData> _students = [];
   bool _loadingStudents = true;
+  bool? _lastIsDesktop;
 
   Paper get _paper => widget.paper;
   Exam get _exam => widget.exam.exam;
@@ -247,83 +248,80 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                     for (final r in gradeRows) r.student.adm: r.grade,
                   };
 
-                  return LayoutBuilder(
-                    builder: (context, constraints) {
-                      final isDesktop =
-                          constraints.maxWidth >= AppTheme.kMobileBreakpoint;
+                  final screenWidth = MediaQuery.sizeOf(context).width;
+                  final isDesktop = screenWidth >= AppTheme.kMobileBreakpoint;
+                  _lastIsDesktop = isDesktop;
 
-                      return ListView(
-                        padding: isDesktop
-                            ? const EdgeInsets.fromLTRB(16, 4, 16, 32)
-                            : const EdgeInsets.fromLTRB(12, 4, 12, 24),
-                        children: [
-                          // ── Paper Info Card ──────────────────────────────────
-                          _PaperInfoCard(
-                            paper: currentPaper,
-                            exam: widget.exam,
-                            subjectNames: widget.subjectNames,
-                            cs: cs,
-                            canEdit: _canManage,
-                            onEditInvigilator: () =>
-                                _showInvigilatorPicker(context, currentPaper),
-                          ),
+                  return ListView(
+                    padding: isDesktop
+                        ? const EdgeInsets.fromLTRB(16, 4, 16, 32)
+                        : const EdgeInsets.fromLTRB(12, 4, 12, 24),
+                    children: [
+                      // ── Paper Info Card ──────────────────────────────────
+                      _PaperInfoCard(
+                        paper: currentPaper,
+                        exam: widget.exam,
+                        subjectNames: widget.subjectNames,
+                        cs: cs,
+                        canEdit: _canManage,
+                        onEditInvigilator: () =>
+                            _showInvigilatorPicker(context, currentPaper),
+                      ),
 
-                          const SizedBox(height: 12),
+                      const SizedBox(height: 12),
 
-                          // ── Status Advance ──────────────────────────────────
-                          _PaperActionBar(
-                            paper: currentPaper,
-                            schoolId: widget.schoolId,
-                            exam: _exam,
-                            dao: _dao,
-                            canManage: _canManage,
-                            cs: cs,
-                            onDeleted: () => Navigator.of(context).pop(),
-                          ),
+                      // ── Status Advance ──────────────────────────────────
+                      _PaperActionBar(
+                        paper: currentPaper,
+                        schoolId: widget.schoolId,
+                        exam: _exam,
+                        dao: _dao,
+                        canManage: _canManage,
+                        cs: cs,
+                        onDeleted: () => Navigator.of(context).pop(),
+                      ),
 
-                          const SizedBox(height: 16),
+                      const SizedBox(height: 16),
 
-                          // ── Analytics (when marked) ─────────────────────────
-                          if (currentPaper.status == PaperStatus.marked) ...[
-                            _AnalyticsSection(
-                              gradeRows: gradeRows,
-                              totalStudents: _students.length,
-                              cs: cs,
-                            ),
-                            const SizedBox(height: 20),
-                          ],
+                      // ── Analytics (when marked) ─────────────────────────
+                      if (currentPaper.status == PaperStatus.marked) ...[
+                        _AnalyticsSection(
+                          gradeRows: gradeRows,
+                          totalStudents: _students.length,
+                          cs: cs,
+                        ),
+                        const SizedBox(height: 20),
+                      ],
 
-                          // ── Grade Entry Section ─────────────────────────────
-                          _SectionLabel(label: 'Grades', cs: cs),
-                          const SizedBox(height: 8),
+                      // ── Grade Entry Section ─────────────────────────────
+                      _SectionLabel(label: 'Grades', cs: cs),
+                      const SizedBox(height: 8),
 
-                          if (_students.isEmpty)
-                            _buildEmpty(cs, 'No students enrolled')
-                          else if (isDesktop)
-                            _GradeSpreadsheet(
-                              students: _students,
-                              gradeMap: gradeMap,
-                              paper: currentPaper,
-                              exam: _exam,
-                              schoolId: widget.schoolId,
-                              dao: _dao,
-                              canGrade: _canManage,
-                              cs: cs,
-                            )
-                          else
-                            _GradeList(
-                              students: _students,
-                              gradeMap: gradeMap,
-                              paper: currentPaper,
-                              exam: _exam,
-                              schoolId: widget.schoolId,
-                              dao: _dao,
-                              canGrade: _canManage,
-                              cs: cs,
-                            ),
-                        ],
-                      );
-                    },
+                      if (_students.isEmpty)
+                        _buildEmpty(cs, 'No students enrolled')
+                      else if (isDesktop)
+                        _GradeSpreadsheet(
+                          students: _students,
+                          gradeMap: gradeMap,
+                          paper: currentPaper,
+                          exam: _exam,
+                          schoolId: widget.schoolId,
+                          dao: _dao,
+                          canGrade: _canManage,
+                          cs: cs,
+                        )
+                      else
+                        _GradeList(
+                          students: _students,
+                          gradeMap: gradeMap,
+                          paper: currentPaper,
+                          exam: _exam,
+                          schoolId: widget.schoolId,
+                          dao: _dao,
+                          canGrade: _canManage,
+                          cs: cs,
+                        ),
+                    ],
                   );
                 },
               );

@@ -313,6 +313,8 @@ class _DashboardShellState extends State<_DashboardShell>
     return ValueListenableBuilder<MembershipEntry>(
       valueListenable: widget.schoolContext.currentEntry,
       builder: (context, currentEntry, _) {
+        // Build content OUTSIDE LayoutBuilder so it's stable across resizes
+        final content = _buildContentArea(context, currentEntry);
         return LayoutBuilder(
           builder: (context, constraints) {
             final w = constraints.maxWidth;
@@ -321,7 +323,7 @@ class _DashboardShellState extends State<_DashboardShell>
                 : w >= AppTheme.kMobileBreakpoint
                 ? _LayoutMode.rail
                 : _LayoutMode.mobile;
-            return _buildLayout(context, currentEntry, mode);
+            return _buildLayout(context, currentEntry, mode, content);
           },
         );
       },
@@ -334,10 +336,10 @@ class _DashboardShellState extends State<_DashboardShell>
     BuildContext ctx,
     MembershipEntry currentEntry,
     _LayoutMode mode,
+    Widget content,
   ) {
     final cs = Theme.of(ctx).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
-    final content = _buildContentArea(ctx, currentEntry);
 
     return Scaffold(
       backgroundColor: cs.surfaceContainerLowest,
