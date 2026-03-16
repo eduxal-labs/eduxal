@@ -193,7 +193,7 @@ The current `_RankingTable` (L751–978) and `_RankingRow` (L980–1151) are alr
 
 ## Track B: Exam Detail Page — Papers Tab Timetable Redesign
 
-### Task B1: Redesign Papers tab to use timetable-style layout with status colors
+### Task B1: Redesign Papers tab to use timetable-style layout with status colors ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/academics/exam_detail_page.dart`
 **Context files to read (if needed):** None
 **Depends on:** None
@@ -241,14 +241,14 @@ The reference implementation is in `exams_grades_screen.dart` which uses `_Paper
 6. **Keep the existing `onTap` → `PaperDetailPage` navigation.**
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
 
 ## Track C: Grades Tab — Visual Separation Improvements
 
-### Task C1: Add clear visual separation between students and subjects in Grades tab
+### Task C1: Add clear visual separation between students and subjects in Grades tab ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/academics/exam_detail_page.dart`
 **Context files to read (if needed):** None
 **Depends on:** None
@@ -285,14 +285,14 @@ The `_GradesTab` (L436–1352) has a desktop spreadsheet and a mobile expandable
 3. **Total row:** Add a visual separator (thicker divider or different background) above the "Total" row at the bottom of the expanded subject list.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
 
 ## Track D: Performance Tab — Overview Redesign
 
-### Task D1: Compact hero metrics and add donut chart for score distribution
+### Task D1: Compact hero metrics and add donut chart for score distribution ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/academics/exam_detail_page.dart`
 **Context files to read (if needed):** None
 **Depends on:** None
@@ -378,7 +378,7 @@ LayoutBuilder(builder: (ctx, c) {
 **Remove or keep `_buildDistribution`:** Remove the old stacked bar implementation since it's fully replaced by the donut.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
@@ -444,7 +444,7 @@ Currently `_buildSubjectsInsight` (L1975–2087) renders a `ListView.builder` wh
 3. The `Wrap` uses `alignment: WrapAlignment.center` so cards center when they don't fill the last row.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
@@ -496,7 +496,7 @@ The current `_buildRankingsInsight` (L2089–2281) is a simple list with medal i
 3. **Add student profile circle** (see Task E1 — this task focuses on layout only, Task E1 adds the avatar widget). Leave a `SizedBox(width: 24)` placeholder in each row where the avatar will go, between the rank number and the student name.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
@@ -614,7 +614,7 @@ class StudentAvatar extends StatelessWidget {
 
 ---
 
-### Task E2: Add student avatars to paper_detail_page.dart grade lists
+### Task E2: Add student avatars to paper_detail_page.dart grade lists ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`
 **Context files to read (if needed):** None
 **Depends on:** Task E1

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../../database/database.dart';
@@ -139,7 +141,11 @@ class _ExamDetailPageState extends State<ExamDetailPage>
               ),
 
               // ── Tab bar ────────────────────────────────────────────────
-              EduTabBar(controller: _tabController, tabs: _tabs, isScrollable: true),
+              EduTabBar(
+                controller: _tabController,
+                tabs: _tabs,
+                isScrollable: true,
+              ),
 
               // ── Tab views ──────────────────────────────────────────────
               Expanded(
@@ -377,20 +383,42 @@ class _PapersTab extends StatelessWidget {
           return _buildEmpty(cs, 'No papers added to this exam yet');
         }
 
-        return ListView.builder(
+        // Group papers by date
+        final grouped = <String, List<Paper>>{};
+        for (final p in papers) {
+          final dt = DateTime.fromMillisecondsSinceEpoch(
+            p.start.toInt() * 1000,
+          );
+          final key = _fmtDate(dt);
+          grouped.putIfAbsent(key, () => []).add(p);
+        }
+
+        return ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          itemCount: papers.length + 1,
-          itemBuilder: (context, i) {
-            if (i == 0) {
-              return _buildHeader(cs, papers.length);
-            }
-            return _PaperCard(
-              paper: papers[i - 1],
-              subjectNames: subjectNames,
-              cs: cs,
-              onTap: () => _onPaperTap(context, papers[i - 1]),
-            );
-          },
+          children: [
+            _buildHeader(cs, papers.length),
+            const _PaperStatusLegend(),
+            for (final entry in grouped.entries) ...[
+              Padding(
+                padding: const EdgeInsets.only(top: 8, bottom: 6),
+                child: Text(
+                  entry.key,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+              for (final p in entry.value)
+                _PaperTimetableCard(
+                  paper: p,
+                  subjectNames: subjectNames,
+                  cs: cs,
+                  onTap: () => _onPaperTap(context, p),
+                ),
+            ],
+          ],
         );
       },
     );
@@ -627,7 +655,6 @@ class _GradesTabState extends State<_GradesTab>
     final borderColor = cs.outlineVariant.withValues(
       alpha: isDark ? 0.18 : 0.12,
     );
-    final headerBg = cs.surfaceContainerHighest.withValues(alpha: 0.35);
     final useAbbrev = subjects.length > 6;
 
     const double fixedWidth = 200; // Name + ADM column
@@ -713,24 +740,39 @@ class _GradesTabState extends State<_GradesTab>
               alignment: Alignment.centerLeft,
               padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
-                color: headerBg,
+                color: cs.surfaceContainerHighest.withValues(
+                  alpha: isDark ? 0.3 : 0.25,
+                ),
                 border: Border(
-                  bottom: BorderSide(color: borderColor),
+                  bottom: BorderSide(
+                    color: cs.outlineVariant.withValues(alpha: 0.2),
+                    width: 1,
+                  ),
                   right: BorderSide(color: borderColor),
                 ),
               ),
               child: Text('Student', style: headerStyle),
             ),
             // Student rows
-            ...rows.map(
-              (r) => Container(
+            for (int index = 0; index < rows.length; index++)
+              Container(
                 height: rowHeight,
                 width: fixedWidth,
                 alignment: Alignment.centerLeft,
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 decoration: BoxDecoration(
+                  color: index.isOdd
+                      ? cs.surfaceContainerHighest.withValues(
+                          alpha: isDark ? 0.08 : 0.06,
+                        )
+                      : Colors.transparent,
                   border: Border(
-                    bottom: BorderSide(color: borderColor),
+                    bottom: BorderSide(
+                      color: cs.outlineVariant.withValues(
+                        alpha: isDark ? 0.08 : 0.1,
+                      ),
+                      width: 0.5,
+                    ),
                     right: BorderSide(color: borderColor),
                   ),
                 ),
@@ -739,7 +781,7 @@ class _GradesTabState extends State<_GradesTab>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      r.student.name,
+                      rows[index].student.name,
                       style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w500,
@@ -750,7 +792,7 @@ class _GradesTabState extends State<_GradesTab>
                     ),
                     const SizedBox(height: 1),
                     Text(
-                      'ADM ${r.student.adm}',
+                      'ADM ${rows[index].student.adm}',
                       style: TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w400,
@@ -760,7 +802,6 @@ class _GradesTabState extends State<_GradesTab>
                   ],
                 ),
               ),
-            ),
           ],
         ),
       );
@@ -773,81 +814,136 @@ class _GradesTabState extends State<_GradesTab>
         child: Column(
           children: [
             // ── Header row ──
-            Row(
-              children: [
-                ...subjects.map((s) {
-                  final fullLabel = widget.subjectNames[s] ?? 'Subject $s';
-                  final label = useAbbrev
-                      ? _abbreviateSubject(fullLabel)
-                      : fullLabel;
-                  return Container(
-                    width: cellWidth,
+            Container(
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest.withValues(
+                  alpha: isDark ? 0.3 : 0.25,
+                ),
+                border: Border(
+                  bottom: BorderSide(
+                    color: cs.outlineVariant.withValues(alpha: 0.2),
+                    width: 1,
+                  ),
+                ),
+              ),
+              child: Row(
+                children: [
+                  ...subjects.map((s) {
+                    final fullLabel = widget.subjectNames[s] ?? 'Subject $s';
+                    final label = useAbbrev
+                        ? _abbreviateSubject(fullLabel)
+                        : fullLabel;
+                    return Container(
+                      width: cellWidth,
+                      height: headerHeight,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        border: Border(right: BorderSide(color: borderColor)),
+                      ),
+                      child: Tooltip(
+                        message: fullLabel,
+                        child: Text(
+                          label,
+                          style: headerStyle,
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    );
+                  }),
+                  // Total header — with left border separation
+                  Container(
+                    width: totalCellWidth,
                     height: headerHeight,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: headerBg,
                       border: Border(
-                        bottom: BorderSide(color: borderColor),
+                        left: BorderSide(
+                          color: cs.outlineVariant.withValues(alpha: 0.15),
+                          width: 1,
+                        ),
                         right: BorderSide(color: borderColor),
                       ),
                     ),
-                    child: Tooltip(
-                      message: fullLabel,
-                      child: Text(
-                        label,
-                        style: headerStyle,
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  );
-                }),
-                // Total header
-                Container(
-                  width: totalCellWidth,
-                  height: headerHeight,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: headerBg,
-                    border: Border(
-                      bottom: BorderSide(color: borderColor),
-                      right: BorderSide(color: borderColor),
-                    ),
+                    child: Text('Total', style: headerStyle),
                   ),
-                  child: Text('Total', style: headerStyle),
-                ),
-                // % header
-                Container(
-                  width: pctCellWidth,
-                  height: headerHeight,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: headerBg,
-                    border: Border(bottom: BorderSide(color: borderColor)),
+                  // % header
+                  Container(
+                    width: pctCellWidth,
+                    height: headerHeight,
+                    alignment: Alignment.center,
+                    child: Text('%', style: headerStyle),
                   ),
-                  child: Text('%', style: headerStyle),
-                ),
-              ],
+                ],
+              ),
             ),
             // ── Data rows ──
-            ...rows.map((r) {
-              return Row(
-                children: [
-                  ...subjects.map((s) {
-                    final g = r.subjectGrades[s];
-                    return Container(
-                      width: cellWidth,
+            for (int index = 0; index < rows.length; index++)
+              Container(
+                decoration: BoxDecoration(
+                  color: index.isOdd
+                      ? cs.surfaceContainerHighest.withValues(
+                          alpha: isDark ? 0.08 : 0.06,
+                        )
+                      : Colors.transparent,
+                  border: Border(
+                    bottom: BorderSide(
+                      color: cs.outlineVariant.withValues(
+                        alpha: isDark ? 0.08 : 0.1,
+                      ),
+                      width: 0.5,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    ...subjects.map((s) {
+                      final g = rows[index].subjectGrades[s];
+                      return Container(
+                        width: cellWidth,
+                        height: rowHeight,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          border: Border(right: BorderSide(color: borderColor)),
+                        ),
+                        child: g == null
+                            ? Text(
+                                '—',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: cs.onSurfaceVariant.withValues(
+                                    alpha: 0.25,
+                                  ),
+                                ),
+                              )
+                            : _GradeCell(grade: g, cs: cs),
+                      );
+                    }),
+                    // Total cell — with left border separation
+                    Container(
+                      width: totalCellWidth,
                       height: rowHeight,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         border: Border(
-                          bottom: BorderSide(color: borderColor),
+                          left: BorderSide(
+                            color: cs.outlineVariant.withValues(alpha: 0.15),
+                            width: 1,
+                          ),
                           right: BorderSide(color: borderColor),
                         ),
                       ),
-                      child: g == null
+                      child: rows[index].hasGrades
                           ? Text(
+                              '${_fmtScore(rows[index].totalScore)}/${rows[index].totalPossible}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: cs.onSurface,
+                              ),
+                            )
+                          : Text(
                               '—',
                               style: TextStyle(
                                 fontSize: 12,
@@ -855,83 +951,48 @@ class _GradesTabState extends State<_GradesTab>
                                   alpha: 0.25,
                                 ),
                               ),
+                            ),
+                    ),
+                    // % cell
+                    Container(
+                      width: pctCellWidth,
+                      height: rowHeight,
+                      alignment: Alignment.center,
+                      child: rows[index].hasGrades
+                          ? Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _pctColor(
+                                  rows[index].percentage,
+                                  cs,
+                                ).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                '${rows[index].percentage.toStringAsFixed(1)}%',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w500,
+                                  color: _pctColor(rows[index].percentage, cs),
+                                ),
+                              ),
                             )
-                          : _GradeCell(grade: g, cs: cs),
-                    );
-                  }),
-                  // Total cell
-                  Container(
-                    width: totalCellWidth,
-                    height: rowHeight,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(color: borderColor),
-                        right: BorderSide(color: borderColor),
-                      ),
-                    ),
-                    child: r.hasGrades
-                        ? Text(
-                            '${_fmtScore(r.totalScore)}/${r.totalPossible}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: cs.onSurface,
-                            ),
-                          )
-                        : Text(
-                            '—',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: cs.onSurfaceVariant.withValues(
-                                alpha: 0.25,
-                              ),
-                            ),
-                          ),
-                  ),
-                  // % cell
-                  Container(
-                    width: pctCellWidth,
-                    height: rowHeight,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      border: Border(bottom: BorderSide(color: borderColor)),
-                    ),
-                    child: r.hasGrades
-                        ? Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _pctColor(
-                                r.percentage,
-                                cs,
-                              ).withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              '${r.percentage.toStringAsFixed(1)}%',
+                          : Text(
+                              '—',
                               style: TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w500,
-                                color: _pctColor(r.percentage, cs),
+                                fontSize: 12,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.25,
+                                ),
                               ),
                             ),
-                          )
-                        : Text(
-                            '—',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: cs.onSurfaceVariant.withValues(
-                                alpha: 0.25,
-                              ),
-                            ),
-                          ),
-                  ),
-                ],
-              );
-            }),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       );
@@ -1097,7 +1158,7 @@ class _MobileStudentGradeCardState extends State<_MobileStudentGradeCard> {
     final hasGrades = row.hasGrades;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Material(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(6),
@@ -1153,7 +1214,7 @@ class _MobileStudentGradeCardState extends State<_MobileStudentGradeCard> {
                           '${pct.toStringAsFixed(1)}%',
                           style: TextStyle(
                             fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w500,
                             color: _pctColor(pct, cs),
                           ),
                         ),
@@ -1186,105 +1247,118 @@ class _MobileStudentGradeCardState extends State<_MobileStudentGradeCard> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  ...widget.subjects.map((s) {
-                    final g = row.subjectGrades[s];
-                    final label = widget.subjectNames[s] ?? 'Subject $s';
-                    if (g == null) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                label,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: cs.onSurfaceVariant.withValues(
-                                    alpha: 0.5,
+                  for (int i = 0; i < widget.subjects.length; i++) ...[
+                    if (i > 0)
+                      Divider(
+                        height: 1,
+                        thickness: 0.5,
+                        color: cs.outlineVariant.withValues(alpha: 0.15),
+                      ),
+                    Builder(
+                      builder: (context) {
+                        final s = widget.subjects[i];
+                        final g = row.subjectGrades[s];
+                        final label = widget.subjectNames[s] ?? 'Subject $s';
+                        if (g == null) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    label,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: cs.onSurfaceVariant.withValues(
+                                        alpha: 0.5,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ),
-                            Text(
-                              '—',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: cs.onSurfaceVariant.withValues(
-                                  alpha: 0.3,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-                    final sp = g.total > 0 ? (g.score / g.total) * 100 : 0.0;
-                    final barColor = _pctColor(sp, cs);
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  label,
+                                Text(
+                                  '—',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    fontWeight: FontWeight.w400,
-                                    color: cs.onSurface,
+                                    color: cs.onSurfaceVariant.withValues(
+                                      alpha: 0.3,
+                                    ),
                                   ),
                                 ),
+                              ],
+                            ),
+                          );
+                        }
+                        final sp = g.total > 0
+                            ? (g.score / g.total) * 100
+                            : 0.0;
+                        final barColor = _pctColor(sp, cs);
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      label,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w400,
+                                        color: cs.onSurface,
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    '${_fmtScore(g.score)}/${g.total}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w400,
+                                      color: cs.onSurface,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  SizedBox(
+                                    width: 42,
+                                    child: Text(
+                                      '${sp.toStringAsFixed(0)}%',
+                                      textAlign: TextAlign.end,
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w500,
+                                        color: barColor,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                '${_fmtScore(g.score)}/${g.total}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w400,
-                                  color: cs.onSurface,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              SizedBox(
-                                width: 42,
-                                child: Text(
-                                  '${sp.toStringAsFixed(0)}%',
-                                  textAlign: TextAlign.end,
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w500,
-                                    color: barColor,
+                              const SizedBox(height: 4),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(1.5),
+                                child: SizedBox(
+                                  height: 3,
+                                  child: LinearProgressIndicator(
+                                    value: (sp / 100).clamp(0.0, 1.0),
+                                    backgroundColor: cs.surfaceContainerHighest
+                                        .withValues(alpha: isDark ? 0.6 : 0.5),
+                                    valueColor: AlwaysStoppedAnimation(
+                                      barColor,
+                                    ),
                                   ),
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 4),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(1.5),
-                            child: SizedBox(
-                              height: 3,
-                              child: LinearProgressIndicator(
-                                value: (sp / 100).clamp(0.0, 1.0),
-                                backgroundColor: cs.surfaceContainerHighest
-                                    .withValues(alpha: isDark ? 0.6 : 0.5),
-                                valueColor: AlwaysStoppedAnimation(barColor),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-                  // Total row
-                  const SizedBox(height: 2),
-                  Container(
-                    width: double.infinity,
-                    height: 1,
-                    color: cs.outlineVariant.withValues(
-                      alpha: isDark ? 0.12 : 0.08,
+                        );
+                      },
                     ),
+                  ],
+                  // Total row separator — thicker divider
+                  const SizedBox(height: 2),
+                  Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: cs.outlineVariant.withValues(alpha: 0.25),
                   ),
                   const SizedBox(height: 6),
                   Row(
@@ -1317,7 +1391,7 @@ class _MobileStudentGradeCardState extends State<_MobileStudentGradeCard> {
                           textAlign: TextAlign.end,
                           style: TextStyle(
                             fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w500,
                             color: _pctColor(pct, cs),
                           ),
                         ),
@@ -1521,12 +1595,18 @@ class _PerformanceTabState extends State<_PerformanceTab>
             duration: const Duration(milliseconds: 200),
             child: _selectedInsight == 0
                 ? _buildOverviewInsight(
-                    cs, isDark, overallAvg, highest, lowest,
-                    totalGraded, totalEnrolled, analytics,
+                    cs,
+                    isDark,
+                    overallAvg,
+                    highest,
+                    lowest,
+                    totalGraded,
+                    totalEnrolled,
+                    analytics,
                   )
                 : _selectedInsight == 1
-                    ? _buildSubjectsInsight(cs, isDark, analytics)
-                    : _buildRankingsInsight(cs, isDark, rankings ?? []),
+                ? _buildSubjectsInsight(cs, isDark, analytics)
+                : _buildRankingsInsight(cs, isDark, rankings ?? []),
           ),
         ),
       ],
@@ -1585,8 +1665,9 @@ class _PerformanceTabState extends State<_PerformanceTab>
                       labels[i],
                       style: TextStyle(
                         fontSize: 12,
-                        fontWeight:
-                            selected ? FontWeight.w500 : FontWeight.w400,
+                        fontWeight: selected
+                            ? FontWeight.w500
+                            : FontWeight.w400,
                         color: selected ? cs.primary : cs.onSurfaceVariant,
                       ),
                     ),
@@ -1616,18 +1697,50 @@ class _PerformanceTabState extends State<_PerformanceTab>
       key: const ValueKey('overview'),
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       children: [
-        _buildHeroMetrics(
-          cs, isDark, overallAvg, highest, lowest, totalGraded, totalEnrolled,
+        LayoutBuilder(
+          builder: (ctx, constraints) {
+            if (constraints.maxWidth < 400) {
+              return Column(
+                children: [
+                  _buildCompactMetrics(
+                    cs,
+                    isDark,
+                    overallAvg,
+                    highest,
+                    lowest,
+                    totalGraded,
+                    totalEnrolled,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildDonutDistribution(cs, isDark, analytics),
+                ],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildCompactMetrics(
+                  cs,
+                  isDark,
+                  overallAvg,
+                  highest,
+                  lowest,
+                  totalGraded,
+                  totalEnrolled,
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: _buildDonutDistribution(cs, isDark, analytics)),
+              ],
+            );
+          },
         ),
-        const SizedBox(height: 16),
-        _buildDistribution(cs, isDark, analytics),
         const SizedBox(height: 16),
         _buildStrengthsWeaknesses(cs, isDark, analytics),
       ],
     );
   }
 
-  Widget _buildHeroMetrics(
+  Widget _buildCompactMetrics(
     ColorScheme cs,
     bool isDark,
     double avg,
@@ -1636,47 +1749,9 @@ class _PerformanceTabState extends State<_PerformanceTab>
     int graded,
     int enrolled,
   ) {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildMetricTile(
-            cs, isDark,
-            '${avg.toStringAsFixed(1)}%',
-            'Class Average',
-            _pctColor(avg, cs),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _buildMetricTile(
-            cs, isDark,
-            '$graded / $enrolled',
-            'Graded',
-            cs.onSurface,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _buildMetricTile(
-            cs, isDark,
-            '${(highest - lowest).toStringAsFixed(1)}%',
-            'Spread',
-            cs.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMetricTile(
-    ColorScheme cs,
-    bool isDark,
-    String value,
-    String label,
-    Color valueColor,
-  ) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      width: 160,
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: isDark
             ? cs.surfaceContainerHighest.withValues(alpha: 0.3)
@@ -1686,37 +1761,65 @@ class _PerformanceTabState extends State<_PerformanceTab>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w500,
-              color: valueColor,
-              letterSpacing: -0.3,
-            ),
+          _metricRow(
+            '${avg.toStringAsFixed(1)}%',
+            'Class Average',
+            _pctColor(avg, cs),
+            cs,
           ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w400,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-            ),
+          const SizedBox(height: 10),
+          _metricRow('$graded / $enrolled', 'Graded', cs.onSurface, cs),
+          const SizedBox(height: 10),
+          _metricRow(
+            '${(highest - lowest).toStringAsFixed(1)}%',
+            'Spread',
+            cs.onSurfaceVariant,
+            cs,
           ),
         ],
       ),
     );
   }
 
-  // ── Distribution ───────────────────────────────────────────────────────────
+  Widget _metricRow(
+    String value,
+    String label,
+    Color valueColor,
+    ColorScheme cs,
+  ) {
+    return Row(
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: valueColor,
+            letterSpacing: -0.3,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
 
-  Widget _buildDistribution(
+  Widget _buildDonutDistribution(
     ColorScheme cs,
     bool isDark,
     Map<int, PaperAnalytics> analytics,
   ) {
-    // Merge distributions from all subjects into one aggregate map.
+    // Same aggregation logic as _buildDistribution
     final aggregate = <String, int>{};
     for (final pa in analytics.values) {
       for (final entry in pa.distribution.entries) {
@@ -1727,112 +1830,105 @@ class _PerformanceTabState extends State<_PerformanceTab>
 
     const buckets = ['0–39', '40–49', '50–59', '60–69', '70–79', '80–100'];
     const bucketColors = [
-      Color(0xFFEF4444), // red
-      Color(0xFFF97316), // orange
-      Color(0xFFF59E0B), // amber
-      Color(0xFF84CC16), // lime
-      Color(0xFF22C55E), // green
-      Color(0xFF10B981), // emerald
+      Color(0xFFEF4444),
+      Color(0xFFF97316),
+      Color(0xFFF59E0B),
+      Color(0xFF84CC16),
+      Color(0xFF22C55E),
+      Color(0xFF10B981),
     ];
 
     final counts = <int>[];
-    final labels = <String>[];
-    final colors = <Color>[];
     int total = 0;
     for (int i = 0; i < buckets.length; i++) {
       final c = aggregate[buckets[i]] ?? 0;
       counts.add(c);
-      labels.add(buckets[i]);
-      colors.add(bucketColors[i]);
       total += c;
     }
     if (total == 0) return const SizedBox.shrink();
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: isDark
             ? cs.surfaceContainerHighest.withValues(alpha: 0.2)
             : cs.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: cs.outlineVariant.withValues(alpha: 0.2),
-        ),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.2)),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'Score Distribution',
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.w500,
               color: cs.onSurfaceVariant.withValues(alpha: 0.6),
               letterSpacing: 0.3,
             ),
           ),
-          const SizedBox(height: 12),
-          // Stacked horizontal bar
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: SizedBox(
-              height: 28,
-              child: Row(
-                children: List.generate(counts.length, (i) {
-                  if (counts[i] == 0) return const SizedBox.shrink();
-                  final fraction = counts[i] / total;
-                  return Expanded(
-                    flex: (fraction * 1000).round().clamp(1, 1000),
-                    child: Tooltip(
-                      message:
-                          '${labels[i]}: ${counts[i]} student${counts[i] == 1 ? '' : 's'}',
-                      child: Container(
-                        color: colors[i].withValues(
-                          alpha: isDark ? 0.7 : 0.8,
-                        ),
-                        alignment: Alignment.center,
-                        child: fraction > 0.08
-                            ? Text(
-                                '${counts[i]}',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : null,
+          const SizedBox(height: 8),
+          SizedBox(
+            width: 120,
+            height: 120,
+            child: CustomPaint(
+              painter: _DistributionDonutPainter(
+                counts: counts,
+                colors: bucketColors
+                    .map((c) => c.withValues(alpha: isDark ? 0.8 : 0.9))
+                    .toList(),
+                trackColor: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '$total',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: cs.onSurface,
                       ),
                     ),
-                  );
-                }),
+                    Text(
+                      'students',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-          const SizedBox(height: 10),
-          // Legend
+          const SizedBox(height: 8),
           Wrap(
-            spacing: 12,
+            spacing: 8,
             runSpacing: 4,
-            children: List.generate(counts.length, (i) {
+            alignment: WrapAlignment.center,
+            children: List.generate(buckets.length, (i) {
               if (counts[i] == 0) return const SizedBox.shrink();
               return Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    width: 8,
-                    height: 8,
+                    width: 6,
+                    height: 6,
                     decoration: BoxDecoration(
-                      color: colors[i].withValues(
-                        alpha: isDark ? 0.7 : 0.8,
+                      color: bucketColors[i].withValues(
+                        alpha: isDark ? 0.8 : 0.9,
                       ),
-                      borderRadius: BorderRadius.circular(2),
+                      borderRadius: BorderRadius.circular(1.5),
                     ),
                   ),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 3),
                   Text(
-                    '${labels[i]}%',
+                    '${buckets[i]}% (${counts[i]})',
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 9,
                       fontWeight: FontWeight.w400,
                       color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                     ),
@@ -1845,6 +1941,8 @@ class _PerformanceTabState extends State<_PerformanceTab>
       ),
     );
   }
+
+  // ── Distribution ───────────────────────────────────────────────────────────
 
   // ── Strengths & Weaknesses ─────────────────────────────────────────────────
 
@@ -1862,10 +1960,8 @@ class _PerformanceTabState extends State<_PerformanceTab>
 
     final best = sorted.first;
     final worst = sorted.last;
-    final bestName =
-        widget.subjectNames[best.key] ?? 'Subject ${best.key}';
-    final worstName =
-        widget.subjectNames[worst.key] ?? 'Subject ${worst.key}';
+    final bestName = widget.subjectNames[best.key] ?? 'Subject ${best.key}';
+    final worstName = widget.subjectNames[worst.key] ?? 'Subject ${worst.key}';
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -1874,9 +1970,7 @@ class _PerformanceTabState extends State<_PerformanceTab>
             ? cs.surfaceContainerHighest.withValues(alpha: 0.2)
             : cs.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: cs.outlineVariant.withValues(alpha: 0.2),
-        ),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1982,105 +2076,98 @@ class _PerformanceTabState extends State<_PerformanceTab>
         (a, b) => b.value.averagePercent.compareTo(a.value.averagePercent),
       );
 
-    return ListView.builder(
+    return SingleChildScrollView(
       key: const ValueKey('subjects'),
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-      itemCount: sorted.length,
-      itemBuilder: (context, i) {
-        final entry = sorted[i];
-        final name =
-            widget.subjectNames[entry.key] ?? 'Subject ${entry.key}';
-        final pa = entry.value;
-        final avg = pa.averagePercent;
-        final barColor = avg >= 75
-            ? AppTheme.brandGreen
-            : avg >= 50
-                ? const Color(0xFFF59E0B)
-                : cs.error;
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        alignment: WrapAlignment.center,
+        children: sorted.map((entry) {
+          final name = widget.subjectNames[entry.key] ?? 'Subject ${entry.key}';
+          final pa = entry.value;
+          final avg = pa.averagePercent;
+          final barColor = avg >= 75
+              ? AppTheme.brandGreen
+              : avg >= 50
+              ? const Color(0xFFF59E0B)
+              : cs.error;
 
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? cs.surfaceContainerHighest.withValues(alpha: 0.2)
-                  : cs.surfaceContainerLowest,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: cs.outlineVariant.withValues(alpha: 0.2),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        name,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: cs.onSurface,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    Text(
-                      '${avg.toStringAsFixed(1)}%',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: barColor,
-                      ),
-                    ),
-                  ],
+          return ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 140, maxWidth: 200),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? cs.surfaceContainerHighest.withValues(alpha: 0.2)
+                    : cs.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(8),
+                border: Border(
+                  left: BorderSide(color: barColor, width: 2.5),
+                  top: BorderSide(
+                    color: cs.outlineVariant.withValues(alpha: 0.2),
+                  ),
+                  right: BorderSide(
+                    color: cs.outlineVariant.withValues(alpha: 0.2),
+                  ),
+                  bottom: BorderSide(
+                    color: cs.outlineVariant.withValues(alpha: 0.2),
+                  ),
                 ),
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(3),
-                  child: SizedBox(
-                    height: 6,
-                    child: LinearProgressIndicator(
-                      value: (avg / 100).clamp(0.0, 1.0),
-                      backgroundColor: cs.surfaceContainerHighest.withValues(
-                        alpha: 0.5,
-                      ),
-                      valueColor: AlwaysStoppedAnimation(
-                        barColor.withValues(alpha: isDark ? 0.7 : 0.8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: cs.onSurface,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '${avg.toStringAsFixed(1)}%',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w500,
+                      color: barColor,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: SizedBox(
+                      height: 4,
+                      child: LinearProgressIndicator(
+                        value: (avg / 100).clamp(0.0, 1.0),
+                        backgroundColor: cs.surfaceContainerHighest.withValues(
+                          alpha: 0.5,
+                        ),
+                        valueColor: AlwaysStoppedAnimation(
+                          barColor.withValues(alpha: isDark ? 0.7 : 0.8),
+                        ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Text(
-                      '${pa.gradedStudents} of ${pa.totalStudents} graded',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w400,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                      ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '${pa.gradedStudents}/${pa.totalStudents} graded',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w400,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.5),
                     ),
-                    const Spacer(),
-                    if (pa.averageScore > 0)
-                      Text(
-                        'Avg score: ${pa.averageScore.toStringAsFixed(1)}',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w400,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                        ),
-                      ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        }).toList(),
+      ),
     );
   }
 
@@ -2095,114 +2182,220 @@ class _PerformanceTabState extends State<_PerformanceTab>
       return _buildEmpty(cs, 'No student rankings available');
     }
 
-    return ListView.builder(
+    return ListView(
       key: const ValueKey('rankings'),
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-      itemCount: rankings.length + 1, // +1 for header
-      itemBuilder: (context, i) {
-        if (i == 0) {
-          // Header
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest.withValues(
-                alpha: isDark ? 0.2 : 0.3,
+      children: [
+        // Podium for top 3
+        if (rankings.length >= 3) ...[
+          _buildPodium(cs, isDark, rankings),
+          const SizedBox(height: 16),
+        ],
+        // Header
+        _buildRankHeader(cs, isDark),
+        // Rows
+        for (int i = 0; i < rankings.length; i++)
+          _buildRankRow(cs, isDark, rankings[i], i),
+      ],
+    );
+  }
+
+  Widget _buildPodium(
+    ColorScheme cs,
+    bool isDark,
+    List<_StudentRankRow> rankings,
+  ) {
+    const goldColor = Color(0xFFFFD700);
+    const silverColor = Color(0xFFC0C0C0);
+    const bronzeColor = Color(0xFFCD7F32);
+
+    final first = rankings[0];
+    final second = rankings[1];
+    final third = rankings[2];
+
+    Widget podiumItem(
+      _StudentRankRow r,
+      Color medalColor,
+      double barHeight,
+      double iconSize,
+    ) {
+      return Expanded(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.emoji_events_rounded, size: iconSize, color: medalColor),
+            const SizedBox(height: 4),
+            Text(
+              r.name,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: cs.onSurface,
               ),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(8),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+            ),
+            Text(
+              'ADM ${r.adm}',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.45),
               ),
             ),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 32,
-                  child: Text(
-                    '#',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  flex: 3,
-                  child: Text(
-                    'Student',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  width: 56,
-                  child: Text(
-                    'Score',
-                    textAlign: TextAlign.end,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                SizedBox(
-                  width: 46,
-                  child: Text(
-                    '%',
-                    textAlign: TextAlign.end,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        final r = rankings[i - 1];
-        final pctColor = _pctColor(r.percentage, cs);
-
-        // Medal colors for top 3
-        Color? medal;
-        if (r.rank == 1) medal = const Color(0xFFFFD700);
-        if (r.rank == 2) medal = const Color(0xFFC0C0C0);
-        if (r.rank == 3) medal = const Color(0xFFCD7F32);
-
-        return Container(
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(
-                color: cs.outlineVariant.withValues(
-                  alpha: isDark ? 0.1 : 0.15,
-                ),
-                width: 0.5,
+            const SizedBox(height: 3),
+            Text(
+              '${r.percentage.toStringAsFixed(1)}%',
+              style: TextStyle(
+                fontSize: iconSize == 24 ? 16 : 13,
+                fontWeight: FontWeight.w500,
+                color: _pctColor(r.percentage, cs),
               ),
-              left: medal != null
-                  ? BorderSide(
-                      color: medal.withValues(alpha: 0.6),
-                      width: 2.5,
-                    )
-                  : BorderSide.none,
+            ),
+            const SizedBox(height: 6),
+            Container(
+              height: barHeight,
+              margin: const EdgeInsets.symmetric(horizontal: 6),
+              decoration: BoxDecoration(
+                color: medalColor.withValues(alpha: isDark ? 0.15 : 0.1),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(4),
+                ),
+                border: Border(
+                  top: BorderSide(
+                    color: medalColor.withValues(alpha: 0.5),
+                    width: 2,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
+      decoration: BoxDecoration(
+        color: isDark
+            ? cs.surfaceContainerHighest.withValues(alpha: 0.15)
+            : cs.surfaceContainerHighest.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          podiumItem(second, silverColor, 40, 20),
+          podiumItem(first, goldColor, 56, 24),
+          podiumItem(third, bronzeColor, 28, 18),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRankHeader(ColorScheme cs, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: isDark ? 0.2 : 0.3),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 32,
+            child: Text(
+              '#',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: cs.onSurfaceVariant,
+              ),
             ),
           ),
+          const SizedBox(width: 28), // avatar placeholder
+          Expanded(
+            flex: 3,
+            child: Text(
+              'Student',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 56,
+            child: Text(
+              'Score',
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 46,
+            child: Text(
+              '%',
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRankRow(
+    ColorScheme cs,
+    bool isDark,
+    _StudentRankRow r,
+    int index,
+  ) {
+    final pctColor = _pctColor(r.percentage, cs);
+
+    // Medal colors for top 3
+    Color? medal;
+    if (r.rank == 1) medal = const Color(0xFFFFD700);
+    if (r.rank == 2) medal = const Color(0xFFC0C0C0);
+    if (r.rank == 3) medal = const Color(0xFFCD7F32);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: index.isOdd
+            ? cs.surfaceContainerHighest.withValues(alpha: isDark ? 0.06 : 0.05)
+            : Colors.transparent,
+        border: Border(
+          bottom: BorderSide(
+            color: cs.outlineVariant.withValues(alpha: isDark ? 0.1 : 0.15),
+            width: 0.5,
+          ),
+          left: medal != null
+              ? BorderSide(color: medal.withValues(alpha: 0.6), width: 2.5)
+              : BorderSide.none,
+        ),
+      ),
+      child: InkWell(
+        onTap: () {},
+        hoverColor: cs.primary.withValues(alpha: 0.04),
+        child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(
             children: [
               SizedBox(
                 width: 32,
                 child: medal != null
-                    ? Icon(
-                        Icons.emoji_events_rounded,
-                        size: 16,
-                        color: medal,
-                      )
+                    ? Icon(Icons.emoji_events_rounded, size: 16, color: medal)
                     : Text(
                         '${r.rank}',
                         style: TextStyle(
@@ -2212,6 +2405,7 @@ class _PerformanceTabState extends State<_PerformanceTab>
                         ),
                       ),
               ),
+              const SizedBox(width: 28), // avatar placeholder
               Expanded(
                 flex: 3,
                 child: Column(
@@ -2274,8 +2468,8 @@ class _PerformanceTabState extends State<_PerformanceTab>
               ),
             ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
@@ -2312,14 +2506,13 @@ class _StudentRankRow {
 // Paper Card
 // ═════════════════════════════════════════════════════════════════════════════
 
-class _PaperCard extends StatelessWidget {
-  const _PaperCard({
+class _PaperTimetableCard extends StatelessWidget {
+  const _PaperTimetableCard({
     required this.paper,
     required this.subjectNames,
     required this.cs,
     required this.onTap,
   });
-
   final Paper paper;
   final Map<int, String> subjectNames;
   final ColorScheme cs;
@@ -2327,6 +2520,8 @@ class _PaperCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = cs.brightness == Brightness.dark;
+    final statusColor = _examPaperStatusColor(paper.status, cs);
     final label = subjectNames[paper.subject] ?? 'Subject ${paper.subject}';
     final paperLabel = paper.paper != null ? ' · Paper ${paper.paper}' : '';
     final startDt = DateTime.fromMillisecondsSinceEpoch(
@@ -2335,15 +2530,36 @@ class _PaperCard extends StatelessWidget {
     final endDt = DateTime.fromMillisecondsSinceEpoch(paper.end.toInt() * 1000);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(6),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(6),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.only(bottom: 6),
+      child: InkWell(
+        onTap: onTap,
+        splashFactory: NoSplash.splashFactory,
+        borderRadius: BorderRadius.circular(4),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: Container(
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.06),
+              border: Border(
+                left: BorderSide(color: statusColor, width: 2.5),
+                top: BorderSide(
+                  color: cs.outlineVariant.withValues(
+                    alpha: isDark ? 0.15 : 0.2,
+                  ),
+                ),
+                right: BorderSide(
+                  color: cs.outlineVariant.withValues(
+                    alpha: isDark ? 0.15 : 0.2,
+                  ),
+                ),
+                bottom: BorderSide(
+                  color: cs.outlineVariant.withValues(
+                    alpha: isDark ? 0.15 : 0.2,
+                  ),
+                ),
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
             child: Row(
               children: [
                 Expanded(
@@ -2353,16 +2569,18 @@ class _PaperCard extends StatelessWidget {
                       Text(
                         '$label$paperLabel',
                         style: TextStyle(
-                          fontSize: 13.5,
+                          fontSize: 12.5,
                           fontWeight: FontWeight.w500,
                           color: cs.onSurface,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 3),
                       Text(
                         '${_fmtDate(startDt)} · ${_fmtTime(startDt)} – ${_fmtTime(endDt)}',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 10.5,
                           fontWeight: FontWeight.w400,
                           color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                         ),
@@ -2370,18 +2588,58 @@ class _PaperCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 _PaperStatusChip(status: paper.status, cs: cs),
-                const SizedBox(width: 6),
+                const SizedBox(width: 4),
                 Icon(
                   Icons.chevron_right,
-                  size: 18,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.35),
+                  size: 16,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.3),
                 ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PaperStatusLegend extends StatelessWidget {
+  const _PaperStatusLegend();
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 4,
+        children: PaperStatus.values.map((s) {
+          final color = _examPaperStatusColor(s, cs);
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                _examPaperStatusLabel(s),
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                ),
+              ),
+            ],
+          );
+        }).toList(),
       ),
     );
   }
@@ -2625,6 +2883,76 @@ Color _pctColor(double pct, ColorScheme cs) {
   if (pct >= 70) return AppTheme.brandGreen;
   if (pct >= 50) return const Color(0xFFF59E0B);
   return cs.error;
+}
+
+Color _examPaperStatusColor(PaperStatus status, ColorScheme cs) =>
+    switch (status) {
+      PaperStatus.pending => cs.onSurfaceVariant.withValues(alpha: 0.3),
+      PaperStatus.progress => const Color(0xFF42A5F5),
+      PaperStatus.done => const Color(0xFFFFA726),
+      PaperStatus.marked => const Color(0xFF66BB6A),
+    };
+
+String _examPaperStatusLabel(PaperStatus status) => switch (status) {
+  PaperStatus.pending => 'Pending',
+  PaperStatus.progress => 'In Progress',
+  PaperStatus.done => 'Done',
+  PaperStatus.marked => 'Marked',
+};
+
+class _DistributionDonutPainter extends CustomPainter {
+  _DistributionDonutPainter({
+    required this.counts,
+    required this.colors,
+    required this.trackColor,
+  });
+  final List<int> counts;
+  final List<Color> colors;
+  final Color trackColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    const strokeWidth = 20.0;
+    final radius = size.width / 2 - strokeWidth / 2;
+
+    // Draw track
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..color = trackColor,
+    );
+
+    final total = counts.fold(0, (a, b) => a + b);
+    if (total == 0) return;
+
+    var startAngle = -math.pi / 2;
+    const gapAngle = 0.03; // small gap between segments
+
+    for (int i = 0; i < counts.length; i++) {
+      if (counts[i] == 0) continue;
+      final sweep = (counts[i] / total) * 2 * math.pi - gapAngle;
+      if (sweep <= 0) continue;
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        sweep,
+        false,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeWidth
+          ..strokeCap = StrokeCap.round
+          ..color = colors[i],
+      );
+      startAngle += sweep + gapAngle;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DistributionDonutPainter old) => true;
 }
 
 String _fmtDate(DateTime d) =>

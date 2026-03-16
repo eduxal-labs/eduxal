@@ -22,6 +22,7 @@ import '../../../theme/app_theme.dart';
 import '../../../widgets/animated_save_button.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_sheet.dart';
+import '../../../widgets/student_avatar.dart';
 import '../../../widgets/user_avatar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -331,7 +332,8 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                           canGrade: _canManage,
                           cs: cs,
                           onDirtyChanged: (dirty) {
-                            if (mounted) setState(() => _hasDirtyGrades = dirty);
+                            if (mounted)
+                              setState(() => _hasDirtyGrades = dirty);
                           },
                           onSubmissionsChanged: () {
                             if (mounted) setState(() {});
@@ -351,8 +353,10 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                               });
                             }
                           },
-                          onAiProgressChanged: (p) => setState(() => _aiProgress = p),
-                          onAiMarkedCountChanged: (c) => setState(() => _aiMarkedCount = c),
+                          onAiProgressChanged: (p) =>
+                              setState(() => _aiProgress = p),
+                          onAiMarkedCountChanged: (c) =>
+                              setState(() => _aiMarkedCount = c),
                         )
                       else
                         _GradeList(
@@ -366,7 +370,8 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                           canGrade: _canManage,
                           cs: cs,
                           onDirtyChanged: (dirty) {
-                            if (mounted) setState(() => _hasDirtyGrades = dirty);
+                            if (mounted)
+                              setState(() => _hasDirtyGrades = dirty);
                           },
                           onSubmissionsChanged: () {
                             if (mounted) setState(() {});
@@ -386,8 +391,10 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                               });
                             }
                           },
-                          onAiProgressChanged: (p) => setState(() => _aiProgress = p),
-                          onAiMarkedCountChanged: (c) => setState(() => _aiMarkedCount = c),
+                          onAiProgressChanged: (p) =>
+                              setState(() => _aiProgress = p),
+                          onAiMarkedCountChanged: (c) =>
+                              setState(() => _aiMarkedCount = c),
                         ),
                     ],
                   );
@@ -481,8 +488,10 @@ class _PaperHeaderState extends State<_PaperHeader>
     _scaleAnimation = TweenSequence<double>([
       TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.88), weight: 40),
       TweenSequenceItem(
-        tween: Tween(begin: 0.88, end: 1.0)
-            .chain(CurveTween(curve: Curves.elasticOut)),
+        tween: Tween(
+          begin: 0.88,
+          end: 1.0,
+        ).chain(CurveTween(curve: Curves.elasticOut)),
         weight: 60,
       ),
     ]).animate(_scaleCtrl);
@@ -549,8 +558,9 @@ class _PaperHeaderState extends State<_PaperHeader>
   };
 
   Future<void> _deletePaper(BuildContext context) async {
-    final subjLabel =
-        widget.paper.paper != null ? 'Paper ${widget.paper.paper}' : 'Paper';
+    final subjLabel = widget.paper.paper != null
+        ? 'Paper ${widget.paper.paper}'
+        : 'Paper';
     final confirmed = await showEduConfirmDialog(
       context: context,
       title: 'Delete Paper?',
@@ -610,7 +620,7 @@ class _PaperHeaderState extends State<_PaperHeader>
   ];
 
   ({int gradedCount, double averagePercent, List<_DonutSegment> segments})
-      _computeAnalytics() {
+  _computeAnalytics() {
     final gradeRows = widget.gradeRows;
     if (gradeRows.isEmpty) {
       return (gradedCount: 0, averagePercent: 0, segments: []);
@@ -641,8 +651,7 @@ class _PaperHeaderState extends State<_PaperHeader>
     }
 
     final gradedCount = actuallyGraded.length;
-    final averagePercent =
-        gradedCount > 0 ? totalPercent / gradedCount : 0.0;
+    final averagePercent = gradedCount > 0 ? totalPercent / gradedCount : 0.0;
 
     // Build donut segments
     final segments = <_DonutSegment>[];
@@ -771,8 +780,10 @@ class _PaperHeaderState extends State<_PaperHeader>
               if (exam.exam.personalized) ...[
                 const SizedBox(width: 8),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(3),
                     border: Border.all(
@@ -863,15 +874,23 @@ class _PaperHeaderState extends State<_PaperHeader>
               const Spacer(),
               if (widget.canManage)
                 AnimatedBuilder(
-                  animation:
-                      Listenable.merge([_arcCtrl, _scaleCtrl, _flashCtrl]),
+                  animation: Listenable.merge([
+                    _arcCtrl,
+                    _scaleCtrl,
+                    _flashCtrl,
+                  ]),
                   builder: (context, _) {
-                    final scale =
-                        _scaleCtrl.isAnimating ? _scaleAnimation.value : 1.0;
+                    final scale = _scaleCtrl.isAnimating
+                        ? _scaleAnimation.value
+                        : 1.0;
                     return Transform.scale(
                       scale: scale,
                       child: _buildActionButton(
-                          status, isMarked, color, nextColor),
+                        status,
+                        isMarked,
+                        color,
+                        nextColor,
+                      ),
                     );
                   },
                 ),
@@ -899,9 +918,14 @@ class _PaperHeaderState extends State<_PaperHeader>
           child: CustomPaint(
             painter: _DonutPainter(
               segments: segments.isEmpty
-                  ? [_DonutSegment(1.0, isDark
-                      ? const Color(0xFF2A3848)
-                      : const Color(0xFFE0E0E0))]
+                  ? [
+                      _DonutSegment(
+                        1.0,
+                        isDark
+                            ? const Color(0xFF2A3848)
+                            : const Color(0xFFE0E0E0),
+                      ),
+                    ]
                   : segments,
               strokeWidth: 10,
               trackColor: isDark
@@ -1019,12 +1043,14 @@ class _PaperHeaderState extends State<_PaperHeader>
           height: 40,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(
-                color: const Color(0xFF6366F1), width: 2.5),
+            border: Border.all(color: const Color(0xFF6366F1), width: 2.5),
           ),
           child: const Center(
-            child: Icon(Icons.auto_fix_high,
-                size: 18, color: Color(0xFF6366F1)),
+            child: Icon(
+              Icons.auto_fix_high,
+              size: 18,
+              color: Color(0xFF6366F1),
+            ),
           ),
         ),
       ),
@@ -1077,8 +1103,9 @@ class _PaperHeaderState extends State<_PaperHeader>
     Color nextColor,
   ) {
     const size = 40.0;
-    final arcValue =
-        _arcCtrl.isAnimating ? _arcAnimation.value : _arcFraction(status);
+    final arcValue = _arcCtrl.isAnimating
+        ? _arcAnimation.value
+        : _arcFraction(status);
     final flashValue = _flashCtrl.value;
 
     if (isMarked) {
@@ -1111,12 +1138,10 @@ class _PaperHeaderState extends State<_PaperHeader>
             painter: _ArcProgressPainter(
               progress: arcValue,
               arcColor: nextColor,
-              trackColor:
-                  widget.cs.outlineVariant.withValues(alpha: 0.25),
+              trackColor: widget.cs.outlineVariant.withValues(alpha: 0.25),
               strokeWidth: 3.0,
               flashColor: flashValue > 0
-                  ? const Color(0xFF66BB6A)
-                      .withValues(alpha: flashValue * 0.4)
+                  ? const Color(0xFF66BB6A).withValues(alpha: flashValue * 0.4)
                   : null,
             ),
             child: Center(
@@ -1295,8 +1320,6 @@ class _ArcProgressPainter extends CustomPainter {
       old.flashColor != flashColor;
 }
 
-
-
 // ═════════════════════════════════════════════════════════════════════════════
 // Grade Spreadsheet — Desktop (≥ 600px)
 // ═════════════════════════════════════════════════════════════════════════════
@@ -1449,8 +1472,9 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
       _submissions.values.where((list) => list.isNotEmpty).length;
 
   bool get hasUnmarkedSubmissions {
-    return _submissions.entries.any((e) =>
-        e.value.isNotEmpty && !widget.gradeMap.containsKey(e.key));
+    return _submissions.entries.any(
+      (e) => e.value.isNotEmpty && !widget.gradeMap.containsKey(e.key),
+    );
   }
 
   bool get hasDirtyGrades {
@@ -1458,7 +1482,9 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
       final adm = student.adm;
       if (_drafts.containsKey(adm)) {
         final existingGrade = widget.gradeMap[adm];
-        final existingText = existingGrade != null ? _fmtScore(existingGrade.score) : '';
+        final existingText = existingGrade != null
+            ? _fmtScore(existingGrade.score)
+            : '';
         if (_drafts[adm] != existingText) return true;
       }
     }
@@ -1470,7 +1496,9 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
       final adm = student.adm;
       if (_drafts.containsKey(adm)) {
         final existingGrade = widget.gradeMap[adm];
-        final existingText = existingGrade != null ? _fmtScore(existingGrade.score) : '';
+        final existingText = existingGrade != null
+            ? _fmtScore(existingGrade.score)
+            : '';
         if (_drafts[adm] != existingText) {
           await _saveRow(adm, _controllers[adm]?.text ?? _drafts[adm]!);
         }
@@ -1521,9 +1549,7 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
     final rng = math.Random();
     int marked = 0;
     final total = studentsWithSubmissions.length;
-    final perStudentDelay = total > 0
-        ? (6000 ~/ total).clamp(250, 600)
-        : 400;
+    final perStudentDelay = total > 0 ? (6000 ~/ total).clamp(250, 600) : 400;
     final List<int> gradedAdms = [];
     for (int i = 0; i < studentsWithSubmissions.length; i++) {
       final student = studentsWithSubmissions[i];
@@ -1723,7 +1749,7 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Row(
             children: [
-              const SizedBox(width: 48),
+              const SizedBox(width: 84),
               Expanded(
                 flex: 3,
                 child: Text(
@@ -1782,6 +1808,7 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
 
               return _SpreadsheetRow(
                 student: student,
+                schoolId: widget.schoolId,
                 controller: _controllers[adm]!,
                 focusNode: _focusNodes[adm]!,
                 existingGrade: existingGrade,
@@ -1827,6 +1854,7 @@ enum _AiPhase { idle, analyzing, assigning, done }
 class _SpreadsheetRow extends StatefulWidget {
   const _SpreadsheetRow({
     required this.student,
+    required this.schoolId,
     required this.controller,
     required this.focusNode,
     required this.existingGrade,
@@ -1845,6 +1873,7 @@ class _SpreadsheetRow extends StatefulWidget {
   });
 
   final StudentsData student;
+  final String schoolId;
   final TextEditingController controller;
   final FocusNode focusNode;
   final Grade? existingGrade;
@@ -1905,6 +1934,13 @@ class _SpreadsheetRowState extends State<_SpreadsheetRow> {
                   color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                 ),
               ),
+            ),
+            const SizedBox(width: 8),
+            StudentAvatar(
+              schoolId: widget.schoolId,
+              adm: widget.student.adm,
+              name: widget.student.name,
+              radius: 14,
             ),
             const SizedBox(width: 8),
             // Name
@@ -2121,8 +2157,9 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
       _submissions.values.where((list) => list.isNotEmpty).length;
 
   bool get hasUnmarkedSubmissions {
-    return _submissions.entries.any((e) =>
-        e.value.isNotEmpty && !widget.gradeMap.containsKey(e.key));
+    return _submissions.entries.any(
+      (e) => e.value.isNotEmpty && !widget.gradeMap.containsKey(e.key),
+    );
   }
 
   @override
@@ -2202,9 +2239,7 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
     final rng = math.Random();
     int marked = 0;
     final total = studentsWithSubmissions.length;
-    final perStudentDelay = total > 0
-        ? (6000 ~/ total).clamp(250, 600)
-        : 400;
+    final perStudentDelay = total > 0 ? (6000 ~/ total).clamp(250, 600) : 400;
     final List<int> gradedAdms = [];
     for (int i = 0; i < studentsWithSubmissions.length; i++) {
       final student = studentsWithSubmissions[i];
@@ -2415,7 +2450,6 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
     final cs = widget.cs;
     final isDark = cs.brightness == Brightness.dark;
 
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -2449,6 +2483,13 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Row(
                       children: [
+                        StudentAvatar(
+                          schoolId: widget.schoolId,
+                          adm: student.adm,
+                          name: student.name,
+                          radius: 14,
+                        ),
+                        const SizedBox(width: 10),
                         // Name + ADM column
                         Expanded(
                           child: Column(
