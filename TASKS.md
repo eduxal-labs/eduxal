@@ -730,7 +730,7 @@ Copy the `_ArcProgressPainter` class from C1 into this file as well (or if it's 
 
 ## Track D: Grade Entry Visibility (Bug #7)
 
-### Task D1: Show grade input at all paper statuses instead of hiding it during Pending/InProgress
+### Task D1: ~~Show grade input at all paper statuses instead of hiding it during Pending/InProgress~~ [x]
 
 **Files to modify:** `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`, `lib/ui/screens/school_dashboard/exams/exams_grades_screen.dart`
 **Context files to read (if needed):** None
@@ -765,7 +765,7 @@ Similarly in `exams_grades_screen.dart`, the `_GradeSpreadsheet` and `_Spreadshe
    Apply the same change — ensure grade entry is always available regardless of paper status. The mobile `_openGradeEntry` and `_openStudentActionSheet` methods should work at any status.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task with message `ui: allow grade entry at all paper statuses`
 
 ---
@@ -920,7 +920,7 @@ Similarly in `exams_grades_screen.dart`, the `_GradeSpreadsheet` and `_Spreadshe
 
 ## Track F: Paper Detail Page Reload on Resize (Bug #1)
 
-### Task F1: Prevent paper_detail_page.dart from reloading data on window resize
+### Task F1: Prevent paper_detail_page.dart from reloading data on window resize [x]
 
 **Files to modify:** `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`
 **Context files to read (if needed):** None

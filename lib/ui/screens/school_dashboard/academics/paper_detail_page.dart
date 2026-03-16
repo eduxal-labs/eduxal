@@ -2064,10 +2064,7 @@ class _SpreadsheetRowState extends State<_SpreadsheetRow> {
   Widget build(BuildContext context) {
     final cs = widget.cs;
     final pct = widget._pct;
-    final showGradeButton =
-        widget.canGrade &&
-        (widget.paperStatus == PaperStatus.done ||
-            widget.paperStatus == PaperStatus.marked);
+    final showGradeButton = widget.canGrade;
     final showSubmit =
         widget.paperStatus == PaperStatus.done ||
         widget.paperStatus == PaperStatus.marked;
