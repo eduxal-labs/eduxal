@@ -772,7 +772,7 @@ Similarly in `exams_grades_screen.dart`, the `_GradeSpreadsheet` and `_Spreadshe
 
 ## Track E: Answer Sheet Submission + AI Marking on Per-Student Button (Bug #8)
 
-### Task E1: Ensure per-student submission/mark buttons work correctly with proper state and coloring
+### Task E1: ~~Ensure per-student submission/mark buttons work correctly with proper state and coloring~~ [x]
 
 **Files to modify:** `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`
 **Context files to read (if needed):** None

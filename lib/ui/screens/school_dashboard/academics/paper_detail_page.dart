@@ -1411,6 +1411,9 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
   // adm → true while a quick-grade save is in progress
   final Map<int, bool> _quickGrading = {};
 
+  // adm → true when new submissions were added after last AI mark
+  final Set<int> _dirtySubmissions = {};
+
   // ── AI Marking state ────────────────────────────────────────────────────
   bool _aiMarking = false;
   _AiPhase _aiPhase = _AiPhase.idle;
@@ -1575,6 +1578,7 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
     setState(() {
       _aiMarking = false;
       _aiPhase = _AiPhase.idle;
+      _dirtySubmissions.clear();
     });
     _progressCtrl.reset();
   }
@@ -1682,7 +1686,12 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
         paperNum: widget.paper.paper,
         existingPaths: List.from(_submissions[adm] ?? []),
         onUpdated: (paths) {
-          if (mounted) setState(() => _submissions[adm] = paths);
+          if (mounted) {
+            setState(() {
+              _submissions[adm] = paths;
+              if (paths.isNotEmpty) _dirtySubmissions.add(adm);
+            });
+          }
         },
         dao: widget.dao,
         cs: widget.cs,
@@ -1718,6 +1727,7 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
               progressCtrl: _progressCtrl,
               onTap: _runAiMarking,
               cs: cs,
+              pendingCount: _dirtySubmissions.length,
             ),
           ),
           const SizedBox(height: 8),
@@ -1859,10 +1869,12 @@ class _AiMarkButton extends StatelessWidget {
     required this.onTap,
     required this.cs,
     this.fullWidth = false,
+    this.pendingCount = 0,
   });
 
   final bool hasSubmissions;
   final int submissionCount;
+  final int pendingCount;
   final bool isMarking;
   final _AiPhase phase;
   final int markedCount;
@@ -1887,7 +1899,9 @@ class _AiMarkButton extends StatelessWidget {
     } else if (isAssigning) {
       label = 'Marking…';
     } else {
-      label = 'Mark with AI';
+      label = pendingCount > 0
+          ? 'Mark $pendingCount new with AI'
+          : 'Mark with AI';
     }
 
     final IconData icon = isDone ? Icons.check : Icons.auto_awesome;
@@ -2249,27 +2263,12 @@ class _SpreadsheetRowState extends State<_SpreadsheetRow> {
                     ? null
                     : widget.onQuickGradeTap,
                 child: Tooltip(
-                  message: 'Quick-grade with AI',
-                  child: Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF6366F1).withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: widget.isQuickGrading
-                        ? const Padding(
-                            padding: EdgeInsets.all(7),
-                            child: CircularProgressIndicator(
-                              strokeWidth: 1.5,
-                              color: Color(0xFF6366F1),
-                            ),
-                          )
-                        : const Icon(
-                            Icons.auto_fix_high,
-                            size: 15,
-                            color: Color(0xFF6366F1),
-                          ),
+                  message: widget.existingGrade != null
+                      ? 'AI graded'
+                      : 'Quick-grade with AI',
+                  child: _MiniArcIndicator(
+                    hasGrade: widget.existingGrade != null,
+                    isProcessing: widget.isQuickGrading,
                   ),
                 ),
               ),
@@ -2305,6 +2304,72 @@ class _SpreadsheetRowState extends State<_SpreadsheetRow> {
                 onSave: widget.isDirty ? widget.onSave : null,
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Small 28×28 circular indicator for per-student AI quick-grade status.
+/// - No grade + has submissions → indigo arc at 50% + auto_fix icon
+/// - Processing → spinner
+/// - Graded → green filled circle with check
+class _MiniArcIndicator extends StatelessWidget {
+  const _MiniArcIndicator({
+    required this.hasGrade,
+    required this.isProcessing,
+  });
+
+  final bool hasGrade;
+  final bool isProcessing;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isProcessing) {
+      return const SizedBox(
+        width: 28,
+        height: 28,
+        child: Padding(
+          padding: EdgeInsets.all(7),
+          child: CircularProgressIndicator(
+            strokeWidth: 1.5,
+            color: Color(0xFF6366F1),
+          ),
+        ),
+      );
+    }
+    if (hasGrade) {
+      return Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          color: const Color(0xFF66BB6A).withValues(alpha: 0.15),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(
+          Icons.check_rounded,
+          size: 15,
+          color: Color(0xFF66BB6A),
+        ),
+      );
+    }
+    // Not graded yet — show indigo arc at 50%
+    return SizedBox(
+      width: 28,
+      height: 28,
+      child: CustomPaint(
+        painter: _ArcProgressPainter(
+          progress: 0.5,
+          arcColor: const Color(0xFF6366F1),
+          trackColor: const Color(0xFF6366F1).withValues(alpha: 0.15),
+          strokeWidth: 2.0,
+        ),
+        child: const Center(
+          child: Icon(
+            Icons.auto_fix_high,
+            size: 13,
+            color: Color(0xFF6366F1),
+          ),
         ),
       ),
     );
@@ -2351,6 +2416,9 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
 
   // adm → true while a quick-grade save is in progress
   final Map<int, bool> _quickGrading = {};
+
+  // adm → true when new submissions were added after last AI mark
+  final Set<int> _dirtySubmissions = {};
 
   // ── AI Marking state ──────────────────────────────────────────────────
   bool _aiMarking = false;
@@ -2474,6 +2542,7 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
     setState(() {
       _aiMarking = false;
       _aiPhase = _AiPhase.idle;
+      _dirtySubmissions.clear();
     });
     _progressCtrl.reset();
   }
@@ -2502,7 +2571,12 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
         paperNum: widget.paper.paper,
         existingPaths: List.from(_submissions[adm] ?? []),
         onUpdated: (paths) {
-          if (mounted) setState(() => _submissions[adm] = paths);
+          if (mounted) {
+            setState(() {
+              _submissions[adm] = paths;
+              if (paths.isNotEmpty) _dirtySubmissions.add(adm);
+            });
+          }
         },
         dao: widget.dao,
         cs: widget.cs,
@@ -2677,6 +2751,7 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
             onTap: _runAiMarking,
             cs: cs,
             fullWidth: true,
+            pendingCount: _dirtySubmissions.length,
           ),
           const SizedBox(height: 10),
         ],
