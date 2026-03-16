@@ -42,7 +42,7 @@ The executor should redesign this entire tab to feel polished and modern. Think 
 Follow the project's UI guidelines in `AGENT.md` §21 (typography weights, border radius tiers, spacing density, dark mode colors). Read `AppTheme` for available constants and helpers.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: `git commit -m "ui: redesign Stats tab with improved charts, ranking, and visual polish"`
 
 ---

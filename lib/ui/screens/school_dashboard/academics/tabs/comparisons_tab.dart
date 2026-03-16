@@ -1,9 +1,11 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../../database/database.dart';
 import '../../../../../database/daos/academics_dao.dart';
 import '../../../../../models/grade_analytics.dart';
 import '../../../../../models/school_config.dart';
+import '../../../../theme/app_theme.dart';
 
 /// Comparisons tab — compares all streams within a grade on key metrics.
 ///
@@ -11,6 +13,7 @@ import '../../../../../models/school_config.dart';
 /// 1. A horizontal summary row of compact stat cards.
 /// 2. One comparison card per stream with stats grid.
 /// 3. A ranking table (when 2+ streams exist).
+/// 4. A performance trend chart (fl_chart LineChart).
 class ComparisonsTab extends StatefulWidget {
   const ComparisonsTab({
     super.key,
@@ -241,7 +244,7 @@ class _SummaryRow extends StatelessWidget {
     }
 
     return SizedBox(
-      height: 62,
+      height: 72,
       child: ListView(
         scrollDirection: Axis.horizontal,
         children: [
@@ -249,24 +252,28 @@ class _SummaryRow extends StatelessWidget {
             label: 'Total Students',
             value: '$totalStudents',
             icon: Icons.people_outline_rounded,
+            accentColor: const Color(0xFF42A5F5),
           ),
           const SizedBox(width: 8),
           _SummaryCard(
             label: 'Streams',
             value: '$streamCount',
             icon: Icons.view_stream_outlined,
+            accentColor: const Color(0xFF26A69A),
           ),
           const SizedBox(width: 8),
           _SummaryCard(
             label: 'Best Performing',
             value: bestPerforming,
             icon: Icons.emoji_events_outlined,
+            accentColor: const Color(0xFFFFA726),
           ),
           const SizedBox(width: 8),
           _SummaryCard(
             label: 'Most Improved',
             value: mostImproved,
             icon: Icons.trending_up_rounded,
+            accentColor: const Color(0xFF66BB6A),
           ),
         ],
       ),
@@ -279,11 +286,13 @@ class _SummaryCard extends StatelessWidget {
     required this.label,
     required this.value,
     required this.icon,
+    required this.accentColor,
   });
 
   final String label;
   final String value;
   final IconData icon;
+  final Color accentColor;
 
   @override
   Widget build(BuildContext context) {
@@ -296,18 +305,30 @@ class _SummaryCard extends StatelessWidget {
         color: isDark
             ? cs.surfaceContainerHighest.withValues(alpha: 0.35)
             : cs.surfaceContainerHighest.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
         border: Border.all(
-          color: cs.outline.withValues(alpha: isDark ? 0.06 : 0.05),
+          color: accentColor.withValues(alpha: isDark ? 0.15 : 0.12),
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 16,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+          // Icon container with accent background
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  accentColor.withValues(alpha: isDark ? 0.2 : 0.14),
+                  accentColor.withValues(alpha: isDark ? 0.08 : 0.05),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+            ),
+            child: Icon(icon, size: 16, color: accentColor),
           ),
           const SizedBox(width: 10),
           Column(
@@ -327,7 +348,7 @@ class _SummaryCard extends StatelessWidget {
               Text(
                 value,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: FontWeight.w500,
                   color: cs.onSurface,
                   letterSpacing: 0.1,
@@ -345,122 +366,224 @@ class _SummaryCard extends StatelessWidget {
 // Stream Comparison Card — one per stream with stats grid
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _StreamComparisonCard extends StatelessWidget {
+class _StreamComparisonCard extends StatefulWidget {
   const _StreamComparisonCard({required this.stats});
 
   final StreamStats stats;
 
   @override
+  State<_StreamComparisonCard> createState() => _StreamComparisonCardState();
+}
+
+class _StreamComparisonCardState extends State<_StreamComparisonCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _hoverCtrl;
+  late final Animation<double> _borderAlpha;
+  bool _isHovered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _hoverCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 180),
+    );
+    _borderAlpha = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _hoverCtrl, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _hoverCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onHover(bool hovering) {
+    if (hovering == _isHovered) return;
+    setState(() => _isHovered = hovering);
+    if (hovering) {
+      _hoverCtrl.forward();
+    } else {
+      _hoverCtrl.reverse();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
+    final streamColor = _streamColor(widget.stats.streamCode);
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-      decoration: BoxDecoration(
-        color: isDark
-            ? cs.surfaceContainerHighest.withValues(alpha: 0.3)
-            : cs.surfaceContainerHighest.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Header row ─────────────────────────────────────────────
-          Row(
+    return MouseRegion(
+      onEnter: (_) => _onHover(true),
+      onExit: (_) => _onHover(false),
+      child: AnimatedBuilder(
+        animation: _borderAlpha,
+        builder: (context, child) {
+          return Container(
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: isDark
+                  ? cs.surfaceContainerHighest.withValues(alpha: 0.3)
+                  : cs.surfaceContainerHighest.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              border: Border.all(
+                color: Color.lerp(
+                  cs.outline.withValues(alpha: isDark ? 0.06 : 0.04),
+                  streamColor.withValues(alpha: isDark ? 0.35 : 0.3),
+                  _borderAlpha.value,
+                )!,
+              ),
+            ),
+            child: child,
+          );
+        },
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                stats.streamName,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: cs.onSurface,
-                  letterSpacing: 0.1,
+            // ── Left accent bar ────────────────────────────────────
+            Container(
+              width: 4,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    streamColor,
+                    streamColor.withValues(alpha: 0.4),
+                  ],
                 ),
               ),
-              const SizedBox(width: 10),
-              Text(
-                '${stats.studentCount} student${stats.studentCount == 1 ? '' : 's'}',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                ),
               ),
-            ],
-          ),
-          const SizedBox(height: 14),
+              // ── Card content ───────────────────────────────────────
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 14, 16, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ── Header row ─────────────────────────────────
+                      Row(
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: streamColor,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              widget.stats.streamName,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: cs.onSurface,
+                                letterSpacing: 0.1,
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: streamColor.withValues(
+                                alpha: isDark ? 0.12 : 0.08,
+                              ),
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.kChipRadius,
+                              ),
+                            ),
+                            child: Text(
+                              '${widget.stats.studentCount} student${widget.stats.studentCount == 1 ? '' : 's'}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w400,
+                                color: streamColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
 
-          // ── Stats grid (2 columns × 3 rows) ───────────────────────
-          Row(
-            children: [
-              Expanded(
-                child: _StatCell(
-                  label: 'Overall Avg',
-                  value: _fmtPercent(stats.averageScore),
-                  percent: stats.averageScore / 100.0,
-                  barColor: _percentColor(stats.averageScore),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: _StatCell(
-                  label: 'Last Exam',
-                  value: stats.lastExamAverage != null
-                      ? _fmtPercent(stats.lastExamAverage!)
-                      : '—',
-                  percent: stats.lastExamAverage != null
-                      ? stats.lastExamAverage! / 100.0
-                      : null,
-                  barColor: stats.lastExamAverage != null
-                      ? _percentColor(stats.lastExamAverage!)
-                      : null,
+                      // ── Stats grid (2 columns × 3 rows) ───────────
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _StatCell(
+                              label: 'Overall Avg',
+                              value: _fmtPercent(widget.stats.averageScore),
+                              percent: widget.stats.averageScore / 100.0,
+                              barColor: _percentColor(widget.stats.averageScore),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: _StatCell(
+                              label: 'Last Exam',
+                              value: widget.stats.lastExamAverage != null
+                                  ? _fmtPercent(widget.stats.lastExamAverage!)
+                                  : '—',
+                              percent: widget.stats.lastExamAverage != null
+                                  ? widget.stats.lastExamAverage! / 100.0
+                                  : null,
+                              barColor: widget.stats.lastExamAverage != null
+                                  ? _percentColor(widget.stats.lastExamAverage!)
+                                  : null,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _StatCell(
+                              label: 'Attendance',
+                              value: widget.stats.attendanceRate != null
+                                  ? _fmtPercent(widget.stats.attendanceRate!)
+                                  : '—',
+                              percent: widget.stats.attendanceRate != null
+                                  ? widget.stats.attendanceRate! / 100.0
+                                  : null,
+                              barColor: widget.stats.attendanceRate != null
+                                  ? _percentColor(widget.stats.attendanceRate!)
+                                  : null,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: _StatCell(
+                              label: 'Mastery',
+                              value: widget.stats.masteryAverage != null
+                                  ? _fmtPercent(widget.stats.masteryAverage!)
+                                  : '—',
+                              percent: widget.stats.masteryAverage != null
+                                  ? widget.stats.masteryAverage! / 100.0
+                                  : null,
+                              barColor: widget.stats.masteryAverage != null
+                                  ? _percentColor(widget.stats.masteryAverage!)
+                                  : null,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _TrajectoryBadge(trajectory: widget.stats.trajectory),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _StatCell(
-                  label: 'Attendance',
-                  value: stats.attendanceRate != null
-                      ? _fmtPercent(stats.attendanceRate!)
-                      : '—',
-                  percent: stats.attendanceRate != null
-                      ? stats.attendanceRate! / 100.0
-                      : null,
-                  barColor: stats.attendanceRate != null
-                      ? _percentColor(stats.attendanceRate!)
-                      : null,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: _StatCell(
-                  label: 'Mastery',
-                  value: stats.masteryAverage != null
-                      ? _fmtPercent(stats.masteryAverage!)
-                      : '—',
-                  percent: stats.masteryAverage != null
-                      ? stats.masteryAverage! / 100.0
-                      : null,
-                  barColor: stats.masteryAverage != null
-                      ? _percentColor(stats.masteryAverage!)
-                      : null,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(child: _TrajectoryCell(trajectory: stats.trajectory)),
-              const Spacer(),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -518,14 +641,34 @@ class _StatCell extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(3),
             child: SizedBox(
-              height: 6,
-              child: LinearProgressIndicator(
-                value: percent!.clamp(0.0, 1.0),
-                backgroundColor: isDark
-                    ? cs.surfaceContainerHighest.withValues(alpha: 0.6)
-                    : cs.surfaceContainerHighest,
-                valueColor: AlwaysStoppedAnimation<Color>(barColor!),
-                minHeight: 6,
+              height: 4,
+              child: Stack(
+                children: [
+                  // Background track
+                  Container(
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? cs.surfaceContainerHighest.withValues(alpha: 0.6)
+                          : cs.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                  // Filled portion with gradient
+                  FractionallySizedBox(
+                    widthFactor: percent!.clamp(0.0, 1.0),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            barColor!.withValues(alpha: 0.7),
+                            barColor!,
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -536,17 +679,18 @@ class _StatCell extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Trajectory Cell — icon + label for stream trajectory
+// Trajectory Badge — compact pill with icon + label
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _TrajectoryCell extends StatelessWidget {
-  const _TrajectoryCell({required this.trajectory});
+class _TrajectoryBadge extends StatelessWidget {
+  const _TrajectoryBadge({required this.trajectory});
 
   final Trajectory trajectory;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
 
     final (IconData icon, String label, Color color) = switch (trajectory) {
       Trajectory.improving => (
@@ -571,35 +715,31 @@ class _TrajectoryCell extends StatelessWidget {
       ),
     };
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Trajectory',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w400,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-            letterSpacing: 0.15,
-          ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: isDark ? 0.12 : 0.08),
+        borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+        border: Border.all(
+          color: color.withValues(alpha: isDark ? 0.2 : 0.15),
+          width: 0.5,
         ),
-        const SizedBox(height: 4),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(width: 5),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w500,
-                color: color,
-              ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: color,
             ),
-          ],
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -645,7 +785,7 @@ class _RankingTableState extends State<_RankingTable>
     _controllers = List.generate(count, (_) {
       return AnimationController(
         vsync: this,
-        duration: const Duration(milliseconds: 200),
+        duration: const Duration(milliseconds: 280),
       );
     });
     _fadeAnimations = _controllers.map((c) {
@@ -653,16 +793,16 @@ class _RankingTableState extends State<_RankingTable>
     }).toList();
     _slideAnimations = _controllers.map((c) {
       return Tween<Offset>(
-        begin: const Offset(0, 0.1),
+        begin: const Offset(0, 0.15),
         end: Offset.zero,
-      ).animate(CurvedAnimation(parent: c, curve: Curves.easeOut));
+      ).animate(CurvedAnimation(parent: c, curve: Curves.easeOutCubic));
     }).toList();
   }
 
   Future<void> _startStaggered() async {
     for (int i = 0; i < _controllers.length; i++) {
       if (!mounted) return;
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 65));
       if (!mounted) return;
       _controllers[i].forward();
     }
@@ -699,23 +839,35 @@ class _RankingTableState extends State<_RankingTable>
         // Section header
         Padding(
           padding: const EdgeInsets.only(left: 2, bottom: 10),
-          child: Text(
-            'Stream Ranking',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: cs.onSurface,
-              letterSpacing: 0.1,
-            ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.leaderboard_rounded,
+                size: 16,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Stream Ranking',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurface,
+                  letterSpacing: 0.1,
+                ),
+              ),
+            ],
           ),
         ),
 
         // Table container
         Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
             border: Border.all(
-              color: cs.outline.withValues(alpha: isDark ? 0.08 : 0.06),
+              color: AppTheme.borderColor(isDark, cs).withValues(
+                alpha: isDark ? 0.6 : 0.5,
+              ),
             ),
           ),
           clipBehavior: Clip.antiAlias,
@@ -733,8 +885,8 @@ class _RankingTableState extends State<_RankingTable>
                 child: Row(
                   children: [
                     SizedBox(
-                      width: 32,
-                      child: Text('#', style: _headerStyle(cs)),
+                      width: 36,
+                      child: Text('Rank', style: _headerStyle(cs)),
                     ),
                     Expanded(
                       flex: 3,
@@ -793,7 +945,6 @@ class _RankingTableState extends State<_RankingTable>
                       rank: i + 1,
                       stats: ranked[i],
                       isAlternate: i.isOdd,
-                      isTopRanked: i == 0,
                     ),
                   ),
                 ),
@@ -812,31 +963,46 @@ class _RankingTableState extends State<_RankingTable>
   );
 }
 
-class _RankingRow extends StatelessWidget {
+class _RankingRow extends StatefulWidget {
   const _RankingRow({
     required this.rank,
     required this.stats,
     required this.isAlternate,
-    this.isTopRanked = false,
   });
 
   final int rank;
   final StreamStats stats;
   final bool isAlternate;
-  final bool isTopRanked;
+
+  @override
+  State<_RankingRow> createState() => _RankingRowState();
+}
+
+class _RankingRowState extends State<_RankingRow> {
+  bool _isHovered = false;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
+    final rank = widget.rank;
 
-    // Gold tint for the #1 ranked stream.
+    // Medal colors for top 3
+    const goldColor = Color(0xFFFFD700);
+    const silverColor = Color(0xFFC0C0C0);
+    const bronzeColor = Color(0xFFCD7F32);
+
+    final bool isMedalist = rank <= 3;
+
+    // Background: top row gets a gold-tinted bg, rest alternate
     final Color bgColor;
-    if (isTopRanked) {
+    if (_isHovered) {
+      bgColor = cs.primary.withValues(alpha: 0.04);
+    } else if (rank == 1) {
       bgColor = isDark
-          ? const Color(0xFFFFA726).withValues(alpha: 0.08)
-          : const Color(0xFFFFA726).withValues(alpha: 0.06);
-    } else if (isAlternate) {
+          ? goldColor.withValues(alpha: 0.06)
+          : goldColor.withValues(alpha: 0.04);
+    } else if (widget.isAlternate) {
       bgColor = isDark
           ? cs.surfaceContainerHighest.withValues(alpha: 0.15)
           : cs.surfaceContainerHighest.withValues(alpha: 0.2);
@@ -850,7 +1016,7 @@ class _RankingRow extends StatelessWidget {
       color: cs.onSurface.withValues(alpha: 0.85),
     );
 
-    final (IconData tIcon, Color tColor) = switch (stats.trajectory) {
+    final (IconData tIcon, Color tColor) = switch (widget.stats.trajectory) {
       Trajectory.improving => (
         Icons.trending_up_rounded,
         const Color(0xFF4CAF50),
@@ -869,65 +1035,106 @@ class _RankingRow extends StatelessWidget {
       ),
     };
 
-    return Container(
-      color: bgColor,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 32,
-            child: Text(
-              '$rank',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+    // Rank indicator: medal icon for top 3, plain number for rest
+    Widget rankWidget;
+    if (isMedalist) {
+      final medalColor = switch (rank) {
+        1 => goldColor,
+        2 => silverColor,
+        _ => bronzeColor,
+      };
+      rankWidget = Icon(
+        Icons.emoji_events_rounded,
+        size: 18,
+        color: medalColor,
+      );
+    } else {
+      rankWidget = Text(
+        '$rank',
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+        ),
+      );
+    }
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        color: bgColor,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            SizedBox(width: 36, child: Center(child: rankWidget)),
+            Expanded(
+              flex: 3,
+              child: Row(
+                children: [
+                  // Stream color dot
+                  Container(
+                    width: 6,
+                    height: 6,
+                    margin: const EdgeInsets.only(right: 6),
+                    decoration: BoxDecoration(
+                      color: _streamColor(widget.stats.streamCode),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      widget.stats.streamName,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: rank == 1
+                            ? FontWeight.w500
+                            : FontWeight.w400,
+                        color: cs.onSurface,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Text(
-              stats.streamName,
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w500,
-                color: cs.onSurface,
+            SizedBox(
+              width: 52,
+              child: Text(
+                '${widget.stats.studentCount}',
+                style: valueStyle,
+                textAlign: TextAlign.right,
               ),
-              overflow: TextOverflow.ellipsis,
             ),
-          ),
-          SizedBox(
-            width: 52,
-            child: Text(
-              '${stats.studentCount}',
-              style: valueStyle,
-              textAlign: TextAlign.right,
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 58,
+              child: Text(
+                widget.stats.lastExamAverage != null
+                    ? _fmtPercent(widget.stats.lastExamAverage!)
+                    : '—',
+                style: widget.stats.lastExamAverage != null
+                    ? valueStyle.copyWith(
+                        color: _percentColor(widget.stats.lastExamAverage!),
+                      )
+                    : valueStyle,
+                textAlign: TextAlign.right,
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 58,
-            child: Text(
-              stats.lastExamAverage != null
-                  ? _fmtPercent(stats.lastExamAverage!)
-                  : '—',
-              style: valueStyle,
-              textAlign: TextAlign.right,
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 58,
+              child: Text(
+                _fmtPercent(widget.stats.averageScore),
+                style: valueStyle,
+                textAlign: TextAlign.right,
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 58,
-            child: Text(
-              _fmtPercent(stats.averageScore),
-              style: valueStyle,
-              textAlign: TextAlign.right,
-            ),
-          ),
-          const SizedBox(width: 8),
-          SizedBox(width: 24, child: Icon(tIcon, size: 16, color: tColor)),
-        ],
+            const SizedBox(width: 8),
+            SizedBox(width: 24, child: Icon(tIcon, size: 16, color: tColor)),
+          ],
+        ),
       ),
     );
   }
@@ -935,10 +1142,6 @@ class _RankingRow extends StatelessWidget {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 4. Performance Trend
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Deterministic color palette for streams — indexed by stream code modulo 6.
@@ -953,6 +1156,10 @@ const _kStreamColors = <Color>[
 
 Color _streamColor(int streamCode) =>
     _kStreamColors[streamCode % _kStreamColors.length];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. Performance Trend — fl_chart LineChart
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _TrendSection extends StatelessWidget {
   const _TrendSection({
@@ -977,13 +1184,26 @@ class _TrendSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Performance Trend',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-            letterSpacing: 0.3,
+        Padding(
+          padding: const EdgeInsets.only(left: 2),
+          child: Row(
+            children: [
+              Icon(
+                Icons.show_chart_rounded,
+                size: 16,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Performance Trend',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurface,
+                  letterSpacing: 0.1,
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 12),
@@ -998,7 +1218,13 @@ class _TrendSection extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 28),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        border: Border.all(
+          color: cs.outline.withValues(
+            alpha: cs.brightness == Brightness.dark ? 0.06 : 0.04,
+          ),
+          width: 0.5,
+        ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1023,6 +1249,8 @@ class _TrendSection extends StatelessWidget {
   }
 
   Widget _buildChart(int maxPoints) {
+    final isDark = cs.brightness == Brightness.dark;
+
     // Collect all unique labels in order.
     final allLabels = <String>[];
     for (final pts in trendData.values) {
@@ -1033,13 +1261,65 @@ class _TrendSection extends StatelessWidget {
       }
     }
 
-    final isDark = cs.brightness == Brightness.dark;
+    // Build line data for each stream.
+    final lineBars = <LineChartBarData>[];
+    for (final s in streams) {
+      final points = trendData[s.code];
+      if (points == null || points.length < 2) continue;
+
+      final color = _streamColor(s.code);
+      final spots = <FlSpot>[];
+      for (final p in points) {
+        final idx = allLabels.indexOf(p.label);
+        if (idx >= 0) {
+          spots.add(FlSpot(idx.toDouble(), p.percent.clamp(0, 100)));
+        }
+      }
+
+      if (spots.length < 2) continue;
+
+      lineBars.add(
+        LineChartBarData(
+          spots: spots,
+          isCurved: true,
+          curveSmoothness: 0.3,
+          preventCurveOverShooting: true,
+          color: color,
+          barWidth: 2,
+          isStrokeCapRound: true,
+          dotData: FlDotData(
+            show: true,
+            getDotPainter: (spot, percent, barData, index) {
+              return FlDotCirclePainter(
+                radius: 3,
+                color: color,
+                strokeWidth: 1.5,
+                strokeColor: isDark
+                    ? cs.surface
+                    : Colors.white,
+              );
+            },
+          ),
+          belowBarData: BarAreaData(
+            show: true,
+            gradient: LinearGradient(
+              colors: [
+                color.withValues(alpha: isDark ? 0.12 : 0.1),
+                color.withValues(alpha: 0.0),
+              ],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+          ),
+        ),
+      );
+    }
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
+      padding: const EdgeInsets.fromLTRB(4, 16, 16, 12),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
         border: Border.all(
           color: cs.outline.withValues(alpha: isDark ? 0.06 : 0.04),
           width: 0.5,
@@ -1049,31 +1329,141 @@ class _TrendSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            height: 160,
-            child: CustomPaint(
-              size: const Size(double.infinity, 160),
-              painter: _TrendChartPainter(
-                cs: cs,
-                trendData: trendData,
-                streams: streams,
-                labels: allLabels,
+            height: 180,
+            child: LineChart(
+              LineChartData(
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: 25,
+                  getDrawingHorizontalLine: (value) => FlLine(
+                    color: cs.outline.withValues(alpha: isDark ? 0.06 : 0.04),
+                    strokeWidth: 0.5,
+                  ),
+                ),
+                titlesData: FlTitlesData(
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 32,
+                      interval: 25,
+                      getTitlesWidget: (value, meta) {
+                        if (value < 0 || value > 100) return const SizedBox();
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: Text(
+                            '${value.toInt()}',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w400,
+                              color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 22,
+                      interval: 1,
+                      getTitlesWidget: (value, meta) {
+                        final idx = value.toInt();
+                        if (idx < 0 || idx >= allLabels.length) {
+                          return const SizedBox();
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            allLabels[idx],
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w400,
+                              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                minX: 0,
+                maxX: (allLabels.length - 1).toDouble(),
+                minY: 0,
+                maxY: 100,
+                lineBarsData: lineBars,
+                lineTouchData: LineTouchData(
+                  handleBuiltInTouches: true,
+                  touchTooltipData: LineTouchTooltipData(
+                    getTooltipColor: (touchedSpot) => isDark
+                        ? const Color(0xFF1E2A3A)
+                        : cs.surface,
+                    tooltipRoundedRadius: AppTheme.kChipRadius,
+                    tooltipPadding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    getTooltipItems: (touchedSpots) {
+                      return touchedSpots.map((spot) {
+                        final color = spot.bar.color ?? cs.primary;
+                        // Find stream name from color match
+                        String streamLabel = '';
+                        for (final s in streams) {
+                          if (_streamColor(s.code) == color) {
+                            streamLabel = s.name;
+                            break;
+                          }
+                        }
+                        return LineTooltipItem(
+                          '$streamLabel\n',
+                          TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w400,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                          ),
+                          children: [
+                            TextSpan(
+                              text: _fmtPercent(spot.y),
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: color,
+                              ),
+                            ),
+                          ],
+                        );
+                      }).toList();
+                    },
+                  ),
+                ),
               ),
             ),
           ),
           const SizedBox(height: 14),
-          // Legend.
-          Wrap(
-            spacing: 14,
-            runSpacing: 6,
-            children: [
-              for (final s in streams)
-                if ((trendData[s.code]?.length ?? 0) >= 2)
-                  _LegendItem(
-                    color: _streamColor(s.code),
-                    label: s.name,
-                    cs: cs,
-                  ),
-            ],
+          // Legend
+          Padding(
+            padding: const EdgeInsets.only(left: 28),
+            child: Wrap(
+              spacing: 14,
+              runSpacing: 6,
+              children: [
+                for (final s in streams)
+                  if ((trendData[s.code]?.length ?? 0) >= 2)
+                    _LegendItem(
+                      color: _streamColor(s.code),
+                      label: s.name,
+                      cs: cs,
+                    ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1098,11 +1488,11 @@ class _LegendItem extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 8,
+          width: 10,
           height: 3,
           decoration: BoxDecoration(
             color: color,
-            borderRadius: BorderRadius.circular(1),
+            borderRadius: BorderRadius.circular(1.5),
           ),
         ),
         const SizedBox(width: 5),
@@ -1116,129 +1506,6 @@ class _LegendItem extends StatelessWidget {
         ),
       ],
     );
-  }
-}
-
-// ─── Trend Chart Painter ─────────────────────────────────────────────────────
-
-class _TrendChartPainter extends CustomPainter {
-  _TrendChartPainter({
-    required this.cs,
-    required this.trendData,
-    required this.streams,
-    required this.labels,
-  });
-
-  final ColorScheme cs;
-  final Map<int, List<({String label, double percent})>> trendData;
-  final List<GradeStream> streams;
-  final List<String> labels;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (labels.length < 2) return;
-
-    const double leftPad = 32; // space for Y-axis labels
-    const double bottomPad = 22; // space for X-axis labels
-    const double topPad = 8;
-    const double rightPad = 8;
-
-    final chartLeft = leftPad;
-    final chartRight = size.width - rightPad;
-    final chartTop = topPad;
-    final chartBottom = size.height - bottomPad;
-    final chartWidth = chartRight - chartLeft;
-    final chartHeight = chartBottom - chartTop;
-
-    // ── Grid lines & Y-axis labels ──
-    final gridPaint = Paint()
-      ..color = cs.outline.withValues(alpha: 0.06)
-      ..strokeWidth = 0.5;
-
-    final yLabelStyle = TextStyle(
-      fontSize: 9,
-      fontWeight: FontWeight.w400,
-      color: cs.onSurfaceVariant.withValues(alpha: 0.4),
-    );
-
-    for (int pct = 0; pct <= 100; pct += 25) {
-      final y = chartBottom - (pct / 100) * chartHeight;
-      canvas.drawLine(Offset(chartLeft, y), Offset(chartRight, y), gridPaint);
-      // Y-axis label.
-      final tp = TextPainter(
-        text: TextSpan(text: '$pct', style: yLabelStyle),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(canvas, Offset(chartLeft - tp.width - 6, y - tp.height / 2));
-    }
-
-    // ── X-axis labels ──
-    final xLabelStyle = TextStyle(
-      fontSize: 9.5,
-      fontWeight: FontWeight.w500,
-      color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-    );
-
-    final xStep = labels.length > 1
-        ? chartWidth / (labels.length - 1)
-        : chartWidth;
-
-    for (int i = 0; i < labels.length; i++) {
-      final x = chartLeft + i * xStep;
-      final tp = TextPainter(
-        text: TextSpan(text: labels[i], style: xLabelStyle),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(canvas, Offset(x - tp.width / 2, chartBottom + 6));
-    }
-
-    // ── Draw lines and dots per stream ──
-    for (final s in streams) {
-      final points = trendData[s.code];
-      if (points == null || points.length < 2) continue;
-
-      final color = _streamColor(s.code);
-      final linePaint = Paint()
-        ..color = color
-        ..strokeWidth = 1.5
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round;
-      final dotPaint = Paint()
-        ..color = color
-        ..style = PaintingStyle.fill;
-
-      // Map each point to a canvas position based on its label index.
-      final offsets = <Offset>[];
-      for (final p in points) {
-        final labelIdx = labels.indexOf(p.label);
-        if (labelIdx < 0) continue;
-        final x = chartLeft + labelIdx * xStep;
-        final y = chartBottom - (p.percent.clamp(0, 100) / 100) * chartHeight;
-        offsets.add(Offset(x, y));
-      }
-
-      if (offsets.length < 2) continue;
-
-      // Draw connecting lines.
-      final path = Path()..moveTo(offsets.first.dx, offsets.first.dy);
-      for (int i = 1; i < offsets.length; i++) {
-        path.lineTo(offsets[i].dx, offsets[i].dy);
-      }
-      canvas.drawPath(path, linePaint);
-
-      // Draw dots.
-      for (final o in offsets) {
-        canvas.drawCircle(o, 3.0, dotPaint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _TrendChartPainter oldDelegate) {
-    return oldDelegate.trendData != trendData ||
-        oldDelegate.labels != labels ||
-        oldDelegate.streams != streams ||
-        oldDelegate.cs != cs;
   }
 }
 
