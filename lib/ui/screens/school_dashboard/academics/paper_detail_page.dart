@@ -695,32 +695,104 @@ class _PaperActionBar extends StatefulWidget {
 }
 
 class _PaperActionBarState extends State<_PaperActionBar>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   bool _busy = false;
-  bool _showCheck = false;
-  late final AnimationController _checkCtrl;
-  late final Animation<double> _checkScale;
+  late AnimationController _arcCtrl;
+  late AnimationController _scaleCtrl;
+  late AnimationController _flashCtrl;
+  late Animation<double> _arcAnimation;
+  late Animation<double> _scaleAnimation;
 
   @override
   void initState() {
     super.initState();
-    _checkCtrl = AnimationController(
+    _arcCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _scaleCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _flashCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
-    _checkScale = CurvedAnimation(parent: _checkCtrl, curve: Curves.elasticOut);
+    _arcAnimation = Tween<double>(
+      begin: _arcFraction(widget.paper.status),
+      end: _arcFraction(widget.paper.status),
+    ).animate(CurvedAnimation(parent: _arcCtrl, curve: Curves.easeInOut));
+    _scaleAnimation = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.88), weight: 40),
+      TweenSequenceItem(
+        tween: Tween(begin: 0.88, end: 1.0)
+            .chain(CurveTween(curve: Curves.elasticOut)),
+        weight: 60,
+      ),
+    ]).animate(_scaleCtrl);
+  }
+
+  @override
+  void didUpdateWidget(_PaperActionBar old) {
+    super.didUpdateWidget(old);
+    if (old.paper.status != widget.paper.status) {
+      _arcAnimation = Tween<double>(
+        begin: _arcFraction(old.paper.status),
+        end: _arcFraction(widget.paper.status),
+      ).animate(CurvedAnimation(parent: _arcCtrl, curve: Curves.easeInOut));
+      _arcCtrl.forward(from: 0);
+      _flashCtrl.forward(from: 0).then((_) {
+        if (mounted) _flashCtrl.reverse();
+      });
+    }
   }
 
   @override
   void dispose() {
-    _checkCtrl.dispose();
+    _arcCtrl.dispose();
+    _scaleCtrl.dispose();
+    _flashCtrl.dispose();
     super.dispose();
   }
 
+  double _arcFraction(PaperStatus s) => switch (s) {
+    PaperStatus.pending => 0.0,
+    PaperStatus.progress => 0.33,
+    PaperStatus.done => 0.66,
+    PaperStatus.marked => 1.0,
+  };
+
+  Color _statusColor(PaperStatus s) => switch (s) {
+    PaperStatus.pending => const Color(0xFF42A5F5),
+    PaperStatus.progress => const Color(0xFFFFA726),
+    PaperStatus.done => const Color(0xFF66BB6A),
+    PaperStatus.marked => const Color(0xFF43A047),
+  };
+
+  IconData _statusIcon(PaperStatus s) => switch (s) {
+    PaperStatus.pending => Icons.play_arrow_rounded,
+    PaperStatus.progress => Icons.check_circle_outline_rounded,
+    PaperStatus.done => Icons.grading_rounded,
+    PaperStatus.marked => Icons.check_rounded,
+  };
+
+  String _statusActionLabel(PaperStatus s) => switch (s) {
+    PaperStatus.pending => 'Start exam',
+    PaperStatus.progress => 'Mark as done',
+    PaperStatus.done => 'Mark as graded',
+    PaperStatus.marked => 'Fully graded',
+  };
+
+  PaperStatus? _nextStatus(PaperStatus s) => switch (s) {
+    PaperStatus.pending => PaperStatus.progress,
+    PaperStatus.progress => PaperStatus.done,
+    PaperStatus.done => PaperStatus.marked,
+    PaperStatus.marked => null,
+  };
+
   Future<void> _deletePaper(BuildContext context) async {
-    final subjLabel = widget.paper.paper != null
-        ? 'Paper ${widget.paper.paper}'
-        : 'Paper';
+    final subjLabel =
+        widget.paper.paper != null ? 'Paper ${widget.paper.paper}' : 'Paper';
     final confirmed = await showEduConfirmDialog(
       context: context,
       title: 'Delete Paper?',
@@ -752,6 +824,7 @@ class _PaperActionBarState extends State<_PaperActionBar>
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;
     setState(() => _busy = true);
+    _scaleCtrl.forward(from: 0);
     try {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
       await widget.dao.updatePaper(
@@ -762,54 +835,29 @@ class _PaperActionBarState extends State<_PaperActionBar>
         changes: PapersCompanion(status: Value(next), updated: Value(now)),
         accountId: accountId,
       );
-      // Brief checkmark confirmation for the "Start" button only
-      if (widget.paper.status == PaperStatus.pending && mounted) {
-        setState(() => _showCheck = true);
-        _checkCtrl.forward(from: 0);
-        await Future.delayed(const Duration(milliseconds: 600));
-        if (mounted) setState(() => _showCheck = false);
-        _checkCtrl.reset();
-      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
-  PaperStatus? _nextStatus(PaperStatus s) => switch (s) {
-    PaperStatus.pending => PaperStatus.progress,
-    PaperStatus.progress => PaperStatus.done,
-    PaperStatus.done => PaperStatus.marked,
-    PaperStatus.marked => null,
+  String _statusDescription(PaperStatus s) => switch (s) {
+    PaperStatus.pending => 'Not yet started',
+    PaperStatus.progress => 'Exam in progress',
+    PaperStatus.done => 'Exam completed, awaiting grading',
+    PaperStatus.marked => 'Fully graded',
   };
-
-  ({Color color, IconData icon, String label})? _buttonConfig(PaperStatus s) =>
-      switch (s) {
-        PaperStatus.pending => (
-          color: const Color(0xFF42A5F5),
-          icon: Icons.play_arrow_rounded,
-          label: 'Start',
-        ),
-        PaperStatus.progress => (
-          color: const Color(0xFFFFA726),
-          icon: Icons.check_circle_outline_rounded,
-          label: 'Done',
-        ),
-        PaperStatus.done => (
-          color: const Color(0xFF66BB6A),
-          icon: Icons.grading_rounded,
-          label: 'Grade',
-        ),
-        PaperStatus.marked => null,
-      };
 
   @override
   Widget build(BuildContext context) {
-    final cfg = _buttonConfig(widget.paper.status);
-    final isPending = widget.paper.status == PaperStatus.pending;
+    final status = widget.paper.status;
+    final isPending = status == PaperStatus.pending;
+    final isMarked = status == PaperStatus.marked;
+    final color = _statusColor(status);
+    final next = _nextStatus(status);
+    final nextColor = next != null ? _statusColor(next) : color;
 
     return Row(
       children: [
-        // Delete button — only in pending state
         if (widget.canManage && isPending) ...[
           Tooltip(
             message: 'Delete paper',
@@ -828,75 +876,157 @@ class _PaperActionBarState extends State<_PaperActionBar>
           ),
           const SizedBox(width: 6),
         ],
-        _PaperStatusChip(status: widget.paper.status, cs: widget.cs),
+        _PaperStatusChip(status: status, cs: widget.cs),
         const SizedBox(width: 8),
-        Text(
-          _statusDescription(widget.paper.status),
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w400,
-            color: widget.cs.onSurfaceVariant.withValues(alpha: 0.6),
+        Flexible(
+          child: Text(
+            _statusDescription(status),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              color: widget.cs.onSurfaceVariant.withValues(alpha: 0.6),
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
-        const Spacer(),
-        if (widget.canManage && cfg != null)
-          GestureDetector(
-            onTap: _busy ? null : _advance,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              padding: EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: MediaQuery.sizeOf(context).width < 600 ? 10 : 8,
-              ),
-              decoration: BoxDecoration(
-                color: cfg.color,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: _busy
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 1.5,
-                        color: Colors.white,
-                      ),
-                    )
-                  : _showCheck
-                  ? ScaleTransition(
-                      scale: _checkScale,
-                      child: const Icon(
-                        Icons.check_rounded,
-                        size: 16,
-                        color: Colors.white,
-                      ),
-                    )
-                  : Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(cfg.icon, size: 16, color: Colors.white),
-                        const SizedBox(width: 6),
-                        Text(
-                          cfg.label,
-                          style: const TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
+        const SizedBox(width: 8),
+        if (widget.canManage)
+          AnimatedBuilder(
+            animation: Listenable.merge([_arcCtrl, _scaleCtrl, _flashCtrl]),
+            builder: (context, _) {
+              final scale = _scaleCtrl.isAnimating ? _scaleAnimation.value : 1.0;
+              return Transform.scale(
+                scale: scale,
+                child: _buildCircularButton(status, isMarked, color, nextColor),
+              );
+            },
           ),
       ],
     );
   }
 
-  String _statusDescription(PaperStatus s) => switch (s) {
-    PaperStatus.pending => 'Not yet started',
-    PaperStatus.progress => 'Exam in progress',
-    PaperStatus.done => 'Exam completed, awaiting grading',
-    PaperStatus.marked => 'Fully graded',
-  };
+  Widget _buildCircularButton(
+    PaperStatus status,
+    bool isMarked,
+    Color color,
+    Color nextColor,
+  ) {
+    const size = 40.0;
+    final arcValue = _arcCtrl.isAnimating
+        ? _arcAnimation.value
+        : _arcFraction(status);
+    final flashValue = _flashCtrl.value;
+
+    if (isMarked) {
+      return Tooltip(
+        message: 'Fully graded',
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Color.lerp(
+              const Color(0xFF43A047),
+              const Color(0xFF66BB6A),
+              flashValue,
+            ),
+          ),
+          child: const Icon(Icons.check_rounded, size: 20, color: Colors.white),
+        ),
+      );
+    }
+
+    return Tooltip(
+      message: _statusActionLabel(status),
+      child: GestureDetector(
+        onTap: _busy ? null : _advance,
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: CustomPaint(
+            painter: _ArcProgressPainter(
+              progress: arcValue,
+              arcColor: nextColor,
+              trackColor: widget.cs.outlineVariant.withValues(alpha: 0.25),
+              strokeWidth: 3.0,
+              flashColor: flashValue > 0
+                  ? const Color(0xFF66BB6A).withValues(alpha: flashValue * 0.4)
+                  : null,
+            ),
+            child: Center(
+              child: _busy
+                  ? SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.5,
+                        color: nextColor,
+                      ),
+                    )
+                  : Icon(_statusIcon(status), size: 18, color: nextColor),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ArcProgressPainter extends CustomPainter {
+  _ArcProgressPainter({
+    required this.progress,
+    required this.arcColor,
+    required this.trackColor,
+    required this.strokeWidth,
+    this.flashColor,
+  });
+
+  final double progress;
+  final Color arcColor;
+  final Color trackColor;
+  final double strokeWidth;
+  final Color? flashColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width - strokeWidth) / 2;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    // Track
+    final trackPaint = Paint()
+      ..color = trackColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+    canvas.drawCircle(center, radius, trackPaint);
+
+    // Flash fill
+    if (flashColor != null) {
+      final flashPaint = Paint()
+        ..color = flashColor!
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(center, radius - strokeWidth / 2, flashPaint);
+    }
+
+    // Arc
+    if (progress > 0) {
+      final arcPaint = Paint()
+        ..color = arcColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round;
+      const startAngle = -math.pi / 2;
+      final sweepAngle = 2 * math.pi * progress;
+      canvas.drawArc(rect, startAngle, sweepAngle, false, arcPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ArcProgressPainter old) =>
+      old.progress != progress ||
+      old.arcColor != arcColor ||
+      old.flashColor != flashColor;
 }
 
 // ═════════════════════════════════════════════════════════════════════════════

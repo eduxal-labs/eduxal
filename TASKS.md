@@ -166,7 +166,7 @@ The DAO method `getEnrolledStudents` already has the `stream` parameter with a `
 
 These tasks fix the status advance button in both `paper_detail_page.dart` and `exams_grades_screen.dart`. They must be sequential since they modify the same widget.
 
-### Task C1: Fix status advance button in paper_detail_page.dart — semantic colors, arc progress, animation, and immediate UI update
+### Task C1: ~~Fix status advance button in paper_detail_page.dart — semantic colors, arc progress, animation, and immediate UI update~~ [x]
 
 **Files to modify:** `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`
 **Context files to read (if needed):** None
