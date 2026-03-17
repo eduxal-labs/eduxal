@@ -17,14 +17,15 @@ This project uses three distinct agent roles that share this `AGENT.md` as their
 
 **Responsibilities:**
 1. Read `AGENT.md` in full.
-2. Read all relevant `CONTEXT.md` files in `lib/` and its subdirectories to understand current project state.
-3. Read actual source files as needed — use sub-agents (spawned threads) in parallel or sequentially to gather as much detail as possible about the affected areas.
-4. Read `schema.sql` if the work touches the database layer.
-5. Ask the user as many clarifying questions as needed — do not guess.
-6. Research the codebase thoroughly: understand current implementations, identify patterns, find bugs, map dependencies.
-7. Produce a **comprehensive, detailed task list** organized into tracks with dependency annotations, and **write it into `TASKS.md`**.
-8. Each task MUST be **self-sufficient** for the executor — see §0c below.
-9. Annotate which tasks can run in parallel and which have blocking dependencies.
+2. Read `BUG.md` in full to understand previously fixed bugs and avoid regressions.
+3. Read all relevant `CONTEXT.md` files in `lib/` and its subdirectories to understand current project state.
+4. Read actual source files as needed — use sub-agents (spawned threads) in parallel or sequentially to gather as much detail as possible about the affected areas.
+5. Read `schema.sql` if the work touches the database layer.
+6. Ask the user as many clarifying questions as needed — do not guess.
+7. Research the codebase thoroughly: understand current implementations, identify patterns, find bugs, map dependencies.
+8. Produce a **comprehensive, detailed task list** organized into tracks with dependency annotations, and **write it into `TASKS.md`**.
+9. Each task MUST be **self-sufficient** for the executor — see §0c below.
+10. Annotate which tasks can run in parallel and which have blocking dependencies.
 
 **The examiner never writes application code.** It only researches and writes tasks. It is the "brain" that transforms user intent into actionable engineering specifications.
 
@@ -34,14 +35,16 @@ This project uses three distinct agent roles that share this `AGENT.md` as their
 
 **Responsibilities:**
 1. Read `AGENT.md` in full.
-2. Read `TASKS.md` — scan all unchecked `[ ]` tasks.
-3. Identify which tasks can be executed **in parallel** (no dependencies between them) and which must be **sequential** (blocking dependencies).
-4. For parallel-eligible tasks: spawn multiple executor sub-agents simultaneously, assigning each to different files/directories to avoid conflicts.
-5. For sequential/blocking tasks: execute them one at a time in dependency order.
-6. **Context window awareness:** The orchestrator's context window is ~140K tokens. Before starting a task or batch, estimate whether there is enough remaining context. If the orchestrator believes the context window may fill up, it MUST stop and notify the human: _"Context window nearing capacity. Please start a new session to continue from Task XX."_ — do NOT attempt a task that might be cut off.
-7. After each task (or parallel batch) completes, verify the task is marked `[x]` and the relevant `CONTEXT.md` files are updated.
-8. After each task or batch, trigger a git commit with a descriptive message for the changes made.
-9. If the task list is now empty (all done), delete all content from `TASKS.md` except the header.
+2. Read `BUG.md` in full.
+3. Read `TASKS.md` — scan all unchecked `[ ]` tasks.
+4. Identify which tasks can be executed **in parallel** (no dependencies between them) and which must be **sequential** (blocking dependencies).
+5. For parallel-eligible tasks: spawn multiple executor sub-agents simultaneously, assigning each to different files/directories to avoid conflicts.
+6. For sequential/blocking tasks: execute them one at a time in dependency order.
+7. **Context window awareness:** The orchestrator's context window is ~140K tokens. Before starting a task or batch, estimate whether there is enough remaining context. If the orchestrator believes the context window may fill up, it MUST stop and notify the human: _"Context window nearing capacity. Please start a new session to continue from Task XX."_ — do NOT attempt a task that might be cut off.
+8. After each task (or parallel batch) completes, verify the task is marked `[x]` and the relevant `CONTEXT.md` files are updated.
+9. After each task or batch, trigger a git commit with a descriptive message for the changes made.
+10. Verify that each executor committed its changes. If an executor failed to commit, the orchestrator runs the commit on its behalf.
+11. If the task list is now empty (all done), delete all content from `TASKS.md` except the header.
 
 **The orchestrator never writes application code directly.** It delegates to executor agents and manages the execution flow.
 
@@ -59,11 +62,13 @@ Where `<type>` is one of: `feat`, `fix`, `refactor`, `ui`, `docs`, `chore`, `db`
 
 **Responsibilities:**
 1. Read `AGENT.md` in full (or receive relevant sections from orchestrator).
-2. The task specification (from `TASKS.md`) should contain everything needed. If clarification is needed, read the `CONTEXT.md` file(s) referenced in the task. Avoid exploring the broader codebase.
-3. Execute the task exactly as specified.
-4. **Update the relevant `CONTEXT.md` file(s)** to reflect what changed — new files, modified exports, new methods, changed status. This is mandatory. The next executor session depends on fresh context.
-5. Mark the task as `[x]` in `TASKS.md`.
-6. Report completion (or failure with details) back to the orchestrator.
+2. Read `BUG.md` in full to avoid reverting previously fixed bugs.
+3. The task specification (from `TASKS.md`) should contain everything needed. If clarification is needed, read the `CONTEXT.md` file(s) referenced in the task. Avoid exploring the broader codebase.
+4. Execute the task exactly as specified.
+5. **Update the relevant `CONTEXT.md` file(s)** to reflect what changed — new files, modified exports, new methods, changed status. This is mandatory. The next executor session depends on fresh context.
+6. Mark the task as `[x]` in `TASKS.md`.
+7. **Commit immediately** after completing the task. Run `git add -A && git commit -m "<type>: <description>"`. Do NOT defer commits to the orchestrator — every executor commits its own work.
+8. Report completion (or failure with details) back to the orchestrator.
 
 **The executor never invents new tasks or architectural decisions.** It executes what the examiner wrote and the orchestrator dispatched.
 
@@ -102,6 +107,17 @@ Each significant directory in `lib/` has a `CONTEXT.md` file that serves as a li
 See the existing `CONTEXT.md` files for the standard format. Every `CONTEXT.md` must include a `## Last Updated` line noting which task last modified it.
 
 > **Schema reference:** `schema.sql` is located at `eduxal/schema.sql`. It defines the backend tables, triggers, and indexes. Read it when working on database layer tasks. Note: schema v2 adds `subjects`, `topics`, `streams`, `mpesa` and removes `settings`. The old `subjects` table is renamed to `subject_teachers`. Schema v3 removes `exam_grades` — grade/stream moved to `papers`.
+
+### 0f. BUG.md — Bug Regression Prevention
+
+`BUG.md` is located at the project root (`eduxal/BUG.md`). It is a living log of all bugs encountered and their fixes. Its purpose is to prevent regression — when a bug is fixed, its root cause and solution are recorded so that no future agent accidentally reintroduces the same issue.
+
+**Rules:**
+- **Every agent (Examiner, Orchestrator, Executor)** MUST read `BUG.md` before starting any work.
+- When a bug is fixed, the executor MUST append an entry to `BUG.md` with: bug ID, title, root cause, files changed, and the fix applied.
+- Before writing code that touches a file listed in a `BUG.md` entry, the agent MUST review that entry to ensure the fix is preserved.
+- If an agent's changes would revert a previously fixed bug, the agent MUST stop and flag the conflict to the orchestrator/user.
+- `BUG.md` is append-only — entries are never deleted or modified after creation (except to add cross-references).
 
 ---
 

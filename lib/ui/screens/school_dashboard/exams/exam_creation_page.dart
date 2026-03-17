@@ -152,6 +152,9 @@ class _ExamCreationPageState extends State<ExamCreationPage>
   // Section 4 — Paper timetable
   final Map<String, _ClassSubjects> _classSubjects = {};
   final Map<String, bool> _loadingSubjects = {};
+  // Tracks in-progress subject loading futures so _ensureAllStreamsCovered
+  // and _autoPopulateSlots can await them instead of silently skipping.
+  final Map<String, Future<void>> _loadingFutures = {};
   // Key = "$grade:$stream", value = list of paper slots
   final Map<String, List<_PaperSlot>> _paperSlots = {};
 
@@ -329,17 +332,15 @@ class _ExamCreationPageState extends State<ExamCreationPage>
       }
       if (sourceStreamCode == null) continue; // no papers for this grade at all
 
-      // Ensure subjects are loaded for every stream in this grade.
-      final loadFutures = <Future<void>>[];
+      // Ensure subjects are FULLY loaded for every stream in this grade.
+      // Uses _loadOrWaitSubjects which also awaits in-progress loads
+      // (fixes race condition where tab switch triggered a load that
+      // hasn't completed yet).
+      final waitFutures = <Future<void>>[];
       for (final stream in gc.streams) {
-        final key = _classKey(tab.grade!, stream.code);
-        if (!_classSubjects.containsKey(key) && _loadingSubjects[key] != true) {
-          loadFutures.add(_loadSubjectsForClass(tab.grade!, stream.code));
-        }
+        waitFutures.add(_loadOrWaitSubjects(tab.grade!, stream.code));
       }
-      if (loadFutures.isNotEmpty) {
-        await Future.wait(loadFutures);
-      }
+      await Future.wait(waitFutures);
 
       // Now copy papers from source to any stream that is still empty.
       final sourceKey = _classKey(tab.grade!, sourceStreamCode);
@@ -368,40 +369,48 @@ class _ExamCreationPageState extends State<ExamCreationPage>
             );
             continue;
           }
+
+          // Try to match a subject-teacher assignment in the target stream.
+          // If none exists (target stream has no subject_teachers rows), fall
+          // back to using the source subject code directly — subject IDs are
+          // global and valid across all streams.
           final targetMatch = targetSubjects?.subjects
               .where((s) => s.subject.subject == slot.subjectCode)
               .firstOrNull;
-          if (targetMatch != null) {
-            final startMin = slot.startTime.hour * 60 + slot.startTime.minute;
-            final endMin = slot.endTime.hour * 60 + slot.endTime.minute;
 
-            String? invigilatorId = targetMatch.subject.teacher;
-            if (_isInvigilatorBusy(
-              invigilatorId,
-              slot.date,
-              startMin,
-              endMin,
-              targetKey,
-            )) {
-              invigilatorId = _findAvailableTeacher(
+          final startMin = slot.startTime.hour * 60 + slot.startTime.minute;
+          final endMin = slot.endTime.hour * 60 + slot.endTime.minute;
+
+          // Use target stream's assigned teacher if available,
+          // otherwise fall back to source slot's invigilator.
+          String? invigilatorId =
+              targetMatch?.subject.teacher ?? slot.invigilatorId;
+          if (invigilatorId != null &&
+              _isInvigilatorBusy(
+                invigilatorId,
                 slot.date,
                 startMin,
                 endMin,
                 targetKey,
-              );
-            }
-
-            copiedSlots.add(
-              _PaperSlot(
-                id: _generateId(),
-                date: slot.date,
-                startTime: slot.startTime,
-                endTime: slot.endTime,
-                subjectCode: slot.subjectCode,
-                invigilatorId: invigilatorId,
-              ),
+              )) {
+            invigilatorId = _findAvailableTeacher(
+              slot.date,
+              startMin,
+              endMin,
+              targetKey,
             );
           }
+
+          copiedSlots.add(
+            _PaperSlot(
+              id: _generateId(),
+              date: slot.date,
+              startTime: slot.startTime,
+              endTime: slot.endTime,
+              subjectCode: slot.subjectCode,
+              invigilatorId: invigilatorId,
+            ),
+          );
         }
         _paperSlots[targetKey] = copiedSlots;
       }
@@ -411,12 +420,26 @@ class _ExamCreationPageState extends State<ExamCreationPage>
     _recomputeConflicts();
   }
 
-  void _copyPapersToAllStreams(int grade, int sourceStreamCode) {
+  Future<void> _copyPapersToAllStreams(int grade, int sourceStreamCode) async {
     final gc = _gradeConfigFor(grade);
     if (gc == null) return;
     final sourceKey = _classKey(grade, sourceStreamCode);
     final sourceSlots = _paperSlots[sourceKey];
     if (sourceSlots == null || sourceSlots.isEmpty) return;
+
+    // Ensure subjects are loaded for ALL target streams before copying.
+    // Without this, unvisited stream tabs would have null subjects and
+    // produce empty paper lists.
+    final waitFutures = <Future<void>>[];
+    for (final stream in gc.streams) {
+      if (stream.code == sourceStreamCode) continue;
+      waitFutures.add(_loadOrWaitSubjects(grade, stream.code));
+    }
+    if (waitFutures.isNotEmpty) {
+      await Future.wait(waitFutures);
+    }
+
+    if (!mounted) return;
 
     setState(() {
       for (final stream in gc.streams) {
@@ -438,43 +461,48 @@ class _ExamCreationPageState extends State<ExamCreationPage>
             );
             continue;
           }
-          // Check if target stream has this subject
+
+          // Try to match a subject-teacher assignment in the target stream.
+          // If none exists (target stream has no subject_teachers rows), fall
+          // back to using the source subject code directly — subject IDs are
+          // global and valid across all streams.
           final targetMatch = targetSubjects?.subjects
               .where((s) => s.subject.subject == slot.subjectCode)
               .firstOrNull;
-          if (targetMatch != null) {
-            final startMin = slot.startTime.hour * 60 + slot.startTime.minute;
-            final endMin = slot.endTime.hour * 60 + slot.endTime.minute;
 
-            // Check if this teacher is busy at this time in other streams
-            String? invigilatorId = targetMatch.subject.teacher;
-            if (_isInvigilatorBusy(
-              invigilatorId,
-              slot.date,
-              startMin,
-              endMin,
-              targetKey,
-            )) {
-              invigilatorId = _findAvailableTeacher(
+          final startMin = slot.startTime.hour * 60 + slot.startTime.minute;
+          final endMin = slot.endTime.hour * 60 + slot.endTime.minute;
+
+          // Use target stream's assigned teacher if available,
+          // otherwise fall back to source slot's invigilator.
+          String? invigilatorId =
+              targetMatch?.subject.teacher ?? slot.invigilatorId;
+          if (invigilatorId != null &&
+              _isInvigilatorBusy(
+                invigilatorId,
                 slot.date,
                 startMin,
                 endMin,
                 targetKey,
-              );
-            }
-
-            copiedSlots.add(
-              _PaperSlot(
-                id: _generateId(),
-                date: slot.date,
-                startTime: slot.startTime,
-                endTime: slot.endTime,
-                subjectCode: slot.subjectCode,
-                invigilatorId: invigilatorId,
-              ),
+              )) {
+            invigilatorId = _findAvailableTeacher(
+              slot.date,
+              startMin,
+              endMin,
+              targetKey,
             );
           }
-          // If subject not in target stream, skip the slot
+
+          copiedSlots.add(
+            _PaperSlot(
+              id: _generateId(),
+              date: slot.date,
+              startTime: slot.startTime,
+              endTime: slot.endTime,
+              subjectCode: slot.subjectCode,
+              invigilatorId: invigilatorId,
+            ),
+          );
         }
         _paperSlots[targetKey] = copiedSlots;
       }
@@ -563,6 +591,12 @@ class _ExamCreationPageState extends State<ExamCreationPage>
 
     setState(() => _loadingSubjects[key] = true);
 
+    final future = _doLoadSubjects(key, grade, stream);
+    _loadingFutures[key] = future;
+    await future;
+  }
+
+  Future<void> _doLoadSubjects(String key, int grade, int? stream) async {
     try {
       // Subjects are always loaded per individual stream. For grades without
       // streams, `stream` is null and the DAO handles that case.
@@ -587,11 +621,31 @@ class _ExamCreationPageState extends State<ExamCreationPage>
         );
         _loadingSubjects[key] = false;
       });
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[ExamCreation] Failed to load subjects for key=$key: $e');
       if (mounted) {
         setState(() => _loadingSubjects[key] = false);
       }
+    } finally {
+      _loadingFutures.remove(key);
     }
+  }
+
+  /// Ensures subjects for [grade]/[stream] are fully loaded.
+  /// If already loaded, returns immediately. If a load is in progress,
+  /// waits for it to complete. Otherwise, starts a new load and waits.
+  Future<void> _loadOrWaitSubjects(int grade, int? stream) async {
+    final key = _classKey(grade, stream);
+    // Already loaded — nothing to do.
+    if (_classSubjects.containsKey(key)) return;
+    // A load is in progress — wait for it.
+    final existing = _loadingFutures[key];
+    if (existing != null) {
+      await existing;
+      return;
+    }
+    // Not loaded and not loading — start a fresh load.
+    await _loadSubjectsForClass(grade, stream);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -663,7 +717,16 @@ class _ExamCreationPageState extends State<ExamCreationPage>
     });
   }
 
-  void _autoPopulateSlots(String classKey, int grade) {
+  Future<void> _autoPopulateSlots(String classKey, int grade) async {
+    // Wait for subjects to be fully loaded before populating.
+    // This fixes the race condition where the user switches to a stream
+    // tab and clicks Auto-fill before subjects finish loading — previously
+    // the method would silently return with no papers.
+    final parts = classKey.split(':');
+    final stream = parts[1] == 'null' ? null : int.tryParse(parts[1]);
+    await _loadOrWaitSubjects(grade, stream);
+    if (!mounted) return;
+
     final cs = _classSubjects[classKey];
     if (cs == null || cs.subjects.isEmpty) return;
     if (_startDate == null || _endDate == null) return;
@@ -969,6 +1032,19 @@ class _ExamCreationPageState extends State<ExamCreationPage>
       final examId = _generateId();
       final allPapers = <PapersCompanion>[];
 
+      // Debug: log _paperSlots state before collecting papers
+      debugPrint(
+        '[ExamCreation] _paperSlots has ${_paperSlots.length} entries:',
+      );
+      for (final entry in _paperSlots.entries) {
+        final actionable = entry.value
+            .where((s) => s.subjectCode != null)
+            .length;
+        debugPrint(
+          '  key="${entry.key}" → ${entry.value.length} slots ($actionable with subjects)',
+        );
+      }
+
       for (final entry in _paperSlots.entries) {
         final slots = entry.value;
         // Skip class keys with no actionable slots
@@ -981,6 +1057,10 @@ class _ExamCreationPageState extends State<ExamCreationPage>
         final parts = entry.key.split(':');
         final grade = int.parse(parts[0]);
         final stream = parts[1] == 'null' ? null : int.tryParse(parts[1]);
+
+        debugPrint(
+          '[ExamCreation] Processing key="${entry.key}" → grade=$grade, stream=$stream, ${actionableSlots.length} papers',
+        );
 
         for (final slot in actionableSlots) {
           final startDt = DateTime(
@@ -1019,6 +1099,10 @@ class _ExamCreationPageState extends State<ExamCreationPage>
         }
       }
 
+      debugPrint(
+        '[ExamCreation] Total papers before dedup: ${allPapers.length}',
+      );
+
       // ── Safety net: deduplicate by (subject, paper, grade, stream) ──
       // The real-time _findDuplicateSubjects() should prevent this, but
       // guard against edge cases (e.g. rapid taps, state race) so we
@@ -1044,6 +1128,10 @@ class _ExamCreationPageState extends State<ExamCreationPage>
           ..clear()
           ..addAll(deduped);
       }
+
+      debugPrint(
+        '[ExamCreation] Total papers after dedup: ${allPapers.length}',
+      );
 
       final exam = ExamsCompanion(
         id: Value(examId),

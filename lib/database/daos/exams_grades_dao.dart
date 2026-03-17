@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart';
 import 'package:fixnum/fixnum.dart' as fixnum;
 
@@ -10,6 +12,7 @@ import '../tables/logs.dart';
 import '../tables/mastery.dart';
 import '../tables/papers.dart';
 import '../tables/students.dart';
+import '../tables/streams.dart';
 import '../../client.dart';
 import '../tables/teachers.dart';
 import '../tables/users.dart';
@@ -77,6 +80,7 @@ class PaperAnalytics {
     Users,
     Enrollments,
     SubjectTeachers,
+    Streams,
     Logs,
   ],
 )
@@ -222,6 +226,120 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         .watch();
   }
 
+  /// Emits papers for a specific grade + stream combination within one or
+  /// more exam IDs.  When [stream] is `null`, returns papers where
+  /// `papers.stream IS NULL` (grade-wide papers with no stream assignment).
+  Stream<List<Paper>> watchPapersForExamGradeStream({
+    required String schoolId,
+    required List<String> examIds,
+    required int grade,
+    required int? stream,
+  }) {
+    return (select(papers)
+          ..where(
+            (p) =>
+                p.school.equals(schoolId) &
+                p.exam.isIn(examIds) &
+                p.grade.equals(grade) &
+                (stream != null ? p.stream.equals(stream) : p.stream.isNull()),
+          )
+          ..orderBy([
+            (p) => OrderingTerm.asc(p.start),
+            (p) => OrderingTerm.asc(p.subject),
+            (p) => OrderingTerm.asc(p.paper),
+          ]))
+        .watch();
+  }
+
+  /// Watches all distinct streams that have papers for a given [grade] within
+  /// the supplied [examIds].  Joins with the `streams` table to resolve
+  /// human-readable names.
+  ///
+  /// Returns a list of `({int? streamCode, String? streamName})` sorted by
+  /// stream code ascending.  A `null` streamCode entry means there are
+  /// grade-wide papers with no stream assigned.
+  Stream<List<({int? streamCode, String? streamName})>>
+  watchStreamsWithPapersForGrade({
+    required String schoolId,
+    required List<String> examIds,
+    required int grade,
+  }) {
+    // Watch both papers and streams tables.  We manually combine the two
+    // watches so the output re-emits when *either* table changes (e.g. a
+    // paper is added OR a stream is renamed).
+    final papersWatch =
+        (select(papers)..where(
+              (p) =>
+                  p.school.equals(schoolId) &
+                  p.exam.isIn(examIds) &
+                  p.grade.equals(grade),
+            ))
+            .watch();
+
+    final streamsWatch = (select(
+      streams,
+    )..where((s) => s.school.equals(schoolId) & s.grade.equals(grade))).watch();
+
+    // Manual combineLatest — stores latest emission from each source and
+    // recomputes the result whenever either fires.
+    late final StreamController<List<({int? streamCode, String? streamName})>>
+    controller;
+
+    List<Paper>? latestPapers;
+    List<SchoolStream>? latestStreams;
+    StreamSubscription? papersSub;
+    StreamSubscription? streamsSub;
+
+    void emit() {
+      final pRows = latestPapers;
+      final sRows = latestStreams;
+      if (pRows == null || sRows == null) return;
+
+      // Check if any papers exist with stream = null (grade-wide).
+      final hasGradeWide = pRows.any((p) => p.stream == null);
+
+      // Build the result from ALL streams defined for this grade in the
+      // streams table — not just those that already have papers.  This
+      // ensures every stream tab is visible so the user can navigate to
+      // it (even if it's empty / papers haven't been added yet).
+      final result = <({int? streamCode, String? streamName})>[];
+
+      // If there are grade-wide papers (stream IS NULL), show them first.
+      if (hasGradeWide) {
+        result.add((streamCode: null, streamName: null));
+      }
+
+      // Add every stream from the streams table, sorted by code ascending.
+      final sortedStreams = List<SchoolStream>.from(sRows)
+        ..sort((a, b) => a.stream.compareTo(b.stream));
+      for (final s in sortedStreams) {
+        result.add((streamCode: s.stream, streamName: s.name));
+      }
+
+      controller.add(result);
+    }
+
+    controller =
+        StreamController<List<({int? streamCode, String? streamName})>>(
+          onListen: () {
+            papersSub = papersWatch.listen((rows) {
+              latestPapers = rows;
+              emit();
+            });
+            streamsSub = streamsWatch.listen((rows) {
+              latestStreams = rows;
+              emit();
+            });
+          },
+          onCancel: () {
+            papersSub?.cancel();
+            streamsSub?.cancel();
+          },
+        );
+
+    return controller.stream;
+  }
+
   // ───────────────────────────────────────────────────────────────────────────
   // Reactive streams — grades
   // ───────────────────────────────────────────────────────────────────────────
@@ -364,23 +482,30 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     required String examId,
     required int subject,
     int? paper,
+    required int grade,
+    required int? stream,
   }) {
     return (select(papers)..where(
           (p) =>
               p.school.equals(schoolId) &
               p.exam.equals(examId) &
               p.subject.equals(subject) &
-              (paper == null ? p.paper.isNull() : p.paper.equals(paper)),
+              (paper == null ? p.paper.isNull() : p.paper.equals(paper)) &
+              p.grade.equals(grade) &
+              (stream != null ? p.stream.equals(stream) : p.stream.isNull()),
         ))
         .getSingleOrNull();
   }
 
   /// Watches a single paper row, emitting null if it is deleted.
+  /// All six composite PK columns must be specified for a unique match.
   Stream<Paper?> watchPaper({
     required String schoolId,
     required String examId,
     required int subject,
     required int? paperNum,
+    required int grade,
+    required int? stream,
   }) {
     final query = select(papers)
       ..where(
@@ -388,7 +513,9 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
             p.school.equals(schoolId) &
             p.exam.equals(examId) &
             p.subject.equals(subject) &
-            (paperNum == null ? p.paper.isNull() : p.paper.equals(paperNum)),
+            (paperNum == null ? p.paper.isNull() : p.paper.equals(paperNum)) &
+            p.grade.equals(grade) &
+            (stream != null ? p.stream.equals(stream) : p.stream.isNull()),
       );
     return query.watchSingleOrNull();
   }
@@ -792,6 +919,17 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
           created: Value(now),
         ),
       );
+      // Manually cascade-delete child rows. SQLite's ON DELETE CASCADE
+      // requires PRAGMA foreign_keys = ON on the active connection, which
+      // is not guaranteed inside Drift transactions. Explicit deletes are
+      // reliable regardless of PRAGMA state.
+      // Order: grades → paper_submissions → papers → exams
+      // (mastery is per-student/subject/topic — not linked to exams)
+      await (delete(grades)..where((g) => g.exam.equals(examId))).go();
+      await (delete(
+        paperSubmissions,
+      )..where((ps) => ps.exam.equals(examId))).go();
+      await (delete(papers)..where((p) => p.exam.equals(examId))).go();
       await (delete(exams)..where((e) => e.id.equals(examId))).go();
     });
     sync.schedulePush();
@@ -849,6 +987,8 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     required String examId,
     required int subject,
     required int? paperNum,
+    required int grade,
+    required int? stream,
     required PapersCompanion changes,
     required String accountId,
   }) async {
@@ -860,7 +1000,9 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
                 p.subject.equals(subject) &
                 (paperNum == null
                     ? p.paper.isNull()
-                    : p.paper.equals(paperNum)),
+                    : p.paper.equals(paperNum)) &
+                p.grade.equals(grade) &
+                (stream != null ? p.stream.equals(stream) : p.stream.isNull()),
           ))
           .write(changes);
 
@@ -868,8 +1010,10 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         school: schoolId,
         exam: examId,
         subject: subject,
+        grade: grade,
       );
       if (paperNum != null) payload.paper = paperNum;
+      if (stream != null) payload.stream = stream;
       bool hasChanges = false;
 
       if (changes.invigilator.present) {
@@ -888,12 +1032,17 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         payload.status = changes.status.value.index;
         hasChanges = true;
       }
-      if (changes.grade.present) {
+      // grade and stream are already set above as identifying fields.
+      // If the caller is *changing* the grade or stream value itself,
+      // that still counts as a meaningful change for the log entry.
+      if (changes.grade.present && changes.grade.value != grade) {
         payload.grade = changes.grade.value;
         hasChanges = true;
       }
-      if (changes.stream.present && changes.stream.value != null) {
-        payload.stream = changes.stream.value!;
+      if (changes.stream.present && changes.stream.value != stream) {
+        if (changes.stream.value != null) {
+          payload.stream = changes.stream.value!;
+        }
         hasChanges = true;
       }
       if (!hasChanges) return;
@@ -920,6 +1069,8 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     required String examId,
     required int subject,
     required int? paperNum,
+    required int grade,
+    required int? stream,
     required String accountId,
   }) async {
     await transaction(() async {
@@ -948,7 +1099,9 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
                 p.subject.equals(subject) &
                 (paperNum == null
                     ? p.paper.isNull()
-                    : p.paper.equals(paperNum)),
+                    : p.paper.equals(paperNum)) &
+                p.grade.equals(grade) &
+                (stream != null ? p.stream.equals(stream) : p.stream.isNull()),
           ))
           .go();
     });

@@ -140,6 +140,8 @@ class _PaperDetailPageState extends State<PaperDetailPage>
       examId: _exam.id,
       subject: _paper.subject,
       paperNum: _paper.paper,
+      grade: _paper.grade,
+      stream: _paper.stream,
     );
     _loadStudents();
   }
@@ -202,6 +204,8 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                   examId: _exam.id,
                   subject: currentPaper.subject,
                   paperNum: currentPaper.paper,
+                  grade: currentPaper.grade,
+                  stream: currentPaper.stream,
                   changes: PapersCompanion(
                     invigilator: Value(t.user.id),
                     updated: Value(now),
@@ -578,6 +582,8 @@ class _PaperHeaderState extends State<_PaperHeader>
         examId: widget.exam.exam.id,
         subject: widget.paper.subject,
         paperNum: widget.paper.paper,
+        grade: widget.paper.grade,
+        stream: widget.paper.stream,
         accountId: accountId,
       );
       widget.onDeleted.call();
@@ -600,6 +606,8 @@ class _PaperHeaderState extends State<_PaperHeader>
         examId: widget.exam.exam.id,
         subject: widget.paper.subject,
         paperNum: widget.paper.paper,
+        grade: widget.paper.grade,
+        stream: widget.paper.stream,
         changes: PapersCompanion(status: Value(next), updated: Value(now)),
         accountId: accountId,
       );

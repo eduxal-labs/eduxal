@@ -866,6 +866,11 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
   late final MembersDao _membersDao;
   Map<String, String> _teacherNames = {};
 
+  /// Reactive list of streams that have papers for the currently selected
+  /// grade.  Populated by [_subscribeToStreams] via [watchStreamsWithPapersForGrade].
+  List<({int? streamCode, String? streamName})> _streamEntries = [];
+  StreamSubscription? _streamSub;
+
   @override
   void initState() {
     super.initState();
@@ -885,7 +890,7 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
           if (_gradeTabController.indexIsChanging) return;
           _onGradeTabChanged(_gradeTabController.index);
         });
-    _rebuildStreamTabs();
+    _subscribeToStreams();
     _loadTeacherNames();
   }
 
@@ -906,16 +911,20 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
             if (_gradeTabController.indexIsChanging) return;
             _onGradeTabChanged(_gradeTabController.index);
           });
-      _rebuildStreamTabs();
+      _subscribeToStreams();
       _loadTeacherNames();
+    } else {
+      // Same group key but data may have changed (e.g. grades list grew).
+      // Re-subscribe if the selected grade's exam IDs changed.
+      _subscribeToStreams();
     }
-    // Same group updated (e.g. new papers added) → preserve tab state
   }
 
   @override
   void dispose() {
     _gradeTabController.dispose();
     _streamTabController?.dispose();
+    _streamSub?.cancel();
     super.dispose();
   }
 
@@ -923,24 +932,58 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
     setState(() {
       _selectedGradeIndex = index;
       _selectedStreamIndex = 0;
-      _rebuildStreamTabs();
     });
+    _subscribeToStreams();
   }
 
-  void _rebuildStreamTabs() {
+  /// Subscribes to [ExamsGradesDao.watchStreamsWithPapersForGrade] for the
+  /// currently selected grade.  Whenever the DB changes (papers added/removed,
+  /// streams renamed) the stream tabs rebuild automatically.
+  void _subscribeToStreams() {
+    _streamSub?.cancel();
+    _streamSub = null;
     _streamTabController?.dispose();
     _streamTabController = null;
+
     final grades = widget.group.grades;
-    if (grades.isEmpty) return;
+    if (grades.isEmpty) {
+      setState(() => _streamEntries = []);
+      return;
+    }
+
     final gradeEntry = grades[_selectedGradeIndex];
-    if (gradeEntry.streams.length > 1) {
+    final examIds = widget.group.examIds;
+
+    _streamSub = _dao
+        .watchStreamsWithPapersForGrade(
+          schoolId: widget.schoolId,
+          examIds: examIds,
+          grade: gradeEntry.grade,
+        )
+        .listen((entries) {
+          if (!mounted) return;
+          setState(() {
+            _streamEntries = entries;
+            _rebuildStreamTabController();
+          });
+        });
+  }
+
+  /// Rebuilds the [TabController] to match the current [_streamEntries] length.
+  /// Called whenever the reactive stream emits a new list.
+  void _rebuildStreamTabController() {
+    _streamTabController?.dispose();
+    _streamTabController = null;
+
+    if (_streamEntries.length > 1) {
       final initialIdx = _selectedStreamIndex.clamp(
         0,
-        gradeEntry.streams.length - 1,
+        _streamEntries.length - 1,
       );
+      _selectedStreamIndex = initialIdx;
       _streamTabController =
           TabController(
-            length: gradeEntry.streams.length,
+            length: _streamEntries.length,
             initialIndex: initialIdx,
             vsync: this,
           )..addListener(() {
@@ -969,13 +1012,30 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
     if (mounted) setState(() => _teacherNames = names);
   }
 
-  ExamStreamEntry? get _currentStreamEntry {
+  /// Currently selected stream code (nullable — null means grade-wide).
+  /// Returns the sentinel `_kNoSelection` when there are no stream entries at
+  /// all (nothing to show).
+  static const _kNoSelection = -9999;
+  int? get _currentStreamCode {
+    if (_streamEntries.isEmpty) return _kNoSelection;
+    final si = _selectedStreamIndex.clamp(0, _streamEntries.length - 1);
+    return _streamEntries[si].streamCode;
+  }
+
+  /// Whether there is at least one stream entry with papers to display.
+  bool get _hasStreamSelection =>
+      _streamEntries.isNotEmpty && _currentStreamCode != _kNoSelection;
+
+  /// Resolve the exam row for the current grade.  Because exams have no
+  /// grade/stream columns, we pick the first exam from the grade entry's
+  /// pre-grouped streams (which all share the same exam ID in the common
+  /// case).
+  Exam? get _currentExam {
     final grades = widget.group.grades;
     if (grades.isEmpty) return null;
     final gradeEntry = grades[_selectedGradeIndex];
     if (gradeEntry.streams.isEmpty) return null;
-    final si = _selectedStreamIndex.clamp(0, gradeEntry.streams.length - 1);
-    return gradeEntry.streams[si];
+    return gradeEntry.streams.first.exam;
   }
 
   bool get _canManage {
@@ -984,22 +1044,23 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
   }
 
   Future<void> _showAddPaper(BuildContext context) async {
-    final streamEntry = _currentStreamEntry;
-    if (streamEntry == null) return;
+    if (!_hasStreamSelection) return;
     final grades = widget.group.grades;
     if (grades.isEmpty) return;
     final gradeEntry = grades[_selectedGradeIndex];
+    final exam = _currentExam;
+    if (exam == null) return;
 
     await showEduSheet<void>(
       context: context,
       builder: (_) => _CreatePaperSheet(
         examGroup: widget.group,
         schoolId: widget.schoolId,
-        examId: streamEntry.exam.id,
+        examId: exam.id,
         year: widget.year,
         term: widget.term,
         grade: gradeEntry.grade,
-        stream: streamEntry.streamCode,
+        stream: _currentStreamCode,
         config: widget.config,
         subjectNames: widget.subjectNames,
         dao: _dao,
@@ -1205,18 +1266,14 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
   }
 
   Future<void> _confirmDeleteStream(BuildContext context) async {
-    final streamEntry = _currentStreamEntry;
-    if (streamEntry == null) return;
+    if (!_hasStreamSelection) return;
     final currentGrade = widget.group.grades.isNotEmpty
         ? widget.group.grades[_selectedGradeIndex]
         : null;
     if (currentGrade == null) return;
-    final streamName = streamEntry.streamCode != null
-        ? _streamLabel(
-            currentGrade.grade,
-            streamEntry.streamCode!,
-            widget.config,
-          )
+    final sc = _currentStreamCode;
+    final streamName = sc != null
+        ? _streamLabel(currentGrade.grade, sc, widget.config)
         : 'this stream';
 
     final confirmed = await showEduConfirmDialog(
@@ -1229,7 +1286,12 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
     if (!confirmed || !mounted) return;
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;
-    await _dao.deleteExam(examId: streamEntry.exam.id, accountId: accountId);
+    // Delete all papers for this grade+stream by deleting the exam row
+    // that owns them.  In the typical case all papers for a grade share
+    // one exam row.
+    final exam = _currentExam;
+    if (exam == null) return;
+    await _dao.deleteExam(examId: exam.id, accountId: accountId);
     if (mounted) {
       setState(() => _selectedStreamIndex = 0);
     }
@@ -1264,20 +1326,22 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
         .map((g) => EduTab(label: _gradeLabel(g.grade, widget.config)))
         .toList();
 
-    // Build stream tab labels for the current grade
+    // Build stream tab labels from the reactive _streamEntries list.
+    // Show tabs when there are 2+ distinct streams for this grade.
     final currentGrade = grades.isNotEmpty ? grades[_selectedGradeIndex] : null;
-    final streams = currentGrade?.streams ?? [];
-    final streamTabs = streams.length > 1
-        ? streams
+    final streamTabs = _streamEntries.length > 1
+        ? _streamEntries
               .map(
                 (s) => EduTab(
                   label: s.streamCode != null
-                      ? _streamLabel(
-                          currentGrade!.grade,
-                          s.streamCode!,
-                          widget.config,
-                        )
-                      : 'All Streams',
+                      ? (s.streamName != null && s.streamName!.isNotEmpty
+                            ? s.streamName!
+                            : _streamLabel(
+                                currentGrade!.grade,
+                                s.streamCode!,
+                                widget.config,
+                              ))
+                      : 'All',
                 ),
               )
               .toList()
@@ -1371,7 +1435,7 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
                 isScrollable: true,
                 padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
               ),
-            // ── Stream sub-tabs ────────────────────────────────────────────
+            // ── Stream sub-tabs (reactive from DB) ─────────────────────────
             if (streamTabs.isNotEmpty && _streamTabController != null)
               Row(
                 children: [
@@ -1400,20 +1464,20 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
                 ],
               ),
             // ── Paper status legend ────────────────────────────────────────
-            if (_currentStreamEntry != null)
+            if (_hasStreamSelection)
               const Padding(
                 padding: EdgeInsets.fromLTRB(16, 4, 16, 0),
                 child: _PaperStatusLegend(),
               ),
             // ── Paper content area ─────────────────────────────────────────
             Expanded(
-              child: _currentStreamEntry == null
+              child: !_hasStreamSelection
                   ? _EmptyPapersTimetableState(cs: cs)
                   : _PaperContentArea(
-                      streamEntry: _currentStreamEntry!,
-                      grade: widget.group.grades.isNotEmpty
-                          ? widget.group.grades[_selectedGradeIndex].grade
-                          : 0,
+                      examIds: widget.group.examIds,
+                      grade: currentGrade?.grade ?? 0,
+                      stream: _currentStreamCode,
+                      exam: _currentExam,
                       schoolId: widget.schoolId,
                       config: widget.config,
                       subjectNames: widget.subjectNames,
@@ -1440,7 +1504,7 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
             right: 12,
             bottom: 16,
             child: _ExpandableFab(
-              paperEnabled: _currentStreamEntry != null,
+              paperEnabled: _hasStreamSelection,
               onAddPaper: () => _showAddPaper(context),
               onAddGrade: () => _showAddGradeModal(context),
               onAddStream: () => _showAddStreamModal(context),
@@ -5683,8 +5747,10 @@ class _FabOptionPill extends StatelessWidget {
 
 class _PaperContentArea extends StatefulWidget {
   const _PaperContentArea({
-    required this.streamEntry,
+    required this.examIds,
     required this.grade,
+    required this.stream,
+    required this.exam,
     required this.schoolId,
     required this.config,
     required this.subjectNames,
@@ -5695,8 +5761,19 @@ class _PaperContentArea extends StatefulWidget {
     this.initialDayIndex = 0,
     this.onDayChanged,
   });
-  final ExamStreamEntry streamEntry;
+
+  /// All exam row IDs in the current exam group.
+  final List<String> examIds;
+
+  /// The grade filter — only papers with this grade are shown.
   final int grade;
+
+  /// The stream filter — `null` means grade-wide papers (stream IS NULL).
+  final int? stream;
+
+  /// The exam row for display purposes (paper tap callback, grid headers).
+  /// May be null if no exam row is resolved yet.
+  final Exam? exam;
   final String schoolId;
   final SchoolConfig config;
   final Map<int, String> subjectNames;
@@ -5714,27 +5791,36 @@ class _PaperContentArea extends StatefulWidget {
 
 class _PaperContentAreaState extends State<_PaperContentArea> {
   late Stream<List<Paper>> _papersStream;
-  late String _examId;
+
+  /// Cache key so we can detect when we need to rebuild the stream.
+  late String _cacheKey;
+
+  String _buildCacheKey() =>
+      '${widget.schoolId}|${widget.examIds.join(',')}|${widget.grade}|${widget.stream}';
 
   @override
   void initState() {
     super.initState();
-    _examId = widget.streamEntry.exam.id;
-    _papersStream = widget.dao.watchPapersForExam(
+    _cacheKey = _buildCacheKey();
+    _papersStream = widget.dao.watchPapersForExamGradeStream(
       schoolId: widget.schoolId,
-      examId: _examId,
+      examIds: widget.examIds,
+      grade: widget.grade,
+      stream: widget.stream,
     );
   }
 
   @override
   void didUpdateWidget(covariant _PaperContentArea old) {
     super.didUpdateWidget(old);
-    final newId = widget.streamEntry.exam.id;
-    if (newId != _examId || widget.schoolId != old.schoolId) {
-      _examId = newId;
-      _papersStream = widget.dao.watchPapersForExam(
+    final newKey = _buildCacheKey();
+    if (newKey != _cacheKey) {
+      _cacheKey = newKey;
+      _papersStream = widget.dao.watchPapersForExamGradeStream(
         schoolId: widget.schoolId,
-        examId: _examId,
+        examIds: widget.examIds,
+        grade: widget.grade,
+        stream: widget.stream,
       );
     }
   }
@@ -5742,15 +5828,18 @@ class _PaperContentAreaState extends State<_PaperContentArea> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    // Use the papers already loaded in the ExamGroup model as initial data
-    // so the grid renders immediately without a blank flash.
-    final initialPapers = widget.streamEntry.papers;
+    final exam = widget.exam;
     return StreamBuilder<List<Paper>>(
       stream: _papersStream,
-      initialData: initialPapers.isNotEmpty ? initialPapers : null,
       builder: (context, snap) {
         final papers = snap.data ?? [];
         if (papers.isEmpty) {
+          return _EmptyPapersTimetableState(cs: cs);
+        }
+        // Resolve the exam for display — prefer widget.exam.
+        // In practice widget.exam should always be non-null.
+        final displayExam = exam;
+        if (displayExam == null) {
           return _EmptyPapersTimetableState(cs: cs);
         }
         return LayoutBuilder(
@@ -5758,7 +5847,7 @@ class _PaperContentAreaState extends State<_PaperContentArea> {
             if (constraints.maxWidth >= 600) {
               return _PaperTimetableGrid(
                 papers: papers,
-                exam: widget.streamEntry.exam,
+                exam: displayExam,
                 grade: widget.grade,
                 config: widget.config,
                 subjectNames: widget.subjectNames,
@@ -5769,7 +5858,7 @@ class _PaperContentAreaState extends State<_PaperContentArea> {
             } else {
               return _PaperTimetableMobile(
                 papers: papers,
-                exam: widget.streamEntry.exam,
+                exam: displayExam,
                 grade: widget.grade,
                 config: widget.config,
                 subjectNames: widget.subjectNames,
