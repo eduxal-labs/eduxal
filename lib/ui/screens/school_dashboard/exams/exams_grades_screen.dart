@@ -5802,6 +5802,10 @@ class _PaperContentAreaState extends State<_PaperContentArea> {
   void initState() {
     super.initState();
     _cacheKey = _buildCacheKey();
+    debugPrint(
+      '[_PaperContentArea] initState: grade=${widget.grade}, '
+      'stream=${widget.stream}, examIds=${widget.examIds}',
+    );
     _papersStream = widget.dao.watchPapersForExamGradeStream(
       schoolId: widget.schoolId,
       examIds: widget.examIds,
@@ -5815,6 +5819,11 @@ class _PaperContentAreaState extends State<_PaperContentArea> {
     super.didUpdateWidget(old);
     final newKey = _buildCacheKey();
     if (newKey != _cacheKey) {
+      debugPrint(
+        '[_PaperContentArea] stream changed: '
+        'old=${old.stream} → new=${widget.stream}, '
+        'grade=${widget.grade}',
+      );
       _cacheKey = newKey;
       _papersStream = widget.dao.watchPapersForExamGradeStream(
         schoolId: widget.schoolId,
@@ -5833,6 +5842,13 @@ class _PaperContentAreaState extends State<_PaperContentArea> {
       stream: _papersStream,
       builder: (context, snap) {
         final papers = snap.data ?? [];
+        if (papers.isNotEmpty) {
+          debugPrint(
+            '[_PaperContentArea] build: stream=${widget.stream}, '
+            '${papers.length} papers, '
+            'statuses=${papers.map((p) => '${p.subject}:${p.status}').join(', ')}',
+          );
+        }
         if (papers.isEmpty) {
           return _EmptyPapersTimetableState(cs: cs);
         }

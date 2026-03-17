@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:drift/drift.dart';
 import 'package:fixnum/fixnum.dart' as fixnum;
+import 'package:flutter/foundation.dart' show debugPrint;
 
 import '../database.dart';
 import '../tables/enums.dart';
@@ -993,18 +994,29 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     required String accountId,
   }) async {
     await transaction(() async {
-      await (update(papers)..where(
-            (p) =>
-                p.school.equals(schoolId) &
-                p.exam.equals(examId) &
-                p.subject.equals(subject) &
-                (paperNum == null
-                    ? p.paper.isNull()
-                    : p.paper.equals(paperNum)) &
-                p.grade.equals(grade) &
-                (stream != null ? p.stream.equals(stream) : p.stream.isNull()),
-          ))
-          .write(changes);
+      debugPrint(
+        '[updatePaper] WHERE school=$schoolId, exam=$examId, subject=$subject, '
+        'paper=$paperNum, grade=$grade, stream=$stream | '
+        'changes: ${changes.toColumns(false).keys.join(', ')}',
+      );
+
+      final affected =
+          await (update(papers)..where(
+                (p) =>
+                    p.school.equals(schoolId) &
+                    p.exam.equals(examId) &
+                    p.subject.equals(subject) &
+                    (paperNum == null
+                        ? p.paper.isNull()
+                        : p.paper.equals(paperNum)) &
+                    p.grade.equals(grade) &
+                    (stream != null
+                        ? p.stream.equals(stream)
+                        : p.stream.isNull()),
+              ))
+              .write(changes);
+
+      debugPrint('[updatePaper] Rows affected: $affected');
 
       final payload = sync_pb.UpdatePaperPayload(
         school: schoolId,

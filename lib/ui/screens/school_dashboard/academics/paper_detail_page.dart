@@ -593,10 +593,20 @@ class _PaperHeaderState extends State<_PaperHeader>
   }
 
   Future<void> _advance() async {
-    final next = _nextStatus(widget.paper.status);
+    final paper = widget.paper;
+    final next = _nextStatus(paper.status);
     if (next == null) return;
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;
+
+    debugPrint(
+      '[_advance] Advancing paper: subject=${paper.subject}, '
+      'paperNum=${paper.paper}, grade=${paper.grade}, '
+      'stream=${paper.stream}, '
+      'status=${paper.status} → $next, '
+      'invigilator=${paper.invigilator}',
+    );
+
     setState(() => _busy = true);
     _scaleCtrl.forward(from: 0);
     try {
@@ -604,10 +614,10 @@ class _PaperHeaderState extends State<_PaperHeader>
       await widget.dao.updatePaper(
         schoolId: widget.schoolId,
         examId: widget.exam.exam.id,
-        subject: widget.paper.subject,
-        paperNum: widget.paper.paper,
-        grade: widget.paper.grade,
-        stream: widget.paper.stream,
+        subject: paper.subject,
+        paperNum: paper.paper,
+        grade: paper.grade,
+        stream: paper.stream,
         changes: PapersCompanion(status: Value(next), updated: Value(now)),
         accountId: accountId,
       );
