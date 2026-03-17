@@ -30,7 +30,7 @@ class ExamsTab extends StatefulWidget {
     required this.year,
     required this.term,
     required this.grade,
-    required this.streamCode,
+    this.streamCode,
     required this.streamName,
     required this.curriculumType,
     required this.schoolContext,
@@ -40,7 +40,7 @@ class ExamsTab extends StatefulWidget {
   final int year;
   final int term;
   final int grade;
-  final int streamCode;
+  final int? streamCode;
   final String streamName;
   final dynamic curriculumType;
   final SchoolContext schoolContext;
@@ -555,9 +555,10 @@ class _ExamRowState extends State<_ExamRow>
       duration: const Duration(milliseconds: 100),
       reverseDuration: const Duration(milliseconds: 150),
     );
-    _scaleAnim = Tween<double>(begin: 1.0, end: 0.98).animate(
-      CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut),
-    );
+    _scaleAnim = Tween<double>(
+      begin: 1.0,
+      end: 0.98,
+    ).animate(CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut));
   }
 
   @override
@@ -627,8 +628,8 @@ class _ExamRowState extends State<_ExamRow>
                 color: _isPressed
                     ? pressBg
                     : _isHovered
-                        ? hoverBg
-                        : idleBg,
+                    ? hoverBg
+                    : idleBg,
                 borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
                 border: Border.all(
                   color: _isHovered || _isPressed
@@ -769,8 +770,9 @@ class _ExamRowState extends State<_ExamRow>
                                       style: TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.w400,
-                                        color: cs.onSurfaceVariant
-                                            .withValues(alpha: 0.55),
+                                        color: cs.onSurfaceVariant.withValues(
+                                          alpha: 0.55,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -806,10 +808,7 @@ class _ExamRowState extends State<_ExamRow>
                               AnimatedSlide(
                                 duration: const Duration(milliseconds: 200),
                                 curve: Curves.easeOut,
-                                offset: Offset(
-                                  _isHovered ? 0.15 : 0.0,
-                                  0,
-                                ),
+                                offset: Offset(_isHovered ? 0.15 : 0.0, 0),
                                 child: AnimatedOpacity(
                                   duration: const Duration(milliseconds: 200),
                                   opacity: _isHovered ? 0.8 : 0.35,

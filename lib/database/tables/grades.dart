@@ -29,6 +29,13 @@ class Grades extends Table {
 
   // [paper] is nullable so it cannot be included in Drift's primaryKey set.
   // The composite PK and all FKs are expressed as table-level constraints.
+  //
+  // Note: there is intentionally NO FK from grades to papers. The papers PK
+  // includes (grade, stream) which grades does not carry — the student's
+  // enrollment determines their grade/stream. Referential integrity between
+  // grades and papers is enforced by the `grades_enrollment_check` trigger
+  // in database.dart, which verifies that the student is enrolled in a class
+  // that participates in the exam (via the papers table).
   @override
   List<String> get customConstraints => [
     'PRIMARY KEY (school, exam, student, subject, paper)',
@@ -37,10 +44,5 @@ class Grades extends Table {
     'FOREIGN KEY (subject) REFERENCES subjects(id) ON DELETE CASCADE',
     'FOREIGN KEY (school, student)'
         ' REFERENCES students(school, adm) ON DELETE CASCADE',
-    // Only enforced when paper IS NOT NULL — SQLite skips FK checks when any
-    // FK column is NULL. A null-paper grade is a subject-level aggregate not
-    // tied to a specific papers row.
-    'FOREIGN KEY (school, exam, subject, paper)'
-        ' REFERENCES papers(school, exam, subject, paper) ON DELETE CASCADE',
   ];
 }

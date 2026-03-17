@@ -1,9 +1,15 @@
 import '../database/database.dart';
 import '../database/tables/enums.dart';
 
-/// A logical exam grouping — multiple exam rows that share the same
+/// A logical exam grouping — exams that share the same
 /// (school, year, term, type, start, end) are presented to the user
 /// as a single exam entity.
+///
+/// In the normal case there is exactly **one** exam row per group.
+/// The `exams` table has no grade/stream columns — a single exam can
+/// span multiple grades and streams via its `papers` rows.
+/// The grouping key exists to handle legacy data or edge cases where
+/// multiple exam rows were created with identical metadata.
 class ExamGroup {
   final String school;
   final int year;
@@ -49,9 +55,9 @@ class ExamGroup {
       grades.map((g) => g.grade).toSet().toList()..sort();
 }
 
-/// One grade's worth of exam rows within a group.
-/// A grade may have multiple exam rows if it has multiple streams
-/// (one exam row per stream) or a single row with stream=null (all streams).
+/// One grade's worth of papers within an exam group.
+/// Papers are grouped by stream within each grade. Typically all papers
+/// reference the same exam row (since exams have no grade/stream columns).
 class ExamGradeEntry {
   final int grade;
   final List<ExamStreamEntry>
@@ -64,10 +70,12 @@ class ExamGradeEntry {
   List<Paper> get papers => streams.expand((s) => s.papers).toList();
 }
 
-/// One exam row + its papers for a specific stream within a grade.
+/// Papers for a specific stream within a grade, linked back to the
+/// parent exam row. Typically all streams share the same [exam] reference
+/// since exams have no grade/stream columns — the stream is on the paper.
 class ExamStreamEntry {
   final Exam exam;
-  final int? streamCode; // null = all streams
+  final int? streamCode; // null = grade-wide papers (no stream filter)
   final List<Paper> papers;
 
   ExamStreamEntry({

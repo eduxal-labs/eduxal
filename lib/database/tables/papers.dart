@@ -36,7 +36,7 @@ class Papers extends Table {
   // Drift will use SQLite's implicit rowid for data-class identity.
   @override
   List<String> get customConstraints => [
-    'PRIMARY KEY (school, exam, subject, paper)',
+    'PRIMARY KEY (school, exam, subject, paper, grade, stream)',
     'CHECK (start < end)',
     'FOREIGN KEY (subject) REFERENCES subjects(id) ON DELETE CASCADE',
     'FOREIGN KEY (topic) REFERENCES topics(id) ON DELETE SET NULL',

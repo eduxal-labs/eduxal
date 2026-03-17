@@ -11,7 +11,7 @@ import '../../../../database/daos/catalog_dao.dart';
 import '../../../../database/daos/members_dao.dart';
 import '../../../../database/daos/subjects_dao.dart';
 import '../../../../database/tables/curriculum_subjects.dart';
-import '../../../../database/tables/enums.dart' show ExamType;
+import '../../../../database/tables/enums.dart' show ExamType, PaperStatus;
 import '../../../../models/membership.dart';
 import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
@@ -144,8 +144,7 @@ class _GradeDetailPageState extends State<GradeDetailPage>
     final streamCount = widget.grade.streams.length;
 
     // Resolve initial stream index — clamp to valid range.
-    final maxStreamIdx =
-        streamCount; // 0 = All, streamCount = last stream
+    final maxStreamIdx = streamCount; // 0 = All, streamCount = last stream
     final initStream = (widget.initialStreamIndex ?? 0).clamp(0, maxStreamIdx);
     _selectedStreamIndex = initStream;
 
@@ -441,13 +440,12 @@ class _GradeDetailPageState extends State<GradeDetailPage>
   // ── "All" sub-tab helpers ──────────────────────────────────────────────────
 
   Widget _buildAllExamsTab(ColorScheme cs, Term term) {
-    final firstStream = widget.grade.streams.first;
     return ExamsTab(
       schoolId: widget.schoolContext.membership.school.id,
       year: term.year,
       term: term.term,
       grade: widget.grade.grade,
-      streamCode: firstStream.code,
+      streamCode: null,
       streamName: 'All',
       curriculumType: widget.curriculumType,
       schoolContext: widget.schoolContext,
@@ -455,13 +453,12 @@ class _GradeDetailPageState extends State<GradeDetailPage>
   }
 
   Widget _buildAllTimetableTab(ColorScheme cs, Term term) {
-    final firstStream = widget.grade.streams.first;
     return TimetableTab(
       schoolId: widget.schoolContext.membership.school.id,
       year: term.year,
       term: term.term,
       grade: widget.grade.grade,
-      streamCode: firstStream.code,
+      streamCode: null,
       streamName: 'All',
       curriculumType: widget.curriculumType,
       schoolContext: widget.schoolContext,
@@ -2449,8 +2446,10 @@ class _CreateExamFromGradeSheet extends StatefulWidget {
 class _CreateExamFromGradeSheetState extends State<_CreateExamFromGradeSheet> {
   final _formKey = GlobalKey<FormState>();
   late final ExamsGradesDao _dao;
+  late final SubjectsDao _subjectsDao;
   bool _saving = false;
 
+  final _nameCtrl = TextEditingController();
   ExamType _type = ExamType.exam;
   bool _allStreams = false;
   bool _personalized = false;
@@ -2461,10 +2460,34 @@ class _CreateExamFromGradeSheetState extends State<_CreateExamFromGradeSheet> {
   void initState() {
     super.initState();
     _dao = ExamsGradesDao(db);
+    _subjectsDao = SubjectsDao(db);
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    super.dispose();
+  }
+
+  /// Loads all subjects for [streamCode] in the current grade/term.
+  Future<
+    List<({SubjectTeacher subject, UsersData teacher, String subjectName})>
+  >
+  _loadSubjects(int streamCode) async {
+    return _subjectsDao.getSubjectsForClass(
+      schoolId: widget.schoolId,
+      year: widget.year,
+      term: widget.term,
+      grade: widget.grade,
+      stream: streamCode,
+    );
   }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final examName = _nameCtrl.text.trim();
+    if (examName.isEmpty) return;
 
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;
@@ -2480,28 +2503,121 @@ class _CreateExamFromGradeSheetState extends State<_CreateExamFromGradeSheet> {
       final startDays = _startDate.millisecondsSinceEpoch ~/ (86400 * 1000);
       final endDays = _endDate.millisecondsSinceEpoch ~/ (86400 * 1000);
 
-      await _dao.createExam(
-        exam: ExamsCompanion(
-          id: Value(examId),
-          school: Value(widget.schoolId),
-          year: Value(widget.year),
-          term: Value(widget.term),
-          personalized: Value(_personalized),
-          type: Value(_type),
-          start: Value(startDays),
-          end: Value(endDays),
-          teacher: Value(teacherId),
-          created: Value(now),
-          updated: Value(now),
-        ),
+      // Determine which streams to create papers for.
+      final streamsToProcess = <GradeStream>[];
+      if (_allStreams && widget.allStreams.length > 1) {
+        streamsToProcess.addAll(widget.allStreams);
+      } else if (widget.stream != null) {
+        streamsToProcess.add(widget.stream!);
+      }
+      // If no streams (grade has none), we still create the exam but
+      // with no papers — the user adds papers later via the full editor.
+
+      // Build paper rows for each stream by loading its assigned subjects.
+      final allPapers = <PapersCompanion>[];
+      for (final stream in streamsToProcess) {
+        final subjects = await _loadSubjects(stream.code);
+        for (final entry in subjects) {
+          // Use exam start/end as paper start/end (placeholder times).
+          final startSecs = BigInt.from(
+            DateTime.utc(
+                  _startDate.year,
+                  _startDate.month,
+                  _startDate.day,
+                ).millisecondsSinceEpoch ~/
+                1000,
+          );
+          final endSecs = BigInt.from(
+            DateTime.utc(
+                  _endDate.year,
+                  _endDate.month,
+                  _endDate.day,
+                ).millisecondsSinceEpoch ~/
+                1000,
+          );
+
+          allPapers.add(
+            PapersCompanion(
+              school: Value(widget.schoolId),
+              exam: Value(examId),
+              subject: Value(entry.subject.subject),
+              paper: const Value(null),
+              invigilator: Value(entry.subject.teacher),
+              grade: Value(widget.grade),
+              stream: Value(stream.code),
+              start: Value(startSecs),
+              end: Value(endSecs),
+              status: Value(PaperStatus.pending),
+              created: Value(now),
+              updated: Value(now),
+            ),
+          );
+        }
+      }
+
+      // Deduplicate by (subject, paper, grade, stream) to avoid PK conflicts.
+      {
+        final seen = <String>{};
+        final deduped = <PapersCompanion>[];
+        for (final p in allPapers) {
+          final paperVal = p.paper.present ? p.paper.value : null;
+          final streamVal = p.stream.present ? p.stream.value : null;
+          final key =
+              '${p.subject.value}:$paperVal:${p.grade.value}:$streamVal';
+          if (seen.add(key)) {
+            deduped.add(p);
+          }
+        }
+        allPapers
+          ..clear()
+          ..addAll(deduped);
+      }
+
+      final exam = ExamsCompanion(
+        id: Value(examId),
+        school: Value(widget.schoolId),
+        year: Value(widget.year),
+        term: Value(widget.term),
+        name: Value(examName),
+        personalized: Value(_personalized),
+        type: Value(_type),
+        start: Value(startDays),
+        end: Value(endDays),
+        teacher: Value(teacherId),
+        created: Value(now),
+        updated: Value(now),
+      );
+
+      await _dao.createExamWithPapers(
+        exam: exam,
+        paperRows: allPapers,
         accountId: accountId,
       );
+
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Exam created'),
-            duration: Duration(seconds: 2),
+          SnackBar(
+            content: Text(
+              allPapers.isEmpty
+                  ? 'Exam created (no papers — add via exam details)'
+                  : 'Exam created with ${allPapers.length} paper${allPapers.length == 1 ? '' : 's'}',
+            ),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e, stack) {
+      debugPrint('══════ EXAM CREATION ERROR ══════');
+      debugPrint('Type : ${e.runtimeType}');
+      debugPrint('Error: $e');
+      debugPrint('Stack:\n$stack');
+      debugPrint('═════════════════════════════════');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to create exam: $e'),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -2556,7 +2672,7 @@ class _CreateExamFromGradeSheetState extends State<_CreateExamFromGradeSheet> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${widget.gradeLabel}${widget.stream != null ? ' · ${widget.stream!.name}' : ''}',
+                  '${widget.gradeLabel}${_allStreams && widget.allStreams.length > 1 ? ' · All streams' : (widget.stream != null ? ' · ${widget.stream!.name}' : '')}',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
@@ -2564,6 +2680,36 @@ class _CreateExamFromGradeSheetState extends State<_CreateExamFromGradeSheet> {
                   ),
                 ),
                 const SizedBox(height: 20),
+
+                // ── Name field ───────────────────────────────────────────
+                _ExamFieldLabel(label: 'Name', cs: cs),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _nameCtrl,
+                  style: TextStyle(fontSize: 14, color: cs.onSurface),
+                  decoration: InputDecoration(
+                    hintText: 'e.g. End Term 2 Exam',
+                    hintStyle: TextStyle(
+                      fontSize: 13,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                    ),
+                    filled: true,
+                    fillColor: cs.surfaceContainerHighest.withValues(
+                      alpha: 0.5,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.kRadius),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Required' : null,
+                ),
+                const SizedBox(height: 16),
 
                 // ── Type selector ────────────────────────────────────────
                 _ExamFieldLabel(label: 'Type', cs: cs),

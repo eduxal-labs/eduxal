@@ -22,7 +22,7 @@ class TimetableTab extends StatefulWidget {
     required this.year,
     required this.term,
     required this.grade,
-    required this.streamCode,
+    this.streamCode,
     required this.streamName,
     required this.curriculumType,
     required this.schoolContext,
@@ -32,7 +32,7 @@ class TimetableTab extends StatefulWidget {
   final int year;
   final int term;
   final int grade;
-  final int streamCode;
+  final int? streamCode;
   final String streamName;
   final CurriculumType curriculumType;
   final SchoolContext schoolContext;

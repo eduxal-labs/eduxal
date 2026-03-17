@@ -297,16 +297,16 @@ CREATE TABLE papers (
     created bigint not null default (unixepoch('now')),
     updated bigint not null default (unixepoch('now')),
     CHECK (start < end),
-    primary key (school, exam, subject, paper),
+    primary key (school, exam, subject, paper, grade, stream),
     foreign key (school) references schools(id) ON DELETE CASCADE,
     foreign key (exam) references exams(id) ON DELETE CASCADE,
     foreign key (subject) references subjects(id),
     foreign key (topic) references topics(id) ON DELETE SET NULL,
     foreign key (school, invigilator) references teachers(school, user) ON DELETE CASCADE
 );
--- Enforces at most one null-paper row per (school, exam, subject).
--- Numbered papers for the same subject can coexist (e.g. English: composition + essay).
-CREATE UNIQUE INDEX papers_subject_null_idx ON papers(school, exam, subject) WHERE paper IS NULL;
+-- Enforces at most one null-paper row per (school, exam, subject, grade, stream).
+-- A single exam can have the same subject across different grades/streams.
+CREATE UNIQUE INDEX papers_subject_null_idx ON papers(school, exam, subject, grade, stream) WHERE paper IS NULL;
 
 -- grades of exams
 CREATE TABLE grades (
@@ -324,10 +324,12 @@ CREATE TABLE grades (
     foreign key (school) references schools(id) ON DELETE CASCADE,
     foreign key (exam) references exams(id) ON DELETE CASCADE,
     foreign key (school, student) references students(school, adm) ON DELETE CASCADE,
-    foreign key (subject) references subjects(id),
-    -- Only enforced when paper IS NOT NULL (SQLite skips FK checks when any FK column is NULL).
-    -- A null paper grade is a subject-level aggregate not tied to a specific papers row.
-    foreign key (school, exam, subject, paper) references papers(school, exam, subject, paper) ON DELETE CASCADE
+    foreign key (subject) references subjects(id)
+    -- Note: no FK from grades to papers. The papers PK includes (grade, stream)
+    -- which grades does not carry — the student's enrollment determines their
+    -- grade/stream. Referential integrity is enforced by the grades_enrollment_check
+    -- trigger, which verifies the student is enrolled in a class that participates
+    -- in the exam (via the papers table).
 );
 
 CREATE TABLE fees (

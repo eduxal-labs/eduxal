@@ -277,7 +277,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -369,6 +369,187 @@ class AppDatabase extends _$AppDatabase {
           END
         ''');
       }
+      if (from < 8) {
+        // Papers PK now includes (grade, stream) so that a single exam can
+        // have the same subject across different grades/streams. SQLite does
+        // not support ALTER TABLE to change a PK, so we recreate the table.
+        //
+        // Also drop the grades FK to papers — the papers PK shape changed
+        // and grades doesn't carry grade/stream columns. The enrollment
+        // trigger already guards referential integrity.
+
+        await customStatement('PRAGMA foreign_keys = OFF');
+
+        // Drop triggers that reference the `papers` table BEFORE any
+        // table rename/rebuild. SQLite validates trigger references during
+        // ALTER TABLE RENAME, so if `papers` doesn't exist (broken state
+        // from a previous failed migration), the RENAME fails with
+        // "error in trigger ...: no such table: main.papers".
+        // These triggers are idempotently recreated by
+        // _createTriggersAndIndexes() in beforeOpen, so dropping is safe.
+        await customStatement('DROP TRIGGER IF EXISTS grades_enrollment_check');
+        await customStatement(
+          'DROP TRIGGER IF EXISTS grades_enrollment_check_update',
+        );
+        await customStatement('DROP TRIGGER IF EXISTS grades_paper_mix_check');
+        await customStatement(
+          'DROP TRIGGER IF EXISTS grades_paper_mix_check_update',
+        );
+        await customStatement(
+          'DROP TRIGGER IF EXISTS papers_within_exam_range',
+        );
+        await customStatement(
+          'DROP TRIGGER IF EXISTS papers_within_exam_range_update',
+        );
+
+        // Possible broken states from a killed previous migration:
+        //   A) papers_new + papers both exist → drop stale papers_new, redo.
+        //   B) papers_new exists, papers gone → just rename papers_new.
+        //   C) Neither exists → catastrophic; cannot recover.
+        //   D) papers exists, no papers_new → normal first run.
+        final tableCheck = await customSelect('''
+          SELECT name FROM sqlite_master
+          WHERE type = 'table' AND name IN ('papers', 'papers_new')
+        ''').get();
+        final tableNames = tableCheck
+            .map((r) => r.read<String>('name'))
+            .toSet();
+        final hasPapers = tableNames.contains('papers');
+        final hasPapersNew = tableNames.contains('papers_new');
+
+        if (!hasPapers && hasPapersNew) {
+          // State B: just rename the already-populated temp table.
+          await customStatement('ALTER TABLE papers_new RENAME TO papers');
+        } else {
+          // State A or D: drop stale temp table (if any) and do normal rebuild.
+          await customStatement('DROP TABLE IF EXISTS papers_new');
+
+          await customStatement('''
+            CREATE TABLE papers_new (
+              school TEXT NOT NULL,
+              exam TEXT NOT NULL,
+              subject INTEGER NOT NULL,
+              topic INTEGER,
+              paper INTEGER,
+              invigilator TEXT NOT NULL,
+              start INTEGER NOT NULL,
+              "end" INTEGER NOT NULL,
+              status INTEGER NOT NULL DEFAULT 0,
+              grade INTEGER NOT NULL,
+              stream INTEGER,
+              created INTEGER NOT NULL,
+              updated INTEGER NOT NULL,
+              CHECK (start < "end"),
+              PRIMARY KEY (school, exam, subject, paper, grade, stream),
+              FOREIGN KEY (subject) REFERENCES subjects(id) ON DELETE CASCADE,
+              FOREIGN KEY (topic) REFERENCES topics(id) ON DELETE SET NULL,
+              FOREIGN KEY (school, invigilator) REFERENCES teachers(school, "user") ON DELETE CASCADE
+            )
+          ''');
+
+          // Clean source data to avoid constraint violations on the new table.
+          await customStatement('DELETE FROM papers WHERE start >= "end"');
+
+          await customStatement('''
+            DELETE FROM papers
+            WHERE rowid NOT IN (
+              SELECT MAX(rowid)
+              FROM papers
+              GROUP BY school, exam, subject, paper, grade, stream
+            )
+          ''');
+
+          await customStatement('''
+            INSERT OR IGNORE INTO papers_new
+            SELECT school, exam, subject, topic, paper, invigilator,
+                   start, "end", status, grade, stream, created, updated
+            FROM papers
+          ''');
+          await customStatement('DROP TABLE papers');
+          await customStatement('ALTER TABLE papers_new RENAME TO papers');
+        }
+
+        // 2. Recreate grades without the FK to papers — same recovery pattern.
+        final gradesCheck = await customSelect('''
+          SELECT name FROM sqlite_master
+          WHERE type = 'table' AND name IN ('grades', 'grades_new')
+        ''').get();
+        final gradeNames = gradesCheck
+            .map((r) => r.read<String>('name'))
+            .toSet();
+        final hasGrades = gradeNames.contains('grades');
+        final hasGradesNew = gradeNames.contains('grades_new');
+
+        if (!hasGrades && !hasGradesNew) {
+          // Both missing — catastrophic. Create grades from scratch.
+          await customStatement('''
+            CREATE TABLE grades (
+              school TEXT NOT NULL,
+              exam TEXT NOT NULL,
+              student INTEGER NOT NULL,
+              subject INTEGER NOT NULL,
+              paper INTEGER,
+              score REAL NOT NULL,
+              total INTEGER NOT NULL,
+              created INTEGER NOT NULL,
+              updated INTEGER NOT NULL,
+              CHECK (total > 0 AND score >= 0 AND score <= total),
+              PRIMARY KEY (school, exam, student, subject, paper),
+              FOREIGN KEY (exam) REFERENCES exams(id) ON DELETE CASCADE,
+              FOREIGN KEY (subject) REFERENCES subjects(id) ON DELETE CASCADE,
+              FOREIGN KEY (school, student) REFERENCES students(school, adm) ON DELETE CASCADE
+            )
+          ''');
+        } else if (!hasGrades && hasGradesNew) {
+          await customStatement('ALTER TABLE grades_new RENAME TO grades');
+        } else if (hasGrades) {
+          await customStatement('DROP TABLE IF EXISTS grades_new');
+
+          await customStatement('''
+            CREATE TABLE grades_new (
+              school TEXT NOT NULL,
+              exam TEXT NOT NULL,
+              student INTEGER NOT NULL,
+              subject INTEGER NOT NULL,
+              paper INTEGER,
+              score REAL NOT NULL,
+              total INTEGER NOT NULL,
+              created INTEGER NOT NULL,
+              updated INTEGER NOT NULL,
+              CHECK (total > 0 AND score >= 0 AND score <= total),
+              PRIMARY KEY (school, exam, student, subject, paper),
+              FOREIGN KEY (exam) REFERENCES exams(id) ON DELETE CASCADE,
+              FOREIGN KEY (subject) REFERENCES subjects(id) ON DELETE CASCADE,
+              FOREIGN KEY (school, student) REFERENCES students(school, adm) ON DELETE CASCADE
+            )
+          ''');
+
+          await customStatement('''
+            INSERT OR IGNORE INTO grades_new
+            SELECT school, exam, student, subject, paper, score, total, created, updated
+            FROM grades
+          ''');
+          await customStatement('DROP TABLE grades');
+          await customStatement('ALTER TABLE grades_new RENAME TO grades');
+        }
+
+        await customStatement('PRAGMA foreign_keys = ON');
+
+        // Drop old unique index (will be recreated with grade+stream below)
+        await customStatement('DROP INDEX IF EXISTS papers_subject_null_idx');
+
+        // Recreate indexes on papers and grades
+        await customStatement(
+          'CREATE INDEX IF NOT EXISTS idx_papers_school_exam_status'
+          ' ON papers(school, exam, status)',
+        );
+        await customStatement(
+          'CREATE INDEX IF NOT EXISTS idx_grades_student'
+          ' ON grades(school, student)',
+        );
+
+        // Triggers were already dropped above; recreated by beforeOpen.
+      }
     },
     onCreate: (m) async {
       // 1. Create all Drift-managed tables.
@@ -382,6 +563,9 @@ class AppDatabase extends _$AppDatabase {
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
+      // Re-create triggers and indexes on every open — they are idempotent
+      // (IF NOT EXISTS) and this ensures migrated databases get them back.
+      await _createTriggersAndIndexes();
     },
   );
 
@@ -713,10 +897,11 @@ class AppDatabase extends _$AppDatabase {
       ' ON timetable(school, year, term, grade, stream, day, start)',
     );
 
-    // papers: at most one null-paper row per (school, exam, subject).
+    // papers: at most one null-paper row per (school, exam, subject, grade, stream).
+    // A single exam can have the same subject across different grades/streams.
     await customStatement(
       'CREATE UNIQUE INDEX IF NOT EXISTS papers_subject_null_idx'
-      ' ON papers(school, exam, subject) WHERE paper IS NULL',
+      ' ON papers(school, exam, subject, grade, stream) WHERE paper IS NULL',
     );
 
     // roles: school-scoped role names must be unique within a school.

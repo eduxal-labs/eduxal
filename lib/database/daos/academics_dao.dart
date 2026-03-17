@@ -763,21 +763,26 @@ class AcademicsDao extends DatabaseAccessor<AppDatabase>
   ///
   /// This is important because grade-wide exams apply to all streams.
   /// Ordered by exam start descending (most recent first).
+  ///
+  /// When [streamCode] is null, returns ALL exams for the grade regardless
+  /// of stream — used by the "All" tab.
   Stream<List<ExamWithPapers>> watchExamsForGradeStream({
     required String schoolId,
     required int year,
     required int term,
     required int grade,
-    required int streamCode,
+    int? streamCode,
   }) {
-    // Watch papers rows for this grade/stream combination.
+    // Watch papers rows for this grade (and optionally stream) combination.
     final paperStream =
-        (select(papers)..where(
-              (p) =>
-                  p.school.equals(schoolId) &
-                  p.grade.equals(grade) &
-                  p.stream.equals(streamCode),
-            ))
+        (select(papers)..where((p) {
+              Expression<bool> f =
+                  p.school.equals(schoolId) & p.grade.equals(grade);
+              if (streamCode != null) {
+                f = f & p.stream.equals(streamCode);
+              }
+              return f;
+            }))
             .watch();
 
     final examStream = paperStream.asyncMap((paperRows) async {

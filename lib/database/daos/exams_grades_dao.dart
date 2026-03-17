@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:drift/drift.dart';
 import 'package:fixnum/fixnum.dart' as fixnum;
 
@@ -34,10 +32,6 @@ typedef GradeRow = ({Grade grade, StudentsData student});
 
 /// An exam row together with its papers.
 typedef ExamWithPapers = ({Exam exam, List<Paper> papers, UsersData teacher});
-
-/// A single exam to create, with its optional papers.
-/// Used by [ExamsGradesDao.createExamBatch] for multi-grade batch creation.
-typedef ExamBatchEntry = ({ExamsCompanion exam, List<PapersCompanion> papers});
 
 /// Analytics snapshot for a single paper — used to drive charts.
 class PaperAnalytics {
@@ -693,83 +687,6 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
             created: Value(now),
           ),
         );
-      }
-    });
-    sync.schedulePush();
-  }
-
-  /// Creates [entries] exams (and their papers) in one transaction.
-  /// Writes one [SyncAction.createExam] log per exam and one
-  /// [SyncAction.createPaper] log per paper.
-  ///
-  /// Used by the "add stream" and "add grade" flows which may fan out into
-  /// multiple exam rows in a single submission. For single-exam creation
-  /// use [createExamWithPapers] instead.
-  Future<void> createExamBatch({
-    required List<ExamBatchEntry> entries,
-    required String accountId,
-  }) async {
-    await transaction(() async {
-      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
-      for (final entry in entries) {
-        // 1. Insert the exam row
-        await into(exams).insert(entry.exam);
-
-        // 2. Write createExam log
-        final e = entry.exam;
-        final examPayload = sync_pb.CreateExamPayload(
-          id: e.id.value,
-          school: e.school.value,
-          year: e.year.value,
-          term: e.term.value,
-          name: e.name.value,
-          type: e.type.value.index,
-          start: e.start.value,
-          end: e.end.value,
-          teacher: e.teacher.value,
-          personalized: e.personalized.present ? e.personalized.value : false,
-        );
-        await into(logs).insert(
-          LogsCompanion(
-            account: Value(accountId),
-            action: Value(SyncAction.createExam),
-            resource: Value('Exam ${e.id.value}'),
-            payload: Value(examPayload.writeToBuffer()),
-            created: Value(now),
-          ),
-        );
-
-        // 3. Insert each paper + its log
-        for (final p in entry.papers) {
-          await into(papers).insert(p);
-          final paperPayload = sync_pb.CreatePaperPayload(
-            school: p.school.value,
-            exam: p.exam.value,
-            subject: p.subject.value,
-            invigilator: p.invigilator.value,
-            start: fixnum.Int64(p.start.value.toInt()),
-            end: fixnum.Int64(p.end.value.toInt()),
-          );
-          paperPayload.grade = p.grade.value;
-          if (p.stream.present && p.stream.value != null) {
-            paperPayload.stream = p.stream.value!;
-          }
-          if (p.paper.present && p.paper.value != null) {
-            paperPayload.paper = p.paper.value!;
-          }
-          final paperLabel = (p.paper.present && p.paper.value != null)
-              ? 'Paper ${p.paper.value}'
-              : 'Paper';
-          await into(logs).insert(
-            LogsCompanion(
-              account: Value(accountId),
-              action: Value(SyncAction.createPaper),
-              resource: Value(paperLabel),
-              payload: Value(paperPayload.writeToBuffer()),
-              created: Value(now),
-            ),
-          );
-        }
       }
     });
     sync.schedulePush();
@@ -1534,97 +1451,6 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     sync.schedulePush();
   }
 
-  /// Adds a new grade to an existing exam group by creating a new exam row
-  /// (one per stream if streams are specified, or one with stream=null)
-  /// and optionally its papers. Returns the created exam IDs.
-  Future<List<String>> addGradeToExamGroup({
-    required ExamGroup group,
-    required int grade,
-    required List<int?> streams, // null = all streams, or list of stream codes
-    required List<PapersCompanion> papers, // papers for each stream
-    required String teacherId,
-    required String accountId,
-  }) async {
-    final ids = <String>[];
-    await transaction(() async {
-      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
-      for (final _ in streams) {
-        final examId = _generateExamId();
-        ids.add(examId);
-
-        final examCompanion = ExamsCompanion(
-          id: Value(examId),
-          school: Value(group.school),
-          year: Value(group.year),
-          term: Value(group.term),
-          personalized: Value(group.personalized),
-          type: Value(group.type),
-          start: Value(group.start),
-          end: Value(group.end),
-          teacher: Value(teacherId),
-          created: Value(now),
-          updated: Value(now),
-        );
-        await into(exams).insert(examCompanion);
-
-        final examPayload = sync_pb.CreateExamPayload(
-          id: examId,
-          school: group.school,
-          year: group.year,
-          term: group.term,
-          type: group.type.index,
-          start: group.start,
-          end: group.end,
-          teacher: teacherId,
-          personalized: group.personalized,
-        );
-        await into(logs).insert(
-          LogsCompanion(
-            account: Value(accountId),
-            action: Value(SyncAction.createExam),
-            resource: Value('Exam $examId'),
-            payload: Value(examPayload.writeToBuffer()),
-            created: Value(now),
-          ),
-        );
-
-        // Insert papers for this stream's exam
-        final streamPapers = papers
-            .where((p) => p.exam.value == examId)
-            .toList();
-        for (final p in streamPapers) {
-          await into(this.papers).insert(p);
-          final paperPayload = sync_pb.CreatePaperPayload(
-            school: p.school.value,
-            exam: p.exam.value,
-            subject: p.subject.value,
-            invigilator: p.invigilator.value,
-            start: fixnum.Int64(p.start.value.toInt()),
-            end: fixnum.Int64(p.end.value.toInt()),
-          );
-          paperPayload.grade = p.grade.value;
-          if (p.stream.present && p.stream.value != null) {
-            paperPayload.stream = p.stream.value!;
-          }
-          if (p.paper.present && p.paper.value != null) {
-            paperPayload.paper = p.paper.value!;
-          }
-          await into(logs).insert(
-            LogsCompanion(
-              account: Value(accountId),
-              action: Value(SyncAction.createPaper),
-              resource: Value('Paper'),
-              payload: Value(paperPayload.writeToBuffer()),
-              created: Value(now),
-            ),
-          );
-        }
-      }
-    });
-    sync.schedulePush();
-    return ids;
-  }
-
   // ───────────────────────────────────────────────────────────────────────────
   // Paper Submissions (client-only, never synced)
   // ───────────────────────────────────────────────────────────────────────────
@@ -1744,14 +1570,5 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
                   : s.paperNum.equals(paperNum)),
         ))
         .go();
-  }
-
-  String _generateExamId() {
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final rand = math.Random()
-        .nextInt(0xFFFF)
-        .toRadixString(16)
-        .padLeft(4, '0');
-    return 'ex_${now.toRadixString(36)}_$rand';
   }
 }

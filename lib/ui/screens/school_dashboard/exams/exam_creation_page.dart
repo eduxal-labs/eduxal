@@ -162,6 +162,9 @@ class _ExamCreationPageState extends State<ExamCreationPage>
   // Invigilator time-slot conflict tracking (slot ID → error message)
   Map<String, String> _slotConflicts = {};
 
+  // Duplicate subject conflict tracking (slot ID → error message)
+  Map<String, String> _duplicateSubjectConflicts = {};
+
   @override
   void initState() {
     super.initState();
@@ -301,6 +304,111 @@ class _ExamCreationPageState extends State<ExamCreationPage>
     final gc = _gradeConfigFor(grade);
     if (gc == null || gc.streams.length <= 1) return false;
     return true;
+  }
+
+  /// Ensures every stream in every grade has paper slots before saving.
+  ///
+  /// For each grade that has multiple streams, finds the first stream that
+  /// has paper slots configured (the "source") and copies them to every other
+  /// stream that is empty. Subjects for unvisited streams are loaded on-the-fly.
+  Future<void> _ensureAllStreamsCovered() async {
+    for (final tab in _gradeTabs) {
+      if (tab.grade == null) continue;
+      final gc = _gradeConfigFor(tab.grade!);
+      if (gc == null || gc.streams.length <= 1) continue;
+
+      // Find the first stream that has paper slots — that's our source.
+      int? sourceStreamCode;
+      for (final stream in gc.streams) {
+        final key = _classKey(tab.grade!, stream.code);
+        final slots = _paperSlots[key];
+        if (slots != null && slots.any((s) => s.subjectCode != null)) {
+          sourceStreamCode = stream.code;
+          break;
+        }
+      }
+      if (sourceStreamCode == null) continue; // no papers for this grade at all
+
+      // Ensure subjects are loaded for every stream in this grade.
+      final loadFutures = <Future<void>>[];
+      for (final stream in gc.streams) {
+        final key = _classKey(tab.grade!, stream.code);
+        if (!_classSubjects.containsKey(key) && _loadingSubjects[key] != true) {
+          loadFutures.add(_loadSubjectsForClass(tab.grade!, stream.code));
+        }
+      }
+      if (loadFutures.isNotEmpty) {
+        await Future.wait(loadFutures);
+      }
+
+      // Now copy papers from source to any stream that is still empty.
+      final sourceKey = _classKey(tab.grade!, sourceStreamCode);
+      final sourceSlots = _paperSlots[sourceKey];
+      if (sourceSlots == null || sourceSlots.isEmpty) continue;
+
+      for (final stream in gc.streams) {
+        if (stream.code == sourceStreamCode) continue;
+        final targetKey = _classKey(tab.grade!, stream.code);
+        final existing = _paperSlots[targetKey];
+        if (existing != null && existing.any((s) => s.subjectCode != null)) {
+          continue; // already has papers — don't overwrite
+        }
+
+        final targetSubjects = _classSubjects[targetKey];
+        final copiedSlots = <_PaperSlot>[];
+        for (final slot in sourceSlots) {
+          if (slot.subjectCode == null) {
+            copiedSlots.add(
+              _PaperSlot(
+                id: _generateId(),
+                date: slot.date,
+                startTime: slot.startTime,
+                endTime: slot.endTime,
+              ),
+            );
+            continue;
+          }
+          final targetMatch = targetSubjects?.subjects
+              .where((s) => s.subject.subject == slot.subjectCode)
+              .firstOrNull;
+          if (targetMatch != null) {
+            final startMin = slot.startTime.hour * 60 + slot.startTime.minute;
+            final endMin = slot.endTime.hour * 60 + slot.endTime.minute;
+
+            String? invigilatorId = targetMatch.subject.teacher;
+            if (_isInvigilatorBusy(
+              invigilatorId,
+              slot.date,
+              startMin,
+              endMin,
+              targetKey,
+            )) {
+              invigilatorId = _findAvailableTeacher(
+                slot.date,
+                startMin,
+                endMin,
+                targetKey,
+              );
+            }
+
+            copiedSlots.add(
+              _PaperSlot(
+                id: _generateId(),
+                date: slot.date,
+                startTime: slot.startTime,
+                endTime: slot.endTime,
+                subjectCode: slot.subjectCode,
+                invigilatorId: invigilatorId,
+              ),
+            );
+          }
+        }
+        _paperSlots[targetKey] = copiedSlots;
+      }
+    }
+
+    // Refresh conflict maps after propagation.
+    _recomputeConflicts();
   }
 
   void _copyPapersToAllStreams(int grade, int sourceStreamCode) {
@@ -713,8 +821,29 @@ class _ExamCreationPageState extends State<ExamCreationPage>
     return null; // No available teacher found
   }
 
+  Map<String, String> _findDuplicateSubjects() {
+    final conflicts = <String, String>{};
+    for (final entry in _paperSlots.entries) {
+      final slots = entry.value.where((s) => s.subjectCode != null).toList();
+      final seen = <int, String>{}; // subjectCode → first slot ID
+      for (final slot in slots) {
+        final existing = seen[slot.subjectCode!];
+        if (existing != null) {
+          conflicts[slot.id] =
+              'Duplicate subject — already assigned in this class';
+          conflicts[existing] =
+              'Duplicate subject — already assigned in this class';
+        } else {
+          seen[slot.subjectCode!] = slot.id;
+        }
+      }
+    }
+    return conflicts;
+  }
+
   void _recomputeConflicts() {
     _slotConflicts = _findInvigilatorConflicts();
+    _duplicateSubjectConflicts = _findDuplicateSubjects();
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -772,9 +901,16 @@ class _ExamCreationPageState extends State<ExamCreationPage>
     }
 
     _recomputeConflicts();
-    if (_slotConflicts.isNotEmpty) {
+    if (_slotConflicts.isNotEmpty || _duplicateSubjectConflicts.isNotEmpty) {
+      final messages = <String>[];
+      if (_slotConflicts.isNotEmpty) {
+        messages.add('invigilator conflicts');
+      }
+      if (_duplicateSubjectConflicts.isNotEmpty) {
+        messages.add('duplicate subject assignments');
+      }
       _showError(
-        'Some papers have invigilator conflicts. Please resolve the highlighted conflicts before saving.',
+        'Some papers have ${messages.join(' and ')}. Please resolve the highlighted conflicts before saving.',
       );
       setState(() => _saving = false);
       return;
@@ -786,6 +922,29 @@ class _ExamCreationPageState extends State<ExamCreationPage>
     setState(() => _saving = true);
 
     try {
+      // Propagate papers to all streams that haven't been configured yet.
+      // This loads subjects for unvisited stream tabs and copies the paper
+      // schedule from the first configured stream in each grade.
+      await _ensureAllStreamsCovered();
+
+      // Re-check conflicts after propagation (invigilator conflicts may
+      // have been introduced by the auto-copy).
+      _recomputeConflicts();
+      if (_slotConflicts.isNotEmpty || _duplicateSubjectConflicts.isNotEmpty) {
+        final messages = <String>[];
+        if (_slotConflicts.isNotEmpty) {
+          messages.add('invigilator conflicts');
+        }
+        if (_duplicateSubjectConflicts.isNotEmpty) {
+          messages.add('duplicate subject assignments');
+        }
+        _showError(
+          'Some papers have ${messages.join(' and ')}. Please resolve the highlighted conflicts before saving.',
+        );
+        setState(() => _saving = false);
+        return;
+      }
+
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
       final startDays =
           DateTime.utc(
@@ -803,11 +962,12 @@ class _ExamCreationPageState extends State<ExamCreationPage>
           (86400 * 1000);
       final teacherId = _teacherId;
 
-      // ── Collect ALL grade+stream combos that have paper slots ──────────
-      // Each unique grade+stream gets its own exam row (the backend schema
-      // uses one exam per grade+stream). We iterate every entry in
-      // _paperSlots so papers configured on non-active tabs are included.
-      final entries = <ExamBatchEntry>[];
+      // ── Create ONE exam, collect ALL papers across grade+stream combos ─
+      // The exams table has no grade/stream columns — a single exam can
+      // span multiple grades and streams. The grade and stream are on the
+      // papers table, so we create one exam ID and attach all papers to it.
+      final examId = _generateId();
+      final allPapers = <PapersCompanion>[];
 
       for (final entry in _paperSlots.entries) {
         final slots = entry.value;
@@ -822,23 +982,6 @@ class _ExamCreationPageState extends State<ExamCreationPage>
         final grade = int.parse(parts[0]);
         final stream = parts[1] == 'null' ? null : int.tryParse(parts[1]);
 
-        final examId = _generateId();
-        final exam = ExamsCompanion(
-          id: Value(examId),
-          school: Value(widget.schoolId),
-          year: Value(widget.year),
-          term: Value(widget.term),
-          name: Value(examName),
-          personalized: Value(_personalized),
-          type: Value(_type),
-          start: Value(startDays),
-          end: Value(endDays),
-          teacher: Value(teacherId),
-          created: Value(now),
-          updated: Value(now),
-        );
-
-        final paperRows = <PapersCompanion>[];
         for (final slot in actionableSlots) {
           final startDt = DateTime(
             slot.date.year,
@@ -857,7 +1000,7 @@ class _ExamCreationPageState extends State<ExamCreationPage>
           final startSecs = BigInt.from(startDt.millisecondsSinceEpoch ~/ 1000);
           final endSecs = BigInt.from(endDt.millisecondsSinceEpoch ~/ 1000);
 
-          paperRows.add(
+          allPapers.add(
             PapersCompanion(
               school: Value(widget.schoolId),
               exam: Value(examId),
@@ -874,35 +1017,54 @@ class _ExamCreationPageState extends State<ExamCreationPage>
             ),
           );
         }
-
-        entries.add((exam: exam, papers: paperRows));
       }
 
-      // Fallback: if no paper slots are populated at all, create a single
-      // empty exam for the currently active tab so the user at least gets
-      // an exam row they can add papers to later.
-      if (entries.isEmpty) {
-        final examId = _generateId();
-        entries.add((
-          exam: ExamsCompanion(
-            id: Value(examId),
-            school: Value(widget.schoolId),
-            year: Value(widget.year),
-            term: Value(widget.term),
-            name: Value(examName),
-            personalized: Value(_personalized),
-            type: Value(_type),
-            start: Value(startDays),
-            end: Value(endDays),
-            teacher: Value(teacherId),
-            created: Value(now),
-            updated: Value(now),
-          ),
-          papers: <PapersCompanion>[],
-        ));
+      // ── Safety net: deduplicate by (subject, paper, grade, stream) ──
+      // The real-time _findDuplicateSubjects() should prevent this, but
+      // guard against edge cases (e.g. rapid taps, state race) so we
+      // never hit the SQLite UNIQUE constraint.
+      {
+        final seen = <String>{};
+        final deduped = <PapersCompanion>[];
+        for (final p in allPapers) {
+          final paperVal = p.paper.present ? p.paper.value : null;
+          final streamVal = p.stream.present ? p.stream.value : null;
+          final key =
+              '${p.subject.value}:$paperVal:${p.grade.value}:$streamVal';
+          if (seen.add(key)) {
+            deduped.add(p);
+          } else {
+            debugPrint(
+              '[ExamCreation] Dropped duplicate paper: subject=${p.subject.value}, '
+              'paper=$paperVal, grade=${p.grade.value}, stream=$streamVal',
+            );
+          }
+        }
+        allPapers
+          ..clear()
+          ..addAll(deduped);
       }
 
-      await _examsDao.createExamBatch(entries: entries, accountId: accountId);
+      final exam = ExamsCompanion(
+        id: Value(examId),
+        school: Value(widget.schoolId),
+        year: Value(widget.year),
+        term: Value(widget.term),
+        name: Value(examName),
+        personalized: Value(_personalized),
+        type: Value(_type),
+        start: Value(startDays),
+        end: Value(endDays),
+        teacher: Value(teacherId),
+        created: Value(now),
+        updated: Value(now),
+      );
+
+      await _examsDao.createExamWithPapers(
+        exam: exam,
+        paperRows: allPapers,
+        accountId: accountId,
+      );
 
       if (mounted) Navigator.of(context).pop();
     } catch (e, stack) {
@@ -1421,7 +1583,16 @@ class _ExamCreationPageState extends State<ExamCreationPage>
     final isLoading = _loadingSubjects[key] == true;
     final classData = _classSubjects[key];
     final indigo = isDark ? AppTheme.brandIndigoDark : AppTheme.brandIndigo;
-    final conflicts = _slotConflicts;
+    final conflicts = <String, String>{..._slotConflicts};
+    // Merge duplicate subject conflicts, combining messages if both exist
+    for (final entry in _duplicateSubjectConflicts.entries) {
+      final existing = conflicts[entry.key];
+      if (existing != null) {
+        conflicts[entry.key] = '$existing\n${entry.value}';
+      } else {
+        conflicts[entry.key] = entry.value;
+      }
+    }
 
     if (isLoading) {
       return const Padding(
@@ -1578,7 +1749,7 @@ String _friendlyExamError(Object e) {
 
   // SQLite unique constraint (code 2067 / 1555)
   if (raw.contains('2067') || raw.contains('1555') || raw.contains('UNIQUE')) {
-    return 'An exam for this grade and stream already exists in this term.';
+    return 'A paper with this subject already exists for this grade and stream in the exam.';
   }
 
   // SQLite check constraint (code 275) — e.g. start >= end

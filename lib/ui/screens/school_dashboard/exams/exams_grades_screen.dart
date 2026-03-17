@@ -102,7 +102,9 @@ class _ExamsShellState extends State<_ExamsShell> {
 
   Future<void> _loadConfig() async {
     final schoolId = widget.schoolContext.membership.school.id;
-    _configSub = _catalogDao.watchAllStreamsForSchool(schoolId).listen((allStreams) {
+    _configSub = _catalogDao.watchAllStreamsForSchool(schoolId).listen((
+      allStreams,
+    ) {
       if (!mounted) return;
       setState(() {
         _config = _buildConfigFromStreams(allStreams);
@@ -264,7 +266,9 @@ class _ExamsShellState extends State<_ExamsShell> {
             onDeleted: _popToList,
             initialGradeIndex: () {
               if (_selectedExamGrade == null) return 0;
-              final idx = group.grades.indexWhere((g) => g.grade == _selectedExamGrade);
+              final idx = group.grades.indexWhere(
+                (g) => g.grade == _selectedExamGrade,
+              );
               return idx >= 0 ? idx : 0;
             }(),
             initialStreamIndex: _selectedStreamIndex ?? 0,
@@ -555,9 +559,10 @@ class _ExamGroupRowState extends State<_ExamGroupRow>
       duration: const Duration(milliseconds: 100),
       reverseDuration: const Duration(milliseconds: 150),
     );
-    _scaleAnim = Tween<double>(begin: 1.0, end: 0.98).animate(
-      CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut),
-    );
+    _scaleAnim = Tween<double>(
+      begin: 1.0,
+      end: 0.98,
+    ).animate(CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut));
   }
 
   @override
@@ -634,8 +639,8 @@ class _ExamGroupRowState extends State<_ExamGroupRow>
                 color: _isPressed
                     ? pressBg
                     : _isHovered
-                        ? hoverBg
-                        : idleBg,
+                    ? hoverBg
+                    : idleBg,
                 borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
                 border: Border.all(
                   color: _isHovered || _isPressed
@@ -720,7 +725,9 @@ class _ExamGroupRowState extends State<_ExamGroupRow>
                                         Icon(
                                           Icons.calendar_today_rounded,
                                           size: 11,
-                                          color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                                          color: cs.onSurfaceVariant.withValues(
+                                            alpha: 0.4,
+                                          ),
                                         ),
                                         const SizedBox(width: 3),
                                         Text(
@@ -728,7 +735,8 @@ class _ExamGroupRowState extends State<_ExamGroupRow>
                                           style: TextStyle(
                                             fontSize: 11,
                                             fontWeight: FontWeight.w400,
-                                            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                                            color: cs.onSurfaceVariant
+                                                .withValues(alpha: 0.6),
                                           ),
                                         ),
                                       ],
@@ -774,10 +782,7 @@ class _ExamGroupRowState extends State<_ExamGroupRow>
                                   AnimatedSlide(
                                     duration: const Duration(milliseconds: 200),
                                     curve: Curves.easeOut,
-                                    offset: Offset(
-                                      _isHovered ? 0.15 : 0.0,
-                                      0,
-                                    ),
+                                    offset: Offset(_isHovered ? 0.15 : 0.0, 0),
                                     child: AnimatedOpacity(
                                       duration: const Duration(
                                         milliseconds: 200,
@@ -839,7 +844,8 @@ class _ExamGroupDetailView extends StatefulWidget {
   final Map<int, String> subjectNames;
   final MembershipEntry entry;
   final VoidCallback onBack;
-  final void Function(Paper paper, Exam exam, int grade, {int streamIndex}) onPaperTap;
+  final void Function(Paper paper, Exam exam, int grade, {int streamIndex})
+  onPaperTap;
   final VoidCallback onDeleted;
   final int initialGradeIndex;
   final int initialStreamIndex;
@@ -865,7 +871,10 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
     super.initState();
     _dao = ExamsGradesDao(db);
     _membersDao = MembersDao(db);
-    _selectedGradeIndex = widget.initialGradeIndex.clamp(0, (widget.group.grades.length - 1).clamp(0, 999));
+    _selectedGradeIndex = widget.initialGradeIndex.clamp(
+      0,
+      (widget.group.grades.length - 1).clamp(0, 999),
+    );
     _selectedStreamIndex = widget.initialStreamIndex;
     _gradeTabController =
         TabController(
@@ -873,9 +882,9 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
           initialIndex: _selectedGradeIndex,
           vsync: this,
         )..addListener(() {
-            if (_gradeTabController.indexIsChanging) return;
-            _onGradeTabChanged(_gradeTabController.index);
-          });
+          if (_gradeTabController.indexIsChanging) return;
+          _onGradeTabChanged(_gradeTabController.index);
+        });
     _rebuildStreamTabs();
     _loadTeacherNames();
   }
@@ -925,7 +934,10 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
     if (grades.isEmpty) return;
     final gradeEntry = grades[_selectedGradeIndex];
     if (gradeEntry.streams.length > 1) {
-      final initialIdx = _selectedStreamIndex.clamp(0, gradeEntry.streams.length - 1);
+      final initialIdx = _selectedStreamIndex.clamp(
+        0,
+        gradeEntry.streams.length - 1,
+      );
       _streamTabController =
           TabController(
             length: gradeEntry.streams.length,
@@ -1409,7 +1421,12 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
                       dao: _dao,
                       canManage: _canManage,
                       onPaperTap: (paper, exam, grade, {int streamIndex = 0}) {
-                        widget.onPaperTap(paper, exam, grade, streamIndex: _selectedStreamIndex);
+                        widget.onPaperTap(
+                          paper,
+                          exam,
+                          grade,
+                          streamIndex: _selectedStreamIndex,
+                        );
                       },
                       initialDayIndex: widget.initialDayIndex,
                       onDayChanged: widget.onDayChanged,
@@ -1933,28 +1950,12 @@ class _AddStreamFormState extends State<_AddStreamForm> {
     setState(() => _saving = true);
     try {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
-      final entries = <ExamBatchEntry>[];
+
+      // Add papers to the EXISTING exam — no new exam rows needed.
+      // The grade and stream are on the papers table.
+      final existingExamId = templateExam.id;
 
       for (final streamCode in _currentMissingStreams) {
-        // Only include streams the user has configured OR explicitly wants
-        // (even with zero papers — they can add papers later).
-        final examId = _generateId();
-        final exam = ExamsCompanion(
-          id: Value(examId),
-          school: Value(widget.schoolId),
-          year: Value(widget.year),
-          term: Value(widget.term),
-          name: Value(templateExam.name),
-          personalized: Value(templateExam.personalized),
-          type: Value(templateExam.type),
-          start: Value(templateExam.start),
-          end: Value(templateExam.end),
-          teacher: Value(templateExam.teacher),
-          created: Value(now),
-          updated: Value(now),
-        );
-
-        final papers = <PapersCompanion>[];
         for (final slot in _slotsFor(streamCode)) {
           if (slot.subjectCode == null) continue;
           final startDt = DateTime(
@@ -1971,10 +1972,10 @@ class _AddStreamFormState extends State<_AddStreamForm> {
             slot.endTime.hour,
             slot.endTime.minute,
           );
-          papers.add(
-            PapersCompanion(
+          await widget.dao.createPaper(
+            paper: PapersCompanion(
               school: Value(widget.schoolId),
-              exam: Value(examId),
+              exam: Value(existingExamId),
               subject: Value(slot.subjectCode!),
               paper: const Value(null),
               invigilator: Value(slot.invigilatorId ?? templateExam.teacher),
@@ -1986,16 +1987,9 @@ class _AddStreamFormState extends State<_AddStreamForm> {
               created: Value(now),
               updated: Value(now),
             ),
+            accountId: accountId,
           );
         }
-        entries.add((exam: exam, papers: papers));
-      }
-
-      if (entries.isNotEmpty) {
-        await widget.dao.createExamBatch(
-          entries: entries,
-          accountId: accountId,
-        );
       }
       if (mounted) widget.onClose();
     } catch (e, stack) {
@@ -3045,31 +3039,12 @@ class _AddGradeToExamFormState extends State<_AddGradeToExamForm>
     try {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
       final teacherId = widget.group.teacher.id;
-      final entries = <ExamBatchEntry>[];
+
+      // Add papers to the EXISTING exam — no new exam rows needed.
+      // The grade and stream are on the papers table, not on exams.
+      final existingExamId = widget.group.examIds.first;
 
       for (final streamCode in _selectedStreams) {
-        final examId = _generateId();
-        final groupName =
-            widget.group.grades.isNotEmpty &&
-                widget.group.grades.first.streams.isNotEmpty
-            ? widget.group.grades.first.streams.first.exam.name
-            : _typeLabel(widget.group.type);
-        final exam = ExamsCompanion(
-          id: Value(examId),
-          school: Value(widget.schoolId),
-          year: Value(widget.year),
-          term: Value(widget.term),
-          name: Value(groupName),
-          personalized: Value(widget.group.personalized),
-          type: Value(widget.group.type),
-          start: Value(widget.group.start),
-          end: Value(widget.group.end),
-          teacher: Value(teacherId),
-          created: Value(now),
-          updated: Value(now),
-        );
-
-        final papers = <PapersCompanion>[];
         for (final slot in _slotsFor(streamCode)) {
           if (slot.subjectCode == null) continue;
           final startDt = DateTime(
@@ -3086,10 +3061,10 @@ class _AddGradeToExamFormState extends State<_AddGradeToExamForm>
             slot.endTime.hour,
             slot.endTime.minute,
           );
-          papers.add(
-            PapersCompanion(
+          await widget.dao.createPaper(
+            paper: PapersCompanion(
               school: Value(widget.schoolId),
-              exam: Value(examId),
+              exam: Value(existingExamId),
               subject: Value(slot.subjectCode!),
               paper: const Value(null),
               invigilator: Value(slot.invigilatorId ?? teacherId),
@@ -3101,16 +3076,9 @@ class _AddGradeToExamFormState extends State<_AddGradeToExamForm>
               created: Value(now),
               updated: Value(now),
             ),
+            accountId: accountId,
           );
         }
-        entries.add((exam: exam, papers: papers));
-      }
-
-      if (entries.isNotEmpty) {
-        await widget.dao.createExamBatch(
-          entries: entries,
-          accountId: accountId,
-        );
       }
       if (mounted) widget.onClose();
     } catch (e, stack) {
@@ -5735,7 +5703,8 @@ class _PaperContentArea extends StatefulWidget {
   final Map<String, String> teacherNames;
   final ExamsGradesDao dao;
   final bool canManage;
-  final void Function(Paper paper, Exam exam, int grade, {int streamIndex}) onPaperTap;
+  final void Function(Paper paper, Exam exam, int grade, {int streamIndex})
+  onPaperTap;
   final int initialDayIndex;
   final ValueChanged<int>? onDayChanged;
 
@@ -5907,7 +5876,8 @@ class _PaperTimetableGrid extends StatelessWidget {
   final Map<int, String> subjectNames;
   final Map<String, String> teacherNames;
   final bool canManage;
-  final void Function(Paper paper, Exam exam, int grade, {int streamIndex}) onPaperTap;
+  final void Function(Paper paper, Exam exam, int grade, {int streamIndex})
+  onPaperTap;
 
   @override
   Widget build(BuildContext context) {
@@ -6028,7 +5998,8 @@ class _PaperGridRow extends StatelessWidget {
   final Map<int, String> subjectNames;
   final Map<String, String> teacherNames;
   final ColorScheme cs;
-  final void Function(Paper paper, Exam exam, int grade, {int streamIndex}) onPaperTap;
+  final void Function(Paper paper, Exam exam, int grade, {int streamIndex})
+  onPaperTap;
 
   @override
   Widget build(BuildContext context) {
@@ -6165,70 +6136,72 @@ class _PaperSlotBox extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(4),
           child: Container(
-          constraints: const BoxConstraints(minHeight: 56),
-          decoration: BoxDecoration(
-            color: statusColor.withValues(alpha: 0.06),
-            border: Border(
-              left: BorderSide(color: statusColor, width: 2.5),
-              top: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.2)),
-              right: BorderSide(
-                color: cs.outlineVariant.withValues(alpha: 0.2),
-              ),
-              bottom: BorderSide(
-                color: cs.outlineVariant.withValues(alpha: 0.2),
+            constraints: const BoxConstraints(minHeight: 56),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.06),
+              border: Border(
+                left: BorderSide(color: statusColor, width: 2.5),
+                top: BorderSide(
+                  color: cs.outlineVariant.withValues(alpha: 0.2),
+                ),
+                right: BorderSide(
+                  color: cs.outlineVariant.withValues(alpha: 0.2),
+                ),
+                bottom: BorderSide(
+                  color: cs.outlineVariant.withValues(alpha: 0.2),
+                ),
               ),
             ),
-          ),
-          padding: const EdgeInsets.fromLTRB(8, 7, 8, 7),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '$subjectName$paperLabel',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: cs.onSurface,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 2),
-              if (timeUnset)
+            padding: const EdgeInsets.fromLTRB(8, 7, 8, 7),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
                 Text(
-                  'Time not set',
+                  '$subjectName$paperLabel',
                   style: TextStyle(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w400,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.45),
-                    fontStyle: FontStyle.italic,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
                   ),
-                )
-              else
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                if (timeUnset)
+                  Text(
+                    'Time not set',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w400,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+                      fontStyle: FontStyle.italic,
+                    ),
+                  )
+                else
+                  Text(
+                    timeRange!,
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w400,
+                      color: cs.onSurfaceVariant,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                const SizedBox(height: 2),
                 Text(
-                  timeRange!,
+                  'Inv: $invDisplay',
                   style: TextStyle(
-                    fontSize: 9.5,
+                    fontSize: 10,
                     fontWeight: FontWeight.w400,
-                    color: cs.onSurfaceVariant,
-                    fontFeatures: const [FontFeature.tabularFigures()],
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              const SizedBox(height: 2),
-              Text(
-                'Inv: $invDisplay',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
         ),
       ),
     );
@@ -6282,7 +6255,8 @@ class _PaperTimetableMobile extends StatefulWidget {
   final Map<int, String> subjectNames;
   final Map<String, String> teacherNames;
   final bool canManage;
-  final void Function(Paper paper, Exam exam, int grade, {int streamIndex}) onPaperTap;
+  final void Function(Paper paper, Exam exam, int grade, {int streamIndex})
+  onPaperTap;
   final int initialDayIndex;
   final ValueChanged<int>? onDayChanged;
 
@@ -6332,17 +6306,18 @@ class _PaperTimetableMobileState extends State<_PaperTimetableMobile>
     _dayTabController?.dispose();
     _dayTabController = null;
     if (_dates.isEmpty) return;
-    _dayTabController = TabController(
-      length: _dates.length,
-      initialIndex: _selectedDayIndex,
-      vsync: this,
-    )..addListener(() {
-        if (_dayTabController!.indexIsChanging) return;
-        setState(() {
-          _selectedDayIndex = _dayTabController!.index;
-          widget.onDayChanged?.call(_selectedDayIndex);
+    _dayTabController =
+        TabController(
+          length: _dates.length,
+          initialIndex: _selectedDayIndex,
+          vsync: this,
+        )..addListener(() {
+          if (_dayTabController!.indexIsChanging) return;
+          setState(() {
+            _selectedDayIndex = _dayTabController!.index;
+            widget.onDayChanged?.call(_selectedDayIndex);
+          });
         });
-      });
   }
 
   @override
@@ -6361,10 +6336,7 @@ class _PaperTimetableMobileState extends State<_PaperTimetableMobile>
       children: [
         // ── Day tab strip (EduTabBar aesthetic) ──────────────────────────
         if (_dayTabController != null)
-          _PaperDayTabStrip(
-            controller: _dayTabController!,
-            dates: _dates,
-          ),
+          _PaperDayTabStrip(controller: _dayTabController!, dates: _dates),
         // ── Day heading ──────────────────────────────────────────────────
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 6, 20, 8),
@@ -6419,10 +6391,7 @@ class _PaperTimetableMobileState extends State<_PaperTimetableMobile>
 /// with an elevated, shadow-based sliding indicator. Each tab shows a two-line
 /// layout: abbreviated day name + date number.
 class _PaperDayTabStrip extends StatelessWidget {
-  const _PaperDayTabStrip({
-    required this.controller,
-    required this.dates,
-  });
+  const _PaperDayTabStrip({required this.controller, required this.dates});
 
   final TabController controller;
   final List<DateTime> dates;
@@ -6608,90 +6577,96 @@ class _PaperSlotCard extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(4),
         child: Container(
-        decoration: BoxDecoration(
-          color: statusColor.withValues(alpha: 0.06),
-          border: Border(
-            left: BorderSide(color: statusColor, width: 2.5),
-            top: BorderSide(
-              color: cs.outlineVariant.withValues(alpha: isDark ? 0.15 : 0.30),
-            ),
-            right: BorderSide(
-              color: cs.outlineVariant.withValues(alpha: isDark ? 0.15 : 0.30),
-            ),
-            bottom: BorderSide(
-              color: cs.outlineVariant.withValues(alpha: isDark ? 0.15 : 0.30),
-            ),
-          ),
-        ),
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        subjectName,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: cs.onSurface,
-                        ),
-                      ),
-                      if (paperLabel.isNotEmpty) ...[
-                        const SizedBox(width: 6),
-                        Text(
-                          paperLabel,
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w400,
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    timeRange,
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w400,
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
-                  if (invigilatorName.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      'Inv: $invigilatorName',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w400,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                      ),
-                    ),
-                  ],
-                ],
+          decoration: BoxDecoration(
+            color: statusColor.withValues(alpha: 0.06),
+            border: Border(
+              left: BorderSide(color: statusColor, width: 2.5),
+              top: BorderSide(
+                color: cs.outlineVariant.withValues(
+                  alpha: isDark ? 0.15 : 0.30,
+                ),
+              ),
+              right: BorderSide(
+                color: cs.outlineVariant.withValues(
+                  alpha: isDark ? 0.15 : 0.30,
+                ),
+              ),
+              bottom: BorderSide(
+                color: cs.outlineVariant.withValues(
+                  alpha: isDark ? 0.15 : 0.30,
+                ),
               ),
             ),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _StatusChip(status: paper.status, cs: cs),
-                const SizedBox(height: 4),
-                Icon(
-                  Icons.chevron_right,
-                  size: 16,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+          ),
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          subjectName,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: cs.onSurface,
+                          ),
+                        ),
+                        if (paperLabel.isNotEmpty) ...[
+                          const SizedBox(width: 6),
+                          Text(
+                            paperLabel,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w400,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      timeRange,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                    if (invigilatorName.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        'Inv: $invigilatorName',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w400,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-              ],
-            ),
-          ],
+              ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  _StatusChip(status: paper.status, cs: cs),
+                  const SizedBox(height: 4),
+                  Icon(
+                    Icons.chevron_right,
+                    size: 16,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }

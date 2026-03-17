@@ -39,20 +39,22 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
     required int year,
     required int term,
     required int grade,
-    required int stream,
+    int? stream,
   }) {
+    final baseFilter =
+        timetable.school.equals(schoolId) &
+        timetable.year.equals(year) &
+        timetable.term.equals(term) &
+        timetable.grade.equals(grade);
+    final filter = stream != null
+        ? baseFilter & timetable.stream.equals(stream)
+        : baseFilter;
     final query =
         select(timetable).join([
             innerJoin(users, users.id.equalsExp(timetable.teacher)),
             leftOuterJoin(subjects, subjects.id.equalsExp(timetable.subject)),
           ])
-          ..where(
-            timetable.school.equals(schoolId) &
-                timetable.year.equals(year) &
-                timetable.term.equals(term) &
-                timetable.grade.equals(grade) &
-                timetable.stream.equals(stream),
-          )
+          ..where(filter)
           ..orderBy([
             OrderingTerm.asc(timetable.day),
             OrderingTerm.asc(timetable.start),
