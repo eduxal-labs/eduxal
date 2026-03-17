@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 
 import '../database.dart';
 import '../tables/enums.dart';
@@ -121,10 +122,33 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
   /// and by the authentication service immediately after a successful login to
   /// persist the authenticated user's profile locally.
   ///
+  /// Handles the case where a different user row already exists with the same
+  /// phone number (e.g. the server DB was reset and a new user ID was assigned
+  /// to the same phone). In that scenario the stale row is deleted first —
+  /// FK cascades (`ON DELETE CASCADE` / `ON DELETE SET NULL`) automatically
+  /// clean up all related rows (accounts, owners, teachers, staff, guardians,
+  /// scopes, announcements.author, payments.recorder, students.user).
+  ///
   /// Does **not** write a log entry — this is a sync-sourced write, not a
   /// local mutation.
-  Future<void> upsertUser(UsersCompanion user) {
-    return into(users).insertOnConflictUpdate(user);
+  Future<void> upsertUser(UsersCompanion user) async {
+    // Guard against UNIQUE(phone) conflict from a *different* user id.
+    // insertOnConflictUpdate only handles PK (id) conflicts — a phone
+    // collision with a different id would throw SqliteException(2067).
+    if (user.phone.present) {
+      final existing = await (select(users)
+            ..where((t) => t.phone.equals(user.phone.value))
+            ..where((t) => t.id.equals(user.id.value).not()))
+          .getSingleOrNull();
+      if (existing != null) {
+        debugPrint(
+          '[UsersDao] upsertUser: phone ${user.phone.value} conflict — '
+          'deleting stale user ${existing.id} to make way for ${user.id.value}',
+        );
+        await (delete(users)..where((t) => t.id.equals(existing.id))).go();
+      }
+    }
+    await into(users).insertOnConflictUpdate(user);
   }
 
   /// Creates a new invited user and enqueues a log insert entry, both in a

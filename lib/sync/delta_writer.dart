@@ -200,6 +200,25 @@ class DeltaWriter {
     }
     final row = delta.data.user;
     final now = _now();
+
+    // Before upserting, check if another user row (different id) already holds
+    // this phone number. This can happen when the server DB is reset and the
+    // same phone is assigned a new user id. Drift's insertOnConflictUpdate
+    // only handles PK conflicts — the UNIQUE(phone) constraint would fire
+    // otherwise. Deleting the stale row lets FK cascades clean up all
+    // relationships that pointed to the old id.
+    final existing =
+        await (_db.select(_db.users)..where(
+              (t) =>
+                  t.phone.equals(row.phone) & t.id.equals(delta.rowKey).not(),
+            ))
+            .getSingleOrNull();
+    if (existing != null) {
+      await (_db.delete(
+        _db.users,
+      )..where((t) => t.id.equals(existing.id))).go();
+    }
+
     await _db
         .into(_db.users)
         .insertOnConflictUpdate(
@@ -760,55 +779,92 @@ class DeltaWriter {
   // ---------------------------------------------------------------------------
   // 17: papers  — PK: (school, exam, subject, paper)  [paper nullable]
   //     rowKey: "{school}|{exam}|{subject}|{paper}"
+  //
+  //     SQLite NULL handling: ON CONFLICT (school, exam, subject, paper) does
+  //     NOT match existing rows when paper IS NULL because NULL != NULL in SQL.
+  //     The INSERT falls through to a fresh row, which then hits the partial
+  //     unique index papers_subject_null_idx(school, exam, subject) WHERE
+  //     paper IS NULL → UNIQUE constraint failed.
+  //
+  //     Fix: when paper is NULL we DELETE the existing row first (using
+  //     IS NULL), then INSERT unconditionally. When paper is non-NULL the
+  //     standard ON CONFLICT upsert works correctly.
   // ---------------------------------------------------------------------------
 
   Future<void> _applyPapers(SyncDelta delta) async {
     final k = _parseKey(delta.rowKey);
+    final paperVal = _parseIntNullable(k[3]);
+
     if (delta.operation == 2) {
-      final paper = _parseIntNullable(k[3]);
       await _db.customStatement(
         'DELETE FROM papers WHERE school = ? AND exam = ? AND subject = ?'
-        ' AND paper ${paper == null ? 'IS NULL' : '= ?'}',
-        [k[0], k[1], _parseInt(k[2]), ?paper],
+        ' AND paper ${paperVal == null ? 'IS NULL' : '= ?'}',
+        [k[0], k[1], _parseInt(k[2]), ?paperVal],
       );
       return;
     }
     final row = delta.data.paper;
     final now = _now();
-    // papers has a nullable PK column (paper), so we must use raw SQL for
-    // upsert because Drift's insertOnConflictUpdate cannot handle nullable PKs.
-    final paperVal = _parseIntNullable(k[3]);
     final topicVal = row.hasTopic() ? row.topic : null;
     final streamVal = row.hasStream() ? row.stream : null;
-    await _db.customStatement(
-      'INSERT INTO papers (school, exam, subject, paper, topic, invigilator, start, "end", status, grade, stream, created, updated)'
-      ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-      ' ON CONFLICT (school, exam, subject, paper) DO UPDATE SET'
-      ' topic = excluded.topic,'
-      ' invigilator = excluded.invigilator,'
-      ' start = excluded.start,'
-      ' "end" = excluded."end",'
-      ' status = excluded.status,'
-      ' grade = excluded.grade,'
-      ' stream = excluded.stream,'
-      ' created = excluded.created,'
-      ' updated = excluded.updated',
-      [
-        k[0],
-        k[1],
-        _parseInt(k[2]),
-        paperVal,
-        topicVal,
-        row.invigilator,
-        row.start.toInt(),
-        row.end.toInt(),
-        row.status,
-        row.grade,
-        streamVal,
-        now.toInt(),
-        now.toInt(),
-      ],
-    );
+
+    if (paperVal == null) {
+      // NULL paper — ON CONFLICT cannot match NULLs, so delete-then-insert.
+      await _db.customStatement(
+        'DELETE FROM papers WHERE school = ? AND exam = ? AND subject = ?'
+        ' AND paper IS NULL',
+        [k[0], k[1], _parseInt(k[2])],
+      );
+      await _db.customStatement(
+        'INSERT INTO papers (school, exam, subject, paper, topic, invigilator, start, "end", status, grade, stream, created, updated)'
+        ' VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          k[0],
+          k[1],
+          _parseInt(k[2]),
+          topicVal,
+          row.invigilator,
+          row.start.toInt(),
+          row.end.toInt(),
+          row.status,
+          row.grade,
+          streamVal,
+          now.toInt(),
+          now.toInt(),
+        ],
+      );
+    } else {
+      // Non-NULL paper — standard ON CONFLICT upsert works fine.
+      await _db.customStatement(
+        'INSERT INTO papers (school, exam, subject, paper, topic, invigilator, start, "end", status, grade, stream, created, updated)'
+        ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        ' ON CONFLICT (school, exam, subject, paper) DO UPDATE SET'
+        ' topic = excluded.topic,'
+        ' invigilator = excluded.invigilator,'
+        ' start = excluded.start,'
+        ' "end" = excluded."end",'
+        ' status = excluded.status,'
+        ' grade = excluded.grade,'
+        ' stream = excluded.stream,'
+        ' created = excluded.created,'
+        ' updated = excluded.updated',
+        [
+          k[0],
+          k[1],
+          _parseInt(k[2]),
+          paperVal,
+          topicVal,
+          row.invigilator,
+          row.start.toInt(),
+          row.end.toInt(),
+          row.status,
+          row.grade,
+          streamVal,
+          now.toInt(),
+          now.toInt(),
+        ],
+      );
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -818,38 +874,63 @@ class DeltaWriter {
 
   Future<void> _applyGrades(SyncDelta delta) async {
     final k = _parseKey(delta.rowKey);
+    final paperVal = _parseIntNullable(k[4]);
+
     if (delta.operation == 2) {
-      final paper = _parseIntNullable(k[4]);
       await _db.customStatement(
         'DELETE FROM grades WHERE school = ? AND exam = ? AND student = ? AND subject = ?'
-        ' AND paper ${paper == null ? 'IS NULL' : '= ?'}',
-        [k[0], k[1], _parseInt(k[2]), _parseInt(k[3]), ?paper],
+        ' AND paper ${paperVal == null ? 'IS NULL' : '= ?'}',
+        [k[0], k[1], _parseInt(k[2]), _parseInt(k[3]), ?paperVal],
       );
       return;
     }
     final row = delta.data.grade;
     final now = _now();
-    final paperVal = _parseIntNullable(k[4]);
-    await _db.customStatement(
-      'INSERT INTO grades (school, exam, student, subject, paper, score, total, created, updated)'
-      ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-      ' ON CONFLICT (school, exam, student, subject, paper) DO UPDATE SET'
-      ' score = excluded.score,'
-      ' total = excluded.total,'
-      ' created = excluded.created,'
-      ' updated = excluded.updated',
-      [
-        k[0],
-        k[1],
-        _parseInt(k[2]),
-        _parseInt(k[3]),
-        paperVal,
-        row.score,
-        row.total,
-        now.toInt(),
-        now.toInt(),
-      ],
-    );
+
+    if (paperVal == null) {
+      // NULL paper — ON CONFLICT cannot match NULLs, so delete-then-insert.
+      await _db.customStatement(
+        'DELETE FROM grades WHERE school = ? AND exam = ? AND student = ? AND subject = ?'
+        ' AND paper IS NULL',
+        [k[0], k[1], _parseInt(k[2]), _parseInt(k[3])],
+      );
+      await _db.customStatement(
+        'INSERT INTO grades (school, exam, student, subject, paper, score, total, created, updated)'
+        ' VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?)',
+        [
+          k[0],
+          k[1],
+          _parseInt(k[2]),
+          _parseInt(k[3]),
+          row.score,
+          row.total,
+          now.toInt(),
+          now.toInt(),
+        ],
+      );
+    } else {
+      // Non-NULL paper — standard ON CONFLICT upsert works fine.
+      await _db.customStatement(
+        'INSERT INTO grades (school, exam, student, subject, paper, score, total, created, updated)'
+        ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        ' ON CONFLICT (school, exam, student, subject, paper) DO UPDATE SET'
+        ' score = excluded.score,'
+        ' total = excluded.total,'
+        ' created = excluded.created,'
+        ' updated = excluded.updated',
+        [
+          k[0],
+          k[1],
+          _parseInt(k[2]),
+          _parseInt(k[3]),
+          paperVal,
+          row.score,
+          row.total,
+          now.toInt(),
+          now.toInt(),
+        ],
+      );
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -1112,15 +1193,29 @@ class DeltaWriter {
       return;
     }
     final now = _now();
-    // scopes has a nullable PK column (school), so we must use raw SQL for
-    // upsert because Drift's insertOnConflictUpdate cannot handle nullable PKs.
-    await _db.customStatement(
-      'INSERT INTO scopes (school, user, role, created)'
-      ' VALUES (?, ?, ?, ?)'
-      ' ON CONFLICT (school, user, role) DO UPDATE SET'
-      ' created = excluded.created',
-      [school, k[1], k[2], now.toInt()],
-    );
+    // scopes has a nullable PK column (school), so we must use raw SQL.
+    // SQLite NULL handling: ON CONFLICT (school, user, role) does NOT match
+    // existing rows when school IS NULL because NULL != NULL in SQL.
+    // Fix: when school is NULL we delete-then-insert; otherwise standard upsert.
+    if (school == null) {
+      await _db.customStatement(
+        'DELETE FROM scopes WHERE school IS NULL AND user = ? AND role = ?',
+        [k[1], k[2]],
+      );
+      await _db.customStatement(
+        'INSERT INTO scopes (school, user, role, created)'
+        ' VALUES (NULL, ?, ?, ?)',
+        [k[1], k[2], now.toInt()],
+      );
+    } else {
+      await _db.customStatement(
+        'INSERT INTO scopes (school, user, role, created)'
+        ' VALUES (?, ?, ?, ?)'
+        ' ON CONFLICT (school, user, role) DO UPDATE SET'
+        ' created = excluded.created',
+        [school, k[1], k[2], now.toInt()],
+      );
+    }
   }
 
   // ---------------------------------------------------------------------------
