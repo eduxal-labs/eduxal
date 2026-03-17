@@ -54,3 +54,29 @@ Added `grade` (required `int`) and `stream` (required `int?`) parameters to `upd
 The papers table composite PK is `(school, exam, subject, paper, grade, stream)`. Any UPDATE or DELETE on this table MUST filter by ALL six columns. Never use a partial key unless the intent is explicitly to affect multiple rows (e.g., "delete all papers for an exam" which filters by `school + exam` only).
 
 ---
+
+## BUG-003: Paper detail page shows exam teacher instead of paper's invigilator
+
+**Status:** Fixed
+**Date:** 2025-07-10
+**Files affected:**
+- `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart` — `_PaperHeaderState`
+
+**Symptom:**
+When navigating to a paper's detail page from a stream tab (e.g. Green), the invigilator row in `_PaperHeader` always displayed the exam creator's name and avatar (e.g. Blue's invigilator) instead of the paper's actual invigilator for that stream. The paper status was correct, but the invigilator was wrong.
+
+**Root cause:**
+The `_PaperHeader` widget's Row 4 (Invigilator) used `exam.teacher.id` for the `UserAvatar` and `exam.teacher.name` for the label. `ExamWithPapers.teacher` is the user who **created the exam** — NOT the paper's invigilator. Each paper has its own `invigilator` field (a user ID string), but the header was ignoring it entirely and always showing the exam-level teacher.
+
+When `_PaperDetailView` in `exams_grades_screen.dart` constructs the `ExamWithPapers` record, it sets `teacher: _selectedGroup!.teacher`, which is the exam group's teacher — always the same user regardless of which stream's paper was tapped.
+
+**Fix:**
+1. Added `_invigilatorName` (nullable String) and `_lastInvigilatorId` fields to `_PaperHeaderState`.
+2. Added `_loadInvigilator()` method that resolves the paper's `invigilator` user ID to a `UsersData.name` via `MembersDao(db).findUserById()`.
+3. Called `_loadInvigilator()` in both `initState()` and `didUpdateWidget()` (with an early-return guard when the ID hasn't changed).
+4. Changed the invigilator row to use `UserAvatar(userId: paper.invigilator, ...)` and display `_invigilatorName ?? paper.invigilator` instead of `exam.teacher.id` / `exam.teacher.name`.
+
+**Prevention:**
+The `_PaperHeader` must NEVER use `exam.teacher` for the invigilator display. The invigilator is a per-paper field (`paper.invigilator`), not an exam-level field. Any future UI that displays a paper's invigilator must read from `paper.invigilator` and resolve the user name via DAO lookup — not from the `ExamWithPapers.teacher` record.
+
+---
