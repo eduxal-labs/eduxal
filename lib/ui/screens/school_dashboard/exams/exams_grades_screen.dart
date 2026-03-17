@@ -5844,10 +5844,16 @@ class _PaperContentAreaState extends State<_PaperContentArea> {
         final papers = snap.data ?? [];
         if (papers.isNotEmpty) {
           debugPrint(
-            '[_PaperContentArea] build: stream=${widget.stream}, '
-            '${papers.length} papers, '
-            'statuses=${papers.map((p) => '${p.subject}:${p.status}').join(', ')}',
+            '[_PaperContentArea] build: filterStream=${widget.stream}, '
+            'filterGrade=${widget.grade}, ${papers.length} papers:',
           );
+          for (final p in papers) {
+            debugPrint(
+              '  subj=${p.subject}, paper=${p.paper}, '
+              'grade=${p.grade}, stream=${p.stream}, '
+              'status=${p.status}, inv=${p.invigilator}',
+            );
+          }
         }
         if (papers.isEmpty) {
           return _EmptyPapersTimetableState(cs: cs);
