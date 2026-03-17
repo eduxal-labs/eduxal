@@ -470,9 +470,26 @@ class _PaperHeaderState extends State<_PaperHeader>
   late Animation<double> _arcAnimation;
   late Animation<double> _scaleAnimation;
 
+  // ── Invigilator resolution ──────────────────────────────────────────────
+  String? _invigilatorName;
+  String _lastInvigilatorId = '';
+
+  void _loadInvigilator() {
+    final invId = widget.paper.invigilator;
+    if (invId == _lastInvigilatorId) return;
+    _lastInvigilatorId = invId;
+    MembersDao(db).findUserById(invId).then((user) {
+      if (!mounted) return;
+      setState(() {
+        _invigilatorName = user?.name;
+      });
+    });
+  }
+
   @override
   void initState() {
     super.initState();
+    _loadInvigilator();
     _arcCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 400),
@@ -504,6 +521,7 @@ class _PaperHeaderState extends State<_PaperHeader>
   @override
   void didUpdateWidget(_PaperHeader old) {
     super.didUpdateWidget(old);
+    _loadInvigilator();
     if (old.paper.status != widget.paper.status) {
       _arcAnimation = Tween<double>(
         begin: _arcFraction(old.paper.status),
@@ -829,11 +847,11 @@ class _PaperHeaderState extends State<_PaperHeader>
             onTap: widget.canEdit ? widget.onEditInvigilator : null,
             child: Row(
               children: [
-                UserAvatar(userId: exam.teacher.id, radius: 14),
+                UserAvatar(userId: paper.invigilator, radius: 14),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    exam.teacher.name,
+                    _invigilatorName ?? paper.invigilator,
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w400,
