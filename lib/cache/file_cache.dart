@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart';
 import 'package:path_provider/path_provider.dart';
 
 /// Static utility class for caching files at constant, predictable local paths.
@@ -149,6 +150,10 @@ class FileCache {
         // Collect all bytes before writing so a partial failure does not
         // leave a corrupted file on disk.
         final bytes = await _collectBytes(response);
+        // Evict stale cached image before overwriting file on disk.
+        try {
+          PaintingBinding.instance.imageCache.evict(FileImage(file));
+        } catch (_) {}
         await file.writeAsBytes(bytes, flush: true);
         FileCacheNotifier.notify(relativePath);
         debugPrint(
@@ -187,6 +192,10 @@ class FileCache {
       if (!dir.existsSync()) {
         await dir.create(recursive: true);
       }
+      // Evict stale cached image before overwriting file on disk.
+      try {
+        PaintingBinding.instance.imageCache.evict(FileImage(file));
+      } catch (_) {}
       await file.writeAsBytes(bytes, flush: true);
       FileCacheNotifier.notify(relativePath);
       return file;
@@ -289,7 +298,30 @@ class FileCacheNotifier {
   }
 
   /// Notifies all listeners for [path] that the file has changed on disk.
+  ///
+  /// Also evicts any [FileImage] for this path from Flutter's image cache so
+  /// that the next build gets fresh bytes from disk rather than the stale
+  /// cached image. The eviction happens **before** listeners are notified so
+  /// that any [FutureBuilder] or [Image.file] widget that rebuilds in response
+  /// to the notification already sees a clean cache.
   static void notify(String path) {
+    // Evict any cached FileImage for this path so Flutter re-reads from disk.
+    _evictFileImageCache(path);
     _notifiers[path]?.ping();
+  }
+
+  /// Evicts the [FileImage] entry for [relativePath] from Flutter's painting
+  /// image cache. Uses the cached [FileCache._appDir] to construct the
+  /// absolute path — if the base directory has not been resolved yet, no file
+  /// can have been cached yet, so the eviction is skipped safely.
+  static void _evictFileImageCache(String relativePath) {
+    try {
+      final base = FileCache._appDir;
+      if (base == null) return; // not yet resolved — nothing cached yet
+      final absPath = '$base/$relativePath';
+      PaintingBinding.instance.imageCache.evict(FileImage(File(absPath)));
+    } catch (_) {
+      // Non-fatal — worst case the stale image shows briefly until next rebuild.
+    }
   }
 }
