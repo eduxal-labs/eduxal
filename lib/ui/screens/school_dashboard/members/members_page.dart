@@ -2597,7 +2597,9 @@ class _StudentPickerSheetState extends State<_StudentPickerSheet> {
       ),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF18222E) : cs.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(AppTheme.kModalRadius),
+        ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -2779,8 +2781,12 @@ class _OwnerInfoSheet extends StatelessWidget {
     return Material(
       color: isDark ? const Color(0xFF18222E) : cs.surface,
       borderRadius: isSideSheet
-          ? const BorderRadius.horizontal(left: Radius.circular(12))
-          : const BorderRadius.vertical(top: Radius.circular(16)),
+          ? const BorderRadius.horizontal(
+              left: Radius.circular(AppTheme.kModalRadius),
+            )
+          : const BorderRadius.vertical(
+              top: Radius.circular(AppTheme.kModalRadius),
+            ),
       child: SafeArea(
         top: isSideSheet,
         child: SizedBox(
@@ -3061,8 +3067,12 @@ class _TeacherInfoSheetState extends State<_TeacherInfoSheet> {
     return Material(
       color: isDark ? const Color(0xFF18222E) : cs.surface,
       borderRadius: isSideSheet
-          ? const BorderRadius.horizontal(left: Radius.circular(12))
-          : const BorderRadius.vertical(top: Radius.circular(16)),
+          ? const BorderRadius.horizontal(
+              left: Radius.circular(AppTheme.kModalRadius),
+            )
+          : const BorderRadius.vertical(
+              top: Radius.circular(AppTheme.kModalRadius),
+            ),
       child: SafeArea(
         top: isSideSheet,
         child: SizedBox(
@@ -3815,8 +3825,12 @@ class _StaffInfoSheet extends StatelessWidget {
     return Material(
       color: isDark ? const Color(0xFF18222E) : cs.surface,
       borderRadius: isSideSheet
-          ? const BorderRadius.horizontal(left: Radius.circular(12))
-          : const BorderRadius.vertical(top: Radius.circular(16)),
+          ? const BorderRadius.horizontal(
+              left: Radius.circular(AppTheme.kModalRadius),
+            )
+          : const BorderRadius.vertical(
+              top: Radius.circular(AppTheme.kModalRadius),
+            ),
       child: SafeArea(
         top: isSideSheet,
         child: SizedBox(
@@ -4206,8 +4220,12 @@ class _GuardianWardsSheet extends StatelessWidget {
     return Material(
       color: isDark ? const Color(0xFF18222E) : cs.surface,
       borderRadius: isSideSheet
-          ? const BorderRadius.horizontal(left: Radius.circular(12))
-          : const BorderRadius.vertical(top: Radius.circular(16)),
+          ? const BorderRadius.horizontal(
+              left: Radius.circular(AppTheme.kModalRadius),
+            )
+          : const BorderRadius.vertical(
+              top: Radius.circular(AppTheme.kModalRadius),
+            ),
       child: SafeArea(
         top: isSideSheet,
         child: SizedBox(

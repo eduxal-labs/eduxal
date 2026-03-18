@@ -139,7 +139,7 @@ Study the current `_FlatMemberList.build` method's search toolbar logic (the `if
 
 ---
 
-### [ ] Task 10: Normalise mobile bottom-sheet top border radius across all modals
+### [x] Task 10: Normalise mobile bottom-sheet top border radius across all modals
 **Files to modify:**
 - `eduxal/lib/ui/widgets/edu_sheet.dart`
 - `eduxal/lib/ui/screens/school_dashboard/announcements/announcements_screen.dart`

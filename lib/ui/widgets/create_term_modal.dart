@@ -106,8 +106,8 @@ class _CreateTermSheet extends StatelessWidget {
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF18222E) : cs.surface,
           borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(16),
-            topRight: Radius.circular(16),
+            topLeft: Radius.circular(AppTheme.kModalRadius),
+            topRight: Radius.circular(AppTheme.kModalRadius),
           ),
           border: Border(
             top: BorderSide(

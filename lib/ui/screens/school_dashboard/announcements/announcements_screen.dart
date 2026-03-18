@@ -790,7 +790,9 @@ class _DetailSheet extends StatelessWidget {
       constraints: BoxConstraints(maxHeight: maxH),
       decoration: BoxDecoration(
         color: cs.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(AppTheme.kModalRadius),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.12),
