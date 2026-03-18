@@ -2244,7 +2244,7 @@ class _MobileActions extends StatelessWidget {
 // Student avatar with initials fallback
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _StudentAvatar extends StatelessWidget {
+class _StudentAvatar extends StatefulWidget {
   const _StudentAvatar({
     required this.schoolId,
     required this.adm,
@@ -2258,12 +2258,52 @@ class _StudentAvatar extends StatelessWidget {
   final StudentStatus status;
 
   @override
+  State<_StudentAvatar> createState() => _StudentAvatarState();
+}
+
+class _StudentAvatarState extends State<_StudentAvatar> {
+  late Future<File?> _future;
+  late String _path;
+
+  @override
+  void initState() {
+    super.initState();
+    _path = FileCache.studentImagePath(widget.schoolId, widget.adm);
+    _future = FileCache.get(_path);
+    FileCacheNotifier.of(_path).addListener(_onFileChanged);
+  }
+
+  @override
+  void didUpdateWidget(_StudentAvatar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final newPath = FileCache.studentImagePath(widget.schoolId, widget.adm);
+    if (newPath != _path) {
+      FileCacheNotifier.of(_path).removeListener(_onFileChanged);
+      _path = newPath;
+      _future = FileCache.get(_path);
+      FileCacheNotifier.of(_path).addListener(_onFileChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    FileCacheNotifier.of(_path).removeListener(_onFileChanged);
+    super.dispose();
+  }
+
+  void _onFileChanged() {
+    setState(() {
+      _future = FileCache.get(_path);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final initials = _initials(name);
+    final initials = _initials(widget.name);
 
     return FutureBuilder<File?>(
-      future: FileCache.get(FileCache.studentImagePath(schoolId, adm)),
+      future: _future,
       builder: (context, snapshot) {
         final file = snapshot.data;
         final hasImage = file != null && file.existsSync();

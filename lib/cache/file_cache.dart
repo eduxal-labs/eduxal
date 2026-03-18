@@ -150,6 +150,7 @@ class FileCache {
         // leave a corrupted file on disk.
         final bytes = await _collectBytes(response);
         await file.writeAsBytes(bytes, flush: true);
+        FileCacheNotifier.notify(relativePath);
         debugPrint(
           '[FileCache] download() — wrote ${bytes.length} bytes to ${file.path}',
         );
@@ -187,6 +188,7 @@ class FileCache {
         await dir.create(recursive: true);
       }
       await file.writeAsBytes(bytes, flush: true);
+      FileCacheNotifier.notify(relativePath);
       return file;
     } catch (_) {
       return null;
@@ -254,5 +256,40 @@ class FileCache {
       offset += chunk.length;
     }
     return bytes;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FileCacheNotifier
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A [ChangeNotifier] subclass whose [ping] method is publicly callable,
+/// allowing [FileCacheNotifier] to trigger listeners from outside the class.
+class _FileChangeNotifier extends ChangeNotifier {
+  void ping() => notifyListeners();
+}
+
+/// A lightweight notifier that signals when a cached file path has been
+/// written or updated on disk. Widgets that display cached files should
+/// listen to this and rebuild when their path is notified.
+///
+/// Usage — notify after write:
+///   FileCacheNotifier.notify('schools/x/students/23/image');
+///
+/// Usage — listen in a widget:
+///   FileCacheNotifier.of('schools/x/students/23/image').addListener(_rebuild);
+class FileCacheNotifier {
+  FileCacheNotifier._();
+
+  static final Map<String, _FileChangeNotifier> _notifiers = {};
+
+  /// Returns the [ChangeNotifier] for [path], creating it if needed.
+  static ChangeNotifier of(String path) {
+    return _notifiers.putIfAbsent(path, _FileChangeNotifier.new);
+  }
+
+  /// Notifies all listeners for [path] that the file has changed on disk.
+  static void notify(String path) {
+    _notifiers[path]?.ping();
   }
 }

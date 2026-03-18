@@ -10,7 +10,7 @@ This directory contains **1 file**. The file cache is a purely static utility �
 
 | File | Key Exports | Status |
 |---|---|---|
-| `file_cache.dart` | `FileCache` (static class) | ✅ Complete |
+| `file_cache.dart` | `FileCache` (static class), `FileCacheNotifier` (static notifier) | ✅ Complete |
 
 ## `FileCache` — Detailed API
 
@@ -35,6 +35,47 @@ All paths are **relative** — they are resolved against the app documents direc
 | `download` | `Future<File?> download(String url, String relativePath)` | HTTP GET from `url`, saves to `relativePath`. Creates parent dirs. Overwrites existing. Returns `File` on success, `null` on any error. Errors swallowed silently. |
 | `saveBytes` | `Future<File?> saveBytes(List<int> bytes, String relativePath)` | Writes raw bytes to `relativePath`. Creates parent dirs. Overwrites existing. Returns `File` on success, `null` on error. Used for locally-picked images (e.g. from `image_picker`). |
 | `delete` | `Future<void> delete(String relativePath)` | Deletes the file at `relativePath` if it exists. No-op if absent. Errors silently ignored. |
+
+### `FileCacheNotifier` — Live File Change Signals
+
+A lightweight static registry of `ChangeNotifier`s keyed by relative path. Allows UI widgets to rebuild immediately when a cached file is written or updated on disk — without polling or navigating away and back.
+
+| Member | Signature | Description |
+|---|---|---|
+| `of` | `static ChangeNotifier of(String path)` | Returns the `ChangeNotifier` for `path`, creating it lazily if needed. Widgets call `addListener` / `removeListener` on this. |
+| `notify` | `static void notify(String path)` | Fires all listeners registered for `path`. Called internally after every file write (`download`, `saveBytes`) and by `services/members.dart` after `sourceFile.copy()`. |
+
+**When `notify` is called:**
+- `FileCache.download()` — after `file.writeAsBytes(..., flush: true)`
+- `FileCache.saveBytes()` — after `file.writeAsBytes(..., flush: true)`
+- `MemberCreationService.saveStudentImage()` — after `sourceFile.copy(targetPath)` (via `FileCacheNotifier.notify(FileCache.studentImagePath(schoolId, adm))`)
+- `MemberCreationService.saveUserProfileImage()` — after `sourceFile.copy(targetPath)` (via `FileCacheNotifier.notify(FileCache.profilePath(userId))`)
+
+**Widget pattern (StatefulWidget):**
+```dart
+@override
+void initState() {
+  super.initState();
+  _path = FileCache.studentImagePath(widget.schoolId, widget.adm);
+  _future = FileCache.get(_path);
+  FileCacheNotifier.of(_path).addListener(_onFileChanged);
+}
+
+@override
+void dispose() {
+  FileCacheNotifier.of(_path).removeListener(_onFileChanged);
+  super.dispose();
+}
+
+void _onFileChanged() => setState(() { _future = FileCache.get(_path); });
+```
+
+**Widgets already converted to use this pattern:**
+- `lib/ui/widgets/student_avatar.dart` — `StudentAvatar` (shared widget used in `exam_detail_page.dart`, `paper_detail_page.dart`)
+- `lib/ui/screens/school_dashboard/academics/tabs/students_tab.dart` — `_StudentAvatar`
+- `lib/ui/screens/school_dashboard/members/members_page.dart` — `_StudentAvatar`
+- `lib/ui/screens/school_dashboard/academics/student_grade_page.dart` — `_StudentAvatar`
+- `lib/ui/screens/school_dashboard/members/student_detail_page.dart` — `_StudentAvatarLarge`
 
 ### Internal
 
@@ -84,4 +125,6 @@ Uses `dart:io`'s `HttpClient` (not `package:http`) for HTTP GET. Collects all by
 - New entity types that need cached files should add a static path helper method to `FileCache` and document the path pattern here.
 
 ## Last Updated
-Task 1 — Added `FileCache.upload(String putUrl, String relativePath) → Future<bool>` static method for S3 HTTP PUT uploads. Called by `SyncEngine._handleFileUrls()` when the push originator device receives PUT URLs in `ActionResponse.fileUrls`.
+Task 2 (FileCacheNotifier) — Added `FileCacheNotifier` class to `file_cache.dart`. Added `FileCacheNotifier.notify()` calls after every file write in `FileCache.download()` and `FileCache.saveBytes()`. Added `FileCacheNotifier.notify()` calls in `services/members.dart` after `saveStudentImage()` and `saveUserProfileImage()` file copies. Converted all `_StudentAvatar` / `_StudentAvatarLarge` / `StudentAvatar` widgets from `StatelessWidget` to `StatefulWidget` with `initState`/`dispose`/`didUpdateWidget` listener lifecycle so they rebuild immediately when a cached image file lands on disk (local save or remote download).
+
+Previous: Task 1 — Added `FileCache.upload(String putUrl, String relativePath) → Future<bool>` static method for S3 HTTP PUT uploads. Called by `SyncEngine._handleFileUrls()` when the push originator device receives PUT URLs in `ActionResponse.fileUrls`.

@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import '../cache/file_cache.dart';
+
 import 'package:drift/drift.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:bson/bson.dart';
@@ -579,6 +581,7 @@ class MemberCreationService {
 
       final targetPath = '${targetDir.path}/profile';
       await sourceFile.copy(targetPath);
+      FileCacheNotifier.notify(FileCache.profilePath(userId));
 
       // Enqueue a log entry so the sync engine can upload this image.
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
@@ -628,6 +631,7 @@ class MemberCreationService {
 
       final targetPath = '${targetDir.path}/image';
       await sourceFile.copy(targetPath);
+      FileCacheNotifier.notify(FileCache.studentImagePath(schoolId, adm));
 
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final payload = sync_pb.UpdateStudentPayload(school: schoolId, adm: adm);

@@ -8,7 +8,11 @@ import '../../cache/file_cache.dart';
 /// Falls back to a circle with the student's initials when no cached image
 /// exists. The background color is deterministically derived from [adm] for
 /// visual variety.
-class StudentAvatar extends StatelessWidget {
+///
+/// Automatically rebuilds whenever [FileCacheNotifier] signals that the
+/// student's cached image file has been written or updated on disk — both
+/// for local saves (image picker) and remote downloads (sync engine).
+class StudentAvatar extends StatefulWidget {
   final String schoolId;
   final int adm;
   final String name;
@@ -40,12 +44,53 @@ class StudentAvatar extends StatelessWidget {
   ];
 
   @override
+  State<StudentAvatar> createState() => _StudentAvatarState();
+}
+
+class _StudentAvatarState extends State<StudentAvatar> {
+  late Future<File?> _future;
+  late String _path;
+
+  @override
+  void initState() {
+    super.initState();
+    _path = FileCache.studentImagePath(widget.schoolId, widget.adm);
+    _future = FileCache.get(_path);
+    FileCacheNotifier.of(_path).addListener(_onFileChanged);
+  }
+
+  @override
+  void didUpdateWidget(StudentAvatar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final newPath = FileCache.studentImagePath(widget.schoolId, widget.adm);
+    if (newPath != _path) {
+      FileCacheNotifier.of(_path).removeListener(_onFileChanged);
+      _path = newPath;
+      _future = FileCache.get(_path);
+      FileCacheNotifier.of(_path).addListener(_onFileChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    FileCacheNotifier.of(_path).removeListener(_onFileChanged);
+    super.dispose();
+  }
+
+  void _onFileChanged() {
+    setState(() {
+      _future = FileCache.get(_path);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final bgColor = _colors[adm % _colors.length];
+    final bgColor =
+        StudentAvatar._colors[widget.adm % StudentAvatar._colors.length];
 
     // Extract initials: first letter of first word + first letter of last word
-    final parts = name.trim().split(RegExp(r'\s+'));
+    final parts = widget.name.trim().split(RegExp(r'\s+'));
     final initials = parts.length >= 2
         ? '${parts.first[0]}${parts.last[0]}'.toUpperCase()
         : (parts.isNotEmpty && parts.first.isNotEmpty
@@ -53,14 +98,14 @@ class StudentAvatar extends StatelessWidget {
               : '?');
 
     Widget avatar = FutureBuilder<File?>(
-      future: FileCache.get(FileCache.studentImagePath(schoolId, adm)),
+      future: _future,
       builder: (context, snapshot) {
         final file = snapshot.data;
         final hasImage = file != null && file.existsSync();
 
         if (hasImage) {
           return CircleAvatar(
-            radius: radius,
+            radius: widget.radius,
             backgroundImage: FileImage(file),
             backgroundColor: cs.surfaceContainerHighest,
           );
@@ -68,12 +113,12 @@ class StudentAvatar extends StatelessWidget {
 
         // Fallback: colored circle with initials.
         return CircleAvatar(
-          radius: radius,
+          radius: widget.radius,
           backgroundColor: bgColor.withValues(alpha: 0.15),
           child: Text(
             initials,
             style: TextStyle(
-              fontSize: radius * 0.7,
+              fontSize: widget.radius * 0.7,
               fontWeight: FontWeight.w500,
               color: bgColor,
             ),
@@ -82,9 +127,9 @@ class StudentAvatar extends StatelessWidget {
       },
     );
 
-    if (onTap != null) {
+    if (widget.onTap != null) {
       avatar = GestureDetector(
-        onTap: onTap,
+        onTap: widget.onTap,
         behavior: HitTestBehavior.opaque,
         child: avatar,
       );

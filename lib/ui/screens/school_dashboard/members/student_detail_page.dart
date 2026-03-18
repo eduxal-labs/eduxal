@@ -2048,7 +2048,7 @@ class _SubscribeSheetState extends State<_SubscribeSheet> {
 // Shared helper widgets
 // ═══════════════════════════════════════════════════════════════════════════════
 
-class _StudentAvatarLarge extends StatelessWidget {
+class _StudentAvatarLarge extends StatefulWidget {
   const _StudentAvatarLarge({
     required this.schoolId,
     required this.adm,
@@ -2060,12 +2060,52 @@ class _StudentAvatarLarge extends StatelessWidget {
   final String name;
 
   @override
+  State<_StudentAvatarLarge> createState() => _StudentAvatarLargeState();
+}
+
+class _StudentAvatarLargeState extends State<_StudentAvatarLarge> {
+  late Future<File?> _future;
+  late String _path;
+
+  @override
+  void initState() {
+    super.initState();
+    _path = FileCache.studentImagePath(widget.schoolId, widget.adm);
+    _future = FileCache.get(_path);
+    FileCacheNotifier.of(_path).addListener(_onFileChanged);
+  }
+
+  @override
+  void didUpdateWidget(_StudentAvatarLarge oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final newPath = FileCache.studentImagePath(widget.schoolId, widget.adm);
+    if (newPath != _path) {
+      FileCacheNotifier.of(_path).removeListener(_onFileChanged);
+      _path = newPath;
+      _future = FileCache.get(_path);
+      FileCacheNotifier.of(_path).addListener(_onFileChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    FileCacheNotifier.of(_path).removeListener(_onFileChanged);
+    super.dispose();
+  }
+
+  void _onFileChanged() {
+    setState(() {
+      _future = FileCache.get(_path);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final initials = _initials(name);
+    final initials = _initials(widget.name);
 
     return FutureBuilder<File?>(
-      future: FileCache.get(FileCache.studentImagePath(schoolId, adm)),
+      future: _future,
       builder: (context, snapshot) {
         final file = snapshot.data;
         final hasImage = file != null && file.existsSync();
