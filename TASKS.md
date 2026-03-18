@@ -86,7 +86,7 @@ The department list items in `_DepartmentsTabState` currently render a plain row
 
 ---
 
-### [ ] Task 15: Fix Department detail screen FAB color + resolve nested modal layering
+### [x] Task 15: Fix Department detail screen FAB color + resolve nested modal layering
 **Files to create/modify:** `lib/ui/screens/school_dashboard/members/members_page.dart`
 **Context files to read (if needed):** none — scoped to `_DepartmentDetailScreenState.build()` and `_showAssignMember()`
 **Depends on:** Task 13 (green FAB color reference)

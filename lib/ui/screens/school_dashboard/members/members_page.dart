@@ -5045,15 +5045,14 @@ class _DepartmentDetailScreenState extends State<_DepartmentDetailScreen>
   }
 
   void _showAssignMember(BuildContext context) {
-    showEduSheet(
-      context: context,
-      builder: (ctx) => _AssignMemberSearchSheet(
-        schoolId: widget.schoolId,
-        deptName: widget.dept.name,
-        dao: widget.dao,
-        onDone: () {
-          if (ctx.mounted) Navigator.pop(ctx);
-        },
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (routeCtx) => _AssignMemberSearchSheet(
+          schoolId: widget.schoolId,
+          deptName: widget.dept.name,
+          dao: widget.dao,
+          onDone: () => Navigator.of(routeCtx).pop(),
+        ),
       ),
     );
   }
@@ -5729,95 +5728,87 @@ class _AssignMemberSearchSheetState extends State<_AssignMemberSearchSheet> {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
 
-    return SafeArea(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.6,
+    return Scaffold(
+      backgroundColor: cs.surfaceContainerLowest,
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.chevron_left_rounded, size: 24),
+          onPressed: () => Navigator.of(context).pop(),
         ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 32,
-                  height: 3.5,
-                  decoration: BoxDecoration(
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Assign Member',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: cs.onSurface,
-                ),
-              ),
-              const SizedBox(height: 12),
-              // Search field
-              TextField(
-                controller: _searchCtrl,
-                onChanged: (v) =>
-                    setState(() => _query = v.trim().toLowerCase()),
-                style: TextStyle(fontSize: 13.5, color: cs.onSurface),
-                decoration: InputDecoration(
-                  hintText: 'Search by name or phone...',
-                  hintStyle: TextStyle(
-                    fontSize: 13,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.4),
-                  ),
-                  prefixIcon: Icon(
-                    Icons.search,
-                    size: 18,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                  ),
-                  filled: true,
-                  fillColor: isDark
-                      ? cs.surfaceContainerHighest.withValues(alpha: 0.4)
-                      : cs.surfaceContainerHighest.withValues(alpha: 0.3),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(6),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  isDense: true,
-                ),
-              ),
-              const SizedBox(height: 10),
-              // Toggle: Teachers / Staff
-              Row(
-                children: [
-                  _DeptFilterChip(
-                    label: 'Teachers',
-                    selected: _showTeachers,
-                    onTap: () => setState(() => _showTeachers = true),
-                  ),
-                  const SizedBox(width: 6),
-                  _DeptFilterChip(
-                    label: 'Staff',
-                    selected: !_showTeachers,
-                    onTap: () => setState(() => _showTeachers = false),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              // List
-              Flexible(
-                child: _showTeachers
-                    ? _buildTeacherList(cs, isDark)
-                    : _buildStaffList(cs, isDark),
-              ),
-            ],
+        title: Text(
+          'Assign Member',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            color: cs.onSurface,
           ),
+        ),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: cs.surface,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Search field
+            TextField(
+              controller: _searchCtrl,
+              autofocus: true,
+              onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
+              style: TextStyle(fontSize: 13.5, color: cs.onSurface),
+              decoration: InputDecoration(
+                hintText: 'Search by name or phone...',
+                hintStyle: TextStyle(
+                  fontSize: 13,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                ),
+                prefixIcon: Icon(
+                  Icons.search,
+                  size: 18,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+                filled: true,
+                fillColor: isDark
+                    ? cs.surfaceContainerHighest.withValues(alpha: 0.4)
+                    : cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 10),
+            // Toggle: Teachers / Staff
+            Row(
+              children: [
+                _DeptFilterChip(
+                  label: 'Teachers',
+                  selected: _showTeachers,
+                  onTap: () => setState(() => _showTeachers = true),
+                ),
+                const SizedBox(width: 6),
+                _DeptFilterChip(
+                  label: 'Staff',
+                  selected: !_showTeachers,
+                  onTap: () => setState(() => _showTeachers = false),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            // List
+            Expanded(
+              child: _showTeachers
+                  ? _buildTeacherList(cs, isDark)
+                  : _buildStaffList(cs, isDark),
+            ),
+          ],
         ),
       ),
     );
