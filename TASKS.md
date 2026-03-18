@@ -228,7 +228,7 @@ Also check the `SafeArea` wrapper and the `viewInsets` padding inside `_CreateDe
 
 ---
 
-### [ ] Task 5: Fix member creation panels — form field styling and keyboard/modal layout issues
+### [x] Task 5: Fix member creation panels — form field styling and keyboard/modal layout issues
 **Files to modify:**
 - `eduxal/lib/ui/widgets/member_creation/phone_first_panel.dart`
 - `eduxal/lib/ui/widgets/member_creation/add_teacher_panel.dart`

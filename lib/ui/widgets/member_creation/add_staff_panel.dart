@@ -4,6 +4,7 @@ import '../../../database/database.dart';
 import '../../../database/daos/members_dao.dart';
 import '../../../models/result.dart';
 import '../../../services/members.dart';
+import '../edu_form_field.dart';
 import '../edu_sheet.dart';
 import 'phone_first_panel.dart';
 
@@ -70,9 +71,6 @@ class _AddStaffFormState extends State<_AddStaffForm> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isDark = cs.brightness == Brightness.dark;
-
     return PhoneFirstPanel(
       service: widget.service,
       title: 'Add Staff Member',
@@ -85,12 +83,8 @@ class _AddStaffFormState extends State<_AddStaffForm> {
       checkAlreadyExists: (user) async {
         return await MembersDao(db).staffExists(widget.schoolId, user.id);
       },
-      extraFields: (_) => _StaffExtras(
-        idNumberCtrl: _idNumberCtrl,
-        roleCtrl: _roleCtrl,
-        cs: cs,
-        isDark: isDark,
-      ),
+      extraFields: (_) =>
+          _StaffExtras(idNumberCtrl: _idNumberCtrl, roleCtrl: _roleCtrl),
       onConfirmed:
           ({
             required String phone,
@@ -136,20 +130,16 @@ class _AddStaffFormState extends State<_AddStaffForm> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _StaffExtras extends StatelessWidget {
-  const _StaffExtras({
-    required this.idNumberCtrl,
-    required this.roleCtrl,
-    required this.cs,
-    required this.isDark,
-  });
+  const _StaffExtras({required this.idNumberCtrl, required this.roleCtrl});
 
   final TextEditingController idNumberCtrl;
   final TextEditingController roleCtrl;
-  final ColorScheme cs;
-  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -157,25 +147,17 @@ class _StaffExtras extends StatelessWidget {
         _SectionDivider(cs: cs, isDark: isDark, label: 'Optional Details'),
         const SizedBox(height: 14),
         // National ID / Employee number
-        _FieldLabel(label: 'ID Number / Employee No.', cs: cs),
-        const SizedBox(height: 7),
-        _StyledInput(
+        EduFormField(
           controller: idNumberCtrl,
+          label: 'ID Number / Employee No.',
           hint: 'e.g. 12345678',
-          prefixIcon: Icons.credit_card_outlined,
-          isDark: isDark,
-          cs: cs,
         ),
         const SizedBox(height: 14),
         // Role/title
-        _FieldLabel(label: 'Role / Title', cs: cs),
-        const SizedBox(height: 7),
-        _StyledInput(
+        EduFormField(
           controller: roleCtrl,
+          label: 'Role / Title',
           hint: 'e.g. School Secretary',
-          prefixIcon: Icons.badge_outlined,
-          isDark: isDark,
-          cs: cs,
         ),
       ],
     );
@@ -185,88 +167,6 @@ class _StaffExtras extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared private widgets
 // ─────────────────────────────────────────────────────────────────────────────
-
-class _FieldLabel extends StatelessWidget {
-  const _FieldLabel({required this.label, required this.cs});
-  final String label;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: TextStyle(
-        fontSize: 11.5,
-        fontWeight: FontWeight.w500,
-        color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-        letterSpacing: 0.4,
-      ),
-    );
-  }
-}
-
-class _StyledInput extends StatelessWidget {
-  const _StyledInput({
-    required this.controller,
-    required this.hint,
-    required this.prefixIcon,
-    required this.isDark,
-    required this.cs,
-    this.keyboardType, // ignore: unused_element_parameter
-  });
-
-  final TextEditingController controller;
-  final String hint;
-  final IconData prefixIcon;
-  final bool isDark;
-  final ColorScheme cs;
-  final TextInputType? keyboardType;
-
-  @override
-  Widget build(BuildContext context) {
-    final borderColor = cs.outlineVariant.withValues(
-      alpha: isDark ? 0.2 : 0.35,
-    );
-
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E2A3A) : cs.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: borderColor),
-      ),
-      child: TextField(
-        controller: controller,
-        keyboardType: keyboardType,
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w400,
-          color: cs.onSurface,
-        ),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: TextStyle(
-            fontSize: 13.5,
-            fontWeight: FontWeight.w400,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-          ),
-          prefixIcon: Icon(
-            prefixIcon,
-            size: 17,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.65),
-          ),
-          filled: false,
-          border: InputBorder.none,
-          enabledBorder: InputBorder.none,
-          focusedBorder: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 13,
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _SectionDivider extends StatelessWidget {
   const _SectionDivider({

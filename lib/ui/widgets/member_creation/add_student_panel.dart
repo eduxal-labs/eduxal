@@ -11,6 +11,7 @@ import '../../../database/tables/enums.dart';
 import '../../../models/result.dart';
 import '../../../services/members.dart';
 import '../../../ui/theme/app_theme.dart';
+import '../edu_form_field.dart';
 import '../edu_sheet.dart';
 import '../inline_calendar.dart';
 
@@ -258,27 +259,17 @@ class _AddStudentFormState extends State<_AddStudentForm> {
             // ── Name ──────────────────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _FieldLabel(label: 'Full Name', cs: cs),
-                  const SizedBox(height: 7),
-                  _StyledInput(
-                    controller: _nameCtrl,
-                    hint: 'e.g. John Kamau',
-                    prefixIcon: Icons.person_outline,
-                    isDark: isDark,
-                    cs: cs,
-                    textCapitalization: TextCapitalization.words,
-                    validator: (v) {
-                      if (v == null || v.trim().isEmpty) {
-                        return 'Name is required';
-                      }
-                      return null;
-                    },
-                  ),
-                ],
+              child: EduFormField(
+                controller: _nameCtrl,
+                label: 'Full Name',
+                hint: 'e.g. John Kamau',
+                textCapitalization: TextCapitalization.words,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) {
+                    return 'Name is required';
+                  }
+                  return null;
+                },
               ),
             ),
 
@@ -291,8 +282,16 @@ class _AddStudentFormState extends State<_AddStudentForm> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _FieldLabel(label: 'Gender', cs: cs),
-                  const SizedBox(height: 7),
+                  Text(
+                    'GENDER',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.9,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
                   _GenderSelector(
                     value: _gender,
                     cs: cs,
@@ -313,8 +312,16 @@ class _AddStudentFormState extends State<_AddStudentForm> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _FieldLabel(label: 'Date of Birth', cs: cs),
-                  const SizedBox(height: 7),
+                  Text(
+                    'DATE OF BIRTH',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.9,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
                   InlineCalendar(
                     value: _dob,
                     hint: 'Select date of birth (optional)',
@@ -336,8 +343,16 @@ class _AddStudentFormState extends State<_AddStudentForm> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _FieldLabel(label: 'Admission Date', cs: cs),
-                  const SizedBox(height: 7),
+                  Text(
+                    'ADMISSION DATE',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.9,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
                   InlineCalendar(
                     value: _admitted,
                     hint: 'Select admission date (optional)',
@@ -632,97 +647,6 @@ class _GenderChip extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared private helpers
 // ─────────────────────────────────────────────────────────────────────────────
-
-class _FieldLabel extends StatelessWidget {
-  const _FieldLabel({required this.label, required this.cs});
-  final String label;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: TextStyle(
-        fontSize: 11.5,
-        fontWeight: FontWeight.w500,
-        color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-        letterSpacing: 0.4,
-      ),
-    );
-  }
-}
-
-class _StyledInput extends StatelessWidget {
-  const _StyledInput({
-    required this.controller,
-    required this.hint,
-    required this.prefixIcon,
-    required this.isDark,
-    required this.cs,
-    this.keyboardType, // ignore: unused_element_parameter
-    this.textCapitalization = TextCapitalization.none,
-    this.validator,
-    this.inputFormatters, // ignore: unused_element_parameter
-  });
-
-  final TextEditingController controller;
-  final String hint;
-  final IconData prefixIcon;
-  final bool isDark;
-  final ColorScheme cs;
-  final TextInputType? keyboardType;
-  final TextCapitalization textCapitalization;
-  final FormFieldValidator<String>? validator;
-  final List<TextInputFormatter>? inputFormatters;
-
-  @override
-  Widget build(BuildContext context) {
-    final borderColor = cs.outlineVariant.withValues(
-      alpha: isDark ? 0.2 : 0.35,
-    );
-
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E2A3A) : cs.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: borderColor),
-      ),
-      child: TextFormField(
-        controller: controller,
-        keyboardType: keyboardType,
-        textCapitalization: textCapitalization,
-        inputFormatters: inputFormatters,
-        style: TextStyle(
-          fontSize: 14.5,
-          fontWeight: FontWeight.w400,
-          color: cs.onSurface,
-        ),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-          ),
-          prefixIcon: Icon(
-            prefixIcon,
-            size: 18,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.65),
-          ),
-          filled: false,
-          border: InputBorder.none,
-          enabledBorder: InputBorder.none,
-          focusedBorder: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 13,
-          ),
-        ),
-        validator: validator,
-      ),
-    );
-  }
-}
 
 class _ErrorBanner extends StatelessWidget {
   const _ErrorBanner({

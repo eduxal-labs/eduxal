@@ -4,6 +4,7 @@ import '../../../database/database.dart';
 import '../../../database/daos/members_dao.dart';
 import '../../../models/result.dart';
 import '../../../services/members.dart';
+import '../edu_form_field.dart';
 import '../edu_sheet.dart';
 import '../inline_calendar.dart';
 import 'phone_first_panel.dart';
@@ -158,19 +159,23 @@ class _TeacherExtras extends StatelessWidget {
         _SectionDivider(cs: cs, isDark: isDark, label: 'Optional Details'),
         const SizedBox(height: 14),
         // Role/designation field
-        _FieldLabel(label: 'Role / Designation', cs: cs),
-        const SizedBox(height: 7),
-        _StyledInput(
+        EduFormField(
           controller: roleCtrl,
+          label: 'Role / Designation',
           hint: 'e.g. Head of Mathematics',
-          prefixIcon: Icons.badge_outlined,
-          isDark: isDark,
-          cs: cs,
         ),
         const SizedBox(height: 14),
         // Hired date picker
-        _FieldLabel(label: 'Hire Date', cs: cs),
-        const SizedBox(height: 7),
+        Text(
+          'HIRE DATE',
+          style: TextStyle(
+            fontSize: 9.5,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.9,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+          ),
+        ),
+        const SizedBox(height: 6),
         InlineCalendar(
           value: hiredDate,
           hint: 'Select hire date (optional)',
@@ -187,88 +192,6 @@ class _TeacherExtras extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared small widgets (private to this file)
 // ─────────────────────────────────────────────────────────────────────────────
-
-class _FieldLabel extends StatelessWidget {
-  const _FieldLabel({required this.label, required this.cs});
-  final String label;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: TextStyle(
-        fontSize: 11.5,
-        fontWeight: FontWeight.w500,
-        color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-        letterSpacing: 0.4,
-      ),
-    );
-  }
-}
-
-class _StyledInput extends StatelessWidget {
-  const _StyledInput({
-    required this.controller,
-    required this.hint,
-    required this.prefixIcon,
-    required this.isDark,
-    required this.cs,
-    this.keyboardType, // ignore: unused_element_parameter
-  });
-
-  final TextEditingController controller;
-  final String hint;
-  final IconData prefixIcon;
-  final bool isDark;
-  final ColorScheme cs;
-  final TextInputType? keyboardType;
-
-  @override
-  Widget build(BuildContext context) {
-    final borderColor = cs.outlineVariant.withValues(
-      alpha: isDark ? 0.2 : 0.35,
-    );
-
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E2A3A) : cs.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: borderColor),
-      ),
-      child: TextField(
-        controller: controller,
-        keyboardType: keyboardType,
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w400,
-          color: cs.onSurface,
-        ),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: TextStyle(
-            fontSize: 13.5,
-            fontWeight: FontWeight.w400,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-          ),
-          prefixIcon: Icon(
-            prefixIcon,
-            size: 17,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.65),
-          ),
-          filled: false,
-          border: InputBorder.none,
-          enabledBorder: InputBorder.none,
-          focusedBorder: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 13,
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _SectionDivider extends StatelessWidget {
   const _SectionDivider({

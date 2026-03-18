@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../../database/database.dart';
 import '../../../services/members.dart';
 import '../../../ui/theme/app_theme.dart';
+import '../edu_form_field.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Data model
@@ -342,7 +343,6 @@ class _PhoneFirstPanelState extends State<PhoneFirstPanel>
               controller: _phoneCtrl,
               focusNode: _phoneFocus,
               isLooking: _lookupState is _Looking,
-              isDark: isDark,
               cs: cs,
               onChanged: _onPhoneChanged,
             ),
@@ -573,7 +573,6 @@ class _PhoneField extends StatelessWidget {
     required this.controller,
     required this.focusNode,
     required this.isLooking,
-    required this.isDark,
     required this.cs,
     required this.onChanged,
   });
@@ -581,84 +580,40 @@ class _PhoneField extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final bool isLooking;
-  final bool isDark;
   final ColorScheme cs;
   final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _FieldLabel(label: 'Phone Number', cs: cs),
-        const SizedBox(height: 7),
-        Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E2A3A) : cs.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: cs.outlineVariant.withValues(alpha: isDark ? 0.2 : 0.35),
-            ),
-          ),
-          child: TextFormField(
-            controller: controller,
-            focusNode: focusNode,
-            keyboardType: TextInputType.phone,
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[0-9+\s\-()]')),
-            ],
-            style: TextStyle(
-              fontSize: 14.5,
-              fontWeight: FontWeight.w400,
-              color: cs.onSurface,
-              letterSpacing: 0.5,
-            ),
-            decoration: InputDecoration(
-              hintText: '+254 700 000 000',
-              hintStyle: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-                letterSpacing: 0.3,
-              ),
-              prefixIcon: Icon(
-                Icons.phone_outlined,
-                size: 18,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.65),
-              ),
-              suffixIcon: isLooking
-                  ? Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 1.5,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            cs.primary.withValues(alpha: 0.7),
-                          ),
-                        ),
-                      ),
-                    )
-                  : null,
-              filled: false,
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 13,
-              ),
-            ),
-            onChanged: onChanged,
-            validator: (v) {
-              if (v == null || v.trim().isEmpty) return 'Phone number required';
-              return null;
-            },
-          ),
-        ),
+    return EduFormField(
+      controller: controller,
+      focusNode: focusNode,
+      label: 'Phone Number',
+      hint: '+254 700 000 000',
+      keyboardType: TextInputType.phone,
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(RegExp(r'[0-9+\s\-()]')),
       ],
+      suffix: isLooking
+          ? Padding(
+              padding: const EdgeInsets.all(12),
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    cs.primary.withValues(alpha: 0.7),
+                  ),
+                ),
+              ),
+            )
+          : null,
+      onChanged: onChanged,
+      validator: (v) {
+        if (v == null || v.trim().isEmpty) return 'Phone number required';
+        return null;
+      },
     );
   }
 }
@@ -781,9 +736,18 @@ class _NameField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
+        // Custom label row with the "new user" badge
         Row(
           children: [
-            _FieldLabel(label: 'Full Name', cs: cs),
+            Text(
+              'FULL NAME',
+              style: TextStyle(
+                fontSize: 9.5,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.9,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+              ),
+            ),
             const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
@@ -804,53 +768,16 @@ class _NameField extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 7),
-        Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E2A3A) : cs.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: cs.outlineVariant.withValues(alpha: isDark ? 0.2 : 0.35),
-            ),
-          ),
-          child: TextFormField(
-            controller: controller,
-            focusNode: focusNode,
-            textCapitalization: TextCapitalization.words,
-            style: TextStyle(
-              fontSize: 14.5,
-              fontWeight: FontWeight.w400,
-              color: cs.onSurface,
-            ),
-            decoration: InputDecoration(
-              hintText: 'e.g. Jane Mwangi',
-              hintStyle: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-              ),
-              prefixIcon: Icon(
-                Icons.person_outline,
-                size: 18,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.65),
-              ),
-              filled: false,
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 13,
-              ),
-            ),
-            validator: (v) {
-              if (v == null || v.trim().isEmpty) return 'Name is required';
-              if (v.trim().split(RegExp(r'\s+')).length < 2) {
-                return 'Please enter a full name (first + last)';
-              }
-              return null;
-            },
-          ),
+        const SizedBox(height: 6),
+        // Reuse EduFormField but suppress its built-in label (empty string trick
+        // is avoided — instead we pass label as empty and hide via the field
+        // directly by building the TextFormField portion ourselves).
+        // Since EduFormField always renders the label, we use a thin wrapper:
+        _NameInputField(
+          controller: controller,
+          focusNode: focusNode,
+          isDark: isDark,
+          cs: cs,
         ),
       ],
     );
@@ -988,24 +915,86 @@ class _ErrorBanner extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tiny label
+// Name input field — EduFormField-styled TextFormField without the label row
+// (the label row is rendered separately in _NameField with the badge chip)
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _FieldLabel extends StatelessWidget {
-  const _FieldLabel({required this.label, required this.cs});
-  final String label;
+class _NameInputField extends StatelessWidget {
+  const _NameInputField({
+    required this.controller,
+    required this.focusNode,
+    required this.isDark,
+    required this.cs,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final bool isDark;
   final ColorScheme cs;
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      label,
+    return TextFormField(
+      controller: controller,
+      focusNode: focusNode,
+      textCapitalization: TextCapitalization.words,
       style: TextStyle(
-        fontSize: 11.5,
-        fontWeight: FontWeight.w500,
-        color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-        letterSpacing: 0.4,
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        color: cs.onSurface,
       ),
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: isDark ? const Color(0xFF1E2A3A) : cs.surfaceContainerLowest,
+        hintText: 'e.g. Jane Mwangi',
+        hintStyle: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+          color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+          borderSide: isDark
+              ? BorderSide(
+                  color: cs.outlineVariant.withValues(alpha: 0.3),
+                  width: 0.5,
+                )
+              : BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+          borderSide: isDark
+              ? BorderSide(
+                  color: cs.outlineVariant.withValues(alpha: 0.3),
+                  width: 0.5,
+                )
+              : BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+          borderSide: BorderSide(color: cs.primary, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+          borderSide: BorderSide(color: cs.error, width: 1),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+          borderSide: BorderSide(color: cs.error, width: 1),
+        ),
+        errorStyle: const TextStyle(height: 0, fontSize: 0),
+      ),
+      validator: (v) {
+        if (v == null || v.trim().isEmpty) return 'Name is required';
+        if (v.trim().split(RegExp(r'\s+')).length < 2) {
+          return 'Please enter a full name (first + last)';
+        }
+        return null;
+      },
     );
   }
 }
