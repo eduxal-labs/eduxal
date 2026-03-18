@@ -12,103 +12,11 @@ import '../../../../database/tables/enums.dart';
 import '../../../../models/permissions.dart' as models;
 import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
-import '../../../widgets/animated_save_button.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_form_field.dart';
 import '../../../widgets/edu_data_table.dart';
 import '../../../widgets/edu_sheet.dart';
 import 'school_role_detail_screen.dart';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Local permission helpers (mirrored from school_role_detail_screen.dart)
-// ─────────────────────────────────────────────────────────────────────────────
-
-const _kLocalBaseActions = ['read', 'create', 'update', 'delete'];
-
-List<_LocalResourceGroup> _buildLocalResourceGroups() {
-  List<String> a([List<String> actions = _kLocalBaseActions]) => actions;
-  return <_LocalResourceGroup>[
-    _LocalResourceGroup('People', {
-      'users': a(),
-      'students': a(),
-      'guardians': a(),
-      'teachers': a(),
-      'staff': a(),
-    }),
-    _LocalResourceGroup('Academic', {
-      'terms': a(),
-      'subjects': a(),
-      'enrollments': a(['read', 'create', 'delete']),
-      'lessons': a(),
-      'exams': a(),
-      'papers': a(),
-      'grades': a(),
-      'timetable': a(),
-      'attendance': a(),
-      'mastery': a(['read', 'update']),
-      'classTeachers': a(['read', 'create', 'delete']),
-    }),
-    _LocalResourceGroup('Finance', {
-      'fees': a(),
-      'invoices': a(),
-      'payments': a(),
-      'discounts': a(),
-      'subscriptions': a(),
-    }),
-    _LocalResourceGroup('School Admin', {
-      'schools': a(),
-      'departments': a(),
-      'owners': a(['read', 'create', 'delete']),
-      'settings': a(['read', 'update']),
-      'announcements': a(),
-      'aiusage': a(['read', 'update']),
-    }),
-    _LocalResourceGroup('System', {
-      'roles': a(),
-      'scopes': a(['read', 'create', 'delete']),
-      'plans': a(),
-    }),
-  ];
-}
-
-class _LocalResourceGroup {
-  const _LocalResourceGroup(this.label, this.resources);
-  final String label;
-  final Map<String, List<String>> resources;
-}
-
-const _kLocalActionColors = <String, Color>{
-  'read': Color(0xFF42A5F5),
-  'create': Color(0xFF66BB6A),
-  'update': Color(0xFFFFA726),
-  'delete': Color(0xFFEF5350),
-};
-
-const _kLocalActionIcons = <String, IconData>{
-  'read': Icons.visibility_outlined,
-  'create': Icons.add_circle_outline,
-  'update': Icons.edit_outlined,
-  'delete': Icons.delete_outline_rounded,
-};
-
-String _localSerialisePermissions(Map<String, bool> perms) {
-  final grouped = <String, List<String>>{};
-  for (final e in perms.entries) {
-    if (!e.value) continue;
-    final parts = e.key.split('.');
-    if (parts.length < 2) continue;
-    final resource = parts.first;
-    final action = parts.skip(1).join('.');
-    grouped.putIfAbsent(resource, () => []).add(action);
-  }
-  final list = grouped.entries
-      .map((e) => {'resource': e.key, 'actions': e.value})
-      .toList();
-  return jsonEncode(list);
-}
-
-String _localCapitalise(String s) =>
-    s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Entry point
@@ -358,8 +266,8 @@ class _SchoolRolesBodyState extends State<_SchoolRolesBody> {
               child: FloatingActionButton.small(
                 heroTag: 'fab_roles_create',
                 onPressed: () => _showCreateSheet(context),
-                backgroundColor: cs.primary,
-                foregroundColor: cs.onPrimary,
+                backgroundColor: Colors.green.shade600,
+                foregroundColor: Colors.white,
                 elevation: 4,
                 highlightElevation: 6,
                 shape: RoundedRectangleBorder(
@@ -608,12 +516,6 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
   late final TextEditingController _descCtrl;
   bool _saving = false;
 
-  /// Working permissions map: "resource.action" → bool
-  final Map<String, bool> _permissions = {};
-
-  /// Resources that are currently expanded in the picker
-  final Set<String> _expandedResources = {};
-
   @override
   void initState() {
     super.initState();
@@ -628,9 +530,7 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
     super.dispose();
   }
 
-  bool get _hasAnyPermission => _permissions.values.any((v) => v);
-
-  bool get _isDirty => _nameCtrl.text.trim().isNotEmpty || _hasAnyPermission;
+  bool get _isDirty => _nameCtrl.text.trim().isNotEmpty;
 
   Future<void> _save() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
@@ -650,7 +550,7 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
           description: Value(
             _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
           ),
-          permissions: Value(_localSerialisePermissions(_permissions)),
+          permissions: const Value('[]'),
           created: Value(nowSec),
           updated: Value(nowSec),
         ),
@@ -668,29 +568,10 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
     }
   }
 
-  void _togglePermission(String key) {
-    setState(() {
-      _permissions[key] = !(_permissions[key] ?? false);
-    });
-  }
-
-  void _toggleExpand(String resource) {
-    setState(() {
-      if (_expandedResources.contains(resource)) {
-        _expandedResources.remove(resource);
-      } else {
-        _expandedResources.add(resource);
-      }
-    });
-  }
-
-  Widget _buildFormContent(
-    BuildContext context,
-    ColorScheme cs,
-    bool isDark, {
-    required bool isSheet,
-  }) {
-    final groups = _buildLocalResourceGroups();
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
 
     return Form(
       key: _formKey,
@@ -698,50 +579,33 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ── Handle (sheet only) ────────────────────────────────────────
-          if (isSheet) ...[
-            Center(
-              child: Container(
-                width: 36,
-                height: 3,
-                margin: const EdgeInsets.only(top: 12, bottom: 4),
-                decoration: BoxDecoration(
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(2),
-                ),
+          // ── Handle ─────────────────────────────────────────────────────
+          Center(
+            child: Container(
+              width: 36,
+              height: 3,
+              margin: const EdgeInsets.only(top: 12, bottom: 4),
+              decoration: BoxDecoration(
+                color: cs.onSurfaceVariant.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(2),
               ),
-            ),
-          ],
-
-          // ── Header row ─────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
-            child: Row(
-              children: [
-                const Text(
-                  'New Role',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: Icon(
-                    Icons.close,
-                    size: 18,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                  ),
-                  onPressed: () => Navigator.pop(context),
-                  style: IconButton.styleFrom(
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    padding: const EdgeInsets.all(6),
-                    minimumSize: const Size(30, 30),
-                  ),
-                  tooltip: 'Cancel',
-                ),
-              ],
             ),
           ),
 
-          const SizedBox(height: 12),
+          // ── Header ─────────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 8, 0),
+            child: Text(
+              'New Role',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: cs.onSurface,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 14),
 
           // ── Name field ─────────────────────────────────────────────────
           Padding(
@@ -754,8 +618,9 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
               textCapitalization: TextCapitalization.words,
               onChanged: (_) => setState(() {}),
               validator: (v) {
-                if (v == null || v.trim().isEmpty)
+                if (v == null || v.trim().isEmpty) {
                   return 'Role name is required';
+                }
                 return null;
               },
             ),
@@ -782,78 +647,67 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
             color: AppTheme.borderColor(isDark, cs),
           ),
 
-          // ── Permissions label ──────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-            child: Text(
-              'Permissions',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-              ),
-            ),
-          ),
-
-          // ── Permissions resource list ──────────────────────────────────
-          // Wrapped in a constrained box so the sheet doesn't grow unbounded
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 280),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (final group in groups)
-                    _buildPermGroup(group, cs, isDark),
-                ],
-              ),
-            ),
-          ),
-
-          Divider(
-            height: 1,
-            thickness: 0.5,
-            color: AppTheme.borderColor(isDark, cs),
-          ),
-
-          // ── Footer ────────────────────────────────────────────────────
+          // ── Action buttons ─────────────────────────────────────────────
           Padding(
             padding: EdgeInsets.fromLTRB(
               16,
               10,
               16,
-              isSheet
-                  ? (MediaQuery.viewInsetsOf(context).bottom > 0 ? 8 : 24)
-                  : 16,
+              MediaQuery.viewInsetsOf(context).bottom > 0 ? 8 : 24,
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                TextButton(
-                  onPressed: _saving ? null : () => Navigator.pop(context),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
+                // Cancel
+                SizedBox(
+                  width: 36,
+                  height: 36,
+                  child: IconButton(
+                    onPressed: _saving ? null : () => Navigator.pop(context),
+                    icon: Icon(
+                      Icons.close_rounded,
+                      size: 18,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                     ),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: Text(
-                    'Cancel',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w400,
-                      color: cs.onSurfaceVariant,
+                    tooltip: 'Cancel',
+                    style: IconButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
-                AnimatedSaveButton(
-                  isDirty: _isDirty,
-                  isSaving: _saving,
-                  onSave: (_isDirty && !_saving) ? _save : null,
+                // Save
+                SizedBox(
+                  width: 36,
+                  height: 36,
+                  child: IconButton(
+                    onPressed: (_isDirty && !_saving) ? _save : null,
+                    icon: _saving
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 1.5),
+                          )
+                        : const Icon(
+                            Icons.check_rounded,
+                            size: 18,
+                            color: Colors.white,
+                          ),
+                    tooltip: 'Save',
+                    style: IconButton.styleFrom(
+                      backgroundColor: (_isDirty && !_saving)
+                          ? Colors.green.shade600
+                          : Colors.green.shade600.withValues(alpha: 0.4),
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -861,170 +715,6 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
         ],
       ),
     );
-  }
-
-  Widget _buildPermGroup(
-    _LocalResourceGroup group,
-    ColorScheme cs,
-    bool isDark,
-  ) {
-    // Only render resources that have at least one toggleable action
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Group label
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
-          child: Text(
-            group.label.toUpperCase(),
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.4),
-              letterSpacing: 1.1,
-            ),
-          ),
-        ),
-        for (final entry in group.resources.entries)
-          _buildResourceRow(entry.key, entry.value, cs, isDark),
-      ],
-    );
-  }
-
-  Widget _buildResourceRow(
-    String resource,
-    List<String> actions,
-    ColorScheme cs,
-    bool isDark,
-  ) {
-    final activeCount = actions
-        .where((a) => _permissions['$resource.$a'] == true)
-        .length;
-    final isExpanded = _expandedResources.contains(resource);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // ── Collapsed row ────────────────────────────────────────────────
-        InkWell(
-          onTap: () => _toggleExpand(resource),
-          child: SizedBox(
-            height: 36,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      _localCapitalise(resource),
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                        color: activeCount > 0
-                            ? cs.onSurface
-                            : cs.onSurfaceVariant.withValues(alpha: 0.55),
-                      ),
-                    ),
-                  ),
-                  if (activeCount > 0) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: cs.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(
-                          AppTheme.kChipRadius,
-                        ),
-                      ),
-                      child: Text(
-                        '$activeCount',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                          color: cs.primary,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                  ],
-                  Icon(
-                    isExpanded
-                        ? Icons.expand_less_rounded
-                        : Icons.expand_more_rounded,
-                    size: 16,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.4),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-
-        // ── Expanded action buttons ──────────────────────────────────────
-        if (isExpanded)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-            child: Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                for (final action in actions)
-                  _buildActionChip(resource, action, cs),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildActionChip(String resource, String action, ColorScheme cs) {
-    final key = '$resource.$action';
-    final isActive = _permissions[key] == true;
-    final icon = _kLocalActionIcons[action] ?? Icons.circle_outlined;
-    final color = _kLocalActionColors[action] ?? cs.primary;
-
-    return GestureDetector(
-      onTap: () => _togglePermission(key),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 120),
-        width: 28,
-        height: 28,
-        decoration: BoxDecoration(
-          color: isActive ? color.withValues(alpha: 0.14) : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-            color: isActive
-                ? color.withValues(alpha: 0.4)
-                : cs.outlineVariant.withValues(alpha: 0.3),
-            width: 1,
-          ),
-        ),
-        child: Tooltip(
-          message: _localCapitalise(action),
-          child: Icon(
-            icon,
-            size: 14,
-            color: isActive
-                ? color
-                : cs.onSurfaceVariant.withValues(alpha: 0.3),
-          ),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isDark = cs.brightness == Brightness.dark;
-
-    // Wrapping (Dialog on desktop / bottom sheet on mobile) is handled by
-    // showEduSheet — this widget only returns the form content.
-    // isSheet: false so we don't render a duplicate drag handle (EduSheet
-    // already provides one on mobile).
-    return _buildFormContent(context, cs, isDark, isSheet: false);
   }
 }
 

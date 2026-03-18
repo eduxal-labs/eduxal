@@ -161,7 +161,7 @@ In `_CreateFeeSheetState.build()`, the bottom of the form has a tall `ElevatedBu
 
 ---
 
-### [ ] Task 18: School Roles — replace permission form UI with system-dashboard-style permissions view
+### [x] Task 18: School Roles — replace permission form UI with system-dashboard-style permissions view
 **Files to create/modify:** `lib/ui/screens/school_dashboard/roles/school_roles_screen.dart`, `lib/ui/screens/school_dashboard/roles/school_role_detail_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/system/roles/role_detail_screen.dart`, `lib/ui/screens/system/roles/roles_section.dart`
 **Depends on:** none

@@ -1102,6 +1102,12 @@ class _SelectionBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
         color: cs.primaryContainer.withValues(alpha: 0.25),
+        border: Border(
+          bottom: BorderSide(
+            color: cs.primary.withValues(alpha: 0.15),
+            width: 0.5,
+          ),
+        ),
       ),
       child: Row(
         children: [
@@ -1168,7 +1174,15 @@ class _ChangeBar extends StatelessWidget {
     return Container(
       height: 52,
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(color: cs.surfaceContainer),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainer,
+        border: Border(
+          bottom: BorderSide(
+            color: cs.outlineVariant.withValues(alpha: 0.5),
+            width: 0.5,
+          ),
+        ),
+      ),
       child: Row(
         children: [
           if (added > 0) ...[
