@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 /// Static utility class for caching files at constant, predictable local paths.
@@ -74,6 +75,9 @@ class FileCache {
   static Future<bool> upload(String putUrl, String relativePath) async {
     try {
       final file = await _resolve(relativePath);
+      debugPrint(
+        '[FileCache] upload() — file exists: ${file.existsSync()}, size: ${file.existsSync() ? file.lengthSync() : 0} bytes, putUrl prefix: ${putUrl.length > 60 ? putUrl.substring(0, 60) : putUrl}',
+      );
       if (!file.existsSync()) return false;
 
       final client = HttpClient();
@@ -87,6 +91,9 @@ class FileCache {
         );
         await request.addStream(file.openRead());
         final response = await request.close();
+        debugPrint(
+          '[FileCache] upload() — HTTP status: ${response.statusCode}',
+        );
         // Drain response body to allow connection reuse.
         await response.drain<void>();
         return response.statusCode >= 200 && response.statusCode < 300;
@@ -116,12 +123,18 @@ class FileCache {
   /// ```
   static Future<File?> download(String url, String relativePath) async {
     try {
+      debugPrint(
+        '[FileCache] download() — url prefix: ${url.length > 60 ? url.substring(0, 60) : url}, path=$relativePath',
+      );
       final client = HttpClient();
       try {
         final request = await client.getUrl(Uri.parse(url));
         final response = await request.close();
 
         if (response.statusCode < 200 || response.statusCode >= 300) {
+          debugPrint(
+            '[FileCache] download() — bad HTTP status: ${response.statusCode}',
+          );
           return null;
         }
 
@@ -137,6 +150,9 @@ class FileCache {
         // leave a corrupted file on disk.
         final bytes = await _collectBytes(response);
         await file.writeAsBytes(bytes, flush: true);
+        debugPrint(
+          '[FileCache] download() — wrote ${bytes.length} bytes to ${file.path}',
+        );
         return file;
       } finally {
         client.close(force: false);

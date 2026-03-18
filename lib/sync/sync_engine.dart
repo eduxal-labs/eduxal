@@ -505,6 +505,9 @@ class SyncEngine {
       if (response.success) {
         _log('Action $logId succeeded');
         debugPrint('[SyncEngine] Action #$logId — success');
+        debugPrint(
+          '[SyncEngine] Action #$logId — fileUrls count: ${response.fileUrls.length}',
+        );
 
         // Apply any returned rows to the local DB (server may have set
         // timestamps, resolved conflicts, or created related records).
@@ -620,30 +623,30 @@ class SyncEngine {
     List<sync_pb.FileUrl> fileUrls, {
     required bool isPushOriginator,
   }) async {
+    debugPrint(
+      '[FileSync] _handleFileUrls — ${fileUrls.length} url(s), isPushOriginator=$isPushOriginator',
+    );
     for (final fileUrl in fileUrls) {
       final path = fileUrl.path;
       if (path.isEmpty) continue;
 
+      debugPrint(
+        '[FileSync]   entry: path="${fileUrl.path}", hasPutUrl=${fileUrl.putUrl.isNotEmpty}, hasGetUrl=${fileUrl.getUrl.isNotEmpty}',
+      );
       if (isPushOriginator) {
         final putUrl = fileUrl.putUrl;
         if (putUrl.isEmpty) continue;
         debugPrint('[SyncEngine] Uploading file: path=$path');
         final ok = await FileCache.upload(putUrl, path);
-        if (ok) {
-          debugPrint('[SyncEngine] Upload OK: path=$path');
-        } else {
-          debugPrint('[SyncEngine] Upload FAILED: path=$path');
-        }
+        debugPrint('[FileSync] Upload result: ok=$ok, path=$path');
       } else {
         final getUrl = fileUrl.getUrl;
         if (getUrl.isEmpty) continue;
         debugPrint('[SyncEngine] Downloading file: path=$path');
         final file = await FileCache.download(getUrl, path);
-        if (file != null) {
-          debugPrint('[SyncEngine] Download OK: path=$path');
-        } else {
-          debugPrint('[SyncEngine] Download FAILED: path=$path');
-        }
+        debugPrint(
+          '[FileSync] Download result: file=${file?.path ?? "NULL"}, path=$path',
+        );
       }
     }
   }
@@ -751,7 +754,7 @@ class SyncEngine {
       debugPrint(
         '[SyncEngine] ← delta seq=${delta.seq}, '
         'table=${delta.table}, op=${delta.operation}, '
-        'key=${delta.rowKey}, hasData=${delta.hasData()}',
+        'key=${delta.rowKey}, hasData=${delta.hasData()}, fileUrls=${delta.fileUrls.length}',
       );
 
       final seq = delta.seq.toInt();
