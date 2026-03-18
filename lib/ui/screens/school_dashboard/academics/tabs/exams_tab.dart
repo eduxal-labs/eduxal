@@ -55,7 +55,6 @@ class _ExamsTabState extends State<ExamsTab>
 
   SchoolConfig _config = SchoolConfig.defaults();
   Map<int, String> _subjectNames = {};
-  bool _configLoaded = false;
 
   // ── Filter state ───────────────────────────────────────────────────────────
 
@@ -115,7 +114,6 @@ class _ExamsTabState extends State<ExamsTab>
       if (!mounted) return;
       setState(() {
         _config = _buildConfigFromStreams(allStreams);
-        _configLoaded = true;
       });
     });
   }
@@ -181,11 +179,6 @@ class _ExamsTabState extends State<ExamsTab>
       }
       return true;
     }).toList();
-  }
-
-  bool get _canManage {
-    final entry = widget.schoolContext.currentEntry.value;
-    return entry is TeacherEntry || entry is OwnerEntry || entry is StaffEntry;
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────

@@ -74,6 +74,7 @@ class EduFilterToolbar extends StatelessWidget {
                     hint: searchHint,
                     onChanged: onSearchChanged,
                     expanded: true,
+                    fillWidth: true,
                   ),
                 )
               else
