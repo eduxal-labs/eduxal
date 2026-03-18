@@ -31,6 +31,7 @@ All paths are **relative** — they are resolved against the app documents direc
 | Method | Signature | Description |
 |---|---|---|
 | `get` | `Future<File?> get(String relativePath)` | Returns the `File` at the given path if it exists on disk, or `null`. No network call. |
+| `upload` | `Future<bool> upload(String putUrl, String relativePath)` | HTTP PUT of the local file at `relativePath` to S3 `putUrl`. File must already exist locally. Returns `true` on 2xx, `false` on any error (missing file, network error, non-2xx). Content-Type: `application/octet-stream`. Errors swallowed silently. |
 | `download` | `Future<File?> download(String url, String relativePath)` | HTTP GET from `url`, saves to `relativePath`. Creates parent dirs. Overwrites existing. Returns `File` on success, `null` on any error. Errors swallowed silently. |
 | `saveBytes` | `Future<File?> saveBytes(List<int> bytes, String relativePath)` | Writes raw bytes to `relativePath`. Creates parent dirs. Overwrites existing. Returns `File` on success, `null` on error. Used for locally-picked images (e.g. from `image_picker`). |
 | `delete` | `Future<void> delete(String relativePath)` | Deletes the file at `relativePath` if it exists. No-op if absent. Errors silently ignored. |
@@ -45,6 +46,10 @@ All paths are **relative** — they are resolved against the app documents direc
 ### Error Handling
 
 All public methods **swallow errors silently** and return `null` (or void) on failure. The caller decides whether to retry. This is intentional — file caching is a best-effort operation that should never crash the app.
+
+### Upload Implementation
+
+Uses `dart:io`'s `HttpClient` for HTTP PUT. Streams the local file directly into the request body via `file.openRead()` — no in-memory buffering. Sets `Content-Length` and `Content-Type: application/octet-stream` headers. Drains the response body to allow connection reuse. Returns `true` on 2xx, `false` on any error.
 
 ### Download Implementation
 
@@ -79,4 +84,4 @@ Uses `dart:io`'s `HttpClient` (not `package:http`) for HTTP GET. Collects all by
 - New entity types that need cached files should add a static path helper method to `FileCache` and document the path pattern here.
 
 ## Last Updated
-Task 1001 — No cache changes during UI overhaul tracks. `FileCache` API unchanged.
+Task 1 — Added `FileCache.upload(String putUrl, String relativePath) → Future<bool>` static method for S3 HTTP PUT uploads. Called by `SyncEngine._handleFileUrls()` when the push originator device receives PUT URLs in `ActionResponse.fileUrls`.

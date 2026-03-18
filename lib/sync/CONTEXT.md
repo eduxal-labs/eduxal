@@ -190,6 +190,14 @@ The push flow was rewritten from a batch-based model (via `LogProcessor`) to a o
 
 **Logging:** Uses `dart:developer` `dev.log()` with name `'SyncEngine'` for DevTools filtering. Extensive `debugPrint` coverage for each action sent/acknowledged.
 
+**`_handleFileUrls(List<sync_pb.FileUrl> fileUrls, {required bool isPushOriginator})`:**
+- Called after `_processActionResponse()` succeeds (code 0 or code 2 conflict) with `isPushOriginator: true`.
+- Called after `_deltaWriter.apply(delta)` in `_onDelta()` with `isPushOriginator: false`.
+- When `isPushOriginator: true` — this device performed the action and already has the file locally. Calls `FileCache.upload(putUrl, path)` for each entry with a non-empty `putUrl`.
+- When `isPushOriginator: false` — this device is a watcher receiving a `SyncDelta`. Calls `FileCache.download(getUrl, path)` for each entry with a non-empty `getUrl`.
+- Skips entries with empty `path`, empty `putUrl` (originator path), or empty `getUrl` (watcher path).
+- Errors in individual upload/download operations are logged via `debugPrint` but do not throw — a failed file transfer never aborts the sync engine.
+
 **Imports:**
 - `dart:async`
 - `dart:convert`
@@ -202,6 +210,7 @@ The push flow was rewritten from a batch-based model (via `LogProcessor`) to a o
 - `../database/daos/logs_dao.dart`
 - `../proto/services/sync.pb.dart` (as `sync_pb`)
 - `../proto/services/sync.pbgrpc.dart`
+- `../cache/file_cache.dart` ← **added Task 1**
 - `delta_writer.dart`
 - `sync_status.dart`
 
@@ -240,4 +249,4 @@ The push flow was rewritten from a batch-based model (via `LogProcessor`) to a o
 - **Depended on by:** `client.dart` (✅ integrated — `Client.syncEngine` field, `SyncEngine get sync` global getter, start/stop wired into `active()`, `saveAccount()`, `switchAccount()`, `logOut()`), `ui/widgets/sync_indicator.dart` (binds to `sync.status` ValueNotifier), `main.dart` (global `runZonedGuarded` zone catches unhandled http2 transport errors)
 
 ## Last Updated
-Task 1001 — No sync engine changes during UI overhaul tracks. All files remain current.
+Task 1 — Added `_handleFileUrls()` to `SyncEngine`. Called from `_processActionResponse()` (after success/conflict log deletion, `isPushOriginator: true`) and from `_onDelta()` (after `_deltaWriter.apply()`, `isPushOriginator: false`). Added `../cache/file_cache.dart` import.

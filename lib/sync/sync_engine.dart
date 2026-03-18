@@ -12,6 +12,7 @@ import '../database/daos/accounts_dao.dart';
 import '../database/daos/logs_dao.dart';
 import '../proto/services/sync.pb.dart' as sync_pb;
 import '../proto/services/sync.pbgrpc.dart';
+import '../cache/file_cache.dart';
 import 'delta_writer.dart';
 import 'sync_status.dart';
 
@@ -513,6 +514,11 @@ class SyncEngine {
 
         // Delete the log entry — it has been successfully synced.
         await _logsDao.deleteLog(logId);
+
+        // Upload local files to S3 if the server provided PUT URLs.
+        if (response.fileUrls.isNotEmpty) {
+          await _handleFileUrls(response.fileUrls, isPushOriginator: true);
+        }
       } else {
         final errorMsg = response.error.isNotEmpty
             ? response.error
@@ -539,6 +545,10 @@ class SyncEngine {
               await _applyActionRow(row);
             }
             await _logsDao.deleteLog(logId);
+
+            if (response.fileUrls.isNotEmpty) {
+              await _handleFileUrls(response.fileUrls, isPushOriginator: true);
+            }
 
           case 3: // validation_error
             _log('Action $logId: validation error — $errorMsg');
@@ -592,6 +602,50 @@ class SyncEngine {
     // Flush immediately — push response rows should be written right away
     // rather than waiting for the buffer to fill.
     await _deltaWriter.flush();
+  }
+
+  /// Handles [FileUrl] entries from either an [ActionResponse] or a [SyncDelta].
+  ///
+  /// - If [isPushOriginator] is `true`: this device performed the action and
+  ///   already has the file locally. For each URL that has a non-empty [putUrl],
+  ///   upload the local file to S3. Skip entries with empty [putUrl].
+  ///
+  /// - If [isPushOriginator] is `false` (watch stream delta): this device is a
+  ///   watcher. For each URL that has a non-empty [getUrl], download the file
+  ///   from S3 into the local cache. Skip entries with empty [getUrl].
+  ///
+  /// Errors in individual file operations are logged but do not throw —
+  /// a failed upload/download should not abort the sync engine.
+  Future<void> _handleFileUrls(
+    List<sync_pb.FileUrl> fileUrls, {
+    required bool isPushOriginator,
+  }) async {
+    for (final fileUrl in fileUrls) {
+      final path = fileUrl.path;
+      if (path.isEmpty) continue;
+
+      if (isPushOriginator) {
+        final putUrl = fileUrl.putUrl;
+        if (putUrl.isEmpty) continue;
+        debugPrint('[SyncEngine] Uploading file: path=$path');
+        final ok = await FileCache.upload(putUrl, path);
+        if (ok) {
+          debugPrint('[SyncEngine] Upload OK: path=$path');
+        } else {
+          debugPrint('[SyncEngine] Upload FAILED: path=$path');
+        }
+      } else {
+        final getUrl = fileUrl.getUrl;
+        if (getUrl.isEmpty) continue;
+        debugPrint('[SyncEngine] Downloading file: path=$path');
+        final file = await FileCache.download(getUrl, path);
+        if (file != null) {
+          debugPrint('[SyncEngine] Download OK: path=$path');
+        } else {
+          debugPrint('[SyncEngine] Download FAILED: path=$path');
+        }
+      }
+    }
   }
 
   // =========================================================================
@@ -720,6 +774,11 @@ class SyncEngine {
       }
 
       await _deltaWriter.apply(delta);
+
+      // Download files from S3 if the server provided GET URLs.
+      if (delta.fileUrls.isNotEmpty) {
+        await _handleFileUrls(delta.fileUrls, isPushOriginator: false);
+      }
 
       if (seq > _lastSeq) {
         _lastSeq = seq;

@@ -63,6 +63,41 @@ class FileCache {
     return file.existsSync() ? file : null;
   }
 
+  /// Uploads the file at [relativePath] to S3 via HTTP PUT to [putUrl].
+  ///
+  /// The file must already exist locally (e.g. saved by [saveBytes] or
+  /// copied from image_picker). Returns `true` on success, `false` on any
+  /// error (file missing, network error, non-2xx response).
+  ///
+  /// Content-Type is always `application/octet-stream` — the server accepts
+  /// any binary content for file fields.
+  static Future<bool> upload(String putUrl, String relativePath) async {
+    try {
+      final file = await _resolve(relativePath);
+      if (!file.existsSync()) return false;
+
+      final client = HttpClient();
+      try {
+        final request = await client.putUrl(Uri.parse(putUrl));
+        final length = await file.length();
+        request.headers.set(HttpHeaders.contentLengthHeader, length.toString());
+        request.headers.set(
+          HttpHeaders.contentTypeHeader,
+          'application/octet-stream',
+        );
+        await request.addStream(file.openRead());
+        final response = await request.close();
+        // Drain response body to allow connection reuse.
+        await response.drain<void>();
+        return response.statusCode >= 200 && response.statusCode < 300;
+      } finally {
+        client.close(force: false);
+      }
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Downloads the resource at [url] via HTTP GET and saves it at
   /// `{appDir}/{relativePath}`, creating any missing parent directories.
   ///
