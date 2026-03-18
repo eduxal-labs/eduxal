@@ -88,7 +88,7 @@ The fix should remove `_ComposeSheet`'s manual container wrapping, delegate the 
 
 ---
 
-### [ ] Task 7: Fix Create Fee Structure modal — container layering (white overlay)
+### [x] Task 7: Fix Create Fee Structure modal — container layering (white overlay)
 **Files to modify:** `eduxal/lib/ui/screens/school_dashboard/finance/finance_screen.dart`
 **Context files to read (if needed):** `eduxal/lib/ui/widgets/edu_sheet.dart`
 **Depends on:** none
