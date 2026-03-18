@@ -108,7 +108,7 @@ Resolve by changing `_showAssignMember` to push `_AssignMemberSearchSheet` as a 
 
 ---
 
-### [ ] Task 16: Finance page — fix Fees tab FAB color and replace Create Fee button with icon buttons
+### [x] Task 16: Finance page — fix Fees tab FAB color and replace Create Fee button with icon buttons
 **Files to create/modify:** `lib/ui/screens/school_dashboard/finance/finance_screen.dart`
 **Context files to read (if needed):** none — scoped to `_FeesTab.build()` and `_CreateFeeSheetState.build()`
 **Depends on:** none

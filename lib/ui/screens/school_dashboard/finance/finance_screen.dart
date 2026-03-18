@@ -1388,8 +1388,8 @@ class _FeesTab extends StatelessWidget {
             tooltip: 'New Fee',
             elevation: 4,
             highlightElevation: 6,
-            backgroundColor: cs.primary,
-            foregroundColor: cs.onPrimary,
+            backgroundColor: Colors.green.shade600,
+            foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
@@ -2481,36 +2481,41 @@ class _CreateFeeSheetState extends State<_CreateFeeSheet> {
             ),
             const SizedBox(height: 20),
 
-            // Save button
-            SizedBox(
-              height: 44,
-              child: ElevatedButton(
-                onPressed: _saving ? null : _save,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: cs.primary,
-                  foregroundColor: cs.onPrimary,
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.kRadius),
+            // Action buttons
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded),
+                  tooltip: 'Cancel',
+                  style: IconButton.styleFrom(
+                    foregroundColor: cs.onSurfaceVariant,
                   ),
                 ),
-                child: _saving
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text(
-                        'Create Fee',
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-              ),
+                const SizedBox(width: 4),
+                IconButton(
+                  onPressed: _saving ? null : _save,
+                  tooltip: 'Save',
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.green.shade600,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.green.shade600.withValues(
+                      alpha: 0.5,
+                    ),
+                  ),
+                  icon: _saving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.check_rounded),
+                ),
+              ],
             ),
           ],
         ),
