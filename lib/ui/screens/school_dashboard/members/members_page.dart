@@ -124,6 +124,7 @@ class _MembersPageBodyState extends State<_MembersPageBody>
   void _showCreateDepartment() {
     showEduSheet(
       context: context,
+      title: 'New Department',
       builder: (ctx) =>
           _CreateDepartmentSheet(schoolId: _schoolId, dao: DepartmentsDao(db)),
     );
@@ -246,7 +247,6 @@ class _DepartmentsTabState extends State<_DepartmentsTab> {
   late final DepartmentsDao _dao;
   final _searchCtrl = TextEditingController();
   String _query = '';
-  bool _showSearch = false;
 
   @override
   void initState() {
@@ -296,14 +296,7 @@ class _DepartmentsTabState extends State<_DepartmentsTab> {
           padding: const EdgeInsets.only(top: 4, bottom: 80),
           searchController: _searchCtrl,
           searchHint: 'Search departments…',
-          showSearch: _showSearch,
-          onToggleSearch: () => setState(() {
-            _showSearch = !_showSearch;
-            if (!_showSearch) {
-              _searchCtrl.clear();
-              _query = '';
-            }
-          }),
+          showSearch: true,
           onSearchChanged: (v) => setState(() => _query = v.trim()),
           onItemTap: (dept) {
             Navigator.of(context).push(
@@ -511,7 +504,6 @@ class _OwnersTab extends StatefulWidget {
 class _OwnersTabState extends State<_OwnersTab> {
   final _searchCtrl = TextEditingController();
   String _query = '';
-  bool _showSearch = false;
 
   @override
   void dispose() {
@@ -568,14 +560,6 @@ class _OwnersTabState extends State<_OwnersTab> {
             return _FlatMemberList(
               searchController: _searchCtrl,
               searchHint: 'Search owners…',
-              showSearch: _showSearch,
-              onToggleSearch: () => setState(() {
-                _showSearch = !_showSearch;
-                if (!_showSearch) {
-                  _searchCtrl.clear();
-                  _query = '';
-                }
-              }),
               onSearchChanged: (v) => setState(() => _query = v.trim()),
               itemCount: filtered.length,
               itemBuilder: (context, i) {
@@ -720,7 +704,6 @@ class _TeachersTab extends StatefulWidget {
 class _TeachersTabState extends State<_TeachersTab> {
   final _searchCtrl = TextEditingController();
   String _query = '';
-  bool _showSearch = false;
 
   @override
   void dispose() {
@@ -777,14 +760,6 @@ class _TeachersTabState extends State<_TeachersTab> {
             return _FlatMemberList(
               searchController: _searchCtrl,
               searchHint: 'Search teachers…',
-              showSearch: _showSearch,
-              onToggleSearch: () => setState(() {
-                _showSearch = !_showSearch;
-                if (!_showSearch) {
-                  _searchCtrl.clear();
-                  _query = '';
-                }
-              }),
               onSearchChanged: (v) => setState(() => _query = v.trim()),
               itemCount: filtered.length,
               itemBuilder: (context, i) {
@@ -958,7 +933,6 @@ class _StaffTab extends StatefulWidget {
 class _StaffTabState extends State<_StaffTab> {
   final _searchCtrl = TextEditingController();
   String _query = '';
-  bool _showSearch = false;
 
   @override
   void dispose() {
@@ -1015,14 +989,6 @@ class _StaffTabState extends State<_StaffTab> {
             return _FlatMemberList(
               searchController: _searchCtrl,
               searchHint: 'Search staff…',
-              showSearch: _showSearch,
-              onToggleSearch: () => setState(() {
-                _showSearch = !_showSearch;
-                if (!_showSearch) {
-                  _searchCtrl.clear();
-                  _query = '';
-                }
-              }),
               onSearchChanged: (v) => setState(() => _query = v.trim()),
               itemCount: filtered.length,
               itemBuilder: (context, i) {
@@ -1196,7 +1162,6 @@ class _StudentsTab extends StatefulWidget {
 class _StudentsTabState extends State<_StudentsTab> {
   final _searchCtrl = TextEditingController();
   String _query = '';
-  bool _showSearch = false;
 
   @override
   void dispose() {
@@ -1234,14 +1199,6 @@ class _StudentsTabState extends State<_StudentsTab> {
         return _FlatMemberList(
           searchController: _searchCtrl,
           searchHint: 'Search by name or ADM…',
-          showSearch: _showSearch,
-          onToggleSearch: () => setState(() {
-            _showSearch = !_showSearch;
-            if (!_showSearch) {
-              _searchCtrl.clear();
-              _query = '';
-            }
-          }),
           onSearchChanged: (v) => setState(() => _query = v.trim()),
           itemCount: filtered.length,
           itemBuilder: (context, i) {
@@ -1406,7 +1363,6 @@ class _GuardiansTab extends StatefulWidget {
 class _GuardiansTabState extends State<_GuardiansTab> {
   final _searchCtrl = TextEditingController();
   String _query = '';
-  bool _showSearch = false;
 
   @override
   void dispose() {
@@ -1444,14 +1400,6 @@ class _GuardiansTabState extends State<_GuardiansTab> {
         return _FlatMemberList(
           searchController: _searchCtrl,
           searchHint: 'Search by name or phone…',
-          showSearch: _showSearch,
-          onToggleSearch: () => setState(() {
-            _showSearch = !_showSearch;
-            if (!_showSearch) {
-              _searchCtrl.clear();
-              _query = '';
-            }
-          }),
           onSearchChanged: (v) => setState(() => _query = v.trim()),
           itemCount: filtered.length,
           itemBuilder: (context, i) {
@@ -2381,8 +2329,6 @@ class _FlatMemberList extends StatelessWidget {
     required this.itemBuilder,
     this.searchController,
     this.searchHint,
-    this.showSearch = false,
-    this.onToggleSearch,
     this.onSearchChanged,
   });
 
@@ -2390,8 +2336,6 @@ class _FlatMemberList extends StatelessWidget {
   final Widget Function(BuildContext, int) itemBuilder;
   final TextEditingController? searchController;
   final String? searchHint;
-  final bool showSearch;
-  final VoidCallback? onToggleSearch;
   final ValueChanged<String>? onSearchChanged;
 
   @override
@@ -2401,95 +2345,103 @@ class _FlatMemberList extends StatelessWidget {
 
     return Column(
       children: [
-        // ── Search toolbar ─────────────────────────────────────────────
+        // ── Search bar — always visible ────────────────────────────────
         if (searchController != null)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            child: Row(
-              children: [
-                if (showSearch) ...[
-                  Expanded(
-                    child: SizedBox(
-                      height: 36,
-                      child: TextField(
-                        controller: searchController,
-                        onChanged: onSearchChanged,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: cs.onSurface,
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: SizedBox(
+              height: 38,
+              child: ValueListenableBuilder<TextEditingValue>(
+                valueListenable: searchController!,
+                builder: (context, value, _) {
+                  return TextField(
+                    controller: searchController,
+                    onChanged: onSearchChanged,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      color: cs.onSurface,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: searchHint ?? 'Search…',
+                      hintStyle: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w300,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                      ),
+                      prefixIcon: Padding(
+                        padding: const EdgeInsets.only(left: 10, right: 6),
+                        child: Icon(
+                          Icons.search_rounded,
+                          size: 18,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.5),
                         ),
-                        decoration: InputDecoration(
-                          hintText: searchHint ?? 'Search…',
-                          hintStyle: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w400,
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                          ),
-                          prefixIcon: Icon(
-                            Icons.search_rounded,
-                            size: 18,
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                          ),
-                          prefixIconConstraints: const BoxConstraints(
-                            minWidth: 36,
-                          ),
-                          filled: true,
-                          fillColor: isDark
-                              ? cs.surfaceContainerHighest.withValues(
-                                  alpha: 0.3,
-                                )
-                              : cs.surfaceContainerHighest.withValues(
-                                  alpha: 0.5,
+                      ),
+                      prefixIconConstraints: const BoxConstraints(
+                        minWidth: 38,
+                        minHeight: 38,
+                      ),
+                      suffixIcon: value.text.isNotEmpty
+                          ? GestureDetector(
+                              onTap: () {
+                                searchController!.clear();
+                                onSearchChanged?.call('');
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: Icon(
+                                  Icons.close_rounded,
+                                  size: 16,
+                                  color: cs.onSurfaceVariant.withValues(
+                                    alpha: 0.5,
+                                  ),
                                 ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(
-                              AppTheme.kCardRadius,
-                            ),
-                            borderSide: BorderSide.none,
+                              ),
+                            )
+                          : null,
+                      suffixIconConstraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 38,
+                      ),
+                      filled: true,
+                      fillColor: isDark
+                          ? cs.surfaceContainerHighest.withValues(alpha: 0.3)
+                          : cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.kCardRadius,
+                        ),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.kCardRadius,
+                        ),
+                        borderSide: BorderSide(
+                          color: cs.outlineVariant.withValues(
+                            alpha: isDark ? 0.2 : 0.3,
                           ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 0,
-                          ),
-                          isDense: true,
+                          width: 0.5,
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  SizedBox(
-                    width: 32,
-                    height: 32,
-                    child: IconButton(
-                      padding: EdgeInsets.zero,
-                      iconSize: 18,
-                      icon: Icon(
-                        Icons.close_rounded,
-                        color: cs.onSurfaceVariant,
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.kCardRadius,
+                        ),
+                        borderSide: BorderSide(
+                          color: cs.primary.withValues(alpha: 0.5),
+                          width: 1.0,
+                        ),
                       ),
-                      tooltip: 'Close search',
-                      onPressed: onToggleSearch,
-                    ),
-                  ),
-                ] else ...[
-                  const Spacer(),
-                  SizedBox(
-                    width: 32,
-                    height: 32,
-                    child: IconButton(
-                      padding: EdgeInsets.zero,
-                      iconSize: 18,
-                      icon: Icon(
-                        Icons.search_rounded,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 0,
                       ),
-                      tooltip: 'Search',
-                      onPressed: onToggleSearch,
+                      isDense: true,
                     ),
-                  ),
-                ],
-              ],
+                  );
+                },
+              ),
             ),
           ),
 
@@ -5862,95 +5814,67 @@ class _CreateDepartmentSheetState extends State<_CreateDepartmentSheet> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          20,
-          16,
-          20,
-          MediaQuery.of(context).viewInsets.bottom + 16,
-        ),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 32,
-                  height: 3.5,
-                  decoration: BoxDecoration(
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'New Department',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: cs.onSurface,
-                  letterSpacing: 0.1,
-                ),
-              ),
-              const SizedBox(height: 16),
-              EduFormField(
-                controller: _nameCtrl,
-                label: 'Department name',
-                hint: 'e.g. Mathematics',
-                autofocus: true,
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Enter a name';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 10),
-              EduFormField(
-                controller: _descCtrl,
-                label: 'Description',
-                hint: 'Optional',
-                maxLines: 2,
-              ),
-              const SizedBox(height: 18),
-              SizedBox(
-                width: double.infinity,
-                child: Material(
-                  color: cs.primary,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            EduFormField(
+              controller: _nameCtrl,
+              label: 'Department name',
+              hint: 'e.g. Mathematics',
+              autofocus: true,
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return 'Enter a name';
+                return null;
+              },
+            ),
+            const SizedBox(height: 10),
+            EduFormField(
+              controller: _descCtrl,
+              label: 'Description',
+              hint: 'Optional',
+              maxLines: 2,
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              child: Material(
+                color: cs.primary,
+                borderRadius: BorderRadius.circular(6),
+                child: InkWell(
+                  onTap: _saving ? null : _save,
                   borderRadius: BorderRadius.circular(6),
-                  child: InkWell(
-                    onTap: _saving ? null : _save,
-                    borderRadius: BorderRadius.circular(6),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 11),
-                      child: Center(
-                        child: _saving
-                            ? SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 1.5,
-                                  color: cs.onPrimary,
-                                ),
-                              )
-                            : Text(
-                                'Create',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  color: cs.onPrimary,
-                                  letterSpacing: 0.2,
-                                ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    child: Center(
+                      child: _saving
+                          ? SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                                color: cs.onPrimary,
                               ),
-                      ),
+                            )
+                          : Text(
+                              'Create',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: cs.onPrimary,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
                     ),
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

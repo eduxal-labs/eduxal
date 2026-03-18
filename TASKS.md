@@ -2,6 +2,173 @@
 
 ---
 
+### [ ] Task 3: Remove duplicate create-exam entry points from Exams tab
+**Files to modify:** `eduxal/lib/ui/screens/school_dashboard/academics/tabs/exams_tab.dart`
+**Context files to read (if needed):** none — file is self-contained
+**Depends on:** none
+**Parallel group:** P1
+
+**Problem:**
+In the Academics > Grade view, the Exams tab currently has two ways to trigger exam creation that appear simultaneously when there are no exams:
+
+1. A `FloatingActionButton.small` rendered via `Scaffold.floatingActionButton` (always visible when the user can manage and config is loaded).
+2. An `OutlinedButton.icon` labelled "Create Exam" inside the `_buildEmpty` widget body, which appears centred on screen when the list is globally empty.
+
+The user sees a redundant centered "Create Exam" button AND a floating action button (+) at the same time. The FAB must be removed. The centered empty-state button must also be removed — the empty state should remain (with its icon and text), but without the button. Exam creation should only be triggered from outside this tab (e.g., via navigation-level controls), not from within the tab itself.
+
+Look at the `build` method's `floatingActionButton` parameter and the `_buildEmpty` method's `if (isGloballyEmpty && _canManage && _configLoaded)` branch. Both need to be cleaned up.
+
+The gold-standard for empty states in this project shows an icon + label + sublabel but no action button inside the list area.
+
+---
+
+### [x] Task 4: Fix Create Department modal — double header and unfocusable description field
+**Files to modify:** `eduxal/lib/ui/screens/school_dashboard/members/members_page.dart`
+**Context files to read (if needed):** `eduxal/lib/ui/widgets/edu_sheet.dart`, `eduxal/lib/ui/widgets/edu_form_field.dart`
+**Depends on:** none
+**Parallel group:** P1
+
+**Problem:**
+When a user taps the FAB on the Departments tab, `_showCreateDepartment()` calls `showEduSheet(context, builder: ...)` passing a `_CreateDepartmentSheet` widget as the builder result. The `_CreateDepartmentSheet.build` method manually builds its own complete bottom sheet container from scratch — it renders its own drag-handle pill, its own "New Department" title text, and its own padding/column — as if it were a raw `showModalBottomSheet` child.
+
+However, `showEduSheet` on mobile already wraps the builder result inside an `EduSheet`, which renders its own drag-handle and (if a `title` is passed) its own header. In this case no `title` is passed to `showEduSheet`, so only one `EduSheet` header appears — but the `_CreateDepartmentSheet` itself still manually draws its own handle + title, resulting in the handle and title appearing duplicated or at odds with the surrounding `EduSheet` container.
+
+Additionally, the description field (`_descCtrl`) uses `EduFormField` but the field is reportedly not focusable or selectable on mobile. The issue may be related to how the field is wrapped inside `SafeArea` + `Padding(viewInsets)` inside a `Column(mainAxisSize: min)` — the combined layout may be clipping or intercepting taps on the second field.
+
+The fix should make the department creation form consistent with the `EduSheet` design system: let `showEduSheet` own the container, handle, and title; the form body should only contain the fields and the save button. Study `eduxal/lib/ui/widgets/edu_sheet.dart` and `eduxal/lib/ui/widgets/create_term_modal.dart` for reference on how forms are composed inside `showEduSheet`.
+
+Also check the `SafeArea` wrapper and the `viewInsets` padding inside `_CreateDepartmentSheet.build` — these are almost certainly causing layout conflicts with `EduSheet`'s own `viewInsets` handling (double-applying the keyboard inset).
+
+---
+
+### [ ] Task 5: Fix member creation panels — form field styling and keyboard/modal layout issues
+**Files to modify:**
+- `eduxal/lib/ui/widgets/member_creation/phone_first_panel.dart`
+- `eduxal/lib/ui/widgets/member_creation/add_teacher_panel.dart`
+- `eduxal/lib/ui/widgets/member_creation/add_staff_panel.dart`
+- `eduxal/lib/ui/widgets/member_creation/add_student_panel.dart`
+- `eduxal/lib/ui/widgets/member_creation/add_guardian_panel.dart`
+- `eduxal/lib/ui/widgets/member_creation/add_owner_panel.dart`
+**Context files to read (if needed):** `eduxal/lib/ui/widgets/edu_sheet.dart`, `eduxal/lib/ui/widgets/edu_form_field.dart`, `eduxal/lib/ui/widgets/create_term_modal.dart`
+**Depends on:** none
+**Parallel group:** P2
+
+**Problem:**
+The member creation modals (Owner, Teacher, Staff, Student, Guardian) are launched via `showEduSheet`, which wraps them in an `EduSheet`. However the panels have two style issues:
+
+**Issue A — "Purplish" form field colour:**
+The `_StyledInput` widget inside `phone_first_panel.dart` and the extra-fields widgets in the teacher/staff/student/guardian panels use a custom `Container + TextField` pattern with `Color(0xFF1E2A3A)` fill and their own border styling. On light mode this produces a dark blue/purple tint on the input fields that clashes with the rest of the UI. The input fields should use `EduFormField` (from `eduxal/lib/ui/widgets/edu_form_field.dart`) or at minimum adopt the same fill colours: `cs.surfaceContainerLowest` on light and `Color(0xFF1E2A3A)` on dark, with no tint visible in light mode.
+
+**Issue B — Keyboard "shoots the modal up":**
+When the keyboard appears, the modal jumps upward and leaves a white gap between the keyboard top and the modal content bottom. This is a classic symptom of `resizeToAvoidBottomInset` being `true` on the route (or the `Scaffold` inside the sheet), combined with the sheet itself also applying `MediaQuery.viewInsets.bottom` padding — causing the keyboard inset to be applied twice. Study how `EduSheet` handles `viewInsets` (it applies `Padding(EdgeInsets.only(bottom: viewInsets.bottom))`) and check whether any inner widget is also listening to `viewInsets` or is inside a `Scaffold` with `resizeToAvoidBottomInset` not explicitly set to `false`.
+
+**Issue C — Large top border radius on mobile sheet:**
+The mobile bottom sheet has an overly large top border radius (e.g. `Radius.circular(20)` from `AppTheme._sheetRadius`). Per the design guidelines, modal containers should use `AppTheme.kModalRadius = 12.0` for the top corners. Check the `EduSheet` radius value and whether it matches the design spec.
+
+The gold-standard reference modal is `eduxal/lib/ui/widgets/create_term_modal.dart` — specifically `_CreateTermSheet`. Compare how it composes its container and handles keyboard insets vs. how the member creation panels do it.
+
+---
+
+### [ ] Task 6: Fix Announcements compose sheet — double header, white overlay on inputs, keyboard jump
+**Files to modify:** `eduxal/lib/ui/screens/school_dashboard/announcements/announcements_screen.dart`
+**Context files to read (if needed):** `eduxal/lib/ui/widgets/edu_sheet.dart`, `eduxal/lib/ui/widgets/edu_form_field.dart`
+**Depends on:** none
+**Parallel group:** P1
+
+**Problem:**
+The `_showComposeSheet` function calls `showEduSheet(context, builder: ...)` and passes a `_ComposeSheet` widget. On mobile, `showEduSheet` wraps the content in an `EduSheet` which renders its own drag-handle and optional title row. However, `_ComposeSheet.build` manually renders its own complete container from scratch: it applies its own `BoxDecoration` with `color: cs.surface` and `borderRadius: BorderRadius.vertical(top: Radius.circular(14))`, and it also draws its own drag-handle, its own header row with the "New Announcement" / "Edit Announcement" title and a Publish button. 
+
+This creates a double-header situation: `EduSheet` renders a handle + (no title, since none is passed), then `_ComposeSheet` renders its own handle and header on top of the already-themed `EduSheet` container. The `_ComposeSheet.build` returns a `Container` with its own `BoxDecoration` wrapping — this `Container` sits inside `EduSheet`'s own container, causing a white/opaque layer to appear on top of the modal background.
+
+Additionally, `_ComposeSheet` applies `Padding(EdgeInsets.only(bottom: mq.viewInsets.bottom))` at the same level that `EduSheet` also applies keyboard inset padding — causing the double-inset keyboard-jump bug.
+
+The input fields in `_ComposeSheet` use a private `_SheetField` widget that renders with `cs.surfaceContainerHighest` fill — which in some colour scheme configurations can produce a white or light overlay on top of the `EduSheet` background colour, making the fields look hidden or ghosted while still accepting input.
+
+The fix should remove `_ComposeSheet`'s manual container wrapping, delegate the handle/title to `showEduSheet`/`EduSheet`, and let keyboard inset handling happen in exactly one place. The `_SheetField` widget's fill colour should be verified to be legible against `AppTheme.modalBg`.
+
+---
+
+### [ ] Task 7: Fix Create Fee Structure modal — container layering (white overlay)
+**Files to modify:** `eduxal/lib/ui/screens/school_dashboard/finance/finance_screen.dart`
+**Context files to read (if needed):** `eduxal/lib/ui/widgets/edu_sheet.dart`
+**Depends on:** none
+**Parallel group:** P1
+
+**Problem:**
+The `_showCreateFeeSheet` function calls `showEduSheet(context, builder: ...)`, which wraps the result in an `EduSheet` with its own `AppTheme.modalBg` background, drag-handle, and border. However, `_CreateFeeSheetState.build` returns its own `Padding + Container` that contains a `SingleChildScrollView` — and crucially, the `Container` adds additional padding (`EdgeInsets.fromLTRB(24, 20, 24, 24)`) and draws its own drag-handle pill and "Create Fee Structure" title header.
+
+This means the modal has `EduSheet`'s container as the outer layer, then `_CreateFeeSheetState`'s own `Padding` applying `viewInsets.bottom` as a separate inner layer — double-applying the keyboard inset. Furthermore, any background colour from the inner `Container` (if present) sits on top of `EduSheet`'s `AppTheme.modalBg`, producing a visible layer/overlay on top of the modal.
+
+The field styling also uses a private `_SheetField` and `_fieldDecoration` that apply `AppTheme.kRadius` (12.0) for field border radius — which is correct — but the overall padding and container structure must be restructured to delegate to `showEduSheet`/`EduSheet` properly: remove the manual handle + header from the build method, pass a `title` to `showEduSheet` instead, and let keyboard inset be handled solely by `EduSheet`.
+
+---
+
+### [ ] Task 8: Fix mobile grade-entry sheet (paper detail) — modal layout and styling
+**Files to modify:** `eduxal/lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`
+**Context files to read (if needed):** `eduxal/lib/ui/widgets/edu_sheet.dart`
+**Depends on:** none
+**Parallel group:** P1
+
+**Problem:**
+In the Paper Detail page, tapping a student row (on mobile) opens `_MobileGradeEntrySheet` via `showEduSheet`. The `_MobileGradeEntrySheet.build` returns a `Padding(EdgeInsets.only(bottom: viewInsets.bottom)) + Container` structure with its own `BoxDecoration` (colour `cs.surface`, radius `BorderRadius.vertical(top: Radius.circular(12))`), its own drag-handle, and its own student-name header. It then applies `viewInsets.bottom` padding internally.
+
+This reproduces the same double-container + double-keyboard-inset pattern seen in the other sheets: `EduSheet` wraps it in `AppTheme.modalBg` with `viewInsets` padding AND the inner widget adds its own `viewInsets` padding and `cs.surface` colour on top — resulting in a visible white/opaque layer appearing above the keyboard when it opens, and the modal jumping on keyboard appearance.
+
+Additionally, `_MobileGradeEntrySheet` draws its own drag-handle and header, while `showEduSheet` in `_openGradeEntry` does not pass a `title`, so the handle from `EduSheet` and the handle from the inner widget are stacked.
+
+Similarly, `_openStudentActionSheet` in `_GradeListState` calls `showEduSheet` with a `title` but the inner `Column` also starts with padding that may conflict with `EduSheet`'s title row.
+
+The fix should align these sheets with the `EduSheet` design contract: the inner widget should only provide form content (no wrapping container, no handle, no `viewInsets` padding of its own), and `showEduSheet` should handle the outer chrome. Read `eduxal/lib/ui/widgets/edu_sheet.dart` to understand what `EduSheet` already provides before adding anything in the inner widget.
+
+---
+
+### [ ] Task 9: Fix Members tab search bar — always-visible, properly sized
+**Files to modify:** `eduxal/lib/ui/screens/school_dashboard/members/members_page.dart`
+**Context files to read (if needed):** `eduxal/lib/ui/widgets/edu_data_table.dart`
+**Depends on:** none
+**Parallel group:** P2
+
+**Problem:**
+In the Members page, each tab (Owners, Teachers, Staff, Students, Guardians) uses `_FlatMemberList` which renders a search toolbar. In its current state, when `showSearch = false`, the search bar is completely hidden and only a small `32×32` `IconButton` with `Icons.search_rounded` appears, positioned at the far right via `const Spacer()`. The user must tap the icon button to reveal the search field — this is the "hidden behind a search icon" issue.
+
+The Departments tab uses `EduDataTable` which has its own search toolbar (via the `showSearch` / `onToggleSearch` mechanism from `edu_data_table.dart`) — check whether it exhibits the same behaviour.
+
+The expected behaviour is that the search bar should always be visible in the toolbar area without requiring a toggle tap. The search field should be appropriately wide (full-width or near-full-width of the toolbar), use a reasonable height (around 36–40px), and have the standard search icon as a prefix inside the field — not as a separate toggle button.
+
+Study the current `_FlatMemberList.build` method's search toolbar logic (the `if (showSearch)` branch) and the state management in each tab state (e.g. `_OwnersTabState`, `_TeachersTabState`, etc.) to understand how `_showSearch`, `onToggleSearch`, and `onSearchChanged` are wired. The fix should make the field permanently visible: always showing the `TextField` and removing the toggle-to-reveal pattern. The close/clear button can remain when there is active text, but the field itself should not be hidden.
+
+---
+
+### [ ] Task 10: Normalise mobile bottom-sheet top border radius across all modals
+**Files to modify:**
+- `eduxal/lib/ui/widgets/edu_sheet.dart`
+- `eduxal/lib/ui/screens/school_dashboard/announcements/announcements_screen.dart`
+- `eduxal/lib/ui/screens/school_dashboard/finance/finance_screen.dart`
+- `eduxal/lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`
+- `eduxal/lib/ui/screens/school_dashboard/members/members_page.dart`
+- `eduxal/lib/ui/widgets/create_term_modal.dart`
+**Context files to read (if needed):** `eduxal/lib/ui/theme/app_theme.dart`
+**Depends on:** Task 4, Task 6, Task 7, Task 8 (those tasks may restructure the inner widgets; this task corrects the radius on the outer container)
+**Parallel group:** P3
+
+**Problem:**
+Mobile bottom sheets currently use an overly large top corner radius. Inspection of the codebase shows:
+
+- `EduSheet` uses `Radius.circular(16)` in its `BorderRadius.only(topLeft, topRight)` decoration.
+- `_CreateTermSheet` uses `Radius.circular(16)` for its top corners.
+- `_ComposeSheet` (announcements) uses `Radius.circular(14)` in its own container.
+- `_CreateFeeSheet` (finance) uses no explicit radius on its inner container (delegates to `EduSheet`).
+- `_MobileGradeEntrySheet` uses `Radius.circular(12)` in its own `BoxDecoration`.
+- `AppTheme._sheetRadius` defines `Radius.circular(20)` — the largest value, not currently used by `EduSheet` but referenced elsewhere.
+
+The design guideline in `AGENT.md §21` states: modal/dialog containers should use `AppTheme.kModalRadius = 12.0`. This is the single source of truth for modal corner radii. All bottom sheets should use `12.0` for their top corners, not `14`, `16`, or `20`.
+
+The fix should ensure that `EduSheet` uses `AppTheme.kModalRadius` (12.0) for its top corner radii, and that any inner widget that still manually applies its own container radius (after Tasks 4–8 are done) is also corrected. The `_CreateTermSheet` should also be updated to use `AppTheme.kModalRadius` for consistency. Do NOT change dialog corner radii — `AppTheme.kModalRadius` applies to dialogs too and that is correct as-is.
+
+Note: Tasks 4, 6, 7, and 8 may restructure some of the inner containers. This task should be done after those are complete to avoid conflicts, and should sweep all affected files to verify consistency.
+
+---
+
 ### [x] Task 1: Implement S3 file upload (push) and download (watch) in the sync engine
 
 **Files to create/modify:**

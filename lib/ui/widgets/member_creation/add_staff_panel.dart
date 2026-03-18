@@ -230,7 +230,7 @@ class _StyledInput extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E2A3A) : cs.surfaceContainerLow,
+        color: isDark ? const Color(0xFF1E2A3A) : cs.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: borderColor),
       ),

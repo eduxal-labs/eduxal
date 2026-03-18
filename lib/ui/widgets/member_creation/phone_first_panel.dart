@@ -595,7 +595,7 @@ class _PhoneField extends StatelessWidget {
         const SizedBox(height: 7),
         Container(
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E2A3A) : cs.surfaceContainerLow,
+            color: isDark ? const Color(0xFF1E2A3A) : cs.surfaceContainerLowest,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: cs.outlineVariant.withValues(alpha: isDark ? 0.2 : 0.35),
@@ -807,7 +807,7 @@ class _NameField extends StatelessWidget {
         const SizedBox(height: 7),
         Container(
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E2A3A) : cs.surfaceContainerLow,
+            color: isDark ? const Color(0xFF1E2A3A) : cs.surfaceContainerLowest,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: cs.outlineVariant.withValues(alpha: isDark ? 0.2 : 0.35),

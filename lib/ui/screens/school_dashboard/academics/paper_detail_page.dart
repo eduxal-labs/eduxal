@@ -2423,6 +2423,7 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
     final existing = widget.gradeMap[adm];
     showEduSheet(
       context: context,
+      title: student.name,
       builder: (_) => _MobileGradeEntrySheet(
         student: student,
         existingGrade: existing,
@@ -3312,55 +3313,10 @@ class _MobileGradeEntrySheetState extends State<_MobileGradeEntrySheet> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: cs.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: cs.outlineVariant,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                widget.student.name,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: cs.onSurface,
-                ),
-              ),
-              Text(
-                'Adm: ${widget.student.adm}',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
+    showEduSheet(
+      context: context,
+      title: student.name,
+      builder: (_) => _MobileGradeEntrySheet(
                 children: [
                   Expanded(
                     child: TextFormField(
@@ -3409,37 +3365,36 @@ class _MobileGradeEntrySheetState extends State<_MobileGradeEntrySheet> {
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
-              ElevatedButton(
+            const SizedBox(height: 20),
+            ElevatedButton(
                 onPressed: _saving ? null : _save,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: cs.primary,
-                  foregroundColor: cs.onPrimary,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.kRadius),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: cs.primary,
+                foregroundColor: cs.onPrimary,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
                 ),
-                child: _saving
-                    ? SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 1.5,
-                          color: cs.onPrimary,
-                        ),
-                      )
-                    : const Text(
-                        'Save Grade',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w500,
-                          fontSize: 14,
-                        ),
-                      ),
+                padding: const EdgeInsets.symmetric(vertical: 14),
               ),
-            ],
-          ),
+              child: _saving
+                  ? SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.5,
+                        color: cs.onPrimary,
+                      ),
+                    )
+                  : const Text(
+                      'Save Grade',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                      ),
+                    ),
+            ),
+          ],
         ),
       ),
     );

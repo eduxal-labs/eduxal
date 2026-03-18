@@ -10,7 +10,7 @@ import '../../../../../models/membership.dart';
 import '../../../../../models/school_config.dart';
 import '../../../../../models/school_context.dart';
 import '../../../../theme/app_theme.dart';
-import '../../exams/exam_creation_page.dart';
+
 import '../exam_detail_page.dart';
 
 /// Exams tab — shows all exams for a specific stream within a grade, with
@@ -21,8 +21,7 @@ import '../exam_detail_page.dart';
 ///
 /// Tapping a card navigates to `ExamDetailPage`.
 ///
-/// A FAB is shown for users who can manage exams (teacher, owner, staff),
-/// pushing `ExamCreationPage` with the current grade and stream pre-selected.
+/// Exam creation is triggered from outside this tab (e.g. a parent-level action button).
 class ExamsTab extends StatefulWidget {
   const ExamsTab({
     super.key,
@@ -190,24 +189,6 @@ class _ExamsTabState extends State<ExamsTab>
     return entry is TeacherEntry || entry is OwnerEntry || entry is StaffEntry;
   }
 
-  // ── Navigation ─────────────────────────────────────────────────────────────
-
-  Future<void> _showCreateExam(BuildContext context) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ExamCreationPage(
-          schoolId: widget.schoolId,
-          year: widget.year,
-          term: widget.term,
-          config: _config,
-          entry: widget.schoolContext.currentEntry.value,
-          preselectedGrade: widget.grade,
-          preselectedStream: widget.streamCode,
-        ),
-      ),
-    );
-  }
-
   // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
@@ -217,21 +198,7 @@ class _ExamsTabState extends State<ExamsTab>
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton: _canManage && _configLoaded
-          ? FloatingActionButton.small(
-              heroTag: 'fab_academics_exams',
-              onPressed: () => _showCreateExam(context),
-              tooltip: 'New Exam',
-              elevation: 4,
-              highlightElevation: 6,
-              backgroundColor: cs.primary,
-              foregroundColor: cs.onPrimary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.add_rounded, size: 20),
-            )
-          : null,
+
       body: StreamBuilder<List<ExamWithPapers>>(
         stream: _stream,
         builder: (context, snapshot) {
@@ -420,28 +387,6 @@ class _ExamsTabState extends State<ExamsTab>
                 color: cs.onSurfaceVariant.withValues(alpha: 0.5),
               ),
             ),
-            if (isGloballyEmpty && _canManage && _configLoaded) ...[
-              const SizedBox(height: 18),
-              OutlinedButton.icon(
-                onPressed: () => _showCreateExam(context),
-                icon: const Icon(Icons.add_rounded, size: 16),
-                label: const Text('Create Exam'),
-                style: OutlinedButton.styleFrom(
-                  textStyle: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400,
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  side: BorderSide(color: cs.outline.withValues(alpha: 0.3)),
-                ),
-              ),
-            ],
           ],
         ),
       ),
