@@ -808,28 +808,43 @@ class DeltaWriter {
   // ---------------------------------------------------------------------------
 
   Future<void> _applyPapers(SyncDelta delta) async {
+    // rowKey format: "{school}|{exam}|{subject}|{paper}|{grade}|{stream}"
+    // paper is empty-string when NULL; stream is empty-string when NULL.
+    // Full composite PK: (school, exam, subject, paper, grade, stream) — all 6
+    // columns must be used in every DELETE / ON CONFLICT clause.
     final k = _parseKey(delta.rowKey);
     final paperVal = _parseIntNullable(k[3]);
+    final gradeVal = _parseInt(k[4]);
+    final streamVal = _parseIntNullable(k[5]);
 
     if (delta.operation == 2) {
+      // Delete exactly one row — must match all 6 PK columns.
       await _db.customStatement(
         'DELETE FROM papers WHERE school = ? AND exam = ? AND subject = ?'
-        ' AND paper ${paperVal == null ? 'IS NULL' : '= ?'}',
-        [k[0], k[1], _parseInt(k[2]), ?paperVal],
+        ' AND paper ${paperVal == null ? 'IS NULL' : '= ?'}'
+        ' AND grade = ?'
+        ' AND stream ${streamVal == null ? 'IS NULL' : '= ?'}',
+        [k[0], k[1], _parseInt(k[2]), ?paperVal, gradeVal, ?streamVal],
       );
       return;
     }
     final row = delta.data.paper;
     final now = _now();
     final topicVal = row.hasTopic() ? row.topic : null;
-    final streamVal = row.hasStream() ? row.stream : null;
+    // streamVal is already parsed from the key above; cross-check with payload.
+    // (They must agree — the key is the authoritative PK source.)
 
     if (paperVal == null) {
-      // NULL paper — ON CONFLICT cannot match NULLs, so delete-then-insert.
+      // NULL paper — ON CONFLICT cannot match NULLs in SQLite, so we use
+      // delete-then-insert. The delete must scope to the exact (grade, stream)
+      // to avoid wiping sibling rows that share school/exam/subject/paper=NULL
+      // but belong to a different stream.
       await _db.customStatement(
         'DELETE FROM papers WHERE school = ? AND exam = ? AND subject = ?'
-        ' AND paper IS NULL',
-        [k[0], k[1], _parseInt(k[2])],
+        ' AND paper IS NULL'
+        ' AND grade = ?'
+        ' AND stream ${streamVal == null ? 'IS NULL' : '= ?'}',
+        [k[0], k[1], _parseInt(k[2]), gradeVal, ?streamVal],
       );
       await _db.customStatement(
         'INSERT INTO papers (school, exam, subject, paper, topic, invigilator, start, "end", status, grade, stream, created, updated)'
@@ -843,25 +858,26 @@ class DeltaWriter {
           row.start.toInt(),
           row.end.toInt(),
           row.status,
-          row.grade,
+          gradeVal,
           streamVal,
           now.toInt(),
           now.toInt(),
         ],
       );
     } else {
-      // Non-NULL paper — standard ON CONFLICT upsert works fine.
+      // Non-NULL paper — use ON CONFLICT with the full 6-column PK so that
+      // papers for different (grade, stream) combinations are never confused.
+      // Previously this only listed 4 columns, causing the upsert to match
+      // the wrong row when multiple streams share the same (subject, paper).
       await _db.customStatement(
         'INSERT INTO papers (school, exam, subject, paper, topic, invigilator, start, "end", status, grade, stream, created, updated)'
         ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-        ' ON CONFLICT (school, exam, subject, paper) DO UPDATE SET'
+        ' ON CONFLICT (school, exam, subject, paper, grade, stream) DO UPDATE SET'
         ' topic = excluded.topic,'
         ' invigilator = excluded.invigilator,'
         ' start = excluded.start,'
         ' "end" = excluded."end",'
         ' status = excluded.status,'
-        ' grade = excluded.grade,'
-        ' stream = excluded.stream,'
         ' created = excluded.created,'
         ' updated = excluded.updated',
         [
@@ -874,7 +890,7 @@ class DeltaWriter {
           row.start.toInt(),
           row.end.toInt(),
           row.status,
-          row.grade,
+          gradeVal,
           streamVal,
           now.toInt(),
           now.toInt(),

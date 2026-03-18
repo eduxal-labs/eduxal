@@ -153,3 +153,44 @@ Changed `_applyTerms()` from `insertOnConflictUpdate` to a delete-then-insert pa
 Any table with a `BEFORE INSERT` trigger that queries its own table for validation (e.g. overlap checks, uniqueness checks beyond the PK) is vulnerable to this bug when the DeltaWriter uses `insertOnConflictUpdate`. The trigger fires before `ON CONFLICT` resolution, so it sees the existing row as a conflict. For such tables, always use delete-then-insert in the DeltaWriter instead of `insertOnConflictUpdate`. Currently the only affected table is `terms` (trigger: `terms_no_overlap`). Other `BEFORE INSERT` triggers (`papers_within_exam_range`, `attendance_within_term`, `lessons_within_term`, `grades_enrollment_check`, `subscriptions_invoice_check`) check parent tables, not their own table, so they are not vulnerable to self-collision.
 
 ---
+
+## BUG-006: DeltaWriter `_applyPapers` uses wrong ON CONFLICT target — last stream overwrites all previous streams
+
+**Status:** Fixed
+**Date:** 2025-07-16
+**Files affected:**
+- `lib/sync/delta_writer.dart` — `_applyPapers()`
+
+**Symptom:**
+When creating an exam with 1 grade and 3 streams, each with 12 autofilled papers (36 total), only the last stream's papers appear in the UI and in the local SQLite database after sync. The first two streams show no papers at all.
+
+**Root cause:**
+The `papers` table composite primary key is `(school, exam, subject, paper, grade, stream)` — 6 columns. The server encodes all 6 in the `rowKey` as `"{school}|{exam}|{subject}|{paper}|{grade}|{stream}"`.
+
+However, `_applyPapers()` in `DeltaWriter` only used 4 of those 6 columns in its `ON CONFLICT` upsert target:
+
+```dart
+' ON CONFLICT (school, exam, subject, paper) DO UPDATE SET'
+```
+
+This is a narrower conflict target than the actual 6-column PK. The consequence:
+
+The server sends cumulative `SyncDelta` broadcasts — every time a new paper is created, the server re-emits all previously confirmed papers via the watch stream. So after paper N is created, the client receives deltas for papers 1..N again.
+
+When stream=1, subject=S, paper=P is inserted first, it occupies a row with `grade=44, stream=1`. When stream=2, subject=S, paper=P arrives next (same subject and paper number but different stream), the `ON CONFLICT (school, exam, subject, paper)` target **matches the existing stream=1 row** (because stream is not in the conflict target). The `DO UPDATE SET` then **overwrites** that row's `grade` and `stream` columns with the new values (`stream=2`), destroying the stream=1 row in-place. When stream=3 arrives, it overwrites stream=2 in the same way. End result: only stream=3 papers survive.
+
+The same narrower-target bug exists in the `DELETE` operation path — it only filters by `(school, exam, subject, paper)` and could delete papers for all streams instead of the one targeted.
+
+**Fix:**
+Changed the `ON CONFLICT` target in `_applyPapers()` to include all 6 PK columns:
+
+```dart
+' ON CONFLICT (school, exam, subject, paper, grade, stream) DO UPDATE SET'
+```
+
+Also updated the `DELETE` operation path to parse `k[4]` (grade) and `k[5]` (stream) from the row key and include them in the `WHERE` clause, so deletes are precisely scoped to one row.
+
+For the `NULL paper` branch, the delete-before-insert pattern already used `school, exam, subject` with `paper IS NULL` but also needed `grade` and `stream` to avoid deleting papers for other streams. Both the pre-insert delete and the delete-operation path are updated accordingly.
+
+**Prevention:**
+The `papers` table PK is `(school, exam, subject, paper, grade, stream)`. Any `ON CONFLICT` clause, `UPDATE`, or `DELETE` targeting a single paper row MUST include ALL SIX columns. Never use a partial subset of this PK as a conflict target — SQLite will silently match and overwrite the wrong row. When adding new delta-apply logic for papers (or any table with a multi-column PK that includes nullable columns), verify the `ON CONFLICT` target exactly matches the full PK declaration in `papers.dart`.
