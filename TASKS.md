@@ -2,7 +2,7 @@
 
 ---
 
-### [ ] Task 3: Remove duplicate create-exam entry points from Exams tab
+### [x] Task 3: Remove duplicate create-exam entry points from Exams tab
 **Files to modify:** `eduxal/lib/ui/screens/school_dashboard/academics/tabs/exams_tab.dart`
 **Context files to read (if needed):** none — file is self-contained
 **Depends on:** none
@@ -103,7 +103,7 @@ The field styling also uses a private `_SheetField` and `_fieldDecoration` that 
 
 ---
 
-### [ ] Task 8: Fix mobile grade-entry sheet (paper detail) — modal layout and styling
+### [x] Task 8: Fix mobile grade-entry sheet (paper detail) — modal layout and styling
 **Files to modify:** `eduxal/lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`
 **Context files to read (if needed):** `eduxal/lib/ui/widgets/edu_sheet.dart`
 **Depends on:** none
@@ -122,7 +122,7 @@ The fix should align these sheets with the `EduSheet` design contract: the inner
 
 ---
 
-### [ ] Task 9: Fix Members tab search bar — always-visible, properly sized
+### [x] Task 9: Fix Members tab search bar — always-visible, properly sized
 **Files to modify:** `eduxal/lib/ui/screens/school_dashboard/members/members_page.dart`
 **Context files to read (if needed):** `eduxal/lib/ui/widgets/edu_data_table.dart`
 **Depends on:** none

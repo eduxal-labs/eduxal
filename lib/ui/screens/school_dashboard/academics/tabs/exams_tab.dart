@@ -6,7 +6,7 @@ import '../../../../../database/daos/catalog_dao.dart';
 import '../../../../../database/daos/exams_grades_dao.dart' show ExamWithPapers;
 import '../../../../../database/tables/curriculum_subjects.dart';
 import '../../../../../database/tables/enums.dart';
-import '../../../../../models/membership.dart';
+
 import '../../../../../models/school_config.dart';
 import '../../../../../models/school_context.dart';
 import '../../../../theme/app_theme.dart';
