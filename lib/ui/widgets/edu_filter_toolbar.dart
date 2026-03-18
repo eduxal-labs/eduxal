@@ -56,22 +56,34 @@ class EduFilterToolbar extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           child: Row(
             children: [
-              // Search toggle button
-              _ToolbarIconButton(
-                icon: Icons.search_rounded,
-                isActive: showSearch,
-                onTap: onToggleSearch,
-                cs: cs,
-              ),
-              const SizedBox(width: 6),
-              // Animated search field
-              EduSearchField(
-                controller: searchController,
-                hint: searchHint,
-                onChanged: onSearchChanged,
-                expanded: showSearch,
-              ),
-              const Spacer(),
+              // Search toggle button — hidden when always-on (no toggle callback)
+              if (onToggleSearch != null) ...[
+                _ToolbarIconButton(
+                  icon: Icons.search_rounded,
+                  isActive: showSearch,
+                  onTap: onToggleSearch,
+                  cs: cs,
+                ),
+                const SizedBox(width: 6),
+              ],
+              // Search field — expands to fill space when always-on
+              if (onToggleSearch == null && showSearch)
+                Expanded(
+                  child: EduSearchField(
+                    controller: searchController,
+                    hint: searchHint,
+                    onChanged: onSearchChanged,
+                    expanded: true,
+                  ),
+                )
+              else
+                EduSearchField(
+                  controller: searchController,
+                  hint: searchHint,
+                  onChanged: onSearchChanged,
+                  expanded: showSearch,
+                ),
+              if (onToggleSearch != null) const Spacer(),
               // Filter toggle button (only if filters provided)
               if (filters.isNotEmpty)
                 _ToolbarIconButton(

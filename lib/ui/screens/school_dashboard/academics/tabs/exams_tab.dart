@@ -197,7 +197,6 @@ class _ExamsTabState extends State<ExamsTab>
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-
       body: StreamBuilder<List<ExamWithPapers>>(
         stream: _stream,
         builder: (context, snapshot) {

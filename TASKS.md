@@ -41,7 +41,7 @@ Also check the `SafeArea` wrapper and the `viewInsets` padding inside `_CreateDe
 
 ---
 
-### [ ] Task 5: Fix member creation panels — form field styling and keyboard/modal layout issues
+### [x] Task 5: Fix member creation panels — form field styling and keyboard/modal layout issues
 **Files to modify:**
 - `eduxal/lib/ui/widgets/member_creation/phone_first_panel.dart`
 - `eduxal/lib/ui/widgets/member_creation/add_teacher_panel.dart`
@@ -69,7 +69,7 @@ The gold-standard reference modal is `eduxal/lib/ui/widgets/create_term_modal.da
 
 ---
 
-### [ ] Task 6: Fix Announcements compose sheet — double header, white overlay on inputs, keyboard jump
+### [x] Task 6: Fix Announcements compose sheet — double header, white overlay on inputs, keyboard jump
 **Files to modify:** `eduxal/lib/ui/screens/school_dashboard/announcements/announcements_screen.dart`
 **Context files to read (if needed):** `eduxal/lib/ui/widgets/edu_sheet.dart`, `eduxal/lib/ui/widgets/edu_form_field.dart`
 **Depends on:** none

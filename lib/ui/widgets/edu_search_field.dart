@@ -12,12 +12,16 @@ class EduSearchField extends StatelessWidget {
     this.hint = 'Search…',
     this.onChanged,
     this.expanded = true,
+    this.fillWidth = false,
   });
 
   final TextEditingController controller;
   final String hint;
   final ValueChanged<String>? onChanged;
   final bool expanded; // animated width transition
+  /// When true, no fixed width is applied — the parent controls the width.
+  /// Use this when wrapping in [Expanded] or [Flexible].
+  final bool fillWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +31,7 @@ class EduSearchField extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeInOut,
-      width: expanded ? 220 : 0, // Animate width
+      width: fillWidth ? null : (expanded ? 220 : 0),
       height: 32,
       child: expanded
           ? Container(

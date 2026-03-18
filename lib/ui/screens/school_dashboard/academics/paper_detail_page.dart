@@ -3313,61 +3313,81 @@ class _MobileGradeEntrySheetState extends State<_MobileGradeEntrySheet> {
     }
   }
 
-    showEduSheet(
-      context: context,
-      title: student.name,
-      builder: (_) => _MobileGradeEntrySheet(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _scoreCtrl,
-                      autofocus: true,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(
-                          RegExp(r'^\d+\.?\d{0,2}'),
-                        ),
-                      ],
-                      decoration: _inputDeco(cs, label: 'Score'),
-                      validator: (v) {
-                        final n = double.tryParse(v ?? '');
-                        if (n == null) return 'Enter a valid number';
-                        final total = int.tryParse(_totalCtrl.text) ?? 100;
-                        if (n < 0 || n > total) return '0 – $total';
-                        return null;
-                      },
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(
-                      '/',
-                      style: TextStyle(
-                        fontSize: 20,
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _totalCtrl,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      decoration: _inputDeco(cs, label: 'Out of'),
-                      validator: (v) {
-                        final n = int.tryParse(v ?? '');
-                        if (n == null || n <= 0) return 'Must be > 0';
-                        return null;
-                      },
-                    ),
-                  ),
-                ],
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    // Return ONLY form content — EduSheet (via showEduSheet) owns the
+    // background container, border-radius, drag handle, title row, and
+    // keyboard-inset padding. Adding any of those here causes double chrome.
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Student admission number as a compact subtitle under the
+            // EduSheet title row (student name is already shown in the title).
+            Text(
+              'Adm: ${widget.student.adm}',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant,
               ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _scoreCtrl,
+                    autofocus: true,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(
+                        RegExp(r'^\d+\.?\d{0,2}'),
+                      ),
+                    ],
+                    decoration: _inputDeco(cs, label: 'Score'),
+                    validator: (v) {
+                      final n = double.tryParse(v ?? '');
+                      if (n == null) return 'Enter a valid number';
+                      final total = int.tryParse(_totalCtrl.text) ?? 100;
+                      if (n < 0 || n > total) return '0 – $total';
+                      return null;
+                    },
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text(
+                    '/',
+                    style: TextStyle(fontSize: 20, color: cs.onSurfaceVariant),
+                  ),
+                ),
+                Expanded(
+                  child: TextFormField(
+                    controller: _totalCtrl,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: _inputDeco(cs, label: 'Out of'),
+                    validator: (v) {
+                      final n = int.tryParse(v ?? '');
+                      if (n == null || n <= 0) return 'Must be > 0';
+                      return null;
+                    },
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 20),
             ElevatedButton(
-                onPressed: _saving ? null : _save,
+              onPressed: _saving ? null : _save,
               style: ElevatedButton.styleFrom(
                 backgroundColor: cs.primary,
                 foregroundColor: cs.onPrimary,
