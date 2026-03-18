@@ -499,6 +499,18 @@ class _ExamsTabState extends State<ExamsTab>
 
   // ── Navigation ─────────────────────────────────────────────────────────────
 
+  /// Builds a {streamCode → streamName} map for the current grade from _config.
+  Map<int, String> get _streamNames {
+    for (final curriculum in _config.curricula) {
+      for (final gradeConfig in curriculum.grades) {
+        if (gradeConfig.grade == widget.grade) {
+          return {for (final s in gradeConfig.streams) s.code: s.name};
+        }
+      }
+    }
+    return {};
+  }
+
   void _onExamTap(ExamWithPapers ep) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -513,6 +525,7 @@ class _ExamsTabState extends State<ExamsTab>
           curriculumType: widget.curriculumType,
           schoolContext: widget.schoolContext,
           subjectNames: _subjectNames,
+          streamNames: _streamNames,
         ),
       ),
     );
@@ -712,32 +725,6 @@ class _ExamRowState extends State<_ExamRow>
                                             fontSize: 13,
                                             fontWeight: FontWeight.w400,
                                             color: cs.onSurface,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 3),
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          Icons.person_outline_rounded,
-                                          size: 11,
-                                          color: cs.onSurfaceVariant.withValues(
-                                            alpha: 0.35,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 3),
-                                        Flexible(
-                                          child: Text(
-                                            ep.teacher.name,
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w400,
-                                              color: cs.onSurfaceVariant
-                                                  .withValues(alpha: 0.55),
-                                            ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
                                       ],

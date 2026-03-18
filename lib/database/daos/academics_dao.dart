@@ -805,9 +805,16 @@ class AcademicsDao extends DatabaseAccessor<AppDatabase>
       for (final exam in examList) {
         final paperList =
             await (select(papers)
-                  ..where(
-                    (p) => p.school.equals(schoolId) & p.exam.equals(exam.id),
-                  )
+                  ..where((p) {
+                    Expression<bool> f =
+                        p.school.equals(schoolId) &
+                        p.exam.equals(exam.id) &
+                        p.grade.equals(grade);
+                    if (streamCode != null) {
+                      f = f & p.stream.equals(streamCode);
+                    }
+                    return f;
+                  })
                   ..orderBy([
                     (p) => OrderingTerm.asc(p.subject),
                     (p) => OrderingTerm.asc(p.paper),

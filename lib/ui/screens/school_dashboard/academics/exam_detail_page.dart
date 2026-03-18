@@ -34,6 +34,7 @@ class ExamDetailPage extends StatefulWidget {
     required this.curriculumType,
     required this.schoolContext,
     this.subjectNames = const {},
+    this.streamNames = const {},
   });
 
   final ExamWithPapers exam;
@@ -46,6 +47,10 @@ class ExamDetailPage extends StatefulWidget {
   final CurriculumType curriculumType;
   final SchoolContext schoolContext;
   final Map<int, String> subjectNames;
+
+  /// Maps streamCode → stream name for the current grade.
+  /// Used to show stream badges on papers when all streams are visible.
+  final Map<int, String> streamNames;
 
   @override
   State<ExamDetailPage> createState() => _ExamDetailPageState();
@@ -72,10 +77,21 @@ class _ExamDetailPageState extends State<ExamDetailPage>
     super.initState();
     _dao = ExamsGradesDao(db);
     _tabController = TabController(length: _tabs.length, vsync: this);
-    _papersStream = _dao.watchPapersForExam(
-      schoolId: widget.schoolId,
-      examId: widget.exam.exam.id,
-    );
+    // When a specific stream is selected, filter papers to that grade+stream.
+    // When streamCode is null (All tab), show all papers for the grade.
+    if (widget.streamCode != null) {
+      _papersStream = _dao.watchPapersForExamGradeStream(
+        schoolId: widget.schoolId,
+        examIds: [widget.exam.exam.id],
+        grade: widget.grade,
+        stream: widget.streamCode,
+      );
+    } else {
+      _papersStream = _dao.watchPapersForExam(
+        schoolId: widget.schoolId,
+        examId: widget.exam.exam.id,
+      );
+    }
     _entranceController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 350),
@@ -139,6 +155,7 @@ class _ExamDetailPageState extends State<ExamDetailPage>
                 streamName: widget.streamName,
                 curriculumType: widget.curriculumType,
                 papersStream: _papersStream,
+                grade: widget.grade,
               ),
 
               // ── Tab bar ────────────────────────────────────────────────
@@ -159,11 +176,13 @@ class _ExamDetailPageState extends State<ExamDetailPage>
                       year: widget.year,
                       term: widget.term,
                       grade: widget.grade,
+                      streamCode: widget.streamCode,
                       curriculumType: widget.curriculumType,
                       papersStream: _papersStream,
                       dao: _dao,
                       schoolContext: widget.schoolContext,
                       subjectNames: widget.subjectNames,
+                      streamNames: widget.streamNames,
                     ),
                     _GradesTab(
                       exam: widget.exam,
@@ -220,6 +239,7 @@ class _ExamSummaryCard extends StatelessWidget {
     required this.streamName,
     required this.curriculumType,
     required this.papersStream,
+    required this.grade,
   });
 
   final Exam exam;
@@ -227,6 +247,7 @@ class _ExamSummaryCard extends StatelessWidget {
   final String? streamName;
   final CurriculumType curriculumType;
   final Stream<List<Paper>> papersStream;
+  final int grade;
 
   @override
   Widget build(BuildContext context) {
@@ -265,7 +286,14 @@ class _ExamSummaryCard extends StatelessWidget {
                   _TypeBadge(type: exam.type, cs: cs),
                   if (exam.personalized)
                     _OutlineBadge(label: 'Personalized', cs: cs),
-                  _TintedBadge(label: 'All Grades', color: cs.tertiary, cs: cs),
+                  if (streamName != null &&
+                      streamName!.isNotEmpty &&
+                      streamName != 'All')
+                    _TintedBadge(
+                      label: streamName!,
+                      color: cs.tertiary,
+                      cs: cs,
+                    ),
                   // Status badge — reactive from papers stream
                   StreamBuilder<List<Paper>>(
                     stream: papersStream,
@@ -350,11 +378,13 @@ class _PapersTab extends StatelessWidget {
     required this.year,
     required this.term,
     required this.grade,
+    this.streamCode,
     required this.curriculumType,
     required this.papersStream,
     required this.dao,
     required this.schoolContext,
     required this.subjectNames,
+    this.streamNames = const {},
   });
 
   final ExamWithPapers exam;
@@ -362,11 +392,17 @@ class _PapersTab extends StatelessWidget {
   final int year;
   final int term;
   final int grade;
+
+  /// null = All streams context; non-null = specific stream context.
+  final int? streamCode;
   final CurriculumType curriculumType;
   final Stream<List<Paper>> papersStream;
   final ExamsGradesDao dao;
   final SchoolContext schoolContext;
   final Map<int, String> subjectNames;
+
+  /// Maps streamCode → stream name. Used to label papers when all streams shown.
+  final Map<int, String> streamNames;
 
   @override
   Widget build(BuildContext context) {
@@ -415,6 +451,11 @@ class _PapersTab extends StatelessWidget {
                 _PaperTimetableCard(
                   paper: p,
                   subjectNames: subjectNames,
+                  // Show stream badge only when viewing all streams (streamCode
+                  // is null) and the paper itself has a stream set.
+                  streamName: streamCode == null && p.stream != null
+                      ? streamNames[p.stream]
+                      : null,
                   cs: cs,
                   onTap: () => _onPaperTap(context, p),
                 ),
@@ -2551,11 +2592,15 @@ class _PaperTimetableCard extends StatelessWidget {
     required this.subjectNames,
     required this.cs,
     required this.onTap,
+    this.streamName,
   });
   final Paper paper;
   final Map<int, String> subjectNames;
   final ColorScheme cs;
   final VoidCallback onTap;
+
+  /// When non-null, a stream badge is shown on the card.
+  final String? streamName;
 
   @override
   Widget build(BuildContext context) {
@@ -2605,15 +2650,46 @@ class _PaperTimetableCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        '$label$paperLabel',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w500,
-                          color: cs.onSurface,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '$label$paperLabel',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w500,
+                                color: cs.onSurface,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (streamName != null) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: cs.tertiary.withValues(
+                                  alpha: cs.brightness == Brightness.dark
+                                      ? 0.18
+                                      : 0.12,
+                                ),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                streamName!,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w500,
+                                  color: cs.tertiary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       const SizedBox(height: 3),
                       Text(
