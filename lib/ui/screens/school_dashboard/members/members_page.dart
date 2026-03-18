@@ -21,7 +21,7 @@ import '../../../../models/school_context.dart';
 import '../../../widgets/animated_action_button.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_form_field.dart';
-import '../../../widgets/edu_data_table.dart';
+
 import '../../../widgets/edu_sheet.dart';
 import '../../../widgets/edu_tab_bar.dart';
 import '../../../widgets/status_indicator.dart';
@@ -215,16 +215,14 @@ class _MembersFab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     return FloatingActionButton.small(
       heroTag: 'fab_members',
       onPressed: onPressed,
       tooltip: _tooltip,
       elevation: 4,
       highlightElevation: 6,
-      backgroundColor: cs.primary,
-      foregroundColor: cs.onPrimary,
+      backgroundColor: Colors.green.shade600,
+      foregroundColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: const Icon(Icons.add, size: 20),
     );
@@ -291,172 +289,128 @@ class _DepartmentsTabState extends State<_DepartmentsTab> {
                     (d.description?.toLowerCase().contains(q) ?? false);
               }).toList();
 
-        return EduDataTable<Department>(
-          items: depts,
-          padding: const EdgeInsets.only(top: 4, bottom: 80),
-          searchController: _searchCtrl,
-          searchHint: 'Search departments…',
-          showSearch: true,
-          onSearchChanged: (v) => setState(() => _query = v.trim()),
-          onItemTap: (dept) {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => _DepartmentDetailScreen(
-                  dept: dept,
-                  schoolId: widget.schoolId,
-                  dao: _dao,
-                ),
-              ),
-            );
-          },
-          actions: (dept) => [
-            EduDataTableAction<Department>(
-              icon: Icons.open_in_new_rounded,
-              label: 'View',
-              onTap: (d) {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => _DepartmentDetailScreen(
-                      dept: d,
-                      schoolId: widget.schoolId,
-                      dao: _dao,
-                    ),
-                  ),
-                );
-              },
-            ),
-            EduDataTableAction<Department>(
-              icon: Icons.delete_outline_rounded,
-              label: 'Delete',
-              isDestructive: true,
-              onTap: (d) => _confirmDeleteDepartment(context, d),
-            ),
-          ],
-          rowBuilder: (context, dept, isHovered) {
-            final accentColor = cs.primary;
-            return ClipRRect(
-              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-              child: IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // ── Accent bar ────────────────────────────────────
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      width: isHovered ? 4 : 3,
-                      decoration: BoxDecoration(
-                        color: accentColor.withValues(
-                          alpha: isHovered ? 1.0 : 0.5,
-                        ),
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(4),
-                          bottomLeft: Radius.circular(4),
-                        ),
+        return Column(
+          children: [
+            // ── Search bar — consistent with other tabs ──────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+              child: SizedBox(
+                height: 38,
+                child: ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: _searchCtrl,
+                  builder: (context, value, _) {
+                    return TextField(
+                      controller: _searchCtrl,
+                      onChanged: (v) => setState(() => _query = v.trim()),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurface,
                       ),
-                    ),
-
-                    // ── Content ───────────────────────────────────────
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                        child: Row(
-                          children: [
-                            // ── Icon container ──────────────────────
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: isHovered
-                                    ? accentColor.withValues(
-                                        alpha: isDark ? 0.18 : 0.10,
-                                      )
-                                    : isDark
-                                    ? cs.surfaceContainerHighest.withValues(
-                                        alpha: 0.5,
-                                      )
-                                    : cs.surfaceContainerHighest,
-                                borderRadius: BorderRadius.circular(
-                                  AppTheme.kChipRadius,
-                                ),
-                              ),
-                              child: Icon(
-                                Icons.domain_outlined,
-                                size: 16,
-                                color: isHovered
-                                    ? accentColor
-                                    : cs.onSurfaceVariant.withValues(
-                                        alpha: 0.55,
-                                      ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-
-                            // ── Name + description ──────────────────
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    dept.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
-                                      color: cs.onSurface,
+                      decoration: InputDecoration(
+                        hintText: 'Search departments…',
+                        hintStyle: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w300,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                        ),
+                        prefixIcon: Padding(
+                          padding: const EdgeInsets.only(left: 10, right: 6),
+                          child: Icon(
+                            Icons.search_rounded,
+                            size: 18,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        prefixIconConstraints: const BoxConstraints(
+                          minWidth: 38,
+                          minHeight: 38,
+                        ),
+                        suffixIcon: value.text.isNotEmpty
+                            ? GestureDetector(
+                                onTap: () {
+                                  _searchCtrl.clear();
+                                  setState(() => _query = '');
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: Icon(
+                                    Icons.close_rounded,
+                                    size: 16,
+                                    color: cs.onSurfaceVariant.withValues(
+                                      alpha: 0.5,
                                     ),
                                   ),
-                                  if (dept.description != null &&
-                                      dept.description!.isNotEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 2),
-                                      child: Text(
-                                        dept.description!,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 11.5,
-                                          fontWeight: FontWeight.w400,
-                                          color: cs.onSurfaceVariant.withValues(
-                                            alpha: 0.55,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-
-                            const SizedBox(width: 8),
-
-                            // ── Chevron ─────────────────────────────
-                            AnimatedSlide(
-                              duration: const Duration(milliseconds: 200),
-                              curve: Curves.easeOut,
-                              offset: Offset(isHovered ? 0.15 : 0.0, 0),
-                              child: AnimatedOpacity(
-                                duration: const Duration(milliseconds: 200),
-                                opacity: isHovered ? 0.8 : 0.3,
-                                child: Icon(
-                                  Icons.chevron_right_rounded,
-                                  size: 18,
-                                  color: isHovered
-                                      ? accentColor
-                                      : cs.onSurfaceVariant,
                                 ),
-                              ),
-                            ),
-                          ],
+                              )
+                            : null,
+                        suffixIconConstraints: const BoxConstraints(
+                          minWidth: 32,
+                          minHeight: 38,
                         ),
+                        filled: true,
+                        fillColor: isDark
+                            ? cs.surfaceContainerHighest.withValues(alpha: 0.3)
+                            : cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.kCardRadius,
+                          ),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.kCardRadius,
+                          ),
+                          borderSide: BorderSide(
+                            color: cs.outlineVariant.withValues(
+                              alpha: isDark ? 0.2 : 0.3,
+                            ),
+                            width: 0.5,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.kCardRadius,
+                          ),
+                          borderSide: BorderSide(
+                            color: cs.primary.withValues(alpha: 0.5),
+                            width: 1.0,
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 0,
+                        ),
+                        isDense: true,
                       ),
-                    ),
-                  ],
+                    );
+                  },
                 ),
               ),
-            );
-          },
+            ),
+
+            // ── Department list ──────────────────────────────────────
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.only(top: 4, bottom: 80),
+                itemCount: depts.length,
+                separatorBuilder: (_, _) =>
+                    AppTheme.tableRowDivider(isDark, cs),
+                itemBuilder: (context, index) {
+                  final dept = depts[index];
+                  return _DepartmentRow(
+                    dept: dept,
+                    schoolId: widget.schoolId,
+                    dao: _dao,
+                    isDark: isDark,
+                    cs: cs,
+                    onDelete: () => _confirmDeleteDepartment(context, dept),
+                  );
+                },
+              ),
+            ),
+          ],
         );
       },
     );
@@ -484,6 +438,329 @@ class _DepartmentsTabState extends State<_DepartmentsTab> {
         );
       }
     }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _DepartmentRow — polished list item for departments tab
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _DepartmentRow extends StatefulWidget {
+  const _DepartmentRow({
+    required this.dept,
+    required this.schoolId,
+    required this.dao,
+    required this.isDark,
+    required this.cs,
+    required this.onDelete,
+  });
+
+  final Department dept;
+  final String schoolId;
+  final DepartmentsDao dao;
+  final bool isDark;
+  final ColorScheme cs;
+  final VoidCallback onDelete;
+
+  @override
+  State<_DepartmentRow> createState() => _DepartmentRowState();
+}
+
+class _DepartmentRowState extends State<_DepartmentRow>
+    with SingleTickerProviderStateMixin {
+  bool _isHovered = false;
+  bool _isPressed = false;
+  late final AnimationController _pressCtrl;
+  late final Animation<double> _scaleAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pressCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+      reverseDuration: const Duration(milliseconds: 150),
+    );
+    _scaleAnim = Tween<double>(
+      begin: 1.0,
+      end: 0.98,
+    ).animate(CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut));
+  }
+
+  @override
+  void dispose() {
+    _pressCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails _) {
+    setState(() => _isPressed = true);
+    _pressCtrl.forward();
+  }
+
+  void _onTapUp(TapUpDetails _) {
+    _pressCtrl.reverse();
+    setState(() => _isPressed = false);
+  }
+
+  void _onTapCancel() {
+    _pressCtrl.reverse();
+    setState(() => _isPressed = false);
+  }
+
+  void _navigate(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _DepartmentDetailScreen(
+          dept: widget.dept,
+          schoolId: widget.schoolId,
+          dao: widget.dao,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final isDark = widget.isDark;
+    final accentColor = cs.primary;
+    final isDesktop = MediaQuery.sizeOf(context).width >= 600;
+
+    final idleBg = isDark
+        ? cs.primary.withValues(alpha: 0.06)
+        : cs.primary.withValues(alpha: 0.04);
+    final hoverBg = isDark
+        ? accentColor.withValues(alpha: 0.12)
+        : accentColor.withValues(alpha: 0.08);
+    final pressBg = isDark
+        ? accentColor.withValues(alpha: 0.18)
+        : accentColor.withValues(alpha: 0.12);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: ScaleTransition(
+        scale: _scaleAnim,
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTapDown: _onTapDown,
+            onTapUp: _onTapUp,
+            onTapCancel: _onTapCancel,
+            onTap: () => _navigate(context),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              curve: Curves.easeOut,
+              decoration: BoxDecoration(
+                color: _isPressed
+                    ? pressBg
+                    : _isHovered
+                    ? hoverBg
+                    : idleBg,
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                border: Border.all(
+                  color: _isHovered || _isPressed
+                      ? accentColor.withValues(alpha: isDark ? 0.35 : 0.25)
+                      : cs.outline.withValues(alpha: isDark ? 0.10 : 0.08),
+                  width: 0.5,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                child: IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // ── Accent bar ──────────────────────────────────
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: _isHovered || _isPressed ? 4 : 3,
+                        decoration: BoxDecoration(
+                          color: accentColor.withValues(
+                            alpha: _isHovered || _isPressed ? 1.0 : 0.5,
+                          ),
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(4),
+                            bottomLeft: Radius.circular(4),
+                          ),
+                        ),
+                      ),
+
+                      // ── Content ─────────────────────────────────────
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                          child: Row(
+                            children: [
+                              // ── Icon container ──────────────────────
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: _isHovered || _isPressed
+                                      ? accentColor.withValues(
+                                          alpha: isDark ? 0.18 : 0.10,
+                                        )
+                                      : isDark
+                                      ? cs.surfaceContainerHighest.withValues(
+                                          alpha: 0.5,
+                                        )
+                                      : cs.surfaceContainerHighest,
+                                  borderRadius: BorderRadius.circular(
+                                    AppTheme.kChipRadius,
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.domain_outlined,
+                                  size: 16,
+                                  color: _isHovered || _isPressed
+                                      ? accentColor
+                                      : cs.onSurfaceVariant.withValues(
+                                          alpha: 0.55,
+                                        ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+
+                              // ── Name + description ──────────────────
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      widget.dept.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: cs.onSurface,
+                                      ),
+                                    ),
+                                    if (widget.dept.description != null &&
+                                        widget.dept.description!.isNotEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 2),
+                                        child: Text(
+                                          widget.dept.description!,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.w400,
+                                            color: cs.onSurfaceVariant
+                                                .withValues(alpha: 0.55),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+
+                              const SizedBox(width: 8),
+
+                              // ── Delete action (desktop: inline; mobile: icon) ─
+                              if (isDesktop)
+                                AnimatedOpacity(
+                                  duration: const Duration(milliseconds: 120),
+                                  opacity: _isHovered ? 1.0 : 0.0,
+                                  child: Tooltip(
+                                    message: 'Delete',
+                                    waitDuration: const Duration(
+                                      milliseconds: 400,
+                                    ),
+                                    child: GestureDetector(
+                                      onTap: widget.onDelete,
+                                      child: AnimatedContainer(
+                                        duration: const Duration(
+                                          milliseconds: 100,
+                                        ),
+                                        width: 28,
+                                        height: 28,
+                                        decoration: BoxDecoration(
+                                          color: Colors.transparent,
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
+                                        ),
+                                        child: Icon(
+                                          Icons.delete_outline_rounded,
+                                          size: 16,
+                                          color: cs.error,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              else
+                                _DeptMobileMenu(onDelete: widget.onDelete),
+
+                              const SizedBox(width: 4),
+
+                              // ── Chevron ─────────────────────────────
+                              AnimatedSlide(
+                                duration: const Duration(milliseconds: 200),
+                                curve: Curves.easeOut,
+                                offset: Offset(
+                                  _isHovered || _isPressed ? 0.15 : 0.0,
+                                  0,
+                                ),
+                                child: AnimatedOpacity(
+                                  duration: const Duration(milliseconds: 200),
+                                  opacity: _isHovered || _isPressed ? 0.8 : 0.3,
+                                  child: Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 18,
+                                    color: _isHovered || _isPressed
+                                        ? accentColor
+                                        : cs.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Mobile three-dot menu for a department row — single delete action rendered
+/// as a direct icon button (no bottom sheet, no extra wrapping).
+class _DeptMobileMenu extends StatelessWidget {
+  const _DeptMobileMenu({required this.onDelete});
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: 28,
+      height: 28,
+      child: IconButton(
+        padding: EdgeInsets.zero,
+        iconSize: 16,
+        icon: Icon(
+          Icons.delete_outline_rounded,
+          size: 16,
+          color: cs.error.withValues(alpha: 0.7),
+        ),
+        tooltip: 'Delete',
+        onPressed: onDelete,
+      ),
+    );
   }
 }
 
@@ -601,11 +878,6 @@ class _OwnerRow extends StatelessWidget {
       actions: user == null
           ? const []
           : [
-              _RowAction(
-                icon: Icons.open_in_new_rounded,
-                label: 'View',
-                onTap: () => _openDetail(context, user),
-              ),
               _RowAction(
                 icon: Icons.person_remove_outlined,
                 label: 'Remove',
@@ -820,30 +1092,6 @@ class _TeacherRow extends StatelessWidget {
           ? const []
           : [
               _RowAction(
-                icon: Icons.open_in_new_rounded,
-                label: 'View',
-                onTap: () {
-                  final w = MediaQuery.sizeOf(context).width;
-                  if (w >= 600) {
-                    _showTeacherSideSheet(context, user!);
-                  } else {
-                    _showTeacherBottomSheet(context, user!);
-                  }
-                },
-              ),
-              _RowAction(
-                icon: Icons.edit_outlined,
-                label: 'Edit',
-                onTap: () {
-                  final w = MediaQuery.sizeOf(context).width;
-                  if (w >= 600) {
-                    _showTeacherSideSheet(context, user!);
-                  } else {
-                    _showTeacherBottomSheet(context, user!);
-                  }
-                },
-              ),
-              _RowAction(
                 icon: Icons.person_remove_outlined,
                 label: 'Remove',
                 isDestructive: true,
@@ -1049,30 +1297,6 @@ class _StaffRow extends StatelessWidget {
           ? const []
           : [
               _RowAction(
-                icon: Icons.open_in_new_rounded,
-                label: 'View',
-                onTap: () {
-                  final w = MediaQuery.sizeOf(context).width;
-                  if (w >= 600) {
-                    _showStaffSideSheet(context, user!);
-                  } else {
-                    _showStaffBottomSheet(context, user!);
-                  }
-                },
-              ),
-              _RowAction(
-                icon: Icons.edit_outlined,
-                label: 'Edit',
-                onTap: () {
-                  final w = MediaQuery.sizeOf(context).width;
-                  if (w >= 600) {
-                    _showStaffSideSheet(context, user!);
-                  } else {
-                    _showStaffBottomSheet(context, user!);
-                  }
-                },
-              ),
-              _RowAction(
                 icon: Icons.person_remove_outlined,
                 label: 'Remove',
                 isDestructive: true,
@@ -1241,30 +1465,6 @@ class _StudentRow extends StatelessWidget {
         }
       },
       actions: [
-        _RowAction(
-          icon: Icons.open_in_new_rounded,
-          label: 'View',
-          onTap: () {
-            final w = MediaQuery.sizeOf(context).width;
-            if (w >= 600) {
-              _showStudentSideSheet(context);
-            } else {
-              _showStudentBottomSheet(context);
-            }
-          },
-        ),
-        _RowAction(
-          icon: Icons.edit_outlined,
-          label: 'Edit',
-          onTap: () {
-            final w = MediaQuery.sizeOf(context).width;
-            if (w >= 600) {
-              _showStudentSideSheet(context);
-            } else {
-              _showStudentBottomSheet(context);
-            }
-          },
-        ),
         _RowAction(
           icon: Icons.delete_outline_rounded,
           label: 'Delete',
@@ -1436,13 +1636,7 @@ class _UniqueGuardianRow extends StatelessWidget {
       status: user.status,
       level: user.level,
       onTap: () => _openDetail(context),
-      actions: [
-        _RowAction(
-          icon: Icons.open_in_new_rounded,
-          label: 'View',
-          onTap: () => _openDetail(context),
-        ),
-      ],
+      actions: const [],
     );
   }
 
@@ -2131,58 +2325,100 @@ class _MobileActions extends StatelessWidget {
 
   final List<_RowAction> actions;
 
-  void _showSheet(BuildContext context) {
-    showEduSheet<void>(
+  Future<void> _showPopupMenu(BuildContext context, GlobalKey key) async {
+    final renderBox = key.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final buttonRect =
+        renderBox.localToGlobal(Offset.zero, ancestor: overlay) &
+        renderBox.size;
+    final screenSize = MediaQuery.sizeOf(context);
+    final screenRect = Offset.zero & screenSize;
+    final position = RelativeRect.fromRect(buttonRect, screenRect);
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    await showMenu<int>(
       context: context,
-      builder: (ctx) {
-        final cs = Theme.of(ctx).colorScheme;
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ...actions.map((action) {
-                final color = action.isDestructive ? cs.error : cs.onSurface;
-                return ListTile(
-                  leading: Icon(action.icon, size: 20, color: color),
-                  title: Text(
-                    action.label,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      color: color,
-                    ),
+      position: position,
+      color: AppTheme.overlayBg(isDark, cs),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
+        side: BorderSide(color: AppTheme.borderColor(isDark, cs), width: 0.5),
+      ),
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      constraints: const BoxConstraints(minWidth: 160, maxWidth: 220),
+      items: [
+        for (int i = 0; i < actions.length; i++)
+          PopupMenuItem<int>(
+            value: i,
+            height: 40,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Row(
+              children: [
+                Icon(
+                  actions[i].icon,
+                  size: 16,
+                  color: actions[i].isDestructive
+                      ? cs.error
+                      : cs.onSurfaceVariant,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  actions[i].label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    color: actions[i].isDestructive ? cs.error : cs.onSurface,
                   ),
-                  onTap: () {
-                    Navigator.of(ctx).pop();
-                    action.onTap();
-                  },
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 2,
-                  ),
-                  minLeadingWidth: 20,
-                );
-              }),
-              const SizedBox(height: 8),
-            ],
+                ),
+              ],
+            ),
           ),
-        );
-      },
-    );
+      ],
+    ).then((index) {
+      if (index != null) actions[index].onTap();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+
+    // Single action — render it directly as an icon button (no three-dot)
+    if (actions.length == 1) {
+      final action = actions.first;
+      final color = action.isDestructive ? cs.error : cs.onSurfaceVariant;
+      return Tooltip(
+        message: action.label,
+        waitDuration: const Duration(milliseconds: 400),
+        child: SizedBox(
+          width: 36,
+          height: 36,
+          child: IconButton(
+            padding: EdgeInsets.zero,
+            iconSize: 18,
+            icon: Icon(action.icon, size: 18, color: color),
+            onPressed: action.onTap,
+          ),
+        ),
+      );
+    }
+
+    // Multiple actions — three-dot → compact positioned popup menu
+    final key = GlobalKey();
     return SizedBox(
       width: 36,
       height: 36,
       child: IconButton(
+        key: key,
         padding: EdgeInsets.zero,
         iconSize: 18,
         icon: Icon(Icons.more_vert, size: 18, color: cs.onSurfaceVariant),
         tooltip: 'More actions',
-        onPressed: () => _showSheet(context),
+        onPressed: () => _showPopupMenu(context, key),
       ),
     );
   }
@@ -4740,8 +4976,8 @@ class _DepartmentDetailScreenState extends State<_DepartmentDetailScreen>
         onPressed: () => _showAssignMember(context),
         tooltip: 'Assign member',
         elevation: 4,
-        backgroundColor: cs.primary,
-        foregroundColor: cs.onPrimary,
+        backgroundColor: Colors.green.shade600,
+        foregroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         child: const Icon(Icons.add, size: 20),
       ),
@@ -5857,40 +6093,66 @@ class _CreateDepartmentSheetState extends State<_CreateDepartmentSheet> {
               hint: 'Optional',
               maxLines: 2,
             ),
-            const SizedBox(height: 18),
-            SizedBox(
-              width: double.infinity,
-              child: Material(
-                color: cs.primary,
-                borderRadius: BorderRadius.circular(6),
-                child: InkWell(
-                  onTap: _saving ? null : _save,
-                  borderRadius: BorderRadius.circular(6),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 11),
-                    child: Center(
-                      child: _saving
-                          ? SizedBox(
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                // ── Cancel ──────────────────────────────────────────
+                Tooltip(
+                  message: 'Cancel',
+                  child: SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      iconSize: 20,
+                      icon: Icon(
+                        Icons.close_rounded,
+                        size: 20,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                      ),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                // ── Save ────────────────────────────────────────────
+                Tooltip(
+                  message: 'Save',
+                  child: SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      iconSize: 20,
+                      icon: _saving
+                          ? const SizedBox(
                               width: 16,
                               height: 16,
                               child: CircularProgressIndicator(
                                 strokeWidth: 1.5,
-                                color: cs.onPrimary,
                               ),
                             )
-                          : Text(
-                              'Create',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: cs.onPrimary,
-                                letterSpacing: 0.2,
-                              ),
+                          : const Icon(
+                              Icons.check_rounded,
+                              size: 20,
+                              color: Colors.white,
                             ),
+                      style: IconButton.styleFrom(
+                        backgroundColor: _saving
+                            ? Colors.green.shade600.withValues(alpha: 0.6)
+                            : Colors.green.shade600,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.kCardRadius,
+                          ),
+                        ),
+                      ),
+                      onPressed: _saving ? null : _save,
                     ),
                   ),
                 ),
-              ),
+              ],
             ),
           ],
         ),

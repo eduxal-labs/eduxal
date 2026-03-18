@@ -2,6 +2,193 @@
 
 ---
 
+### [x] Task 11: Fix Departments tab search bar malformation
+**Files to create/modify:** `lib/ui/screens/school_dashboard/members/members_page.dart`
+**Context files to read (if needed):** none — scoped to `_DepartmentsTabState.build()`
+**Depends on:** none
+**Parallel group:** P1
+
+**Specification:**
+The Departments tab uses `EduDataTable` with its built-in `searchController` / `searchHint` / `showSearch` / `onSearchChanged` props to render the search bar. On every other Members tab (Owners, Teachers, Staff, Students, Guardians), the search bar is rendered separately above the list using a dedicated `_FlatMemberList` or a raw `TextField` styled consistently. The Departments tab's search bar ends up looking different (malformed) because `EduDataTable`'s internal search rendering does not match the style used elsewhere.
+
+Fix this by pulling the search bar out of `EduDataTable` and rendering it identically to how the other tabs do it — a consistently-styled `TextField` (36 px tall, same decoration, same padding) placed above the department list, matching the look on Owners, Teachers, Staff, Students, and Guardians tabs. The `EduDataTable` call should have `showSearch: false` (or the search props removed) so it no longer renders its own search bar.
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+- [ ] Orchestrator: git commit after this task
+
+---
+
+### [x] Task 12: Overhaul Members page row actions — remove View/Action buttons, smart mobile menu
+**Files to create/modify:** `lib/ui/screens/school_dashboard/members/members_page.dart`
+**Context files to read (if needed):** none — scoped to `_OwnerRow`, `_TeacherRow`, `_StaffRow`, `_StudentRow`, `_UniqueGuardianRow`, `_UserDataRow`, `_FlatRow`, `_InlineActions`, `_MobileActions`
+**Depends on:** none
+**Parallel group:** P1
+
+**Specification:**
+Several changes needed to the per-row action system across **all** tabs on the Members page:
+
+1. **Remove the "View" action button entirely** from the `actions` list on every row type (`_OwnerRow`, `_TeacherRow`, `_StaffRow`, `_StudentRow`, `_UniqueGuardianRow`). The tap on the row itself already handles navigation — the View icon button is redundant. Remove it on both desktop and mobile.
+
+2. **Remove any "Action" word/label button** if present on any row (any button that literally renders the word "Action" as text). There should be no wordy buttons in the action area — only icon buttons.
+
+3. **Mobile smart three-dot rule:** In `_MobileActions` (and wherever mobile actions are rendered for announcement rows / any other row), update the logic so that:
+   - If `actions.length == 1`: render that single action directly as an `IconButton` (28×28 or 36×36) without wrapping in a three-dot menu. The icon and behavior come from the single `_RowAction` entry.
+   - If `actions.length > 1`: keep the `Icons.more_vert` three-dot trigger, but replace the `showEduSheet` bottom sheet with a compact positioned dialog (popup menu style) anchored close to where the three-dot button was tapped — similar in feel to the calendar inline picker dialog. The dialog should be small, well-defined, with `AppTheme.kModalRadius` corners and the `AppTheme.modalShadow(isDark)` dual-shadow pattern, listing each action as a small row (icon + label, 40 px tall rows). It must NOT use a bottom sheet / `showEduSheet`.
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+- [ ] Orchestrator: git commit after this task
+
+---
+
+### [x] Task 13: Fix Members page FAB color — make it green on all tabs
+**Files to create/modify:** `lib/ui/screens/school_dashboard/members/members_page.dart`
+**Context files to read (if needed):** none — scoped to `_MembersFab.build()`
+**Depends on:** none
+**Parallel group:** P2
+
+**Specification:**
+`_MembersFab` currently sets `backgroundColor: cs.primary` which resolves to the app's primary blue. Change it to green to match the convention used by the add-owner and other creation FABs. Use `AppTheme.kGreen` (or whatever green constant/color is used by the add-owner FAB — read the `showAddOwnerPanel` or the owner creation FAB's color to find the exact value) as the `backgroundColor`, and set `foregroundColor` to white (`Colors.white`).
+
+Apply the same green color fix to the FAB inside `_DepartmentDetailScreenState.build()` (the assign-member FAB inside the department detail screen), which also uses `cs.primary`.
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+- [ ] Orchestrator: git commit after this task
+
+---
+
+### [x] Task 14: Departments tab — replace Create button with icon action buttons, improve department list items
+**Files to create/modify:** `lib/ui/screens/school_dashboard/members/members_page.dart`
+**Context files to read (if needed):** none — scoped to `_CreateDepartmentSheetState.build()` and `_DepartmentsTabState.build()`
+**Depends on:** none
+**Parallel group:** P2
+
+**Specification:**
+
+**Part A — Create Department form submit button:**
+In `_CreateDepartmentSheetState.build()`, remove the full-width `Material`/`InkWell` "Create" wordy button at the bottom of the form. Replace it with a row of two icon buttons aligned to the right (same pattern as the add-owner panel):
+- A cancel `IconButton` with `Icons.close_rounded` (or `Icons.cancel_outlined`) — taps `Navigator.pop(context)`.
+- A save/confirm `IconButton` with `Icons.check_rounded` in green (`Colors.green.shade600` or the same green used by the owner creation panel) — triggers `_save()`. When `_saving` is true, show a `16×16 CircularProgressIndicator(strokeWidth: 1.5)` in place of the check icon.
+
+**Part B — Department list item polish:**
+The department list items in `_DepartmentsTabState` currently render a plain row via `EduDataTable`'s `rowBuilder`. Make them feel as polished and alive as the items in `_OwnersTab` (`_UserDataRow`):
+- Add a subtle idle background (same `idleBg` pattern: `cs.primary.withValues(alpha: 0.04)` light / `0.06` dark).
+- On hover: shift to `cs.primary.withValues(alpha: 0.08)` light / `0.12` dark.
+- Add a press animation: `ScaleTransition` from `1.0` → `0.98` over 100 ms (same `AnimationController` + `Tween` pattern used in `_UserDataRowState`).
+- Add a `Border.all` outline (0.5 px, `cs.outline.withValues(alpha: 0.08)`) that brightens on hover/press.
+- Keep the existing left accent bar and chevron — already present, just ensure the row feels interactive.
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+- [ ] Orchestrator: git commit after this task
+
+---
+
+### [ ] Task 15: Fix Department detail screen FAB color + resolve nested modal layering
+**Files to create/modify:** `lib/ui/screens/school_dashboard/members/members_page.dart`
+**Context files to read (if needed):** none — scoped to `_DepartmentDetailScreenState.build()` and `_showAssignMember()`
+**Depends on:** Task 13 (green FAB color reference)
+**Parallel group:** P2
+
+**Specification:**
+
+**Part A — FAB color:** (may already be handled by Task 13 if both FABs are fixed there — confirm and skip if already done)
+The FAB inside `_DepartmentDetailScreen` uses `backgroundColor: cs.primary`. Change to green (same value as Task 13).
+
+**Part B — Nested modal feel:**
+When a department is tapped, it navigates to `_DepartmentDetailScreen` (a full `Scaffold` pushed via `MaterialPageRoute`). Inside that screen, tapping the FAB calls `_showAssignMember(context)` which opens `_AssignMemberSearchSheet` via `showEduSheet`. This creates a bottom sheet on top of a pushed route — which already has some layering, but the issue is it "feels like modals on top of each other."
+
+Resolve by changing `_showAssignMember` to push `_AssignMemberSearchSheet` as a new route (using `Navigator.of(context).push(MaterialPageRoute(...))`) rather than opening it as a `showEduSheet` bottom sheet. `_AssignMemberSearchSheet` should render as a full-screen scaffold with a proper app bar (back chevron `Icons.chevron_left_rounded`) instead of sheet handle and drag dismissal. The existing `onDone` callback can call `Navigator.pop(context)` to close.
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+- [ ] Orchestrator: git commit after this task
+
+---
+
+### [ ] Task 16: Finance page — fix Fees tab FAB color and replace Create Fee button with icon buttons
+**Files to create/modify:** `lib/ui/screens/school_dashboard/finance/finance_screen.dart`
+**Context files to read (if needed):** none — scoped to `_FeesTab.build()` and `_CreateFeeSheetState.build()`
+**Depends on:** none
+**Parallel group:** P3
+
+**Specification:**
+
+**Part A — FAB color:**
+The `Positioned` `FloatingActionButton.small` in `_FeesTab.build()` uses `backgroundColor: cs.primary` (blue). Change to green (same green convention as Task 13 — e.g. `Colors.green.shade600` or `AppTheme.kGreen`, whichever constant is established).
+
+**Part B — Create Fee form submit button:**
+In `_CreateFeeSheetState.build()`, the bottom of the form has a tall `ElevatedButton` with the text "Create Fee". Remove it. Replace with a row of two icon buttons aligned to the right, identical to the pattern in Task 14 Part A:
+- A cancel `IconButton` with `Icons.close_rounded` — calls `Navigator.pop(context)`.
+- A green confirm `IconButton` with `Icons.check_rounded` — calls `_save()`. When `_saving` is true, show `16×16 CircularProgressIndicator(strokeWidth: 1.5)`.
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+- [ ] Orchestrator: git commit after this task
+
+---
+
+### [ ] Task 17: Announcements page — make list items feel alive + fix mobile three-dot menu
+**Files to create/modify:** `lib/ui/screens/school_dashboard/announcements/announcements_screen.dart`
+**Context files to read (if needed):** none — scoped to `_AnnouncementRowState`, `_RowActions`, `_MobileRowMenu`
+**Depends on:** Task 12 (establishes the positioned-dialog pattern for mobile menus)
+**Parallel group:** P3
+
+**Specification:**
+
+**Part A — Row liveliness (match Owners tab feel):**
+`_AnnouncementRowState` currently uses a plain `MouseRegion` + `AnimatedContainer` with a flat `color` change on hover. Upgrade it to match the polished interactive feel of `_UserDataRowState`:
+- Wrap the row content in a `ScaleTransition` (1.0 → 0.98, 100 ms) driven by a `GestureDetector` with `onTapDown` / `onTapUp` / `onTapCancel`.
+- Add an idle background (`cs.primary.withValues(alpha: 0.04)` light / `0.06` dark), a hover background (`cs.primary.withValues(alpha: 0.08)`), and a press background (`cs.primary.withValues(alpha: 0.12)`).
+- Add a `Border.all` outline (0.5 px) on a container wrapping the row content that brightens on hover/press — same pattern as `_UserDataRow`.
+- Add a `BorderRadius.circular(AppTheme.kCardRadius)` to the item container.
+- Add horizontal padding (`12 px`) and vertical padding (`4 px`) around each item so items have breathing room (same spacing as `_UserDataRow`).
+- Keep the existing author avatar, title, body preview, and audience/grade tags — do not remove any content.
+
+**Part B — Desktop inline actions:**
+`_RowActions` renders edit + delete `_ActionBtn` widgets. These are already icon-based. Ensure the "View" action button (if any) is not present. Keep only edit and delete as inline icon buttons on desktop.
+
+**Part C — Mobile three-dot fix:**
+`_MobileRowMenu` currently calls `_showSheet` which uses a bottom sheet. The announcements row has exactly 2 admin actions (edit + delete). Apply the same smart rule from Task 12:
+- Since there are always exactly 2 actions, always show the three-dot `Icons.more_vert` button.
+- Replace `_showSheet` / `showEduSheet` with a compact positioned dialog anchored near the tap position, identical in style to the pattern established in Task 12 (small, `AppTheme.kModalRadius`, dual shadow, ~40 px tall action rows with icon + label).
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+- [ ] Orchestrator: git commit after this task
+
+---
+
+### [ ] Task 18: School Roles — replace permission form UI with system-dashboard-style permissions view
+**Files to create/modify:** `lib/ui/screens/school_dashboard/roles/school_roles_screen.dart`, `lib/ui/screens/school_dashboard/roles/school_role_detail_screen.dart`
+**Context files to read (if needed):** `lib/ui/screens/system/roles/role_detail_screen.dart`, `lib/ui/screens/system/roles/roles_section.dart`
+**Depends on:** none
+**Parallel group:** P3
+
+**Specification:**
+The current school roles create/edit form (`_RoleFormSheetState` in `school_roles_screen.dart`) uses a flat expandable list of resource rows with small 28×28 icon-chip action toggles rendered inline in a bottom sheet. The system dashboard's permission UI (`_PermissionsTabState` in `role_detail_screen.dart`) is significantly more polished: it has a `_SelectionBar` for bulk removal, a `_ChangeBar` with save/discard, a `_ResourceRow` with expand/collapse and per-resource removal, and `_ExpandedPermissions` with properly styled action toggles, all in a dedicated full-screen tab view.
+
+Replace the school roles permission experience to match the system dashboard approach:
+
+1. **`_RoleFormSheetState` in `school_roles_screen.dart`:** The create-role sheet currently includes the permission editor inline in the sheet. Extract the permissions section into the same `_PermissionsTab` / `_ResourceRow` / `_ExpandedPermissions` / `_ChangeBar` / `_SelectionBar` component pattern as used in `school_role_detail_screen.dart`. The create sheet itself only needs: role name field, description field, and the two icon-button row (cancel + green check) — no inline permission editor. Permissions can be set after creation by opening the role detail.
+
+2. **`_PermissionsTab` in `school_role_detail_screen.dart`:** This already closely mirrors the system version, but audit it against `role_detail_screen.dart`'s `_PermissionsTabState`, `_ResourceRow`, `_ExpandedPermissions`, `_SelectionBar`, and `_ChangeBar` and ensure visual parity:
+   - `_ResourceRow` should have the same expand/collapse chevron, selection checkbox (in selection mode), per-resource remove button, and change-diff badge (`+N / -N`).
+   - `_ExpandedPermissions` should render action chips identically (same size, color, border, icon, tooltip as the system version).
+   - `_ChangeBar` should have the same save/discard icon buttons and change count summary text.
+   - `_SelectionBar` should have the same clear + bulk-delete controls.
+   - If any of these sub-widgets are missing or visually diverge from the system dashboard version, bring them into alignment. Read both files carefully and diff them.
+
+3. **FAB color on `school_roles_screen.dart`:** The `Positioned` FAB uses `backgroundColor: cs.primary`. Change to green (same as Task 13).
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+- [ ] Orchestrator: git commit after this task
+
+---
+
 ### [x] Task 3: Remove duplicate create-exam entry points from Exams tab
 **Files to modify:** `eduxal/lib/ui/screens/school_dashboard/academics/tabs/exams_tab.dart`
 **Context files to read (if needed):** none — file is self-contained
