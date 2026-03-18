@@ -14,6 +14,7 @@ import '../../../models/school_context.dart';
 import '../../../models/school_permissions.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/active_term_provider.dart';
+import '../../widgets/looping_tab_strip.dart';
 
 import '../../widgets/edu_sheet.dart';
 import '../../widgets/no_terms_blank_state.dart';
@@ -206,7 +207,6 @@ class _DashboardShellState extends State<_DashboardShell>
   List<_NavItem> _currentItems = [];
   int _selectedIndex = 0;
 
-
   // ── lifecycle ──────────────────────────────────────────────────────────────
 
   @override
@@ -342,7 +342,6 @@ class _DashboardShellState extends State<_DashboardShell>
     Widget content,
   ) {
     final cs = Theme.of(ctx).colorScheme;
-    final isDark = cs.brightness == Brightness.dark;
     final isMobile = mode == _LayoutMode.mobile;
 
     // Build the sidebar/rail widget — zero-width SizedBox for mobile
@@ -378,12 +377,7 @@ class _DashboardShellState extends State<_DashboardShell>
         : Expanded(child: _wrapSidebarContent(cs, content));
 
     // The Row is always present. For mobile, navigationChrome is zero-width.
-    final mainRow = Row(
-      children: [
-        navigationChrome,
-        wrappedContent,
-      ],
-    );
+    final mainRow = Row(children: [navigationChrome, wrappedContent]);
 
     return Scaffold(
       backgroundColor: cs.surfaceContainerLowest,
@@ -401,14 +395,12 @@ class _DashboardShellState extends State<_DashboardShell>
                     : null,
               ),
             if (isMobile)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-                child: _PillTabStrip(
-                  items: _currentItems,
-                  controller: _tabController,
-                  isDark: isDark,
-                  cs: cs,
-                ),
+              LoopingTabStrip(
+                items: _currentItems
+                    .map((e) => LoopingTabItem(label: e.label, icon: e.icon))
+                    .toList(),
+                selectedIndex: _selectedIndex,
+                onTabSelected: _selectIndex,
               ),
             Expanded(child: mainRow),
           ],
