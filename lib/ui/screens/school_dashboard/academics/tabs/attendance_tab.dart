@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../widgets/inline_date_picker_dialog.dart';
 
 import '../../../../../client.dart';
 import '../../../../../database/database.dart';
@@ -185,18 +186,12 @@ class _AttendanceTabState extends State<AttendanceTab>
   }
 
   Future<void> _pickDate(BuildContext context) async {
-    final cs = Theme.of(context).colorScheme;
-    final picked = await showDatePicker(
+    final picked = await showInlineDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(colorScheme: cs),
-          child: child!,
-        );
-      },
+      title: 'Select date',
     );
     if (picked != null && mounted) {
       _setDate(picked);

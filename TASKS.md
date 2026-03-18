@@ -190,7 +190,7 @@ import '../cache/file_cache.dart';
 
 ---
 
-### Task 2: Add year picker to InlineCalendar and replace all showDatePicker call sites
+### [x] Task 2: Add year picker to InlineCalendar and replace all showDatePicker call sites
 
 **Files to create/modify:**
 - `lib/ui/widgets/inline_calendar.dart` — add year-picker mode to the existing widget

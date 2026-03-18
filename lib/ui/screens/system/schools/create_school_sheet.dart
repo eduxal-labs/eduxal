@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:bson/bson.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
+import '../../../widgets/inline_date_picker_dialog.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../cache/file_cache.dart';
@@ -333,7 +334,7 @@ class _CreateSchoolSheetState extends State<CreateSchoolSheet> {
 
   Future<void> _pickEstablishedDate() async {
     final now = DateTime.now();
-    final picked = await showDatePicker(
+    final picked = await showInlineDatePicker(
       context: context,
       initialDate: _establishedDays != null
           ? DateTime.fromMillisecondsSinceEpoch(
@@ -343,6 +344,7 @@ class _CreateSchoolSheetState extends State<CreateSchoolSheet> {
           : now,
       firstDate: DateTime(1800),
       lastDate: now,
+      title: 'Established date',
     );
     if (picked == null || !mounted) return;
 

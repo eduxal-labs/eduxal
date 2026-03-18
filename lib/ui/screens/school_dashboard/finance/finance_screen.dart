@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../theme/app_theme.dart';
+import '../../../widgets/inline_date_picker_dialog.dart';
 import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/finance_dao.dart';
@@ -2342,18 +2343,12 @@ class _CreateFeeSheetState extends State<_CreateFeeSheet> {
   }
 
   Future<void> _pickDueDate() async {
-    final cs = Theme.of(context).colorScheme;
-    final picked = await showDatePicker(
+    final picked = await showInlineDatePicker(
       context: context,
       initialDate: _dueDate,
       firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(colorScheme: cs),
-          child: child!,
-        );
-      },
+      lastDate: DateTime.now().add(const Duration(days: 365 * 3)),
+      title: 'Due date',
     );
     if (picked != null && mounted) {
       setState(() => _dueDate = picked);

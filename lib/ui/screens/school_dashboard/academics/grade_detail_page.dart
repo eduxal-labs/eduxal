@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import '../../../widgets/inline_date_picker_dialog.dart';
+
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
@@ -2958,11 +2960,12 @@ class _ExamDateField extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () async {
-        final picked = await showDatePicker(
+        final picked = await showInlineDatePicker(
           context: context,
           initialDate: date,
           firstDate: DateTime(2020),
           lastDate: DateTime(2050),
+          title: 'Select date',
         );
         if (picked != null) onPicked(picked);
       },

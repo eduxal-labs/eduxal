@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import '../../../widgets/inline_date_picker_dialog.dart';
+
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
@@ -377,9 +379,10 @@ class _DepartmentsTabState extends State<_DepartmentsTab> {
                                         alpha: isDark ? 0.18 : 0.10,
                                       )
                                     : isDark
-                                        ? cs.surfaceContainerHighest
-                                            .withValues(alpha: 0.5)
-                                        : cs.surfaceContainerHighest,
+                                    ? cs.surfaceContainerHighest.withValues(
+                                        alpha: 0.5,
+                                      )
+                                    : cs.surfaceContainerHighest,
                                 borderRadius: BorderRadius.circular(
                                   AppTheme.kChipRadius,
                                 ),
@@ -389,8 +392,9 @@ class _DepartmentsTabState extends State<_DepartmentsTab> {
                                 size: 16,
                                 color: isHovered
                                     ? accentColor
-                                    : cs.onSurfaceVariant
-                                        .withValues(alpha: 0.55),
+                                    : cs.onSurfaceVariant.withValues(
+                                        alpha: 0.55,
+                                      ),
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -422,8 +426,9 @@ class _DepartmentsTabState extends State<_DepartmentsTab> {
                                         style: TextStyle(
                                           fontSize: 11.5,
                                           fontWeight: FontWeight.w400,
-                                          color: cs.onSurfaceVariant
-                                              .withValues(alpha: 0.55),
+                                          color: cs.onSurfaceVariant.withValues(
+                                            alpha: 0.55,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -1606,9 +1611,10 @@ class _UserDataRowState extends State<_UserDataRow>
       duration: const Duration(milliseconds: 100),
       reverseDuration: const Duration(milliseconds: 150),
     );
-    _scaleAnim = Tween<double>(begin: 1.0, end: 0.98).animate(
-      CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut),
-    );
+    _scaleAnim = Tween<double>(
+      begin: 1.0,
+      end: 0.98,
+    ).animate(CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut));
   }
 
   @override
@@ -1694,8 +1700,8 @@ class _UserDataRowState extends State<_UserDataRow>
               backgroundColor: _isPressed
                   ? pressBg
                   : _isHovered
-                      ? hoverBg
-                      : idleBg,
+                  ? hoverBg
+                  : idleBg,
             ),
           ),
         ],
@@ -1724,8 +1730,8 @@ class _UserDataRowState extends State<_UserDataRow>
                 color: _isPressed
                     ? pressBg
                     : _isHovered
-                        ? hoverBg
-                        : idleBg,
+                    ? hoverBg
+                    : idleBg,
                 borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
                 border: Border.all(
                   color: _isHovered || _isPressed
@@ -1824,10 +1830,7 @@ class _UserDataRowState extends State<_UserDataRow>
                                 AnimatedSlide(
                                   duration: const Duration(milliseconds: 200),
                                   curve: Curves.easeOut,
-                                  offset: Offset(
-                                    _isHovered ? 0.15 : 0.0,
-                                    0,
-                                  ),
+                                  offset: Offset(_isHovered ? 0.15 : 0.0, 0),
                                   child: AnimatedOpacity(
                                     duration: const Duration(milliseconds: 200),
                                     opacity: _isHovered ? 0.8 : 0.35,
@@ -1896,9 +1899,10 @@ class _FlatRowState extends State<_FlatRow>
       duration: const Duration(milliseconds: 100),
       reverseDuration: const Duration(milliseconds: 150),
     );
-    _scaleAnim = Tween<double>(begin: 1.0, end: 0.98).animate(
-      CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut),
-    );
+    _scaleAnim = Tween<double>(
+      begin: 1.0,
+      end: 0.98,
+    ).animate(CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut));
   }
 
   @override
@@ -1965,8 +1969,8 @@ class _FlatRowState extends State<_FlatRow>
                 color: _isPressed
                     ? pressBg
                     : _isHovered
-                        ? hoverBg
-                        : idleBg,
+                    ? hoverBg
+                    : idleBg,
                 borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
                 border: Border.all(
                   color: _isHovered || _isPressed
@@ -2065,10 +2069,7 @@ class _FlatRowState extends State<_FlatRow>
                                 AnimatedSlide(
                                   duration: const Duration(milliseconds: 200),
                                   curve: Curves.easeOut,
-                                  offset: Offset(
-                                    _isHovered ? 0.15 : 0.0,
-                                    0,
-                                  ),
+                                  offset: Offset(_isHovered ? 0.15 : 0.0, 0),
                                   child: AnimatedOpacity(
                                     duration: const Duration(milliseconds: 200),
                                     opacity: _isHovered ? 0.8 : 0.35,
@@ -3558,11 +3559,12 @@ class _TeacherInfoSheetState extends State<_TeacherInfoSheet> {
                 // Hired date picker
                 InkWell(
                   onTap: () async {
-                    final picked = await showDatePicker(
+                    final picked = await showInlineDatePicker(
                       context: ctx,
                       initialDate: hiredDate ?? DateTime.now(),
                       firstDate: DateTime(1970),
                       lastDate: DateTime.now(),
+                      title: 'Hire date',
                     );
                     if (picked != null) {
                       setSheetState(() => hiredDate = picked);
@@ -4941,9 +4943,10 @@ class _DeptAllItemState extends State<_DeptAllItem>
       duration: const Duration(milliseconds: 100),
       reverseDuration: const Duration(milliseconds: 150),
     );
-    _scaleAnim = Tween<double>(begin: 1.0, end: 0.98).animate(
-      CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut),
-    );
+    _scaleAnim = Tween<double>(
+      begin: 1.0,
+      end: 0.98,
+    ).animate(CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut));
   }
 
   @override
@@ -5005,8 +5008,8 @@ class _DeptAllItemState extends State<_DeptAllItem>
                 color: _isPressed
                     ? pressBg
                     : _isHovered
-                        ? hoverBg
-                        : idleBg,
+                    ? hoverBg
+                    : idleBg,
                 borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
                 border: Border.all(
                   color: _isHovered || _isPressed
@@ -5086,8 +5089,9 @@ class _DeptAllItemState extends State<_DeptAllItem>
                                         style: TextStyle(
                                           fontSize: 11,
                                           fontWeight: FontWeight.w400,
-                                          color: cs.onSurfaceVariant
-                                              .withValues(alpha: 0.5),
+                                          color: cs.onSurfaceVariant.withValues(
+                                            alpha: 0.5,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -5253,9 +5257,10 @@ class _DeptMemberRowState extends State<_DeptMemberRow>
       duration: const Duration(milliseconds: 100),
       reverseDuration: const Duration(milliseconds: 150),
     );
-    _scaleAnim = Tween<double>(begin: 1.0, end: 0.98).animate(
-      CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut),
-    );
+    _scaleAnim = Tween<double>(
+      begin: 1.0,
+      end: 0.98,
+    ).animate(CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut));
   }
 
   @override
@@ -5313,8 +5318,8 @@ class _DeptMemberRowState extends State<_DeptMemberRow>
                 color: _isPressed
                     ? pressBg
                     : _isHovered
-                        ? hoverBg
-                        : idleBg,
+                    ? hoverBg
+                    : idleBg,
                 borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
                 border: Border.all(
                   color: _isHovered || _isPressed
