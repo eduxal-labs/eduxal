@@ -130,7 +130,7 @@ In `_CreateFeeSheetState.build()`, the bottom of the form has a tall `ElevatedBu
 
 ---
 
-### [ ] Task 17: Announcements page — make list items feel alive + fix mobile three-dot menu
+### [x] Task 17: Announcements page — make list items feel alive + fix mobile three-dot menu
 **Files to create/modify:** `lib/ui/screens/school_dashboard/announcements/announcements_screen.dart`
 **Context files to read (if needed):** none — scoped to `_AnnouncementRowState`, `_RowActions`, `_MobileRowMenu`
 **Depends on:** Task 12 (establishes the positioned-dialog pattern for mobile menus)

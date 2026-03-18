@@ -320,12 +320,51 @@ class _AnnouncementRow extends StatefulWidget {
   State<_AnnouncementRow> createState() => _AnnouncementRowState();
 }
 
-class _AnnouncementRowState extends State<_AnnouncementRow> {
+class _AnnouncementRowState extends State<_AnnouncementRow>
+    with SingleTickerProviderStateMixin {
   bool _isHovered = false;
+  bool _isPressed = false;
+  late final AnimationController _pressCtrl;
+  late final Animation<double> _scaleAnim;
 
   AnnouncementWithAuthor get item => widget.item;
   ColorScheme get cs => widget.cs;
   bool get isDark => widget.isDark;
+
+  @override
+  void initState() {
+    super.initState();
+    _pressCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+      reverseDuration: const Duration(milliseconds: 150),
+    );
+    _scaleAnim = Tween<double>(
+      begin: 1.0,
+      end: 0.98,
+    ).animate(CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut));
+  }
+
+  @override
+  void dispose() {
+    _pressCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails _) {
+    setState(() => _isPressed = true);
+    _pressCtrl.forward();
+  }
+
+  void _onTapUp(TapUpDetails _) {
+    _pressCtrl.reverse();
+    setState(() => _isPressed = false);
+  }
+
+  void _onTapCancel() {
+    _pressCtrl.reverse();
+    setState(() => _isPressed = false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -334,124 +373,153 @@ class _AnnouncementRowState extends State<_AnnouncementRow> {
     final gradeTags = _buildGradeTags();
     final allTags = [...audienceTags, ...gradeTags];
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      cursor: SystemMouseCursors.click,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 100),
-        color: _isHovered
-            ? cs.primary.withValues(alpha: 0.04)
-            : Colors.transparent,
-        child: InkWell(
-          onTap: () => _showDetailSheet(context),
-          splashFactory: NoSplash.splashFactory,
-          highlightColor: Colors.transparent,
-          hoverColor: Colors.transparent,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ── Author avatar ──────────────────────────────────────
-                Container(
-                  width: 30,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    color: cs.primary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Center(
-                    child: Text(
-                      _authorInitial(),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: cs.primary,
+    final idleBg = isDark
+        ? cs.primary.withValues(alpha: 0.06)
+        : cs.primary.withValues(alpha: 0.04);
+    final hoverBg = cs.primary.withValues(alpha: 0.08);
+    final pressBg = cs.primary.withValues(alpha: 0.12);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: ScaleTransition(
+        scale: _scaleAnim,
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTapDown: _onTapDown,
+            onTapUp: _onTapUp,
+            onTapCancel: _onTapCancel,
+            onTap: () => _showDetailSheet(context),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              curve: Curves.easeOut,
+              decoration: BoxDecoration(
+                color: _isPressed
+                    ? pressBg
+                    : _isHovered
+                    ? hoverBg
+                    : idleBg,
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                border: Border.all(
+                  color: _isHovered || _isPressed
+                      ? cs.outline.withValues(alpha: isDark ? 0.18 : 0.15)
+                      : cs.outline.withValues(alpha: 0.08),
+                  width: 0.5,
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── Author avatar ────────────────────────────────────
+                    Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Center(
+                        child: Text(
+                          _authorInitial(),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: cs.primary,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 12),
+                    const SizedBox(width: 12),
 
-                // ── Main content ───────────────────────────────────────
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Title + date row
-                      Row(
+                    // ── Main content ─────────────────────────────────────
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Expanded(
-                            child: Text(
-                              item.title,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: cs.onSurface,
+                          // Title + date row
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  item.title,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: cs.onSurface,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                              const SizedBox(width: 8),
+                              Text(
+                                _formatTimestamp(item.created),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w400,
+                                  color: cs.onSurfaceVariant.withValues(
+                                    alpha: 0.55,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(height: 3),
+
+                          // Body preview
                           Text(
-                            _formatTimestamp(item.created),
+                            item.content,
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: 12,
                               fontWeight: FontWeight.w400,
                               color: cs.onSurfaceVariant.withValues(
-                                alpha: 0.55,
+                                alpha: 0.65,
                               ),
+                              height: 1.4,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
+
+                          // Audience tags
+                          if (allTags.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Wrap(spacing: 5, runSpacing: 4, children: allTags),
+                          ],
                         ],
                       ),
-                      const SizedBox(height: 3),
+                    ),
 
-                      // Body preview
-                      Text(
-                        item.content,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w400,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.65),
-                          height: 1.4,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                    // ── Desktop actions ──────────────────────────────────
+                    if (widget.isAdmin && isDesktop) ...[
+                      const SizedBox(width: 4),
+                      _RowActions(
+                        isHovered: _isHovered,
+                        onEdit: () => _showEditSheet(context),
+                        onDelete: () => _confirmDelete(context),
+                        cs: cs,
                       ),
-
-                      // Audience tags
-                      if (allTags.isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Wrap(spacing: 5, runSpacing: 4, children: allTags),
-                      ],
                     ],
-                  ),
+
+                    // ── Mobile three-dot ─────────────────────────────────
+                    if (widget.isAdmin && !isDesktop)
+                      _MobileRowMenu(
+                        cs: cs,
+                        isDark: isDark,
+                        onEdit: () => _showEditSheet(context),
+                        onDelete: () => _confirmDelete(context),
+                      ),
+                  ],
                 ),
-
-                // ── Desktop actions ────────────────────────────────────
-                if (widget.isAdmin && isDesktop) ...[
-                  const SizedBox(width: 4),
-                  _RowActions(
-                    isHovered: _isHovered,
-                    onEdit: () => _showEditSheet(context),
-                    onDelete: () => _confirmDelete(context),
-                    cs: cs,
-                  ),
-                ],
-
-                // ── Mobile three-dot ───────────────────────────────────
-                if (widget.isAdmin && !isDesktop)
-                  _MobileRowMenu(
-                    cs: cs,
-                    isDark: isDark,
-                    onEdit: () => _showEditSheet(context),
-                    onDelete: () => _confirmDelete(context),
-                  ),
-              ],
+              ),
             ),
           ),
         ),
@@ -650,80 +718,91 @@ class _MobileRowMenu extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
+  Future<void> _showPopupMenu(BuildContext context, GlobalKey key) async {
+    final renderBox = key.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final buttonRect =
+        renderBox.localToGlobal(Offset.zero, ancestor: overlay) &
+        renderBox.size;
+    final screenSize = MediaQuery.sizeOf(context);
+    final screenRect = Offset.zero & screenSize;
+    final position = RelativeRect.fromRect(buttonRect, screenRect);
+
+    final actions = [
+      (
+        icon: Icons.edit_outlined,
+        label: 'Edit',
+        isDestructive: false,
+        onTap: onEdit,
+      ),
+      (
+        icon: Icons.delete_outline_rounded,
+        label: 'Delete',
+        isDestructive: true,
+        onTap: onDelete,
+      ),
+    ];
+
+    await showMenu<int>(
+      context: context,
+      position: position,
+      color: AppTheme.overlayBg(isDark, cs),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
+        side: BorderSide(color: AppTheme.borderColor(isDark, cs), width: 0.5),
+      ),
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      constraints: const BoxConstraints(minWidth: 160, maxWidth: 220),
+      items: [
+        for (int i = 0; i < actions.length; i++)
+          PopupMenuItem<int>(
+            value: i,
+            height: 40,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Row(
+              children: [
+                Icon(
+                  actions[i].icon,
+                  size: 16,
+                  color: actions[i].isDestructive
+                      ? cs.error
+                      : cs.onSurfaceVariant,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  actions[i].label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    color: actions[i].isDestructive ? cs.error : cs.onSurface,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    ).then((index) {
+      if (index != null) actions[index].onTap();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final menuKey = GlobalKey();
     return SizedBox(
-      width: 32,
-      height: 32,
+      width: 36,
+      height: 36,
       child: IconButton(
+        key: menuKey,
         padding: EdgeInsets.zero,
         iconSize: 18,
         icon: Icon(Icons.more_vert, size: 18, color: cs.onSurfaceVariant),
         tooltip: 'More actions',
-        onPressed: () => _showSheet(context),
+        onPressed: () => _showPopupMenu(context, menuKey),
       ),
-    );
-  }
-
-  void _showSheet(BuildContext context) {
-    showEduSheet<void>(
-      context: context,
-      builder: (ctx) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: Icon(
-                  Icons.edit_outlined,
-                  size: 20,
-                  color: cs.onSurface,
-                ),
-                title: Text(
-                  'Edit',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                    color: cs.onSurface,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  onEdit();
-                },
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 2,
-                ),
-              ),
-              ListTile(
-                leading: Icon(
-                  Icons.delete_outline_rounded,
-                  size: 20,
-                  color: cs.error,
-                ),
-                title: Text(
-                  'Delete',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                    color: cs.error,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  onDelete();
-                },
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 2,
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        );
-      },
     );
   }
 }
