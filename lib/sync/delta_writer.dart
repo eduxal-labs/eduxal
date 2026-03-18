@@ -464,13 +464,29 @@ class DeltaWriter {
     }
     final row = delta.data.term;
     final now = _now();
+    final school = k[0];
+    final year = _parseInt(k[1]);
+    final term = _parseInt(k[2]);
+
+    // The terms_no_overlap BEFORE INSERT trigger checks the terms table itself
+    // for any row with overlapping dates. When upserting a term that already
+    // exists locally (same PK, same dates), the trigger finds the existing row
+    // and aborts with "term dates overlap". Delete the local row first so the
+    // trigger sees a clean table, then insert the server's authoritative row.
+    await (_db.delete(_db.terms)..where(
+          (t) =>
+              t.school.equals(school) &
+              t.year.equals(year) &
+              t.term.equals(term),
+        ))
+        .go();
     await _db
         .into(_db.terms)
-        .insertOnConflictUpdate(
+        .insert(
           TermsCompanion(
-            school: Value(k[0]),
-            year: Value(_parseInt(k[1])),
-            term: Value(_parseInt(k[2])),
+            school: Value(school),
+            year: Value(year),
+            term: Value(term),
             start: Value(BigInt.from(row.start.toInt())),
             end: Value(BigInt.from(row.end.toInt())),
             created: Value(now),
@@ -1344,11 +1360,25 @@ class DeltaWriter {
     }
     final row = delta.data.subjectCatalog;
     final now = _now();
+    final serverId = _parseInt(delta.rowKey);
+    final curriculumIndex = CurriculumType.values
+        .firstWhere((e) => e.index_ == row.curriculum)
+        .index;
+
+    // The local optimistic insert uses autoIncrement(), so the local ID may
+    // differ from the server-assigned ID. A plain ON CONFLICT(id) would fail
+    // on the UNIQUE(name, curriculum) index when the IDs don't match.
+    // Delete any stale local row that matches the natural key but has a
+    // different id, then upsert with the server's authoritative id.
+    await _db.customStatement(
+      'DELETE FROM subjects WHERE name = ? AND curriculum = ? AND id != ?',
+      [row.name, curriculumIndex, serverId],
+    );
     await _db
         .into(_db.subjects)
         .insertOnConflictUpdate(
           SubjectsCompanion(
-            id: Value(_parseInt(delta.rowKey)),
+            id: Value(serverId),
             name: Value(row.name),
             curriculum: Value(
               CurriculumType.values.firstWhere(
@@ -1378,11 +1408,20 @@ class DeltaWriter {
     }
     final row = delta.data.topic;
     final now = _now();
+    final serverId = _parseInt(delta.rowKey);
+
+    // Same pattern as _applySubjectCatalog: the local autoIncrement ID may
+    // differ from the server ID, causing a UNIQUE(subject, grade, name)
+    // conflict. Delete any stale local row first.
+    await _db.customStatement(
+      'DELETE FROM topics WHERE subject = ? AND grade = ? AND name = ? AND id != ?',
+      [row.subject, row.grade, row.name, serverId],
+    );
     await _db
         .into(_db.topics)
         .insertOnConflictUpdate(
           TopicsCompanion(
-            id: Value(_parseInt(delta.rowKey)),
+            id: Value(serverId),
             subject: Value(row.subject),
             grade: Value(row.grade),
             name: Value(row.name),

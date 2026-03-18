@@ -80,3 +80,76 @@ When `_PaperDetailView` in `exams_grades_screen.dart` constructs the `ExamWithPa
 The `_PaperHeader` must NEVER use `exam.teacher` for the invigilator display. The invigilator is a per-paper field (`paper.invigilator`), not an exam-level field. Any future UI that displays a paper's invigilator must read from `paper.invigilator` and resolve the user name via DAO lookup — not from the `ExamWithPapers.teacher` record.
 
 ---
+
+## BUG-004: DeltaWriter UNIQUE constraint failure when reconciling server-assigned IDs for subjects/topics
+
+**Status:** Fixed
+**Date:** 2025-07-15
+**Files affected:**
+- `lib/sync/delta_writer.dart` — `_applySubjectCatalog()`, `_applyTopic()`
+
+**Symptom:**
+When a System user creates a subject (e.g. "English" with curriculum CBC), the UI succeeds and shows the new subject immediately (optimistic local insert), but the terminal prints:
+```
+[DeltaWriter] ⚠ Error applying delta: table=31, op=0, key=5, hasData=true — SqliteException(2067): UNIQUE constraint failed: subjects.name, subjects.curriculum
+```
+The error is silently caught, so the local row retains its client-assigned autoIncrement ID (e.g. `id = 17`) instead of being reconciled with the server's authoritative ID (e.g. `id = 5`). This causes subsequent `updateSubject` / `deleteSubject` operations to send the wrong ID to the server, and topics referencing the server's subject ID fail to find the local row.
+
+**Root cause:**
+The `subjects` and `topics` tables use `integer().autoIncrement()` for their `id` columns. `CatalogDao.createSubject()` inserts a local row optimistically, letting SQLite assign a local auto-increment ID. When the server responds with its authoritative row (different ID, same natural key), `_applySubjectCatalog()` used `insertOnConflictUpdate()` which generates `INSERT ... ON CONFLICT("id") DO UPDATE ...`. Since the server ID (e.g. `5`) differs from the local ID (e.g. `17`), there is no primary key conflict — the `ON CONFLICT("id")` clause does not trigger. Instead, the INSERT attempts to create a second row with the same `(name, curriculum)`, violating the `UNIQUE(name, curriculum)` index. The same applies to `_applyTopic()` with `UNIQUE(subject, grade, name)`.
+
+**Fix:**
+The DeltaWriter now deletes any existing row matching the natural unique key but with a different ID before upserting. This removes the stale optimistic local row so the server's authoritative row can be inserted cleanly:
+
+- `_applySubjectCatalog()`: `DELETE FROM subjects WHERE name = ? AND curriculum = ? AND id != ?`
+- `_applyTopic()`: `DELETE FROM topics WHERE subject = ? AND grade = ? AND name = ? AND id != ?`
+
+The optimistic local insert in the DAO is preserved — the subject/topic appears in the UI immediately. When the server responds, the DeltaWriter deletes the stale local row (wrong autoIncrement ID) and inserts the server's authoritative row (correct ID). The Drift reactive stream fires on both the delete and the insert, so the UI updates seamlessly. Subsequent `update` and `delete` operations then reference the correct server-assigned ID.
+
+**Prevention:**
+Any table that uses `autoIncrement()` for its primary key AND has a secondary UNIQUE index on natural columns requires this delete-by-natural-key pattern in the DeltaWriter. The `insertOnConflictUpdate()` method only generates `ON CONFLICT` for the primary key — it does NOT handle secondary unique constraints. For such tables, always delete the stale local row by natural key (with `id != serverID`) before upserting. Currently affected tables: `subjects` (PK: `id`, UNIQUE: `name, curriculum`) and `topics` (PK: `id`, UNIQUE: `subject, grade, name`).
+
+---
+
+## BUG-005: DeltaWriter trigger self-collision when applying terms upsert
+
+**Status:** Fixed
+**Date:** 2025-07-15
+**Files affected:**
+- `lib/sync/delta_writer.dart` — `_applyTerms()`
+
+**Symptom:**
+When a user creates a term, the UI succeeds but the terminal prints:
+```
+[DeltaWriter] ⚠ Error applying delta: table=9, op=0, key=...|2026|1, hasData=true — SqliteException(1811): term dates overlap with an existing term for this school, constraint failed (code 1811)
+```
+The error is silently caught, so the UI appears normal, but the local row retains the client's timestamps instead of being reconciled with the server's authoritative values (e.g. `created`, `updated`).
+
+**Root cause:**
+The `terms` table has a `BEFORE INSERT` trigger (`terms_no_overlap`) that checks the `terms` table itself for any existing row whose date range overlaps with the row being inserted:
+
+```sql
+CREATE TRIGGER terms_no_overlap
+BEFORE INSERT ON terms
+BEGIN
+  SELECT RAISE(ABORT, 'term dates overlap with an existing term for this school')
+  WHERE EXISTS (
+    SELECT 1 FROM terms
+    WHERE school = NEW.school
+      AND start < NEW.end
+      AND end   > NEW.start
+  );
+END
+```
+
+When the server responds after a successful push with the authoritative term row, `_applyTerms()` called `insertOnConflictUpdate()`, which generates `INSERT ... ON CONFLICT("school","year","term") DO UPDATE ...`. SQLite fires `BEFORE INSERT` triggers **before** evaluating the `ON CONFLICT` clause. The trigger finds the existing local row (same school, overlapping dates — in fact identical dates) and aborts with error 1811 before the conflict handler ever runs.
+
+Unlike the UPDATE trigger (`terms_no_overlap_update`), which excludes the row being updated via `AND NOT (year = OLD.year AND term = OLD.term)`, the INSERT trigger has no such exclusion — it matches any overlapping row including the one about to be replaced.
+
+**Fix:**
+Changed `_applyTerms()` from `insertOnConflictUpdate` to a delete-then-insert pattern. The method now deletes any existing row matching the composite PK `(school, year, term)` before inserting the server's authoritative row. This ensures the `BEFORE INSERT` trigger sees a clean table and does not self-collide.
+
+**Prevention:**
+Any table with a `BEFORE INSERT` trigger that queries its own table for validation (e.g. overlap checks, uniqueness checks beyond the PK) is vulnerable to this bug when the DeltaWriter uses `insertOnConflictUpdate`. The trigger fires before `ON CONFLICT` resolution, so it sees the existing row as a conflict. For such tables, always use delete-then-insert in the DeltaWriter instead of `insertOnConflictUpdate`. Currently the only affected table is `terms` (trigger: `terms_no_overlap`). Other `BEFORE INSERT` triggers (`papers_within_exam_range`, `attendance_within_term`, `lessons_within_term`, `grades_enrollment_check`, `subscriptions_invoice_check`) check parent tables, not their own table, so they are not vulnerable to self-collision.
+
+---

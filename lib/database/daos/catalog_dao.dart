@@ -56,7 +56,11 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
   Future<Subject?> getSubject(int id) =>
       (select(subjects)..where((s) => s.id.equals(id))).getSingleOrNull();
 
-  /// Inserts or updates a subject and writes a [SyncAction.createSubject] log.
+  /// Inserts a subject locally (optimistic) and writes a
+  /// [SyncAction.createSubject] log. The local row uses an autoIncrement ID
+  /// which may differ from the server's. When the server responds, the
+  /// [DeltaWriter] deletes the stale local row by natural key and inserts
+  /// the authoritative row with the server-assigned ID.
   Future<void> createSubject({
     required String name,
     required CurriculumType curriculum,
@@ -188,7 +192,11 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
   Future<List<Topic>> getTopicsForSubject(int subjectId) =>
       (select(topics)..where((t) => t.subject.equals(subjectId))).get();
 
-  /// Creates a topic and writes a [SyncAction.createTopic] log.
+  /// Inserts a topic locally (optimistic) and writes a
+  /// [SyncAction.createTopic] log. The local row uses an autoIncrement ID
+  /// which may differ from the server's. When the server responds, the
+  /// [DeltaWriter] deletes the stale local row by natural key and inserts
+  /// the authoritative row with the server-assigned ID.
   Future<void> createTopic({
     required int subjectId,
     required int grade,

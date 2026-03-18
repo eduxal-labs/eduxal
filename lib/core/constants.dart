@@ -5,7 +5,7 @@
 library;
 
 /// The gRPC server domain. Placeholder — will be config-driven in a later task.
-const String kDomain = 'localhost';
+const String kDomain = '192.168.8.31';
 
 /// The gRPC server port.
 const int kPort = 50051;
