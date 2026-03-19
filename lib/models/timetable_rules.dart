@@ -164,14 +164,13 @@ class TimetableRules {
     this.maxLessonsPerDayTeacher = 6,
     this.maxLessonsPerDayClass = 8,
     this.allowDoubles = false,
-    this.defaultLessonsPerWeek = 4,
-    Map<int, int>? lessonsPerWeekBySubject,
+    Map<String, List<int>>? remainderPriority,
     List<TeacherConstraintEntry>? teacherConstraints,
     List<SubjectConstraintEntry>? subjectConstraints,
   }) : dayStartTime = dayStartTime ?? const TimeOfDay(hour: 8, minute: 0),
        slots = slots ?? [],
-       activeDays = activeDays ?? [1, 2, 3, 4, 5], // Mon–Fri
-       lessonsPerWeekBySubject = lessonsPerWeekBySubject ?? {},
+       activeDays = activeDays ?? [1, 2, 3, 4, 5],
+       remainderPriority = remainderPriority ?? {},
        teacherConstraints = teacherConstraints ?? [],
        subjectConstraints = subjectConstraints ?? [];
 
@@ -200,13 +199,15 @@ class TimetableRules {
   /// class — no two instances of the same subject on the same day.
   final bool allowDoubles;
 
-  /// How many times per week each subject is scheduled by default.
-  /// Applies to every subject unless overridden in [lessonsPerWeekBySubject].
-  final int defaultLessonsPerWeek;
-
-  /// Per-subject overrides: `subject ID → lessons per week`.
-  /// Subjects absent from this map fall back to [defaultLessonsPerWeek].
-  final Map<int, int> lessonsPerWeekBySubject;
+  /// Per-stream remainder subject priority.
+  ///
+  /// Key format: "{grade}_{stream}" (e.g. "44_1") or "{grade}_null" for
+  /// grades with a single un-streamed class.
+  ///
+  /// Value: ordered list of subject IDs. The first `remainder` subjects in
+  /// this list receive one extra lesson per week beyond the base allocation.
+  /// If a key is absent, the generator uses ascending subject-ID order.
+  final Map<String, List<int>> remainderPriority;
 
   // ── Constraints ──────────────────────────────────────────────────────────
 
@@ -217,11 +218,6 @@ class TimetableRules {
   final List<SubjectConstraintEntry> subjectConstraints;
 
   // ── Helpers ──────────────────────────────────────────────────────────────
-
-  /// Returns how many times per week [subjectId] should be scheduled,
-  /// honouring any per-subject override before falling back to [defaultLessonsPerWeek].
-  int lessonsPerWeekForSubject(int subjectId) =>
-      lessonsPerWeekBySubject[subjectId] ?? defaultLessonsPerWeek;
 
   /// Produces the ordered list of **lesson-only** slots with their computed
   /// start and end times (in seconds since midnight) and their 0-based index
@@ -255,8 +251,7 @@ class TimetableRules {
     int? maxLessonsPerDayTeacher,
     int? maxLessonsPerDayClass,
     bool? allowDoubles,
-    int? defaultLessonsPerWeek,
-    Map<int, int>? lessonsPerWeekBySubject,
+    Map<String, List<int>>? remainderPriority,
     List<TeacherConstraintEntry>? teacherConstraints,
     List<SubjectConstraintEntry>? subjectConstraints,
   }) => TimetableRules(
@@ -267,9 +262,7 @@ class TimetableRules {
         maxLessonsPerDayTeacher ?? this.maxLessonsPerDayTeacher,
     maxLessonsPerDayClass: maxLessonsPerDayClass ?? this.maxLessonsPerDayClass,
     allowDoubles: allowDoubles ?? this.allowDoubles,
-    defaultLessonsPerWeek: defaultLessonsPerWeek ?? this.defaultLessonsPerWeek,
-    lessonsPerWeekBySubject:
-        lessonsPerWeekBySubject ?? this.lessonsPerWeekBySubject,
+    remainderPriority: remainderPriority ?? this.remainderPriority,
     teacherConstraints: teacherConstraints ?? this.teacherConstraints,
     subjectConstraints: subjectConstraints ?? this.subjectConstraints,
   );
@@ -277,7 +270,7 @@ class TimetableRules {
   // ── JSON serialisation ───────────────────────────────────────────────────
 
   Map<String, dynamic> toJson() => {
-    'version': 2, // v2 = slot-based model; v1 = legacy time-range model
+    'version': 2,
     'day_start_hour': dayStartTime.hour,
     'day_start_minute': dayStartTime.minute,
     'slots': slots.map((s) => s.toJson()).toList(),
@@ -285,10 +278,7 @@ class TimetableRules {
     'max_lessons_teacher': maxLessonsPerDayTeacher,
     'max_lessons_class': maxLessonsPerDayClass,
     'allow_doubles': allowDoubles,
-    'default_lessons_per_week': defaultLessonsPerWeek,
-    'lessons_per_week_by_subject': lessonsPerWeekBySubject.map(
-      (k, v) => MapEntry(k.toString(), v),
-    ),
+    'remainder_priority': remainderPriority.map((k, v) => MapEntry(k, v)),
     'teacher_constraints': teacherConstraints.map((e) => e.toJson()).toList(),
     'subject_constraints': subjectConstraints.map((e) => e.toJson()).toList(),
   };
@@ -321,12 +311,12 @@ class TimetableRules {
         maxLessonsPerDayTeacher: (json['max_lessons_teacher'] as int?) ?? 6,
         maxLessonsPerDayClass: (json['max_lessons_class'] as int?) ?? 8,
         allowDoubles: (json['allow_doubles'] as bool?) ?? false,
-        defaultLessonsPerWeek: (json['default_lessons_per_week'] as int?) ?? 4,
-        lessonsPerWeekBySubject: () {
-          final raw =
-              json['lessons_per_week_by_subject'] as Map<String, dynamic>?;
-          if (raw == null) return <int, int>{};
-          return raw.map((k, v) => MapEntry(int.parse(k), v as int));
+        remainderPriority: () {
+          final raw = json['remainder_priority'] as Map<String, dynamic>?;
+          if (raw == null) return <String, List<int>>{};
+          return raw.map(
+            (k, v) => MapEntry(k, (v as List<dynamic>).cast<int>()),
+          );
         }(),
         teacherConstraints:
             ((json['teacher_constraints'] as List<dynamic>?) ?? [])

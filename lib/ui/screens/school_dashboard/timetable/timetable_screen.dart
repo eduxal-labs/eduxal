@@ -1969,7 +1969,8 @@ class _TimetableWizard extends StatefulWidget {
 }
 
 class _TimetableWizardState extends State<_TimetableWizard> {
-  int _stage = 0; // 0=Days+Slots, 1=Teachers, 2=Subjects, 3=Generate
+  int _stage =
+      0; // 0=Days+Slots, 1=Teachers, 2=Subjects, 3=Remainder Slots, 4=Generate
   late TimetableRules _rules;
 
   List<_WizardTeacher> _teachers = [];
@@ -2043,8 +2044,8 @@ class _TimetableWizardState extends State<_TimetableWizard> {
   // ── Navigation ──────────────────────────────────────────────────────────
 
   void _goNext() {
-    if (_stage == 2) _computeConflicts();
-    if (_stage < 3) setState(() => _stage++);
+    if (_stage == 3) _computeConflicts();
+    if (_stage < 4) setState(() => _stage++);
   }
 
   void _goBack() {
@@ -2219,6 +2220,7 @@ class _TimetableWizardState extends State<_TimetableWizard> {
       'Day & Slot Setup',
       'Teacher Constraints',
       'Subject Constraints',
+      'Remainder Slots',
       'Review & Generate',
     ];
     return Padding(
@@ -2253,7 +2255,7 @@ class _TimetableWizardState extends State<_TimetableWizard> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Step ${_stage + 1} of 4',
+                      'Step ${_stage + 1} of 5',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w400,
@@ -2263,7 +2265,7 @@ class _TimetableWizardState extends State<_TimetableWizard> {
                   ],
                 ),
               ),
-              _WizardStepDots(currentStep: _stage, totalSteps: 4, cs: cs),
+              _WizardStepDots(currentStep: _stage, totalSteps: 5, cs: cs),
               IconButton(
                 onPressed: () => Navigator.of(context).pop(),
                 icon: Icon(
@@ -2312,7 +2314,15 @@ class _TimetableWizardState extends State<_TimetableWizard> {
         isDark: isDark,
         onChanged: (r) => setState(() => _rules = r),
       ),
-      3 => _Stage3Generate(
+      3 => _Stage3RemainderSlots(
+        rules: _rules,
+        assignments: _assignments,
+        subjects: _subjects,
+        cs: cs,
+        isDark: isDark,
+        onChanged: (r) => setState(() => _rules = r),
+      ),
+      4 => _Stage3Generate(
         rules: _rules,
         conflicts: _conflicts,
         teachers: _teachers,
@@ -2344,10 +2354,10 @@ class _TimetableWizardState extends State<_TimetableWizard> {
             loading: _saving,
             cs: cs,
           ),
-          if (_stage < 3) ...[
+          if (_stage < 4) ...[
             const SizedBox(width: 8),
             _WizardFilledButton(
-              label: _stage == 2 ? 'Review' : 'Next',
+              label: _stage == 3 ? 'Review' : 'Next',
               onTap: _goNext,
               cs: cs,
             ),
@@ -5178,7 +5188,314 @@ class _ConstraintEntryFormState extends State<_ConstraintEntryForm> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Stage 3 — Review & Generate
+// Stage 3 — Remainder Slots
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Computes base + remainder lessons per week for a given (grade, stream) group.
+({int base, int remainder, int totalPerWeek}) _computeRemainder({
+  required TimetableRules rules,
+  required int subjectCount,
+}) {
+  final slotsPerDay = rules.slots
+      .where((s) => s.type == SlotType.lesson)
+      .length;
+  final total = slotsPerDay * rules.activeDays.length;
+  if (subjectCount == 0) return (base: 0, remainder: 0, totalPerWeek: total);
+  return (
+    base: total ~/ subjectCount,
+    remainder: total % subjectCount,
+    totalPerWeek: total,
+  );
+}
+
+class _Stage3RemainderSlots extends StatefulWidget {
+  const _Stage3RemainderSlots({
+    required this.rules,
+    required this.assignments,
+    required this.subjects,
+    required this.cs,
+    required this.isDark,
+    required this.onChanged,
+  });
+
+  final TimetableRules rules;
+  final List<SolverAssignment> assignments;
+  final List<_WizardSubject> subjects;
+  final ColorScheme cs;
+  final bool isDark;
+  final void Function(TimetableRules) onChanged;
+
+  @override
+  State<_Stage3RemainderSlots> createState() => _Stage3RemainderSlotsState();
+}
+
+class _Stage3RemainderSlotsState extends State<_Stage3RemainderSlots> {
+  // Expanded state keyed by grade int as string for grade rows,
+  // and "${grade}_${stream ?? 'null'}" for stream rows.
+  final Map<String, bool> _expandedGrades = {};
+  final Map<String, bool> _expandedStreams = {};
+
+  String _subjectName(int sid) {
+    try {
+      return widget.subjects.firstWhere((s) => s.id == sid).name;
+    } catch (_) {
+      return 'Subject $sid';
+    }
+  }
+
+  void _onReorder(String streamKey, List<int> newOrder) {
+    final updated = Map<String, List<int>>.from(widget.rules.remainderPriority);
+    updated[streamKey] = newOrder;
+    widget.onChanged(widget.rules.copyWith(remainderPriority: updated));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final isDark = widget.isDark;
+    final rules = widget.rules;
+
+    // Group assignments by grade, then by stream.
+    final gradeGroups = <int, Map<int?, List<SolverAssignment>>>{};
+    for (final a in widget.assignments) {
+      gradeGroups
+          .putIfAbsent(a.grade, () => {})
+          .putIfAbsent(a.stream, () => [])
+          .add(a);
+    }
+
+    if (gradeGroups.isEmpty) {
+      return SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const _SectionLabel('Remainder Slots'),
+              const SizedBox(height: 16),
+              Center(
+                child: Text(
+                  'No subject assignments found for this term.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final sortedGrades = gradeGroups.keys.toList()..sort();
+
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: 8,
+          children: [
+            const _SectionLabel('Remainder Slots'),
+            const SizedBox(height: 0),
+            Text(
+              'Subjects with remainder lessons appear first. Drag to reprioritise.',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+              ),
+            ),
+            const SizedBox(height: 8),
+            for (final grade in sortedGrades)
+              _buildGradeSection(grade, gradeGroups[grade]!, cs, isDark, rules),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGradeSection(
+    int grade,
+    Map<int?, List<SolverAssignment>> streamGroups,
+    ColorScheme cs,
+    bool isDark,
+    TimetableRules rules,
+  ) {
+    final gradeKey = '$grade';
+    final isExpanded = _expandedGrades[gradeKey] ?? false;
+    final streamCount = streamGroups.length;
+
+    return _WizardEntityRow(
+      name: 'Grade $grade',
+      subtitle: '$streamCount stream${streamCount == 1 ? '' : 's'}',
+      icon: Icons.school_outlined,
+      isExpanded: isExpanded,
+      cs: cs,
+      isDark: isDark,
+      onTap: () => setState(() => _expandedGrades[gradeKey] = !isExpanded),
+      expandedContent: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final stream
+              in (streamGroups.keys.toList()
+                ..sort((a, b) => (a ?? 0).compareTo(b ?? 0))))
+            _buildStreamSection(
+              grade,
+              stream,
+              streamGroups[stream]!,
+              cs,
+              isDark,
+              rules,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStreamSection(
+    int grade,
+    int? stream,
+    List<SolverAssignment> streamAssignments,
+    ColorScheme cs,
+    bool isDark,
+    TimetableRules rules,
+  ) {
+    final streamKey = '${grade}_${stream ?? 'null'}';
+    final isExpanded = _expandedStreams[streamKey] ?? false;
+    final subjects = streamAssignments.map((a) => a.subjectId).toSet().toList();
+    final r = _computeRemainder(rules: rules, subjectCount: subjects.length);
+
+    // Build priority order (from rules or default ascending).
+    final savedOrder = rules.remainderPriority[streamKey];
+    final orderedSubjects = savedOrder != null
+        ? savedOrder.where((sid) => subjects.contains(sid)).toList()
+        : (List<int>.from(subjects)..sort());
+    // Append any subjects not yet in the ordered list (newly added).
+    for (final sid in subjects) {
+      if (!orderedSubjects.contains(sid)) orderedSubjects.add(sid);
+    }
+
+    final streamLabel = stream == null ? 'All' : 'Stream $stream';
+
+    return _WizardEntityRow(
+      name: streamLabel,
+      subtitle:
+          '${r.totalPerWeek} lessons · ${subjects.length} subjects'
+          ' · ${r.base} base + ${r.remainder} extra',
+      icon: Icons.group_outlined,
+      isExpanded: isExpanded,
+      cs: cs,
+      isDark: isDark,
+      onTap: () => setState(() => _expandedStreams[streamKey] = !isExpanded),
+      expandedContent: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.nestedBg(isDark, cs),
+          border: Border(
+            left: BorderSide(
+              color: cs.primary.withValues(alpha: 0.2),
+              width: 3,
+            ),
+          ),
+        ),
+        child: orderedSubjects.isEmpty
+            ? Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'No subjects assigned.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+              )
+            : ReorderableListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                onReorder: (oldIndex, newIndex) {
+                  if (newIndex > oldIndex) newIndex--;
+                  final newOrder = List<int>.from(orderedSubjects);
+                  final item = newOrder.removeAt(oldIndex);
+                  newOrder.insert(newIndex, item);
+                  _onReorder(streamKey, newOrder);
+                },
+                itemCount: orderedSubjects.length,
+                itemBuilder: (ctx, i) {
+                  final sid = orderedSubjects[i];
+                  final isExtra = i < r.remainder;
+                  return _RemainderSubjectTile(
+                    key: ValueKey(sid),
+                    index: i,
+                    name: _subjectName(sid),
+                    isExtra: isExtra,
+                    cs: cs,
+                    isDark: isDark,
+                  );
+                },
+              ),
+      ),
+    );
+  }
+}
+
+class _RemainderSubjectTile extends StatelessWidget {
+  const _RemainderSubjectTile({
+    super.key,
+    required this.index,
+    required this.name,
+    required this.isExtra,
+    required this.cs,
+    required this.isDark,
+  });
+
+  final int index;
+  final String name;
+  final bool isExtra;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      color: AppTheme.nestedBg(isDark, cs),
+      child: Row(
+        children: [
+          ReorderableDragStartListener(
+            index: index,
+            child: MouseRegion(
+              cursor: SystemMouseCursors.grab,
+              child: Icon(
+                Icons.drag_handle_rounded,
+                size: 18,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.35),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              name,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurface,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (isExtra) _DiffBadge(label: '+1', color: AppTheme.brandGreen),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stage 4 — Review & Generate
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _Stage3Generate extends StatefulWidget {

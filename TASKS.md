@@ -848,7 +848,7 @@ Update the `ClipRRect` `borderRadius` to match wherever changed.
 
 ---
 
-### Task TW-08: New Remainder Slots Stage (Grade → Stream → Subject Priority)
+### [x] Task TW-08: New Remainder Slots Stage (Grade → Stream → Subject Priority)
 
 **Files to modify:**
 - `eduxal/lib/ui/screens/school_dashboard/timetable/timetable_screen.dart`

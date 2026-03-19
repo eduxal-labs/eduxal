@@ -180,9 +180,9 @@ int _dayToWeekdayIndex(DayOfWeek day) {
 /// ### Key behaviours
 ///
 /// * Each [SolverAssignment] produces N [_Variable] instances where
-///   N = [TimetableRules.lessonsPerWeekForSubject]. This fills the timetable
-///   with appropriately repeated lessons instead of placing each subject only
-///   once per week.
+///   N = `_computeLessonsPerWeek()[(grade, stream, subjectId)]`. This fills
+///   the timetable with appropriately repeated lessons instead of placing each
+///   subject only once per week.
 ///
 /// * [_isConsistent] enforces hard constraints: no teacher double-booking,
 ///   no class double-booking, no subject repeating on the same day when
@@ -258,9 +258,10 @@ class TimetableGenerator {
     }
 
     // ── Phase 1 — Expand assignments into variables ──────────────────────────
+    final lessonsMap = _computeLessonsPerWeek();
     final variables = <_Variable>[];
     for (final a in assignments) {
-      final n = rules.lessonsPerWeekForSubject(a.subjectId);
+      final n = lessonsMap[(a.grade, a.stream, a.subjectId)] ?? 1;
       for (int i = 0; i < n; i++) {
         variables.add(
           _Variable(
@@ -334,10 +335,70 @@ class TimetableGenerator {
     );
   }
 
+  // ── Lessons-per-week computation ─────────────────────────────────────────
+
+  /// Compute lessons-per-week for every (grade, stream, subjectId) triple.
+  ///
+  /// 1. Counts lesson slots per day from [TimetableRules.slots].
+  /// 2. Multiplies by active-day count to get total weekly lessons.
+  /// 3. For each (grade, stream) group of assignments, divides total weekly
+  ///    lessons by subject count to get the base, computes the remainder, and
+  ///    applies the priority order from [TimetableRules.remainderPriority].
+  Map<(int, int, int), int> _computeLessonsPerWeek() {
+    final lessonSlotsPerDay = rules.slots
+        .where((s) => s.type == SlotType.lesson)
+        .length;
+    final totalPerWeek = lessonSlotsPerDay * rules.activeDays.length;
+
+    // Group assignments by (grade, stream).
+    final groups = <(int, int), List<SolverAssignment>>{};
+    for (final a in assignments) {
+      groups.putIfAbsent((a.grade, a.stream), () => []).add(a);
+    }
+
+    final result = <(int, int, int), int>{};
+    for (final entry in groups.entries) {
+      final (grade, stream) = entry.key;
+      final subjects = entry.value.map((a) => a.subjectId).toSet().toList();
+      if (subjects.isEmpty) continue;
+
+      final base = totalPerWeek ~/ subjects.length;
+      final remainder = totalPerWeek % subjects.length;
+
+      // Determine priority order for this (grade, stream).
+      final priorityKey = '${grade}_$stream';
+      final priorityOrder =
+          rules.remainderPriority[priorityKey] ??
+          (List<int>.from(subjects)..sort());
+
+      // Build the ranked list (only subjects in this stream, in priority order).
+      final priorityRanked = priorityOrder
+          .where((id) => subjects.contains(id))
+          .toList();
+      // Append any subjects not yet in the ranked list (newly added subjects).
+      for (final sid in subjects) {
+        if (!priorityRanked.contains(sid)) priorityRanked.add(sid);
+      }
+
+      for (final sid in subjects) {
+        final priorityRank = priorityRanked.indexOf(sid);
+        final lessons = (priorityRank >= 0 && priorityRank < remainder)
+            ? base + 1
+            : base;
+        result[(grade, stream, sid)] = lessons.clamp(
+          1,
+          lessonSlotsPerDay * rules.activeDays.length,
+        );
+      }
+    }
+    return result;
+  }
+
   // ── Phase 0 — Validation ─────────────────────────────────────────────────
 
   List<String> _validate() {
     final issues = <String>[];
+    final lessonsMap = _computeLessonsPerWeek();
 
     if (assignments.isEmpty) {
       issues.add(
@@ -366,7 +427,7 @@ class TimetableGenerator {
     // ── Teacher feasibility ──────────────────────────────────────────────────
     final teacherTotalLessons = <String, int>{};
     for (final a in assignments) {
-      final n = rules.lessonsPerWeekForSubject(a.subjectId);
+      final n = lessonsMap[(a.grade, a.stream, a.subjectId)] ?? 1;
       teacherTotalLessons[a.teacherUserId] =
           (teacherTotalLessons[a.teacherUserId] ?? 0) + n;
     }
@@ -412,7 +473,7 @@ class TimetableGenerator {
     final classTotalLessons = <(int, int), int>{};
     for (final a in assignments) {
       final key = (a.grade, a.stream);
-      final n = rules.lessonsPerWeekForSubject(a.subjectId);
+      final n = lessonsMap[(a.grade, a.stream, a.subjectId)] ?? 1;
       classTotalLessons[key] = (classTotalLessons[key] ?? 0) + n;
     }
 
