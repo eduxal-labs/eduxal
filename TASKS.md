@@ -177,7 +177,7 @@ Backward compatibility with previously saved rule files in the old format is not
 
 ---
 
-### Task AC-01: All-Streams Timetable View in the Grade Detail Page
+### [x] Task AC-01: All-Streams Timetable View in the Grade Detail Page
 
 **Files to create/modify:**
 `lib/ui/screens/school_dashboard/academics/tabs/timetable_tab.dart`,

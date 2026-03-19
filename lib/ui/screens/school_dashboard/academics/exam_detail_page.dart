@@ -420,47 +420,61 @@ class _PapersTab extends StatelessWidget {
           return _buildEmpty(cs, 'No papers added to this exam yet');
         }
 
-        // Group papers by date
-        final grouped = <String, List<Paper>>{};
-        for (final p in papers) {
-          final dt = DateTime.fromMillisecondsSinceEpoch(
-            p.start.toInt() * 1000,
-          );
-          final key = _fmtDate(dt);
-          grouped.putIfAbsent(key, () => []).add(p);
-        }
+        return LayoutBuilder(
+          builder: (ctx, constraints) {
+            // ── Desktop (≥600px): unified cross-table matrix ──────────────
+            if (constraints.maxWidth >= 600) {
+              return _PapersCrossTable(
+                papers: papers,
+                subjectNames: subjectNames,
+                streamNames: streamNames,
+                onTap: (p) => _onPaperTap(context, p),
+              );
+            }
 
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          children: [
-            _buildHeader(cs, papers.length),
-            const _PaperStatusLegend(),
-            for (final entry in grouped.entries) ...[
-              Padding(
-                padding: const EdgeInsets.only(top: 8, bottom: 6),
-                child: Text(
-                  entry.key,
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+            // ── Mobile (<600px): existing date-grouped flat list ──────────
+            final grouped = <String, List<Paper>>{};
+            for (final p in papers) {
+              final dt = DateTime.fromMillisecondsSinceEpoch(
+                p.start.toInt() * 1000,
+              );
+              final key = _fmtDate(dt);
+              grouped.putIfAbsent(key, () => []).add(p);
+            }
+
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              children: [
+                _buildHeader(cs, papers.length),
+                const _PaperStatusLegend(),
+                for (final entry in grouped.entries) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8, bottom: 6),
+                    child: Text(
+                      entry.key,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w500,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              for (final p in entry.value)
-                _PaperTimetableCard(
-                  paper: p,
-                  subjectNames: subjectNames,
-                  // Show stream badge only when viewing all streams (streamCode
-                  // is null) and the paper itself has a stream set.
-                  streamName: streamCode == null && p.stream != null
-                      ? streamNames[p.stream]
-                      : null,
-                  cs: cs,
-                  onTap: () => _onPaperTap(context, p),
-                ),
-            ],
-          ],
+                  for (final p in entry.value)
+                    _PaperTimetableCard(
+                      paper: p,
+                      subjectNames: subjectNames,
+                      // Show stream badge only when viewing all streams
+                      // (streamCode is null) and the paper itself has a stream.
+                      streamName: streamCode == null && p.stream != null
+                          ? streamNames[p.stream]
+                          : null,
+                      cs: cs,
+                      onTap: () => _onPaperTap(context, p),
+                    ),
+                ],
+              ],
+            );
+          },
         );
       },
     );
@@ -2761,6 +2775,329 @@ class _PaperStatusLegend extends StatelessWidget {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+// Desktop papers cross-table (≥600px)
+// ═════════════════════════════════════════════════════════════════════════════
+
+/// Unified cross-table displayed in [_PapersTab] on desktop (≥600px).
+/// Rows = unique grade+stream combinations present in [papers].
+/// Columns = unique exam dates.
+/// Cells = one or more papers stacked vertically (if multiple times same day).
+class _PapersCrossTable extends StatelessWidget {
+  const _PapersCrossTable({
+    required this.papers,
+    required this.subjectNames,
+    required this.streamNames,
+    required this.onTap,
+  });
+
+  final List<Paper> papers;
+  final Map<int, String> subjectNames;
+
+  /// Maps stream code → stream name for row labels.
+  final Map<int, String> streamNames;
+  final void Function(Paper) onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    // Build row keys: unique (grade, stream) pairs, sorted by grade then stream
+    final rowKeys = <({int grade, int? stream})>[];
+    final papersByRow = <({int grade, int? stream}), List<Paper>>{};
+    for (final p in papers) {
+      final key = (grade: p.grade, stream: p.stream);
+      if (!papersByRow.containsKey(key)) {
+        rowKeys.add(key);
+        papersByRow[key] = [];
+      }
+      papersByRow[key]!.add(p);
+    }
+    rowKeys.sort((a, b) {
+      final g = a.grade.compareTo(b.grade);
+      if (g != 0) return g;
+      if (a.stream == null && b.stream == null) return 0;
+      if (a.stream == null) return -1;
+      if (b.stream == null) return 1;
+      return a.stream!.compareTo(b.stream!);
+    });
+
+    // Column headers: unique dates from all papers
+    final grouped = _groupExamPapersByDate(papers);
+    final dates = _sortedExamPaperDates(grouped);
+
+    if (rowKeys.isEmpty || dates.isEmpty) {
+      return _buildEmpty(cs, 'No papers added to this exam yet');
+    }
+
+    const double rowLabelWidth = 120;
+    const double colWidth = 152;
+    final totalWidth = rowLabelWidth + dates.length * colWidth;
+    final borderColor = cs.outlineVariant.withValues(
+      alpha: isDark ? 0.15 : 0.2,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: _PaperStatusLegend(),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.vertical,
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: totalWidth,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // ── Header row (date labels) ──────────────────────────
+                    Row(
+                      children: [
+                        SizedBox(width: rowLabelWidth),
+                        ...dates.map(
+                          (d) => SizedBox(
+                            width: colWidth,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
+                              child: Text(
+                                _fmtDayHeader(d),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: cs.onSurfaceVariant,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    // ── Data rows (one per grade+stream combo) ────────────
+                    for (final key in rowKeys)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // Row label
+                              SizedBox(
+                                width: rowLabelWidth,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 8,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: cs.surfaceContainerHighest
+                                          .withValues(alpha: 0.4),
+                                      borderRadius: BorderRadius.circular(
+                                        AppTheme.kChipRadius,
+                                      ),
+                                      border: Border.all(
+                                        color: borderColor,
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        key.stream != null
+                                            ? (streamNames[key.stream] ??
+                                                  'Stream ${key.stream}')
+                                            : 'All Streams',
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w500,
+                                          color: cs.onSurface,
+                                        ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              // Date cells
+                              ...dates.map((date) {
+                                final rowPapers = papersByRow[key]!;
+                                final cellPapers =
+                                    rowPapers.where((p) {
+                                      final dt =
+                                          DateTime.fromMillisecondsSinceEpoch(
+                                            p.start.toInt() * 1000,
+                                          );
+                                      final day = DateTime(
+                                        dt.year,
+                                        dt.month,
+                                        dt.day,
+                                      );
+                                      return day == date;
+                                    }).toList()..sort(
+                                      (a, b) => a.start.compareTo(b.start),
+                                    );
+
+                                if (cellPapers.isEmpty) {
+                                  return SizedBox(
+                                    width: colWidth,
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                      ),
+                                      child: Container(
+                                        constraints: const BoxConstraints(
+                                          minHeight: 56,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(
+                                            AppTheme.kCardRadius,
+                                          ),
+                                          border: Border.all(
+                                            color: borderColor,
+                                            width: 1,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }
+
+                                return SizedBox(
+                                  width: colWidth,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                    ),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        for (
+                                          int i = 0;
+                                          i < cellPapers.length;
+                                          i++
+                                        ) ...[
+                                          _buildCell(
+                                            cellPapers[i],
+                                            cs,
+                                            isDark,
+                                            borderColor,
+                                          ),
+                                          if (i < cellPapers.length - 1)
+                                            const SizedBox(height: 4),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCell(
+    Paper paper,
+    ColorScheme cs,
+    bool isDark,
+    Color borderColor,
+  ) {
+    final statusColor = _examPaperStatusColor(paper.status, cs);
+    final subjectName =
+        subjectNames[paper.subject] ?? 'Subject ${paper.subject}';
+    final paperLabel = paper.paper != null && paper.paper! > 1
+        ? ' · Paper ${paper.paper}'
+        : '';
+    final startMs = paper.start.toInt();
+    final endMs = paper.end.toInt();
+    final timeUnset = startMs == 0;
+    final timeRange = timeUnset
+        ? null
+        : '${_fmtTime(DateTime.fromMillisecondsSinceEpoch(startMs * 1000))}'
+              ' – '
+              '${_fmtTime(DateTime.fromMillisecondsSinceEpoch(endMs * 1000))}';
+
+    return InkWell(
+      onTap: () => onTap(paper),
+      splashFactory: NoSplash.splashFactory,
+      borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 56),
+          decoration: BoxDecoration(
+            color: statusColor.withValues(alpha: 0.06),
+            border: Border(
+              left: BorderSide(color: statusColor, width: 2.5),
+              top: BorderSide(color: borderColor),
+              right: BorderSide(color: borderColor),
+              bottom: BorderSide(color: borderColor),
+            ),
+          ),
+          padding: const EdgeInsets.fromLTRB(8, 7, 8, 7),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$subjectName$paperLabel',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurface,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              if (timeUnset)
+                Text(
+                  'Time not set',
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+                    fontStyle: FontStyle.italic,
+                  ),
+                )
+              else
+                Text(
+                  timeRange!,
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurfaceVariant,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 // Badge Widgets
 // ═════════════════════════════════════════════════════════════════════════════
 
@@ -3068,6 +3405,30 @@ class _DistributionDonutPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _DistributionDonutPainter old) => true;
+}
+
+String _fmtDayHeader(DateTime d) {
+  const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  final wd = weekdays[d.weekday - 1];
+  return '$wd, ${d.day} ${_months[d.month - 1]}';
+}
+
+Map<DateTime, List<Paper>> _groupExamPapersByDate(List<Paper> papers) {
+  final map = <DateTime, List<Paper>>{};
+  for (final p in papers) {
+    final dt = DateTime.fromMillisecondsSinceEpoch(p.start.toInt() * 1000);
+    final day = DateTime(dt.year, dt.month, dt.day);
+    map.putIfAbsent(day, () => []).add(p);
+  }
+  for (final list in map.values) {
+    list.sort((a, b) => a.start.compareTo(b.start));
+  }
+  return map;
+}
+
+List<DateTime> _sortedExamPaperDates(Map<DateTime, List<Paper>> grouped) {
+  final dates = grouped.keys.toList()..sort();
+  return dates;
 }
 
 String _fmtDate(DateTime d) =>

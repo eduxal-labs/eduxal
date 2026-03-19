@@ -461,9 +461,10 @@ class _GradeDetailPageState extends State<GradeDetailPage>
       term: term.term,
       grade: widget.grade.grade,
       streamCode: null,
-      streamName: 'All',
+      streamName: 'All streams',
       curriculumType: widget.curriculumType,
       schoolContext: widget.schoolContext,
+      streams: widget.grade.streams,
     );
   }
 

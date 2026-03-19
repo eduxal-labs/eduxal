@@ -4,17 +4,47 @@ import '../../../../../database/database.dart';
 import '../../../../../database/daos/timetable_dao.dart';
 import '../../../../../database/tables/curriculum_subjects.dart';
 import '../../../../../database/tables/enums.dart';
-
+import '../../../../../models/school_config.dart';
 import '../../../../../models/school_context.dart';
 
-/// Timetable tab — displays the weekly schedule for a specific stream within
-/// a grade.
+// ── Column width constants ──────────────────────────────────────────────────
+const double _kDayLabelW = 72;
+const double _kStreamLabelW = 80;
+const double _kTimeColW = 110;
+const double _kBreakColW = 50;
+const double _kColGap = 3.0;
+
+// ── Column descriptor sealed class ─────────────────────────────────────────
+
+sealed class _ColDesc {
+  const _ColDesc();
+}
+
+final class _TimeCol extends _ColDesc {
+  const _TimeCol(this.start, this.end);
+  final int start;
+  final int
+  end; // representative end time (max across all entries at this start)
+}
+
+final class _BreakCol extends _ColDesc {
+  const _BreakCol();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Public widget
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Weekly timetable view — two layout modes:
 ///
-/// **Desktop (≥ 600px):** Weekly grid with Mon–Fri columns and time-slot rows.
-/// **Mobile (< 600px):** Horizontal day selector + vertical slot list.
+/// **Single-stream** (when [streamCode] is non-null):
+///   Rows = days, columns = time slots (with break columns where gaps exist).
 ///
-/// Each slot shows the subject name (resolved via [CurriculumType]) and the
-/// teacher's name. Empty slots are rendered as dashed/muted placeholders.
+/// **All-streams** (when [streamCode] is null AND [streams] is provided):
+///   Rows = day-section header + one sub-row per stream, columns = time slots.
+///
+/// Desktop (≥ 600 px): horizontal-scrollable matrix grid.
+/// Mobile (< 600 px): day-chip selector + vertical slot list.
 class TimetableTab extends StatefulWidget {
   const TimetableTab({
     super.key,
@@ -26,6 +56,7 @@ class TimetableTab extends StatefulWidget {
     required this.streamName,
     required this.curriculumType,
     required this.schoolContext,
+    this.streams,
   });
 
   final String schoolId;
@@ -36,6 +67,10 @@ class TimetableTab extends StatefulWidget {
   final String streamName;
   final CurriculumType curriculumType;
   final SchoolContext schoolContext;
+
+  /// When provided and [streamCode] is null, renders the all-streams
+  /// cross-table matrix. Each entry in [streams] becomes a sub-row per day.
+  final List<GradeStream>? streams;
 
   @override
   State<TimetableTab> createState() => _TimetableTabState();
@@ -69,6 +104,8 @@ class _TimetableTabState extends State<TimetableTab>
   }
 
   Stream<List<TimetableEntry>> _buildStream() {
+    // When streamCode is null, watchClassTimetable returns all entries for
+    // the grade across every stream — exactly what the all-streams view needs.
     return _dao.watchClassTimetable(
       schoolId: widget.schoolId,
       year: widget.year,
@@ -77,6 +114,8 @@ class _TimetableTabState extends State<TimetableTab>
       stream: widget.streamCode,
     );
   }
+
+  bool get _isAllStreams => widget.streamCode == null && widget.streams != null;
 
   // ── Build ──────────────────────────────────────────────────────────────────
 
@@ -102,8 +141,24 @@ class _TimetableTabState extends State<TimetableTab>
         return LayoutBuilder(
           builder: (context, constraints) {
             if (constraints.maxWidth >= 600) {
-              return _DesktopGrid(
+              // Desktop — matrix grid
+              if (_isAllStreams) {
+                return _AllStreamsMatrix(
+                  entries: entries,
+                  streams: widget.streams!,
+                  curriculumType: widget.curriculumType,
+                );
+              }
+              return _SingleStreamMatrix(
                 entries: entries,
+                curriculumType: widget.curriculumType,
+              );
+            }
+            // Mobile — day-chip pager
+            if (_isAllStreams) {
+              return _MobileAllStreamsPager(
+                entries: entries,
+                streams: widget.streams!,
                 curriculumType: widget.curriculumType,
               );
             }
@@ -212,7 +267,7 @@ String _fmtTime(int secondsSinceMidnight) {
   return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
 }
 
-/// Deterministic subject color based on subject index.
+/// Deterministic subject color from a 15-color palette indexed by subject ID.
 Color _subjectColor(int subjectIndex) {
   const palette = [
     Color(0xFF5C6BC0), // indigo
@@ -234,19 +289,16 @@ Color _subjectColor(int subjectIndex) {
   return palette[subjectIndex % palette.length];
 }
 
-/// Groups entries by a unique time-slot start value, returning ordered unique
-/// start times present in the data.
+/// Returns sorted unique start times present in [entries].
 List<int> _uniqueStartTimes(List<TimetableEntry> entries) {
   final starts = entries.map((e) => e.slot.start).toSet().toList()..sort();
   return starts;
 }
 
-/// Returns all unique days present in the entries, ordered Mon–Fri
-/// (or including Sat/Sun if they appear).
+/// Returns all unique days present in [entries], ordered Mon → Sun.
 List<DayOfWeek> _activeDays(List<TimetableEntry> entries) {
   final daySet = entries.map((e) => e.slot.day).toSet();
-  // Order: Mon–Sun (index 1–6, then 0)
-  final ordered = <DayOfWeek>[
+  const ordered = [
     DayOfWeek.monday,
     DayOfWeek.tuesday,
     DayOfWeek.wednesday,
@@ -258,7 +310,7 @@ List<DayOfWeek> _activeDays(List<TimetableEntry> entries) {
   return ordered.where(daySet.contains).toList();
 }
 
-/// Find entry for a given day and start time.
+/// Finds the first entry matching [day] + [startTime] in a single-stream list.
 TimetableEntry? _entryAt(
   List<TimetableEntry> entries,
   DayOfWeek day,
@@ -270,12 +322,63 @@ TimetableEntry? _entryAt(
   return null;
 }
 
+/// Finds an entry for a specific [streamCode] + [day] + [startTime] in an
+/// all-streams list.
+TimetableEntry? _entryForStream(
+  List<TimetableEntry> entries,
+  int streamCode,
+  DayOfWeek day,
+  int startTime,
+) {
+  for (final e in entries) {
+    if (e.slot.stream == streamCode &&
+        e.slot.day == day &&
+        e.slot.start == startTime)
+      return e;
+  }
+  return null;
+}
+
+/// Builds the ordered list of column descriptors from [entries].
+///
+/// Each unique start time becomes a [_TimeCol]. Where there is a gap between
+/// `maxEnd[start[i]]` and `start[i+1]`, a [_BreakCol] is inserted to
+/// represent a break period between consecutive lesson slots.
+List<_ColDesc> _buildColumns(List<TimetableEntry> entries) {
+  if (entries.isEmpty) return [];
+
+  final starts = _uniqueStartTimes(entries);
+
+  // Find the maximum end time per start time (representative end for header).
+  final maxEnd = <int, int>{};
+  for (final e in entries) {
+    final cur = maxEnd[e.slot.start] ?? 0;
+    if (e.slot.end > cur) maxEnd[e.slot.start] = e.slot.end;
+  }
+
+  final result = <_ColDesc>[];
+  for (int i = 0; i < starts.length; i++) {
+    final s = starts[i];
+    result.add(_TimeCol(s, maxEnd[s]!));
+    if (i < starts.length - 1) {
+      // Gap between end of this column and start of the next → break period.
+      if (maxEnd[s]! < starts[i + 1]) {
+        result.add(const _BreakCol());
+      }
+    }
+  }
+  return result;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
-// Desktop: Weekly grid view
+// Desktop: Single-stream matrix  (rows = days,  cols = time slots)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-class _DesktopGrid extends StatelessWidget {
-  const _DesktopGrid({required this.entries, required this.curriculumType});
+class _SingleStreamMatrix extends StatelessWidget {
+  const _SingleStreamMatrix({
+    required this.entries,
+    required this.curriculumType,
+  });
 
   final List<TimetableEntry> entries;
   final CurriculumType curriculumType;
@@ -285,222 +388,388 @@ class _DesktopGrid extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
 
+    final cols = _buildColumns(entries);
     final days = _activeDays(entries);
-    final starts = _uniqueStartTimes(entries);
 
-    if (days.isEmpty || starts.isEmpty) {
-      return const SizedBox.shrink();
-    }
+    if (cols.isEmpty || days.isEmpty) return const SizedBox.shrink();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // ── Header row ──────────────────────────────────────────────
-          _GridRow(
-            timeCell: const SizedBox(width: 72),
-            dayCells: [
-              for (final day in days)
-                _HeaderCell(label: _dayLabels[day] ?? '', cs: cs),
-            ],
-          ),
-          const SizedBox(height: 4),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Header row (time column labels) ─────────────────────────
+            _buildHeaderRow(cols, cs),
+            const SizedBox(height: _kColGap),
 
-          // ── Slot rows ───────────────────────────────────────────────
-          for (final start in starts) ...[
-            _GridRow(
-              timeCell: _TimeLabel(time: _fmtTime(start), cs: cs),
-              dayCells: [
-                for (final day in days)
-                  _SlotCell(
-                    entry: _entryAt(entries, day, start),
-                    curriculumType: curriculumType,
-                    cs: cs,
-                    isDark: isDark,
-                  ),
-              ],
-            ),
-            const SizedBox(height: 4),
+            // ── One row per active day ───────────────────────────────────
+            for (int di = 0; di < days.length; di++) ...[
+              if (di > 0) const SizedBox(height: _kColGap),
+              _buildDayRow(days[di], cols, cs, isDark),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
-}
 
-/// A single row in the grid: time label + one cell per day.
-class _GridRow extends StatelessWidget {
-  const _GridRow({required this.timeCell, required this.dayCells});
+  Widget _buildHeaderRow(List<_ColDesc> cols, ColorScheme cs) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // Corner — day label area
+        const SizedBox(width: _kDayLabelW),
+        const SizedBox(width: _kColGap),
+        for (int i = 0; i < cols.length; i++) ...[
+          if (i > 0) const SizedBox(width: _kColGap),
+          _buildColHeader(cols[i], cs),
+        ],
+      ],
+    );
+  }
 
-  final Widget timeCell;
-  final List<Widget> dayCells;
+  Widget _buildColHeader(_ColDesc col, ColorScheme cs) {
+    if (col is _BreakCol) {
+      return SizedBox(
+        width: _kBreakColW,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 7),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            'Break',
+            style: TextStyle(
+              fontSize: 9.5,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.35),
+              letterSpacing: 0.3,
+            ),
+          ),
+        ),
+      );
+    }
+    final tc = col as _TimeCol;
+    return SizedBox(
+      width: _kTimeColW,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          '${_fmtTime(tc.start)} – ${_fmtTime(tc.end)}',
+          style: TextStyle(
+            fontSize: 10.5,
+            fontWeight: FontWeight.w500,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+            letterSpacing: 0.1,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildDayRow(
+    DayOfWeek day,
+    List<_ColDesc> cols,
+    ColorScheme cs,
+    bool isDark,
+  ) {
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(width: 72, child: timeCell),
-          const SizedBox(width: 4),
-          for (int i = 0; i < dayCells.length; i++) ...[
-            if (i > 0) const SizedBox(width: 4),
-            Expanded(child: dayCells[i]),
+          // Day label
+          SizedBox(
+            width: _kDayLabelW,
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Text(
+                  _dayLabels[day] ?? '',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: _kColGap),
+          // Slot cells
+          for (int i = 0; i < cols.length; i++) ...[
+            if (i > 0) const SizedBox(width: _kColGap),
+            _buildDataCell(cols[i], day, cs, isDark),
           ],
         ],
       ),
     );
   }
-}
 
-/// Column header cell showing the day abbreviation.
-class _HeaderCell extends StatelessWidget {
-  const _HeaderCell({required this.label, required this.cs});
-
-  final String label;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-          color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-          letterSpacing: 0.3,
-        ),
-      ),
-    );
-  }
-}
-
-/// Time label at the left edge of each row.
-class _TimeLabel extends StatelessWidget {
-  const _TimeLabel({required this.time, required this.cs});
-
-  final String time;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Padding(
-        padding: const EdgeInsets.only(right: 6, top: 4, bottom: 4),
-        child: Text(
-          time,
-          style: TextStyle(
-            fontSize: 10.5,
-            fontWeight: FontWeight.w400,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// A single grid cell — either a filled subject slot or an empty placeholder.
-class _SlotCell extends StatelessWidget {
-  const _SlotCell({
-    required this.entry,
-    required this.curriculumType,
-    required this.cs,
-    required this.isDark,
-  });
-
-  final TimetableEntry? entry;
-  final CurriculumType curriculumType;
-  final ColorScheme cs;
-  final bool isDark;
-
-  @override
-  Widget build(BuildContext context) {
-    if (entry == null) {
-      return _EmptyCell(cs: cs, isDark: isDark);
+  Widget _buildDataCell(
+    _ColDesc col,
+    DayOfWeek day,
+    ColorScheme cs,
+    bool isDark,
+  ) {
+    if (col is _BreakCol) {
+      return SizedBox(
+        width: _kBreakColW,
+        child: _BreakCell(cs: cs, isDark: isDark),
+      );
     }
-
-    final subjectName = entry!.subjectName;
-    final teacherName = entry!.teacher.name;
-    final color = _subjectColor(entry!.slot.subject);
-
-    return Container(
-      constraints: const BoxConstraints(minHeight: 52),
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: isDark ? 0.15 : 0.08),
-        borderRadius: BorderRadius.circular(4),
-        border: Border(
-          left: BorderSide(color: color.withValues(alpha: 0.6), width: 2.5),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            subjectName,
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w500,
-              color: cs.onSurface,
-              height: 1.2,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 2),
-          Text(
-            teacherName,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w400,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-              height: 1.2,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Empty grid cell with a dashed-style appearance.
-class _EmptyCell extends StatelessWidget {
-  const _EmptyCell({required this.cs, required this.isDark});
-
-  final ColorScheme cs;
-  final bool isDark;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minHeight: 52),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(
-          color: cs.outline.withValues(alpha: isDark ? 0.06 : 0.08),
-          width: 1,
-        ),
+    final tc = col as _TimeCol;
+    return SizedBox(
+      width: _kTimeColW,
+      child: _SlotCell(
+        entry: _entryAt(entries, day, tc.start),
+        curriculumType: curriculumType,
+        cs: cs,
+        isDark: isDark,
       ),
     );
   }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Mobile: Day pager
+// Desktop: All-streams matrix
+// (rows = day-section header + one sub-row per stream,  cols = time slots)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _AllStreamsMatrix extends StatelessWidget {
+  const _AllStreamsMatrix({
+    required this.entries,
+    required this.streams,
+    required this.curriculumType,
+  });
+
+  final List<TimetableEntry> entries;
+  final List<GradeStream> streams;
+  final CurriculumType curriculumType;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    final cols = _buildColumns(entries);
+    final days = _activeDays(entries);
+
+    if (cols.isEmpty || days.isEmpty) return const SizedBox.shrink();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Header row (time column labels) ─────────────────────────
+            _buildHeaderRow(cols, cs),
+            const SizedBox(height: _kColGap),
+
+            // ── Day groups ───────────────────────────────────────────────
+            for (int di = 0; di < days.length; di++) ...[
+              if (di > 0) const SizedBox(height: 8),
+              _buildDayGroup(days[di], cols, cs, isDark),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeaderRow(List<_ColDesc> cols, ColorScheme cs) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // Corner — stream label area
+        const SizedBox(width: _kStreamLabelW),
+        const SizedBox(width: _kColGap),
+        for (int i = 0; i < cols.length; i++) ...[
+          if (i > 0) const SizedBox(width: _kColGap),
+          _buildColHeader(cols[i], cs),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildColHeader(_ColDesc col, ColorScheme cs) {
+    if (col is _BreakCol) {
+      return SizedBox(
+        width: _kBreakColW,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 7),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            'Break',
+            style: TextStyle(
+              fontSize: 9.5,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.35),
+              letterSpacing: 0.3,
+            ),
+          ),
+        ),
+      );
+    }
+    final tc = col as _TimeCol;
+    return SizedBox(
+      width: _kTimeColW,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          '${_fmtTime(tc.start)} – ${_fmtTime(tc.end)}',
+          style: TextStyle(
+            fontSize: 10.5,
+            fontWeight: FontWeight.w500,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+            letterSpacing: 0.1,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDayGroup(
+    DayOfWeek day,
+    List<_ColDesc> cols,
+    ColorScheme cs,
+    bool isDark,
+  ) {
+    // Compute total width for the day strip so it spans all columns.
+    double totalW = _kStreamLabelW + _kColGap;
+    for (int i = 0; i < cols.length; i++) {
+      if (i > 0) totalW += _kColGap;
+      totalW += cols[i] is _BreakCol ? _kBreakColW : _kTimeColW;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Day section header strip — spans full row width
+        Container(
+          width: totalW,
+          padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest.withValues(
+              alpha: isDark ? 0.22 : 0.18,
+            ),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            _dayFullLabels[day] ?? '',
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+              letterSpacing: 0.15,
+            ),
+          ),
+        ),
+
+        // One sub-row per stream
+        for (int si = 0; si < streams.length; si++) ...[
+          const SizedBox(height: _kColGap),
+          _buildStreamRow(day, streams[si], cols, cs, isDark),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildStreamRow(
+    DayOfWeek day,
+    GradeStream stream,
+    List<_ColDesc> cols,
+    ColorScheme cs,
+    bool isDark,
+  ) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Stream label
+          SizedBox(
+            width: _kStreamLabelW,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  stream.name,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                    letterSpacing: 0.1,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: _kColGap),
+          // Slot cells
+          for (int i = 0; i < cols.length; i++) ...[
+            if (i > 0) const SizedBox(width: _kColGap),
+            _buildStreamDataCell(cols[i], day, stream.code, cs, isDark),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStreamDataCell(
+    _ColDesc col,
+    DayOfWeek day,
+    int streamCode,
+    ColorScheme cs,
+    bool isDark,
+  ) {
+    if (col is _BreakCol) {
+      return SizedBox(
+        width: _kBreakColW,
+        child: _BreakCell(cs: cs, isDark: isDark),
+      );
+    }
+    final tc = col as _TimeCol;
+    return SizedBox(
+      width: _kTimeColW,
+      child: _SlotCell(
+        entry: _entryForStream(entries, streamCode, day, tc.start),
+        curriculumType: curriculumType,
+        cs: cs,
+        isDark: isDark,
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Mobile: Single-stream day pager
 // ═══════════════════════════════════════════════════════════════════════════════
 
 class _MobileDayPager extends StatefulWidget {
@@ -542,7 +811,6 @@ class _MobileDayPagerState extends State<_MobileDayPager> {
 
     final selectedDay = _days[_selectedDayIndex];
 
-    // Filter entries for the selected day, sorted by start time.
     final dayEntries =
         widget.entries.where((e) => e.slot.day == selectedDay).toList()
           ..sort((a, b) => a.slot.start.compareTo(b.slot.start));
@@ -621,7 +889,302 @@ class _MobileDayPagerState extends State<_MobileDayPager> {
   }
 }
 
-/// Compact day selector chip.
+// ═══════════════════════════════════════════════════════════════════════════════
+// Mobile: All-streams day pager
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _MobileAllStreamsPager extends StatefulWidget {
+  const _MobileAllStreamsPager({
+    required this.entries,
+    required this.streams,
+    required this.curriculumType,
+  });
+
+  final List<TimetableEntry> entries;
+  final List<GradeStream> streams;
+  final CurriculumType curriculumType;
+
+  @override
+  State<_MobileAllStreamsPager> createState() => _MobileAllStreamsPagerState();
+}
+
+class _MobileAllStreamsPagerState extends State<_MobileAllStreamsPager> {
+  late List<DayOfWeek> _days;
+  late int _selectedDayIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _days = _activeDays(widget.entries);
+    _selectedDayIndex = 0;
+  }
+
+  @override
+  void didUpdateWidget(covariant _MobileAllStreamsPager oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _days = _activeDays(widget.entries);
+    if (_selectedDayIndex >= _days.length) _selectedDayIndex = 0;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    if (_days.isEmpty) return const SizedBox.shrink();
+
+    final selectedDay = _days[_selectedDayIndex];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // ── Day selector chips ────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (int i = 0; i < _days.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 6),
+                  _DayChip(
+                    label: _dayLabels[_days[i]] ?? '',
+                    selected: i == _selectedDayIndex,
+                    cs: cs,
+                    onTap: () => setState(() => _selectedDayIndex = i),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+
+        // ── Day heading ───────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Text(
+            _dayFullLabels[selectedDay] ?? '',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurface,
+              letterSpacing: 0.1,
+            ),
+          ),
+        ),
+
+        // ── Per-stream sections ───────────────────────────────────────
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            itemCount: widget.streams.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 16),
+            itemBuilder: (context, si) {
+              final stream = widget.streams[si];
+              final streamDayEntries =
+                  widget.entries
+                      .where(
+                        (e) =>
+                            e.slot.day == selectedDay &&
+                            e.slot.stream == stream.code,
+                      )
+                      .toList()
+                    ..sort((a, b) => a.slot.start.compareTo(b.slot.start));
+              return _buildStreamSection(stream, streamDayEntries, cs, isDark);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStreamSection(
+    GradeStream stream,
+    List<TimetableEntry> streamDayEntries,
+    ColorScheme cs,
+    bool isDark,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Stream label
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Text(
+            stream.name,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+              letterSpacing: 0.25,
+            ),
+          ),
+        ),
+
+        if (streamDayEntries.isEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: cs.outline.withValues(alpha: isDark ? 0.06 : 0.08),
+                width: 1,
+              ),
+            ),
+            child: Text(
+              'No lessons',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.35),
+              ),
+            ),
+          )
+        else
+          ...streamDayEntries.map(
+            (entry) => Padding(
+              padding: const EdgeInsets.only(bottom: 5),
+              child: _MobileSlotCard(
+                entry: entry,
+                curriculumType: widget.curriculumType,
+                cs: cs,
+                isDark: isDark,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Shared cell widgets
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// A filled timetable slot — subject name + teacher name with a color accent.
+class _SlotCell extends StatelessWidget {
+  const _SlotCell({
+    required this.entry,
+    required this.curriculumType,
+    required this.cs,
+    required this.isDark,
+  });
+
+  final TimetableEntry? entry;
+  final CurriculumType curriculumType;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    if (entry == null) {
+      return _EmptyCell(cs: cs, isDark: isDark);
+    }
+
+    final subjectName = entry!.subjectName;
+    final teacherName = entry!.teacher.name;
+    final color = _subjectColor(entry!.slot.subject);
+
+    return Container(
+      constraints: const BoxConstraints(minHeight: 52),
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: isDark ? 0.15 : 0.08),
+        borderRadius: BorderRadius.circular(4),
+        border: Border(
+          left: BorderSide(color: color.withValues(alpha: 0.6), width: 2.5),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            subjectName,
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurface,
+              height: 1.2,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            teacherName,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+              height: 1.2,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// An empty grid cell — subtle placeholder with thin border.
+class _EmptyCell extends StatelessWidget {
+  const _EmptyCell({required this.cs, required this.isDark});
+
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 52),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: cs.outline.withValues(alpha: isDark ? 0.06 : 0.08),
+          width: 1,
+        ),
+      ),
+    );
+  }
+}
+
+/// A break-period cell — muted filler for the gap between lesson slots.
+class _BreakCell extends StatelessWidget {
+  const _BreakCell({required this.cs, required this.isDark});
+
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 52),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(
+          alpha: isDark ? 0.07 : 0.05,
+        ),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        '· · ·',
+        style: TextStyle(
+          fontSize: 9,
+          letterSpacing: 2,
+          color: cs.onSurfaceVariant.withValues(alpha: 0.2),
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Shared mobile sub-widgets
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Compact animated day-selector chip.
 class _DayChip extends StatelessWidget {
   const _DayChip({
     required this.label,
@@ -670,7 +1233,7 @@ class _DayChip extends StatelessWidget {
   }
 }
 
-/// Mobile slot card showing time range, subject name, and teacher name.
+/// Mobile slot card — time range + subject name + teacher name.
 class _MobileSlotCard extends StatelessWidget {
   const _MobileSlotCard({
     required this.entry,
@@ -703,7 +1266,7 @@ class _MobileSlotCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // ── Time column ─────────────────────────────────────────────
+          // ── Time ─────────────────────────────────────────────────────
           SizedBox(
             width: 88,
             child: Text(
@@ -718,7 +1281,7 @@ class _MobileSlotCard extends StatelessWidget {
           ),
           const SizedBox(width: 12),
 
-          // ── Subject + Teacher ───────────────────────────────────────
+          // ── Subject + Teacher ─────────────────────────────────────────
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

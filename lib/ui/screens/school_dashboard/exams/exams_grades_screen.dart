@@ -1427,74 +1427,111 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
                 ],
               ),
             ),
-            // ── Grade tabs ─────────────────────────────────────────────────
-            if (gradeTabs.isNotEmpty)
-              EduTabBar(
-                controller: _gradeTabController,
-                tabs: gradeTabs,
-                isScrollable: true,
-                padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
-              ),
-            // ── Stream sub-tabs (reactive from DB) ─────────────────────────
-            if (streamTabs.isNotEmpty && _streamTabController != null)
-              Row(
-                children: [
-                  Expanded(
-                    child: EduTabBar(
-                      controller: _streamTabController!,
-                      tabs: streamTabs,
-                      isScrollable: true,
-                      padding: const EdgeInsets.fromLTRB(16, 2, 4, 4),
-                    ),
-                  ),
-                  if (_canManage)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: IconButton(
-                        icon: Icon(
-                          Icons.close_rounded,
-                          size: 14,
-                          color: cs.error.withValues(alpha: 0.5),
-                        ),
-                        onPressed: () => _confirmDeleteStream(context),
-                        tooltip: 'Remove stream',
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ),
-                ],
-              ),
-            // ── Paper status legend ────────────────────────────────────────
-            if (_hasStreamSelection)
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 4, 16, 0),
-                child: _PaperStatusLegend(),
-              ),
-            // ── Paper content area ─────────────────────────────────────────
+            // ── Responsive content: desktop = cross-table, mobile = tabs ──
             Expanded(
-              child: !_hasStreamSelection
-                  ? _EmptyPapersTimetableState(cs: cs)
-                  : _PaperContentArea(
-                      examIds: widget.group.examIds,
-                      grade: currentGrade?.grade ?? 0,
-                      stream: _currentStreamCode,
-                      exam: _currentExam,
-                      schoolId: widget.schoolId,
+              child: LayoutBuilder(
+                builder: (ctx, constraints) {
+                  // ── Desktop (≥600px): unified cross-table matrix ─────────
+                  if (constraints.maxWidth >= 600) {
+                    return _ExamGroupCrossTable(
+                      group: widget.group,
                       config: widget.config,
                       subjectNames: widget.subjectNames,
                       teacherNames: _teacherNames,
-                      dao: _dao,
-                      canManage: _canManage,
                       onPaperTap: (paper, exam, grade, {int streamIndex = 0}) {
                         widget.onPaperTap(
                           paper,
                           exam,
                           grade,
-                          streamIndex: _selectedStreamIndex,
+                          streamIndex: streamIndex,
                         );
                       },
-                      initialDayIndex: widget.initialDayIndex,
-                      onDayChanged: widget.onDayChanged,
-                    ),
+                    );
+                  }
+                  // ── Mobile (<600px): grade tabs + stream sub-tabs ────────
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Grade tabs
+                      if (gradeTabs.isNotEmpty)
+                        EduTabBar(
+                          controller: _gradeTabController,
+                          tabs: gradeTabs,
+                          isScrollable: true,
+                          padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
+                        ),
+                      // Stream sub-tabs (reactive from DB)
+                      if (streamTabs.isNotEmpty && _streamTabController != null)
+                        Row(
+                          children: [
+                            Expanded(
+                              child: EduTabBar(
+                                controller: _streamTabController!,
+                                tabs: streamTabs,
+                                isScrollable: true,
+                                padding: const EdgeInsets.fromLTRB(16, 2, 4, 4),
+                              ),
+                            ),
+                            if (_canManage)
+                              Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: IconButton(
+                                  icon: Icon(
+                                    Icons.close_rounded,
+                                    size: 14,
+                                    color: cs.error.withValues(alpha: 0.5),
+                                  ),
+                                  onPressed: () =>
+                                      _confirmDeleteStream(context),
+                                  tooltip: 'Remove stream',
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                              ),
+                          ],
+                        ),
+                      // Paper status legend
+                      if (_hasStreamSelection)
+                        const Padding(
+                          padding: EdgeInsets.fromLTRB(16, 4, 16, 0),
+                          child: _PaperStatusLegend(),
+                        ),
+                      // Paper content
+                      Expanded(
+                        child: !_hasStreamSelection
+                            ? _EmptyPapersTimetableState(cs: cs)
+                            : _PaperContentArea(
+                                examIds: widget.group.examIds,
+                                grade: currentGrade?.grade ?? 0,
+                                stream: _currentStreamCode,
+                                exam: _currentExam,
+                                schoolId: widget.schoolId,
+                                config: widget.config,
+                                subjectNames: widget.subjectNames,
+                                teacherNames: _teacherNames,
+                                dao: _dao,
+                                canManage: _canManage,
+                                onPaperTap:
+                                    (
+                                      paper,
+                                      exam,
+                                      grade, {
+                                      int streamIndex = 0,
+                                    }) {
+                                      widget.onPaperTap(
+                                        paper,
+                                        exam,
+                                        grade,
+                                        streamIndex: _selectedStreamIndex,
+                                      );
+                                    },
+                                initialDayIndex: widget.initialDayIndex,
+                                onDayChanged: widget.onDayChanged,
+                              ),
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -5962,6 +5999,284 @@ String _fmtDayColumn(DateTime d) {
   const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   final wd = weekdays[d.weekday - 1];
   return '$wd ${d.day}';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Desktop unified cross-table: all grade+stream combos × all dates (≥600px)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Displays all papers for an [ExamGroup] as a unified matrix where
+/// rows = grade+stream combinations and columns = exam dates. Multiple papers
+/// scheduled at different times on the same date are stacked vertically within
+/// one cell. Used on desktop (≥600px) inside [_ExamGroupDetailView].
+class _ExamGroupCrossTable extends StatelessWidget {
+  const _ExamGroupCrossTable({
+    required this.group,
+    required this.config,
+    required this.subjectNames,
+    required this.teacherNames,
+    required this.onPaperTap,
+  });
+
+  final ExamGroup group;
+  final SchoolConfig config;
+  final Map<int, String> subjectNames;
+  final Map<String, String> teacherNames;
+  final void Function(Paper, Exam, int grade, {int streamIndex}) onPaperTap;
+
+  /// Build one row descriptor per (grade, stream) combination.
+  List<
+    ({int grade, int? streamCode, String label, Exam exam, List<Paper> papers})
+  >
+  _buildRows() {
+    final rows =
+        <
+          ({
+            int grade,
+            int? streamCode,
+            String label,
+            Exam exam,
+            List<Paper> papers,
+          })
+        >[];
+    for (final gradeEntry in group.grades) {
+      final gradeLabel = _gradeLabel(gradeEntry.grade, config);
+      for (final streamEntry in gradeEntry.streams) {
+        final streamName = streamEntry.streamCode != null
+            ? _streamLabel(gradeEntry.grade, streamEntry.streamCode!, config)
+            : null;
+        final rowLabel = streamName != null
+            ? '$gradeLabel · $streamName'
+            : gradeLabel;
+        rows.add((
+          grade: gradeEntry.grade,
+          streamCode: streamEntry.streamCode,
+          label: rowLabel,
+          exam: streamEntry.exam,
+          papers: streamEntry.papers,
+        ));
+      }
+    }
+    return rows;
+  }
+
+  /// Returns papers belonging to [date] within [papers], sorted by start time.
+  List<Paper> _papersOnDate(List<Paper> papers, DateTime date) {
+    return papers.where((p) {
+      final dt = DateTime.fromMillisecondsSinceEpoch(p.start.toInt() * 1000);
+      final day = DateTime(dt.year, dt.month, dt.day);
+      return day == date;
+    }).toList()..sort((a, b) => a.start.compareTo(b.start));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final rows = _buildRows();
+    final allPapers = rows.expand((r) => r.papers).toList();
+
+    if (rows.isEmpty || allPapers.isEmpty) {
+      return _EmptyPapersTimetableState(cs: cs);
+    }
+
+    final grouped = _groupPapersByDate(allPapers);
+    final dates = _sortedPaperDates(grouped);
+
+    const double rowLabelWidth = 140;
+    const double colWidth = 152;
+    final totalWidth = rowLabelWidth + dates.length * colWidth;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Status legend
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: _PaperStatusLegend(),
+        ),
+        // Scrollable matrix
+        Expanded(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.vertical,
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: totalWidth,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // ── Header row (date labels) ──────────────────────────
+                    _CrossTableHeaderRow(
+                      dates: dates,
+                      rowLabelWidth: rowLabelWidth,
+                      colWidth: colWidth,
+                      cs: cs,
+                    ),
+                    const SizedBox(height: 6),
+                    // ── Data rows (one per grade+stream) ─────────────────
+                    for (final row in rows)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // Row label
+                              SizedBox(
+                                width: rowLabelWidth,
+                                child: _CrossTableRowLabel(
+                                  label: row.label,
+                                  cs: cs,
+                                ),
+                              ),
+                              // Date cells
+                              ...dates.map((date) {
+                                final cellPapers = _papersOnDate(
+                                  row.papers,
+                                  date,
+                                );
+                                if (cellPapers.isEmpty) {
+                                  return SizedBox(
+                                    width: colWidth,
+                                    child: _PaperEmptyCell(cs: cs),
+                                  );
+                                }
+                                return SizedBox(
+                                  width: colWidth,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                    ),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        for (
+                                          int i = 0;
+                                          i < cellPapers.length;
+                                          i++
+                                        ) ...[
+                                          _PaperSlotBox(
+                                            paper: cellPapers[i],
+                                            exam: row.exam,
+                                            subjectNames: subjectNames,
+                                            statusColor: _paperStatusColor(
+                                              cellPapers[i].status,
+                                              cs,
+                                            ),
+                                            invigilatorName:
+                                                teacherNames[cellPapers[i]
+                                                    .invigilator] ??
+                                                '',
+                                            cs: cs,
+                                            onTap: () => onPaperTap(
+                                              cellPapers[i],
+                                              row.exam,
+                                              row.grade,
+                                            ),
+                                          ),
+                                          if (i < cellPapers.length - 1)
+                                            const SizedBox(height: 4),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Header row for [_ExamGroupCrossTable]: empty corner cell + date labels.
+class _CrossTableHeaderRow extends StatelessWidget {
+  const _CrossTableHeaderRow({
+    required this.dates,
+    required this.rowLabelWidth,
+    required this.colWidth,
+    required this.cs,
+  });
+
+  final List<DateTime> dates;
+  final double rowLabelWidth;
+  final double colWidth;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        // Corner spacer — same width as row labels
+        SizedBox(width: rowLabelWidth),
+        ...dates.map(
+          (d) => SizedBox(
+            width: colWidth,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                _fmtDayHeader(d),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Left-edge label cell for a grade+stream row in [_ExamGroupCrossTable].
+class _CrossTableRowLabel extends StatelessWidget {
+  const _CrossTableRowLabel({required this.label, required this.cs});
+
+  final String label;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+          border: Border.all(
+            color: cs.outlineVariant.withValues(alpha: 0.2),
+            width: 1,
+          ),
+        ),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurface,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
