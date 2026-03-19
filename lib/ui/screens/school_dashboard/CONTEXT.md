@@ -145,10 +145,10 @@ This directory contains **1 shell screen file** and **8 subdirectories**, each r
 ### `timetable/`
 | File | Widget | Status | Description |
 |---|---|---|---|
-| `timetable_screen.dart` | `TimetableScreen` | ✅ Complete | Timetable rules setup + viewing. Desktop: weekly grid view. Mobile: day-by-day pager/timeline. Rules configuration form for owners. "Generate Timetable" button is a stub (shows snackbar — algorithm pending). |
+| `timetable_screen.dart` | `TimetableScreen` | ✅ Complete | Timetable rules setup + viewing. Desktop: weekly grid view. Mobile: day-by-day pager/timeline. Owner view: single schedule view + green `+` FAB. FAB opens `_RulesSheet` (three tabs: Global / Teachers / Subjects). Rules persisted via `FileCache.loadTimetableRules/saveTimetableRules`. Tapping Generate in the sheet runs `compute(runTimetableGenerator, input)` and bulk-inserts via `TimetableDao.insertSlots`. Teacher block rules and subject block rules supported. Teacher/subject name resolution is TODO (shows ID for now). |
 
 **Data source:** `TimetableDao.watchTimetable(...)`, `TimetableDao.watchLessons(...)`
-**Dependencies:** `database/daos/timetable_dao.dart`, `models/active_term_context.dart`, `models/school_context.dart`
+**Dependencies:** `database/daos/timetable_dao.dart`, `models/active_term_context.dart`, `models/school_context.dart`, `models/timetable_rules.dart`, `services/timetable_generator.dart`, `cache/file_cache.dart`, `ui/widgets/edu_sheet.dart`
 
 ## Key Provided Context Objects
 

@@ -658,7 +658,7 @@ import '../models/timetable_rules.dart';
 
 ## Track C — UI Overhaul
 
-### Task C1: Refactor `_OwnerTimetableShell` — remove tabs, add FAB
+### [x] Task C1: Refactor `_OwnerTimetableShell` — remove tabs, add FAB
 
 **Files to modify:** `lib/ui/screens/school_dashboard/timetable/timetable_screen.dart`
 **Files to modify:** `lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -1170,8 +1170,8 @@ Remove the import of `edu_tab_bar.dart` only if it is no longer used in this fil
 Delete the entire `_TimetableRules` private class (lines 416–466 in current file). All references to `_TimetableRules` in `_OwnerTimetableShellState` now use `TimetableRules` from `lib/models/timetable_rules.dart`.
 
 **After modifying:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — update the `timetable/` section: remove "Rules tab" references, add "Green FAB opens `_RulesSheet`", note `TimetableRules` model used, note generation runs via `compute(runTimetableGenerator, ...)`.
-- [ ] Mark this task `[x]`.
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — update the `timetable/` section: remove "Rules tab" references, add "Green FAB opens `_RulesSheet`", note `TimetableRules` model used, note generation runs via `compute(runTimetableGenerator, ...)`.
+- [x] Mark this task `[x]`.
 
 ---
 

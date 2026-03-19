@@ -1,6 +1,8 @@
 import 'package:drift/drift.dart' hide Column;
+import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/material.dart';
 
+import '../../../../cache/file_cache.dart';
 import '../../../../client.dart';
 import '../../../../database/database.dart';
 
@@ -11,9 +13,12 @@ import '../../../../models/active_term_context.dart';
 import '../../../../models/membership.dart';
 import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
+import '../../../../models/timetable_rules.dart';
+import '../../../../services/timetable_generator.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/active_term_provider.dart';
-import '../../../widgets/edu_tab_bar.dart';
+
+import '../../../widgets/edu_sheet.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Constants
@@ -143,38 +148,214 @@ class _OwnerTimetableShell extends StatefulWidget {
   State<_OwnerTimetableShell> createState() => _OwnerTimetableShellState();
 }
 
-class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
+class _OwnerTimetableShellState extends State<_OwnerTimetableShell> {
   final _timetableDao = TimetableDao(db);
 
   SchoolConfig? _config;
+  TimetableRules? _rules;
+  bool _generating = false;
   int? _selectedGrade;
   int? _selectedStream;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     _loadConfig();
   }
 
   Future<void> _loadConfig() async {
-    // TODO: reload config from new settings source when available
-    if (mounted) setState(() => _config = SchoolConfig.defaults());
+    final term = widget.termContext.currentTerm;
+    final schoolId = widget.schoolContext.membership.school.id;
+    final rules = term != null
+        ? await FileCache.loadTimetableRules(
+            schoolId: schoolId,
+            year: term.year,
+            term: term.term,
+          )
+        : TimetableRules.defaults();
+    if (mounted) {
+      setState(() {
+        _config = SchoolConfig.defaults();
+        _rules = rules;
+      });
+    }
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _openRulesSheet() async {
+    final term = widget.termContext.currentTerm;
+    if (term == null || _rules == null) return;
+
+    final result = await showEduSheet<_RulesSheetResult>(
+      context: context,
+      builder: (ctx) => _RulesSheet(
+        initialRules: _rules!,
+        schoolContext: widget.schoolContext,
+        termContext: widget.termContext,
+      ),
+    );
+
+    if (result == null || !mounted) return;
+
+    // Persist the rules.
+    await FileCache.saveTimetableRules(
+      schoolId: widget.schoolContext.membership.school.id,
+      year: term.year,
+      term: term.term,
+      rules: result.rules,
+    );
+    if (mounted) setState(() => _rules = result.rules);
+
+    if (result.shouldGenerate) {
+      await _runGeneration(result.rules);
+    }
+  }
+
+  Future<void> _runGeneration(TimetableRules rules) async {
+    final term = widget.termContext.currentTerm;
+    if (term == null || _generating) return;
+
+    setState(() => _generating = true);
+
+    try {
+      final schoolId = widget.schoolContext.membership.school.id;
+
+      final assignments = await _timetableDao.getSubjectTeachersForTerm(
+        schoolId: schoolId,
+        year: term.year,
+        term: term.term,
+      );
+
+      if (assignments.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text(
+                'No subjects assigned for this term. Assign subjects to classes first.',
+              ),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              margin: const EdgeInsets.all(16),
+            ),
+          );
+        }
+        return;
+      }
+
+      final input = GeneratorInput(assignments: assignments, rules: rules);
+      final result = await compute(runTimetableGenerator, input);
+
+      if (!mounted) return;
+
+      if (result is GeneratorFailure) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not generate timetable: ${result.reason}'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Theme.of(context).colorScheme.error,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            margin: const EdgeInsets.all(16),
+            duration: const Duration(seconds: 6),
+          ),
+        );
+        return;
+      }
+
+      final success = result as GeneratorSuccess;
+      final account = cache.currentUser;
+      if (account == null || !mounted) return;
+
+      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      final companions = success.slots
+          .map(
+            (s) => TimetableCompanion(
+              school: Value(s.school),
+              year: Value(s.year),
+              term: Value(s.term),
+              grade: Value(s.grade),
+              stream: Value(s.stream),
+              subject: Value(s.subjectId),
+              teacher: Value(s.teacherUserId),
+              day: Value(s.day),
+              start: Value(s.startSeconds),
+              end: Value(s.endSeconds),
+              created: Value(now),
+              updated: Value(now),
+            ),
+          )
+          .toList();
+
+      // Group by (grade, stream) and clear each class timetable before inserting.
+      final byClass = <({int grade, int stream}), List<TimetableCompanion>>{};
+      for (final c in companions) {
+        final key = (grade: c.grade.value, stream: c.stream.value);
+        byClass.putIfAbsent(key, () => []).add(c);
+      }
+
+      for (final entry in byClass.entries) {
+        await _timetableDao.clearClassTimetable(
+          schoolId: schoolId,
+          year: term.year,
+          term: term.term,
+          grade: entry.key.grade,
+          stream: entry.key.stream,
+          accountId: account.user.id,
+        );
+      }
+
+      await _timetableDao.insertSlots(
+        slots: companions,
+        accountId: account.user.id,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Timetable generated — ${success.slots.length} slots '
+              '(${success.iterations} iterations, ${success.elapsed.inMilliseconds}ms)',
+            ),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            margin: const EdgeInsets.all(16),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Generation error: $e'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Theme.of(context).colorScheme.error,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            margin: const EdgeInsets.all(16),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _generating = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    if (_config == null) {
+    if (_config == null || _rules == null) {
       return Center(
         child: SizedBox(
           width: 20,
@@ -184,43 +365,27 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
       );
     }
 
-    return Column(
-      children: [
-        EduTabBar(
-          controller: _tabController,
-          tabs: const [
-            EduTab(label: 'Schedule'),
-            EduTab(label: 'Rules'),
-          ],
-        ),
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              _OwnerScheduleTab(
-                schoolContext: widget.schoolContext,
-                termContext: widget.termContext,
-                config: _config!,
-                timetableDao: _timetableDao,
-                selectedGrade: _selectedGrade,
-                selectedStream: _selectedStream,
-                onClassSelected: (grade, stream) {
-                  setState(() {
-                    _selectedGrade = grade;
-                    _selectedStream = stream;
-                  });
-                },
-              ),
-              _RulesTab(
-                schoolContext: widget.schoolContext,
-                termContext: widget.termContext,
-                config: _config!,
-                timetableDao: _timetableDao,
-              ),
-            ],
-          ),
-        ),
-      ],
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: _OwnerScheduleTab(
+        schoolContext: widget.schoolContext,
+        termContext: widget.termContext,
+        config: _config!,
+        timetableDao: _timetableDao,
+        selectedGrade: _selectedGrade,
+        selectedStream: _selectedStream,
+        onClassSelected: (grade, stream) {
+          setState(() {
+            _selectedGrade = grade;
+            _selectedStream = stream;
+          });
+        },
+      ),
+      floatingActionButton: _GenerateFab(
+        onTap: _openRulesSheet,
+        generating: _generating,
+        cs: cs,
+      ),
     );
   }
 }
@@ -412,389 +577,6 @@ class _ClassChip extends StatelessWidget {
 // ═════════════════════════════════════════════════════════════════════════════
 // RULES TAB — Timetable constraints for GA
 // ═════════════════════════════════════════════════════════════════════════════
-
-class _TimetableRules {
-  // ignore: unused_element_parameter
-  _TimetableRules({
-    // ignore: unused_element_parameter
-    this.dayStartSeconds = _kDefaultDayStart,
-    // ignore: unused_element_parameter
-    this.dayEndSeconds = _kDefaultDayEnd,
-    // ignore: unused_element_parameter
-    this.lessonDurationMinutes = 40,
-    // ignore: unused_element_parameter
-    this.breakDurationMinutes = 10,
-    // ignore: unused_element_parameter
-    this.maxLessonsPerDayTeacher = 6,
-    // ignore: unused_element_parameter
-    this.allowDoubles = false,
-    // ignore: unused_element_parameter
-    this.lunchStartSeconds = 12 * 3600 + 30 * 60,
-    // ignore: unused_element_parameter
-    this.lunchDurationMinutes = 60,
-    // ignore: unused_element_parameter
-    this.activeDays = const [
-      DayOfWeek.monday,
-      DayOfWeek.tuesday,
-      DayOfWeek.wednesday,
-      DayOfWeek.thursday,
-      DayOfWeek.friday,
-    ],
-  });
-
-  int dayStartSeconds;
-  int dayEndSeconds;
-  int lessonDurationMinutes;
-  int breakDurationMinutes;
-  int maxLessonsPerDayTeacher;
-  bool allowDoubles;
-  int lunchStartSeconds;
-  int lunchDurationMinutes;
-  List<DayOfWeek> activeDays;
-
-  Map<String, dynamic> toJson() => {
-    'day_start': dayStartSeconds,
-    'day_end': dayEndSeconds,
-    'lesson_duration': lessonDurationMinutes,
-    'break_duration': breakDurationMinutes,
-    'max_lessons_teacher': maxLessonsPerDayTeacher,
-    'allow_doubles': allowDoubles,
-    'lunch_start': lunchStartSeconds,
-    'lunch_duration': lunchDurationMinutes,
-    'active_days': activeDays.map((d) => d.index).toList(),
-  };
-}
-
-class _RulesTab extends StatefulWidget {
-  const _RulesTab({
-    required this.schoolContext,
-    required this.termContext,
-    required this.config,
-    required this.timetableDao,
-  });
-
-  final SchoolContext schoolContext;
-  final ActiveTermContext termContext;
-  final SchoolConfig config;
-  final TimetableDao timetableDao;
-
-  @override
-  State<_RulesTab> createState() => _RulesTabState();
-}
-
-class _RulesTabState extends State<_RulesTab> {
-  late _TimetableRules _rules;
-  bool _loading = true;
-  bool _saving = false;
-  bool _dirty = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _rules = _TimetableRules();
-    _loadRules();
-  }
-
-  Future<void> _loadRules() async {
-    // TODO: reload rules from new settings source when available
-    if (mounted) setState(() => _loading = false);
-  }
-
-  Future<void> _saveRules() async {
-    // TODO: persist rules via new settings source when available
-    if (mounted) {
-      setState(() {
-        _dirty = false;
-        _saving = false;
-      });
-    }
-  }
-
-  void _generate() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text(
-          'Timetable generation algorithm pending implementation.',
-        ),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 3),
-      ),
-    );
-  }
-
-  void _markDirty() {
-    if (!_dirty) setState(() => _dirty = true);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isDark = cs.brightness == Brightness.dark;
-
-    if (_loading) {
-      return Center(
-        child: SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
-        ),
-      );
-    }
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth > AppTheme.kMobileBreakpoint;
-
-        return Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isWide ? 24 : 16,
-                  vertical: 16,
-                ),
-                child: isWide
-                    ? _buildWideRulesLayout(cs, isDark)
-                    : _buildNarrowRulesLayout(cs, isDark),
-              ),
-            ),
-            _RulesActionBar(
-              dirty: _dirty,
-              saving: _saving,
-              onSave: _saveRules,
-              onGenerate: _generate,
-              cs: cs,
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildWideRulesLayout(ColorScheme cs, bool isDark) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: _RulesSection(
-            title: 'Time Configuration',
-            cs: cs,
-            isDark: isDark,
-            children: _buildTimeRules(cs, isDark),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            children: [
-              _RulesSection(
-                title: 'Teacher Constraints',
-                cs: cs,
-                isDark: isDark,
-                children: _buildTeacherRules(cs, isDark),
-              ),
-              const SizedBox(height: 16),
-              _RulesSection(
-                title: 'Active Days',
-                cs: cs,
-                isDark: isDark,
-                children: _buildDayRules(cs, isDark),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildNarrowRulesLayout(ColorScheme cs, bool isDark) {
-    return Column(
-      children: [
-        _RulesSection(
-          title: 'Time Configuration',
-          cs: cs,
-          isDark: isDark,
-          children: _buildTimeRules(cs, isDark),
-        ),
-        const SizedBox(height: 16),
-        _RulesSection(
-          title: 'Teacher Constraints',
-          cs: cs,
-          isDark: isDark,
-          children: _buildTeacherRules(cs, isDark),
-        ),
-        const SizedBox(height: 16),
-        _RulesSection(
-          title: 'Active Days',
-          cs: cs,
-          isDark: isDark,
-          children: _buildDayRules(cs, isDark),
-        ),
-      ],
-    );
-  }
-
-  List<Widget> _buildTimeRules(ColorScheme cs, bool isDark) {
-    return [
-      _RuleRow(
-        label: 'Day starts at',
-        cs: cs,
-        child: _TimePickerButton(
-          seconds: _rules.dayStartSeconds,
-          cs: cs,
-          onChanged: (v) {
-            setState(() => _rules.dayStartSeconds = v);
-            _markDirty();
-          },
-        ),
-      ),
-      _ruleDivider(cs),
-      _RuleRow(
-        label: 'Day ends at',
-        cs: cs,
-        child: _TimePickerButton(
-          seconds: _rules.dayEndSeconds,
-          cs: cs,
-          onChanged: (v) {
-            setState(() => _rules.dayEndSeconds = v);
-            _markDirty();
-          },
-        ),
-      ),
-      _ruleDivider(cs),
-      _RuleRow(
-        label: 'Lesson duration',
-        cs: cs,
-        child: _StepperControl(
-          value: _rules.lessonDurationMinutes,
-          suffix: 'min',
-          min: 20,
-          max: 90,
-          step: 5,
-          cs: cs,
-          onChanged: (v) {
-            setState(() => _rules.lessonDurationMinutes = v);
-            _markDirty();
-          },
-        ),
-      ),
-      _ruleDivider(cs),
-      _RuleRow(
-        label: 'Break between lessons',
-        cs: cs,
-        child: _StepperControl(
-          value: _rules.breakDurationMinutes,
-          suffix: 'min',
-          min: 0,
-          max: 30,
-          step: 5,
-          cs: cs,
-          onChanged: (v) {
-            setState(() => _rules.breakDurationMinutes = v);
-            _markDirty();
-          },
-        ),
-      ),
-      _ruleDivider(cs),
-      _RuleRow(
-        label: 'Lunch break starts at',
-        cs: cs,
-        child: _TimePickerButton(
-          seconds: _rules.lunchStartSeconds,
-          cs: cs,
-          onChanged: (v) {
-            setState(() => _rules.lunchStartSeconds = v);
-            _markDirty();
-          },
-        ),
-      ),
-      _ruleDivider(cs),
-      _RuleRow(
-        label: 'Lunch break duration',
-        cs: cs,
-        child: _StepperControl(
-          value: _rules.lunchDurationMinutes,
-          suffix: 'min',
-          min: 15,
-          max: 90,
-          step: 5,
-          cs: cs,
-          onChanged: (v) {
-            setState(() => _rules.lunchDurationMinutes = v);
-            _markDirty();
-          },
-        ),
-      ),
-    ];
-  }
-
-  List<Widget> _buildTeacherRules(ColorScheme cs, bool isDark) {
-    return [
-      _RuleRow(
-        label: 'Max lessons per day (teacher)',
-        cs: cs,
-        child: _StepperControl(
-          value: _rules.maxLessonsPerDayTeacher,
-          suffix: '',
-          min: 1,
-          max: 10,
-          step: 1,
-          cs: cs,
-          onChanged: (v) {
-            setState(() => _rules.maxLessonsPerDayTeacher = v);
-            _markDirty();
-          },
-        ),
-      ),
-      _ruleDivider(cs),
-      _RuleRow(
-        label: 'Allow double lessons',
-        cs: cs,
-        child: Switch.adaptive(
-          value: _rules.allowDoubles,
-          activeTrackColor: cs.primary,
-          onChanged: (v) {
-            setState(() => _rules.allowDoubles = v);
-            _markDirty();
-          },
-        ),
-      ),
-    ];
-  }
-
-  List<Widget> _buildDayRules(ColorScheme cs, bool isDark) {
-    return DayOfWeek.values.map((day) {
-      final isActive = _rules.activeDays.contains(day);
-      return _DayToggle(
-        day: day,
-        isActive: isActive,
-        cs: cs,
-        onToggle: (active) {
-          setState(() {
-            if (active) {
-              if (!_rules.activeDays.contains(day)) {
-                _rules.activeDays.add(day);
-              }
-            } else {
-              _rules.activeDays.remove(day);
-            }
-          });
-          _markDirty();
-        },
-      );
-    }).toList();
-  }
-
-  Widget _ruleDivider(ColorScheme cs) {
-    return Divider(
-      height: 1,
-      thickness: 0.5,
-      color: cs.outlineVariant.withValues(alpha: 0.2),
-    );
-  }
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Rules sub-components
@@ -1081,52 +863,585 @@ class _DayToggle extends StatelessWidget {
   }
 }
 
-class _RulesActionBar extends StatelessWidget {
-  const _RulesActionBar({
-    required this.dirty,
-    required this.saving,
-    required this.onSave,
-    required this.onGenerate,
+// ═══════════════════════════════════════════════════════════════════════════
+// FAB
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _GenerateFab extends StatelessWidget {
+  const _GenerateFab({
+    required this.onTap,
+    required this.generating,
     required this.cs,
   });
 
-  final bool dirty;
-  final bool saving;
-  final VoidCallback onSave;
-  final VoidCallback onGenerate;
+  final VoidCallback onTap;
+  final bool generating;
   final ColorScheme cs;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: cs.surface,
-        border: Border(
-          top: BorderSide(
-            color: cs.outlineVariant.withValues(alpha: 0.2),
-            width: 0.5,
+    return FloatingActionButton(
+      onPressed: generating ? null : onTap,
+      backgroundColor: AppTheme.brandGreen,
+      foregroundColor: Colors.white,
+      elevation: 3,
+      shape: const CircleBorder(),
+      tooltip: 'Configure rules & generate timetable',
+      child: generating
+          ? const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            )
+          : const Icon(Icons.add_rounded, size: 26),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Rules Sheet
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _RulesSheetResult {
+  const _RulesSheetResult({required this.rules, required this.shouldGenerate});
+  final TimetableRules rules;
+  final bool shouldGenerate;
+}
+
+class _RulesSheet extends StatefulWidget {
+  const _RulesSheet({
+    required this.initialRules,
+    required this.schoolContext,
+    required this.termContext,
+  });
+
+  final TimetableRules initialRules;
+  final SchoolContext schoolContext;
+  final ActiveTermContext termContext;
+
+  @override
+  State<_RulesSheet> createState() => _RulesSheetState();
+}
+
+class _RulesSheetState extends State<_RulesSheet> {
+  late TimetableRules _rules;
+  int _tab = 0; // 0=Global, 1=Teachers, 2=Subjects
+
+  @override
+  void initState() {
+    super.initState();
+    _rules = TimetableRules.fromJson(widget.initialRules.toJson());
+  }
+
+  void _save() => Navigator.of(
+    context,
+  ).pop(_RulesSheetResult(rules: _rules, shouldGenerate: false));
+
+  void _generate() => Navigator.of(
+    context,
+  ).pop(_RulesSheetResult(rules: _rules, shouldGenerate: true));
+
+  Widget _ruleDivider(ColorScheme cs) => Divider(
+    height: 1,
+    thickness: 0.5,
+    color: cs.outlineVariant.withValues(alpha: 0.2),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Tab strip
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Row(
+            children: [
+              _SheetTab(
+                label: 'Global',
+                selected: _tab == 0,
+                onTap: () => setState(() => _tab = 0),
+                cs: cs,
+              ),
+              const SizedBox(width: 8),
+              _SheetTab(
+                label: 'Teachers',
+                selected: _tab == 1,
+                onTap: () => setState(() => _tab = 1),
+                cs: cs,
+              ),
+              const SizedBox(width: 8),
+              _SheetTab(
+                label: 'Subjects',
+                selected: _tab == 2,
+                onTap: () => setState(() => _tab = 2),
+                cs: cs,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        // Content
+        Flexible(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: _buildTabContent(cs, isDark),
+          ),
+        ),
+        // Action row
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: _save,
+                icon: const Icon(Icons.save_outlined, size: 16),
+                label: const Text('Save'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: cs.onSurface,
+                  side: BorderSide(color: cs.outlineVariant),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              FilledButton.icon(
+                onPressed: _generate,
+                icon: const Icon(Icons.play_arrow_rounded, size: 16),
+                label: const Text('Generate'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTheme.brandGreen,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTabContent(ColorScheme cs, bool isDark) {
+    return switch (_tab) {
+      0 => _buildGlobalTab(cs, isDark),
+      1 => _buildTeachersTab(cs, isDark),
+      2 => _buildSubjectsTab(cs, isDark),
+      _ => const SizedBox.shrink(),
+    };
+  }
+
+  Widget _buildGlobalTab(ColorScheme cs, bool isDark) {
+    return Column(
+      children: [
+        _RulesSection(
+          title: 'Time Configuration',
+          cs: cs,
+          isDark: isDark,
+          children: [
+            _RuleRow(
+              label: 'Day starts at',
+              cs: cs,
+              child: _TimePickerButton(
+                seconds: _rules.dayStartSeconds,
+                cs: cs,
+                onChanged: (v) => setState(() => _rules.dayStartSeconds = v),
+              ),
+            ),
+            _ruleDivider(cs),
+            _RuleRow(
+              label: 'Day ends at',
+              cs: cs,
+              child: _TimePickerButton(
+                seconds: _rules.dayEndSeconds,
+                cs: cs,
+                onChanged: (v) => setState(() => _rules.dayEndSeconds = v),
+              ),
+            ),
+            _ruleDivider(cs),
+            _RuleRow(
+              label: 'Lesson duration',
+              cs: cs,
+              child: _StepperControl(
+                value: _rules.lessonDurationMinutes,
+                suffix: 'min',
+                min: 20,
+                max: 90,
+                step: 5,
+                cs: cs,
+                onChanged: (v) =>
+                    setState(() => _rules.lessonDurationMinutes = v),
+              ),
+            ),
+            _ruleDivider(cs),
+            _RuleRow(
+              label: 'Break between lessons',
+              cs: cs,
+              child: _StepperControl(
+                value: _rules.breakDurationMinutes,
+                suffix: 'min',
+                min: 0,
+                max: 30,
+                step: 5,
+                cs: cs,
+                onChanged: (v) =>
+                    setState(() => _rules.breakDurationMinutes = v),
+              ),
+            ),
+            _ruleDivider(cs),
+            _RuleRow(
+              label: 'Lunch break starts at',
+              cs: cs,
+              child: _TimePickerButton(
+                seconds: _rules.lunchStartSeconds,
+                cs: cs,
+                onChanged: (v) => setState(() => _rules.lunchStartSeconds = v),
+              ),
+            ),
+            _ruleDivider(cs),
+            _RuleRow(
+              label: 'Lunch break duration',
+              cs: cs,
+              child: _StepperControl(
+                value: _rules.lunchDurationMinutes,
+                suffix: 'min',
+                min: 15,
+                max: 90,
+                step: 5,
+                cs: cs,
+                onChanged: (v) =>
+                    setState(() => _rules.lunchDurationMinutes = v),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _RulesSection(
+          title: 'Load Constraints',
+          cs: cs,
+          isDark: isDark,
+          children: [
+            _RuleRow(
+              label: 'Max lessons per day (teacher)',
+              cs: cs,
+              child: _StepperControl(
+                value: _rules.maxLessonsPerDayTeacher,
+                suffix: '',
+                min: 1,
+                max: 10,
+                step: 1,
+                cs: cs,
+                onChanged: (v) =>
+                    setState(() => _rules.maxLessonsPerDayTeacher = v),
+              ),
+            ),
+            _ruleDivider(cs),
+            _RuleRow(
+              label: 'Max lessons per day (class)',
+              cs: cs,
+              child: _StepperControl(
+                value: _rules.maxLessonsPerDayClass,
+                suffix: '',
+                min: 1,
+                max: 12,
+                step: 1,
+                cs: cs,
+                onChanged: (v) =>
+                    setState(() => _rules.maxLessonsPerDayClass = v),
+              ),
+            ),
+            _ruleDivider(cs),
+            _RuleRow(
+              label: 'Allow double lessons',
+              cs: cs,
+              child: Switch.adaptive(
+                value: _rules.allowDoubles,
+                activeTrackColor: cs.primary,
+                onChanged: (v) => setState(() => _rules.allowDoubles = v),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _RulesSection(
+          title: 'Active Days',
+          cs: cs,
+          isDark: isDark,
+          children: DayOfWeek.values.map((day) {
+            final isActive = _rules.activeDays.contains(day);
+            return _DayToggle(
+              day: day,
+              isActive: isActive,
+              cs: cs,
+              onToggle: (active) {
+                setState(() {
+                  if (active) {
+                    if (!_rules.activeDays.contains(day)) {
+                      _rules.activeDays.add(day);
+                    }
+                  } else {
+                    _rules.activeDays.remove(day);
+                  }
+                });
+              },
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTeachersTab(ColorScheme cs, bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (_rules.teacherBlocks.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Text(
+                'No teacher block rules defined.',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                ),
+              ),
+            ),
+          )
+        else
+          ..._rules.teacherBlocks.asMap().entries.map((entry) {
+            final i = entry.key;
+            final rule = entry.value;
+            return _TeacherBlockRuleTile(
+              rule: rule,
+              cs: cs,
+              isDark: isDark,
+              onDelete: () => setState(() => _rules.teacherBlocks.removeAt(i)),
+            );
+          }),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: () async {
+            final rule = await showEduSheet<TeacherBlockRule>(
+              context: context,
+              builder: (ctx) => _TeacherBlockRuleSheet(cs: cs),
+            );
+            if (rule != null) {
+              setState(() => _rules.teacherBlocks.add(rule));
+            }
+          },
+          icon: const Icon(Icons.add_rounded, size: 16),
+          label: const Text('Add Teacher Rule'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: cs.primary,
+            side: BorderSide(color: cs.outlineVariant),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+            ),
+            textStyle: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSubjectsTab(ColorScheme cs, bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (_rules.subjectBlocks.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Text(
+                'No subject block rules defined.',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                ),
+              ),
+            ),
+          )
+        else
+          ..._rules.subjectBlocks.asMap().entries.map((entry) {
+            final i = entry.key;
+            final rule = entry.value;
+            return _SubjectBlockRuleTile(
+              rule: rule,
+              cs: cs,
+              isDark: isDark,
+              onDelete: () => setState(() => _rules.subjectBlocks.removeAt(i)),
+            );
+          }),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: () async {
+            final rule = await showEduSheet<SubjectBlockRule>(
+              context: context,
+              builder: (ctx) => _SubjectBlockRuleSheet(cs: cs),
+            );
+            if (rule != null) {
+              setState(() => _rules.subjectBlocks.add(rule));
+            }
+          },
+          icon: const Icon(Icons.add_rounded, size: 16),
+          label: const Text('Add Subject Rule'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: cs.primary,
+            side: BorderSide(color: cs.outlineVariant),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+            ),
+            textStyle: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Sheet tab chip ─────────────────────────────────────────────────────────
+
+class _SheetTab extends StatelessWidget {
+  const _SheetTab({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    required this.cs,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = cs.brightness == Brightness.dark;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected
+              ? cs.primary.withValues(alpha: isDark ? 0.2 : 0.12)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+          border: Border.all(
+            color: selected
+                ? cs.primary.withValues(alpha: 0.5)
+                : cs.outlineVariant.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+            color: selected ? cs.primary : cs.onSurfaceVariant,
           ),
         ),
       ),
+    );
+  }
+}
+
+// ── Teacher block rule tile (display) ─────────────────────────────────────
+
+class _TeacherBlockRuleTile extends StatelessWidget {
+  const _TeacherBlockRuleTile({
+    required this.rule,
+    required this.cs,
+    required this.isDark,
+    required this.onDelete,
+  });
+
+  final TeacherBlockRule rule;
+  final ColorScheme cs;
+  final bool isDark;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final dayLabels = rule.days.map((d) => _kDayLabels[d] ?? d.name).join(', ');
+    final startStr = _fmtTime(rule.startSeconds);
+    final endStr = _fmtTime(rule.endSeconds);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppTheme.nestedBg(isDark, cs),
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        border: Border.all(color: AppTheme.borderColor(isDark, cs)),
+      ),
       child: Row(
         children: [
-          // Save button
           Expanded(
-            child: _ActionButton(
-              label: saving ? 'Saving…' : 'Save Rules',
-              icon: Icons.save_outlined,
-              color: dirty
-                  ? cs.primary
-                  : cs.onSurfaceVariant.withValues(alpha: 0.4),
-              cs: cs,
-              onTap: dirty && !saving ? onSave : null,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  // TODO: resolve teacher name from DB
+                  'Teacher: ${rule.teacherUserId}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '$dayLabels · $startStr – $endStr',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: 12),
-          // Generate button
-          Expanded(
-            child: _GenerateButton(cs: cs, onTap: onGenerate),
+          IconButton(
+            icon: Icon(
+              Icons.delete_outline_rounded,
+              size: 18,
+              color: cs.error.withValues(alpha: 0.7),
+            ),
+            onPressed: onDelete,
+            tooltip: 'Remove rule',
+            visualDensity: VisualDensity.compact,
           ),
         ],
       ),
@@ -1134,114 +1449,583 @@ class _RulesActionBar extends StatelessWidget {
   }
 }
 
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({
-    required this.label,
-    required this.icon,
-    required this.color,
+// ── Subject block rule tile (display) ─────────────────────────────────────
+
+class _SubjectBlockRuleTile extends StatelessWidget {
+  const _SubjectBlockRuleTile({
+    required this.rule,
     required this.cs,
-    required this.onTap,
+    required this.isDark,
+    required this.onDelete,
   });
 
-  final String label;
-  final IconData icon;
-  final Color color;
+  final SubjectBlockRule rule;
   final ColorScheme cs;
-  final VoidCallback? onTap;
+  final bool isDark;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
-    final enabled = onTap != null;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-        decoration: BoxDecoration(
-          color: enabled ? color.withValues(alpha: 0.1) : Colors.transparent,
-          borderRadius: BorderRadius.circular(AppTheme.kRadius),
-          border: Border.all(
-            color: enabled
-                ? color.withValues(alpha: 0.4)
-                : cs.outlineVariant.withValues(alpha: 0.2),
-            width: 1,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: color,
-                letterSpacing: 0.1,
-              ),
+    final parts = <String>[];
+    if (rule.allowedDays != null) {
+      parts.add(
+        'Only on: ${rule.allowedDays!.map((d) => _kDayLabels[d] ?? d.name).join(', ')}',
+      );
+    }
+    if (rule.blockedAfterSeconds != null) {
+      parts.add('Not after ${_fmtTime(rule.blockedAfterSeconds!)}');
+    }
+    if (rule.blockedBeforeSeconds != null) {
+      parts.add('Not before ${_fmtTime(rule.blockedBeforeSeconds!)}');
+    }
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppTheme.nestedBg(isDark, cs),
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        border: Border.all(color: AppTheme.borderColor(isDark, cs)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  // TODO: resolve subject name from DB
+                  'Subject ID: ${rule.subjectId}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                  ),
+                ),
+                if (parts.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    parts.join(' · '),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w400,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ],
             ),
-          ],
-        ),
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.delete_outline_rounded,
+              size: 18,
+              color: cs.error.withValues(alpha: 0.7),
+            ),
+            onPressed: onDelete,
+            tooltip: 'Remove rule',
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
       ),
     );
   }
 }
 
-class _GenerateButton extends StatelessWidget {
-  const _GenerateButton({required this.cs, required this.onTap});
+// ═══════════════════════════════════════════════════════════════════════════
+// Teacher block rule entry sheet
+// ═══════════════════════════════════════════════════════════════════════════
 
+class _TeacherBlockRuleSheet extends StatefulWidget {
+  const _TeacherBlockRuleSheet({required this.cs});
   final ColorScheme cs;
-  final VoidCallback onTap;
+  @override
+  State<_TeacherBlockRuleSheet> createState() => _TeacherBlockRuleSheetState();
+}
+
+class _TeacherBlockRuleSheetState extends State<_TeacherBlockRuleSheet> {
+  final _teacherCtrl = TextEditingController();
+  List<DayOfWeek> _days = [];
+  int _start = 8 * 3600;
+  int _end = 10 * 3600;
+  String? _error;
+
+  @override
+  void dispose() {
+    _teacherCtrl.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final teacherId = _teacherCtrl.text.trim();
+    if (teacherId.isEmpty) {
+      setState(() => _error = 'Teacher user ID is required.');
+      return;
+    }
+    if (_days.isEmpty) {
+      setState(() => _error = 'Select at least one day.');
+      return;
+    }
+    if (_end <= _start) {
+      setState(() => _error = 'End time must be after start time.');
+      return;
+    }
+    Navigator.of(context).pop(
+      TeacherBlockRule(
+        teacherUserId: teacherId,
+        days: List.from(_days),
+        startSeconds: _start,
+        endSeconds: _end,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final cs = widget.cs;
     final isDark = cs.brightness == Brightness.dark;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: isDark
-                ? [
-                    cs.primary.withValues(alpha: 0.25),
-                    cs.primary.withValues(alpha: 0.15),
-                  ]
-                : [
-                    cs.primary.withValues(alpha: 0.12),
-                    cs.primary.withValues(alpha: 0.06),
-                  ],
-          ),
-          borderRadius: BorderRadius.circular(AppTheme.kRadius),
-          border: Border.all(
-            color: cs.primary.withValues(alpha: 0.4),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: cs.primary.withValues(alpha: isDark ? 0.15 : 0.08),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Add Teacher Block Rule',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurface,
             ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.auto_awesome, size: 16, color: cs.primary),
-            const SizedBox(width: 8),
-            Text(
-              'Generate Timetable',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: cs.primary,
-                letterSpacing: 0.1,
+          ),
+          const SizedBox(height: 16),
+          // Teacher ID field
+          Text(
+            'Teacher User ID',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            decoration: BoxDecoration(
+              color: AppTheme.nestedBg(isDark, cs),
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              border: Border.all(color: AppTheme.borderColor(isDark, cs)),
+            ),
+            child: TextField(
+              controller: _teacherCtrl,
+              style: TextStyle(fontSize: 13, color: cs.onSurface),
+              decoration: InputDecoration(
+                hintText: 'e.g. usr_abc123',
+                hintStyle: TextStyle(
+                  fontSize: 13,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
               ),
             ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'TODO: Replace with a searchable teacher picker in a future update.',
+            style: TextStyle(
+              fontSize: 10,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Day selector
+          Text(
+            'Blocked Days',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: DayOfWeek.values.map((day) {
+              final selected = _days.contains(day);
+              return GestureDetector(
+                onTap: () => setState(() {
+                  if (selected)
+                    _days.remove(day);
+                  else
+                    _days.add(day);
+                }),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 120),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? cs.primary.withValues(alpha: 0.15)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+                    border: Border.all(
+                      color: selected
+                          ? cs.primary.withValues(alpha: 0.5)
+                          : cs.outlineVariant.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Text(
+                    _kDayLabels[day] ?? day.name,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+                      color: selected ? cs.primary : cs.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 16),
+          // Time range
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Block from',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    _TimePickerButton(
+                      seconds: _start,
+                      cs: cs,
+                      onChanged: (v) => setState(() => _start = v),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Block until',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    _TimePickerButton(
+                      seconds: _end,
+                      cs: cs,
+                      onChanged: (v) => setState(() => _end = v),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 8),
+            Text(_error!, style: TextStyle(fontSize: 12, color: cs.error)),
           ],
-        ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: _submit,
+                style: FilledButton.styleFrom(
+                  backgroundColor: cs.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                  ),
+                ),
+                child: const Text('Add Rule', style: TextStyle(fontSize: 13)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Subject block rule entry sheet
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _SubjectBlockRuleSheet extends StatefulWidget {
+  const _SubjectBlockRuleSheet({required this.cs});
+  final ColorScheme cs;
+  @override
+  State<_SubjectBlockRuleSheet> createState() => _SubjectBlockRuleSheetState();
+}
+
+class _SubjectBlockRuleSheetState extends State<_SubjectBlockRuleSheet> {
+  final _subjectCtrl = TextEditingController();
+  bool _useAllowedDays = false;
+  bool _useBlockedAfter = false;
+  bool _useBlockedBefore = false;
+  List<DayOfWeek> _allowedDays = [];
+  int _blockedAfter = 14 * 3600;
+  int _blockedBefore = 8 * 3600;
+  String? _error;
+
+  @override
+  void dispose() {
+    _subjectCtrl.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final idStr = _subjectCtrl.text.trim();
+    final subjectId = int.tryParse(idStr);
+    if (subjectId == null) {
+      setState(() => _error = 'Enter a valid numeric subject ID.');
+      return;
+    }
+    if (_useAllowedDays && _allowedDays.isEmpty) {
+      setState(() => _error = 'Select at least one allowed day.');
+      return;
+    }
+    Navigator.of(context).pop(
+      SubjectBlockRule(
+        subjectId: subjectId,
+        allowedDays: _useAllowedDays ? List.from(_allowedDays) : null,
+        blockedAfterSeconds: _useBlockedAfter ? _blockedAfter : null,
+        blockedBeforeSeconds: _useBlockedBefore ? _blockedBefore : null,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final isDark = cs.brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Add Subject Block Rule',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurface,
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Subject ID field
+          Text(
+            'Subject ID',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            decoration: BoxDecoration(
+              color: AppTheme.nestedBg(isDark, cs),
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              border: Border.all(color: AppTheme.borderColor(isDark, cs)),
+            ),
+            child: TextField(
+              controller: _subjectCtrl,
+              keyboardType: TextInputType.number,
+              style: TextStyle(fontSize: 13, color: cs.onSurface),
+              decoration: InputDecoration(
+                hintText: 'e.g. 12',
+                hintStyle: TextStyle(
+                  fontSize: 13,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'TODO: Replace with a searchable subject picker in a future update.',
+            style: TextStyle(
+              fontSize: 10,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Allowed days toggle
+          Row(
+            children: [
+              Switch.adaptive(
+                value: _useAllowedDays,
+                activeTrackColor: cs.primary,
+                onChanged: (v) => setState(() => _useAllowedDays = v),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Restrict to specific days',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurface,
+                ),
+              ),
+            ],
+          ),
+          if (_useAllowedDays) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: DayOfWeek.values.map((day) {
+                final sel = _allowedDays.contains(day);
+                return GestureDetector(
+                  onTap: () => setState(() {
+                    if (sel)
+                      _allowedDays.remove(day);
+                    else
+                      _allowedDays.add(day);
+                  }),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 120),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: sel
+                          ? cs.primary.withValues(alpha: 0.15)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+                      border: Border.all(
+                        color: sel
+                            ? cs.primary.withValues(alpha: 0.5)
+                            : cs.outlineVariant.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Text(
+                      _kDayLabels[day] ?? day.name,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: sel ? FontWeight.w500 : FontWeight.w400,
+                        color: sel ? cs.primary : cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+          const SizedBox(height: 8),
+          // Blocked after toggle
+          Row(
+            children: [
+              Switch.adaptive(
+                value: _useBlockedAfter,
+                activeTrackColor: cs.primary,
+                onChanged: (v) => setState(() => _useBlockedAfter = v),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Not after a certain time',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurface,
+                ),
+              ),
+            ],
+          ),
+          if (_useBlockedAfter) ...[
+            const SizedBox(height: 8),
+            _TimePickerButton(
+              seconds: _blockedAfter,
+              cs: cs,
+              onChanged: (v) => setState(() => _blockedAfter = v),
+            ),
+          ],
+          const SizedBox(height: 8),
+          // Blocked before toggle
+          Row(
+            children: [
+              Switch.adaptive(
+                value: _useBlockedBefore,
+                activeTrackColor: cs.primary,
+                onChanged: (v) => setState(() => _useBlockedBefore = v),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Not before a certain time',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurface,
+                ),
+              ),
+            ],
+          ),
+          if (_useBlockedBefore) ...[
+            const SizedBox(height: 8),
+            _TimePickerButton(
+              seconds: _blockedBefore,
+              cs: cs,
+              onChanged: (v) => setState(() => _blockedBefore = v),
+            ),
+          ],
+          if (_error != null) ...[
+            const SizedBox(height: 8),
+            Text(_error!, style: TextStyle(fontSize: 12, color: cs.error)),
+          ],
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: _submit,
+                style: FilledButton.styleFrom(
+                  backgroundColor: cs.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                  ),
+                ),
+                child: const Text('Add Rule', style: TextStyle(fontSize: 13)),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
