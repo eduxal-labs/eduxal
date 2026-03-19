@@ -133,22 +133,6 @@ class SubjectConstraintEntry {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Default slot list
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Sensible default school-day slot sequence used when no persisted rules exist.
-List<TimetableSlot> _defaultSlots() => const [
-  TimetableSlot(type: SlotType.lesson, durationMinutes: 40),
-  TimetableSlot(type: SlotType.breakSlot, durationMinutes: 10),
-  TimetableSlot(type: SlotType.lesson, durationMinutes: 40),
-  TimetableSlot(type: SlotType.lesson, durationMinutes: 40),
-  TimetableSlot(type: SlotType.breakSlot, durationMinutes: 60), // lunch
-  TimetableSlot(type: SlotType.lesson, durationMinutes: 40),
-  TimetableSlot(type: SlotType.lesson, durationMinutes: 40),
-  TimetableSlot(type: SlotType.lesson, durationMinutes: 40),
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
 // TimetableRules
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -185,7 +169,7 @@ class TimetableRules {
     List<TeacherConstraintEntry>? teacherConstraints,
     List<SubjectConstraintEntry>? subjectConstraints,
   }) : dayStartTime = dayStartTime ?? const TimeOfDay(hour: 8, minute: 0),
-       slots = slots ?? _defaultSlots(),
+       slots = slots ?? [],
        activeDays = activeDays ?? [1, 2, 3, 4, 5], // Mon–Fri
        lessonsPerWeekBySubject = lessonsPerWeekBySubject ?? {},
        teacherConstraints = teacherConstraints ?? [],

@@ -2480,6 +2480,333 @@ class _WizardStepDots extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Drum time picker
+// ─────────────────────────────────────────────────────────────────────────────
+
+Future<TimeOfDay?> showDrumTimePicker({
+  required BuildContext context,
+  required TimeOfDay initialTime,
+}) {
+  final cs = Theme.of(context).colorScheme;
+  final isDark = cs.brightness == Brightness.dark;
+  return showDialog<TimeOfDay>(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.35),
+    builder: (_) => Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 60),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 280),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppTheme.modalBg(isDark, cs),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppTheme.borderColor(isDark, cs)),
+            boxShadow: AppTheme.modalShadow(isDark),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: _DrumTimePicker(initialTime: initialTime),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _DrumTimePicker extends StatefulWidget {
+  const _DrumTimePicker({required this.initialTime});
+  final TimeOfDay initialTime;
+  @override
+  State<_DrumTimePicker> createState() => _DrumTimePickerState();
+}
+
+class _DrumTimePickerState extends State<_DrumTimePicker> {
+  late int _hour; // 1–12
+  late int _minute; // 0–59
+  late bool _isPm;
+  late FixedExtentScrollController _hourCtrl;
+  late FixedExtentScrollController _minuteCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    final h24 = widget.initialTime.hour;
+    _isPm = h24 >= 12;
+    _hour = h24 % 12 == 0 ? 12 : h24 % 12;
+    _minute = widget.initialTime.minute;
+    _hourCtrl = FixedExtentScrollController(initialItem: _hour - 1);
+    _minuteCtrl = FixedExtentScrollController(initialItem: _minute);
+  }
+
+  @override
+  void dispose() {
+    _hourCtrl.dispose();
+    _minuteCtrl.dispose();
+    super.dispose();
+  }
+
+  TimeOfDay _toTimeOfDay() {
+    final h = _hour % 12 + (_isPm ? 12 : 0);
+    return TimeOfDay(hour: h, minute: _minute);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Header
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Start Time',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: Icon(
+                  Icons.close_rounded,
+                  size: 18,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              ),
+            ],
+          ),
+        ),
+        Divider(
+          height: 1,
+          thickness: 0.5,
+          color: AppTheme.borderColor(isDark, cs),
+        ),
+        // Drums
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Hour drum
+              SizedBox(
+                width: 72,
+                height: 120,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Center highlight
+                    Container(
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                    ListWheelScrollView.useDelegate(
+                      controller: _hourCtrl,
+                      itemExtent: 40,
+                      diameterRatio: 1.5,
+                      perspective: 0.003,
+                      physics: const FixedExtentScrollPhysics(),
+                      onSelectedItemChanged: (i) =>
+                          setState(() => _hour = i + 1),
+                      childDelegate: ListWheelChildLoopingListDelegate(
+                        children: List.generate(12, (i) {
+                          final n = i + 1;
+                          final selected = n == _hour;
+                          return Center(
+                            child: Text(
+                              '$n',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w300,
+                                color: selected
+                                    ? cs.onSurface
+                                    : cs.onSurfaceVariant.withValues(
+                                        alpha: 0.4,
+                                      ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Colon separator
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  ':',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w300,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+              // Minute drum
+              SizedBox(
+                width: 72,
+                height: 120,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                    ListWheelScrollView.useDelegate(
+                      controller: _minuteCtrl,
+                      itemExtent: 40,
+                      diameterRatio: 1.5,
+                      perspective: 0.003,
+                      physics: const FixedExtentScrollPhysics(),
+                      onSelectedItemChanged: (i) => setState(() => _minute = i),
+                      childDelegate: ListWheelChildLoopingListDelegate(
+                        children: List.generate(60, (m) {
+                          final selected = m == _minute;
+                          return Center(
+                            child: Text(
+                              m.toString().padLeft(2, '0'),
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w300,
+                                color: selected
+                                    ? cs.onSurface
+                                    : cs.onSurfaceVariant.withValues(
+                                        alpha: 0.4,
+                                      ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              // AM/PM toggle
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _AmPmChip(
+                    label: 'AM',
+                    selected: !_isPm,
+                    onTap: () => setState(() => _isPm = false),
+                    cs: cs,
+                    isDark: isDark,
+                  ),
+                  const SizedBox(height: 4),
+                  _AmPmChip(
+                    label: 'PM',
+                    selected: _isPm,
+                    onTap: () => setState(() => _isPm = true),
+                    cs: cs,
+                    isDark: isDark,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Divider(
+          height: 1,
+          thickness: 0.5,
+          color: AppTheme.borderColor(isDark, cs),
+        ),
+        // Footer
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              _WizardTextButton(
+                label: 'Cancel',
+                onTap: () => Navigator.of(context).pop(),
+                cs: cs,
+              ),
+              const SizedBox(width: 8),
+              _WizardFilledButton(
+                label: 'Confirm',
+                onTap: () => Navigator.of(context).pop(_toTimeOfDay()),
+                cs: cs,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AmPmChip extends StatelessWidget {
+  const _AmPmChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    required this.cs,
+    required this.isDark,
+  });
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        width: 32,
+        height: 28,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected
+              ? cs.primary.withValues(alpha: 0.15)
+              : AppTheme.nestedBg(isDark, cs),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: selected
+                ? cs.primary.withValues(alpha: 1.0)
+                : AppTheme.borderColor(isDark, cs),
+            width: selected ? 1.0 : 0.5,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: selected
+                ? cs.primary
+                : cs.onSurfaceVariant.withValues(alpha: 0.5),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Stage 0 — Day & Slot Setup
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -2554,14 +2881,15 @@ class _Stage0DaysSlotsState extends State<_Stage0DaysSlots> {
   }
 
   Future<void> _pickDayStart() async {
-    final picked = await showTimePicker(
+    final picked = await showDrumTimePicker(
       context: context,
       initialTime: _dayStart,
     );
-    if (picked != null) {
-      setState(() => _dayStart = picked);
-      _notify();
-    }
+    if (picked != null)
+      setState(() {
+        _dayStart = picked;
+        _notify();
+      });
   }
 
   Future<void> _promptAdd(SlotType type, BuildContext ctx) async {
@@ -2583,21 +2911,21 @@ class _Stage0DaysSlotsState extends State<_Stage0DaysSlots> {
     _notify();
   }
 
-  List<({int i, SlotType type, int dur, String range})> _rows() {
-    final out = <({int i, SlotType type, int dur, String range})>[];
+  List<({int i, String range, int dur, SlotType type})> _rows() {
+    final result = <({int i, String range, int dur, SlotType type})>[];
     int cursor = _dayStart.hour * 3600 + _dayStart.minute * 60;
     for (int i = 0; i < _slots.length; i++) {
       final s = _slots[i];
       final end = cursor + s.durationMinutes * 60;
-      out.add((
+      result.add((
         i: i,
-        type: s.type,
+        range: '${_fmtTime(cursor)}–${_fmtTime(end)}',
         dur: s.durationMinutes,
-        range: '${_fmtTime(cursor)} \u2013 ${_fmtTime(end)}',
+        type: s.type,
       ));
       cursor = end;
     }
-    return out;
+    return result;
   }
 
   @override
@@ -2620,19 +2948,45 @@ class _Stage0DaysSlotsState extends State<_Stage0DaysSlots> {
               spacing: 8,
               children: [
                 const _SectionLabel('School Days'),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    for (final e in _kWizDayShort.entries)
-                      _DayChip(
-                        label: e.value,
-                        selected: _activeDays.contains(e.key),
-                        cs: cs,
-                        isDark: isDark,
-                        onTap: () => _toggleDay(e.key),
-                      ),
-                  ],
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ToggleButtons(
+                    isSelected: [
+                      _activeDays.contains(1),
+                      _activeDays.contains(2),
+                      _activeDays.contains(3),
+                      _activeDays.contains(4),
+                      _activeDays.contains(5),
+                      _activeDays.contains(6),
+                      _activeDays.contains(7),
+                    ],
+                    onPressed: (i) => _toggleDay(i + 1),
+                    borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                    borderColor: AppTheme.borderColor(isDark, cs),
+                    selectedBorderColor: cs.primary.withValues(alpha: 0.55),
+                    selectedColor: cs.primary,
+                    fillColor: cs.primary.withValues(
+                      alpha: isDark ? 0.15 : 0.10,
+                    ),
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                    textStyle: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 44,
+                      minHeight: 36,
+                    ),
+                    children: const [
+                      Text('Mon'),
+                      Text('Tue'),
+                      Text('Wed'),
+                      Text('Thu'),
+                      Text('Fri'),
+                      Text('Sat'),
+                      Text('Sun'),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -2722,43 +3076,76 @@ class _Stage0DaysSlotsState extends State<_Stage0DaysSlots> {
                 ),
                 const SizedBox(height: 8),
                 if (rows.isEmpty)
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 20),
-                      child: Text(
-                        'No slots yet \u2014 add lesson and break slots below.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                        ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 32,
+                      horizontal: 20,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.nestedBg(isDark, cs),
+                      borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                      border: Border.all(
+                        color: AppTheme.borderColor(isDark, cs),
                       ),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.view_timeline_outlined,
+                          size: 28,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'No slots yet',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Add lesson and break slots below.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.35),
+                          ),
+                        ),
+                      ],
                     ),
                   )
                 else
-                  ...List.generate(rows.length * 2 - 1, (idx) {
-                    if (idx.isOdd) {
-                      return Divider(
-                        height: 1,
-                        thickness: 0.5,
-                        color: AppTheme.borderColor(
-                          isDark,
-                          cs,
-                        ).withValues(alpha: 0.35),
-                      );
-                    }
-                    final r = rows[idx ~/ 2];
-                    return _SlotRowTile(
-                      index: r.i,
-                      timeRange: r.range,
-                      duration: r.dur,
-                      isBreak: r.type == SlotType.breakSlot,
-                      cs: cs,
-                      isDark: isDark,
-                      onDelete: () => _removeSlot(r.i),
-                    );
-                  }),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppTheme.modalBg(isDark, cs),
+                      borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                      border: Border.all(
+                        color: AppTheme.borderColor(isDark, cs),
+                      ),
+                    ),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: rows.length,
+                      separatorBuilder: (_, __) =>
+                          AppTheme.tableRowDivider(isDark, cs),
+                      itemBuilder: (_, idx) {
+                        final r = rows[idx];
+                        return _SlotRowTile(
+                          index: r.i,
+                          timeRange: r.range,
+                          duration: r.dur,
+                          isBreak: r.type == SlotType.breakSlot,
+                          cs: cs,
+                          isDark: isDark,
+                          onDelete: () => _removeSlot(r.i),
+                        );
+                      },
+                    ),
+                  ),
               ],
             ),
 
@@ -2843,7 +3230,7 @@ class _DayChip extends StatelessWidget {
   }
 }
 
-class _SlotRowTile extends StatelessWidget {
+class _SlotRowTile extends StatefulWidget {
   const _SlotRowTile({
     required this.index,
     required this.timeRange,
@@ -2863,87 +3250,206 @@ class _SlotRowTile extends StatelessWidget {
   final VoidCallback onDelete;
 
   @override
+  State<_SlotRowTile> createState() => _SlotRowTileState();
+}
+
+class _SlotRowTileState extends State<_SlotRowTile>
+    with SingleTickerProviderStateMixin {
+  bool _isHovered = false;
+  bool _isPressed = false;
+  late AnimationController _pressCtrl;
+  late Animation<double> _scaleAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pressCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+      reverseDuration: const Duration(milliseconds: 150),
+    );
+    _scaleAnim = Tween<double>(
+      begin: 1.0,
+      end: 0.97,
+    ).animate(CurvedAnimation(parent: _pressCtrl, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _pressCtrl.dispose();
+    super.dispose();
+  }
+
+  Color _bg() {
+    final cs = widget.cs;
+    final isDark = widget.isDark;
+    if (_isPressed) return cs.primary.withValues(alpha: 0.13);
+    if (_isHovered) return cs.primary.withValues(alpha: 0.08);
+    return AppTheme.nestedBg(isDark, cs);
+  }
+
+  Color _borderColor() {
+    final cs = widget.cs;
+    if (_isHovered || _isPressed) return cs.primary.withValues(alpha: 0.3);
+    return AppTheme.borderColor(widget.isDark, cs);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final cs = widget.cs;
     const breakColor = Color(0xFFFFA726);
-    return SizedBox(
-      height: 48,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        child: Row(
-          children: [
-            // Number badge
-            Container(
-              width: 20,
-              height: 20,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
-              ),
-              child: Text(
-                '${index + 1}',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                  color: cs.onSurface,
+    final accentColor = widget.isBreak
+        ? breakColor.withValues(alpha: 0.7)
+        : AppTheme.brandGreen.withValues(alpha: 0.7);
+    final accentWidth = (_isHovered || _isPressed) ? 4.0 : 3.0;
+
+    return ScaleTransition(
+      scale: _scaleAnim,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: GestureDetector(
+          onTapDown: (_) {
+            setState(() => _isPressed = true);
+            _pressCtrl.forward();
+          },
+          onTapUp: (_) {
+            setState(() => _isPressed = false);
+            _pressCtrl.reverse();
+          },
+          onTapCancel: () {
+            setState(() => _isPressed = false);
+            _pressCtrl.reverse();
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            decoration: BoxDecoration(
+              color: _bg(),
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              border: Border.all(color: _borderColor(), width: 0.5),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Accent bar
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      width: accentWidth,
+                      decoration: BoxDecoration(
+                        color: accentColor,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(AppTheme.kCardRadius),
+                          bottomLeft: Radius.circular(AppTheme.kCardRadius),
+                        ),
+                      ),
+                    ),
+                    // Content
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                        child: Row(
+                          children: [
+                            // Number badge
+                            Container(
+                              width: 20,
+                              height: 20,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: cs.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.kChipRadius,
+                                ),
+                              ),
+                              child: Text(
+                                '${widget.index + 1}',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w500,
+                                  color: cs.onSurface,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            // Type chip
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: widget.isBreak
+                                    ? breakColor.withValues(alpha: 0.12)
+                                    : AppTheme.brandGreen.withValues(
+                                        alpha: 0.12,
+                                      ),
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.kChipRadius,
+                                ),
+                              ),
+                              child: Text(
+                                widget.isBreak ? 'Break' : 'Lesson',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w500,
+                                  color: widget.isBreak
+                                      ? breakColor
+                                      : AppTheme.brandGreen,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            // Time range
+                            Expanded(
+                              child: Text(
+                                widget.timeRange,
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w400,
+                                  color: cs.onSurface,
+                                ),
+                              ),
+                            ),
+                            // Duration
+                            Text(
+                              '${widget.duration} min',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w400,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.55,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // Delete button
+                            GestureDetector(
+                              onTap: widget.onDelete,
+                              child: SizedBox(
+                                width: 32,
+                                height: 32,
+                                child: Center(
+                                  child: Icon(
+                                    Icons.close_rounded,
+                                    size: 16,
+                                    color: cs.onSurfaceVariant.withValues(
+                                      alpha: 0.4,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            // Type chip
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: isBreak
-                    ? breakColor.withValues(alpha: 0.12)
-                    : AppTheme.brandGreen.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
-              ),
-              child: Text(
-                isBreak ? 'Break' : 'Lesson',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                  color: isBreak ? breakColor : AppTheme.brandGreen,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            // Time range
-            Text(
-              timeRange,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurface,
-              ),
-            ),
-            const Spacer(),
-            // Duration
-            Text(
-              '$duration min',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-              ),
-            ),
-            const SizedBox(width: 4),
-            // Delete
-            SizedBox(
-              width: 32,
-              height: 32,
-              child: IconButton(
-                onPressed: onDelete,
-                padding: EdgeInsets.zero,
-                icon: Icon(
-                  Icons.close_rounded,
-                  size: 16,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.4),
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
