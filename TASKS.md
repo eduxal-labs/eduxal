@@ -215,7 +215,7 @@ The executor should look at the `TimetableTab` widget's description in `lib/ui/s
 
 ---
 
-### Task EX-01: Unified Cross-Table Layout for Exam Papers on Desktop
+### [x] Task EX-01: Unified Cross-Table Layout for Exam Papers on Desktop
 
 **Files to create/modify:**
 `lib/ui/screens/school_dashboard/exams/exams_grades_screen.dart`,
@@ -254,6 +254,6 @@ For `exam_detail_page.dart` (`ExamDetailPage`): The Papers tab on desktop should
 The visual design of the cross-table (typography, spacing, accent borders, cell sizing, header row) should be consistent with the matrix style used in TT-02 and AC-01 — the executor should harmonize the three grid designs so they share a recognizable visual language.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — update both the `exams/` section (`_ExamGroupDetailView`, `_PaperTimetableGrid`) and the `academics/` section (`exam_detail_page.dart`, `_PapersTab`) to describe the new desktop layout
-- [ ] Mark this task `[x]`
-- [ ] Commit: `ui: unified cross-table layout for exam papers on desktop`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — update both the `exams/` section (`_ExamGroupDetailView`, `_PaperTimetableGrid`) and the `academics/` section (`exam_detail_page.dart`, `_PapersTab`) to describe the new desktop layout
+- [x] Mark this task `[x]`
+- [x] Commit: `ui: unified cross-table layout for exam papers on desktop`
