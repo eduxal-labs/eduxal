@@ -409,7 +409,7 @@ cd eduxal && dart run build_runner build --delete-conflicting-outputs
 
 ## Track B — Solver Engine
 
-### Task B1: Implement `TimetableGenerator` (CSP backtracking solver)
+### [x] Task B1: Implement `TimetableGenerator` (CSP backtracking solver)
 
 **Files to create:** `lib/services/timetable_generator.dart`
 **Files to modify:** `lib/services/CONTEXT.md`
@@ -651,8 +651,8 @@ import '../models/timetable_rules.dart';
 ```
 
 **After creating the file:**
-- [ ] Update `lib/services/CONTEXT.md` — add `timetable_generator.dart` entry with key exports: `TimetableGenerator`, `TimetableSlot`, `GeneratorResult`, `GeneratorSuccess`, `GeneratorFailure`, `GeneratorInput`, `runTimetableGenerator`. Status: ✅ Complete.
-- [ ] Mark this task `[x]`.
+- [x] Update `lib/services/CONTEXT.md` — add `timetable_generator.dart` entry with key exports: `TimetableGenerator`, `TimetableSlot`, `GeneratorResult`, `GeneratorSuccess`, `GeneratorFailure`, `GeneratorInput`, `runTimetableGenerator`. Status: ✅ Complete.
+- [x] Mark this task `[x]`.
 
 ---
 

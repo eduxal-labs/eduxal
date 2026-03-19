@@ -5,7 +5,7 @@
 
 ## Overview
 
-This directory contains **4 service files**. Services sit between the UI and the data layer (DAOs + gRPC). They:
+This directory contains **5 service files**. Services sit between the UI and the data layer (DAOs + gRPC). They:
 - Combine multiple DAO calls into transactional operations.
 - Map between proto types and domain models.
 - Write to the `logs` table alongside every synced-table mutation.
@@ -14,14 +14,45 @@ This directory contains **4 service files**. Services sit between the UI and the
 
 ## Files
 
-| File | Class | Domain | Status |
+| File | Key Exports | Domain | Status |
 |---|---|---|---|
 | `authentication.dart` | `Authentication` | Login, verify, setup, refresh, change phone | ✅ Complete |
 | `members.dart` | `MemberCreationService` | Phone-first member creation (owners, teachers, staff, students, guardians) + profile image saving | ✅ Complete |
 | `member_management.dart` | `MemberManagementService` | Post-creation lifecycle: edit fields, change status, remove members (all types) | ✅ Complete |
 | `file_upload.dart` | `FileUploadService` | Answer-sheet image upload via signed HTTP PUT URLs. Stubbed until `Files` gRPC proto stubs are generated. | ✅ Stubbed (F01) |
+| `timetable_generator.dart` | `TimetableGenerator`, `TimetableSlot`, `GeneratorResult`, `GeneratorSuccess`, `GeneratorFailure`, `GeneratorInput`, `runTimetableGenerator` | Pure-Dart CSP backtracking solver for timetable generation. No Flutter dependencies. Run via `compute(runTimetableGenerator, input)`. | ✅ Complete |
 
 ## Key Methods by Service
+
+### `TimetableGenerator` — `timetable_generator.dart`
+
+Pure-Dart backtracking CSP solver. No Flutter dependencies — safe to run on a background isolate via `compute()`.
+
+**Constructor:** `TimetableGenerator({required assignments, required rules, maxRestarts = 5, Random? random})`
+
+**Entry point:** `generate() → GeneratorResult` — runs three phases:
+1. **Validation** — checks for empty assignments, blocked teachers, impossible configs. Returns `GeneratorFailure` immediately if any hard constraint is unsatisfiable.
+2. **Domain construction + backtracking search** — builds a domain of `(day, slot)` pairs per variable, shuffles for variety, then runs recursive backtracking with MRV heuristic and forward-checking propagation. Retries up to `maxRestarts` times with freshly shuffled domains.
+3. **Soft scoring** — penalises teacher free gaps (+2), duplicate subject on same day for a class (+1), and highly uneven day distribution for a class (+3). Score is informational only in the MVP.
+
+Returns `GeneratorSuccess` (with `slots`, `softScore`, `iterations`, `elapsed`) or `GeneratorFailure` (with `reason` and `conflicts` list).
+
+**Private helpers:**
+- `_validate() → List<String>` — returns human-readable conflict messages; empty = valid input.
+- `_buildDomains(variables, slots) → Map<_Variable, List<_Slot>>` — filters Cartesian product of `activeDays × buildSlots()` by teacher and subject block rules.
+- `_solve(unassigned, assignment, domains) → Map<_Variable, _Slot>?` — recursive backtracking; MRV variable selection; deep-copies domains per iteration for safe backtracking.
+- `_isConsistent(variable, slot, assignment) → bool` — enforces hard constraints: teacher double-booking, class double-booking, daily load caps, double-lesson rule.
+- `_propagate(placed, slot, remaining, domains) → bool` — forward checking; prunes `(day, start)` from all peers sharing teacher or class; returns `false` on wipe-out.
+- `_softScore(assignment) → int` — computes soft penalty score on the complete solution.
+
+**Top-level wrapper:** `runTimetableGenerator(GeneratorInput) → GeneratorResult` — for use with `compute()`.
+
+**Input container:** `GeneratorInput({required assignments, required rules, maxRestarts = 5})` — all plain Dart types, safe across isolate boundaries.
+
+**Dependencies:** `dart:math`, `database/daos/timetable_dao.dart` (for `SolverAssignment`), `database/tables/enums.dart` (for `DayOfWeek`), `models/timetable_rules.dart` (for `TimetableRules`, `TeacherBlockRule`, `SubjectBlockRule`).
+
+---
+
 
 ### `Authentication` — `authentication.dart`
 
@@ -166,4 +197,4 @@ late final fileUpload = FileUploadService(_channel);  // in client.dart
 - `client.dart` is the only file that holds the gRPC `ClientChannel`. Services receive the channel (or a service client) via constructor injection.
 
 ## Last Updated
-Task 1001 — No service changes during UI overhaul tracks. All 4 service files remain current.
+Task B1 — Added `timetable_generator.dart`: pure-Dart CSP backtracking solver (`TimetableGenerator`, `TimetableSlot`, `GeneratorResult`, `GeneratorSuccess`, `GeneratorFailure`, `GeneratorInput`, `runTimetableGenerator`).
