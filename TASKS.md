@@ -617,7 +617,7 @@ Do NOT add any DB-write logic for break slots.
 
 ---
 
-### Task TW-03: Stages 1+2 — Teacher and Subject Constraint UI Polish
+### Task TW-03: ✅ Stages 1+2 — Teacher and Subject Constraint UI Polish
 
 **Files to modify:** `eduxal/lib/ui/screens/school_dashboard/timetable/timetable_screen.dart`
 **Context files to read:** `eduxal/lib/ui/screens/school_dashboard/CONTEXT.md`
