@@ -3866,15 +3866,104 @@ class _Stage1TeacherConstraintsState extends State<_Stage1TeacherConstraints> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _SearchField(
-              controller: _searchCtrl,
-              search: _search,
-              onSearch: (v) => setState(() => _search = v),
-              hintText: 'Search teachers…',
-              cs: cs,
-              isDark: isDark,
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: SizedBox(
+                height: 38,
+                child: ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: _searchCtrl,
+                  builder: (context, value, _) {
+                    return TextField(
+                      controller: _searchCtrl,
+                      onChanged: (v) => setState(() => _search = v.trim()),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurface,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Search teachers…',
+                        hintStyle: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w300,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                        ),
+                        prefixIcon: Padding(
+                          padding: const EdgeInsets.only(left: 10, right: 6),
+                          child: Icon(
+                            Icons.search_rounded,
+                            size: 18,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        prefixIconConstraints: const BoxConstraints(
+                          minWidth: 38,
+                          minHeight: 38,
+                        ),
+                        suffixIcon: value.text.isNotEmpty
+                            ? GestureDetector(
+                                onTap: () {
+                                  _searchCtrl.clear();
+                                  setState(() => _search = '');
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: Icon(
+                                    Icons.close_rounded,
+                                    size: 16,
+                                    color: cs.onSurfaceVariant.withValues(
+                                      alpha: 0.5,
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : null,
+                        suffixIconConstraints: const BoxConstraints(
+                          minWidth: 32,
+                          minHeight: 38,
+                        ),
+                        filled: true,
+                        fillColor: isDark
+                            ? cs.surfaceContainerHighest.withValues(alpha: 0.3)
+                            : cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.kCardRadius,
+                          ),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.kCardRadius,
+                          ),
+                          borderSide: BorderSide(
+                            color: cs.outlineVariant.withValues(
+                              alpha: isDark ? 0.2 : 0.3,
+                            ),
+                            width: 0.5,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.kCardRadius,
+                          ),
+                          borderSide: BorderSide(
+                            color: cs.primary.withValues(alpha: 0.5),
+                            width: 1.0,
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 0,
+                        ),
+                        isDense: true,
+                      ),
+                    );
+                  },
+                ),
+              ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             if (filtered.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 32),
@@ -3899,28 +3988,74 @@ class _Stage1TeacherConstraintsState extends State<_Stage1TeacherConstraints> {
                   final teacher = filtered[i];
                   final constraints = _constraintsFor(teacher.id);
                   final expanded = _expandedId == teacher.id;
-                  return _ConstraintEntityRow(
-                    name: teacher.name,
-                    constraintCount: constraints.length,
-                    expanded: expanded,
-                    cs: cs,
-                    isDark: isDark,
-                    onTap: () => setState(
-                      () => _expandedId = expanded ? null : teacher.id,
-                    ),
-                    onAdd: () => _showConstraintEntry(teacher.id, teacher.name),
-                    constraints: constraints
-                        .map(
-                          (c) => _ConstraintChipRow(
-                            days: c.days,
-                            slotIndices: c.slotIndices,
-                            isBlock: c.isBlock,
-                            cs: cs,
-                            isDark: isDark,
-                            onDelete: () => _remove(c),
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _WizardEntityRow(
+                      name: teacher.name,
+                      subtitle: constraints.isEmpty
+                          ? 'No constraints'
+                          : '${constraints.length} constraint${constraints.length == 1 ? '' : 's'}',
+                      icon: Icons.person_outline_rounded,
+                      isExpanded: expanded,
+                      cs: cs,
+                      isDark: isDark,
+                      onTap: () => setState(
+                        () => _expandedId = expanded ? null : teacher.id,
+                      ),
+                      expandedContent: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (constraints.isNotEmpty) ...[
+                            ...constraints.expand(
+                              (c) => [
+                                _ConstraintChipRow(
+                                  days: c.days,
+                                  slotIndices: c.slotIndices,
+                                  isBlock: c.isBlock,
+                                  cs: cs,
+                                  isDark: isDark,
+                                  onDelete: () => _remove(c),
+                                ),
+                                AppTheme.tableRowDivider(isDark, cs),
+                              ],
+                            ),
+                          ],
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
+                            child: OutlinedButton.icon(
+                              onPressed: () => _showConstraintEntry(
+                                teacher.id,
+                                teacher.name,
+                              ),
+                              icon: const Icon(Icons.add_rounded, size: 14),
+                              label: const Text('Add Constraint'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: cs.primary,
+                                side: BorderSide(
+                                  color: cs.primary.withValues(alpha: 0.4),
+                                  width: 0.8,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    AppTheme.kCardRadius,
+                                  ),
+                                ),
+                                textStyle: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                minimumSize: const Size(0, 34),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                            ),
                           ),
-                        )
-                        .toList(),
+                        ],
+                      ),
+                    ),
                   );
                 },
               ),
@@ -4049,15 +4184,104 @@ class _Stage2SubjectConstraintsState extends State<_Stage2SubjectConstraints> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _SearchField(
-              controller: _searchCtrl,
-              search: _search,
-              onSearch: (v) => setState(() => _search = v),
-              hintText: 'Search subjects…',
-              cs: cs,
-              isDark: isDark,
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: SizedBox(
+                height: 38,
+                child: ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: _searchCtrl,
+                  builder: (context, value, _) {
+                    return TextField(
+                      controller: _searchCtrl,
+                      onChanged: (v) => setState(() => _search = v.trim()),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurface,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Search subjects…',
+                        hintStyle: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w300,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                        ),
+                        prefixIcon: Padding(
+                          padding: const EdgeInsets.only(left: 10, right: 6),
+                          child: Icon(
+                            Icons.search_rounded,
+                            size: 18,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        prefixIconConstraints: const BoxConstraints(
+                          minWidth: 38,
+                          minHeight: 38,
+                        ),
+                        suffixIcon: value.text.isNotEmpty
+                            ? GestureDetector(
+                                onTap: () {
+                                  _searchCtrl.clear();
+                                  setState(() => _search = '');
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: Icon(
+                                    Icons.close_rounded,
+                                    size: 16,
+                                    color: cs.onSurfaceVariant.withValues(
+                                      alpha: 0.5,
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : null,
+                        suffixIconConstraints: const BoxConstraints(
+                          minWidth: 32,
+                          minHeight: 38,
+                        ),
+                        filled: true,
+                        fillColor: isDark
+                            ? cs.surfaceContainerHighest.withValues(alpha: 0.3)
+                            : cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.kCardRadius,
+                          ),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.kCardRadius,
+                          ),
+                          borderSide: BorderSide(
+                            color: cs.outlineVariant.withValues(
+                              alpha: isDark ? 0.2 : 0.3,
+                            ),
+                            width: 0.5,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.kCardRadius,
+                          ),
+                          borderSide: BorderSide(
+                            color: cs.primary.withValues(alpha: 0.5),
+                            width: 1.0,
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 0,
+                        ),
+                        isDense: true,
+                      ),
+                    );
+                  },
+                ),
+              ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             if (filtered.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 32),
@@ -4082,27 +4306,72 @@ class _Stage2SubjectConstraintsState extends State<_Stage2SubjectConstraints> {
                   final subj = filtered[i];
                   final constraints = _constraintsFor(subj.id);
                   final expanded = _expandedId == subj.id;
-                  return _ConstraintEntityRow(
-                    name: subj.name,
-                    constraintCount: constraints.length,
-                    expanded: expanded,
-                    cs: cs,
-                    isDark: isDark,
-                    onTap: () =>
-                        setState(() => _expandedId = expanded ? null : subj.id),
-                    onAdd: () => _showConstraintEntry('${subj.id}', subj.name),
-                    constraints: constraints
-                        .map(
-                          (c) => _ConstraintChipRow(
-                            days: c.days,
-                            slotIndices: c.slotIndices,
-                            isBlock: c.isBlock,
-                            cs: cs,
-                            isDark: isDark,
-                            onDelete: () => _remove(c),
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _WizardEntityRow(
+                      name: subj.name,
+                      subtitle: constraints.isEmpty
+                          ? 'No constraints'
+                          : '${constraints.length} constraint${constraints.length == 1 ? '' : 's'}',
+                      icon: Icons.book_outlined,
+                      isExpanded: expanded,
+                      cs: cs,
+                      isDark: isDark,
+                      onTap: () => setState(
+                        () => _expandedId = expanded ? null : subj.id,
+                      ),
+                      expandedContent: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (constraints.isNotEmpty) ...[
+                            ...constraints.expand(
+                              (c) => [
+                                _ConstraintChipRow(
+                                  days: c.days,
+                                  slotIndices: c.slotIndices,
+                                  isBlock: c.isBlock,
+                                  cs: cs,
+                                  isDark: isDark,
+                                  onDelete: () => _remove(c),
+                                ),
+                                AppTheme.tableRowDivider(isDark, cs),
+                              ],
+                            ),
+                          ],
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
+                            child: OutlinedButton.icon(
+                              onPressed: () =>
+                                  _showConstraintEntry('${subj.id}', subj.name),
+                              icon: const Icon(Icons.add_rounded, size: 14),
+                              label: const Text('Add Constraint'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: cs.primary,
+                                side: BorderSide(
+                                  color: cs.primary.withValues(alpha: 0.4),
+                                  width: 0.8,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    AppTheme.kCardRadius,
+                                  ),
+                                ),
+                                textStyle: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                minimumSize: const Size(0, 34),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                            ),
                           ),
-                        )
-                        .toList(),
+                        ],
+                      ),
+                    ),
                   );
                 },
               ),
@@ -4114,244 +4383,244 @@ class _Stage2SubjectConstraintsState extends State<_Stage2SubjectConstraints> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Shared — compact inline search bar
+// Shared — entity row with hover/press animations and inline expansion
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _SearchField extends StatelessWidget {
-  const _SearchField({
-    required this.controller,
-    required this.search,
-    required this.onSearch,
-    required this.hintText,
-    required this.cs,
-    required this.isDark,
-  });
-
-  final TextEditingController controller;
-  final String search;
-  final void Function(String) onSearch;
-  final String hintText;
-  final ColorScheme cs;
-  final bool isDark;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 38,
-      decoration: BoxDecoration(
-        color: AppTheme.nestedBg(isDark, cs),
-        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-        border: Border.all(color: AppTheme.borderColor(isDark, cs)),
-      ),
-      child: Row(
-        children: [
-          const SizedBox(width: 10),
-          Icon(
-            Icons.search_rounded,
-            size: 16,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurface,
-              ),
-              decoration: InputDecoration(
-                hintText: hintText,
-                hintStyle: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.45),
-                ),
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
-              ),
-              onChanged: onSearch,
-            ),
-          ),
-          if (search.isNotEmpty)
-            GestureDetector(
-              onTap: () {
-                controller.clear();
-                onSearch('');
-              },
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Icon(
-                  Icons.close_rounded,
-                  size: 14,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Shared — compact entity constraint row with inline expansion
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _ConstraintEntityRow extends StatelessWidget {
-  const _ConstraintEntityRow({
+class _WizardEntityRow extends StatefulWidget {
+  const _WizardEntityRow({
     required this.name,
-    required this.constraintCount,
-    required this.expanded,
+    required this.subtitle,
+    required this.icon,
+    required this.isExpanded,
     required this.cs,
     required this.isDark,
     required this.onTap,
-    required this.onAdd,
-    required this.constraints,
+    required this.expandedContent,
   });
 
   final String name;
-  final int constraintCount;
-  final bool expanded;
+  final String subtitle;
+  final IconData icon;
+  final bool isExpanded;
   final ColorScheme cs;
   final bool isDark;
   final VoidCallback onTap;
-  final VoidCallback onAdd;
-  final List<Widget> constraints;
+  final Widget expandedContent;
+
+  @override
+  State<_WizardEntityRow> createState() => _WizardEntityRowState();
+}
+
+class _WizardEntityRowState extends State<_WizardEntityRow>
+    with SingleTickerProviderStateMixin {
+  bool _isHovered = false;
+  bool _isPressed = false;
+  late AnimationController _pressCtrl;
+  late Animation<double> _scaleAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pressCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+      reverseDuration: const Duration(milliseconds: 150),
+    );
+    _scaleAnim = Tween<double>(
+      begin: 1.0,
+      end: 0.98,
+    ).animate(CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut));
+  }
+
+  @override
+  void dispose() {
+    _pressCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // 44px header row
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onTap,
-            splashColor: cs.primary.withValues(alpha: 0.04),
-            highlightColor: cs.primary.withValues(alpha: 0.04),
-            child: SizedBox(
-              height: 44,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        name,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: cs.onSurface,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (constraintCount > 0) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: cs.primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(
-                            AppTheme.kChipRadius,
+    final cs = widget.cs;
+    final isDark = widget.isDark;
+
+    final idleBg = isDark
+        ? cs.primary.withValues(alpha: 0.06)
+        : cs.primary.withValues(alpha: 0.04);
+    final hoverBg = isDark
+        ? cs.primary.withValues(alpha: 0.12)
+        : cs.primary.withValues(alpha: 0.08);
+    final pressBg = isDark
+        ? cs.primary.withValues(alpha: 0.18)
+        : cs.primary.withValues(alpha: 0.13);
+
+    return ScaleTransition(
+      scale: _scaleAnim,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ── Header row ─────────────────────────────────────────────
+          MouseRegion(
+            onEnter: (_) => setState(() => _isHovered = true),
+            onExit: (_) => setState(() => _isHovered = false),
+            child: GestureDetector(
+              onTapDown: (_) {
+                setState(() => _isPressed = true);
+                _pressCtrl.forward();
+              },
+              onTapUp: (_) {
+                setState(() => _isPressed = false);
+                _pressCtrl.reverse();
+                widget.onTap();
+              },
+              onTapCancel: () {
+                setState(() => _isPressed = false);
+                _pressCtrl.reverse();
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                decoration: BoxDecoration(
+                  color: _isPressed
+                      ? pressBg
+                      : _isHovered
+                      ? hoverBg
+                      : idleBg,
+                  borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                  border: Border.all(
+                    color: _isHovered || _isPressed
+                        ? cs.primary.withValues(alpha: 0.25)
+                        : cs.outline.withValues(alpha: isDark ? 0.08 : 0.08),
+                    width: 0.5,
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                  child: IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Accent bar
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          width: _isHovered || _isPressed ? 4 : 3,
+                          decoration: BoxDecoration(
+                            color: cs.primary.withValues(
+                              alpha: _isHovered || _isPressed ? 1.0 : 0.7,
+                            ),
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(AppTheme.kCardRadius),
+                              bottomLeft: Radius.circular(AppTheme.kCardRadius),
+                            ),
                           ),
                         ),
-                        child: Text(
-                          '$constraintCount',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            color: cs.primary,
+                        // Content
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                            child: Row(
+                              children: [
+                                // Leading icon container
+                                AnimatedContainer(
+                                  duration: const Duration(milliseconds: 150),
+                                  width: 28,
+                                  height: 28,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: _isHovered || _isPressed
+                                        ? cs.primary.withValues(alpha: 0.12)
+                                        : cs.surfaceContainerHighest,
+                                    borderRadius: BorderRadius.circular(
+                                      AppTheme.kChipRadius,
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    widget.icon,
+                                    size: 14,
+                                    color: _isHovered || _isPressed
+                                        ? cs.primary
+                                        : cs.onSurfaceVariant.withValues(
+                                            alpha: 0.55,
+                                          ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                // Name + subtitle
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        widget.name,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                          color: cs.onSurface,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      Text(
+                                        widget.subtitle,
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w400,
+                                          color: cs.onSurfaceVariant.withValues(
+                                            alpha: 0.55,
+                                          ),
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Spacer(),
+                                // Chevron
+                                AnimatedRotation(
+                                  turns: widget.isExpanded ? 0.25 : 0,
+                                  duration: const Duration(milliseconds: 180),
+                                  child: Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 18,
+                                    color: cs.onSurfaceVariant.withValues(
+                                      alpha: 0.5,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                    ],
-                    AnimatedRotation(
-                      turns: expanded ? 0.25 : 0,
-                      duration: const Duration(milliseconds: 180),
-                      child: Icon(
-                        Icons.chevron_right_rounded,
-                        size: 18,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-        // Inline expanded section
-        AnimatedCrossFade(
-          firstChild: const SizedBox.shrink(),
-          secondChild: Container(
-            color: AppTheme.nestedBg(isDark, cs),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                ...constraints,
-                if (constraints.isNotEmpty)
-                  Divider(
-                    height: 1,
-                    thickness: 0.5,
-                    color: AppTheme.borderColor(
-                      isDark,
-                      cs,
-                    ).withValues(alpha: 0.35),
-                  ),
-                // "Add constraint" tappable row
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: onAdd,
-                    splashColor: cs.primary.withValues(alpha: 0.04),
-                    highlightColor: cs.primary.withValues(alpha: 0.04),
-                    child: SizedBox(
-                      height: 40,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.add_rounded,
-                              size: 14,
-                              color: cs.primary.withValues(alpha: 0.7),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Add constraint',
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w400,
-                                color: cs.primary.withValues(alpha: 0.8),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+          // ── Expanded content ────────────────────────────────────────
+          AnimatedCrossFade(
+            duration: const Duration(milliseconds: 180),
+            sizeCurve: Curves.easeInOut,
+            firstChild: const SizedBox.shrink(),
+            secondChild: Container(
+              margin: const EdgeInsets.only(left: 3),
+              decoration: BoxDecoration(
+                color: AppTheme.nestedBg(isDark, cs),
+                border: Border(
+                  left: BorderSide(
+                    color: cs.primary.withValues(alpha: 0.2),
+                    width: 3,
                   ),
                 ),
-              ],
+              ),
+              child: widget.expandedContent,
             ),
+            crossFadeState: widget.isExpanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
           ),
-          crossFadeState: expanded
-              ? CrossFadeState.showSecond
-              : CrossFadeState.showFirst,
-          duration: const Duration(milliseconds: 180),
-        ),
-        Divider(
-          height: 1,
-          thickness: 0.5,
-          color: AppTheme.borderColor(isDark, cs).withValues(alpha: 0.35),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

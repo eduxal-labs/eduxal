@@ -501,10 +501,10 @@ Padding(
 ---
 
 **Update after completion:**
-- [ ] Update `eduxal/lib/ui/screens/school_dashboard/CONTEXT.md`
-- [ ] Mark `TW-06` as `[x]` in `eduxal/TASKS.md`
-- [ ] Run diagnostics — zero errors
-- [ ] Commit: `ui: timetable wizard — members-style search and entity rows`
+- [x] Update `eduxal/lib/ui/screens/school_dashboard/CONTEXT.md`
+- [x] Mark `TW-06` as `[x]` in `eduxal/TASKS.md`
+- [x] Run diagnostics — zero errors
+- [x] Commit: `ui: timetable wizard — members-style search and entity rows`
 
 ---
 
