@@ -179,11 +179,14 @@ System dashboard aggregate statistics. All have `static const empty` for initial
 - Models that wrap DB rows provide `fromRows` factory + `toCompanion` converter.
 - No business logic in models — they are data holders with computed getters only.
 
-### `TimetableRules` / `TeacherBlockRule` / `SubjectBlockRule` — `timetable_rules.dart`
-Generation constraints for the timetable solver.
-- `TimetableRules` — global config (day start/end, slot duration, break, lunch, active days, max loads, allow doubles) + lists of per-entity block rules. Serialisable to/from JSON. `buildSlots()` derives the ordered (start, end) slot list for a day.
-- `TeacherBlockRule` — blocks a specific teacher (`teacherUserId`) from being scheduled during a time window on specified days. `blocks(day, slotStart, slotEnd)` returns true if the rule forbids that slot.
-- `SubjectBlockRule` — restricts a subject to allowed days and/or blocks it before/after certain times. `blocks(day, slotStart, slotEnd)` returns true if forbidden.
+### `TimetableRules` / `TimetableSlot` / `TeacherConstraintEntry` / `SubjectConstraintEntry` — `timetable_rules.dart`
+Generation constraints for the timetable solver — **slot-based model (v2)**.
+- **`SlotType`** enum — `lesson` | `breakSlot`. Distinguishes bookable lesson periods from non-schedulable gaps.
+- **`TimetableSlot`** — one element in the ordered school-day sequence. Fields: `type` (SlotType), `durationMinutes` (int). Start times are **derived**, not stored: computed from `TimetableRules.dayStartTime` + cumulative preceding-slot durations. Serialisable via `toJson`/`fromJson`.
+- **`TimetableRules`** — top-level config object. Fields: `dayStartTime` (TimeOfDay), `slots` (List\<TimetableSlot\> — ordered day sequence), `activeDays` (List\<int\>, 1=Mon…7=Sun), `maxLessonsPerDayTeacher` (int), `maxLessonsPerDayClass` (int), `allowDoubles` (bool), `defaultLessonsPerWeek` (int), `lessonsPerWeekBySubject` (Map\<int,int\>), `teacherConstraints` (List\<TeacherConstraintEntry\>), `subjectConstraints` (List\<SubjectConstraintEntry\>). Key helpers: `buildLessonSlots()` — returns ordered list of `({int index, int start, int end})` for lesson-only slots with computed times (seconds since midnight); `lessonsPerWeekForSubject(id)` — honours per-subject override before falling back to default. Serialised as JSON (version: 2) at `{appDir}/schools/{schoolId}/timetable_rules_{year}_{term}.json`. Legacy v1 format (day_start/day_end/lesson_duration fields) cannot be migrated and silently falls back to `defaults()`. `copyWith` pattern. Factory `TimetableRules.defaults()`.
+- **`TeacherConstraintEntry`** — per-teacher scheduling constraint. Fields: `teacherId` (String UUID), `days` (List\<int\>, weekday indices), `slotIndices` (List\<int\>, 0-based indices into `TimetableRules.slots`), `isBlock` (bool — `true` = blocked from those slots; `false` = requirement, only allowed in those slots). Serialisable.
+- **`SubjectConstraintEntry`** — per-subject scheduling constraint. Fields: `subjectId` (int, global catalog PK), `days`, `slotIndices`, `isBlock`. Same block/requirement semantics as `TeacherConstraintEntry`. Serialisable.
+- **Removed** (v1 model): `TeacherBlockRule`, `SubjectBlockRule`, `dayStartSeconds`, `dayEndSeconds`, `lessonDurationMinutes`, `breakDurationMinutes`, `lunchStartSeconds`, `lunchDurationMinutes`, `buildSlots()`.
 
 ### Exam Group models — `exam_group.dart`
 Grouping model for the exams UI. Multiple exam rows sharing the same `(school, year, term, type, start, end)` are presented as one logical exam.
@@ -193,4 +196,4 @@ Grouping model for the exams UI. Multiple exam rows sharing the same `(school, y
 - **`ExamStreamEntry`** — One exam row + its papers for a specific stream. Fields: `exam` (Exam), `streamCode` (int?), `papers` (List<Paper>).
 
 ## Last Updated
-Task A1 — Added `timetable_rules.dart`: `TimetableRules`, `TeacherBlockRule`, `SubjectBlockRule`. File count: 18.
+Task TT-03 — Replaced v1 time-range model with v2 slot-based model. `TimetableRules` now uses an explicit ordered `slots` list (`TimetableSlot`) instead of fixed duration fields. Constraints use slot-index references (`TeacherConstraintEntry`, `SubjectConstraintEntry`) instead of time-range blocks. `TeacherBlockRule` and `SubjectBlockRule` removed. `buildLessonSlots()` replaces old `buildSlots()`.

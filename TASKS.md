@@ -86,7 +86,7 @@ A new DAO method is needed on `TimetableDao` that returns all timetable entries 
 
 ---
 
-### Task TT-03: Multi-Stage Timetable Generation Wizard
+### [x] Task TT-03: Multi-Stage Timetable Generation Wizard
 
 **Files to create/modify:**
 `lib/ui/screens/school_dashboard/timetable/timetable_screen.dart`,

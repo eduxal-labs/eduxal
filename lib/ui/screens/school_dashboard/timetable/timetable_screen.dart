@@ -15,6 +15,7 @@ import '../../../../models/active_term_context.dart';
 import '../../../../models/membership.dart';
 import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
+import '../../../../database/daos/catalog_dao.dart';
 import '../../../../models/timetable_rules.dart';
 import '../../../../core/academic_utils.dart';
 import '../../../../services/timetable_generator.dart';
@@ -220,7 +221,7 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
 
     final result = await Navigator.of(context).push<_RulesSheetResult>(
       MaterialPageRoute(
-        builder: (_) => _TimetableRulesPage(
+        builder: (_) => _TimetableWizardPage(
           initialRules: _rules!,
           schoolContext: widget.schoolContext,
           termContext: widget.termContext,
@@ -1570,295 +1571,6 @@ class _SWBreakCell extends StatelessWidget {
   }
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// RULES TAB — Timetable constraints for GA
-// ═════════════════════════════════════════════════════════════════════════════
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Rules sub-components
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _RulesSection extends StatelessWidget {
-  const _RulesSection({
-    required this.title,
-    required this.cs,
-    required this.isDark,
-    required this.children,
-  });
-
-  final String title;
-  final ColorScheme cs;
-  final bool isDark;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(AppTheme.kRadius),
-        border: Border.all(
-          color: cs.outlineVariant.withValues(alpha: 0.25),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.12 : 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-            child: Text(
-              title,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: cs.onSurface,
-                letterSpacing: 0.1,
-              ),
-            ),
-          ),
-          Divider(
-            height: 1,
-            thickness: 0.5,
-            color: cs.outlineVariant.withValues(alpha: 0.2),
-          ),
-          ...children,
-        ],
-      ),
-    );
-  }
-}
-
-class _RuleRow extends StatelessWidget {
-  const _RuleRow({required this.label, required this.cs, required this.child});
-
-  final String label;
-  final ColorScheme cs;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurface.withValues(alpha: 0.85),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-class _TimePickerButton extends StatelessWidget {
-  const _TimePickerButton({
-    required this.seconds,
-    required this.cs,
-    required this.onChanged,
-  });
-
-  final int seconds;
-  final ColorScheme cs;
-  final ValueChanged<int> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final h = seconds ~/ 3600;
-    final m = (seconds % 3600) ~/ 60;
-    final label =
-        '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
-
-    return GestureDetector(
-      onTap: () async {
-        final picked = await showTimePicker(
-          context: context,
-          initialTime: TimeOfDay(hour: h, minute: m),
-        );
-        if (picked != null) {
-          onChanged(picked.hour * 3600 + picked.minute * 60);
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerHighest.withValues(alpha: 0.45),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: cs.outlineVariant.withValues(alpha: 0.3),
-            width: 1,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: cs.onSurface,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StepperControl extends StatelessWidget {
-  const _StepperControl({
-    required this.value,
-    required this.suffix,
-    required this.min,
-    required this.max,
-    required this.step,
-    required this.cs,
-    required this.onChanged,
-  });
-
-  final int value;
-  final String suffix;
-  final int min;
-  final int max;
-  final int step;
-  final ColorScheme cs;
-  final ValueChanged<int> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: cs.outlineVariant.withValues(alpha: 0.3),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _StepBtn(
-            icon: Icons.remove,
-            enabled: value > min,
-            cs: cs,
-            onTap: () {
-              if (value - step >= min) onChanged(value - step);
-            },
-          ),
-          Container(
-            constraints: const BoxConstraints(minWidth: 48),
-            alignment: Alignment.center,
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Text(
-              suffix.isNotEmpty ? '$value $suffix' : '$value',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: cs.onSurface,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
-          ),
-          _StepBtn(
-            icon: Icons.add,
-            enabled: value < max,
-            cs: cs,
-            onTap: () {
-              if (value + step <= max) onChanged(value + step);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StepBtn extends StatelessWidget {
-  const _StepBtn({
-    required this.icon,
-    required this.enabled,
-    required this.cs,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final bool enabled;
-  final ColorScheme cs;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: enabled ? onTap : null,
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Icon(
-          icon,
-          size: 16,
-          color: enabled
-              ? cs.onSurface.withValues(alpha: 0.7)
-              : cs.onSurfaceVariant.withValues(alpha: 0.25),
-        ),
-      ),
-    );
-  }
-}
-
-class _DayToggle extends StatelessWidget {
-  const _DayToggle({
-    required this.day,
-    required this.isActive,
-    required this.cs,
-    required this.onToggle,
-  });
-
-  final DayOfWeek day;
-  final bool isActive;
-  final ColorScheme cs;
-  final ValueChanged<bool> onToggle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              _kDayLabelsFull[day]!,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurface.withValues(alpha: 0.85),
-              ),
-            ),
-          ),
-          Switch.adaptive(
-            value: isActive,
-            activeTrackColor: cs.primary,
-            onChanged: onToggle,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 // FAB
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2132,88 +1844,13 @@ class _EmptyLessonsState extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Timetable Rules Page
+// TIMETABLE GENERATION WIZARD
+// 5-stage wizard: Slots → Days → Teacher Constraints → Subject Constraints
+//                → Conflict Resolution & Generation
+// TT-03: Full wizard UI is implemented in the stage widgets below.
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Adaptive launcher for sub-sheets opened from within [_TimetableRulesPage]
-/// (teacher block rules and subject block rules entry forms).
-///
-/// On desktop (>= kMobileBreakpoint): shows a compact dialog with explicit
-/// tight width constraints so buttons never receive infinite width.
-/// On mobile: shows a modal bottom sheet with tight screen-width constraints.
-Future<T?> _showRulesSubSheet<T>({
-  required BuildContext context,
-  required Widget child,
-}) {
-  final screenWidth = MediaQuery.sizeOf(context).width;
-  final isDesktop = screenWidth >= AppTheme.kMobileBreakpoint;
-
-  if (isDesktop) {
-    return showDialog<T>(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.35),
-      builder: (ctx) {
-        final cs = Theme.of(ctx).colorScheme;
-        final isDark = cs.brightness == Brightness.dark;
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          insetPadding: const EdgeInsets.symmetric(
-            horizontal: 40,
-            vertical: 60,
-          ),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 440),
-            child: Container(
-              decoration: BoxDecoration(
-                color: AppTheme.modalBg(isDark, cs),
-                borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
-                border: Border.all(color: AppTheme.borderColor(isDark, cs)),
-                boxShadow: AppTheme.modalShadow(isDark),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
-                child: SingleChildScrollView(child: child),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  return showModalBottomSheet<T>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (ctx) {
-      final cs = Theme.of(ctx).colorScheme;
-      final isDark = cs.brightness == Brightness.dark;
-      final viewInsets = MediaQuery.viewInsetsOf(ctx);
-      return Padding(
-        padding: EdgeInsets.only(bottom: viewInsets.bottom),
-        child: Container(
-          decoration: BoxDecoration(
-            color: AppTheme.modalBg(isDark, cs),
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(AppTheme.kModalRadius),
-              topRight: Radius.circular(AppTheme.kModalRadius),
-            ),
-            border: Border(
-              top: BorderSide(
-                color: isDark
-                    ? AppTheme.borderColor(isDark, cs)
-                    : cs.outlineVariant.withValues(alpha: 0.5),
-                width: 1,
-              ),
-            ),
-          ),
-          child: SingleChildScrollView(child: child),
-        ),
-      );
-    },
-  );
-}
+// ── Result returned to _OwnerTimetableShellState ─────────────────────────────
 
 class _RulesSheetResult {
   const _RulesSheetResult({required this.rules, required this.shouldGenerate});
@@ -2221,8 +1858,35 @@ class _RulesSheetResult {
   final bool shouldGenerate;
 }
 
-class _TimetableRulesPage extends StatefulWidget {
-  const _TimetableRulesPage({
+// ── Wizard data classes ───────────────────────────────────────────────────────
+
+class _WizardTeacher {
+  const _WizardTeacher({required this.id, required this.name});
+  final String id;
+  final String name;
+}
+
+class _WizardSubject {
+  const _WizardSubject({required this.id, required this.name});
+  final int id;
+  final String name;
+}
+
+/// A detected incompatibility between a [TeacherConstraintEntry] and a
+/// [SubjectConstraintEntry] when applied to the same class assignment.
+class _ConflictPair {
+  _ConflictPair({required this.teacherEntry, required this.subjectEntry});
+  final TeacherConstraintEntry teacherEntry;
+  final SubjectConstraintEntry subjectEntry;
+  /// When `true` the teacher constraint is preserved and the subject
+  /// constraint is dropped at generation time.
+  bool teacherWins = true;
+}
+
+// ── Wizard page (entry point) ─────────────────────────────────────────────────
+
+class _TimetableWizardPage extends StatefulWidget {
+  const _TimetableWizardPage({
     required this.initialRules,
     required this.schoolContext,
     required this.termContext,
@@ -2233,37 +1897,211 @@ class _TimetableRulesPage extends StatefulWidget {
   final ActiveTermContext termContext;
 
   @override
-  State<_TimetableRulesPage> createState() => _TimetableRulesPageState();
+  State<_TimetableWizardPage> createState() => _TimetableWizardPageState();
 }
 
-class _TimetableRulesPageState extends State<_TimetableRulesPage> {
+class _TimetableWizardPageState extends State<_TimetableWizardPage> {
+  int _stage = 0; // 0=Slots 1=Days 2=Teachers 3=Subjects 4=Generate
   late TimetableRules _rules;
-  int _tab = 0; // 0=Global, 1=Teachers, 2=Subjects
+
+  List<_WizardTeacher> _teachers = [];
+  List<_WizardSubject> _subjects = [];
+  List<SolverAssignment> _assignments = [];
+  bool _loaded = false;
+
+  // Stage-4 state
+  List<_ConflictPair> _conflicts = [];
+  bool _generating = false;
+  GeneratorResult? _generationResult;
 
   @override
   void initState() {
     super.initState();
     _rules = TimetableRules.fromJson(widget.initialRules.toJson());
+    _loadData();
   }
 
-  void _save() => Navigator.of(
-    context,
-  ).pop(_RulesSheetResult(rules: _rules, shouldGenerate: false));
+  // ── Data loading ────────────────────────────────────────────────────────
 
-  void _generate() => Navigator.of(
-    context,
-  ).pop(_RulesSheetResult(rules: _rules, shouldGenerate: true));
+  Future<void> _loadData() async {
+    final term = widget.termContext.currentTerm;
+    if (term == null || !mounted) return;
 
-  Widget _ruleDivider(ColorScheme cs) => Divider(
-    height: 1,
-    thickness: 0.5,
-    color: cs.outlineVariant.withValues(alpha: 0.2),
+    final schoolId = widget.schoolContext.membership.school.id;
+    final timetableDao = TimetableDao(db);
+
+    // Load subject-teacher assignments for this term.
+    final assignments = await timetableDao.getSubjectTeachersForTerm(
+      schoolId: schoolId,
+      year: term.year,
+      term: term.term,
+    );
+
+    // Resolve teacher names from the users table.
+    final teacherIds =
+        assignments.map((a) => a.teacherUserId).toSet().toList();
+    final users = teacherIds.isEmpty
+        ? <UsersData>[]
+        : await (db.select(db.users)
+              ..where((u) => u.id.isIn(teacherIds)))
+            .get();
+    final userNameMap = <String, String>{
+      for (final u in users) u.id: u.name,
+    };
+    final teachers = teacherIds
+        .map((id) => _WizardTeacher(id: id, name: userNameMap[id] ?? id))
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+
+    // Resolve subject names from the global catalog.
+    final subjectIds = assignments.map((a) => a.subjectId).toSet();
+    final allSubjects = await CatalogDao(db).getSubjects();
+    final subjects = allSubjects
+        .where((s) => subjectIds.contains(s.id))
+        .map((s) => _WizardSubject(id: s.id, name: s.name))
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+
+    if (mounted) {
+      setState(() {
+        _teachers = teachers;
+        _subjects = subjects;
+        _assignments = assignments;
+        _loaded = true;
+      });
+    }
+  }
+
+  // ── Navigation ──────────────────────────────────────────────────────────
+
+  void _goNext() {
+    if (_stage == 3) _computeConflicts();
+    if (_stage < 4) setState(() => _stage++);
+  }
+
+  void _goBack() {
+    if (_stage > 0) {
+      setState(() => _stage--);
+    } else {
+      Navigator.of(context).pop();
+    }
+  }
+
+  void _save() => Navigator.of(context).pop(
+    _RulesSheetResult(rules: _rules, shouldGenerate: false),
   );
+
+  void _completeWithGeneration() => Navigator.of(context).pop(
+    _RulesSheetResult(rules: _rules, shouldGenerate: true),
+  );
+
+  // ── Conflict detection ──────────────────────────────────────────────────
+
+  void _computeConflicts() {
+    final conflicts = <_ConflictPair>[];
+    for (final tc in _rules.teacherConstraints) {
+      for (final sc in _rules.subjectConstraints) {
+        // Only relevant when both constraints target the same class assignment.
+        final hasAssignment = _assignments.any(
+          (a) => a.teacherUserId == tc.teacherId && a.subjectId == sc.subjectId,
+        );
+        if (!hasAssignment) continue;
+
+        final sharedDays =
+            tc.days.where((d) => sc.days.contains(d)).toList();
+        if (sharedDays.isEmpty) continue;
+
+        bool incompatible = false;
+        if (!tc.isBlock && !sc.isBlock) {
+          // Both requirements: intersection of allowed slots must be non-empty.
+          final intersection =
+              tc.slotIndices.where((s) => sc.slotIndices.contains(s)).toList();
+          if (intersection.isEmpty) incompatible = true;
+        } else if (tc.isBlock && !sc.isBlock) {
+          // Teacher blocks the exact slots the subject requires.
+          final requiresAll =
+              sc.slotIndices.isNotEmpty &&
+              sc.slotIndices.every((s) => tc.slotIndices.contains(s));
+          if (requiresAll) incompatible = true;
+        } else if (!tc.isBlock && sc.isBlock) {
+          // Teacher requires the exact slots the subject blocks.
+          final requiresAll =
+              tc.slotIndices.isNotEmpty &&
+              tc.slotIndices.every((s) => sc.slotIndices.contains(s));
+          if (requiresAll) incompatible = true;
+        }
+
+        if (incompatible) {
+          conflicts.add(_ConflictPair(teacherEntry: tc, subjectEntry: sc));
+        }
+      }
+    }
+    setState(() => _conflicts = conflicts);
+  }
+
+  // ── Generation ──────────────────────────────────────────────────────────
+
+  Future<void> _runGeneration() async {
+    final term = widget.termContext.currentTerm;
+    if (term == null || _generating) return;
+    setState(() {
+      _generating = true;
+      _generationResult = null;
+    });
+
+    try {
+      // Drop lower-priority constraints from each detected conflict pair.
+      final resolvedTeacher =
+          List<TeacherConstraintEntry>.from(_rules.teacherConstraints);
+      final resolvedSubject =
+          List<SubjectConstraintEntry>.from(_rules.subjectConstraints);
+      for (final cp in _conflicts) {
+        if (cp.teacherWins) {
+          resolvedSubject.remove(cp.subjectEntry);
+        } else {
+          resolvedTeacher.remove(cp.teacherEntry);
+        }
+      }
+
+      final resolvedRules = _rules.copyWith(
+        teacherConstraints: resolvedTeacher,
+        subjectConstraints: resolvedSubject,
+      );
+
+      final input = GeneratorInput(
+        assignments: _assignments,
+        rules: resolvedRules,
+      );
+      final result = await compute(runTimetableGenerator, input);
+      if (mounted) setState(() => _generationResult = result);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _generationResult = GeneratorFailure(
+            reason: e.toString(),
+            conflicts: [],
+          );
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _generating = false);
+    }
+  }
+
+  // ── Build ────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
+
+    const stageLabels = [
+      'Slot Sequence',
+      'Active Days',
+      'Teacher Constraints',
+      'Subject Constraints',
+      'Review & Generate',
+    ];
 
     return Scaffold(
       backgroundColor: AppTheme.modalBg(isDark, cs),
@@ -2272,28 +2110,2574 @@ class _TimetableRulesPageState extends State<_TimetableRulesPage> {
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: _goBack,
           icon: const Icon(Icons.chevron_left_rounded, size: 24),
-          tooltip: 'Back',
+          tooltip: _stage == 0 ? 'Cancel' : 'Back',
         ),
-        title: const Text(
-          'Timetable Rules',
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+        title: Column(
+          children: [
+            Text(
+              stageLabels[_stage],
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 4),
+            _WizardStepDots(currentStep: _stage, totalSteps: 5, cs: cs),
+          ],
         ),
+        centerTitle: true,
         actions: [
-          TextButton.icon(
-            onPressed: _save,
-            icon: const Icon(Icons.save_outlined, size: 16),
-            label: const Text('Save'),
-            style: TextButton.styleFrom(foregroundColor: cs.onSurface),
-          ),
+          if (_stage < 4)
+            TextButton(
+              onPressed: _save,
+              style: TextButton.styleFrom(foregroundColor: cs.onSurface),
+              child: const Text(
+                'Save',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ),
           const SizedBox(width: 4),
+        ],
+      ),
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 200),
+        transitionBuilder: (child, animation) =>
+            FadeTransition(opacity: animation, child: child),
+        child: KeyedSubtree(
+          key: ValueKey(_stage),
+          child: _buildStage(cs, isDark),
+        ),
+      ),
+      bottomNavigationBar: _stage < 4 ? _buildNavBar(cs, isDark) : null,
+    );
+  }
+
+  Widget _buildStage(ColorScheme cs, bool isDark) {
+    if (!_loaded && _stage >= 2) {
+      return Center(
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: cs.primary,
+          ),
+        ),
+      );
+    }
+    return switch (_stage) {
+      0 => _Stage0SlotBuilder(
+        rules: _rules,
+        cs: cs,
+        isDark: isDark,
+        onChanged: (r) => setState(() => _rules = r),
+      ),
+      1 => _Stage1ActiveDays(
+        rules: _rules,
+        cs: cs,
+        isDark: isDark,
+        onChanged: (r) => setState(() => _rules = r),
+      ),
+      2 => _Stage2TeacherConstraints(
+        rules: _rules,
+        teachers: _teachers,
+        cs: cs,
+        isDark: isDark,
+        onChanged: (r) => setState(() => _rules = r),
+      ),
+      3 => _Stage3SubjectConstraints(
+        rules: _rules,
+        subjects: _subjects,
+        cs: cs,
+        isDark: isDark,
+        onChanged: (r) => setState(() => _rules = r),
+      ),
+      4 => _Stage4Generate(
+        rules: _rules,
+        conflicts: _conflicts,
+        teachers: _teachers,
+        subjects: _subjects,
+        generating: _generating,
+        result: _generationResult,
+        cs: cs,
+        isDark: isDark,
+        onConflictResolved: (cp, teacherWins) =>
+            setState(() => cp.teacherWins = teacherWins),
+        onGenerate: _runGeneration,
+        onComplete: _completeWithGeneration,
+      ),
+      _ => const SizedBox.shrink(),
+    };
+  }
+
+  Widget _buildNavBar(ColorScheme cs, bool isDark) {
+    return SafeArea(
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(
+              color: AppTheme.borderColor(isDark, cs),
+              width: 0.5,
+            ),
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            if (_stage > 0)
+              OutlinedButton(
+                onPressed: _goBack,
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: cs.outlineVariant),
+                  shape: RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(AppTheme.kCardRadius),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                child: const Text('Back'),
+              ),
+            const Spacer(),
+            FilledButton(
+              onPressed: _goNext,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.brandGreen,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              child: Text(_stage == 3 ? 'Review & Generate' : 'Next'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Step indicator
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _WizardStepDots extends StatelessWidget {
+  const _WizardStepDots({
+    required this.currentStep,
+    required this.totalSteps,
+    required this.cs,
+  });
+
+  final int currentStep;
+  final int totalSteps;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(totalSteps, (i) {
+        final active = i == currentStep;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.symmetric(horizontal: 2),
+          width: active ? 16 : 5,
+          height: 5,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(3),
+            color: active
+                ? cs.primary
+                : cs.outlineVariant.withValues(alpha: 0.5),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stage 0 — Slot Sequence Builder
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _Stage0SlotBuilder extends StatefulWidget {
+  const _Stage0SlotBuilder({
+    required this.rules,
+    required this.cs,
+    required this.isDark,
+    required this.onChanged,
+  });
+
+  final TimetableRules rules;
+  final ColorScheme cs;
+  final bool isDark;
+  final void Function(TimetableRules) onChanged;
+
+  @override
+  State<_Stage0SlotBuilder> createState() => _Stage0SlotBuilderState();
+}
+
+class _Stage0SlotBuilderState extends State<_Stage0SlotBuilder>
+    with TickerProviderStateMixin {
+  late List<TimetableSlot> _slots;
+  late TimeOfDay _dayStart;
+  bool _fabExpanded = false;
+  late AnimationController _fabAnimCtrl;
+  late Animation<double> _fabAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _slots = List<TimetableSlot>.from(widget.rules.slots);
+    _dayStart = widget.rules.dayStartTime;
+    _fabAnimCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _fabAnim = CurvedAnimation(parent: _fabAnimCtrl, curve: Curves.easeOut);
+  }
+
+  @override
+  void dispose() {
+    _fabAnimCtrl.dispose();
+    super.dispose();
+  }
+
+  void _toggleFab() {
+    setState(() => _fabExpanded = !_fabExpanded);
+    if (_fabExpanded) {
+      _fabAnimCtrl.forward();
+    } else {
+      _fabAnimCtrl.reverse();
+    }
+  }
+
+  Future<void> _promptAdd(SlotType type) async {
+    if (_fabExpanded) _toggleFab();
+    final label = type == SlotType.lesson ? 'Lesson' : 'Break';
+    final defaultMins = type == SlotType.lesson ? '40' : '10';
+    final ctrl = TextEditingController(text: defaultMins);
+    final mins = await showDialog<int>(
+      context: context,
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        final isDark = cs.brightness == Brightness.dark;
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 320),
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppTheme.modalBg(isDark, cs),
+                borderRadius:
+                    BorderRadius.circular(AppTheme.kModalRadius),
+                border: Border.all(
+                  color: AppTheme.borderColor(isDark, cs),
+                ),
+                boxShadow: AppTheme.modalShadow(isDark),
+              ),
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Add $label Slot',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: ctrl,
+                    autofocus: true,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Duration (minutes)',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.kCardRadius,
+                        ),
+                      ),
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                    ),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        child: const Text('Cancel'),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton(
+                        onPressed: () {
+                          final v = int.tryParse(ctrl.text.trim());
+                          Navigator.of(ctx).pop(v);
+                        },
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppTheme.brandGreen,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.kCardRadius,
+                            ),
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        child: const Text('Add'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    ctrl.dispose();
+    if (mins == null || mins < 5 || mins > 180) return;
+    setState(() {
+      _slots = [
+        ..._slots,
+        TimetableSlot(type: type, durationMinutes: mins),
+      ];
+    });
+    _notify();
+  }
+
+  void _removeSlot(int index) {
+    setState(() => _slots = List<TimetableSlot>.from(_slots)..removeAt(index));
+    _notify();
+  }
+
+  void _notify() {
+    widget.onChanged(widget.rules.copyWith(
+      dayStartTime: _dayStart,
+      slots: List<TimetableSlot>.from(_slots),
+    ));
+  }
+
+  Future<void> _pickDayStart() async {
+    final picked =
+        await showTimePicker(context: context, initialTime: _dayStart);
+    if (picked != null) {
+      setState(() => _dayStart = picked);
+      _notify();
+    }
+  }
+
+  List<({int i, SlotType type, int dur, String range})> _rows() {
+    final out = <({int i, SlotType type, int dur, String range})>[];
+    int cursor =
+        _dayStart.hour * 3600 + _dayStart.minute * 60;
+    for (int i = 0; i < _slots.length; i++) {
+      final s = _slots[i];
+      final end = cursor + s.durationMinutes * 60;
+      out.add((
+        i: i,
+        type: s.type,
+        dur: s.durationMinutes,
+        range: '${_fmtTime(cursor)} – ${_fmtTime(end)}',
+      ));
+      cursor = end;
+    }
+    return out;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final isDark = widget.isDark;
+    final rows = _rows();
+    final lessonCount =
+        _slots.where((s) => s.type == SlotType.lesson).length;
+
+    return Stack(
+      children: [
+        CustomScrollView(
+          slivers: [
+            // Day-start row
+            SliverToBoxAdapter(
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                decoration: BoxDecoration(
+                  color: AppTheme.nestedBg(isDark, cs),
+                  borderRadius:
+                      BorderRadius.circular(AppTheme.kCardRadius),
+                  border: Border.all(
+                    color: AppTheme.borderColor(isDark, cs),
+                  ),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.wb_sunny_outlined,
+                      size: 15,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Day starts at',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                    const Spacer(),
+                    InkWell(
+                      onTap: _pickDayStart,
+                      borderRadius: BorderRadius.circular(
+                        AppTheme.kChipRadius,
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: cs.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.kChipRadius,
+                          ),
+                        ),
+                        child: Text(
+                          _dayStart.format(context),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: cs.primary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Section label
+            SliverToBoxAdapter(
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Row(
+                  children: [
+                    Text(
+                      'SLOT SEQUENCE',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 0.6,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.kChipRadius,
+                        ),
+                      ),
+                      child: Text(
+                        '$lessonCount lesson${lessonCount == 1 ? '' : 's'}',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          color: cs.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Slot list
+            if (rows.isEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 32,
+                  ),
+                  child: Center(
+                    child: Text(
+                      'No slots yet.\nTap + to add lesson or break slots.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            else
+              SliverList.separated(
+                itemCount: rows.length,
+                separatorBuilder: (_, __) => Divider(
+                  height: 1,
+                  thickness: 0.5,
+                  indent: 16,
+                  endIndent: 16,
+                  color: AppTheme.borderColor(isDark, cs)
+                      .withValues(alpha: 0.4),
+                ),
+                itemBuilder: (_, i) {
+                  final r = rows[i];
+                  return _SlotRowTile(
+                    index: i,
+                    timeRange: r.range,
+                    duration: r.dur,
+                    isBreak: r.type == SlotType.breakSlot,
+                    cs: cs,
+                    isDark: isDark,
+                    onDelete: () => _removeSlot(i),
+                  );
+                },
+              ),
+            const SliverToBoxAdapter(child: SizedBox(height: 100)),
+          ],
+        ),
+        // Expandable FAB
+        Positioned(
+          bottom: 16,
+          right: 16,
+          child: _ExpandableFab(
+            expanded: _fabExpanded,
+            animation: _fabAnim,
+            cs: cs,
+            onToggle: _toggleFab,
+            onAddLesson: () => _promptAdd(SlotType.lesson),
+            onAddBreak: () => _promptAdd(SlotType.breakSlot),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SlotRowTile extends StatelessWidget {
+  const _SlotRowTile({
+    required this.index,
+    required this.timeRange,
+    required this.duration,
+    required this.isBreak,
+    required this.cs,
+    required this.isDark,
+    required this.onDelete,
+  });
+
+  final int index;
+  final String timeRange;
+  final int duration;
+  final bool isBreak;
+  final ColorScheme cs;
+  final bool isDark;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: isBreak
+          ? cs.surfaceContainerHighest.withValues(alpha: 0.25)
+          : Colors.transparent,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            // Slot number badge
+            Container(
+              width: 24,
+              height: 24,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isBreak
+                    ? cs.outlineVariant.withValues(alpha: 0.3)
+                    : cs.primary.withValues(alpha: 0.1),
+              ),
+              child: Text(
+                '${index + 1}',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: isBreak ? cs.onSurfaceVariant : cs.primary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Time range + label
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    timeRange,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      color: cs.onSurface
+                          .withValues(alpha: isBreak ? 0.5 : 0.9),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    isBreak ? 'Break · $duration min' : 'Lesson · $duration min',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w400,
+                      color: cs.onSurfaceVariant
+                          .withValues(alpha: isBreak ? 0.45 : 0.65),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Type chip
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: isBreak
+                    ? cs.outlineVariant.withValues(alpha: 0.35)
+                    : cs.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+              ),
+              child: Text(
+                isBreak ? 'Break' : 'Lesson',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: isBreak
+                      ? cs.onSurfaceVariant.withValues(alpha: 0.65)
+                      : cs.primary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            IconButton(
+              onPressed: onDelete,
+              icon: Icon(
+                Icons.delete_outline_rounded,
+                size: 16,
+                color: cs.error.withValues(alpha: 0.55),
+              ),
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+              tooltip: 'Remove slot',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Expandable FAB for stage 0 slot builder.
+class _ExpandableFab extends StatelessWidget {
+  const _ExpandableFab({
+    required this.expanded,
+    required this.animation,
+    required this.cs,
+    required this.onToggle,
+    required this.onAddLesson,
+    required this.onAddBreak,
+  });
+
+  final bool expanded;
+  final Animation<double> animation;
+  final ColorScheme cs;
+  final VoidCallback onToggle;
+  final VoidCallback onAddLesson;
+  final VoidCallback onAddBreak;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        ScaleTransition(
+          scale: animation,
+          child: FadeTransition(
+            opacity: animation,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                _MiniActionFab(
+                  label: 'Break',
+                  icon: Icons.free_breakfast_outlined,
+                  color: cs.secondary,
+                  onTap: onAddBreak,
+                ),
+                const SizedBox(height: 8),
+                _MiniActionFab(
+                  label: 'Lesson',
+                  icon: Icons.menu_book_outlined,
+                  color: AppTheme.brandGreen,
+                  onTap: onAddLesson,
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        ),
+        FloatingActionButton.small(
+          heroTag: 'slot_fab_main',
+          onPressed: onToggle,
+          backgroundColor: expanded
+              ? cs.surfaceContainerHigh
+              : AppTheme.brandGreen,
+          foregroundColor: expanded ? cs.onSurface : Colors.white,
+          elevation: 3,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+          ),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 150),
+            child: expanded
+                ? const Icon(
+                    Icons.close_rounded,
+                    size: 20,
+                    key: ValueKey('close'),
+                  )
+                : const Icon(
+                    Icons.add_rounded,
+                    size: 20,
+                    key: ValueKey('add'),
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MiniActionFab extends StatelessWidget {
+  const _MiniActionFab({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.black54,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              color: Colors.white,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        FloatingActionButton.small(
+          heroTag: 'slot_fab_$label',
+          onPressed: onTap,
+          backgroundColor: color,
+          foregroundColor: Colors.white,
+          elevation: 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+          ),
+          child: Icon(icon, size: 18),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stage 1 — Active Days + Load Constraints
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Day labels for weekday indices 1=Mon … 7=Sun.
+const _kWizDayFull = <int, String>{
+  1: 'Monday',
+  2: 'Tuesday',
+  3: 'Wednesday',
+  4: 'Thursday',
+  5: 'Friday',
+  6: 'Saturday',
+  7: 'Sunday',
+};
+const _kWizDayShort = <int, String>{
+  1: 'Mon',
+  2: 'Tue',
+  3: 'Wed',
+  4: 'Thu',
+  5: 'Fri',
+  6: 'Sat',
+  7: 'Sun',
+};
+
+class _Stage1ActiveDays extends StatelessWidget {
+  const _Stage1ActiveDays({
+    required this.rules,
+    required this.cs,
+    required this.isDark,
+    required this.onChanged,
+  });
+
+  final TimetableRules rules;
+  final ColorScheme cs;
+  final bool isDark;
+  final void Function(TimetableRules) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Select which days of the week will be scheduled.',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _kWizDayFull.entries.map((e) {
+              final selected = rules.activeDays.contains(e.key);
+              return _WizardDayChip(
+                label: e.value,
+                selected: selected,
+                cs: cs,
+                onTap: () {
+                  final days = List<int>.from(rules.activeDays);
+                  if (selected) {
+                    days.remove(e.key);
+                  } else {
+                    days
+                      ..add(e.key)
+                      ..sort();
+                  }
+                  onChanged(rules.copyWith(activeDays: days));
+                },
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 24),
+          _WizardSection(
+            title: 'Load Constraints',
+            cs: cs,
+            isDark: isDark,
+            children: [
+              _WizardRuleRow(
+                label: 'Max lessons / day — teacher',
+                cs: cs,
+                child: _WizardStepper(
+                  value: rules.maxLessonsPerDayTeacher,
+                  min: 1,
+                  max: 12,
+                  cs: cs,
+                  onChanged: (v) => onChanged(
+                    rules.copyWith(maxLessonsPerDayTeacher: v),
+                  ),
+                ),
+              ),
+              Divider(
+                height: 1,
+                thickness: 0.5,
+                color: AppTheme.borderColor(isDark, cs)
+                    .withValues(alpha: 0.3),
+              ),
+              _WizardRuleRow(
+                label: 'Max lessons / day — class',
+                cs: cs,
+                child: _WizardStepper(
+                  value: rules.maxLessonsPerDayClass,
+                  min: 1,
+                  max: 14,
+                  cs: cs,
+                  onChanged: (v) => onChanged(
+                    rules.copyWith(maxLessonsPerDayClass: v),
+                  ),
+                ),
+              ),
+              Divider(
+                height: 1,
+                thickness: 0.5,
+                color: AppTheme.borderColor(isDark, cs)
+                    .withValues(alpha: 0.3),
+              ),
+              _WizardRuleRow(
+                label: 'Default lessons / week per subject',
+                cs: cs,
+                child: _WizardStepper(
+                  value: rules.defaultLessonsPerWeek,
+                  min: 1,
+                  max: 8,
+                  cs: cs,
+                  onChanged: (v) => onChanged(
+                    rules.copyWith(defaultLessonsPerWeek: v),
+                  ),
+                ),
+              ),
+              Divider(
+                height: 1,
+                thickness: 0.5,
+                color: AppTheme.borderColor(isDark, cs)
+                    .withValues(alpha: 0.3),
+              ),
+              _WizardRuleRow(
+                label: 'Allow double lessons',
+                cs: cs,
+                child: Switch.adaptive(
+                  value: rules.allowDoubles,
+                  activeTrackColor: cs.primary,
+                  onChanged: (v) =>
+                      onChanged(rules.copyWith(allowDoubles: v)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+}
+
+class _WizardDayChip extends StatelessWidget {
+  const _WizardDayChip({
+    required this.label,
+    required this.selected,
+    required this.cs,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final ColorScheme cs;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = cs.brightness == Brightness.dark;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? cs.primary.withValues(alpha: isDark ? 0.22 : 0.12)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+          border: Border.all(
+            color: selected
+                ? cs.primary.withValues(alpha: 0.5)
+                : cs.outlineVariant.withValues(alpha: 0.35),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+            color: selected ? cs.primary : cs.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WizardSection extends StatelessWidget {
+  const _WizardSection({
+    required this.title,
+    required this.cs,
+    required this.isDark,
+    required this.children,
+  });
+
+  final String title;
+  final ColorScheme cs;
+  final bool isDark;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.nestedBg(isDark, cs),
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        border: Border.all(color: AppTheme.borderColor(isDark, cs)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
           Padding(
-            padding: const EdgeInsets.only(right: 12),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: cs.onSurfaceVariant,
+                letterSpacing: 0.1,
+              ),
+            ),
+          ),
+          Divider(
+            height: 1,
+            thickness: 0.5,
+            color: AppTheme.borderColor(isDark, cs).withValues(alpha: 0.4),
+          ),
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
+class _WizardRuleRow extends StatelessWidget {
+  const _WizardRuleRow({
+    required this.label,
+    required this.cs,
+    required this.child,
+  });
+
+  final String label;
+  final ColorScheme cs;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurface.withValues(alpha: 0.85),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _WizardStepper extends StatelessWidget {
+  const _WizardStepper({
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.cs,
+    required this.onChanged,
+  });
+
+  final int value;
+  final int min;
+  final int max;
+  final ColorScheme cs;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _WizardStepBtn(
+          icon: Icons.remove,
+          enabled: value > min,
+          cs: cs,
+          onTap: () {
+            if (value > min) onChanged(value - 1);
+          },
+        ),
+        SizedBox(
+          width: 40,
+          child: Text(
+            '$value',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurface,
+            ),
+          ),
+        ),
+        _WizardStepBtn(
+          icon: Icons.add,
+          enabled: value < max,
+          cs: cs,
+          onTap: () {
+            if (value < max) onChanged(value + 1);
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _WizardStepBtn extends StatelessWidget {
+  const _WizardStepBtn({
+    required this.icon,
+    required this.enabled,
+    required this.cs,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final bool enabled;
+  final ColorScheme cs;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Padding(
+        padding: const EdgeInsets.all(6),
+        child: Icon(
+          icon,
+          size: 16,
+          color: enabled
+              ? cs.primary.withValues(alpha: 0.8)
+              : cs.onSurfaceVariant.withValues(alpha: 0.25),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stage 2 — Teacher Constraints
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _Stage2TeacherConstraints extends StatefulWidget {
+  const _Stage2TeacherConstraints({
+    required this.rules,
+    required this.teachers,
+    required this.cs,
+    required this.isDark,
+    required this.onChanged,
+  });
+
+  final TimetableRules rules;
+  final List<_WizardTeacher> teachers;
+  final ColorScheme cs;
+  final bool isDark;
+  final void Function(TimetableRules) onChanged;
+
+  @override
+  State<_Stage2TeacherConstraints> createState() =>
+      _Stage2TeacherConstraintsState();
+}
+
+class _Stage2TeacherConstraintsState
+    extends State<_Stage2TeacherConstraints> {
+  String _search = '';
+  String? _expandedId;
+
+  List<_WizardTeacher> get _filtered {
+    if (_search.isEmpty) return widget.teachers;
+    final q = _search.toLowerCase();
+    return widget.teachers
+        .where((t) => t.name.toLowerCase().contains(q))
+        .toList();
+  }
+
+  List<TeacherConstraintEntry> _constraintsFor(String id) =>
+      widget.rules.teacherConstraints
+          .where((c) => c.teacherId == id)
+          .toList();
+
+  void _remove(TeacherConstraintEntry entry) {
+    final updated = List<TeacherConstraintEntry>.from(
+      widget.rules.teacherConstraints,
+    )..remove(entry);
+    widget.onChanged(widget.rules.copyWith(teacherConstraints: updated));
+  }
+
+  Future<void> _add(String teacherId, String teacherName) async {
+    final lessonSlots = widget.rules.buildLessonSlots();
+    final result =
+        await _showConstraintSheet(context, widget.rules, lessonSlots);
+    if (result == null) return;
+    final entry = TeacherConstraintEntry(
+      teacherId: teacherId,
+      days: result.days,
+      slotIndices: result.slotIndices,
+      isBlock: result.isBlock,
+    );
+    final updated = [...widget.rules.teacherConstraints, entry];
+    widget.onChanged(widget.rules.copyWith(teacherConstraints: updated));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final isDark = widget.isDark;
+    final filtered = _filtered;
+
+    return Column(
+      children: [
+        // Search bar
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: TextField(
+            onChanged: (v) => setState(() => _search = v),
+            decoration: InputDecoration(
+              hintText: 'Search teachers…',
+              hintStyle: TextStyle(
+                fontSize: 13,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+              ),
+              prefixIcon: Icon(
+                Icons.search_rounded,
+                size: 18,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+              ),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                borderSide: BorderSide(
+                  color: cs.outlineVariant.withValues(alpha: 0.4),
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                borderSide: BorderSide(
+                  color: cs.outlineVariant.withValues(alpha: 0.4),
+                ),
+              ),
+            ),
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ),
+        if (widget.teachers.isEmpty)
+          Expanded(
+            child: Center(
+              child: Text(
+                'No teachers found for this term.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+              ),
+            ),
+          )
+        else
+          Expanded(
+            child: ListView.separated(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+              itemCount: filtered.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 6),
+              itemBuilder: (_, i) {
+                final teacher = filtered[i];
+                final constraints = _constraintsFor(teacher.id);
+                final expanded = _expandedId == teacher.id;
+                return _EntityConstraintCard(
+                  name: teacher.name,
+                  constraintCount: constraints.length,
+                  expanded: expanded,
+                  cs: cs,
+                  isDark: isDark,
+                  onTap: () => setState(
+                    () => _expandedId =
+                        expanded ? null : teacher.id,
+                  ),
+                  onAdd: () => _add(teacher.id, teacher.name),
+                  constraints: constraints
+                      .map(
+                        (c) => _ConstraintTile(
+                          days: c.days,
+                          slotIndices: c.slotIndices,
+                          isBlock: c.isBlock,
+                          rules: widget.rules,
+                          cs: cs,
+                          isDark: isDark,
+                          onDelete: () => _remove(c),
+                        ),
+                      )
+                      .toList(),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stage 3 — Subject Constraints
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _Stage3SubjectConstraints extends StatefulWidget {
+  const _Stage3SubjectConstraints({
+    required this.rules,
+    required this.subjects,
+    required this.cs,
+    required this.isDark,
+    required this.onChanged,
+  });
+
+  final TimetableRules rules;
+  final List<_WizardSubject> subjects;
+  final ColorScheme cs;
+  final bool isDark;
+  final void Function(TimetableRules) onChanged;
+
+  @override
+  State<_Stage3SubjectConstraints> createState() =>
+      _Stage3SubjectConstraintsState();
+}
+
+class _Stage3SubjectConstraintsState
+    extends State<_Stage3SubjectConstraints> {
+  String _search = '';
+  int? _expandedId;
+
+  List<_WizardSubject> get _filtered {
+    if (_search.isEmpty) return widget.subjects;
+    final q = _search.toLowerCase();
+    return widget.subjects
+        .where((s) => s.name.toLowerCase().contains(q))
+        .toList();
+  }
+
+  List<SubjectConstraintEntry> _constraintsFor(int id) =>
+      widget.rules.subjectConstraints
+          .where((c) => c.subjectId == id)
+          .toList();
+
+  void _remove(SubjectConstraintEntry entry) {
+    final updated = List<SubjectConstraintEntry>.from(
+      widget.rules.subjectConstraints,
+    )..remove(entry);
+    widget.onChanged(widget.rules.copyWith(subjectConstraints: updated));
+  }
+
+  Future<void> _add(int subjectId) async {
+    final lessonSlots = widget.rules.buildLessonSlots();
+    final result =
+        await _showConstraintSheet(context, widget.rules, lessonSlots);
+    if (result == null) return;
+    final entry = SubjectConstraintEntry(
+      subjectId: subjectId,
+      days: result.days,
+      slotIndices: result.slotIndices,
+      isBlock: result.isBlock,
+    );
+    final updated = [...widget.rules.subjectConstraints, entry];
+    widget.onChanged(widget.rules.copyWith(subjectConstraints: updated));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final isDark = widget.isDark;
+    final filtered = _filtered;
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: TextField(
+            onChanged: (v) => setState(() => _search = v),
+            decoration: InputDecoration(
+              hintText: 'Search subjects…',
+              hintStyle: TextStyle(
+                fontSize: 13,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+              ),
+              prefixIcon: Icon(
+                Icons.search_rounded,
+                size: 18,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+              ),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                borderSide: BorderSide(
+                  color: cs.outlineVariant.withValues(alpha: 0.4),
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                borderSide: BorderSide(
+                  color: cs.outlineVariant.withValues(alpha: 0.4),
+                ),
+              ),
+            ),
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ),
+        if (widget.subjects.isEmpty)
+          Expanded(
+            child: Center(
+              child: Text(
+                'No subjects found for this term.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+              ),
+            ),
+          )
+        else
+          Expanded(
+            child: ListView.separated(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+              itemCount: filtered.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 6),
+              itemBuilder: (_, i) {
+                final subj = filtered[i];
+                final constraints = _constraintsFor(subj.id);
+                final expanded = _expandedId == subj.id;
+                return _EntityConstraintCard(
+                  name: subj.name,
+                  constraintCount: constraints.length,
+                  expanded: expanded,
+                  cs: cs,
+                  isDark: isDark,
+                  onTap: () => setState(
+                    () => _expandedId = expanded ? null : subj.id,
+                  ),
+                  onAdd: () => _add(subj.id),
+                  constraints: constraints
+                      .map(
+                        (c) => _ConstraintTile(
+                          days: c.days,
+                          slotIndices: c.slotIndices,
+                          isBlock: c.isBlock,
+                          rules: widget.rules,
+                          cs: cs,
+                          isDark: isDark,
+                          onDelete: () => _remove(c),
+                        ),
+                      )
+                      .toList(),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared — Entity constraint card (teacher or subject row with inline list)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _EntityConstraintCard extends StatelessWidget {
+  const _EntityConstraintCard({
+    required this.name,
+    required this.constraintCount,
+    required this.expanded,
+    required this.cs,
+    required this.isDark,
+    required this.onTap,
+    required this.onAdd,
+    required this.constraints,
+  });
+
+  final String name;
+  final int constraintCount;
+  final bool expanded;
+  final ColorScheme cs;
+  final bool isDark;
+  final VoidCallback onTap;
+  final VoidCallback onAdd;
+  final List<Widget> constraints;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      decoration: BoxDecoration(
+        color: AppTheme.nestedBg(isDark, cs),
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        border: Border.all(
+          color: expanded
+              ? cs.primary.withValues(alpha: 0.35)
+              : AppTheme.borderColor(isDark, cs),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header row
+          InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 10,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      name,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                  ),
+                  if (constraintCount > 0)
+                    Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.1),
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.kChipRadius),
+                      ),
+                      child: Text(
+                        '$constraintCount',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: cs.primary,
+                        ),
+                      ),
+                    ),
+                  Icon(
+                    expanded
+                        ? Icons.expand_less_rounded
+                        : Icons.expand_more_rounded,
+                    size: 18,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Expanded constraint list + add button
+          if (expanded) ...[
+            Divider(
+              height: 1,
+              thickness: 0.5,
+              color: AppTheme.borderColor(isDark, cs).withValues(alpha: 0.4),
+            ),
+            if (constraints.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                child: Text(
+                  'No constraints. Tap below to add one.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+              )
+            else
+              ...constraints,
+            // Add button
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 6, 14, 10),
+              child: OutlinedButton.icon(
+                onPressed: onAdd,
+                icon: const Icon(Icons.add_rounded, size: 15),
+                label: const Text('Add Constraint'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: cs.primary,
+                  side: BorderSide(
+                    color: cs.primary.withValues(alpha: 0.35),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(AppTheme.kCardRadius),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared — Constraint tile (one entry row inside an entity card)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ConstraintTile extends StatelessWidget {
+  const _ConstraintTile({
+    required this.days,
+    required this.slotIndices,
+    required this.isBlock,
+    required this.rules,
+    required this.cs,
+    required this.isDark,
+    required this.onDelete,
+  });
+
+  final List<int> days;
+  final List<int> slotIndices;
+  final bool isBlock;
+  final TimetableRules rules;
+  final ColorScheme cs;
+  final bool isDark;
+  final VoidCallback onDelete;
+
+  String _dayLabel(int d) => _kWizDayShort[d] ?? 'D$d';
+
+  String _slotLabel(int slotIndex) {
+    final ls = rules
+        .buildLessonSlots()
+        .where((s) => s.index == slotIndex)
+        .firstOrNull;
+    return ls != null
+        ? '${_fmtTime(ls.start)}–${_fmtTime(ls.end)}'
+        : 'Slot $slotIndex';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dayStr = days.map(_dayLabel).join(', ');
+    final slotStr = slotIndices.isEmpty
+        ? 'all slots'
+        : slotIndices.map(_slotLabel).join(', ');
+    final typeLabel = isBlock ? 'Block' : 'Require';
+    final typeColor = isBlock ? cs.error : AppTheme.brandGreen;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            decoration: BoxDecoration(
+              color: typeColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+            ),
+            child: Text(
+              typeLabel,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: typeColor,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '$dayStr · $slotStr',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurface.withValues(alpha: 0.75),
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: onDelete,
+            icon: Icon(
+              Icons.delete_outline_rounded,
+              size: 15,
+              color: cs.error.withValues(alpha: 0.55),
+            ),
+            constraints:
+                const BoxConstraints(minWidth: 26, minHeight: 26),
+            tooltip: 'Remove constraint',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared — Constraint entry sheet
+// ─────────────────────────────────────────────────────────────────────────────
+
+typedef _ConstraintResult = ({
+  List<int> days,
+  List<int> slotIndices,
+  bool isBlock,
+});
+
+/// Shows a modal bottom sheet for entering a new constraint (days, slots,
+/// block-or-require).  Returns `null` when the user cancels.
+Future<_ConstraintResult?> _showConstraintSheet(
+  BuildContext context,
+  TimetableRules rules,
+  List<({int index, int start, int end})> lessonSlots,
+) {
+  return showModalBottomSheet<_ConstraintResult>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (ctx) => _ConstraintSheet(rules: rules, lessonSlots: lessonSlots),
+  );
+}
+
+class _ConstraintSheet extends StatefulWidget {
+  const _ConstraintSheet({
+    required this.rules,
+    required this.lessonSlots,
+  });
+
+  final TimetableRules rules;
+  final List<({int index, int start, int end})> lessonSlots;
+
+  @override
+  State<_ConstraintSheet> createState() => _ConstraintSheetState();
+}
+
+class _ConstraintSheetState extends State<_ConstraintSheet> {
+  late Set<int> _selectedDays;
+  late Set<int> _selectedSlots;
+  bool _isBlock = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDays = Set<int>.from(widget.rules.activeDays);
+    _selectedSlots = <int>{};
+  }
+
+  void _submit() {
+    if (_selectedDays.isEmpty) return;
+    Navigator.of(context).pop<_ConstraintResult>((
+      days: _selectedDays.toList()..sort(),
+      slotIndices: _selectedSlots.toList()..sort(),
+      isBlock: _isBlock,
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+    final viewInsets = MediaQuery.viewInsetsOf(context);
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: viewInsets.bottom),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.modalBg(isDark, cs),
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(AppTheme.kModalRadius),
+          ),
+          border: Border(
+            top: BorderSide(color: AppTheme.borderColor(isDark, cs)),
+          ),
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Handle
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: cs.outlineVariant.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Text(
+                'Add Constraint',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurface,
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Days section
+              Text(
+                'APPLIES TO DAYS',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0.5,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: widget.rules.activeDays.map((d) {
+                  final sel = _selectedDays.contains(d);
+                  return GestureDetector(
+                    onTap: () => setState(() {
+                      if (sel) {
+                        _selectedDays.remove(d);
+                      } else {
+                        _selectedDays.add(d);
+                      }
+                    }),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 120),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: sel
+                            ? cs.primary.withValues(alpha: 0.15)
+                            : Colors.transparent,
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.kChipRadius),
+                        border: Border.all(
+                          color: sel
+                              ? cs.primary.withValues(alpha: 0.5)
+                              : cs.outlineVariant.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Text(
+                        _kWizDayFull[d] ?? 'Day $d',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight:
+                              sel ? FontWeight.w500 : FontWeight.w400,
+                          color: sel ? cs.primary : cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+              // Slots section
+              Text(
+                'APPLIES TO SLOTS',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0.5,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Leave all unselected to apply to all lesson slots.',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: widget.lessonSlots.map((ls) {
+                  final sel = _selectedSlots.contains(ls.index);
+                  final label =
+                      '${_fmtTime(ls.start)}–${_fmtTime(ls.end)}';
+                  return GestureDetector(
+                    onTap: () => setState(() {
+                      if (sel) {
+                        _selectedSlots.remove(ls.index);
+                      } else {
+                        _selectedSlots.add(ls.index);
+                      }
+                    }),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 120),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: sel
+                            ? cs.primary.withValues(alpha: 0.15)
+                            : Colors.transparent,
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.kChipRadius),
+                        border: Border.all(
+                          color: sel
+                              ? cs.primary.withValues(alpha: 0.5)
+                              : cs.outlineVariant.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight:
+                              sel ? FontWeight.w500 : FontWeight.w400,
+                          color: sel ? cs.primary : cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+              // Type section
+              Text(
+                'CONSTRAINT TYPE',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0.5,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  _ConstraintTypeChip(
+                    label: 'Block',
+                    sublabel: 'Cannot be in these slots',
+                    selected: _isBlock,
+                    color: cs.error,
+                    cs: cs,
+                    onTap: () => setState(() => _isBlock = true),
+                  ),
+                  const SizedBox(width: 8),
+                  _ConstraintTypeChip(
+                    label: 'Require',
+                    sublabel: 'Only in these slots',
+                    selected: !_isBlock,
+                    color: AppTheme.brandGreen,
+                    cs: cs,
+                    onTap: () => setState(() => _isBlock = false),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: _selectedDays.isEmpty ? null : _submit,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppTheme.brandGreen,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.kCardRadius,
+                        ),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    child: const Text('Add'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ConstraintTypeChip extends StatelessWidget {
+  const _ConstraintTypeChip({
+    required this.label,
+    required this.sublabel,
+    required this.selected,
+    required this.color,
+    required this.cs,
+    required this.onTap,
+  });
+
+  final String label;
+  final String sublabel;
+  final bool selected;
+  final Color color;
+  final ColorScheme cs;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color:
+                selected ? color.withValues(alpha: 0.1) : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+            border: Border.all(
+              color: selected
+                  ? color.withValues(alpha: 0.5)
+                  : cs.outlineVariant.withValues(alpha: 0.35),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: selected ? color : cs.onSurface,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                sublabel,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stage 4 — Conflict Resolution & Generation
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _Stage4Generate extends StatefulWidget {
+  const _Stage4Generate({
+    required this.rules,
+    required this.conflicts,
+    required this.teachers,
+    required this.subjects,
+    required this.generating,
+    required this.result,
+    required this.cs,
+    required this.isDark,
+    required this.onConflictResolved,
+    required this.onGenerate,
+    required this.onComplete,
+  });
+
+  final TimetableRules rules;
+  final List<_ConflictPair> conflicts;
+  final List<_WizardTeacher> teachers;
+  final List<_WizardSubject> subjects;
+  final bool generating;
+  final GeneratorResult? result;
+  final ColorScheme cs;
+  final bool isDark;
+  final void Function(_ConflictPair, bool teacherWins) onConflictResolved;
+  final Future<void> Function() onGenerate;
+  final VoidCallback onComplete;
+
+  @override
+  State<_Stage4Generate> createState() => _Stage4GenerateState();
+}
+
+class _Stage4GenerateState extends State<_Stage4Generate>
+    with TickerProviderStateMixin {
+  late AnimationController _pulseCtrl;
+  int _statusIndex = 0;
+  static const _statusMessages = [
+    'Analyzing subjects…',
+    'Building assignments…',
+    'Optimizing schedule…',
+    'Finalizing…',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..addStatusListener((s) {
+        if (s == AnimationStatus.completed && mounted && widget.generating) {
+          setState(
+            () => _statusIndex =
+                (_statusIndex + 1) % _statusMessages.length,
+          );
+          _pulseCtrl.forward(from: 0);
+        }
+      });
+  }
+
+  @override
+  void didUpdateWidget(_Stage4Generate old) {
+    super.didUpdateWidget(old);
+    if (widget.generating && !old.generating) {
+      _statusIndex = 0;
+      _pulseCtrl.forward(from: 0);
+    }
+    if (!widget.generating && old.generating) {
+      _pulseCtrl.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
+
+  String _teacherName(String id) =>
+      widget.teachers
+          .where((t) => t.id == id)
+          .map((t) => t.name)
+          .firstOrNull ??
+      id;
+
+  String _subjectName(int id) =>
+      widget.subjects
+          .where((s) => s.id == id)
+          .map((s) => s.name)
+          .firstOrNull ??
+      'Subject $id';
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final isDark = widget.isDark;
+
+    // Generating state
+    if (widget.generating) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 40,
+              height: 40,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: AppTheme.brandGreen,
+              ),
+            ),
+            const SizedBox(height: 20),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: Text(
+                _statusMessages[_statusIndex],
+                key: ValueKey(_statusIndex),
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Success state
+    if (widget.result is GeneratorSuccess) {
+      final success = widget.result! as GeneratorSuccess;
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.brandGreen.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                border: Border.all(
+                  color: AppTheme.brandGreen.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.check_circle_outline_rounded,
+                    size: 22,
+                    color: AppTheme.brandGreen,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Timetable generated!',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: AppTheme.brandGreen,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${success.slots.length} slots · '
+                          '${success.iterations} iterations · '
+                          '${success.elapsed.inMilliseconds}ms',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            color: cs.onSurface.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: widget.onComplete,
+                icon: const Icon(
+                  Icons.calendar_today_outlined,
+                  size: 16,
+                ),
+                label: const Text('View Timetable'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTheme.brandGreen,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(AppTheme.kCardRadius),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Failure state
+    if (widget.result is GeneratorFailure) {
+      final failure = widget.result! as GeneratorFailure;
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: cs.error.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                border: Border.all(
+                  color: cs.error.withValues(alpha: 0.25),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.error_outline_rounded,
+                    size: 18,
+                    color: cs.error.withValues(alpha: 0.8),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      failure.reason,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurface.withValues(alpha: 0.75),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            OutlinedButton.icon(
+              onPressed: widget.onGenerate,
+              icon: const Icon(Icons.refresh_rounded, size: 16),
+              label: const Text('Retry'),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: cs.outlineVariant),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Pre-generate state: show summary + conflict cards + generate button
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Rules summary
+          _WizardSection(
+            title: 'Configuration Summary',
+            cs: cs,
+            isDark: isDark,
+            children: [
+              _WizardRuleRow(
+                label: 'Day starts at',
+                cs: cs,
+                child: Text(
+                  widget.rules.dayStartTime.format(context),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                  ),
+                ),
+              ),
+              Divider(
+                height: 1,
+                thickness: 0.5,
+                color: AppTheme.borderColor(isDark, cs)
+                    .withValues(alpha: 0.3),
+              ),
+              _WizardRuleRow(
+                label: 'Lesson slots',
+                cs: cs,
+                child: Text(
+                  '${widget.rules.buildLessonSlots().length} per day',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                  ),
+                ),
+              ),
+              Divider(
+                height: 1,
+                thickness: 0.5,
+                color: AppTheme.borderColor(isDark, cs)
+                    .withValues(alpha: 0.3),
+              ),
+              _WizardRuleRow(
+                label: 'Active days',
+                cs: cs,
+                child: Text(
+                  '${widget.rules.activeDays.length} days',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                  ),
+                ),
+              ),
+              Divider(
+                height: 1,
+                thickness: 0.5,
+                color: AppTheme.borderColor(isDark, cs)
+                    .withValues(alpha: 0.3),
+              ),
+              _WizardRuleRow(
+                label: 'Teacher constraints',
+                cs: cs,
+                child: Text(
+                  '${widget.rules.teacherConstraints.length}',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                  ),
+                ),
+              ),
+              Divider(
+                height: 1,
+                thickness: 0.5,
+                color: AppTheme.borderColor(isDark, cs)
+                    .withValues(alpha: 0.3),
+              ),
+              _WizardRuleRow(
+                label: 'Subject constraints',
+                cs: cs,
+                child: Text(
+                  '${widget.rules.subjectConstraints.length}',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          // Conflict pairs
+          if (widget.conflicts.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            Text(
+              'CONFLICTS DETECTED',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 0.5,
+                color: cs.error.withValues(alpha: 0.7),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Choose which constraint takes priority for each conflict. '
+              'The lower-priority constraint is dropped at generation time.',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+              ),
+            ),
+            const SizedBox(height: 10),
+            ...widget.conflicts.map(
+              (cp) => _ConflictCard(
+                conflict: cp,
+                teacherName: _teacherName(cp.teacherEntry.teacherId),
+                subjectName: _subjectName(cp.subjectEntry.subjectId),
+                cs: cs,
+                isDark: isDark,
+                onChanged: (v) =>
+                    widget.onConflictResolved(cp, v),
+              ),
+            ),
+          ] else ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(
+                  Icons.check_circle_outline_rounded,
+                  size: 15,
+                  color: AppTheme.brandGreen.withValues(alpha: 0.8),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'No conflicts found.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 20),
+          // Generate button
+          SizedBox(
+            width: double.infinity,
             child: FilledButton.icon(
-              onPressed: _generate,
-              icon: const Icon(Icons.play_arrow_rounded, size: 16),
-              label: const Text('Generate'),
+              onPressed: widget.onGenerate,
+              icon: const Icon(Icons.play_arrow_rounded, size: 18),
+              label: const Text('Generate Timetable'),
               style: FilledButton.styleFrom(
                 backgroundColor: AppTheme.brandGreen,
                 foregroundColor: Colors.white,
@@ -2307,1054 +4691,158 @@ class _TimetableRulesPageState extends State<_TimetableRulesPage> {
               ),
             ),
           ),
+          const SizedBox(height: 8),
         ],
-      ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Tab strip
-          Container(
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: AppTheme.borderColor(isDark, cs),
-                  width: 0.5,
-                ),
-              ),
-            ),
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: Row(
-              children: [
-                _SheetTab(
-                  label: 'Global',
-                  selected: _tab == 0,
-                  onTap: () => setState(() => _tab = 0),
-                  cs: cs,
-                ),
-                const SizedBox(width: 8),
-                _SheetTab(
-                  label: 'Teachers',
-                  selected: _tab == 1,
-                  onTap: () => setState(() => _tab = 1),
-                  cs: cs,
-                ),
-                const SizedBox(width: 8),
-                _SheetTab(
-                  label: 'Subjects',
-                  selected: _tab == 2,
-                  onTap: () => setState(() => _tab = 2),
-                  cs: cs,
-                ),
-              ],
-            ),
-          ),
-          // Content
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: _buildTabContent(cs, isDark),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTabContent(ColorScheme cs, bool isDark) {
-    return switch (_tab) {
-      0 => _buildGlobalTab(cs, isDark),
-      1 => _buildTeachersTab(cs, isDark),
-      2 => _buildSubjectsTab(cs, isDark),
-      _ => const SizedBox.shrink(),
-    };
-  }
-
-  Widget _buildGlobalTab(ColorScheme cs, bool isDark) {
-    return Column(
-      children: [
-        _RulesSection(
-          title: 'Time Configuration',
-          cs: cs,
-          isDark: isDark,
-          children: [
-            _RuleRow(
-              label: 'Day starts at',
-              cs: cs,
-              child: _TimePickerButton(
-                seconds: _rules.dayStartSeconds,
-                cs: cs,
-                onChanged: (v) => setState(() => _rules.dayStartSeconds = v),
-              ),
-            ),
-            _ruleDivider(cs),
-            _RuleRow(
-              label: 'Day ends at',
-              cs: cs,
-              child: _TimePickerButton(
-                seconds: _rules.dayEndSeconds,
-                cs: cs,
-                onChanged: (v) => setState(() => _rules.dayEndSeconds = v),
-              ),
-            ),
-            _ruleDivider(cs),
-            _RuleRow(
-              label: 'Lesson duration',
-              cs: cs,
-              child: _StepperControl(
-                value: _rules.lessonDurationMinutes,
-                suffix: 'min',
-                min: 20,
-                max: 90,
-                step: 5,
-                cs: cs,
-                onChanged: (v) =>
-                    setState(() => _rules.lessonDurationMinutes = v),
-              ),
-            ),
-            _ruleDivider(cs),
-            _RuleRow(
-              label: 'Break between lessons',
-              cs: cs,
-              child: _StepperControl(
-                value: _rules.breakDurationMinutes,
-                suffix: 'min',
-                min: 0,
-                max: 30,
-                step: 5,
-                cs: cs,
-                onChanged: (v) =>
-                    setState(() => _rules.breakDurationMinutes = v),
-              ),
-            ),
-            _ruleDivider(cs),
-            _RuleRow(
-              label: 'Lunch break starts at',
-              cs: cs,
-              child: _TimePickerButton(
-                seconds: _rules.lunchStartSeconds,
-                cs: cs,
-                onChanged: (v) => setState(() => _rules.lunchStartSeconds = v),
-              ),
-            ),
-            _ruleDivider(cs),
-            _RuleRow(
-              label: 'Lunch break duration',
-              cs: cs,
-              child: _StepperControl(
-                value: _rules.lunchDurationMinutes,
-                suffix: 'min',
-                min: 15,
-                max: 90,
-                step: 5,
-                cs: cs,
-                onChanged: (v) =>
-                    setState(() => _rules.lunchDurationMinutes = v),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        _RulesSection(
-          title: 'Load Constraints',
-          cs: cs,
-          isDark: isDark,
-          children: [
-            _RuleRow(
-              label: 'Lessons per week (default)',
-              cs: cs,
-              child: _StepperControl(
-                value: _rules.defaultLessonsPerWeek,
-                suffix: '',
-                min: 1,
-                max: 8,
-                step: 1,
-                cs: cs,
-                onChanged: (v) =>
-                    setState(() => _rules.defaultLessonsPerWeek = v),
-              ),
-            ),
-            _ruleDivider(cs),
-            _RuleRow(
-              label: 'Max lessons per day (teacher)',
-              cs: cs,
-              child: _StepperControl(
-                value: _rules.maxLessonsPerDayTeacher,
-                suffix: '',
-                min: 1,
-                max: 10,
-                step: 1,
-                cs: cs,
-                onChanged: (v) =>
-                    setState(() => _rules.maxLessonsPerDayTeacher = v),
-              ),
-            ),
-            _ruleDivider(cs),
-            _RuleRow(
-              label: 'Max lessons per day (class)',
-              cs: cs,
-              child: _StepperControl(
-                value: _rules.maxLessonsPerDayClass,
-                suffix: '',
-                min: 1,
-                max: 12,
-                step: 1,
-                cs: cs,
-                onChanged: (v) =>
-                    setState(() => _rules.maxLessonsPerDayClass = v),
-              ),
-            ),
-            _ruleDivider(cs),
-            _RuleRow(
-              label: 'Allow double lessons',
-              cs: cs,
-              child: Switch.adaptive(
-                value: _rules.allowDoubles,
-                activeTrackColor: cs.primary,
-                onChanged: (v) => setState(() => _rules.allowDoubles = v),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        _RulesSection(
-          title: 'Active Days',
-          cs: cs,
-          isDark: isDark,
-          children: DayOfWeek.values.map((day) {
-            final isActive = _rules.activeDays.contains(day);
-            return _DayToggle(
-              day: day,
-              isActive: isActive,
-              cs: cs,
-              onToggle: (active) {
-                setState(() {
-                  if (active) {
-                    if (!_rules.activeDays.contains(day)) {
-                      _rules.activeDays.add(day);
-                    }
-                  } else {
-                    _rules.activeDays.remove(day);
-                  }
-                });
-              },
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 24),
-      ],
-    );
-  }
-
-  Widget _buildTeachersTab(ColorScheme cs, bool isDark) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (_rules.teacherBlocks.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Center(
-              child: Text(
-                'No teacher block rules defined.',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                ),
-              ),
-            ),
-          )
-        else
-          ..._rules.teacherBlocks.asMap().entries.map((entry) {
-            final i = entry.key;
-            final rule = entry.value;
-            return _TeacherBlockRuleTile(
-              rule: rule,
-              cs: cs,
-              isDark: isDark,
-              onDelete: () => setState(() => _rules.teacherBlocks.removeAt(i)),
-            );
-          }),
-        const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: () async {
-            final rule = await _showRulesSubSheet<TeacherBlockRule>(
-              context: context,
-              child: _TeacherBlockRuleSheet(cs: cs),
-            );
-            if (rule != null) {
-              setState(() => _rules.teacherBlocks.add(rule));
-            }
-          },
-          icon: const Icon(Icons.add_rounded, size: 16),
-          label: const Text('Add Teacher Rule'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: cs.primary,
-            side: BorderSide(color: cs.outlineVariant),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-            ),
-            textStyle: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-        ),
-        const SizedBox(height: 24),
-      ],
-    );
-  }
-
-  Widget _buildSubjectsTab(ColorScheme cs, bool isDark) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (_rules.subjectBlocks.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Center(
-              child: Text(
-                'No subject block rules defined.',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                ),
-              ),
-            ),
-          )
-        else
-          ..._rules.subjectBlocks.asMap().entries.map((entry) {
-            final i = entry.key;
-            final rule = entry.value;
-            return _SubjectBlockRuleTile(
-              rule: rule,
-              cs: cs,
-              isDark: isDark,
-              onDelete: () => setState(() => _rules.subjectBlocks.removeAt(i)),
-            );
-          }),
-        const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: () async {
-            final rule = await _showRulesSubSheet<SubjectBlockRule>(
-              context: context,
-              child: _SubjectBlockRuleSheet(cs: cs),
-            );
-            if (rule != null) {
-              setState(() => _rules.subjectBlocks.add(rule));
-            }
-          },
-          icon: const Icon(Icons.add_rounded, size: 16),
-          label: const Text('Add Subject Rule'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: cs.primary,
-            side: BorderSide(color: cs.outlineVariant),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-            ),
-            textStyle: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-        ),
-        const SizedBox(height: 24),
-      ],
-    );
-  }
-}
-
-// ── Sheet tab chip ─────────────────────────────────────────────────────────
-
-class _SheetTab extends StatelessWidget {
-  const _SheetTab({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    required this.cs,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = cs.brightness == Brightness.dark;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected
-              ? cs.primary.withValues(alpha: isDark ? 0.2 : 0.12)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
-          border: Border.all(
-            color: selected
-                ? cs.primary.withValues(alpha: 0.5)
-                : cs.outlineVariant.withValues(alpha: 0.3),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
-            color: selected ? cs.primary : cs.onSurfaceVariant,
-          ),
-        ),
       ),
     );
   }
 }
 
-// ── Teacher block rule tile (display) ─────────────────────────────────────
-
-class _TeacherBlockRuleTile extends StatelessWidget {
-  const _TeacherBlockRuleTile({
-    required this.rule,
+class _ConflictCard extends StatelessWidget {
+  const _ConflictCard({
+    required this.conflict,
+    required this.teacherName,
+    required this.subjectName,
     required this.cs,
     required this.isDark,
-    required this.onDelete,
+    required this.onChanged,
   });
 
-  final TeacherBlockRule rule;
+  final _ConflictPair conflict;
+  final String teacherName;
+  final String subjectName;
   final ColorScheme cs;
   final bool isDark;
-  final VoidCallback onDelete;
+  final ValueChanged<bool> onChanged; // true = teacher wins
 
   @override
   Widget build(BuildContext context) {
-    final dayLabels = rule.days.map((d) => _kDayLabels[d] ?? d.name).join(', ');
-    final startStr = _fmtTime(rule.startSeconds);
-    final endStr = _fmtTime(rule.endSeconds);
+    final tc = conflict.teacherEntry;
+    final sc = conflict.subjectEntry;
+    final tcLabel = tc.isBlock ? 'Block' : 'Require';
+    final scLabel = sc.isBlock ? 'Block' : 'Require';
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppTheme.nestedBg(isDark, cs),
+        color: cs.error.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-        border: Border.all(color: AppTheme.borderColor(isDark, cs)),
+        border: Border.all(color: cs.error.withValues(alpha: 0.2)),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  // TODO: resolve teacher name from DB
-                  'Teacher: ${rule.teacherUserId}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  '$dayLabels · $startStr – $endStr',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w400,
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            icon: Icon(
-              Icons.delete_outline_rounded,
-              size: 18,
-              color: cs.error.withValues(alpha: 0.7),
-            ),
-            onPressed: onDelete,
-            tooltip: 'Remove rule',
-            visualDensity: VisualDensity.compact,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Subject block rule tile (display) ─────────────────────────────────────
-
-class _SubjectBlockRuleTile extends StatelessWidget {
-  const _SubjectBlockRuleTile({
-    required this.rule,
-    required this.cs,
-    required this.isDark,
-    required this.onDelete,
-  });
-
-  final SubjectBlockRule rule;
-  final ColorScheme cs;
-  final bool isDark;
-  final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final parts = <String>[];
-    if (rule.allowedDays != null) {
-      parts.add(
-        'Only on: ${rule.allowedDays!.map((d) => _kDayLabels[d] ?? d.name).join(', ')}',
-      );
-    }
-    if (rule.blockedAfterSeconds != null) {
-      parts.add('Not after ${_fmtTime(rule.blockedAfterSeconds!)}');
-    }
-    if (rule.blockedBeforeSeconds != null) {
-      parts.add('Not before ${_fmtTime(rule.blockedBeforeSeconds!)}');
-    }
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppTheme.nestedBg(isDark, cs),
-        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-        border: Border.all(color: AppTheme.borderColor(isDark, cs)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  // TODO: resolve subject name from DB
-                  'Subject ID: ${rule.subjectId}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurface,
-                  ),
-                ),
-                if (parts.isNotEmpty) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    parts.join(' · '),
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w400,
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          IconButton(
-            icon: Icon(
-              Icons.delete_outline_rounded,
-              size: 18,
-              color: cs.error.withValues(alpha: 0.7),
-            ),
-            onPressed: onDelete,
-            tooltip: 'Remove rule',
-            visualDensity: VisualDensity.compact,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Teacher block rule entry sheet
-// ═══════════════════════════════════════════════════════════════════════════
-
-class _TeacherBlockRuleSheet extends StatefulWidget {
-  const _TeacherBlockRuleSheet({required this.cs});
-  final ColorScheme cs;
-  @override
-  State<_TeacherBlockRuleSheet> createState() => _TeacherBlockRuleSheetState();
-}
-
-class _TeacherBlockRuleSheetState extends State<_TeacherBlockRuleSheet> {
-  final _teacherCtrl = TextEditingController();
-  List<DayOfWeek> _days = [];
-  int _start = 8 * 3600;
-  int _end = 10 * 3600;
-  String? _error;
-
-  @override
-  void dispose() {
-    _teacherCtrl.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    final teacherId = _teacherCtrl.text.trim();
-    if (teacherId.isEmpty) {
-      setState(() => _error = 'Teacher user ID is required.');
-      return;
-    }
-    if (_days.isEmpty) {
-      setState(() => _error = 'Select at least one day.');
-      return;
-    }
-    if (_end <= _start) {
-      setState(() => _error = 'End time must be after start time.');
-      return;
-    }
-    Navigator.of(context).pop(
-      TeacherBlockRule(
-        teacherUserId: teacherId,
-        days: List.from(_days),
-        startSeconds: _start,
-        endSeconds: _end,
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = widget.cs;
-    final isDark = cs.brightness == Brightness.dark;
-    return Padding(
-      padding: const EdgeInsets.all(16),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Add Teacher Block Rule',
+            '$teacherName ↔ $subjectName',
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: FontWeight.w500,
               color: cs.onSurface,
-            ),
-          ),
-          const SizedBox(height: 16),
-          // Teacher ID field
-          Text(
-            'Teacher User ID',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: cs.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Container(
-            decoration: BoxDecoration(
-              color: AppTheme.nestedBg(isDark, cs),
-              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-              border: Border.all(color: AppTheme.borderColor(isDark, cs)),
-            ),
-            child: TextField(
-              controller: _teacherCtrl,
-              style: TextStyle(fontSize: 13, color: cs.onSurface),
-              decoration: InputDecoration(
-                hintText: 'e.g. usr_abc123',
-                hintStyle: TextStyle(
-                  fontSize: 13,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'TODO: Replace with a searchable teacher picker in a future update.',
-            style: TextStyle(
-              fontSize: 10,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.4),
-            ),
-          ),
-          const SizedBox(height: 16),
-          // Day selector
-          Text(
-            'Blocked Days',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: cs.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: DayOfWeek.values.map((day) {
-              final selected = _days.contains(day);
-              return GestureDetector(
-                onTap: () => setState(() {
-                  if (selected)
-                    _days.remove(day);
-                  else
-                    _days.add(day);
-                }),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 120),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? cs.primary.withValues(alpha: 0.15)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
-                    border: Border.all(
-                      color: selected
-                          ? cs.primary.withValues(alpha: 0.5)
-                          : cs.outlineVariant.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Text(
-                    _kDayLabels[day] ?? day.name,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
-                      color: selected ? cs.primary : cs.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 16),
-          // Time range
+          // Priority choice
           Row(
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Block from',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    _TimePickerButton(
-                      seconds: _start,
-                      cs: cs,
-                      onChanged: (v) => setState(() => _start = v),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Block until',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    _TimePickerButton(
-                      seconds: _end,
-                      cs: cs,
-                      onChanged: (v) => setState(() => _end = v),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          if (_error != null) ...[
-            const SizedBox(height: 8),
-            Text(_error!, style: TextStyle(fontSize: 12, color: cs.error)),
-          ],
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Cancel'),
-              ),
-              const SizedBox(width: 8),
-              FilledButton(
-                onPressed: _submit,
-                style: FilledButton.styleFrom(
-                  backgroundColor: cs.primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                  ),
-                ),
-                child: const Text('Add Rule', style: TextStyle(fontSize: 13)),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Subject block rule entry sheet
-// ═══════════════════════════════════════════════════════════════════════════
-
-class _SubjectBlockRuleSheet extends StatefulWidget {
-  const _SubjectBlockRuleSheet({required this.cs});
-  final ColorScheme cs;
-  @override
-  State<_SubjectBlockRuleSheet> createState() => _SubjectBlockRuleSheetState();
-}
-
-class _SubjectBlockRuleSheetState extends State<_SubjectBlockRuleSheet> {
-  final _subjectCtrl = TextEditingController();
-  bool _useAllowedDays = false;
-  bool _useBlockedAfter = false;
-  bool _useBlockedBefore = false;
-  List<DayOfWeek> _allowedDays = [];
-  int _blockedAfter = 14 * 3600;
-  int _blockedBefore = 8 * 3600;
-  String? _error;
-
-  @override
-  void dispose() {
-    _subjectCtrl.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    final idStr = _subjectCtrl.text.trim();
-    final subjectId = int.tryParse(idStr);
-    if (subjectId == null) {
-      setState(() => _error = 'Enter a valid numeric subject ID.');
-      return;
-    }
-    if (_useAllowedDays && _allowedDays.isEmpty) {
-      setState(() => _error = 'Select at least one allowed day.');
-      return;
-    }
-    Navigator.of(context).pop(
-      SubjectBlockRule(
-        subjectId: subjectId,
-        allowedDays: _useAllowedDays ? List.from(_allowedDays) : null,
-        blockedAfterSeconds: _useBlockedAfter ? _blockedAfter : null,
-        blockedBeforeSeconds: _useBlockedBefore ? _blockedBefore : null,
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = widget.cs;
-    final isDark = cs.brightness == Brightness.dark;
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Add Subject Block Rule',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: cs.onSurface,
-            ),
-          ),
-          const SizedBox(height: 16),
-          // Subject ID field
-          Text(
-            'Subject ID',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: cs.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Container(
-            decoration: BoxDecoration(
-              color: AppTheme.nestedBg(isDark, cs),
-              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-              border: Border.all(color: AppTheme.borderColor(isDark, cs)),
-            ),
-            child: TextField(
-              controller: _subjectCtrl,
-              keyboardType: TextInputType.number,
-              style: TextStyle(fontSize: 13, color: cs.onSurface),
-              decoration: InputDecoration(
-                hintText: 'e.g. 12',
-                hintStyle: TextStyle(
-                  fontSize: 13,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'TODO: Replace with a searchable subject picker in a future update.',
-            style: TextStyle(
-              fontSize: 10,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.4),
-            ),
-          ),
-          const SizedBox(height: 16),
-          // Allowed days toggle
-          Row(
-            children: [
-              Switch.adaptive(
-                value: _useAllowedDays,
-                activeTrackColor: cs.primary,
-                onChanged: (v) => setState(() => _useAllowedDays = v),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Restrict to specific days',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurface,
-                ),
-              ),
-            ],
-          ),
-          if (_useAllowedDays) ...[
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: DayOfWeek.values.map((day) {
-                final sel = _allowedDays.contains(day);
-                return GestureDetector(
-                  onTap: () => setState(() {
-                    if (sel)
-                      _allowedDays.remove(day);
-                    else
-                      _allowedDays.add(day);
-                  }),
+                child: GestureDetector(
+                  onTap: () => onChanged(true),
                   child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 120),
+                    duration: const Duration(milliseconds: 150),
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
+                      horizontal: 10,
+                      vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: sel
-                          ? cs.primary.withValues(alpha: 0.15)
+                      color: conflict.teacherWins
+                          ? AppTheme.brandGreen.withValues(alpha: 0.1)
                           : Colors.transparent,
-                      borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.kChipRadius),
                       border: Border.all(
-                        color: sel
-                            ? cs.primary.withValues(alpha: 0.5)
+                        color: conflict.teacherWins
+                            ? AppTheme.brandGreen.withValues(alpha: 0.45)
                             : cs.outlineVariant.withValues(alpha: 0.3),
                       ),
                     ),
-                    child: Text(
-                      _kDayLabels[day] ?? day.name,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: sel ? FontWeight.w500 : FontWeight.w400,
-                        color: sel ? cs.primary : cs.onSurfaceVariant,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Teacher wins',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: conflict.teacherWins
+                                ? AppTheme.brandGreen
+                                : cs.onSurface,
+                          ),
+                        ),
+                        Text(
+                          '$teacherName · $tcLabel',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w400,
+                            color: cs.onSurfaceVariant.withValues(
+                              alpha: 0.6,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                );
-              }).toList(),
-            ),
-          ],
-          const SizedBox(height: 8),
-          // Blocked after toggle
-          Row(
-            children: [
-              Switch.adaptive(
-                value: _useBlockedAfter,
-                activeTrackColor: cs.primary,
-                onChanged: (v) => setState(() => _useBlockedAfter = v),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Not after a certain time',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurface,
                 ),
               ),
-            ],
-          ),
-          if (_useBlockedAfter) ...[
-            const SizedBox(height: 8),
-            _TimePickerButton(
-              seconds: _blockedAfter,
-              cs: cs,
-              onChanged: (v) => setState(() => _blockedAfter = v),
-            ),
-          ],
-          const SizedBox(height: 8),
-          // Blocked before toggle
-          Row(
-            children: [
-              Switch.adaptive(
-                value: _useBlockedBefore,
-                activeTrackColor: cs.primary,
-                onChanged: (v) => setState(() => _useBlockedBefore = v),
-              ),
               const SizedBox(width: 8),
-              Text(
-                'Not before a certain time',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurface,
-                ),
-              ),
-            ],
-          ),
-          if (_useBlockedBefore) ...[
-            const SizedBox(height: 8),
-            _TimePickerButton(
-              seconds: _blockedBefore,
-              cs: cs,
-              onChanged: (v) => setState(() => _blockedBefore = v),
-            ),
-          ],
-          if (_error != null) ...[
-            const SizedBox(height: 8),
-            Text(_error!, style: TextStyle(fontSize: 12, color: cs.error)),
-          ],
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Cancel'),
-              ),
-              const SizedBox(width: 8),
-              FilledButton(
-                onPressed: _submit,
-                style: FilledButton.styleFrom(
-                  backgroundColor: cs.primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => onChanged(false),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: !conflict.teacherWins
+                          ? cs.primary.withValues(alpha: 0.1)
+                          : Colors.transparent,
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.kChipRadius),
+                      border: Border.all(
+                        color: !conflict.teacherWins
+                            ? cs.primary.withValues(alpha: 0.45)
+                            : cs.outlineVariant.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Subject wins',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: !conflict.teacherWins
+                                ? cs.primary
+                                : cs.onSurface,
+                          ),
+                        ),
+                        Text(
+                          '$subjectName · $scLabel',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w400,
+                            color: cs.onSurfaceVariant.withValues(
+                              alpha: 0.6,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                child: const Text('Add Rule', style: TextStyle(fontSize: 13)),
               ),
             ],
           ),
