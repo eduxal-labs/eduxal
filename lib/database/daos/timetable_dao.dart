@@ -678,6 +678,51 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
     );
   }
 
+  /// Emits every timetable entry for a school+year+term, joined with the
+  /// teacher's display name and subject name from the catalog.
+  ///
+  /// Ordered by day then start time. Used by the school-wide cross-matrix
+  /// timetable view in the owner/admin shell.
+  Stream<List<SchoolWideTimetableEntry>> watchSchoolWideTimetable({
+    required String schoolId,
+    required int year,
+    required int term,
+  }) {
+    final query =
+        select(timetable).join([
+            innerJoin(users, users.id.equalsExp(timetable.teacher)),
+            leftOuterJoin(subjects, subjects.id.equalsExp(timetable.subject)),
+          ])
+          ..where(
+            timetable.school.equals(schoolId) &
+                timetable.year.equals(year) &
+                timetable.term.equals(term),
+          )
+          ..orderBy([
+            OrderingTerm.asc(timetable.day),
+            OrderingTerm.asc(timetable.start),
+          ]);
+
+    return query.watch().map(
+      (rows) => rows.map((r) {
+        final slot = r.readTable(timetable);
+        final teacher = r.readTable(users);
+        final subjectRow = r.readTableOrNull(subjects);
+        return SchoolWideTimetableEntry(
+          day: slot.day,
+          startTime: slot.start,
+          endTime: slot.end,
+          grade: slot.grade,
+          stream: slot.stream,
+          subjectId: slot.subject,
+          subjectName: subjectRow?.name ?? 'Subject ${slot.subject}',
+          teacherId: teacher.id,
+          teacherName: teacher.name,
+        );
+      }).toList(),
+    );
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Mutations — lessons
   // ─────────────────────────────────────────────────────────────────────────
@@ -803,6 +848,50 @@ class LessonEntry {
   /// Human-readable subject name from the `subjects` table.
   /// Falls back to `'Subject <id>'` if the subject row is missing.
   final String subjectName;
+}
+
+/// A single school-wide timetable entry — one scheduled slot joined with
+/// teacher name and subject name. Used by the cross-matrix timetable display.
+class SchoolWideTimetableEntry {
+  const SchoolWideTimetableEntry({
+    required this.day,
+    required this.startTime,
+    required this.endTime,
+    required this.grade,
+    required this.stream,
+    required this.subjectId,
+    required this.subjectName,
+    required this.teacherId,
+    required this.teacherName,
+  });
+
+  /// Day of week for this scheduled slot.
+  final DayOfWeek day;
+
+  /// Slot start time in seconds since midnight.
+  final int startTime;
+
+  /// Slot end time in seconds since midnight.
+  final int endTime;
+
+  /// Curriculum level index (DB grade integer).
+  final int grade;
+
+  /// Stream code (DB stream smallint).
+  final int stream;
+
+  /// Subject catalog ID.
+  final int subjectId;
+
+  /// Human-readable subject name (from [Subjects] table).
+  /// Falls back to `'Subject <id>'` if the subject row is missing.
+  final String subjectName;
+
+  /// Teacher user ID.
+  final String teacherId;
+
+  /// Teacher display name.
+  final String teacherName;
 }
 
 /// One subject-teacher assignment — input record for the timetable solver.

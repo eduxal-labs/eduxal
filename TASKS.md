@@ -51,7 +51,7 @@ The teacher, student, guardian, and staff timetable views in the same file are n
 
 ---
 
-### Task TT-02: School-Wide Cross-Matrix Timetable Display
+### [x] Task TT-02: School-Wide Cross-Matrix Timetable Display
 
 **Files to create/modify:** `lib/ui/screens/school_dashboard/timetable/timetable_screen.dart`, `lib/database/daos/timetable_dao.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`, `lib/database/daos/CONTEXT.md`
