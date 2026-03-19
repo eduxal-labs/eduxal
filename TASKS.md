@@ -362,7 +362,7 @@ The existing `_WizardStepDots` widget at the bottom of the file uses animated pi
 
 ---
 
-### Task TW-02: Stage 0 — Compact Day + Slot Setup (Redesign)
+### Task TW-02: ✅ Stage 0 — Compact Day + Slot Setup (Redesign)
 
 **Files to modify:** `eduxal/lib/ui/screens/school_dashboard/timetable/timetable_screen.dart`
 **Context files to read:** `eduxal/lib/ui/screens/school_dashboard/CONTEXT.md`

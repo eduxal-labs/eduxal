@@ -2481,11 +2481,31 @@ class _WizardStepDots extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Stage 0 — Slot Sequence Builder
+// Stage 0 — Day & Slot Setup
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _Stage0SlotBuilder extends StatefulWidget {
-  const _Stage0SlotBuilder({
+// Day labels for weekday indices 1=Mon … 7=Sun (also used by _ConstraintTile).
+const _kWizDayFull = <int, String>{
+  1: 'Monday',
+  2: 'Tuesday',
+  3: 'Wednesday',
+  4: 'Thursday',
+  5: 'Friday',
+  6: 'Saturday',
+  7: 'Sunday',
+};
+const _kWizDayShort = <int, String>{
+  1: 'Mon',
+  2: 'Tue',
+  3: 'Wed',
+  4: 'Thu',
+  5: 'Fri',
+  6: 'Sat',
+  7: 'Sun',
+};
+
+class _Stage0DaysSlots extends StatefulWidget {
+  const _Stage0DaysSlots({
     required this.rules,
     required this.cs,
     required this.isDark,
@@ -2498,156 +2518,48 @@ class _Stage0SlotBuilder extends StatefulWidget {
   final void Function(TimetableRules) onChanged;
 
   @override
-  State<_Stage0SlotBuilder> createState() => _Stage0SlotBuilderState();
+  State<_Stage0DaysSlots> createState() => _Stage0DaysSlotsState();
 }
 
-class _Stage0SlotBuilderState extends State<_Stage0SlotBuilder>
-    with TickerProviderStateMixin {
+class _Stage0DaysSlotsState extends State<_Stage0DaysSlots> {
+  late List<int> _activeDays;
   late List<TimetableSlot> _slots;
   late TimeOfDay _dayStart;
-  bool _fabExpanded = false;
-  late AnimationController _fabAnimCtrl;
-  late Animation<double> _fabAnim;
 
   @override
   void initState() {
     super.initState();
+    _activeDays = List<int>.from(widget.rules.activeDays);
     _slots = List<TimetableSlot>.from(widget.rules.slots);
     _dayStart = widget.rules.dayStartTime;
-    _fabAnimCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 200),
-    );
-    _fabAnim = CurvedAnimation(parent: _fabAnimCtrl, curve: Curves.easeOut);
   }
 
-  @override
-  void dispose() {
-    _fabAnimCtrl.dispose();
-    super.dispose();
-  }
-
-  void _toggleFab() {
-    setState(() => _fabExpanded = !_fabExpanded);
-    if (_fabExpanded) {
-      _fabAnimCtrl.forward();
-    } else {
-      _fabAnimCtrl.reverse();
-    }
-  }
-
-  Future<void> _promptAdd(SlotType type) async {
-    if (_fabExpanded) _toggleFab();
-    final label = type == SlotType.lesson ? 'Lesson' : 'Break';
-    final defaultMins = type == SlotType.lesson ? '40' : '10';
-    final ctrl = TextEditingController(text: defaultMins);
-    final mins = await showDialog<int>(
-      context: context,
-      builder: (ctx) {
-        final cs = Theme.of(ctx).colorScheme;
-        final isDark = cs.brightness == Brightness.dark;
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 320),
-            child: Container(
-              decoration: BoxDecoration(
-                color: AppTheme.modalBg(isDark, cs),
-                borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
-                border: Border.all(color: AppTheme.borderColor(isDark, cs)),
-                boxShadow: AppTheme.modalShadow(isDark),
-              ),
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Add $label Slot',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: cs.onSurface,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: ctrl,
-                    autofocus: true,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: 'Duration (minutes)',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(
-                          AppTheme.kCardRadius,
-                        ),
-                      ),
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                    ),
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.of(ctx).pop(),
-                        child: const Text('Cancel'),
-                      ),
-                      const SizedBox(width: 8),
-                      FilledButton(
-                        onPressed: () {
-                          final v = int.tryParse(ctrl.text.trim());
-                          Navigator.of(ctx).pop(v);
-                        },
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppTheme.brandGreen,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(
-                              AppTheme.kCardRadius,
-                            ),
-                          ),
-                          textStyle: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        child: const Text('Add'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-    ctrl.dispose();
-    if (mins == null || mins < 5 || mins > 180) return;
+  void _toggleDay(int d) {
     setState(() {
-      _slots = [..._slots, TimetableSlot(type: type, durationMinutes: mins)];
+      if (_activeDays.contains(d)) {
+        if (_activeDays.length > 1) {
+          _activeDays = List.from(_activeDays)..remove(d);
+        }
+      } else {
+        _activeDays = List.from(_activeDays)
+          ..add(d)
+          ..sort();
+      }
     });
     _notify();
   }
 
   void _removeSlot(int index) {
-    setState(() => _slots = List<TimetableSlot>.from(_slots)..removeAt(index));
+    setState(
+      () => _slots = List<TimetableSlot>.from(_slots)..removeAt(index),
+    );
     _notify();
   }
 
   void _notify() {
     widget.onChanged(
       widget.rules.copyWith(
+        activeDays: List<int>.from(_activeDays),
         dayStartTime: _dayStart,
         slots: List<TimetableSlot>.from(_slots),
       ),
@@ -2665,6 +2577,27 @@ class _Stage0SlotBuilderState extends State<_Stage0SlotBuilder>
     }
   }
 
+  Future<void> _promptAdd(SlotType type, BuildContext ctx) async {
+    final label = type == SlotType.lesson ? 'Lesson' : 'Break';
+    final defaultMins = type == SlotType.lesson ? 40 : 10;
+    final result = await showDialog<int>(
+      context: ctx,
+      barrierColor: Colors.black.withValues(alpha: 0.35),
+      builder: (_) => _DurationPickerDialog(
+        slotLabel: label,
+        initialMinutes: defaultMins,
+      ),
+    );
+    if (result == null || result < 5 || result > 240) return;
+    setState(
+      () => _slots = [
+        ..._slots,
+        TimetableSlot(type: type, durationMinutes: result),
+      ],
+    );
+    _notify();
+  }
+
   List<({int i, SlotType type, int dur, String range})> _rows() {
     final out = <({int i, SlotType type, int dur, String range})>[];
     int cursor = _dayStart.hour * 3600 + _dayStart.minute * 60;
@@ -2675,7 +2608,7 @@ class _Stage0SlotBuilderState extends State<_Stage0SlotBuilder>
         i: i,
         type: s.type,
         dur: s.durationMinutes,
-        range: '${_fmtTime(cursor)} – ${_fmtTime(end)}',
+        range: '${_fmtTime(cursor)} \u2013 ${_fmtTime(end)}',
       ));
       cursor = end;
     }
@@ -2689,33 +2622,59 @@ class _Stage0SlotBuilderState extends State<_Stage0SlotBuilder>
     final rows = _rows();
     final lessonCount = _slots.where((s) => s.type == SlotType.lesson).length;
 
-    return Stack(
-      children: [
-        CustomScrollView(
-          slivers: [
-            // Day-start row
-            SliverToBoxAdapter(
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: 16,
+          children: [
+            // \u2500\u2500 Section A: Day selector \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: 8,
+              children: [
+                const _SectionLabel('School Days'),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final e in _kWizDayShort.entries)
+                      _DayChip(
+                        label: e.value,
+                        selected: _activeDays.contains(e.key),
+                        cs: cs,
+                        isDark: isDark,
+                        onTap: () => _toggleDay(e.key),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+
+            // \u2500\u2500 Section B: Day-start time \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+            InkWell(
+              onTap: _pickDayStart,
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              splashFactory: NoSplash.splashFactory,
               child: Container(
-                margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
                 decoration: BoxDecoration(
                   color: AppTheme.nestedBg(isDark, cs),
                   borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
                   border: Border.all(color: AppTheme.borderColor(isDark, cs)),
                 ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
                 child: Row(
                   children: [
                     Icon(
                       Icons.wb_sunny_outlined,
-                      size: 15,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                      size: 14,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.5),
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Day starts at',
+                      'Starts at',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w400,
@@ -2723,68 +2682,21 @@ class _Stage0SlotBuilderState extends State<_Stage0SlotBuilder>
                       ),
                     ),
                     const Spacer(),
-                    InkWell(
-                      onTap: _pickDayStart,
-                      borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: cs.primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(
-                            AppTheme.kChipRadius,
-                          ),
-                        ),
-                        child: Text(
-                          _dayStart.format(context),
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: cs.primary,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            // Section label
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 4,
-                ),
-                child: Row(
-                  children: [
-                    Text(
-                      'SLOT SEQUENCE',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 0.6,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
+                        horizontal: 10,
+                        vertical: 5,
                       ),
                       decoration: BoxDecoration(
-                        color: cs.primary.withValues(alpha: 0.1),
+                        color: cs.primary.withValues(alpha: 0.10),
                         borderRadius: BorderRadius.circular(
                           AppTheme.kChipRadius,
                         ),
                       ),
                       child: Text(
-                        '$lessonCount lesson${lessonCount == 1 ? '' : 's'}',
+                        _dayStart.format(context),
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: cs.primary,
                         ),
@@ -2794,70 +2706,152 @@ class _Stage0SlotBuilderState extends State<_Stage0SlotBuilder>
                 ),
               ),
             ),
-            // Slot list
-            if (rows.isEmpty)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 32,
-                  ),
-                  child: Center(
+
+            const Divider(height: 1, thickness: 0.5),
+
+            // \u2500\u2500 Section C: Slot list \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: 0,
+              children: [
+                _SectionLabel(
+                  'Slot Sequence',
+                  trailing: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: cs.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+                    ),
                     child: Text(
-                      'No slots yet.\nTap + to add lesson or break slots.',
-                      textAlign: TextAlign.center,
+                      '$lessonCount lesson${lessonCount == 1 ? "" : "s"}',
                       style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: cs.primary,
                       ),
                     ),
                   ),
                 ),
-              )
-            else
-              SliverList.separated(
-                itemCount: rows.length,
-                separatorBuilder: (_, __) => Divider(
-                  height: 1,
-                  thickness: 0.5,
-                  indent: 16,
-                  endIndent: 16,
-                  color: AppTheme.borderColor(
-                    isDark,
-                    cs,
-                  ).withValues(alpha: 0.4),
+                const SizedBox(height: 8),
+                if (rows.isEmpty)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      child: Text(
+                        'No slots yet \u2014 add lesson and break slots below.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  ...List.generate(rows.length * 2 - 1, (idx) {
+                    if (idx.isOdd) {
+                      return Divider(
+                        height: 1,
+                        thickness: 0.5,
+                        color: AppTheme.borderColor(isDark, cs)
+                            .withValues(alpha: 0.35),
+                      );
+                    }
+                    final r = rows[idx ~/ 2];
+                    return _SlotRowTile(
+                      index: r.i,
+                      timeRange: r.range,
+                      duration: r.dur,
+                      isBreak: r.type == SlotType.breakSlot,
+                      cs: cs,
+                      isDark: isDark,
+                      onDelete: () => _removeSlot(r.i),
+                    );
+                  }),
+              ],
+            ),
+
+            // \u2500\u2500 Section D: Add-slot actions \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+            Row(
+              children: [
+                Expanded(
+                  child: _AddSlotButton(
+                    label: '+ Add Lesson',
+                    color: AppTheme.brandGreen,
+                    onTap: () => _promptAdd(SlotType.lesson, context),
+                  ),
                 ),
-                itemBuilder: (_, i) {
-                  final r = rows[i];
-                  return _SlotRowTile(
-                    index: i,
-                    timeRange: r.range,
-                    duration: r.dur,
-                    isBreak: r.type == SlotType.breakSlot,
-                    cs: cs,
-                    isDark: isDark,
-                    onDelete: () => _removeSlot(i),
-                  );
-                },
-              ),
-            const SliverToBoxAdapter(child: SizedBox(height: 100)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _AddSlotButton(
+                    label: '+ Add Break',
+                    color: const Color(0xFFFFA726),
+                    onTap: () => _promptAdd(SlotType.breakSlot, context),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
-        // Expandable FAB
-        Positioned(
-          bottom: 16,
-          right: 16,
-          child: _ExpandableFab(
-            expanded: _fabExpanded,
-            animation: _fabAnim,
-            cs: cs,
-            onToggle: _toggleFab,
-            onAddLesson: () => _promptAdd(SlotType.lesson),
-            onAddBreak: () => _promptAdd(SlotType.breakSlot),
+      ),
+    );
+  }
+}
+
+// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// Stage 0 helpers \u2014 Day chip, slot tile, add-slot button, duration dialog
+// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+class _DayChip extends StatelessWidget {
+  const _DayChip({
+    required this.label,
+    required this.selected,
+    required this.cs,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final ColorScheme cs;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+      splashFactory: NoSplash.splashFactory,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? cs.primary.withValues(alpha: isDark ? 0.15 : 0.08)
+              : AppTheme.nestedBg(isDark, cs),
+          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+          border: Border.all(
+            color: selected
+                ? cs.primary.withValues(alpha: 0.55)
+                : AppTheme.borderColor(isDark, cs),
           ),
         ),
-      ],
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w500,
+            color: selected
+                ? cs.onSurface
+                : cs.onSurfaceVariant.withValues(alpha: 0.7),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -2883,73 +2877,39 @@ class _SlotRowTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: isBreak
-          ? cs.surfaceContainerHighest.withValues(alpha: 0.25)
-          : Colors.transparent,
+    const breakColor = Color(0xFFFFA726);
+    return SizedBox(
+      height: 48,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
         child: Row(
           children: [
-            // Slot number badge
+            // Number badge
             Container(
-              width: 24,
-              height: 24,
+              width: 20,
+              height: 20,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isBreak
-                    ? cs.outlineVariant.withValues(alpha: 0.3)
-                    : cs.primary.withValues(alpha: 0.1),
+                color: cs.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
               ),
               child: Text(
                 '${index + 1}',
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w500,
-                  color: isBreak ? cs.onSurfaceVariant : cs.primary,
+                  color: cs.onSurface,
                 ),
               ),
             ),
-            const SizedBox(width: 12),
-            // Time range + label
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    timeRange,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w400,
-                      color: cs.onSurface.withValues(
-                        alpha: isBreak ? 0.5 : 0.9,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    isBreak
-                        ? 'Break · $duration min'
-                        : 'Lesson · $duration min',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w400,
-                      color: cs.onSurfaceVariant.withValues(
-                        alpha: isBreak ? 0.45 : 0.65,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            const SizedBox(width: 8),
             // Type chip
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
                 color: isBreak
-                    ? cs.outlineVariant.withValues(alpha: 0.35)
-                    : cs.primary.withValues(alpha: 0.1),
+                    ? breakColor.withValues(alpha: 0.12)
+                    : AppTheme.brandGreen.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
               ),
               child: Text(
@@ -2957,22 +2917,44 @@ class _SlotRowTile extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w500,
-                  color: isBreak
-                      ? cs.onSurfaceVariant.withValues(alpha: 0.65)
-                      : cs.primary,
+                  color: isBreak ? breakColor : AppTheme.brandGreen,
                 ),
               ),
             ),
-            const SizedBox(width: 4),
-            IconButton(
-              onPressed: onDelete,
-              icon: Icon(
-                Icons.delete_outline_rounded,
-                size: 16,
-                color: cs.error.withValues(alpha: 0.55),
+            const SizedBox(width: 8),
+            // Time range
+            Text(
+              timeRange,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurface,
               ),
-              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-              tooltip: 'Remove slot',
+            ),
+            const Spacer(),
+            // Duration
+            Text(
+              '$duration min',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(width: 4),
+            // Delete
+            SizedBox(
+              width: 32,
+              height: 32,
+              child: IconButton(
+                onPressed: onDelete,
+                padding: EdgeInsets.zero,
+                icon: Icon(
+                  Icons.close_rounded,
+                  size: 16,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                ),
+              ),
             ),
           ],
         ),
@@ -2981,542 +2963,292 @@ class _SlotRowTile extends StatelessWidget {
   }
 }
 
-// Expandable FAB for stage 0 slot builder.
-class _ExpandableFab extends StatelessWidget {
-  const _ExpandableFab({
-    required this.expanded,
-    required this.animation,
-    required this.cs,
-    required this.onToggle,
-    required this.onAddLesson,
-    required this.onAddBreak,
-  });
-
-  final bool expanded;
-  final Animation<double> animation;
-  final ColorScheme cs;
-  final VoidCallback onToggle;
-  final VoidCallback onAddLesson;
-  final VoidCallback onAddBreak;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        ScaleTransition(
-          scale: animation,
-          child: FadeTransition(
-            opacity: animation,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _MiniActionFab(
-                  label: 'Break',
-                  icon: Icons.free_breakfast_outlined,
-                  color: cs.secondary,
-                  onTap: onAddBreak,
-                ),
-                const SizedBox(height: 8),
-                _MiniActionFab(
-                  label: 'Lesson',
-                  icon: Icons.menu_book_outlined,
-                  color: AppTheme.brandGreen,
-                  onTap: onAddLesson,
-                ),
-                const SizedBox(height: 8),
-              ],
-            ),
-          ),
-        ),
-        FloatingActionButton.small(
-          heroTag: 'slot_fab_main',
-          onPressed: onToggle,
-          backgroundColor: expanded
-              ? cs.surfaceContainerHigh
-              : AppTheme.brandGreen,
-          foregroundColor: expanded ? cs.onSurface : Colors.white,
-          elevation: 3,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-          ),
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 150),
-            child: expanded
-                ? const Icon(
-                    Icons.close_rounded,
-                    size: 20,
-                    key: ValueKey('close'),
-                  )
-                : const Icon(Icons.add_rounded, size: 20, key: ValueKey('add')),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _MiniActionFab extends StatelessWidget {
-  const _MiniActionFab({
+class _AddSlotButton extends StatelessWidget {
+  const _AddSlotButton({
     required this.label,
-    required this.icon,
     required this.color,
     required this.onTap,
   });
 
   final String label;
-  final IconData icon;
   final Color color;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.black54,
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 11,
-              color: Colors.white,
-              fontWeight: FontWeight.w400,
-            ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+      child: Container(
+        height: 38,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+          border: Border.all(color: color.withValues(alpha: 0.35)),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w500,
+            color: color,
           ),
         ),
-        const SizedBox(width: 8),
-        FloatingActionButton.small(
-          heroTag: 'slot_fab_$label',
-          onPressed: onTap,
-          backgroundColor: color,
-          foregroundColor: Colors.white,
-          elevation: 2,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-          ),
-          child: Icon(icon, size: 18),
-        ),
-      ],
+      ),
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Stage 1 — Active Days + Load Constraints
-// ─────────────────────────────────────────────────────────────────────────────
-
-// Day labels for weekday indices 1=Mon … 7=Sun.
-const _kWizDayFull = <int, String>{
-  1: 'Monday',
-  2: 'Tuesday',
-  3: 'Wednesday',
-  4: 'Thursday',
-  5: 'Friday',
-  6: 'Saturday',
-  7: 'Sunday',
-};
-const _kWizDayShort = <int, String>{
-  1: 'Mon',
-  2: 'Tue',
-  3: 'Wed',
-  4: 'Thu',
-  5: 'Fri',
-  6: 'Sat',
-  7: 'Sun',
-};
-
-class _Stage1ActiveDays extends StatelessWidget {
-  const _Stage1ActiveDays({
-    required this.rules,
-    required this.cs,
-    required this.isDark,
-    required this.onChanged,
+class _DurationPickerDialog extends StatefulWidget {
+  const _DurationPickerDialog({
+    required this.slotLabel,
+    required this.initialMinutes,
   });
 
-  final TimetableRules rules;
-  final ColorScheme cs;
-  final bool isDark;
-  final void Function(TimetableRules) onChanged;
+  final String slotLabel;
+  final int initialMinutes;
+
+  @override
+  State<_DurationPickerDialog> createState() => _DurationPickerDialogState();
+}
+
+class _DurationPickerDialogState extends State<_DurationPickerDialog> {
+  late int _minutes;
+  late TextEditingController _ctrl;
+
+  List<int> get _presets =>
+      widget.slotLabel == 'Lesson' ? [30, 40, 45, 60] : [5, 10, 15, 20];
+
+  @override
+  void initState() {
+    super.initState();
+    _minutes = widget.initialMinutes;
+    _ctrl = TextEditingController(text: '$_minutes');
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Select which days of the week will be scheduled.',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              color: cs.onSurfaceVariant,
-            ),
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 300),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppTheme.modalBg(isDark, cs),
+            borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
+            border: Border.all(color: AppTheme.borderColor(isDark, cs)),
+            boxShadow: AppTheme.modalShadow(isDark),
           ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _kWizDayFull.entries.map((e) {
-              final selected = rules.activeDays.contains(e.key);
-              return _WizardDayChip(
-                label: e.value,
-                selected: selected,
-                cs: cs,
-                onTap: () {
-                  final days = List<int>.from(rules.activeDays);
-                  if (selected) {
-                    days.remove(e.key);
-                  } else {
-                    days
-                      ..add(e.key)
-                      ..sort();
-                  }
-                  onChanged(rules.copyWith(activeDays: days));
-                },
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 24),
-          _WizardSection(
-            title: 'Load Constraints',
-            cs: cs,
-            isDark: isDark,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _WizardRuleRow(
-                label: 'Max lessons / day — teacher',
-                cs: cs,
-                child: _WizardStepper(
-                  value: rules.maxLessonsPerDayTeacher,
-                  min: 1,
-                  max: 12,
-                  cs: cs,
-                  onChanged: (v) =>
-                      onChanged(rules.copyWith(maxLessonsPerDayTeacher: v)),
+              // Header
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Add ${widget.slotLabel} Slot',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () => Navigator.of(context).pop(),
+                      borderRadius: BorderRadius.circular(4),
+                      child: Icon(
+                        Icons.close_rounded,
+                        size: 17,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               Divider(
                 height: 1,
                 thickness: 0.5,
-                color: AppTheme.borderColor(isDark, cs).withValues(alpha: 0.3),
+                color: AppTheme.borderColor(isDark, cs),
               ),
-              _WizardRuleRow(
-                label: 'Max lessons / day — class',
-                cs: cs,
-                child: _WizardStepper(
-                  value: rules.maxLessonsPerDayClass,
-                  min: 1,
-                  max: 14,
-                  cs: cs,
-                  onChanged: (v) =>
-                      onChanged(rules.copyWith(maxLessonsPerDayClass: v)),
+              // Body
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  spacing: 12,
+                  children: [
+                    // Preset chips
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: _presets.map((p) {
+                        final sel = _minutes == p;
+                        return InkWell(
+                          onTap: () => setState(() {
+                            _minutes = p;
+                            _ctrl.text = '$p';
+                          }),
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.kCardRadius),
+                          splashFactory: NoSplash.splashFactory,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 140),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: sel
+                                  ? cs.primary
+                                      .withValues(alpha: isDark ? 0.15 : 0.08)
+                                  : AppTheme.nestedBg(isDark, cs),
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.kCardRadius,
+                              ),
+                              border: Border.all(
+                                color: sel
+                                    ? cs.primary.withValues(alpha: 0.55)
+                                    : AppTheme.borderColor(isDark, cs),
+                              ),
+                            ),
+                            child: Text(
+                              '$p min',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w500,
+                                color: sel
+                                    ? cs.onSurface
+                                    : cs.onSurfaceVariant
+                                        .withValues(alpha: 0.7),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    // Custom text field
+                    TextField(
+                      controller: _ctrl,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Custom (minutes)',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.kCardRadius,
+                          ),
+                        ),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                      ),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                      ),
+                      onChanged: (v) {
+                        final n = int.tryParse(v);
+                        if (n != null) setState(() => _minutes = n);
+                      },
+                    ),
+                  ],
                 ),
               ),
               Divider(
                 height: 1,
                 thickness: 0.5,
-                color: AppTheme.borderColor(isDark, cs).withValues(alpha: 0.3),
+                color: AppTheme.borderColor(isDark, cs),
               ),
-              _WizardRuleRow(
-                label: 'Default lessons / week per subject',
-                cs: cs,
-                child: _WizardStepper(
-                  value: rules.defaultLessonsPerWeek,
-                  min: 1,
-                  max: 8,
-                  cs: cs,
-                  onChanged: (v) =>
-                      onChanged(rules.copyWith(defaultLessonsPerWeek: v)),
+              // Footer
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
                 ),
-              ),
-              Divider(
-                height: 1,
-                thickness: 0.5,
-                color: AppTheme.borderColor(isDark, cs).withValues(alpha: 0.3),
-              ),
-              _WizardRuleRow(
-                label: 'Allow double lessons',
-                cs: cs,
-                child: Switch.adaptive(
-                  value: rules.allowDoubles,
-                  activeTrackColor: cs.primary,
-                  onChanged: (v) => onChanged(rules.copyWith(allowDoubles: v)),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: () => Navigator.of(context).pop(_minutes),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppTheme.brandGreen,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.kCardRadius,
+                          ),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      child: const Text('Add'),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 24),
-        ],
-      ),
-    );
-  }
-}
-
-class _WizardDayChip extends StatelessWidget {
-  const _WizardDayChip({
-    required this.label,
-    required this.selected,
-    required this.cs,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final ColorScheme cs;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = cs.brightness == Brightness.dark;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected
-              ? cs.primary.withValues(alpha: isDark ? 0.22 : 0.12)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-          border: Border.all(
-            color: selected
-                ? cs.primary.withValues(alpha: 0.5)
-                : cs.outlineVariant.withValues(alpha: 0.35),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
-            color: selected ? cs.primary : cs.onSurfaceVariant,
-          ),
         ),
       ),
     );
   }
 }
 
-class _WizardSection extends StatelessWidget {
-  const _WizardSection({
-    required this.title,
-    required this.cs,
-    required this.isDark,
-    required this.children,
-  });
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.text, {this.trailing});
 
-  final String title;
-  final ColorScheme cs;
-  final bool isDark;
-  final List<Widget> children;
+  final String text;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.nestedBg(isDark, cs),
-        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-        border: Border.all(color: AppTheme.borderColor(isDark, cs)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-            child: Text(
-              title,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: cs.onSurfaceVariant,
-                letterSpacing: 0.1,
-              ),
-            ),
-          ),
-          Divider(
-            height: 1,
-            thickness: 0.5,
-            color: AppTheme.borderColor(isDark, cs).withValues(alpha: 0.4),
-          ),
-          ...children,
-        ],
-      ),
-    );
-  }
-}
-
-class _WizardRuleRow extends StatelessWidget {
-  const _WizardRuleRow({
-    required this.label,
-    required this.cs,
-    required this.child,
-  });
-
-  final String label;
-  final ColorScheme cs;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurface.withValues(alpha: 0.85),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-class _WizardStepper extends StatelessWidget {
-  const _WizardStepper({
-    required this.value,
-    required this.min,
-    required this.max,
-    required this.cs,
-    required this.onChanged,
-  });
-
-  final int value;
-  final int min;
-  final int max;
-  final ColorScheme cs;
-  final ValueChanged<int> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Row(
-      mainAxisSize: MainAxisSize.min,
       children: [
-        _WizardStepBtn(
-          icon: Icons.remove,
-          enabled: value > min,
-          cs: cs,
-          onTap: () {
-            if (value > min) onChanged(value - 1);
-          },
-        ),
-        SizedBox(
-          width: 40,
-          child: Text(
-            '$value',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: cs.onSurface,
-            ),
+        Text(
+          text.toUpperCase(),
+          style: TextStyle(
+            fontSize: 10.5,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.8,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
           ),
         ),
-        _WizardStepBtn(
-          icon: Icons.add,
-          enabled: value < max,
-          cs: cs,
-          onTap: () {
-            if (value < max) onChanged(value + 1);
-          },
-        ),
+        if (trailing != null) ...[const SizedBox(width: 8), trailing!],
       ],
-    );
-  }
-}
-
-class _WizardStepBtn extends StatelessWidget {
-  const _WizardStepBtn({
-    required this.icon,
-    required this.enabled,
-    required this.cs,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final bool enabled;
-  final ColorScheme cs;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: enabled ? onTap : null,
-      child: Padding(
-        padding: const EdgeInsets.all(6),
-        child: Icon(
-          icon,
-          size: 16,
-          color: enabled
-              ? cs.primary.withValues(alpha: 0.8)
-              : cs.onSurfaceVariant.withValues(alpha: 0.25),
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Stage 0 — Day & Slot Setup (stub — TW-02 replaces with compact combined UI)
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _Stage0DaysSlots extends StatefulWidget {
-  const _Stage0DaysSlots({
-    required this.rules,
-    required this.cs,
-    required this.isDark,
-    required this.onChanged,
-  });
-
-  final TimetableRules rules;
-  final ColorScheme cs;
-  final bool isDark;
-  final void Function(TimetableRules) onChanged;
-
-  @override
-  State<_Stage0DaysSlots> createState() => _Stage0DaysSlotsState();
-}
-
-class _Stage0DaysSlotsState extends State<_Stage0DaysSlots> {
-  @override
-  Widget build(BuildContext context) {
-    // Stub: TW-02 redesigns this as a compact combined Day+Slot UI.
-    // For now, render the slot builder followed by the active-days picker
-    // in a single scrollable column so both remain functional.
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          SizedBox(
-            height: 420,
-            child: _Stage0SlotBuilder(
-              rules: widget.rules,
-              cs: widget.cs,
-              isDark: widget.isDark,
-              onChanged: widget.onChanged,
-            ),
-          ),
-          _Stage1ActiveDays(
-            rules: widget.rules,
-            cs: widget.cs,
-            isDark: widget.isDark,
-            onChanged: widget.onChanged,
-          ),
-        ],
-      ),
     );
   }
 }
@@ -4439,6 +4171,95 @@ class _ConstraintTypeChip extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // Stage 3 — Conflict Resolution & Generation
 // ─────────────────────────────────────────────────────────────────────────────
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stage 3 shared helpers (_WizardSection and _WizardRuleRow are used by
+// _Stage3Generate for the configuration summary panel)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _WizardSection extends StatelessWidget {
+  const _WizardSection({
+    required this.title,
+    required this.cs,
+    required this.isDark,
+    required this.children,
+  });
+
+  final String title;
+  final ColorScheme cs;
+  final bool isDark;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.nestedBg(isDark, cs),
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        border: Border.all(color: AppTheme.borderColor(isDark, cs)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: cs.onSurfaceVariant,
+                letterSpacing: 0.1,
+              ),
+            ),
+          ),
+          Divider(
+            height: 1,
+            thickness: 0.5,
+            color: AppTheme.borderColor(isDark, cs).withValues(alpha: 0.4),
+          ),
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
+class _WizardRuleRow extends StatelessWidget {
+  const _WizardRuleRow({
+    required this.label,
+    required this.cs,
+    required this.child,
+  });
+
+  final String label;
+  final ColorScheme cs;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurface.withValues(alpha: 0.85),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          child,
+        ],
+      ),
+    );
+  }
+}
 
 class _Stage3Generate extends StatefulWidget {
   const _Stage3Generate({
