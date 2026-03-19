@@ -228,6 +228,13 @@ class TimetableGenerator {
 
   int _iterations = 0;
 
+  /// Cached count of lesson-only slots per day, derived from [rules].
+  /// Used as the physical daily cap in the solver — replaces the old
+  /// `maxLessonsPerDayTeacher` / `maxLessonsPerDayClass` arbitrary defaults.
+  late final int _lessonSlotsPerDay = rules.slots
+      .where((s) => s.type == SlotType.lesson)
+      .length;
+
   // ── Entry point ─────────────────────────────────────────────────────────────
 
   /// Run the solver synchronously and return a [GeneratorResult].
@@ -432,8 +439,6 @@ class TimetableGenerator {
           (teacherTotalLessons[a.teacherUserId] ?? 0) + n;
     }
 
-    final teacherMaxPerWeek = rules.maxLessonsPerDayTeacher * activeDayCount;
-
     for (final entry in teacherTotalLessons.entries) {
       // Check that the teacher has at least one open slot after constraints.
       var hasAnySlot = false;
@@ -457,16 +462,6 @@ class TimetableGenerator {
         );
         continue;
       }
-
-      if (entry.value > teacherMaxPerWeek) {
-        issues.add(
-          'Teacher ${entry.key} must deliver ${entry.value} lessons per week '
-          'but the cap allows at most $teacherMaxPerWeek '
-          '(${rules.maxLessonsPerDayTeacher}/day × $activeDayCount days). '
-          'Reduce their subject load, increase the daily teacher cap, or '
-          'add more active days.',
-        );
-      }
     }
 
     // ── Class feasibility ────────────────────────────────────────────────────
@@ -477,20 +472,9 @@ class TimetableGenerator {
       classTotalLessons[key] = (classTotalLessons[key] ?? 0) + n;
     }
 
-    final classMaxPerWeek = rules.maxLessonsPerDayClass * activeDayCount;
     final totalSlotsAvailable = slotsPerDay * activeDayCount;
 
     for (final entry in classTotalLessons.entries) {
-      if (entry.value > classMaxPerWeek) {
-        issues.add(
-          'Class (grade=${entry.key.$1}, stream=${entry.key.$2}) requires '
-          '${entry.value} lessons per week but the cap allows at most '
-          '$classMaxPerWeek (${rules.maxLessonsPerDayClass}/day × '
-          '$activeDayCount days). Reduce subjects or lessons per week, or '
-          'increase the daily class cap.',
-        );
-      }
-
       if (entry.value > totalSlotsAvailable) {
         issues.add(
           'Class (grade=${entry.key.$1}, stream=${entry.key.$2}) requires '
@@ -683,11 +667,11 @@ class TimetableGenerator {
       }
     }
 
-    // 6. Teacher daily load cap.
-    if (teacherDayCount >= rules.maxLessonsPerDayTeacher) return false;
+    // 6. Teacher daily load cap — physical maximum is the number of lesson slots.
+    if (teacherDayCount >= _lessonSlotsPerDay) return false;
 
-    // 7. Class daily load cap.
-    if (classDayCount >= rules.maxLessonsPerDayClass) return false;
+    // 7. Class daily load cap — physical maximum is the number of lesson slots.
+    if (classDayCount >= _lessonSlotsPerDay) return false;
 
     return true;
   }
@@ -713,8 +697,8 @@ class TimetableGenerator {
       }
     }
 
-    final teacherAtCap = teacherDayCount >= rules.maxLessonsPerDayTeacher;
-    final classAtCap = classDayCount >= rules.maxLessonsPerDayClass;
+    final teacherAtCap = teacherDayCount >= _lessonSlotsPerDay;
+    final classAtCap = classDayCount >= _lessonSlotsPerDay;
 
     for (final v in remaining) {
       final sameTeacher = v.teacherUserId == placed.teacherUserId;
