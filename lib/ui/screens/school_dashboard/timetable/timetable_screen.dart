@@ -18,8 +18,6 @@ import '../../../../services/timetable_generator.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/active_term_provider.dart';
 
-import '../../../widgets/edu_sheet.dart';
-
 // ═════════════════════════════════════════════════════════════════════════════
 // Constants
 // ═════════════════════════════════════════════════════════════════════════════
@@ -190,28 +188,102 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell> {
     final term = widget.termContext.currentTerm;
     if (term == null || _rules == null) return;
 
-    final result = await showEduSheet<_RulesSheetResult>(
-      context: context,
-      builder: (ctx) => _RulesSheet(
-        initialRules: _rules!,
-        schoolContext: widget.schoolContext,
-        termContext: widget.termContext,
-      ),
-    );
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isDesktop = screenWidth >= AppTheme.kMobileBreakpoint;
+
+    final _RulesSheetResult? result;
+
+    if (isDesktop) {
+      result = await showDialog<_RulesSheetResult>(
+        context: context,
+        barrierColor: Colors.black.withValues(alpha: 0.35),
+        builder: (ctx) {
+          final cs = Theme.of(ctx).colorScheme;
+          final isDark = cs.brightness == Brightness.dark;
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 40,
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppTheme.modalBg(isDark, cs),
+                  borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
+                  border: Border.all(
+                    color: AppTheme.borderColor(isDark, cs),
+                    width: 1,
+                  ),
+                  boxShadow: AppTheme.modalShadow(isDark),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
+                  child: _RulesSheet(
+                    initialRules: _rules!,
+                    schoolContext: widget.schoolContext,
+                    termContext: widget.termContext,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    } else {
+      result = await showModalBottomSheet<_RulesSheetResult>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) {
+          final cs = Theme.of(ctx).colorScheme;
+          final isDark = cs.brightness == Brightness.dark;
+          final viewInsets = MediaQuery.viewInsetsOf(ctx);
+          return Padding(
+            padding: EdgeInsets.only(bottom: viewInsets.bottom),
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppTheme.modalBg(isDark, cs),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(AppTheme.kModalRadius),
+                  topRight: Radius.circular(AppTheme.kModalRadius),
+                ),
+                border: Border(
+                  top: BorderSide(
+                    color: isDark
+                        ? AppTheme.borderColor(isDark, cs)
+                        : cs.outlineVariant.withValues(alpha: 0.5),
+                    width: 1,
+                  ),
+                ),
+              ),
+              child: _RulesSheet(
+                initialRules: _rules!,
+                schoolContext: widget.schoolContext,
+                termContext: widget.termContext,
+              ),
+            ),
+          );
+        },
+      );
+    }
 
     if (result == null || !mounted) return;
+    final resolved = result;
 
     // Persist the rules.
     await FileCache.saveTimetableRules(
       schoolId: widget.schoolContext.membership.school.id,
       year: term.year,
       term: term.term,
-      rules: result.rules,
+      rules: resolved.rules,
     );
-    if (mounted) setState(() => _rules = result.rules);
+    if (mounted) setState(() => _rules = resolved.rules);
 
-    if (result.shouldGenerate) {
-      await _runGeneration(result.rules);
+    if (resolved.shouldGenerate) {
+      await _runGeneration(resolved.rules);
     }
   }
 
@@ -905,6 +977,85 @@ class _GenerateFab extends StatelessWidget {
 // Rules Sheet
 // ═══════════════════════════════════════════════════════════════════════════
 
+/// Adaptive sheet launcher for sub-sheets opened from within [_RulesSheet].
+///
+/// On desktop (>= kMobileBreakpoint): shows a compact dialog with explicit
+/// tight width constraints so buttons never receive infinite width.
+/// On mobile: shows a modal bottom sheet with tight screen-width constraints.
+Future<T?> _showRulesSubSheet<T>({
+  required BuildContext context,
+  required Widget child,
+}) {
+  final screenWidth = MediaQuery.sizeOf(context).width;
+  final isDesktop = screenWidth >= AppTheme.kMobileBreakpoint;
+
+  if (isDesktop) {
+    return showDialog<T>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.35),
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        final isDark = cs.brightness == Brightness.dark;
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 40,
+            vertical: 60,
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppTheme.modalBg(isDark, cs),
+                borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
+                border: Border.all(color: AppTheme.borderColor(isDark, cs)),
+                boxShadow: AppTheme.modalShadow(isDark),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
+                child: SingleChildScrollView(child: child),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  return showModalBottomSheet<T>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (ctx) {
+      final cs = Theme.of(ctx).colorScheme;
+      final isDark = cs.brightness == Brightness.dark;
+      final viewInsets = MediaQuery.viewInsetsOf(ctx);
+      return Padding(
+        padding: EdgeInsets.only(bottom: viewInsets.bottom),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppTheme.modalBg(isDark, cs),
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(AppTheme.kModalRadius),
+              topRight: Radius.circular(AppTheme.kModalRadius),
+            ),
+            border: Border(
+              top: BorderSide(
+                color: isDark
+                    ? AppTheme.borderColor(isDark, cs)
+                    : cs.outlineVariant.withValues(alpha: 0.5),
+                width: 1,
+              ),
+            ),
+          ),
+          child: SingleChildScrollView(child: child),
+        ),
+      );
+    },
+  );
+}
+
 class _RulesSheetResult {
   const _RulesSheetResult({required this.rules, required this.shouldGenerate});
   final TimetableRules rules;
@@ -1247,9 +1398,9 @@ class _RulesSheetState extends State<_RulesSheet> {
         const SizedBox(height: 12),
         OutlinedButton.icon(
           onPressed: () async {
-            final rule = await showEduSheet<TeacherBlockRule>(
+            final rule = await _showRulesSubSheet<TeacherBlockRule>(
               context: context,
-              builder: (ctx) => _TeacherBlockRuleSheet(cs: cs),
+              child: _TeacherBlockRuleSheet(cs: cs),
             );
             if (rule != null) {
               setState(() => _rules.teacherBlocks.add(rule));
@@ -1305,9 +1456,9 @@ class _RulesSheetState extends State<_RulesSheet> {
         const SizedBox(height: 12),
         OutlinedButton.icon(
           onPressed: () async {
-            final rule = await showEduSheet<SubjectBlockRule>(
+            final rule = await _showRulesSubSheet<SubjectBlockRule>(
               context: context,
-              builder: (ctx) => _SubjectBlockRuleSheet(cs: cs),
+              child: _SubjectBlockRuleSheet(cs: cs),
             );
             if (rule != null) {
               setState(() => _rules.subjectBlocks.add(rule));
