@@ -256,7 +256,7 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
           child: Container(
             decoration: BoxDecoration(
               color: AppTheme.modalBg(isDark, cs),
-              borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(color: AppTheme.borderColor(isDark, cs)),
               boxShadow: AppTheme.modalShadow(isDark),
             ),
@@ -1901,12 +1901,12 @@ Future<_RulesSheetResult?> showTimetableWizardDialog({
           child: Container(
             decoration: BoxDecoration(
               color: AppTheme.modalBg(isDark, cs),
-              borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(color: AppTheme.borderColor(isDark, cs)),
               boxShadow: AppTheme.modalShadow(isDark),
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
+              borderRadius: BorderRadius.circular(8),
               child: _TimetableWizard(
                 initialRules: initialRules,
                 schoolContext: schoolContext,
@@ -3177,58 +3177,9 @@ class _Stage0DaysSlotsState extends State<_Stage0DaysSlots> {
 }
 
 // \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-// Stage 0 helpers \u2014 Day chip, slot tile, add-slot button, duration dialog
-// \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-
-class _DayChip extends StatelessWidget {
-  const _DayChip({
-    required this.label,
-    required this.selected,
-    required this.cs,
-    required this.isDark,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final ColorScheme cs;
-  final bool isDark;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-      splashFactory: NoSplash.splashFactory,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 140),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected
-              ? cs.primary.withValues(alpha: isDark ? 0.15 : 0.08)
-              : AppTheme.nestedBg(isDark, cs),
-          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-          border: Border.all(
-            color: selected
-                ? cs.primary.withValues(alpha: 0.55)
-                : AppTheme.borderColor(isDark, cs),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w500,
-            color: selected
-                ? cs.onSurface
-                : cs.onSurfaceVariant.withValues(alpha: 0.7),
-          ),
-        ),
-      ),
-    );
-  }
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// Stage 0 helpers — slot tile, add-slot button, duration dialog
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _SlotRowTile extends StatefulWidget {
   const _SlotRowTile({
@@ -3538,7 +3489,7 @@ class _DurationPickerDialogState extends State<_DurationPickerDialog> {
         child: Container(
           decoration: BoxDecoration(
             color: AppTheme.modalBg(isDark, cs),
-            borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(color: AppTheme.borderColor(isDark, cs)),
             boxShadow: AppTheme.modalShadow(isDark),
           ),
@@ -3833,12 +3784,12 @@ class _Stage1TeacherConstraintsState extends State<_Stage1TeacherConstraints> {
           child: Container(
             decoration: BoxDecoration(
               color: AppTheme.modalBg(isDark, cs),
-              borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(color: AppTheme.borderColor(isDark, cs)),
               boxShadow: AppTheme.modalShadow(isDark),
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
+              borderRadius: BorderRadius.circular(8),
               child: _ConstraintEntryForm(
                 entityName: entityName,
                 rules: widget.rules,
@@ -3988,13 +3939,31 @@ class _Stage1TeacherConstraintsState extends State<_Stage1TeacherConstraints> {
                   final teacher = filtered[i];
                   final constraints = _constraintsFor(teacher.id);
                   final expanded = _expandedId == teacher.id;
+                  final blocks = constraints.where((c) => c.isBlock).length;
+                  final requires = constraints.where((c) => !c.isBlock).length;
+                  Widget? subtitleTrailing;
+                  if (blocks > 0 || requires > 0) {
+                    subtitleTrailing = Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (blocks > 0)
+                          _DiffBadge(label: '+$blocks', color: cs.error),
+                        if (blocks > 0 && requires > 0)
+                          const SizedBox(width: 4),
+                        if (requires > 0)
+                          _DiffBadge(
+                            label: '+$requires',
+                            color: AppTheme.brandGreen,
+                          ),
+                      ],
+                    );
+                  }
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: _WizardEntityRow(
                       name: teacher.name,
-                      subtitle: constraints.isEmpty
-                          ? 'No constraints'
-                          : '${constraints.length} constraint${constraints.length == 1 ? '' : 's'}',
+                      subtitle: constraints.isEmpty ? 'No constraints' : '',
+                      subtitleTrailing: subtitleTrailing,
                       icon: Icons.person_outline_rounded,
                       isExpanded: expanded,
                       cs: cs,
@@ -4012,6 +3981,7 @@ class _Stage1TeacherConstraintsState extends State<_Stage1TeacherConstraints> {
                                   days: c.days,
                                   slotIndices: c.slotIndices,
                                   isBlock: c.isBlock,
+                                  rules: widget.rules,
                                   cs: cs,
                                   isDark: isDark,
                                   onDelete: () => _remove(c),
@@ -4143,12 +4113,12 @@ class _Stage2SubjectConstraintsState extends State<_Stage2SubjectConstraints> {
           child: Container(
             decoration: BoxDecoration(
               color: AppTheme.modalBg(isDark, cs),
-              borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(color: AppTheme.borderColor(isDark, cs)),
               boxShadow: AppTheme.modalShadow(isDark),
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
+              borderRadius: BorderRadius.circular(8),
               child: _ConstraintEntryForm(
                 entityName: entityName,
                 rules: widget.rules,
@@ -4306,13 +4276,31 @@ class _Stage2SubjectConstraintsState extends State<_Stage2SubjectConstraints> {
                   final subj = filtered[i];
                   final constraints = _constraintsFor(subj.id);
                   final expanded = _expandedId == subj.id;
+                  final blocks = constraints.where((c) => c.isBlock).length;
+                  final requires = constraints.where((c) => !c.isBlock).length;
+                  Widget? subtitleTrailing;
+                  if (blocks > 0 || requires > 0) {
+                    subtitleTrailing = Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (blocks > 0)
+                          _DiffBadge(label: '+$blocks', color: cs.error),
+                        if (blocks > 0 && requires > 0)
+                          const SizedBox(width: 4),
+                        if (requires > 0)
+                          _DiffBadge(
+                            label: '+$requires',
+                            color: AppTheme.brandGreen,
+                          ),
+                      ],
+                    );
+                  }
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: _WizardEntityRow(
                       name: subj.name,
-                      subtitle: constraints.isEmpty
-                          ? 'No constraints'
-                          : '${constraints.length} constraint${constraints.length == 1 ? '' : 's'}',
+                      subtitle: constraints.isEmpty ? 'No constraints' : '',
+                      subtitleTrailing: subtitleTrailing,
                       icon: Icons.book_outlined,
                       isExpanded: expanded,
                       cs: cs,
@@ -4330,6 +4318,7 @@ class _Stage2SubjectConstraintsState extends State<_Stage2SubjectConstraints> {
                                   days: c.days,
                                   slotIndices: c.slotIndices,
                                   isBlock: c.isBlock,
+                                  rules: widget.rules,
                                   cs: cs,
                                   isDark: isDark,
                                   onDelete: () => _remove(c),
@@ -4396,6 +4385,7 @@ class _WizardEntityRow extends StatefulWidget {
     required this.isDark,
     required this.onTap,
     required this.expandedContent,
+    this.subtitleTrailing,
   });
 
   final String name;
@@ -4406,6 +4396,7 @@ class _WizardEntityRow extends StatefulWidget {
   final bool isDark;
   final VoidCallback onTap;
   final Widget expandedContent;
+  final Widget? subtitleTrailing;
 
   @override
   State<_WizardEntityRow> createState() => _WizardEntityRowState();
@@ -4559,16 +4550,26 @@ class _WizardEntityRowState extends State<_WizardEntityRow>
                                         ),
                                         overflow: TextOverflow.ellipsis,
                                       ),
-                                      Text(
-                                        widget.subtitle,
-                                        style: TextStyle(
-                                          fontSize: 11.5,
-                                          fontWeight: FontWeight.w400,
-                                          color: cs.onSurfaceVariant.withValues(
-                                            alpha: 0.55,
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              widget.subtitle,
+                                              style: TextStyle(
+                                                fontSize: 11.5,
+                                                fontWeight: FontWeight.w400,
+                                                color: cs.onSurfaceVariant
+                                                    .withValues(alpha: 0.55),
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
                                           ),
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
+                                          if (widget.subtitleTrailing !=
+                                              null) ...[
+                                            const SizedBox(width: 6),
+                                            widget.subtitleTrailing!,
+                                          ],
+                                        ],
                                       ),
                                     ],
                                   ),
@@ -4634,6 +4635,7 @@ class _ConstraintChipRow extends StatelessWidget {
     required this.days,
     required this.slotIndices,
     required this.isBlock,
+    required this.rules,
     required this.cs,
     required this.isDark,
     required this.onDelete,
@@ -4642,6 +4644,7 @@ class _ConstraintChipRow extends StatelessWidget {
   final List<int> days;
   final List<int> slotIndices;
   final bool isBlock;
+  final TimetableRules rules;
   final ColorScheme cs;
   final bool isDark;
   final VoidCallback onDelete;
@@ -4649,96 +4652,246 @@ class _ConstraintChipRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typeColor = isBlock ? cs.error : cs.primary;
-    final typeLabel = isBlock ? 'Block' : 'Require';
+    final allLessonSlots = rules.buildLessonSlots();
 
-    return SizedBox(
-      height: 40,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
-        child: Row(
-          children: [
-            // Type chip
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-              decoration: BoxDecoration(
-                color: typeColor.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
-              ),
-              child: Text(
-                typeLabel,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                  color: typeColor,
+    final slotLabels = slotIndices.map((idx) {
+      final match = allLessonSlots.where((s) => s.index == idx).firstOrNull;
+      if (match == null) return 'Slot $idx';
+      return '${_fmtTime(match.start)}–${_fmtTime(match.end)}';
+    }).toList();
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: isBlock
+            ? cs.error.withValues(alpha: isDark ? 0.07 : 0.04)
+            : cs.primary.withValues(alpha: isDark ? 0.07 : 0.04),
+        borderRadius: BorderRadius.circular(6),
+        border: Border(left: BorderSide(color: typeColor, width: 3)),
+      ),
+      child: Row(
+        children: [
+          // Type label
+          Text(
+            isBlock ? 'Block' : 'Require',
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: typeColor,
+            ),
+          ),
+          const SizedBox(width: 10),
+          // Day + slot mini-chips
+          Expanded(
+            child: Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: [
+                ...days.map(
+                  (d) => _MiniChip(label: _kWizDayShort[d] ?? 'D$d', cs: cs),
+                ),
+                const _MiniSep(),
+                ...slotLabels.map((l) => _MiniChip(label: l, cs: cs)),
+              ],
+            ),
+          ),
+          // Delete
+          GestureDetector(
+            onTap: onDelete,
+            child: SizedBox(
+              width: 32,
+              height: 32,
+              child: Center(
+                child: Icon(
+                  Icons.close_rounded,
+                  size: 15,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.4),
                 ),
               ),
             ),
-            const SizedBox(width: 6),
-            // Day chips
-            ...days.map(
-              (d) => Padding(
-                padding: const EdgeInsets.only(right: 4),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 5,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
-                  ),
-                  child: Text(
-                    _kWizDayShort[d] ?? 'D$d',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w400,
-                      color: cs.onSurfaceVariant,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniChip extends StatelessWidget {
+  const _MiniChip({required this.label, required this.cs});
+  final String label;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: 0.4),
+          width: 0.5,
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w400,
+          color: cs.onSurface,
+        ),
+      ),
+    );
+  }
+}
+
+class _MiniSep extends StatelessWidget {
+  const _MiniSep();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Text(
+        '·',
+        style: TextStyle(
+          fontSize: 12,
+          color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared — type tab strip, diff badge
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _TypeTabStrip extends StatelessWidget {
+  const _TypeTabStrip({
+    required this.isBlock,
+    required this.onChanged,
+    required this.cs,
+    required this.isDark,
+  });
+  final bool isBlock;
+  final ValueChanged<bool> onChanged;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 36,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: isDark
+            ? cs.surfaceContainerHighest.withValues(alpha: 0.6)
+            : cs.surfaceContainerHighest.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+      ),
+      child: Row(
+        children: [
+          _TypeTab(
+            label: 'Block',
+            selected: isBlock,
+            selectedColor: cs.error,
+            cs: cs,
+            isDark: isDark,
+            onTap: () => onChanged(true),
+          ),
+          _TypeTab(
+            label: 'Require',
+            selected: !isBlock,
+            selectedColor: cs.primary,
+            cs: cs,
+            isDark: isDark,
+            onTap: () => onChanged(false),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TypeTab extends StatelessWidget {
+  const _TypeTab({
+    required this.label,
+    required this.selected,
+    required this.selectedColor,
+    required this.cs,
+    required this.isDark,
+    required this.onTap,
+  });
+  final String label;
+  final bool selected;
+  final Color selectedColor;
+  final ColorScheme cs;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          decoration: BoxDecoration(
+            color: selected ? cs.surface : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(
+                        alpha: isDark ? 0.16 : 0.07,
+                      ),
+                      blurRadius: 5,
+                      offset: const Offset(0, 1.5),
                     ),
-                  ),
-                ),
-              ),
+                  ]
+                : [],
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+              color: selected
+                  ? selectedColor
+                  : cs.onSurfaceVariant.withValues(alpha: 0.6),
             ),
-            // Slot chips
-            ...slotIndices.map(
-              (idx) => Padding(
-                padding: const EdgeInsets.only(right: 4),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 5,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
-                  ),
-                  child: Text(
-                    'Slot $idx',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w400,
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const Spacer(),
-            // Delete icon (32×32 tap area)
-            GestureDetector(
-              onTap: onDelete,
-              child: SizedBox(
-                width: 32,
-                height: 32,
-                child: Center(
-                  child: Icon(
-                    Icons.close_rounded,
-                    size: 14,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.35),
-                  ),
-                ),
-              ),
-            ),
-          ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DiffBadge extends StatelessWidget {
+  const _DiffBadge({required this.label, required this.color});
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withValues(alpha: 0.35), width: 0.8),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: color,
+          fontFeatures: const [FontFeature.tabularFigures()],
         ),
       ),
     );
@@ -4775,17 +4928,16 @@ class _ConstraintEntryForm extends StatefulWidget {
 class _ConstraintEntryFormState extends State<_ConstraintEntryForm> {
   final Set<int> _selectedDays = {};
   final Set<int> _selectedSlots = {};
-  bool? _isBlock;
+  bool _isBlock = true;
 
-  bool get _canSubmit =>
-      _isBlock != null && _selectedDays.isNotEmpty && _selectedSlots.isNotEmpty;
+  bool get _canSubmit => _selectedDays.isNotEmpty && _selectedSlots.isNotEmpty;
 
   void _submit() {
     if (!_canSubmit) return;
     Navigator.of(context).pop<_ConstraintResult>((
       days: _selectedDays.toList()..sort(),
       slotIndices: _selectedSlots.toList()..sort(),
-      isBlock: _isBlock!,
+      isBlock: _isBlock,
     ));
   }
 
@@ -4858,180 +5010,117 @@ class _ConstraintEntryFormState extends State<_ConstraintEntryForm> {
                 // Type selector
                 const _SectionLabel('Type'),
                 const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() => _isBlock = true),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 140),
-                          height: 38,
-                          decoration: BoxDecoration(
-                            color: _isBlock == true
-                                ? cs.error.withValues(alpha: 0.12)
-                                : AppTheme.nestedBg(isDark, cs),
-                            borderRadius: BorderRadius.circular(
-                              AppTheme.kCardRadius,
-                            ),
-                            border: Border.all(
-                              color: _isBlock == true
-                                  ? cs.error
-                                  : AppTheme.borderColor(isDark, cs),
-                            ),
-                          ),
-                          child: Center(
-                            child: Text(
-                              'Block',
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w500,
-                                color: _isBlock == true
-                                    ? cs.error
-                                    : cs.onSurfaceVariant.withValues(
-                                        alpha: 0.65,
-                                      ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() => _isBlock = false),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 140),
-                          height: 38,
-                          decoration: BoxDecoration(
-                            color: _isBlock == false
-                                ? cs.primary.withValues(alpha: 0.12)
-                                : AppTheme.nestedBg(isDark, cs),
-                            borderRadius: BorderRadius.circular(
-                              AppTheme.kCardRadius,
-                            ),
-                            border: Border.all(
-                              color: _isBlock == false
-                                  ? cs.primary
-                                  : AppTheme.borderColor(isDark, cs),
-                            ),
-                          ),
-                          child: Center(
-                            child: Text(
-                              'Require',
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w500,
-                                color: _isBlock == false
-                                    ? cs.primary
-                                    : cs.onSurfaceVariant.withValues(
-                                        alpha: 0.65,
-                                      ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                _TypeTabStrip(
+                  isBlock: _isBlock,
+                  onChanged: (v) => setState(() => _isBlock = v),
+                  cs: cs,
+                  isDark: isDark,
                 ),
                 const SizedBox(height: 14),
                 // Days selector
                 const _SectionLabel('Days'),
                 const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: widget.rules.activeDays.map((d) {
-                    final sel = _selectedDays.contains(d);
-                    return _DayChip(
-                      label: _kWizDayShort[d] ?? 'D$d',
-                      selected: sel,
-                      cs: cs,
-                      isDark: isDark,
-                      onTap: () => setState(() {
-                        if (sel) {
-                          _selectedDays.remove(d);
-                        } else {
-                          _selectedDays.add(d);
-                        }
-                      }),
-                    );
-                  }).toList(),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Builder(
+                    builder: (ctx) {
+                      final daysToShow = widget.rules.activeDays.toList()
+                        ..sort();
+                      return ToggleButtons(
+                        isSelected: daysToShow
+                            .map((d) => _selectedDays.contains(d))
+                            .toList(),
+                        onPressed: (i) {
+                          final d = daysToShow[i];
+                          setState(() {
+                            if (_selectedDays.contains(d)) {
+                              _selectedDays.remove(d);
+                            } else {
+                              _selectedDays.add(d);
+                            }
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.kCardRadius,
+                        ),
+                        borderColor: AppTheme.borderColor(isDark, cs),
+                        selectedBorderColor: cs.primary.withValues(alpha: 0.55),
+                        selectedColor: cs.primary,
+                        fillColor: cs.primary.withValues(
+                          alpha: isDark ? 0.15 : 0.10,
+                        ),
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                        textStyle: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 44,
+                          minHeight: 36,
+                        ),
+                        children: daysToShow
+                            .map((d) => Text(_kWizDayShort[d] ?? 'D$d'))
+                            .toList(),
+                      );
+                    },
+                  ),
                 ),
                 const SizedBox(height: 14),
                 // Slots selector
                 const _SectionLabel('Slots'),
                 const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: lessonSlots.map((ls) {
-                    final sel = _selectedSlots.contains(ls.index);
-                    final timeLabel =
-                        '${_fmtTime(ls.start)}–${_fmtTime(ls.end)}';
-                    return InkWell(
-                      onTap: () => setState(() {
-                        if (sel) {
-                          _selectedSlots.remove(ls.index);
-                        } else {
-                          _selectedSlots.add(ls.index);
-                        }
-                      }),
+                if (lessonSlots.isEmpty)
+                  Text(
+                    'No lesson slots configured.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+                    ),
+                  )
+                else
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: ToggleButtons(
+                      isSelected: lessonSlots
+                          .map((s) => _selectedSlots.contains(s.index))
+                          .toList(),
+                      onPressed: (i) {
+                        final idx = lessonSlots[i].index;
+                        setState(() {
+                          if (_selectedSlots.contains(idx)) {
+                            _selectedSlots.remove(idx);
+                          } else {
+                            _selectedSlots.add(idx);
+                          }
+                        });
+                      },
                       borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                      splashFactory: NoSplash.splashFactory,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 140),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: sel
-                              ? cs.primary.withValues(
-                                  alpha: isDark ? 0.15 : 0.08,
-                                )
-                              : AppTheme.nestedBg(isDark, cs),
-                          borderRadius: BorderRadius.circular(
-                            AppTheme.kCardRadius,
-                          ),
-                          border: Border.all(
-                            color: sel
-                                ? cs.primary.withValues(alpha: 0.55)
-                                : AppTheme.borderColor(isDark, cs),
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Slot ${ls.index}',
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w500,
-                                color: sel
-                                    ? cs.onSurface
-                                    : cs.onSurfaceVariant.withValues(
-                                        alpha: 0.7,
-                                      ),
-                              ),
-                            ),
-                            Text(
-                              timeLabel,
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w400,
-                                color: cs.onSurfaceVariant.withValues(
-                                  alpha: 0.55,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                      borderColor: AppTheme.borderColor(isDark, cs),
+                      selectedBorderColor: cs.primary.withValues(alpha: 0.55),
+                      selectedColor: cs.primary,
+                      fillColor: cs.primary.withValues(
+                        alpha: isDark ? 0.15 : 0.10,
                       ),
-                    );
-                  }).toList(),
-                ),
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                      textStyle: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w400,
+                      ),
+                      constraints: const BoxConstraints(minHeight: 36),
+                      children: lessonSlots
+                          .map(
+                            (s) => Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                              child: Text(
+                                '${_fmtTime(s.start)}–${_fmtTime(s.end)}',
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ),
               ],
             ),
           ),
