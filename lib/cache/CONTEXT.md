@@ -35,6 +35,8 @@ All paths are **relative** — they are resolved against the app documents direc
 | `download` | `Future<File?> download(String url, String relativePath)` | HTTP GET from `url`, saves to `relativePath`. Creates parent dirs. Overwrites existing. Returns `File` on success, `null` on any error. Errors swallowed silently. |
 | `saveBytes` | `Future<File?> saveBytes(List<int> bytes, String relativePath)` | Writes raw bytes to `relativePath`. Creates parent dirs. Overwrites existing. Returns `File` on success, `null` on error. Used for locally-picked images (e.g. from `image_picker`). |
 | `delete` | `Future<void> delete(String relativePath)` | Deletes the file at `relativePath` if it exists. No-op if absent. Errors silently ignored. |
+| `loadTimetableRules` | `Future<TimetableRules> loadTimetableRules({required String schoolId, required int year, required int term})` | Reads `timetable_rules_{year}_{term}.json` from `{appDir}/schools/{schoolId}/`. Returns `TimetableRules.defaults()` if the file does not exist or JSON parsing fails. |
+| `saveTimetableRules` | `Future<void> saveTimetableRules({required String schoolId, required int year, required int term, required TimetableRules rules})` | Writes `rules` as JSON to `{appDir}/schools/{schoolId}/timetable_rules_{year}_{term}.json`. Creates parent directories if they do not exist. |
 
 ### `FileCacheNotifier` — Live File Change Signals
 
@@ -103,6 +105,7 @@ Uses `dart:io`'s `HttpClient` (not `package:http`) for HTTP GET. Collects all by
 | User profile image | `{appDir}/users/{userId}/profile` | `FileCache.profilePath(userId)` |
 | Student image | `{appDir}/schools/{schoolId}/students/{adm}/image` | `FileCache.studentImagePath(schoolId, adm)` |
 | School logo | `{appDir}/schools/{schoolId}/logo` | `FileCache.logoPath(schoolId)` |
+| Timetable rules | `{appDir}/schools/{schoolId}/timetable_rules_{year}_{term}.json` | `FileCache.loadTimetableRules(...)` / `FileCache.saveTimetableRules(...)` |
 | Any future asset | `{appDir}/{entityType}/{id}/{assetName}` | Add new static helper to `FileCache` |
 
 **Key rules:**
@@ -116,7 +119,8 @@ Uses `dart:io`'s `HttpClient` (not `package:http`) for HTTP GET. Collects all by
 ## Dependencies
 
 - **Depends on:** `dart:io` (`File`, `HttpClient`, `HttpClientResponse`), `package:path_provider` (`getApplicationDocumentsDirectory()`)
-- **Depended on by:** `services/authentication.dart` (downloads profile image on auth), `services/members.dart` (saves profile/student images), future UI widgets (serving cached images via `FileCache.get()`)
+- **Depends on:** `dart:io` (`File`, `HttpClient`, `HttpClientResponse`), `package:path_provider` (`getApplicationDocumentsDirectory()`), `lib/models/timetable_rules.dart` (`TimetableRules`)
+- **Depended on by:** `services/authentication.dart` (downloads profile image on auth), `services/members.dart` (saves profile/student images), future UI widgets (serving cached images via `FileCache.get()`), timetable UI (loads/saves `TimetableRules` via `loadTimetableRules`/`saveTimetableRules`)
 
 ## Conventions
 
@@ -125,6 +129,8 @@ Uses `dart:io`'s `HttpClient` (not `package:http`) for HTTP GET. Collects all by
 - New entity types that need cached files should add a static path helper method to `FileCache` and document the path pattern here.
 
 ## Last Updated
-Task 2 (FileCacheNotifier) — Added `FileCacheNotifier` class to `file_cache.dart`. Added `FileCacheNotifier.notify()` calls after every file write in `FileCache.download()` and `FileCache.saveBytes()`. Added `FileCacheNotifier.notify()` calls in `services/members.dart` after `saveStudentImage()` and `saveUserProfileImage()` file copies. Converted all `_StudentAvatar` / `_StudentAvatarLarge` / `StudentAvatar` widgets from `StatelessWidget` to `StatefulWidget` with `initState`/`dispose`/`didUpdateWidget` listener lifecycle so they rebuild immediately when a cached image file lands on disk (local save or remote download).
+Task A2 (TimetableRulesPersistence) — Added `FileCache.loadTimetableRules(...)` and `FileCache.saveTimetableRules(...)` static methods to `file_cache.dart`. Added import for `lib/models/timetable_rules.dart`. Added timetable rules path pattern to file path conventions table. Updated dependencies to include `TimetableRules`.
+
+Previous: Task 2 (FileCacheNotifier) — Added `FileCacheNotifier` class to `file_cache.dart`. Added `FileCacheNotifier.notify()` calls after every file write in `FileCache.download()` and `FileCache.saveBytes()`. Added `FileCacheNotifier.notify()` calls in `services/members.dart` after `saveStudentImage()` and `saveUserProfileImage()` file copies. Converted all `_StudentAvatar` / `_StudentAvatarLarge` / `StudentAvatar` widgets from `StatelessWidget` to `StatefulWidget` with `initState`/`dispose`/`didUpdateWidget` listener lifecycle so they rebuild immediately when a cached image file lands on disk (local save or remote download).
 
 Previous: Task 1 — Added `FileCache.upload(String putUrl, String relativePath) → Future<bool>` static method for S3 HTTP PUT uploads. Called by `SyncEngine._handleFileUrls()` when the push originator device receives PUT URLs in `ActionResponse.fileUrls`.

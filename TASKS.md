@@ -245,7 +245,7 @@ class SubjectBlockRule {
 
 ---
 
-### Task A2: Add `TimetableRulesPersistence` to `FileCache`
+### [x] Task A2: Add `TimetableRulesPersistence` to `FileCache`
 
 **Files to modify:** `lib/cache/file_cache.dart`, `lib/cache/CONTEXT.md`
 **Depends on:** Task A1
@@ -300,8 +300,8 @@ static Future<void> saveTimetableRules({
 Make sure `dart:io` and `path_provider` are already imported in `file_cache.dart` (they should be — check first and only add if missing).
 
 **After modifying the file:**
-- [ ] Update `lib/cache/CONTEXT.md` — add `loadTimetableRules` and `saveTimetableRules` to the `FileCache` methods list.
-- [ ] Mark this task `[x]`.
+- [x] Update `lib/cache/CONTEXT.md` — add `loadTimetableRules` and `saveTimetableRules` to the `FileCache` methods list.
+- [x] Mark this task `[x]`.
 
 ---
 

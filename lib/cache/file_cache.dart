@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../models/timetable_rules.dart';
+
 /// Static utility class for caching files at constant, predictable local paths.
 ///
 /// All files live under `{appDir}/{relativePath}` where `appDir` is resolved
@@ -220,6 +222,47 @@ class FileCache {
     } catch (_) {
       // Silently ignore — a failed delete is non-fatal.
     }
+  }
+
+  // ── Timetable rules ──────────────────────────────────────────────────────
+
+  /// Loads persisted [TimetableRules] for a school term from the local filesystem.
+  /// Returns [TimetableRules.defaults()] if no file exists yet or if parsing fails.
+  ///
+  /// Path: {appDir}/schools/{schoolId}/timetable_rules_{year}_{term}.json
+  static Future<TimetableRules> loadTimetableRules({
+    required String schoolId,
+    required int year,
+    required int term,
+  }) async {
+    final dir = await getApplicationDocumentsDirectory();
+    final file = File(
+      '${dir.path}/schools/$schoolId/timetable_rules_${year}_$term.json',
+    );
+    if (!await file.exists()) return TimetableRules.defaults();
+    try {
+      final contents = await file.readAsString();
+      return TimetableRules.fromJsonString(contents);
+    } catch (_) {
+      return TimetableRules.defaults();
+    }
+  }
+
+  /// Persists [TimetableRules] for a school term to the local filesystem.
+  ///
+  /// Path: {appDir}/schools/{schoolId}/timetable_rules_{year}_{term}.json
+  static Future<void> saveTimetableRules({
+    required String schoolId,
+    required int year,
+    required int term,
+    required TimetableRules rules,
+  }) async {
+    final dir = await getApplicationDocumentsDirectory();
+    final file = File(
+      '${dir.path}/schools/$schoolId/timetable_rules_${year}_$term.json',
+    );
+    await file.parent.create(recursive: true);
+    await file.writeAsString(rules.toJsonString());
   }
 
   // ─────────────────────────────────────────────────────────────────────────
