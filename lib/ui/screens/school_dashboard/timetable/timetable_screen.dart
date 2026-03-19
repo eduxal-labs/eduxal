@@ -2331,7 +2331,6 @@ class _TimetableWizardState extends State<_TimetableWizard> {
   }
 
   Widget _buildFooter(ColorScheme cs, bool isDark) {
-    final isLastStage = _stage == 3;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
       child: Row(
@@ -2339,13 +2338,13 @@ class _TimetableWizardState extends State<_TimetableWizard> {
           if (_stage > 0)
             _WizardTextButton(label: 'Back', onTap: _goBack, cs: cs),
           const Spacer(),
-          if (!isLastStage) ...[
-            _WizardTextButton(
-              label: 'Save',
-              onTap: _saving ? null : _save,
-              loading: _saving,
-              cs: cs,
-            ),
+          _WizardTextButton(
+            label: 'Save',
+            onTap: _saving ? null : _save,
+            loading: _saving,
+            cs: cs,
+          ),
+          if (_stage < 3) ...[
             const SizedBox(width: 8),
             _WizardFilledButton(
               label: _stage == 2 ? 'Review' : 'Next',
@@ -4315,96 +4314,8 @@ class _ConstraintEntryFormState extends State<_ConstraintEntryForm> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Stage 3 — Conflict Resolution & Generation
+// Stage 3 — Review & Generate
 // ─────────────────────────────────────────────────────────────────────────────
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Stage 3 shared helpers (_WizardSection and _WizardRuleRow are used by
-// _Stage3Generate for the configuration summary panel)
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _WizardSection extends StatelessWidget {
-  const _WizardSection({
-    required this.title,
-    required this.cs,
-    required this.isDark,
-    required this.children,
-  });
-
-  final String title;
-  final ColorScheme cs;
-  final bool isDark;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.nestedBg(isDark, cs),
-        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-        border: Border.all(color: AppTheme.borderColor(isDark, cs)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-            child: Text(
-              title,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: cs.onSurfaceVariant,
-                letterSpacing: 0.1,
-              ),
-            ),
-          ),
-          Divider(
-            height: 1,
-            thickness: 0.5,
-            color: AppTheme.borderColor(isDark, cs).withValues(alpha: 0.4),
-          ),
-          ...children,
-        ],
-      ),
-    );
-  }
-}
-
-class _WizardRuleRow extends StatelessWidget {
-  const _WizardRuleRow({
-    required this.label,
-    required this.cs,
-    required this.child,
-  });
-
-  final String label;
-  final ColorScheme cs;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurface.withValues(alpha: 0.85),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          child,
-        ],
-      ),
-    );
-  }
-}
 
 class _Stage3Generate extends StatefulWidget {
   const _Stage3Generate({
@@ -4437,32 +4348,19 @@ class _Stage3Generate extends StatefulWidget {
   State<_Stage3Generate> createState() => _Stage3GenerateState();
 }
 
-class _Stage3GenerateState extends State<_Stage3Generate>
-    with TickerProviderStateMixin {
-  late AnimationController _pulseCtrl;
+class _Stage3GenerateState extends State<_Stage3Generate> {
+  Timer? _statusTimer;
   int _statusIndex = 0;
   static const _statusMessages = [
-    'Analyzing subjects…',
-    'Building assignments…',
-    'Optimizing schedule…',
-    'Finalizing…',
+    'Analysing subjects…',
+    'Building slot matrix…',
+    'Resolving constraints…',
+    'Optimising schedule…',
   ];
 
   @override
   void initState() {
     super.initState();
-    _pulseCtrl =
-        AnimationController(
-          vsync: this,
-          duration: const Duration(milliseconds: 1500),
-        )..addStatusListener((s) {
-          if (s == AnimationStatus.completed && mounted && widget.generating) {
-            setState(
-              () => _statusIndex = (_statusIndex + 1) % _statusMessages.length,
-            );
-            _pulseCtrl.forward(from: 0);
-          }
-        });
   }
 
   @override
@@ -4470,16 +4368,24 @@ class _Stage3GenerateState extends State<_Stage3Generate>
     super.didUpdateWidget(old);
     if (widget.generating && !old.generating) {
       _statusIndex = 0;
-      _pulseCtrl.forward(from: 0);
+      _statusTimer?.cancel();
+      _statusTimer = Timer.periodic(const Duration(milliseconds: 1500), (_) {
+        if (mounted) {
+          setState(
+            () => _statusIndex = (_statusIndex + 1) % _statusMessages.length,
+          );
+        }
+      });
     }
     if (!widget.generating && old.generating) {
-      _pulseCtrl.stop();
+      _statusTimer?.cancel();
+      _statusTimer = null;
     }
   }
 
   @override
   void dispose() {
-    _pulseCtrl.dispose();
+    _statusTimer?.cancel();
     super.dispose();
   }
 
@@ -4495,348 +4401,198 @@ class _Stage3GenerateState extends State<_Stage3Generate>
   Widget build(BuildContext context) {
     final cs = widget.cs;
     final isDark = widget.isDark;
+    final hasConflicts = widget.conflicts.isNotEmpty;
 
-    // Generating state
-    if (widget.generating) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 40,
-              height: 40,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.5,
-                color: AppTheme.brandGreen,
-              ),
-            ),
-            const SizedBox(height: 20),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: Text(
-                _statusMessages[_statusIndex],
-                key: ValueKey(_statusIndex),
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // Success state
-    if (widget.result is GeneratorSuccess) {
-      final success = widget.result! as GeneratorSuccess;
-      return SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppTheme.brandGreen.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                border: Border.all(
-                  color: AppTheme.brandGreen.withValues(alpha: 0.3),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.check_circle_outline_rounded,
-                    size: 22,
-                    color: AppTheme.brandGreen,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Timetable generated!',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: AppTheme.brandGreen,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${success.slots.length} slots · '
-                          '${success.iterations} iterations · '
-                          '${success.elapsed.inMilliseconds}ms',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                            color: cs.onSurface.withValues(alpha: 0.6),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: widget.onComplete,
-                icon: const Icon(Icons.calendar_today_outlined, size: 16),
-                label: const Text('View Timetable'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppTheme.brandGreen,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                  ),
-                  textStyle: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // Failure state
-    if (widget.result is GeneratorFailure) {
-      final failure = widget.result! as GeneratorFailure;
-      return SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: cs.error.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                border: Border.all(color: cs.error.withValues(alpha: 0.25)),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.error_outline_rounded,
-                    size: 18,
-                    color: cs.error.withValues(alpha: 0.8),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      failure.reason,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: cs.onSurface.withValues(alpha: 0.75),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-            OutlinedButton.icon(
-              onPressed: widget.onGenerate,
-              icon: const Icon(Icons.refresh_rounded, size: 16),
-              label: const Text('Retry'),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: cs.outlineVariant),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                ),
-                textStyle: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // Pre-generate state: show summary + conflict cards + generate button
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: 16,
         children: [
-          // Rules summary
-          _WizardSection(
-            title: 'Configuration Summary',
+          if (hasConflicts)
+            _ConflictSection(
+              conflicts: widget.conflicts,
+              teacherNameOf: _teacherName,
+              subjectNameOf: _subjectName,
+              cs: cs,
+              isDark: isDark,
+              onConflictResolved: widget.onConflictResolved,
+            )
+          else
+            _SummarySection(rules: widget.rules, cs: cs, isDark: isDark),
+          _GenerateSection(
+            generating: widget.generating,
+            result: widget.result,
+            statusMessage: _statusMessages[_statusIndex],
             cs: cs,
             isDark: isDark,
-            children: [
-              _WizardRuleRow(
-                label: 'Day starts at',
-                cs: cs,
-                child: Text(
-                  widget.rules.dayStartTime.format(context),
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurface,
-                  ),
-                ),
-              ),
-              Divider(
-                height: 1,
-                thickness: 0.5,
-                color: AppTheme.borderColor(isDark, cs).withValues(alpha: 0.3),
-              ),
-              _WizardRuleRow(
-                label: 'Lesson slots',
-                cs: cs,
-                child: Text(
-                  '${widget.rules.buildLessonSlots().length} per day',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurface,
-                  ),
-                ),
-              ),
-              Divider(
-                height: 1,
-                thickness: 0.5,
-                color: AppTheme.borderColor(isDark, cs).withValues(alpha: 0.3),
-              ),
-              _WizardRuleRow(
-                label: 'Active days',
-                cs: cs,
-                child: Text(
-                  '${widget.rules.activeDays.length} days',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurface,
-                  ),
-                ),
-              ),
-              Divider(
-                height: 1,
-                thickness: 0.5,
-                color: AppTheme.borderColor(isDark, cs).withValues(alpha: 0.3),
-              ),
-              _WizardRuleRow(
-                label: 'Teacher constraints',
-                cs: cs,
-                child: Text(
-                  '${widget.rules.teacherConstraints.length}',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurface,
-                  ),
-                ),
-              ),
-              Divider(
-                height: 1,
-                thickness: 0.5,
-                color: AppTheme.borderColor(isDark, cs).withValues(alpha: 0.3),
-              ),
-              _WizardRuleRow(
-                label: 'Subject constraints',
-                cs: cs,
-                child: Text(
-                  '${widget.rules.subjectConstraints.length}',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurface,
-                  ),
-                ),
-              ),
-            ],
+            onGenerate: widget.onGenerate,
+            onComplete: widget.onComplete,
           ),
-          // Conflict pairs
-          if (widget.conflicts.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            Text(
-              'CONFLICTS DETECTED',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                letterSpacing: 0.5,
-                color: cs.error.withValues(alpha: 0.7),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Choose which constraint takes priority for each conflict. '
-              'The lower-priority constraint is dropped at generation time.',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-              ),
-            ),
-            const SizedBox(height: 10),
-            ...widget.conflicts.map(
-              (cp) => _ConflictCard(
-                conflict: cp,
-                teacherName: _teacherName(cp.teacherEntry.teacherId),
-                subjectName: _subjectName(cp.subjectEntry.subjectId),
-                cs: cs,
-                isDark: isDark,
-                onChanged: (v) => widget.onConflictResolved(cp, v),
-              ),
-            ),
-          ] else ...[
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Icon(
-                  Icons.check_circle_outline_rounded,
-                  size: 15,
-                  color: AppTheme.brandGreen.withValues(alpha: 0.8),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'No conflicts found.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-                  ),
-                ),
-              ],
-            ),
-          ],
-          const SizedBox(height: 20),
-          // Generate button
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: widget.onGenerate,
-              icon: const Icon(Icons.play_arrow_rounded, size: 18),
-              label: const Text('Generate Timetable'),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppTheme.brandGreen,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                ),
-                textStyle: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
         ],
       ),
+    );
+  }
+}
+
+// ── Summary section ───────────────────────────────────────────────────────────
+
+class _SummarySection extends StatelessWidget {
+  const _SummarySection({
+    required this.rules,
+    required this.cs,
+    required this.isDark,
+  });
+
+  final TimetableRules rules;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final slotCount = rules.buildLessonSlots().length;
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        _StatChip(
+          label: 'Days',
+          value: '${rules.activeDays.length}',
+          cs: cs,
+          isDark: isDark,
+        ),
+        _StatChip(
+          label: 'Slots/Day',
+          value: '$slotCount',
+          cs: cs,
+          isDark: isDark,
+        ),
+        _StatChip(
+          label: 'Teacher rules',
+          value: '${rules.teacherConstraints.length}',
+          cs: cs,
+          isDark: isDark,
+        ),
+        _StatChip(
+          label: 'Subject rules',
+          value: '${rules.subjectConstraints.length}',
+          cs: cs,
+          isDark: isDark,
+        ),
+      ],
+    );
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  const _StatChip({
+    required this.label,
+    required this.value,
+    required this.cs,
+    required this.isDark,
+  });
+
+  final String label;
+  final String value;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.nestedBg(isDark, cs),
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        border: Border.all(color: AppTheme.borderColor(isDark, cs)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurface,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Conflict section ──────────────────────────────────────────────────────────
+
+class _ConflictSection extends StatelessWidget {
+  const _ConflictSection({
+    required this.conflicts,
+    required this.teacherNameOf,
+    required this.subjectNameOf,
+    required this.cs,
+    required this.isDark,
+    required this.onConflictResolved,
+  });
+
+  final List<_ConflictPair> conflicts;
+  final String Function(String) teacherNameOf;
+  final String Function(int) subjectNameOf;
+  final ColorScheme cs;
+  final bool isDark;
+  final void Function(_ConflictPair, bool teacherWins) onConflictResolved;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionLabel(
+          'Conflicts Detected',
+          trailing: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+            decoration: BoxDecoration(
+              color: cs.error.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+            ),
+            child: Text(
+              '${conflicts.length}',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: cs.error,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: conflicts.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          itemBuilder: (_, i) {
+            final cp = conflicts[i];
+            return _ConflictCard(
+              conflict: cp,
+              teacherName: teacherNameOf(cp.teacherEntry.teacherId),
+              subjectName: subjectNameOf(cp.subjectEntry.subjectId),
+              cs: cs,
+              isDark: isDark,
+              onChanged: (v) => onConflictResolved(cp, v),
+            );
+          },
+        ),
+      ],
     );
   }
 }
@@ -4864,124 +4620,442 @@ class _ConflictCard extends StatelessWidget {
     final sc = conflict.subjectEntry;
     final tcLabel = tc.isBlock ? 'Block' : 'Require';
     final scLabel = sc.isBlock ? 'Block' : 'Require';
+    final muted = cs.onSurfaceVariant.withValues(alpha: 0.45);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: cs.error.withValues(alpha: 0.04),
+        color: AppTheme.nestedBg(isDark, cs),
         borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-        border: Border.all(color: cs.error.withValues(alpha: 0.2)),
+        border: Border.all(color: cs.error.withValues(alpha: 0.3)),
       ),
+      padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '$teacherName ↔ $subjectName',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: cs.onSurface,
-            ),
+          // Teacher row
+          Row(
+            children: [
+              Icon(Icons.person_outline_rounded, size: 14, color: muted),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Teacher: $teacherName',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurface,
+                  ),
+                ),
+              ),
+              _ConstraintTypeBadge(label: tcLabel, isBlock: tc.isBlock, cs: cs),
+            ],
           ),
-          const SizedBox(height: 8),
-          // Priority choice
+          const SizedBox(height: 4),
+          // Subject row
+          Row(
+            children: [
+              Icon(Icons.book_outlined, size: 14, color: muted),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Subject: $subjectName',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurface,
+                  ),
+                ),
+              ),
+              _ConstraintTypeBadge(label: scLabel, isBlock: sc.isBlock, cs: cs),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // Priority picker
+          const _SectionLabel('Which takes priority?'),
+          const SizedBox(height: 6),
           Row(
             children: [
               Expanded(
-                child: GestureDetector(
+                child: _PriorityChip(
+                  label: teacherName,
+                  selected: conflict.teacherWins,
+                  cs: cs,
+                  isDark: isDark,
                   onTap: () => onChanged(true),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: conflict.teacherWins
-                          ? AppTheme.brandGreen.withValues(alpha: 0.1)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
-                      border: Border.all(
-                        color: conflict.teacherWins
-                            ? AppTheme.brandGreen.withValues(alpha: 0.45)
-                            : cs.outlineVariant.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Teacher wins',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: conflict.teacherWins
-                                ? AppTheme.brandGreen
-                                : cs.onSurface,
-                          ),
-                        ),
-                        Text(
-                          '$teacherName · $tcLabel',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w400,
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: GestureDetector(
+                child: _PriorityChip(
+                  label: subjectName,
+                  selected: !conflict.teacherWins,
+                  cs: cs,
+                  isDark: isDark,
                   onTap: () => onChanged(false),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: !conflict.teacherWins
-                          ? cs.primary.withValues(alpha: 0.1)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
-                      border: Border.all(
-                        color: !conflict.teacherWins
-                            ? cs.primary.withValues(alpha: 0.45)
-                            : cs.outlineVariant.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Subject wins',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: !conflict.teacherWins
-                                ? cs.primary
-                                : cs.onSurface,
-                          ),
-                        ),
-                        Text(
-                          '$subjectName · $scLabel',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w400,
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ConstraintTypeBadge extends StatelessWidget {
+  const _ConstraintTypeBadge({
+    required this.label,
+    required this.isBlock,
+    required this.cs,
+  });
+
+  final String label;
+  final bool isBlock;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: isBlock
+            ? cs.error.withValues(alpha: 0.10)
+            : cs.primary.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w500,
+          color: isBlock ? cs.error : cs.primary,
+        ),
+      ),
+    );
+  }
+}
+
+class _PriorityChip extends StatelessWidget {
+  const _PriorityChip({
+    required this.label,
+    required this.selected,
+    required this.cs,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final ColorScheme cs;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        height: 36,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: selected
+              ? cs.primary.withValues(alpha: 0.12)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+          border: Border.all(
+            color: selected
+                ? cs.primary.withValues(alpha: 0.45)
+                : cs.outlineVariant.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: selected ? cs.primary : cs.onSurface,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Generate section ──────────────────────────────────────────────────────────
+
+class _GenerateSection extends StatelessWidget {
+  const _GenerateSection({
+    required this.generating,
+    required this.result,
+    required this.statusMessage,
+    required this.cs,
+    required this.isDark,
+    required this.onGenerate,
+    required this.onComplete,
+  });
+
+  final bool generating;
+  final GeneratorResult? result;
+  final String statusMessage;
+  final ColorScheme cs;
+  final bool isDark;
+  final Future<void> Function() onGenerate;
+  final VoidCallback onComplete;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: 12,
+      children: [
+        if (result == null && !generating)
+          _GenerateButton(onGenerate: onGenerate)
+        else if (generating)
+          _GeneratingIndicator(statusMessage: statusMessage, cs: cs)
+        else if (result is GeneratorSuccess)
+          _SuccessPanel(
+            result: result! as GeneratorSuccess,
+            cs: cs,
+            isDark: isDark,
+            onGenerate: onGenerate,
+            onComplete: onComplete,
+          )
+        else if (result is GeneratorFailure)
+          _FailurePanel(
+            result: result! as GeneratorFailure,
+            cs: cs,
+            isDark: isDark,
+            onGenerate: onGenerate,
+          ),
+      ],
+    );
+  }
+}
+
+class _GenerateButton extends StatelessWidget {
+  const _GenerateButton({required this.onGenerate});
+
+  final Future<void> Function() onGenerate;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton.icon(
+      onPressed: onGenerate,
+      icon: const Icon(Icons.auto_awesome_rounded, size: 16),
+      label: const Text('Generate Timetable'),
+      style: FilledButton.styleFrom(
+        backgroundColor: AppTheme.brandGreen,
+        foregroundColor: Colors.white,
+        minimumSize: const Size(double.infinity, 44),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        ),
+        textStyle: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500),
+      ),
+    );
+  }
+}
+
+class _GeneratingIndicator extends StatelessWidget {
+  const _GeneratingIndicator({required this.statusMessage, required this.cs});
+
+  final String statusMessage;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
+        const SizedBox(height: 12),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          transitionBuilder: (child, animation) =>
+              FadeTransition(opacity: animation, child: child),
+          child: Text(
+            statusMessage,
+            key: ValueKey(statusMessage),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SuccessPanel extends StatelessWidget {
+  const _SuccessPanel({
+    required this.result,
+    required this.cs,
+    required this.isDark,
+    required this.onGenerate,
+    required this.onComplete,
+  });
+
+  final GeneratorSuccess result;
+  final ColorScheme cs;
+  final bool isDark;
+  final Future<void> Function() onGenerate;
+  final VoidCallback onComplete;
+
+  @override
+  Widget build(BuildContext context) {
+    final dayCount = result.slots.map((s) => s.day).toSet().length;
+    final ms = result.elapsed.inMilliseconds;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.brandGreen.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        border: Border.all(color: AppTheme.brandGreen.withValues(alpha: 0.3)),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.check_circle_outline_rounded,
+                size: 18,
+                color: AppTheme.brandGreen,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Timetable ready!',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.brandGreen,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${result.slots.length} slots across $dayCount days  ·  ${ms}ms',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: onGenerate,
+                style: TextButton.styleFrom(
+                  foregroundColor: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                child: const Text('Regenerate'),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: onComplete,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTheme.brandGreen,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                child: const Text('Apply Timetable →'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FailurePanel extends StatelessWidget {
+  const _FailurePanel({
+    required this.result,
+    required this.cs,
+    required this.isDark,
+    required this.onGenerate,
+  });
+
+  final GeneratorFailure result;
+  final ColorScheme cs;
+  final bool isDark;
+  final Future<void> Function() onGenerate;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.error.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        border: Border.all(color: cs.error.withValues(alpha: 0.3)),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.error_outline_rounded, size: 18, color: cs.error),
+              const SizedBox(width: 8),
+              Text(
+                'Could not generate',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w500,
+                  color: cs.error,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            result.reason,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant,
+            ),
+            maxLines: 4,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: OutlinedButton(
+              onPressed: onGenerate,
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: cs.outlineVariant),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              child: const Text('Try Again'),
+            ),
           ),
         ],
       ),

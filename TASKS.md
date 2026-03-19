@@ -844,7 +844,7 @@ and `_showConstraintSheet` — they are fully replaced.
 
 ---
 
-### Task TW-04: Stage 3 — Review & Generate UI Polish + Full Integration Check
+### Task TW-04: ✅ Stage 3 — Review & Generate UI Polish + Full Integration Check
 
 **Files to modify:** `eduxal/lib/ui/screens/school_dashboard/timetable/timetable_screen.dart`
 **Context files to read:** `eduxal/lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -1053,6 +1053,6 @@ Container(
 ---
 
 **Update after completion:**
-- [ ] Update `eduxal/lib/ui/screens/school_dashboard/CONTEXT.md` — rewrite the full timetable wizard section to reflect the new 4-stage dialog design
-- [ ] Mark `TW-04` as `[x]` in `eduxal/TASKS.md`
-- [ ] Commit: `ui: timetable wizard — generate stage polish and full dialog integration`
+- [x] Update `eduxal/lib/ui/screens/school_dashboard/CONTEXT.md` — rewrite the full timetable wizard section to reflect the new 4-stage dialog design
+- [x] Mark `TW-04` as `[x]` in `eduxal/TASKS.md`
+- [x] Commit: `ui: timetable wizard — generate stage polish and full dialog integration`
