@@ -5,7 +5,7 @@
 
 ## Overview
 
-This directory contains **17 files** — each defining one or more pure Dart classes, sealed types, or enums used across the app. Models here never import `package:drift` directly (though some reference Drift-generated data classes like `UsersData`, `AccountsData`, `SchoolsData` from `database/database.dart`).
+This directory contains **18 files** — each defining one or more pure Dart classes, sealed types, or enums used across the app. Models here never import `package:drift` directly (though some reference Drift-generated data classes like `UsersData`, `AccountsData`, `SchoolsData` from `database/database.dart`).
 
 ## Files
 
@@ -28,6 +28,7 @@ This directory contains **17 files** — each defining one or more pure Dart cla
 | `setup_result.dart` | `SetupResult` | ✅ Complete |
 | `system_permissions.dart` | `SystemPermissions`, `RolePermissions` | ✅ Complete |
 | `system_stats.dart` | `CurrentTerm`, `StatSegment`, `UserStats`, `SchoolStats`, `StudentStats`, `PlanSubscriptionCount`, `StudentPlanStats`, `TeacherStats`, `SubscriptionStats`, `RevenueStats` | ✅ Complete |
+| `timetable_rules.dart` | `TimetableRules`, `TeacherBlockRule`, `SubjectBlockRule` | ✅ Complete |
 | `verify_result.dart` | `VerifyResult` (sealed), `VerifyResultAuthenticated`, `VerifyResultRegistered` | ✅ Complete |
 
 ## Key Types — Detailed
@@ -178,6 +179,12 @@ System dashboard aggregate statistics. All have `static const empty` for initial
 - Models that wrap DB rows provide `fromRows` factory + `toCompanion` converter.
 - No business logic in models — they are data holders with computed getters only.
 
+### `TimetableRules` / `TeacherBlockRule` / `SubjectBlockRule` — `timetable_rules.dart`
+Generation constraints for the timetable solver.
+- `TimetableRules` — global config (day start/end, slot duration, break, lunch, active days, max loads, allow doubles) + lists of per-entity block rules. Serialisable to/from JSON. `buildSlots()` derives the ordered (start, end) slot list for a day.
+- `TeacherBlockRule` — blocks a specific teacher (`teacherUserId`) from being scheduled during a time window on specified days. `blocks(day, slotStart, slotEnd)` returns true if the rule forbids that slot.
+- `SubjectBlockRule` — restricts a subject to allowed days and/or blocks it before/after certain times. `blocks(day, slotStart, slotEnd)` returns true if forbidden.
+
 ### Exam Group models — `exam_group.dart`
 Grouping model for the exams UI. Multiple exam rows sharing the same `(school, year, term, type, start, end)` are presented as one logical exam.
 
@@ -186,4 +193,4 @@ Grouping model for the exams UI. Multiple exam rows sharing the same `(school, y
 - **`ExamStreamEntry`** — One exam row + its papers for a specific stream. Fields: `exam` (Exam), `streamCode` (int?), `papers` (List<Paper>).
 
 ## Last Updated
-Task 1001 — No structural changes to models during UI overhaul tracks. All 17 model files remain as-is. File count: 17.
+Task A1 — Added `timetable_rules.dart`: `TimetableRules`, `TeacherBlockRule`, `SubjectBlockRule`. File count: 18.
