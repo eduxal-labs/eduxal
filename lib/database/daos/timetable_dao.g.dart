@@ -8,6 +8,7 @@ mixin _$TimetableDaoMixin on DatabaseAccessor<AppDatabase> {
   $TimetableTable get timetable => attachedDatabase.timetable;
   $LessonsTable get lessons => attachedDatabase.lessons;
   $SubjectsTable get subjects => attachedDatabase.subjects;
+  $SubjectTeachersTable get subjectTeachers => attachedDatabase.subjectTeachers;
   $UsersTable get users => attachedDatabase.users;
   $AccountsTable get accounts => attachedDatabase.accounts;
   $LogsTable get logs => attachedDatabase.logs;
@@ -25,6 +26,11 @@ class TimetableDaoManager {
       $$LessonsTableTableManager(_db.attachedDatabase, _db.lessons);
   $$SubjectsTableTableManager get subjects =>
       $$SubjectsTableTableManager(_db.attachedDatabase, _db.subjects);
+  $$SubjectTeachersTableTableManager get subjectTeachers =>
+      $$SubjectTeachersTableTableManager(
+        _db.attachedDatabase,
+        _db.subjectTeachers,
+      );
   $$UsersTableTableManager get users =>
       $$UsersTableTableManager(_db.attachedDatabase, _db.users);
   $$AccountsTableTableManager get accounts =>

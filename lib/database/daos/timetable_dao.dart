@@ -4,6 +4,7 @@ import '../database.dart';
 import '../tables/enums.dart';
 import '../tables/lessons.dart';
 import '../tables/logs.dart';
+import '../tables/subject_teachers.dart';
 import '../tables/subjects.dart';
 import '../tables/timetable.dart';
 import '../tables/users.dart';
@@ -21,7 +22,9 @@ part 'timetable_dao.g.dart';
 /// All mutating methods write a corresponding [Logs] entry inside the same
 /// transaction so the sync engine can replay it to the server when
 /// connectivity is restored.
-@DriftAccessor(tables: [Timetable, Lessons, Subjects, Users, Logs])
+@DriftAccessor(
+  tables: [Timetable, Lessons, Subjects, SubjectTeachers, Users, Logs],
+)
 class TimetableDao extends DatabaseAccessor<AppDatabase>
     with _$TimetableDaoMixin {
   TimetableDao(super.db);
@@ -216,6 +219,48 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
     );
     final row = await query.getSingle();
     return (row.read(count) ?? 0) > 0;
+  }
+
+  /// Returns all subject-teacher assignments for a term, enriched with the
+  /// subject name. This is the primary input to the timetable solver.
+  Future<List<SolverAssignment>> getSubjectTeachersForTerm({
+    required String schoolId,
+    required int year,
+    required int term,
+  }) async {
+    final query =
+        select(subjectTeachers).join([
+            leftOuterJoin(
+              subjects,
+              subjects.id.equalsExp(subjectTeachers.subject),
+            ),
+          ])
+          ..where(
+            subjectTeachers.school.equals(schoolId) &
+                subjectTeachers.year.equals(year) &
+                subjectTeachers.term.equals(term),
+          )
+          ..orderBy([
+            OrderingTerm.asc(subjectTeachers.grade),
+            OrderingTerm.asc(subjectTeachers.stream),
+            OrderingTerm.asc(subjectTeachers.subject),
+          ]);
+
+    final rows = await query.get();
+    return rows.map((r) {
+      final st = r.readTable(subjectTeachers);
+      final sub = r.readTableOrNull(subjects);
+      return SolverAssignment(
+        school: st.school,
+        year: st.year,
+        term: st.term,
+        grade: st.grade,
+        stream: st.stream,
+        subjectId: st.subject,
+        subjectName: sub?.name ?? 'Subject ${st.subject}',
+        teacherUserId: st.teacher,
+      );
+    }).toList();
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -635,4 +680,27 @@ class LessonEntry {
   /// Human-readable subject name from the `subjects` table.
   /// Falls back to `'Subject <id>'` if the subject row is missing.
   final String subjectName;
+}
+
+/// One subject-teacher assignment — input record for the timetable solver.
+class SolverAssignment {
+  const SolverAssignment({
+    required this.school,
+    required this.year,
+    required this.term,
+    required this.grade,
+    required this.stream,
+    required this.subjectId,
+    required this.subjectName,
+    required this.teacherUserId,
+  });
+
+  final String school;
+  final int year;
+  final int term;
+  final int grade;
+  final int stream;
+  final int subjectId;
+  final String subjectName;
+  final String teacherUserId;
 }

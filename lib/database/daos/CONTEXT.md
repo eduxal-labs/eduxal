@@ -201,7 +201,9 @@ Each DAO extends `DatabaseAccessor<AppDatabase>` and is annotated with `@DriftAc
 ### `TimetableDao`
 - `watchTimetable(schoolId, year, term, grade, stream) → Stream<List<TimetableData>>`
 - `watchLessons(timetableId, date) → Stream<List<LessonsData>>`
+- `getSubjectTeachersForTerm(schoolId, year, term) → Future<List<SolverAssignment>>` — one-shot read of all `subject_teachers` rows for a term, enriched with subject name via left join on `subjects`. Primary input to the timetable solver.
 - Insert/update methods.
+- **`SolverAssignment`** — data class defined in `timetable_dao.dart`; fields: `school`, `year`, `term`, `grade`, `stream`, `subjectId`, `subjectName`, `teacherUserId`.
 
 ### `RolesDao`
 - `watchSystemRoles() → Stream<List<RolesData>>` — Roles where `school IS NULL`.
@@ -295,4 +297,4 @@ Other DAOs are created locally where needed (e.g. inside service classes or scre
 - **`exams_grades_dao.dart`** — Import changed from `../tables/subjects.dart` to `../tables/subject_teachers.dart`. `@DriftAccessor` tables list changed `Subjects` → `SubjectTeachers`. In `watchMasteryForStudent`: removed `OrderingTerm.asc(m.grade)` from orderBy (mastery no longer has a `grade` column). In `watchMasteryForSubject`: removed `mastery.grade.equals(grade)` from the WHERE clause. In `upsertMastery`: removed `final grade = entry.grade.value`; removed `m.grade.equals(grade)` from both the lookup and update WHERE clauses; removed `grade: grade,` from both `UpdateMasteryPayload` constructions. In `createExam`: replaced `grade: exam.grade.value` with `name: exam.name.value` in `CreateExamPayload`; removed `stream` conditional assignment block. In `createExamBatch`: replaced `grade: e.grade.value` with `name: e.name.value` in `CreateExamPayload`; removed `stream` conditional assignment block. In `updateExam`: replaced `changes.stream` handling block with `changes.name` handling (`payload.name = changes.name.value`). In `addGradeToExamGroup`: removed `grade: Value(grade)` and `stream: Value(streamCode)` from `ExamsCompanion`; removed `grade:` and stream conditional from `CreateExamPayload`; loop variable renamed to `_` to suppress unused-variable warning. **Note:** `ExamsCompanion.name` errors are expected until `build_runner` regenerates `.g.dart` files.
 
 ## Last Updated
-Task 1001 — No DAO changes during UI overhaul tracks. All 21 DAO files remain current. `CatalogDao` present for subjects/topics catalog queries.
+Task A3 — Added `getSubjectTeachersForTerm` method and `SolverAssignment` data class to `timetable_dao.dart`. Added `SubjectTeachers` to `@DriftAccessor` tables list and imported `subject_teachers.dart`. Build runner regenerated `timetable_dao.g.dart` with `subjectTeachers` accessor.

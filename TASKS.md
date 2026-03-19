@@ -402,8 +402,8 @@ cd eduxal && dart run build_runner build --delete-conflicting-outputs
 ```
 
 **After modifying:**
-- [ ] Update `lib/database/daos/CONTEXT.md` — add `getSubjectTeachersForTerm` to the `TimetableDao` section and note `SolverAssignment` data class.
-- [ ] Mark this task `[x]`.
+- [x] Update `lib/database/daos/CONTEXT.md` — add `getSubjectTeachersForTerm` to the `TimetableDao` section and note `SolverAssignment` data class.
+- [x] Mark this task `[x]`.
 
 ---
 
