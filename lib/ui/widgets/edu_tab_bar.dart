@@ -55,7 +55,7 @@ class EduTabBar extends StatelessWidget {
     super.key,
     required this.controller,
     required this.tabs,
-    this.isScrollable = false,
+    this.isScrollable = true,
     this.height,
     this.padding,
   });
@@ -101,8 +101,8 @@ class EduTabBar extends StatelessWidget {
       ),
       child: TabBar(
         controller: controller,
-        isScrollable: isScrollable,
-        tabAlignment: isScrollable ? TabAlignment.start : TabAlignment.fill,
+        isScrollable: true,
+        tabAlignment: TabAlignment.start,
         splashBorderRadius: BorderRadius.circular(8),
         dividerColor: Colors.transparent,
         dividerHeight: 0,
@@ -125,9 +125,7 @@ class EduTabBar extends StatelessWidget {
         ),
         labelColor: cs.onSurface,
         unselectedLabelColor: cs.onSurfaceVariant.withValues(alpha: 0.7),
-        labelPadding: isScrollable
-            ? const EdgeInsets.symmetric(horizontal: 16)
-            : EdgeInsets.zero,
+        labelPadding: const EdgeInsets.symmetric(horizontal: 16),
         labelStyle: const TextStyle(
           fontSize: 12.5,
           fontWeight: FontWeight.w500,
@@ -168,11 +166,8 @@ class EduTabBar extends StatelessWidget {
       ),
     );
 
-    // When scrollable, don't force the strip to fill the full width —
-    // let it hug its content and sit at the left edge.
-    if (isScrollable) {
-      strip = Align(alignment: Alignment.centerLeft, child: strip);
-    }
+    // Always hug content width — tabs take only as much space as they need.
+    strip = Align(alignment: Alignment.centerLeft, child: strip);
 
     return Padding(
       padding:
@@ -195,7 +190,7 @@ class EduTabBarBottom extends StatelessWidget implements PreferredSizeWidget {
     super.key,
     required this.controller,
     required this.tabs,
-    this.isScrollable = false,
+    this.isScrollable = true,
     this.height,
     this.padding,
   });

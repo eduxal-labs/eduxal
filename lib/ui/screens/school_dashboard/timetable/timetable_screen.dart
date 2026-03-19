@@ -219,24 +219,17 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
     final term = widget.termContext.currentTerm;
     if (term == null || _rules == null) return;
 
-    final result = await Navigator.of(context).push<_RulesSheetResult>(
-      MaterialPageRoute(
-        builder: (_) => _TimetableWizardPage(
-          initialRules: _rules!,
-          schoolContext: widget.schoolContext,
-          termContext: widget.termContext,
-        ),
-      ),
+    final result = await showTimetableWizardDialog(
+      context: context,
+      initialRules: _rules!,
+      schoolContext: widget.schoolContext,
+      termContext: widget.termContext,
     );
 
     if (result == null || !mounted) return;
 
-    await FileCache.saveTimetableRules(
-      schoolId: widget.schoolContext.membership.school.id,
-      year: term.year,
-      term: term.term,
-      rules: result.rules,
-    );
+    // Rules were already saved to disk inside the dialog (_save).
+    // Only reload the in-memory copy and optionally re-run generation.
     if (mounted) setState(() => _rules = result.rules);
 
     if (result.shouldGenerate) {
@@ -1878,15 +1871,90 @@ class _ConflictPair {
   _ConflictPair({required this.teacherEntry, required this.subjectEntry});
   final TeacherConstraintEntry teacherEntry;
   final SubjectConstraintEntry subjectEntry;
+
   /// When `true` the teacher constraint is preserved and the subject
   /// constraint is dropped at generation time.
   bool teacherWins = true;
 }
 
-// ── Wizard page (entry point) ─────────────────────────────────────────────────
+// ── Wizard entry point ────────────────────────────────────────────────────────
 
-class _TimetableWizardPage extends StatefulWidget {
-  const _TimetableWizardPage({
+Future<_RulesSheetResult?> showTimetableWizardDialog({
+  required BuildContext context,
+  required TimetableRules initialRules,
+  required SchoolContext schoolContext,
+  required ActiveTermContext termContext,
+}) {
+  final w = MediaQuery.sizeOf(context).width;
+  final cs = Theme.of(context).colorScheme;
+  final isDark = cs.brightness == Brightness.dark;
+  if (w >= AppTheme.kMobileBreakpoint) {
+    return showDialog<_RulesSheetResult>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.35),
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppTheme.modalBg(isDark, cs),
+              borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
+              border: Border.all(color: AppTheme.borderColor(isDark, cs)),
+              boxShadow: AppTheme.modalShadow(isDark),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
+              child: _TimetableWizard(
+                initialRules: initialRules,
+                schoolContext: schoolContext,
+                termContext: termContext,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+  return showModalBottomSheet<_RulesSheetResult>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (ctx) {
+      final viewInsets = MediaQuery.viewInsetsOf(ctx);
+      return Padding(
+        padding: EdgeInsets.only(bottom: viewInsets.bottom),
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(ctx).height * 0.88,
+          ),
+          decoration: BoxDecoration(
+            color: AppTheme.modalBg(isDark, cs),
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(AppTheme.kModalRadius),
+              topRight: Radius.circular(AppTheme.kModalRadius),
+            ),
+            border: Border(
+              top: BorderSide(color: AppTheme.borderColor(isDark, cs)),
+            ),
+          ),
+          child: _TimetableWizard(
+            initialRules: initialRules,
+            schoolContext: schoolContext,
+            termContext: termContext,
+          ),
+        ),
+      );
+    },
+  );
+}
+
+// ── Wizard widget ─────────────────────────────────────────────────────────────
+
+class _TimetableWizard extends StatefulWidget {
+  const _TimetableWizard({
     required this.initialRules,
     required this.schoolContext,
     required this.termContext,
@@ -1897,19 +1965,20 @@ class _TimetableWizardPage extends StatefulWidget {
   final ActiveTermContext termContext;
 
   @override
-  State<_TimetableWizardPage> createState() => _TimetableWizardPageState();
+  State<_TimetableWizard> createState() => _TimetableWizardState();
 }
 
-class _TimetableWizardPageState extends State<_TimetableWizardPage> {
-  int _stage = 0; // 0=Slots 1=Days 2=Teachers 3=Subjects 4=Generate
+class _TimetableWizardState extends State<_TimetableWizard> {
+  int _stage = 0; // 0=Days+Slots, 1=Teachers, 2=Subjects, 3=Generate
   late TimetableRules _rules;
 
   List<_WizardTeacher> _teachers = [];
   List<_WizardSubject> _subjects = [];
   List<SolverAssignment> _assignments = [];
   bool _loaded = false;
+  bool _saving = false;
 
-  // Stage-4 state
+  // Stage-3 state
   List<_ConflictPair> _conflicts = [];
   bool _generating = false;
   GeneratorResult? _generationResult;
@@ -1938,29 +2007,28 @@ class _TimetableWizardPageState extends State<_TimetableWizardPage> {
     );
 
     // Resolve teacher names from the users table.
-    final teacherIds =
-        assignments.map((a) => a.teacherUserId).toSet().toList();
+    final teacherIds = assignments.map((a) => a.teacherUserId).toSet().toList();
     final users = teacherIds.isEmpty
         ? <UsersData>[]
-        : await (db.select(db.users)
-              ..where((u) => u.id.isIn(teacherIds)))
-            .get();
-    final userNameMap = <String, String>{
-      for (final u in users) u.id: u.name,
-    };
-    final teachers = teacherIds
-        .map((id) => _WizardTeacher(id: id, name: userNameMap[id] ?? id))
-        .toList()
-      ..sort((a, b) => a.name.compareTo(b.name));
+        : await (db.select(
+            db.users,
+          )..where((u) => u.id.isIn(teacherIds))).get();
+    final userNameMap = <String, String>{for (final u in users) u.id: u.name};
+    final teachers =
+        teacherIds
+            .map((id) => _WizardTeacher(id: id, name: userNameMap[id] ?? id))
+            .toList()
+          ..sort((a, b) => a.name.compareTo(b.name));
 
     // Resolve subject names from the global catalog.
     final subjectIds = assignments.map((a) => a.subjectId).toSet();
     final allSubjects = await CatalogDao(db).getSubjects();
-    final subjects = allSubjects
-        .where((s) => subjectIds.contains(s.id))
-        .map((s) => _WizardSubject(id: s.id, name: s.name))
-        .toList()
-      ..sort((a, b) => a.name.compareTo(b.name));
+    final subjects =
+        allSubjects
+            .where((s) => subjectIds.contains(s.id))
+            .map((s) => _WizardSubject(id: s.id, name: s.name))
+            .toList()
+          ..sort((a, b) => a.name.compareTo(b.name));
 
     if (mounted) {
       setState(() {
@@ -1975,8 +2043,8 @@ class _TimetableWizardPageState extends State<_TimetableWizardPage> {
   // ── Navigation ──────────────────────────────────────────────────────────
 
   void _goNext() {
-    if (_stage == 3) _computeConflicts();
-    if (_stage < 4) setState(() => _stage++);
+    if (_stage == 2) _computeConflicts();
+    if (_stage < 3) setState(() => _stage++);
   }
 
   void _goBack() {
@@ -1987,13 +2055,30 @@ class _TimetableWizardPageState extends State<_TimetableWizardPage> {
     }
   }
 
-  void _save() => Navigator.of(context).pop(
-    _RulesSheetResult(rules: _rules, shouldGenerate: false),
-  );
+  Future<void> _save() async {
+    final term = widget.termContext.currentTerm;
+    if (term == null || _saving) return;
+    setState(() => _saving = true);
+    try {
+      await FileCache.saveTimetableRules(
+        schoolId: widget.schoolContext.membership.school.id,
+        year: term.year,
+        term: term.term,
+        rules: _rules,
+      );
+      if (mounted) {
+        Navigator.of(
+          context,
+        ).pop(_RulesSheetResult(rules: _rules, shouldGenerate: false));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
 
-  void _completeWithGeneration() => Navigator.of(context).pop(
-    _RulesSheetResult(rules: _rules, shouldGenerate: true),
-  );
+  void _completeWithGeneration() => Navigator.of(
+    context,
+  ).pop(_RulesSheetResult(rules: _rules, shouldGenerate: true));
 
   // ── Conflict detection ──────────────────────────────────────────────────
 
@@ -2007,15 +2092,15 @@ class _TimetableWizardPageState extends State<_TimetableWizardPage> {
         );
         if (!hasAssignment) continue;
 
-        final sharedDays =
-            tc.days.where((d) => sc.days.contains(d)).toList();
+        final sharedDays = tc.days.where((d) => sc.days.contains(d)).toList();
         if (sharedDays.isEmpty) continue;
 
         bool incompatible = false;
         if (!tc.isBlock && !sc.isBlock) {
           // Both requirements: intersection of allowed slots must be non-empty.
-          final intersection =
-              tc.slotIndices.where((s) => sc.slotIndices.contains(s)).toList();
+          final intersection = tc.slotIndices
+              .where((s) => sc.slotIndices.contains(s))
+              .toList();
           if (intersection.isEmpty) incompatible = true;
         } else if (tc.isBlock && !sc.isBlock) {
           // Teacher blocks the exact slots the subject requires.
@@ -2051,10 +2136,12 @@ class _TimetableWizardPageState extends State<_TimetableWizardPage> {
 
     try {
       // Drop lower-priority constraints from each detected conflict pair.
-      final resolvedTeacher =
-          List<TeacherConstraintEntry>.from(_rules.teacherConstraints);
-      final resolvedSubject =
-          List<SubjectConstraintEntry>.from(_rules.subjectConstraints);
+      final resolvedTeacher = List<TeacherConstraintEntry>.from(
+        _rules.teacherConstraints,
+      );
+      final resolvedSubject = List<SubjectConstraintEntry>.from(
+        _rules.subjectConstraints,
+      );
       for (final cp in _conflicts) {
         if (cp.teacherWins) {
           resolvedSubject.remove(cp.subjectEntry);
@@ -2094,110 +2181,138 @@ class _TimetableWizardPageState extends State<_TimetableWizardPage> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
+    final isMobile =
+        MediaQuery.sizeOf(context).width < AppTheme.kMobileBreakpoint;
 
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildHeader(cs, isDark, isMobile),
+        Divider(
+          height: 1,
+          thickness: 0.5,
+          color: AppTheme.borderColor(isDark, cs),
+        ),
+        Flexible(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            transitionBuilder: (child, anim) =>
+                FadeTransition(opacity: anim, child: child),
+            child: KeyedSubtree(
+              key: ValueKey(_stage),
+              child: _buildStage(cs, isDark),
+            ),
+          ),
+        ),
+        Divider(
+          height: 1,
+          thickness: 0.5,
+          color: AppTheme.borderColor(isDark, cs),
+        ),
+        _buildFooter(cs, isDark),
+      ],
+    );
+  }
+
+  Widget _buildHeader(ColorScheme cs, bool isDark, bool isMobile) {
     const stageLabels = [
-      'Slot Sequence',
-      'Active Days',
+      'Day & Slot Setup',
       'Teacher Constraints',
       'Subject Constraints',
       'Review & Generate',
     ];
-
-    return Scaffold(
-      backgroundColor: AppTheme.modalBg(isDark, cs),
-      appBar: AppBar(
-        backgroundColor: AppTheme.modalBg(isDark, cs),
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          onPressed: _goBack,
-          icon: const Icon(Icons.chevron_left_rounded, size: 24),
-          tooltip: _stage == 0 ? 'Cancel' : 'Back',
-        ),
-        title: Column(
-          children: [
-            Text(
-              stageLabels[_stage],
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 4),
-            _WizardStepDots(currentStep: _stage, totalSteps: 5, cs: cs),
-          ],
-        ),
-        centerTitle: true,
-        actions: [
-          if (_stage < 4)
-            TextButton(
-              onPressed: _save,
-              style: TextButton.styleFrom(foregroundColor: cs.onSurface),
-              child: const Text(
-                'Save',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, isMobile ? 4 : 16, 12, 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isMobile)
+            Center(
+              child: Container(
+                width: 36,
+                height: 3,
+                margin: const EdgeInsets.only(top: 10, bottom: 4),
+                decoration: BoxDecoration(
+                  color: cs.outlineVariant.withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
-          const SizedBox(width: 4),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      stageLabels[_stage],
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Step ${_stage + 1} of 4',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _WizardStepDots(currentStep: _stage, totalSteps: 4, cs: cs),
+              IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: Icon(
+                  Icons.close,
+                  size: 17,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                ),
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                padding: const EdgeInsets.all(8),
+              ),
+            ],
+          ),
         ],
       ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 200),
-        transitionBuilder: (child, animation) =>
-            FadeTransition(opacity: animation, child: child),
-        child: KeyedSubtree(
-          key: ValueKey(_stage),
-          child: _buildStage(cs, isDark),
-        ),
-      ),
-      bottomNavigationBar: _stage < 4 ? _buildNavBar(cs, isDark) : null,
     );
   }
 
   Widget _buildStage(ColorScheme cs, bool isDark) {
-    if (!_loaded && _stage >= 2) {
+    if (!_loaded && _stage >= 1) {
       return Center(
         child: SizedBox(
           width: 20,
           height: 20,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: cs.primary,
-          ),
+          child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
         ),
       );
     }
     return switch (_stage) {
-      0 => _Stage0SlotBuilder(
+      0 => _Stage0DaysSlots(
         rules: _rules,
         cs: cs,
         isDark: isDark,
         onChanged: (r) => setState(() => _rules = r),
       ),
-      1 => _Stage1ActiveDays(
-        rules: _rules,
-        cs: cs,
-        isDark: isDark,
-        onChanged: (r) => setState(() => _rules = r),
-      ),
-      2 => _Stage2TeacherConstraints(
+      1 => _Stage1TeacherConstraints(
         rules: _rules,
         teachers: _teachers,
         cs: cs,
         isDark: isDark,
         onChanged: (r) => setState(() => _rules = r),
       ),
-      3 => _Stage3SubjectConstraints(
+      2 => _Stage2SubjectConstraints(
         rules: _rules,
         subjects: _subjects,
         cs: cs,
         isDark: isDark,
         onChanged: (r) => setState(() => _rules = r),
       ),
-      4 => _Stage4Generate(
+      3 => _Stage3Generate(
         rules: _rules,
         conflicts: _conflicts,
         teachers: _teachers,
@@ -2215,55 +2330,114 @@ class _TimetableWizardPageState extends State<_TimetableWizardPage> {
     };
   }
 
-  Widget _buildNavBar(ColorScheme cs, bool isDark) {
-    return SafeArea(
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border(
-            top: BorderSide(
-              color: AppTheme.borderColor(isDark, cs),
-              width: 0.5,
+  Widget _buildFooter(ColorScheme cs, bool isDark) {
+    final isLastStage = _stage == 3;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+      child: Row(
+        children: [
+          if (_stage > 0)
+            _WizardTextButton(label: 'Back', onTap: _goBack, cs: cs),
+          const Spacer(),
+          if (!isLastStage) ...[
+            _WizardTextButton(
+              label: 'Save',
+              onTap: _saving ? null : _save,
+              loading: _saving,
+              cs: cs,
             ),
-          ),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            const SizedBox(width: 8),
+            _WizardFilledButton(
+              label: _stage == 2 ? 'Review' : 'Next',
+              onTap: _goNext,
+              cs: cs,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Wizard button helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _WizardTextButton extends StatelessWidget {
+  const _WizardTextButton({
+    required this.label,
+    required this.onTap,
+    required this.cs,
+    this.loading = false,
+  });
+
+  final String label;
+  final VoidCallback? onTap;
+  final ColorScheme cs;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            if (_stage > 0)
-              OutlinedButton(
-                onPressed: _goBack,
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: cs.outlineVariant),
-                  shape: RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(AppTheme.kCardRadius),
-                  ),
-                  textStyle: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-                child: const Text('Back'),
-              ),
-            const Spacer(),
-            FilledButton(
-              onPressed: _goNext,
-              style: FilledButton.styleFrom(
-                backgroundColor: AppTheme.brandGreen,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                ),
-                textStyle: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
+            if (loading) ...[
+              SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.5,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.7),
                 ),
               ),
-              child: Text(_stage == 3 ? 'Review & Generate' : 'Next'),
+              const SizedBox(width: 6),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: onTap != null
+                    ? cs.onSurfaceVariant.withValues(alpha: 0.7)
+                    : cs.onSurfaceVariant.withValues(alpha: 0.3),
+              ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _WizardFilledButton extends StatelessWidget {
+  const _WizardFilledButton({
+    required this.label,
+    required this.onTap,
+    required this.cs,
+  });
+
+  final String label;
+  final VoidCallback? onTap;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton(
+      onPressed: onTap,
+      style: FilledButton.styleFrom(
+        backgroundColor: AppTheme.brandGreen,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        ),
+        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+      ),
+      child: Text(label),
     );
   }
 }
@@ -2380,11 +2554,8 @@ class _Stage0SlotBuilderState extends State<_Stage0SlotBuilder>
             child: Container(
               decoration: BoxDecoration(
                 color: AppTheme.modalBg(isDark, cs),
-                borderRadius:
-                    BorderRadius.circular(AppTheme.kModalRadius),
-                border: Border.all(
-                  color: AppTheme.borderColor(isDark, cs),
-                ),
+                borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
+                border: Border.all(color: AppTheme.borderColor(isDark, cs)),
                 boxShadow: AppTheme.modalShadow(isDark),
               ),
               padding: const EdgeInsets.all(20),
@@ -2464,10 +2635,7 @@ class _Stage0SlotBuilderState extends State<_Stage0SlotBuilder>
     ctrl.dispose();
     if (mins == null || mins < 5 || mins > 180) return;
     setState(() {
-      _slots = [
-        ..._slots,
-        TimetableSlot(type: type, durationMinutes: mins),
-      ];
+      _slots = [..._slots, TimetableSlot(type: type, durationMinutes: mins)];
     });
     _notify();
   }
@@ -2478,15 +2646,19 @@ class _Stage0SlotBuilderState extends State<_Stage0SlotBuilder>
   }
 
   void _notify() {
-    widget.onChanged(widget.rules.copyWith(
-      dayStartTime: _dayStart,
-      slots: List<TimetableSlot>.from(_slots),
-    ));
+    widget.onChanged(
+      widget.rules.copyWith(
+        dayStartTime: _dayStart,
+        slots: List<TimetableSlot>.from(_slots),
+      ),
+    );
   }
 
   Future<void> _pickDayStart() async {
-    final picked =
-        await showTimePicker(context: context, initialTime: _dayStart);
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _dayStart,
+    );
     if (picked != null) {
       setState(() => _dayStart = picked);
       _notify();
@@ -2495,8 +2667,7 @@ class _Stage0SlotBuilderState extends State<_Stage0SlotBuilder>
 
   List<({int i, SlotType type, int dur, String range})> _rows() {
     final out = <({int i, SlotType type, int dur, String range})>[];
-    int cursor =
-        _dayStart.hour * 3600 + _dayStart.minute * 60;
+    int cursor = _dayStart.hour * 3600 + _dayStart.minute * 60;
     for (int i = 0; i < _slots.length; i++) {
       final s = _slots[i];
       final end = cursor + s.durationMinutes * 60;
@@ -2516,8 +2687,7 @@ class _Stage0SlotBuilderState extends State<_Stage0SlotBuilder>
     final cs = widget.cs;
     final isDark = widget.isDark;
     final rows = _rows();
-    final lessonCount =
-        _slots.where((s) => s.type == SlotType.lesson).length;
+    final lessonCount = _slots.where((s) => s.type == SlotType.lesson).length;
 
     return Stack(
       children: [
@@ -2529,11 +2699,8 @@ class _Stage0SlotBuilderState extends State<_Stage0SlotBuilder>
                 margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                 decoration: BoxDecoration(
                   color: AppTheme.nestedBg(isDark, cs),
-                  borderRadius:
-                      BorderRadius.circular(AppTheme.kCardRadius),
-                  border: Border.all(
-                    color: AppTheme.borderColor(isDark, cs),
-                  ),
+                  borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                  border: Border.all(color: AppTheme.borderColor(isDark, cs)),
                 ),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -2558,9 +2725,7 @@ class _Stage0SlotBuilderState extends State<_Stage0SlotBuilder>
                     const Spacer(),
                     InkWell(
                       onTap: _pickDayStart,
-                      borderRadius: BorderRadius.circular(
-                        AppTheme.kChipRadius,
-                      ),
+                      borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
@@ -2589,8 +2754,10 @@ class _Stage0SlotBuilderState extends State<_Stage0SlotBuilder>
             // Section label
             SliverToBoxAdapter(
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
                 child: Row(
                   children: [
                     Text(
@@ -2656,8 +2823,10 @@ class _Stage0SlotBuilderState extends State<_Stage0SlotBuilder>
                   thickness: 0.5,
                   indent: 16,
                   endIndent: 16,
-                  color: AppTheme.borderColor(isDark, cs)
-                      .withValues(alpha: 0.4),
+                  color: AppTheme.borderColor(
+                    isDark,
+                    cs,
+                  ).withValues(alpha: 0.4),
                 ),
                 itemBuilder: (_, i) {
                   final r = rows[i];
@@ -2753,18 +2922,22 @@ class _SlotRowTile extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w400,
-                      color: cs.onSurface
-                          .withValues(alpha: isBreak ? 0.5 : 0.9),
+                      color: cs.onSurface.withValues(
+                        alpha: isBreak ? 0.5 : 0.9,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    isBreak ? 'Break · $duration min' : 'Lesson · $duration min',
+                    isBreak
+                        ? 'Break · $duration min'
+                        : 'Lesson · $duration min',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w400,
-                      color: cs.onSurfaceVariant
-                          .withValues(alpha: isBreak ? 0.45 : 0.65),
+                      color: cs.onSurfaceVariant.withValues(
+                        alpha: isBreak ? 0.45 : 0.65,
+                      ),
                     ),
                   ),
                 ],
@@ -2876,11 +3049,7 @@ class _ExpandableFab extends StatelessWidget {
                     size: 20,
                     key: ValueKey('close'),
                   )
-                : const Icon(
-                    Icons.add_rounded,
-                    size: 20,
-                    key: ValueKey('add'),
-                  ),
+                : const Icon(Icons.add_rounded, size: 20, key: ValueKey('add')),
           ),
         ),
       ],
@@ -3028,16 +3197,14 @@ class _Stage1ActiveDays extends StatelessWidget {
                   min: 1,
                   max: 12,
                   cs: cs,
-                  onChanged: (v) => onChanged(
-                    rules.copyWith(maxLessonsPerDayTeacher: v),
-                  ),
+                  onChanged: (v) =>
+                      onChanged(rules.copyWith(maxLessonsPerDayTeacher: v)),
                 ),
               ),
               Divider(
                 height: 1,
                 thickness: 0.5,
-                color: AppTheme.borderColor(isDark, cs)
-                    .withValues(alpha: 0.3),
+                color: AppTheme.borderColor(isDark, cs).withValues(alpha: 0.3),
               ),
               _WizardRuleRow(
                 label: 'Max lessons / day — class',
@@ -3047,16 +3214,14 @@ class _Stage1ActiveDays extends StatelessWidget {
                   min: 1,
                   max: 14,
                   cs: cs,
-                  onChanged: (v) => onChanged(
-                    rules.copyWith(maxLessonsPerDayClass: v),
-                  ),
+                  onChanged: (v) =>
+                      onChanged(rules.copyWith(maxLessonsPerDayClass: v)),
                 ),
               ),
               Divider(
                 height: 1,
                 thickness: 0.5,
-                color: AppTheme.borderColor(isDark, cs)
-                    .withValues(alpha: 0.3),
+                color: AppTheme.borderColor(isDark, cs).withValues(alpha: 0.3),
               ),
               _WizardRuleRow(
                 label: 'Default lessons / week per subject',
@@ -3066,16 +3231,14 @@ class _Stage1ActiveDays extends StatelessWidget {
                   min: 1,
                   max: 8,
                   cs: cs,
-                  onChanged: (v) => onChanged(
-                    rules.copyWith(defaultLessonsPerWeek: v),
-                  ),
+                  onChanged: (v) =>
+                      onChanged(rules.copyWith(defaultLessonsPerWeek: v)),
                 ),
               ),
               Divider(
                 height: 1,
                 thickness: 0.5,
-                color: AppTheme.borderColor(isDark, cs)
-                    .withValues(alpha: 0.3),
+                color: AppTheme.borderColor(isDark, cs).withValues(alpha: 0.3),
               ),
               _WizardRuleRow(
                 label: 'Allow double lessons',
@@ -3083,8 +3246,7 @@ class _Stage1ActiveDays extends StatelessWidget {
                 child: Switch.adaptive(
                   value: rules.allowDoubles,
                   activeTrackColor: cs.primary,
-                  onChanged: (v) =>
-                      onChanged(rules.copyWith(allowDoubles: v)),
+                  onChanged: (v) => onChanged(rules.copyWith(allowDoubles: v)),
                 ),
               ),
             ],
@@ -3309,11 +3471,62 @@ class _WizardStepBtn extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Stage 2 — Teacher Constraints
+// Stage 0 — Day & Slot Setup (stub — TW-02 replaces with compact combined UI)
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _Stage2TeacherConstraints extends StatefulWidget {
-  const _Stage2TeacherConstraints({
+class _Stage0DaysSlots extends StatefulWidget {
+  const _Stage0DaysSlots({
+    required this.rules,
+    required this.cs,
+    required this.isDark,
+    required this.onChanged,
+  });
+
+  final TimetableRules rules;
+  final ColorScheme cs;
+  final bool isDark;
+  final void Function(TimetableRules) onChanged;
+
+  @override
+  State<_Stage0DaysSlots> createState() => _Stage0DaysSlotsState();
+}
+
+class _Stage0DaysSlotsState extends State<_Stage0DaysSlots> {
+  @override
+  Widget build(BuildContext context) {
+    // Stub: TW-02 redesigns this as a compact combined Day+Slot UI.
+    // For now, render the slot builder followed by the active-days picker
+    // in a single scrollable column so both remain functional.
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          SizedBox(
+            height: 420,
+            child: _Stage0SlotBuilder(
+              rules: widget.rules,
+              cs: widget.cs,
+              isDark: widget.isDark,
+              onChanged: widget.onChanged,
+            ),
+          ),
+          _Stage1ActiveDays(
+            rules: widget.rules,
+            cs: widget.cs,
+            isDark: widget.isDark,
+            onChanged: widget.onChanged,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stage 1 — Teacher Constraints
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _Stage1TeacherConstraints extends StatefulWidget {
+  const _Stage1TeacherConstraints({
     required this.rules,
     required this.teachers,
     required this.cs,
@@ -3328,12 +3541,11 @@ class _Stage2TeacherConstraints extends StatefulWidget {
   final void Function(TimetableRules) onChanged;
 
   @override
-  State<_Stage2TeacherConstraints> createState() =>
-      _Stage2TeacherConstraintsState();
+  State<_Stage1TeacherConstraints> createState() =>
+      _Stage1TeacherConstraintsState();
 }
 
-class _Stage2TeacherConstraintsState
-    extends State<_Stage2TeacherConstraints> {
+class _Stage1TeacherConstraintsState extends State<_Stage1TeacherConstraints> {
   String _search = '';
   String? _expandedId;
 
@@ -3346,9 +3558,7 @@ class _Stage2TeacherConstraintsState
   }
 
   List<TeacherConstraintEntry> _constraintsFor(String id) =>
-      widget.rules.teacherConstraints
-          .where((c) => c.teacherId == id)
-          .toList();
+      widget.rules.teacherConstraints.where((c) => c.teacherId == id).toList();
 
   void _remove(TeacherConstraintEntry entry) {
     final updated = List<TeacherConstraintEntry>.from(
@@ -3359,8 +3569,11 @@ class _Stage2TeacherConstraintsState
 
   Future<void> _add(String teacherId, String teacherName) async {
     final lessonSlots = widget.rules.buildLessonSlots();
-    final result =
-        await _showConstraintSheet(context, widget.rules, lessonSlots);
+    final result = await _showConstraintSheet(
+      context,
+      widget.rules,
+      lessonSlots,
+    );
     if (result == null) return;
     final entry = TeacherConstraintEntry(
       teacherId: teacherId,
@@ -3414,10 +3627,7 @@ class _Stage2TeacherConstraintsState
                 ),
               ),
             ),
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-            ),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w400),
           ),
         ),
         if (widget.teachers.isEmpty)
@@ -3449,8 +3659,7 @@ class _Stage2TeacherConstraintsState
                   cs: cs,
                   isDark: isDark,
                   onTap: () => setState(
-                    () => _expandedId =
-                        expanded ? null : teacher.id,
+                    () => _expandedId = expanded ? null : teacher.id,
                   ),
                   onAdd: () => _add(teacher.id, teacher.name),
                   constraints: constraints
@@ -3476,11 +3685,11 @@ class _Stage2TeacherConstraintsState
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Stage 3 — Subject Constraints
+// Stage 2 — Subject Constraints
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _Stage3SubjectConstraints extends StatefulWidget {
-  const _Stage3SubjectConstraints({
+class _Stage2SubjectConstraints extends StatefulWidget {
+  const _Stage2SubjectConstraints({
     required this.rules,
     required this.subjects,
     required this.cs,
@@ -3495,12 +3704,11 @@ class _Stage3SubjectConstraints extends StatefulWidget {
   final void Function(TimetableRules) onChanged;
 
   @override
-  State<_Stage3SubjectConstraints> createState() =>
-      _Stage3SubjectConstraintsState();
+  State<_Stage2SubjectConstraints> createState() =>
+      _Stage2SubjectConstraintsState();
 }
 
-class _Stage3SubjectConstraintsState
-    extends State<_Stage3SubjectConstraints> {
+class _Stage2SubjectConstraintsState extends State<_Stage2SubjectConstraints> {
   String _search = '';
   int? _expandedId;
 
@@ -3513,9 +3721,7 @@ class _Stage3SubjectConstraintsState
   }
 
   List<SubjectConstraintEntry> _constraintsFor(int id) =>
-      widget.rules.subjectConstraints
-          .where((c) => c.subjectId == id)
-          .toList();
+      widget.rules.subjectConstraints.where((c) => c.subjectId == id).toList();
 
   void _remove(SubjectConstraintEntry entry) {
     final updated = List<SubjectConstraintEntry>.from(
@@ -3526,8 +3732,11 @@ class _Stage3SubjectConstraintsState
 
   Future<void> _add(int subjectId) async {
     final lessonSlots = widget.rules.buildLessonSlots();
-    final result =
-        await _showConstraintSheet(context, widget.rules, lessonSlots);
+    final result = await _showConstraintSheet(
+      context,
+      widget.rules,
+      lessonSlots,
+    );
     if (result == null) return;
     final entry = SubjectConstraintEntry(
       subjectId: subjectId,
@@ -3580,10 +3789,7 @@ class _Stage3SubjectConstraintsState
                 ),
               ),
             ),
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-            ),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w400),
           ),
         ),
         if (widget.subjects.isEmpty)
@@ -3614,9 +3820,8 @@ class _Stage3SubjectConstraintsState
                   expanded: expanded,
                   cs: cs,
                   isDark: isDark,
-                  onTap: () => setState(
-                    () => _expandedId = expanded ? null : subj.id,
-                  ),
+                  onTap: () =>
+                      setState(() => _expandedId = expanded ? null : subj.id),
                   onAdd: () => _add(subj.id),
                   constraints: constraints
                       .map(
@@ -3686,10 +3891,7 @@ class _EntityConstraintCard extends StatelessWidget {
             onTap: onTap,
             borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 10,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               child: Row(
                 children: [
                   Expanded(
@@ -3711,8 +3913,9 @@ class _EntityConstraintCard extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         color: cs.primary.withValues(alpha: 0.1),
-                        borderRadius:
-                            BorderRadius.circular(AppTheme.kChipRadius),
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.kChipRadius,
+                        ),
                       ),
                       child: Text(
                         '$constraintCount',
@@ -3767,12 +3970,9 @@ class _EntityConstraintCard extends StatelessWidget {
                 label: const Text('Add Constraint'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: cs.primary,
-                  side: BorderSide(
-                    color: cs.primary.withValues(alpha: 0.35),
-                  ),
+                  side: BorderSide(color: cs.primary.withValues(alpha: 0.35)),
                   shape: RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(AppTheme.kCardRadius),
+                    borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
                   ),
                   textStyle: const TextStyle(
                     fontSize: 12,
@@ -3873,8 +4073,7 @@ class _ConstraintTile extends StatelessWidget {
               size: 15,
               color: cs.error.withValues(alpha: 0.55),
             ),
-            constraints:
-                const BoxConstraints(minWidth: 26, minHeight: 26),
+            constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
             tooltip: 'Remove constraint',
           ),
         ],
@@ -3909,10 +4108,7 @@ Future<_ConstraintResult?> _showConstraintSheet(
 }
 
 class _ConstraintSheet extends StatefulWidget {
-  const _ConstraintSheet({
-    required this.rules,
-    required this.lessonSlots,
-  });
+  const _ConstraintSheet({required this.rules, required this.lessonSlots});
 
   final TimetableRules rules;
   final List<({int index, int start, int end})> lessonSlots;
@@ -4021,8 +4217,9 @@ class _ConstraintSheetState extends State<_ConstraintSheet> {
                         color: sel
                             ? cs.primary.withValues(alpha: 0.15)
                             : Colors.transparent,
-                        borderRadius:
-                            BorderRadius.circular(AppTheme.kChipRadius),
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.kChipRadius,
+                        ),
                         border: Border.all(
                           color: sel
                               ? cs.primary.withValues(alpha: 0.5)
@@ -4033,8 +4230,7 @@ class _ConstraintSheetState extends State<_ConstraintSheet> {
                         _kWizDayFull[d] ?? 'Day $d',
                         style: TextStyle(
                           fontSize: 12,
-                          fontWeight:
-                              sel ? FontWeight.w500 : FontWeight.w400,
+                          fontWeight: sel ? FontWeight.w500 : FontWeight.w400,
                           color: sel ? cs.primary : cs.onSurfaceVariant,
                         ),
                       ),
@@ -4068,8 +4264,7 @@ class _ConstraintSheetState extends State<_ConstraintSheet> {
                 runSpacing: 6,
                 children: widget.lessonSlots.map((ls) {
                   final sel = _selectedSlots.contains(ls.index);
-                  final label =
-                      '${_fmtTime(ls.start)}–${_fmtTime(ls.end)}';
+                  final label = '${_fmtTime(ls.start)}–${_fmtTime(ls.end)}';
                   return GestureDetector(
                     onTap: () => setState(() {
                       if (sel) {
@@ -4088,8 +4283,9 @@ class _ConstraintSheetState extends State<_ConstraintSheet> {
                         color: sel
                             ? cs.primary.withValues(alpha: 0.15)
                             : Colors.transparent,
-                        borderRadius:
-                            BorderRadius.circular(AppTheme.kChipRadius),
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.kChipRadius,
+                        ),
                         border: Border.all(
                           color: sel
                               ? cs.primary.withValues(alpha: 0.5)
@@ -4100,8 +4296,7 @@ class _ConstraintSheetState extends State<_ConstraintSheet> {
                         label,
                         style: TextStyle(
                           fontSize: 11,
-                          fontWeight:
-                              sel ? FontWeight.w500 : FontWeight.w400,
+                          fontWeight: sel ? FontWeight.w500 : FontWeight.w400,
                           color: sel ? cs.primary : cs.onSurfaceVariant,
                         ),
                       ),
@@ -4205,8 +4400,7 @@ class _ConstraintTypeChip extends StatelessWidget {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            color:
-                selected ? color.withValues(alpha: 0.1) : Colors.transparent,
+            color: selected ? color.withValues(alpha: 0.1) : Colors.transparent,
             borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
             border: Border.all(
               color: selected
@@ -4243,11 +4437,11 @@ class _ConstraintTypeChip extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Stage 4 — Conflict Resolution & Generation
+// Stage 3 — Conflict Resolution & Generation
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _Stage4Generate extends StatefulWidget {
-  const _Stage4Generate({
+class _Stage3Generate extends StatefulWidget {
+  const _Stage3Generate({
     required this.rules,
     required this.conflicts,
     required this.teachers,
@@ -4274,10 +4468,10 @@ class _Stage4Generate extends StatefulWidget {
   final VoidCallback onComplete;
 
   @override
-  State<_Stage4Generate> createState() => _Stage4GenerateState();
+  State<_Stage3Generate> createState() => _Stage3GenerateState();
 }
 
-class _Stage4GenerateState extends State<_Stage4Generate>
+class _Stage3GenerateState extends State<_Stage3Generate>
     with TickerProviderStateMixin {
   late AnimationController _pulseCtrl;
   int _statusIndex = 0;
@@ -4291,22 +4485,22 @@ class _Stage4GenerateState extends State<_Stage4Generate>
   @override
   void initState() {
     super.initState();
-    _pulseCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..addStatusListener((s) {
-        if (s == AnimationStatus.completed && mounted && widget.generating) {
-          setState(
-            () => _statusIndex =
-                (_statusIndex + 1) % _statusMessages.length,
-          );
-          _pulseCtrl.forward(from: 0);
-        }
-      });
+    _pulseCtrl =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 1500),
+        )..addStatusListener((s) {
+          if (s == AnimationStatus.completed && mounted && widget.generating) {
+            setState(
+              () => _statusIndex = (_statusIndex + 1) % _statusMessages.length,
+            );
+            _pulseCtrl.forward(from: 0);
+          }
+        });
   }
 
   @override
-  void didUpdateWidget(_Stage4Generate old) {
+  void didUpdateWidget(_Stage3Generate old) {
     super.didUpdateWidget(old);
     if (widget.generating && !old.generating) {
       _statusIndex = 0;
@@ -4324,17 +4518,11 @@ class _Stage4GenerateState extends State<_Stage4Generate>
   }
 
   String _teacherName(String id) =>
-      widget.teachers
-          .where((t) => t.id == id)
-          .map((t) => t.name)
-          .firstOrNull ??
+      widget.teachers.where((t) => t.id == id).map((t) => t.name).firstOrNull ??
       id;
 
   String _subjectName(int id) =>
-      widget.subjects
-          .where((s) => s.id == id)
-          .map((s) => s.name)
-          .firstOrNull ??
+      widget.subjects.where((s) => s.id == id).map((s) => s.name).firstOrNull ??
       'Subject $id';
 
   @override
@@ -4433,17 +4621,13 @@ class _Stage4GenerateState extends State<_Stage4Generate>
               width: double.infinity,
               child: FilledButton.icon(
                 onPressed: widget.onComplete,
-                icon: const Icon(
-                  Icons.calendar_today_outlined,
-                  size: 16,
-                ),
+                icon: const Icon(Icons.calendar_today_outlined, size: 16),
                 label: const Text('View Timetable'),
                 style: FilledButton.styleFrom(
                   backgroundColor: AppTheme.brandGreen,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(AppTheme.kCardRadius),
+                    borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
                   ),
                   textStyle: const TextStyle(
                     fontSize: 13,
@@ -4470,9 +4654,7 @@ class _Stage4GenerateState extends State<_Stage4Generate>
               decoration: BoxDecoration(
                 color: cs.error.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                border: Border.all(
-                  color: cs.error.withValues(alpha: 0.25),
-                ),
+                border: Border.all(color: cs.error.withValues(alpha: 0.25)),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -4544,8 +4726,7 @@ class _Stage4GenerateState extends State<_Stage4Generate>
               Divider(
                 height: 1,
                 thickness: 0.5,
-                color: AppTheme.borderColor(isDark, cs)
-                    .withValues(alpha: 0.3),
+                color: AppTheme.borderColor(isDark, cs).withValues(alpha: 0.3),
               ),
               _WizardRuleRow(
                 label: 'Lesson slots',
@@ -4562,8 +4743,7 @@ class _Stage4GenerateState extends State<_Stage4Generate>
               Divider(
                 height: 1,
                 thickness: 0.5,
-                color: AppTheme.borderColor(isDark, cs)
-                    .withValues(alpha: 0.3),
+                color: AppTheme.borderColor(isDark, cs).withValues(alpha: 0.3),
               ),
               _WizardRuleRow(
                 label: 'Active days',
@@ -4580,8 +4760,7 @@ class _Stage4GenerateState extends State<_Stage4Generate>
               Divider(
                 height: 1,
                 thickness: 0.5,
-                color: AppTheme.borderColor(isDark, cs)
-                    .withValues(alpha: 0.3),
+                color: AppTheme.borderColor(isDark, cs).withValues(alpha: 0.3),
               ),
               _WizardRuleRow(
                 label: 'Teacher constraints',
@@ -4598,8 +4777,7 @@ class _Stage4GenerateState extends State<_Stage4Generate>
               Divider(
                 height: 1,
                 thickness: 0.5,
-                color: AppTheme.borderColor(isDark, cs)
-                    .withValues(alpha: 0.3),
+                color: AppTheme.borderColor(isDark, cs).withValues(alpha: 0.3),
               ),
               _WizardRuleRow(
                 label: 'Subject constraints',
@@ -4645,8 +4823,7 @@ class _Stage4GenerateState extends State<_Stage4Generate>
                 subjectName: _subjectName(cp.subjectEntry.subjectId),
                 cs: cs,
                 isDark: isDark,
-                onChanged: (v) =>
-                    widget.onConflictResolved(cp, v),
+                onChanged: (v) => widget.onConflictResolved(cp, v),
               ),
             ),
           ] else ...[
@@ -4758,8 +4935,7 @@ class _ConflictCard extends StatelessWidget {
                       color: conflict.teacherWins
                           ? AppTheme.brandGreen.withValues(alpha: 0.1)
                           : Colors.transparent,
-                      borderRadius:
-                          BorderRadius.circular(AppTheme.kChipRadius),
+                      borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
                       border: Border.all(
                         color: conflict.teacherWins
                             ? AppTheme.brandGreen.withValues(alpha: 0.45)
@@ -4784,9 +4960,7 @@ class _ConflictCard extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w400,
-                            color: cs.onSurfaceVariant.withValues(
-                              alpha: 0.6,
-                            ),
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                           ),
                         ),
                       ],
@@ -4808,8 +4982,7 @@ class _ConflictCard extends StatelessWidget {
                       color: !conflict.teacherWins
                           ? cs.primary.withValues(alpha: 0.1)
                           : Colors.transparent,
-                      borderRadius:
-                          BorderRadius.circular(AppTheme.kChipRadius),
+                      borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
                       border: Border.all(
                         color: !conflict.teacherWins
                             ? cs.primary.withValues(alpha: 0.45)
@@ -4834,9 +5007,7 @@ class _ConflictCard extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w400,
-                            color: cs.onSurfaceVariant.withValues(
-                              alpha: 0.6,
-                            ),
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                           ),
                         ),
                       ],
