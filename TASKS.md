@@ -1175,7 +1175,7 @@ Delete the entire `_TimetableRules` private class (lines 416–466 in current fi
 
 ---
 
-### Task C2: Wire `AppTheme.brandGreen` (if not already present)
+### [x] Task C2: Wire `AppTheme.brandGreen` (if not already present)
 
 **Files to modify:** `lib/ui/theme/app_theme.dart`
 **Depends on:** nothing
@@ -1194,7 +1194,7 @@ static const Color brandGreen = Color(0xFF22C55E); // Tailwind green-500
 Place it alongside the other brand color constants (e.g. `brandIndigo`, `brandIndigoDark`).
 
 **After checking/modifying:**
-- [ ] Mark this task `[x]`.
+- [x] Mark this task `[x]`.
 
 ---
 
