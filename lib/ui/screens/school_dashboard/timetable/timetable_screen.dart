@@ -957,6 +957,7 @@ class _RulesSheetState extends State<_RulesSheet> {
 
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Tab strip
         Padding(
@@ -995,54 +996,50 @@ class _RulesSheetState extends State<_RulesSheet> {
           ),
         ),
         // Action row
-        Align(
-          alignment: Alignment.centerRight,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: _save,
-                  icon: const Icon(Icons.save_outlined, size: 16),
-                  label: const Text('Save'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: cs.onSurface,
-                    side: BorderSide(color: cs.outlineVariant),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                    ),
-                    textStyle: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: _save,
+                icon: const Icon(Icons.save_outlined, size: 16),
+                label: const Text('Save'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: cs.onSurface,
+                  side: BorderSide(color: cs.outlineVariant),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(width: 8),
-                FilledButton.icon(
-                  onPressed: _generate,
-                  icon: const Icon(Icons.play_arrow_rounded, size: 16),
-                  label: const Text('Generate'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppTheme.brandGreen,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                    ),
-                    textStyle: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
+              ),
+              const SizedBox(width: 8),
+              FilledButton.icon(
+                onPressed: _generate,
+                icon: const Icon(Icons.play_arrow_rounded, size: 16),
+                label: const Text('Generate'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTheme.brandGreen,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ],
@@ -1749,29 +1746,25 @@ class _TeacherBlockRuleSheetState extends State<_TeacherBlockRuleSheet> {
             Text(_error!, style: TextStyle(fontSize: 12, color: cs.error)),
           ],
           const SizedBox(height: 20),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
-                ),
-                const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: _submit,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: cs.primary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                    ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: _submit,
+                style: FilledButton.styleFrom(
+                  backgroundColor: cs.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
                   ),
-                  child: const Text('Add Rule', style: TextStyle(fontSize: 13)),
                 ),
-              ],
-            ),
+                child: const Text('Add Rule', style: TextStyle(fontSize: 13)),
+              ),
+            ],
           ),
         ],
       ),
@@ -2013,29 +2006,25 @@ class _SubjectBlockRuleSheetState extends State<_SubjectBlockRuleSheet> {
             Text(_error!, style: TextStyle(fontSize: 12, color: cs.error)),
           ],
           const SizedBox(height: 20),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
-                ),
-                const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: _submit,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: cs.primary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                    ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: _submit,
+                style: FilledButton.styleFrom(
+                  backgroundColor: cs.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
                   ),
-                  child: const Text('Add Rule', style: TextStyle(fontSize: 13)),
                 ),
-              ],
-            ),
+                child: const Text('Add Rule', style: TextStyle(fontSize: 13)),
+              ),
+            ],
           ),
         ],
       ),
