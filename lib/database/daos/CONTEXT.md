@@ -199,11 +199,20 @@ Each DAO extends `DatabaseAccessor<AppDatabase>` and is annotated with `@DriftAc
 - `insertAnnouncement(...)`, `updateAnnouncement(...)`, `deleteAnnouncement(...)`
 
 ### `TimetableDao`
-- `watchTimetable(schoolId, year, term, grade, stream) → Stream<List<TimetableData>>`
-- `watchLessons(timetableId, date) → Stream<List<LessonsData>>`
+- `watchClassTimetable(schoolId, year, term, grade, stream?) → Stream<List<TimetableEntry>>` — timetable for a specific class, joined with teacher and subject name.
+- `watchTeacherTimetable(schoolId, year, term, teacherUserId) → Stream<List<TimetableData>>` — teacher's weekly schedule across all classes.
+- `watchClassDayTimetable(schoolId, year, term, grade, stream, day) → Stream<List<TimetableEntry>>` — single-day view for mobile pager.
+- `watchTermTimetable(schoolId, year, term) → Stream<List<TimetableEntry>>` — full term timetable across all classes.
+- `watchHasTimetable(schoolId, year, term) → Stream<bool>` — reactively emits true when any timetable entry exists.
+- `watchClassLessons(schoolId, year, term, grade, stream, date) → Stream<List<LessonEntry>>` — lessons for a class on a specific date.
+- `watchTeacherLessons(schoolId, year, term, teacherUserId, date) → Stream<List<Lesson>>` — teacher's lessons on a specific date.
+- `watchClassTermLessons(schoolId, year, term, grade, stream) → Stream<List<LessonEntry>>` — all lessons for a class in a term.
+- `watchAllLessons(schoolId, year, term) → Stream<List<LessonEntry>>` — **NEW (TT-01):** all lessons across ALL classes for the school in the term, joined with teacher and subject name. Ordered date desc, subject asc. Used by the Lessons tab in the owner/admin timetable view.
 - `getSubjectTeachersForTerm(schoolId, year, term) → Future<List<SolverAssignment>>` — one-shot read of all `subject_teachers` rows for a term, enriched with subject name via left join on `subjects`. Primary input to the timetable solver.
 - Insert/update methods.
 - **`SolverAssignment`** — data class defined in `timetable_dao.dart`; fields: `school`, `year`, `term`, `grade`, `stream`, `subjectId`, `subjectName`, `teacherUserId`.
+- **`TimetableEntry`** — data class: `slot: TimetableData`, `teacher: UsersData`, `subjectName: String`.
+- **`LessonEntry`** — data class: `lesson: LessonsData`, `teacher: UsersData`, `subjectName: String`.
 
 ### `RolesDao`
 - `watchSystemRoles() → Stream<List<RolesData>>` — Roles where `school IS NULL`.

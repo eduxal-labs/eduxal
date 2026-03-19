@@ -221,6 +221,25 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
     return (row.read(count) ?? 0) > 0;
   }
 
+  /// Reactively emits `true` whenever at least one timetable entry exists for
+  /// the given term, and `false` when the table is empty.
+  ///
+  /// Re-emits automatically on any insert or delete to [Timetable].
+  Stream<bool> watchHasTimetable({
+    required String schoolId,
+    required int year,
+    required int term,
+  }) {
+    final count = countAll();
+    final query = selectOnly(timetable)..addColumns([count]);
+    query.where(
+      timetable.school.equals(schoolId) &
+          timetable.year.equals(year) &
+          timetable.term.equals(term),
+    );
+    return query.watchSingle().map((row) => (row.read(count) ?? 0) > 0);
+  }
+
   /// Returns all subject-teacher assignments for a term, enriched with the
   /// subject name. This is the primary input to the timetable solver.
   Future<List<SolverAssignment>> getSubjectTeachersForTerm({
@@ -453,6 +472,69 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
     sync.schedulePush();
   }
 
+  /// Clears **all** timetable entries for an entire term in a single
+  /// transaction and writes one delete log per removed entry.
+  ///
+  /// Use this before bulk-inserting a freshly generated timetable so that
+  /// stale entries from previous generations (including classes not present
+  /// in the new output) are never left behind.
+  Future<void> clearTermTimetable({
+    required String schoolId,
+    required int year,
+    required int term,
+    required String accountId,
+  }) async {
+    await transaction(() async {
+      final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      // Fetch every existing entry for this term so we can write delete logs.
+      final existing =
+          await (select(timetable)..where(
+                (t) =>
+                    t.school.equals(schoolId) &
+                    t.year.equals(year) &
+                    t.term.equals(term),
+              ))
+              .get();
+
+      if (existing.isEmpty) return;
+
+      // Delete them all in one statement.
+      await (delete(timetable)..where(
+            (t) =>
+                t.school.equals(schoolId) &
+                t.year.equals(year) &
+                t.term.equals(term),
+          ))
+          .go();
+
+      // Write a delete log for each removed entry.
+      for (final entry in existing) {
+        final payload = sync_pb.DeleteTimetableEntryPayload(
+          school: entry.school,
+          year: entry.year,
+          term: entry.term,
+          grade: entry.grade,
+          stream: entry.stream,
+          subject: entry.subject,
+          day: entry.day.index,
+          start: entry.start,
+        );
+
+        await into(logs).insert(
+          LogsCompanion(
+            account: Value(accountId),
+            action: Value(SyncAction.deleteTimetableEntry),
+            resource: Value('Timetable ${entry.day.name}'),
+            payload: Value(payload.writeToBuffer()),
+            created: Value(nowMs),
+          ),
+        );
+      }
+    });
+    sync.schedulePush();
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Reactive streams — lessons
   // ─────────────────────────────────────────────────────────────────────────
@@ -536,6 +618,47 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
                 lessons.term.equals(term) &
                 lessons.grade.equals(grade) &
                 lessons.stream.equals(stream),
+          )
+          ..orderBy([
+            OrderingTerm.desc(lessons.date),
+            OrderingTerm.asc(lessons.subject),
+          ]);
+
+    return query.watch().map(
+      (rows) => rows.map((r) {
+        final subjectRow = r.readTableOrNull(subjects);
+        return LessonEntry(
+          lesson: r.readTable(lessons),
+          teacher: r.readTable(users),
+          subjectName:
+              subjectRow?.name ?? 'Subject ${r.readTable(lessons).subject}',
+        );
+      }).toList(),
+    );
+  }
+
+  /// Emits all lessons for an entire school in a given term, joined with the
+  /// teacher's [Users] row and subject name from [Subjects].
+  ///
+  /// Unlike [watchClassTermLessons], this does NOT filter by grade/stream —
+  /// it returns every lesson recorded across all classes for the term.
+  /// Ordered by date descending, then subject ascending.
+  ///
+  /// Used by the Lessons tab in the owner/admin timetable view.
+  Stream<List<LessonEntry>> watchAllLessons({
+    required String schoolId,
+    required int year,
+    required int term,
+  }) {
+    final query =
+        select(lessons).join([
+            innerJoin(users, users.id.equalsExp(lessons.teacher)),
+            leftOuterJoin(subjects, subjects.id.equalsExp(lessons.subject)),
+          ])
+          ..where(
+            lessons.school.equals(schoolId) &
+                lessons.year.equals(year) &
+                lessons.term.equals(term),
           )
           ..orderBy([
             OrderingTerm.desc(lessons.date),

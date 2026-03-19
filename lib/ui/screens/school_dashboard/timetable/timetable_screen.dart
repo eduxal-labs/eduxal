@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/material.dart';
@@ -14,9 +16,11 @@ import '../../../../models/membership.dart';
 import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
 import '../../../../models/timetable_rules.dart';
+import '../../../../core/academic_utils.dart';
 import '../../../../services/timetable_generator.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/active_term_provider.dart';
+import '../../../widgets/edu_tab_bar.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Constants
@@ -146,19 +150,45 @@ class _OwnerTimetableShell extends StatefulWidget {
   State<_OwnerTimetableShell> createState() => _OwnerTimetableShellState();
 }
 
-class _OwnerTimetableShellState extends State<_OwnerTimetableShell> {
+class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
+    with TickerProviderStateMixin {
   final _timetableDao = TimetableDao(db);
 
   SchoolConfig? _config;
   TimetableRules? _rules;
   bool _generating = false;
+  bool _deleting = false;
+  bool _hasTimetable = false;
   int? _selectedGrade;
   int? _selectedStream;
+
+  late TabController _tabController;
+  int _currentTabIndex = 0;
+
+  StreamSubscription<bool>? _hasTimetableSub;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this)
+      ..addListener(() {
+        if (!_tabController.indexIsChanging) {
+          setState(() => _currentTabIndex = _tabController.index);
+        }
+      });
     _loadConfig();
+    _subscribeHasTimetable();
+  }
+
+  void _subscribeHasTimetable() {
+    final term = widget.termContext.currentTerm;
+    if (term == null) return;
+    final schoolId = widget.schoolContext.membership.school.id;
+    _hasTimetableSub = _timetableDao
+        .watchHasTimetable(schoolId: schoolId, year: term.year, term: term.term)
+        .listen((has) {
+          if (mounted) setState(() => _hasTimetable = has);
+        });
   }
 
   Future<void> _loadConfig() async {
@@ -181,6 +211,8 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell> {
 
   @override
   void dispose() {
+    _tabController.dispose();
+    _hasTimetableSub?.cancel();
     super.dispose();
   }
 
@@ -188,102 +220,126 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell> {
     final term = widget.termContext.currentTerm;
     if (term == null || _rules == null) return;
 
-    final screenWidth = MediaQuery.sizeOf(context).width;
-    final isDesktop = screenWidth >= AppTheme.kMobileBreakpoint;
-
-    final _RulesSheetResult? result;
-
-    if (isDesktop) {
-      result = await showDialog<_RulesSheetResult>(
-        context: context,
-        barrierColor: Colors.black.withValues(alpha: 0.35),
-        builder: (ctx) {
-          final cs = Theme.of(ctx).colorScheme;
-          final isDark = cs.brightness == Brightness.dark;
-          return Dialog(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            insetPadding: const EdgeInsets.symmetric(
-              horizontal: 24,
-              vertical: 40,
-            ),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: AppTheme.modalBg(isDark, cs),
-                  borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
-                  border: Border.all(
-                    color: AppTheme.borderColor(isDark, cs),
-                    width: 1,
-                  ),
-                  boxShadow: AppTheme.modalShadow(isDark),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
-                  child: _RulesSheet(
-                    initialRules: _rules!,
-                    schoolContext: widget.schoolContext,
-                    termContext: widget.termContext,
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-      );
-    } else {
-      result = await showModalBottomSheet<_RulesSheetResult>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (ctx) {
-          final cs = Theme.of(ctx).colorScheme;
-          final isDark = cs.brightness == Brightness.dark;
-          final viewInsets = MediaQuery.viewInsetsOf(ctx);
-          return Padding(
-            padding: EdgeInsets.only(bottom: viewInsets.bottom),
-            child: Container(
-              decoration: BoxDecoration(
-                color: AppTheme.modalBg(isDark, cs),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(AppTheme.kModalRadius),
-                  topRight: Radius.circular(AppTheme.kModalRadius),
-                ),
-                border: Border(
-                  top: BorderSide(
-                    color: isDark
-                        ? AppTheme.borderColor(isDark, cs)
-                        : cs.outlineVariant.withValues(alpha: 0.5),
-                    width: 1,
-                  ),
-                ),
-              ),
-              child: _RulesSheet(
-                initialRules: _rules!,
-                schoolContext: widget.schoolContext,
-                termContext: widget.termContext,
-              ),
-            ),
-          );
-        },
-      );
-    }
+    final result = await Navigator.of(context).push<_RulesSheetResult>(
+      MaterialPageRoute(
+        builder: (_) => _TimetableRulesPage(
+          initialRules: _rules!,
+          schoolContext: widget.schoolContext,
+          termContext: widget.termContext,
+        ),
+      ),
+    );
 
     if (result == null || !mounted) return;
-    final resolved = result;
 
-    // Persist the rules.
     await FileCache.saveTimetableRules(
       schoolId: widget.schoolContext.membership.school.id,
       year: term.year,
       term: term.term,
-      rules: resolved.rules,
+      rules: result.rules,
     );
-    if (mounted) setState(() => _rules = resolved.rules);
+    if (mounted) setState(() => _rules = result.rules);
 
-    if (resolved.shouldGenerate) {
-      await _runGeneration(resolved.rules);
+    if (result.shouldGenerate) {
+      await _runGeneration(result.rules);
+    }
+  }
+
+  Future<void> _deleteTimetable() async {
+    final term = widget.termContext.currentTerm;
+    if (term == null || _deleting || _generating) return;
+
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.35),
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 360),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppTheme.modalBg(isDark, cs),
+              borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
+              border: Border.all(color: AppTheme.borderColor(isDark, cs)),
+              boxShadow: AppTheme.modalShadow(isDark),
+            ),
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Delete Timetable',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'All timetable entries for this term will be permanently '
+                  'removed. This cannot be undone.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurface.withValues(alpha: 0.65),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(false),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: () => Navigator.of(ctx).pop(true),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: cs.error,
+                        foregroundColor: cs.onError,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.kCardRadius,
+                          ),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      child: const Text('Delete'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _deleting = true);
+    try {
+      final account = cache.currentUser;
+      if (account == null) return;
+      await _timetableDao.clearTermTimetable(
+        schoolId: widget.schoolContext.membership.school.id,
+        year: term.year,
+        term: term.term,
+        accountId: account.user.id,
+      );
+    } finally {
+      if (mounted) setState(() => _deleting = false);
     }
   }
 
@@ -366,23 +422,16 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell> {
           )
           .toList();
 
-      // Group by (grade, stream) and clear each class timetable before inserting.
-      final byClass = <({int grade, int stream}), List<TimetableCompanion>>{};
-      for (final c in companions) {
-        final key = (grade: c.grade.value, stream: c.stream.value);
-        byClass.putIfAbsent(key, () => []).add(c);
-      }
-
-      for (final entry in byClass.entries) {
-        await _timetableDao.clearClassTimetable(
-          schoolId: schoolId,
-          year: term.year,
-          term: term.term,
-          grade: entry.key.grade,
-          stream: entry.key.stream,
-          accountId: account.user.id,
-        );
-      }
+      // Clear ALL existing entries for this term — not just the classes present
+      // in the new output.  If a previous generation included classes that are
+      // no longer in the subject assignments, those stale rows would otherwise
+      // remain and cause phantom teacher conflicts in the displayed timetable.
+      await _timetableDao.clearTermTimetable(
+        schoolId: schoolId,
+        year: term.year,
+        term: term.term,
+        accountId: account.user.id,
+      );
 
       await _timetableDao.insertSlots(
         slots: companions,
@@ -426,6 +475,7 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final term = widget.termContext.currentTerm;
 
     if (_config == null || _rules == null) {
       return Center(
@@ -437,27 +487,96 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell> {
       );
     }
 
+    final schoolId = widget.schoolContext.membership.school.id;
+
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: _OwnerScheduleTab(
-        schoolContext: widget.schoolContext,
-        termContext: widget.termContext,
-        config: _config!,
-        timetableDao: _timetableDao,
-        selectedGrade: _selectedGrade,
-        selectedStream: _selectedStream,
-        onClassSelected: (grade, stream) {
-          setState(() {
-            _selectedGrade = grade;
-            _selectedStream = stream;
-          });
-        },
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          EduTabBar(
+            controller: _tabController,
+            tabs: const [
+              EduTab(label: 'Timetable'),
+              EduTab(label: 'Lessons'),
+            ],
+          ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                // ── Tab 0: Timetable grid + class selector ───────────────
+                _OwnerScheduleTab(
+                  schoolContext: widget.schoolContext,
+                  termContext: widget.termContext,
+                  config: _config!,
+                  timetableDao: _timetableDao,
+                  selectedGrade: _selectedGrade,
+                  selectedStream: _selectedStream,
+                  onClassSelected: (grade, stream) {
+                    setState(() {
+                      _selectedGrade = grade;
+                      _selectedStream = stream;
+                    });
+                  },
+                ),
+                // ── Tab 1: All lessons for the school this term ──────────
+                if (term != null)
+                  _LessonsTab(
+                    schoolId: schoolId,
+                    year: term.year,
+                    term: term.term,
+                    timetableDao: _timetableDao,
+                  )
+                else
+                  const _NoTermState(),
+              ],
+            ),
+          ),
+        ],
       ),
-      floatingActionButton: _GenerateFab(
-        onTap: _openRulesSheet,
-        generating: _generating,
-        cs: cs,
-      ),
+      floatingActionButton: _currentTabIndex == 0
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (_hasTimetable) ...[
+                  FloatingActionButton.small(
+                    heroTag: 'timetable_delete',
+                    onPressed: (_deleting || _generating)
+                        ? null
+                        : _deleteTimetable,
+                    backgroundColor: _deleting
+                        ? cs.errorContainer.withValues(alpha: 0.5)
+                        : cs.errorContainer,
+                    foregroundColor: cs.onErrorContainer,
+                    elevation: 2,
+                    tooltip: 'Delete timetable',
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                    ),
+                    child: _deleting
+                        ? SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 1.5,
+                              color: cs.onErrorContainer,
+                            ),
+                          )
+                        : const Icon(Icons.delete_outline_rounded, size: 18),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                _GenerateFab(
+                  heroTag: 'timetable_generate',
+                  onTap: _openRulesSheet,
+                  generating: _generating,
+                  cs: cs,
+                ),
+              ],
+            )
+          : null,
     );
   }
 }
@@ -944,40 +1063,275 @@ class _GenerateFab extends StatelessWidget {
     required this.onTap,
     required this.generating,
     required this.cs,
+    this.heroTag,
   });
 
   final VoidCallback onTap;
   final bool generating;
   final ColorScheme cs;
+  final Object? heroTag;
 
   @override
   Widget build(BuildContext context) {
-    return FloatingActionButton(
+    return FloatingActionButton.small(
+      heroTag: heroTag,
       onPressed: generating ? null : onTap,
       backgroundColor: AppTheme.brandGreen,
       foregroundColor: Colors.white,
       elevation: 3,
-      shape: const CircleBorder(),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+      ),
       tooltip: 'Configure rules & generate timetable',
       child: generating
           ? const SizedBox(
-              width: 22,
-              height: 22,
+              width: 16,
+              height: 16,
               child: CircularProgressIndicator(
-                strokeWidth: 2,
+                strokeWidth: 1.5,
                 color: Colors.white,
               ),
             )
-          : const Icon(Icons.add_rounded, size: 26),
+          : const Icon(Icons.add_rounded, size: 20),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// OWNER — Lessons Tab (all lessons for the school this term)
+// ═════════════════════════════════════════════════════════════════════════════
+
+/// Shows all lessons recorded for the active school term across all classes,
+/// grouped by date (most recent first). Each row shows the subject name,
+/// teacher name, and a grade/stream badge.
+class _LessonsTab extends StatelessWidget {
+  const _LessonsTab({
+    required this.schoolId,
+    required this.year,
+    required this.term,
+    required this.timetableDao,
+  });
+
+  final String schoolId;
+  final int year;
+  final int term;
+  final TimetableDao timetableDao;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    return StreamBuilder<List<LessonEntry>>(
+      stream: timetableDao.watchAllLessons(
+        schoolId: schoolId,
+        year: year,
+        term: term,
+      ),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
+          return Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+              ),
+            ),
+          );
+        }
+
+        final allLessons = snap.data ?? [];
+
+        if (allLessons.isEmpty) {
+          return _EmptyLessonsState(cs: cs);
+        }
+
+        // Group by date — already ordered desc by date from the stream.
+        final grouped = <int, List<LessonEntry>>{};
+        for (final entry in allLessons) {
+          grouped.putIfAbsent(entry.lesson.date, () => []).add(entry);
+        }
+        final dates = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
+
+        // Build a flat list: date header + lesson rows per group.
+        final items = <Widget>[];
+        for (final date in dates) {
+          final dayLessons = grouped[date]!;
+          items.add(_LessonDateHeader(date: date, cs: cs));
+          for (int i = 0; i < dayLessons.length; i++) {
+            items.add(_LessonRow(entry: dayLessons[i], cs: cs, isDark: isDark));
+            if (i < dayLessons.length - 1) {
+              items.add(AppTheme.tableRowDivider(isDark, cs));
+            }
+          }
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.only(top: 4, bottom: 80),
+          itemCount: items.length,
+          itemBuilder: (_, i) => items[i],
+        );
+      },
+    );
+  }
+}
+
+class _LessonDateHeader extends StatelessWidget {
+  const _LessonDateHeader({required this.date, required this.cs});
+
+  final int date;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+      child: Text(
+        formatDateFromDays(date),
+        style: TextStyle(
+          fontSize: 11.5,
+          fontWeight: FontWeight.w500,
+          color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+          letterSpacing: 0.3,
+        ),
+      ),
+    );
+  }
+}
+
+class _LessonRow extends StatelessWidget {
+  const _LessonRow({
+    required this.entry,
+    required this.cs,
+    required this.isDark,
+  });
+
+  final LessonEntry entry;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final lesson = entry.lesson;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          // Subject colour dot
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _colorForSubject(lesson.subject),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  entry.subjectName,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  entry.teacher.name,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w300,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Grade / stream badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest.withValues(
+                alpha: isDark ? 0.6 : 0.55,
+              ),
+              borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+            ),
+            child: Text(
+              'G${lesson.grade} · S${lesson.stream}',
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyLessonsState extends StatelessWidget {
+  const _EmptyLessonsState({required this.cs});
+
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.menu_book_outlined,
+              size: 22,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'No lessons recorded',
+            style: TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurface,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            'Lessons will appear here as they are logged',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Rules Sheet
+// Timetable Rules Page
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Adaptive sheet launcher for sub-sheets opened from within [_RulesSheet].
+/// Adaptive launcher for sub-sheets opened from within [_TimetableRulesPage]
+/// (teacher block rules and subject block rules entry forms).
 ///
 /// On desktop (>= kMobileBreakpoint): shows a compact dialog with explicit
 /// tight width constraints so buttons never receive infinite width.
@@ -1062,8 +1416,8 @@ class _RulesSheetResult {
   final bool shouldGenerate;
 }
 
-class _RulesSheet extends StatefulWidget {
-  const _RulesSheet({
+class _TimetableRulesPage extends StatefulWidget {
+  const _TimetableRulesPage({
     required this.initialRules,
     required this.schoolContext,
     required this.termContext,
@@ -1074,10 +1428,10 @@ class _RulesSheet extends StatefulWidget {
   final ActiveTermContext termContext;
 
   @override
-  State<_RulesSheet> createState() => _RulesSheetState();
+  State<_TimetableRulesPage> createState() => _TimetableRulesPageState();
 }
 
-class _RulesSheetState extends State<_RulesSheet> {
+class _TimetableRulesPageState extends State<_TimetableRulesPage> {
   late TimetableRules _rules;
   int _tab = 0; // 0=Global, 1=Teachers, 2=Subjects
 
@@ -1106,111 +1460,98 @@ class _RulesSheetState extends State<_RulesSheet> {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth.isFinite
-            ? constraints.maxWidth
-            : MediaQuery.sizeOf(context).width;
-        return SizedBox(
-          width: width,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Tab strip
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: Row(
-                  children: [
-                    _SheetTab(
-                      label: 'Global',
-                      selected: _tab == 0,
-                      onTap: () => setState(() => _tab = 0),
-                      cs: cs,
-                    ),
-                    const SizedBox(width: 8),
-                    _SheetTab(
-                      label: 'Teachers',
-                      selected: _tab == 1,
-                      onTap: () => setState(() => _tab = 1),
-                      cs: cs,
-                    ),
-                    const SizedBox(width: 8),
-                    _SheetTab(
-                      label: 'Subjects',
-                      selected: _tab == 2,
-                      onTap: () => setState(() => _tab = 2),
-                      cs: cs,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-              // Content
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  child: _buildTabContent(cs, isDark),
-                ),
-              ),
-              // Action row
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Cancel'),
-                    ),
-                    const SizedBox(width: 8),
-                    OutlinedButton.icon(
-                      onPressed: _save,
-                      icon: const Icon(Icons.save_outlined, size: 16),
-                      label: const Text('Save'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: cs.onSurface,
-                        side: BorderSide(color: cs.outlineVariant),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(
-                            AppTheme.kCardRadius,
-                          ),
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    FilledButton.icon(
-                      onPressed: _generate,
-                      icon: const Icon(Icons.play_arrow_rounded, size: 16),
-                      label: const Text('Generate'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppTheme.brandGreen,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(
-                            AppTheme.kCardRadius,
-                          ),
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+    return Scaffold(
+      backgroundColor: AppTheme.modalBg(isDark, cs),
+      appBar: AppBar(
+        backgroundColor: AppTheme.modalBg(isDark, cs),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.chevron_left_rounded, size: 24),
+          tooltip: 'Back',
+        ),
+        title: const Text(
+          'Timetable Rules',
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+        ),
+        actions: [
+          TextButton.icon(
+            onPressed: _save,
+            icon: const Icon(Icons.save_outlined, size: 16),
+            label: const Text('Save'),
+            style: TextButton.styleFrom(foregroundColor: cs.onSurface),
           ),
-        );
-      },
+          const SizedBox(width: 4),
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: FilledButton.icon(
+              onPressed: _generate,
+              icon: const Icon(Icons.play_arrow_rounded, size: 16),
+              label: const Text('Generate'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.brandGreen,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Tab strip
+          Container(
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: AppTheme.borderColor(isDark, cs),
+                  width: 0.5,
+                ),
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: Row(
+              children: [
+                _SheetTab(
+                  label: 'Global',
+                  selected: _tab == 0,
+                  onTap: () => setState(() => _tab = 0),
+                  cs: cs,
+                ),
+                const SizedBox(width: 8),
+                _SheetTab(
+                  label: 'Teachers',
+                  selected: _tab == 1,
+                  onTap: () => setState(() => _tab = 1),
+                  cs: cs,
+                ),
+                const SizedBox(width: 8),
+                _SheetTab(
+                  label: 'Subjects',
+                  selected: _tab == 2,
+                  onTap: () => setState(() => _tab = 2),
+                  cs: cs,
+                ),
+              ],
+            ),
+          ),
+          // Content
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: _buildTabContent(cs, isDark),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1314,6 +1655,21 @@ class _RulesSheetState extends State<_RulesSheet> {
           isDark: isDark,
           children: [
             _RuleRow(
+              label: 'Lessons per week (default)',
+              cs: cs,
+              child: _StepperControl(
+                value: _rules.defaultLessonsPerWeek,
+                suffix: '',
+                min: 1,
+                max: 8,
+                step: 1,
+                cs: cs,
+                onChanged: (v) =>
+                    setState(() => _rules.defaultLessonsPerWeek = v),
+              ),
+            ),
+            _ruleDivider(cs),
+            _RuleRow(
               label: 'Max lessons per day (teacher)',
               cs: cs,
               child: _StepperControl(
@@ -1379,6 +1735,7 @@ class _RulesSheetState extends State<_RulesSheet> {
             );
           }).toList(),
         ),
+        const SizedBox(height: 24),
       ],
     );
   }
@@ -1437,6 +1794,7 @@ class _RulesSheetState extends State<_RulesSheet> {
             ),
           ),
         ),
+        const SizedBox(height: 24),
       ],
     );
   }
@@ -1495,6 +1853,7 @@ class _RulesSheetState extends State<_RulesSheet> {
             ),
           ),
         ),
+        const SizedBox(height: 24),
       ],
     );
   }

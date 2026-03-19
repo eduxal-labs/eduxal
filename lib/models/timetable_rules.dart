@@ -16,9 +16,11 @@ class TimetableRules {
     this.maxLessonsPerDayTeacher = 6,
     this.maxLessonsPerDayClass = 8,
     this.allowDoubles = false,
+    this.defaultLessonsPerWeek = 4,
     List<DayOfWeek>? activeDays,
     List<TeacherBlockRule>? teacherBlocks,
     List<SubjectBlockRule>? subjectBlocks,
+    Map<int, int>? lessonsPerWeekBySubject,
   }) : activeDays =
            activeDays ??
            [
@@ -29,7 +31,8 @@ class TimetableRules {
              DayOfWeek.friday,
            ],
        teacherBlocks = teacherBlocks ?? [],
-       subjectBlocks = subjectBlocks ?? [];
+       subjectBlocks = subjectBlocks ?? [],
+       lessonsPerWeekBySubject = lessonsPerWeekBySubject ?? {};
 
   int dayStartSeconds;
   int dayEndSeconds;
@@ -40,9 +43,24 @@ class TimetableRules {
   int maxLessonsPerDayTeacher;
   int maxLessonsPerDayClass;
   bool allowDoubles;
+
+  /// How many times per week each subject is scheduled by default.
+  /// Applies to every subject unless overridden in [lessonsPerWeekBySubject].
+  /// Typical range: 3–6. Default: 4.
+  int defaultLessonsPerWeek;
+
+  /// Per-subject overrides (subject ID → lessons per week).
+  /// Subjects not present here fall back to [defaultLessonsPerWeek].
+  Map<int, int> lessonsPerWeekBySubject;
+
   List<DayOfWeek> activeDays;
   List<TeacherBlockRule> teacherBlocks;
   List<SubjectBlockRule> subjectBlocks;
+
+  /// Returns how many times per week [subjectId] should be scheduled,
+  /// honouring any per-subject override before falling back to the default.
+  int lessonsPerWeekForSubject(int subjectId) =>
+      lessonsPerWeekBySubject[subjectId] ?? defaultLessonsPerWeek;
 
   /// Generates the ordered list of (start, end) slot pairs in seconds-since-midnight
   /// for a school day, excluding the lunch window.
@@ -78,6 +96,10 @@ class TimetableRules {
     'max_lessons_teacher': maxLessonsPerDayTeacher,
     'max_lessons_class': maxLessonsPerDayClass,
     'allow_doubles': allowDoubles,
+    'default_lessons_per_week': defaultLessonsPerWeek,
+    'lessons_per_week_by_subject': lessonsPerWeekBySubject.map(
+      (k, v) => MapEntry(k.toString(), v),
+    ),
     'active_days': activeDays.map((d) => d.index).toList(),
     'teacher_blocks': teacherBlocks.map((b) => b.toJson()).toList(),
     'subject_blocks': subjectBlocks.map((b) => b.toJson()).toList(),
@@ -93,6 +115,12 @@ class TimetableRules {
     maxLessonsPerDayTeacher: (json['max_lessons_teacher'] as int?) ?? 6,
     maxLessonsPerDayClass: (json['max_lessons_class'] as int?) ?? 8,
     allowDoubles: (json['allow_doubles'] as bool?) ?? false,
+    defaultLessonsPerWeek: (json['default_lessons_per_week'] as int?) ?? 4,
+    lessonsPerWeekBySubject: () {
+      final raw = json['lessons_per_week_by_subject'] as Map<String, dynamic>?;
+      if (raw == null) return <int, int>{};
+      return raw.map((k, v) => MapEntry(int.parse(k), v as int));
+    }(),
     activeDays: ((json['active_days'] as List?)?.cast<int>() ?? [1, 2, 3, 4, 5])
         .map((i) => DayOfWeek.values[i])
         .toList(),
