@@ -1182,7 +1182,7 @@ what the generator uses in `_computeLessonsPerWeek`.
 
 ---
 
-### Task TW-09: General Polish — Border Radius, Responsiveness, Final Checks
+### [x] Task TW-09: General Polish — Border Radius, Responsiveness, Final Checks
 
 **Files to modify:**
 - `eduxal/lib/ui/screens/school_dashboard/timetable/timetable_screen.dart`

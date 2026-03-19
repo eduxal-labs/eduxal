@@ -2185,33 +2185,38 @@ class _TimetableWizardState extends State<_TimetableWizard> {
     final isMobile =
         MediaQuery.sizeOf(context).width < AppTheme.kMobileBreakpoint;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _buildHeader(cs, isDark, isMobile),
-        Divider(
-          height: 1,
-          thickness: 0.5,
-          color: AppTheme.borderColor(isDark, cs),
-        ),
-        Flexible(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 180),
-            transitionBuilder: (child, anim) =>
-                FadeTransition(opacity: anim, child: child),
-            child: KeyedSubtree(
-              key: ValueKey(_stage),
-              child: _buildStage(cs, isDark),
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height - 80,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildHeader(cs, isDark, isMobile),
+          Divider(
+            height: 1,
+            thickness: 0.5,
+            color: AppTheme.borderColor(isDark, cs),
+          ),
+          Flexible(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              transitionBuilder: (child, anim) =>
+                  FadeTransition(opacity: anim, child: child),
+              child: KeyedSubtree(
+                key: ValueKey(_stage),
+                child: _buildStage(cs, isDark),
+              ),
             ),
           ),
-        ),
-        Divider(
-          height: 1,
-          thickness: 0.5,
-          color: AppTheme.borderColor(isDark, cs),
-        ),
-        _buildFooter(cs, isDark),
-      ],
+          Divider(
+            height: 1,
+            thickness: 0.5,
+            color: AppTheme.borderColor(isDark, cs),
+          ),
+          _buildFooter(cs, isDark),
+        ],
+      ),
     );
   }
 
@@ -2269,7 +2274,7 @@ class _TimetableWizardState extends State<_TimetableWizard> {
               IconButton(
                 onPressed: () => Navigator.of(context).pop(),
                 icon: Icon(
-                  Icons.close,
+                  Icons.close_rounded,
                   size: 17,
                   color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                 ),
