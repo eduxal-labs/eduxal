@@ -1106,94 +1106,111 @@ class _RulesSheetState extends State<_RulesSheet> {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Tab strip
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width;
+        return SizedBox(
+          width: width,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _SheetTab(
-                label: 'Global',
-                selected: _tab == 0,
-                onTap: () => setState(() => _tab = 0),
-                cs: cs,
+              // Tab strip
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Row(
+                  children: [
+                    _SheetTab(
+                      label: 'Global',
+                      selected: _tab == 0,
+                      onTap: () => setState(() => _tab = 0),
+                      cs: cs,
+                    ),
+                    const SizedBox(width: 8),
+                    _SheetTab(
+                      label: 'Teachers',
+                      selected: _tab == 1,
+                      onTap: () => setState(() => _tab = 1),
+                      cs: cs,
+                    ),
+                    const SizedBox(width: 8),
+                    _SheetTab(
+                      label: 'Subjects',
+                      selected: _tab == 2,
+                      onTap: () => setState(() => _tab = 2),
+                      cs: cs,
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(width: 8),
-              _SheetTab(
-                label: 'Teachers',
-                selected: _tab == 1,
-                onTap: () => setState(() => _tab = 1),
-                cs: cs,
+              const SizedBox(height: 8),
+              // Content
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: _buildTabContent(cs, isDark),
+                ),
               ),
-              const SizedBox(width: 8),
-              _SheetTab(
-                label: 'Subjects',
-                selected: _tab == 2,
-                onTap: () => setState(() => _tab = 2),
-                cs: cs,
+              // Action row
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: _save,
+                      icon: const Icon(Icons.save_outlined, size: 16),
+                      label: const Text('Save'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: cs.onSurface,
+                        side: BorderSide(color: cs.outlineVariant),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.kCardRadius,
+                          ),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      onPressed: _generate,
+                      icon: const Icon(Icons.play_arrow_rounded, size: 16),
+                      label: const Text('Generate'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppTheme.brandGreen,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.kCardRadius,
+                          ),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-        ),
-        const SizedBox(height: 8),
-        // Content
-        Flexible(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: _buildTabContent(cs, isDark),
-          ),
-        ),
-        // Action row
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Cancel'),
-              ),
-              const SizedBox(width: 8),
-              OutlinedButton.icon(
-                onPressed: _save,
-                icon: const Icon(Icons.save_outlined, size: 16),
-                label: const Text('Save'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: cs.onSurface,
-                  side: BorderSide(color: cs.outlineVariant),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                  ),
-                  textStyle: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              FilledButton.icon(
-                onPressed: _generate,
-                icon: const Icon(Icons.play_arrow_rounded, size: 16),
-                label: const Text('Generate'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppTheme.brandGreen,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                  ),
-                  textStyle: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
 
