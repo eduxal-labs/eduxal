@@ -5,10 +5,10 @@
 
 ## Overview
 
-This directory contains **35 files**: 34 table definition files (one per table) and 1 shared enums file.
+This directory contains **37 files**: 36 table definition files (one per table) and 1 shared enums file.
 
-The 34 tables break down as:
-- **32 backend-mirrored tables** — exact replicas of the server schema defined in `schema.sql`.
+The 36 tables break down as:
+- **34 backend-mirrored tables** — exact replicas of the server schema defined in `schema.sql`.
 - **2 client-only tables** — `accounts` (session/auth) and `logs` (offline mutation queue).
 
 ## Files
@@ -16,6 +16,7 @@ The 34 tables break down as:
 | File | Table class | Generated data class | PK | Status |
 |---|---|---|---|---|
 | `accounts.dart` | `Accounts` | `AccountsData` | `id` (TEXT) | ✅ Complete |
+| `answer_pages.dart` | `AnswerPages` | `AnswerPagesData` | `school`, `exam`, `student`, `subject`, `paper` (nullable), `page` | ✅ Complete |
 | `aiusage.dart` | `Aiusage` | `AiusageData` | `school`, `year`, `term` | ✅ Complete |
 | `announcements.dart` | `Announcements` | `AnnouncementsData` | `id` (TEXT) | ✅ Complete |
 | `attendance.dart` | `Attendance` | `AttendanceData` | `school`, `student`, `date` | ✅ Complete |
@@ -35,6 +36,7 @@ The 34 tables break down as:
 | `mastery.dart` | `Mastery` | `MasteryData` | `school`, `student`, `subject`, `year`, `term` | ✅ Complete |
 | `owners.dart` | `Owners` | `OwnersData` | `school`, `user` | ✅ Complete |
 | `papers.dart` | `Papers` | `PapersData` | `id` (TEXT) | ✅ Complete |
+| `scheme_pages.dart` | `SchemePages` | `SchemePagesData` | `school`, `exam`, `subject`, `paper` (nullable), `page` | ✅ Complete |
 | `payments.dart` | `Payments` | `PaymentsData` | `id` (TEXT) | ✅ Complete |
 | `plans.dart` | `Plans` | `PlansData` | `id` (TEXT) | ✅ Complete |
 | `roles.dart` | `Roles` | `RolesData` | `id` (TEXT) | ✅ Complete |
@@ -159,4 +161,8 @@ These are referenced by `lib/models/curriculum_levels.dart` and `lib/models/scho
 - Boolean columns use `BoolColumn` (Drift maps to INTEGER 0/1 automatically).
 
 ## Last Updated
-Task 1001 — No table definition changes during UI overhaul tracks. All 35 files (34 table + 1 enums) remain current.
+Tasks C3–C8 (File Sync — Marking Schemes & Answer Sheets):
+- Created `scheme_pages.dart` — `SchemePages` table. Mirrors server `scheme_pages`. Composite PK `(school, exam, subject, paper, page)` with nullable `paper`; declared via `customConstraints` (Drift limitation). FK to `schools`, `exams`, `subjects`.
+- Created `answer_pages.dart` — `AnswerPages` table. Mirrors server `answer_pages`. Composite PK `(school, exam, student, subject, paper, page)` with nullable `paper`. FK to `schools`, `exams`, `students`, `subjects`.
+- Added `SyncAction` values: `uploadScheme(91)`, `deleteScheme(92)`, `uploadAnswerSheet(93)`, `deleteAnswerSheet(94)`. Enum now has **81 values**.
+- File count is now **37** (36 table definitions + 1 enums).

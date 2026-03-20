@@ -23,13 +23,18 @@ This directory contains **1 file**. The file cache is a purely static utility �
 | `profilePath(String userId)` | `String` | `users/{userId}/profile` |
 | `logoPath(String schoolId)` | `String` | `schools/{schoolId}/logo` |
 | `studentImagePath(String schoolId, int adm)` | `String` | `schools/{schoolId}/students/{adm}/image` |
+| `schemePath(String schoolId, String examId, int subject, int paper, int page)` | `String` | `submissions/{schoolId}/{examId}/{subject}_{paper}/scheme/{page}.jpg` |
+| `schemeDir(String schoolId, String examId, int subject, int paper)` | `String` | `submissions/{schoolId}/{examId}/{subject}_{paper}/scheme` |
+| `answerPath(String schoolId, String examId, int subject, int paper, int adm, int page)` | `String` | `submissions/{schoolId}/{examId}/{subject}_{paper}/{adm}/{page}.jpg` |
+| `answerDir(String schoolId, String examId, int subject, int paper, int adm)` | `String` | `submissions/{schoolId}/{examId}/{subject}_{paper}/{adm}` |
 
-All paths are **relative** — they are resolved against the app documents directory at runtime. The full path is `{appDir}/{relativePath}`.
+Pass `paper = 0` for single-paper subjects (where `paper` is NULL in the database). All paths are **relative** — they are resolved against the app documents directory at runtime. The full path is `{appDir}/{relativePath}`.
 
 ### Core Methods (static, async)
 
 | Method | Signature | Description |
 |---|---|---|
+| `baseDir` | `Future<String> baseDir()` | Returns the resolved application documents directory path (lazily cached). Public wrapper around `_baseDir()`. Use when you need the absolute base to combine with a relative path helper result. |
 | `get` | `Future<File?> get(String relativePath)` | Returns the `File` at the given path if it exists on disk, or `null`. No network call. |
 | `upload` | `Future<bool> upload(String putUrl, String relativePath)` | HTTP PUT of the local file at `relativePath` to S3 `putUrl`. File must already exist locally. Returns `true` on 2xx, `false` on any error (missing file, network error, non-2xx). Content-Type: `application/octet-stream`. Errors swallowed silently. |
 | `download` | `Future<File?> download(String url, String relativePath)` | HTTP GET from `url`, saves to `relativePath`. Creates parent dirs. Overwrites existing. Returns `File` on success, `null` on any error. Errors swallowed silently. |
@@ -82,7 +87,7 @@ void _onFileChanged() => setState(() { _future = FileCache.get(_path); });
 ### Internal
 
 - `_appDir` — `String?`, lazily initialized. Resolved once via `path_provider`'s `getApplicationDocumentsDirectory()` and cached for process lifetime.
-- `_baseDir()` — `Future<String>`, resolves `_appDir` on first call.
+- `_baseDir()` — `Future<String>`, resolves `_appDir` on first call. Also exposed publicly as `baseDir()`.
 - `_resolve(String relativePath)` — `Future<File>`, combines `_baseDir()` + `relativePath`.
 - `_collectBytes(HttpClientResponse)` — `Future<List<int>>`, accumulates all byte chunks from an HTTP response into a single flat list.
 
@@ -106,9 +111,14 @@ Uses `dart:io`'s `HttpClient` (not `package:http`) for HTTP GET. Collects all by
 | Student image | `{appDir}/schools/{schoolId}/students/{adm}/image` | `FileCache.studentImagePath(schoolId, adm)` |
 | School logo | `{appDir}/schools/{schoolId}/logo` | `FileCache.logoPath(schoolId)` |
 | Timetable rules | `{appDir}/schools/{schoolId}/timetable_rules_{year}_{term}.json` | `FileCache.loadTimetableRules(...)` / `FileCache.saveTimetableRules(...)` |
+| Marking scheme page | `{appDir}/submissions/{schoolId}/{examId}/{subject}_{paper}/scheme/{page}.jpg` | `FileCache.schemePath(schoolId, examId, subject, paper, page)` |
+| Marking scheme dir | `{appDir}/submissions/{schoolId}/{examId}/{subject}_{paper}/scheme/` | `FileCache.schemeDir(schoolId, examId, subject, paper)` |
+| Answer sheet page | `{appDir}/submissions/{schoolId}/{examId}/{subject}_{paper}/{adm}/{page}.jpg` | `FileCache.answerPath(schoolId, examId, subject, paper, adm, page)` |
+| Answer sheet dir | `{appDir}/submissions/{schoolId}/{examId}/{subject}_{paper}/{adm}/` | `FileCache.answerDir(schoolId, examId, subject, paper, adm)` |
 | Any future asset | `{appDir}/{entityType}/{id}/{assetName}` | Add new static helper to `FileCache` |
 
 **Key rules:**
+- **Scheme and answer page files use 0-indexed naming** (`0.jpg`, `1.jpg`, …). The page index matches the `page` column in `scheme_pages` / `answer_pages`. Pass `paper = 0` for single-paper subjects (NULL in the DB). Re-indexing on deletion maintains a gap-free sequence so the server and client always agree on page numbers.
 - **No file paths or blobs in the database.** File presence is determined by checking the file system at the constant path.
 - **Read URLs** (S3-like signed URLs valid ~1 month) are stored in DB columns where applicable (e.g. `accounts.profile_read_url`). Expiry is tracked via companion columns (e.g. `accounts.profile_url_expiry`).
 - **Write URLs** (presigned PUT URLs valid ~1 hour) are **never stored** — used immediately for upload and discarded.
@@ -129,8 +139,14 @@ Uses `dart:io`'s `HttpClient` (not `package:http`) for HTTP GET. Collects all by
 - New entity types that need cached files should add a static path helper method to `FileCache` and document the path pattern here.
 
 ## Last Updated
-Task A2 (TimetableRulesPersistence) — Added `FileCache.loadTimetableRules(...)` and `FileCache.saveTimetableRules(...)` static methods to `file_cache.dart`. Added import for `lib/models/timetable_rules.dart`. Added timetable rules path pattern to file path conventions table. Updated dependencies to include `TimetableRules`.
+Tasks C3–C8 (File Sync — Marking Schemes & Answer Sheets):
+- Exposed `_baseDir()` as public `static Future<String> baseDir()` — allows UI and sync engine to resolve relative paths to absolute without duplicating resolution logic.
+- Added path helpers: `schemePath(schoolId, examId, subject, paper, page)`, `schemeDir(schoolId, examId, subject, paper)`, `answerPath(schoolId, examId, subject, paper, adm, page)`, `answerDir(schoolId, examId, subject, paper, adm)`.
+- Updated `_PaperDetailPageState._schemeDirectory()` and `_SchemeUploadSheetState._schemeDirectory()` in `paper_detail_page.dart` to use `FileCache.baseDir()` + `FileCache.schemeDir()` instead of direct `getApplicationDocumentsDirectory()` calls.
+- Updated `_AnswerSubmissionSheetState._savePickedFiles()` to use `FileCache.baseDir()` + `FileCache.answerDir()` with 0-indexed file naming (was 1-indexed).
 
-Previous: Task 2 (FileCacheNotifier) — Added `FileCacheNotifier` class to `file_cache.dart`. Added `FileCacheNotifier.notify()` calls after every file write in `FileCache.download()` and `FileCache.saveBytes()`. Added `FileCacheNotifier.notify()` calls in `services/members.dart` after `saveStudentImage()` and `saveUserProfileImage()` file copies. Converted all `_StudentAvatar` / `_StudentAvatarLarge` / `StudentAvatar` widgets from `StatelessWidget` to `StatefulWidget` with `initState`/`dispose`/`didUpdateWidget` listener lifecycle so they rebuild immediately when a cached image file lands on disk (local save or remote download).
+Previous: Task A2 (TimetableRulesPersistence) — Added `FileCache.loadTimetableRules(...)` and `FileCache.saveTimetableRules(...)`.
 
-Previous: Task 1 — Added `FileCache.upload(String putUrl, String relativePath) → Future<bool>` static method for S3 HTTP PUT uploads. Called by `SyncEngine._handleFileUrls()` when the push originator device receives PUT URLs in `ActionResponse.fileUrls`.
+Previous: Task 2 (FileCacheNotifier) — Added `FileCacheNotifier` class and `notify()` calls after every file write.
+
+Previous: Task 1 — Added `FileCache.upload(String putUrl, String relativePath) → Future<bool>` for S3 HTTP PUT uploads.

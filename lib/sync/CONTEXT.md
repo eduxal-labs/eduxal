@@ -74,8 +74,11 @@ Every lifecycle transition has a `debugPrint('[SyncEngine] ...')` call:
 
 **Internal dispatch:** `_applySingle(SyncDelta delta)` switches on `delta.table` (1–30, matching proto oneof field numbers) to route to a per-table handler.
 
-**Table coverage:** All 30 synced backend tables are handled:
-- Tables 1–30 mapped to: users(1), schools(2), owners(3), students(4), guardians(5), departments(6), teachers(7), staff(8), terms(9), class_teachers(10), enrollments(11), subjects(12), attendance(13), timetable(14), lessons(15), exams(16), papers(17), grades(18), fees(19), invoices(20), payments(21), announcements(22), mastery(23), aiusage(24), settings(25), roles(26), scopes(27), plans(28), subscriptions(29), discounts(30).
+**Table coverage:** All 32 synced backend tables are handled:
+- Tables 1–34 mapped to: users(1), schools(2), owners(3), students(4), guardians(5), departments(6), teachers(7), staff(8), terms(9), class_teachers(10), enrollments(11), subjects(12), attendance(13), timetable(14), lessons(15), exams(16), papers(17), grades(18), fees(19), invoices(20), payments(21), announcements(22), mastery(23), aiusage(24), settings(25 — removed, skipped gracefully), roles(26), scopes(27), plans(28), subscriptions(29), discounts(30), subject_catalog(31), topics(32), streams(33), mpesa(34).
+- Table 35 (exam_grades) — removed from server schema; delta is received gracefully with a `debugPrint` skip.
+- Table 36 (`scheme_pages`) — `_applySchemePages()`. rowKey: `"{school}|{exam}|{subject}|{paper}|{page}"` (paper = empty string when NULL). Nullable-paper handled with delete-then-insert for NULL paper, `ON CONFLICT DO UPDATE` for non-NULL.
+- Table 37 (`answer_pages`) — `_applyAnswerPages()`. rowKey: `"{school}|{exam}|{student}|{subject}|{paper}|{page}"` (paper = empty string when NULL). Same nullable-paper strategy as table 36.
 
 **Proto message types:** `SyncDelta.data` is of type `InsertData` (oneof with 30 `*Insert` messages). The old `RowData` / `*Row` types no longer exist. Key differences from old `*Row` messages:
 - `*Insert` messages do NOT have `id` (for single-PK tables), `created`, or `updated` fields.
@@ -113,7 +116,9 @@ Every lifecycle transition has a `debugPrint('[SyncEngine] ...')` call:
 - `dart:convert` (for base64Encode)
 - `package:drift/drift.dart`
 - `../database/database.dart`
+- `../database/tables/curriculum_subjects.dart` (for `MpesaEnv`)
 - `../database/tables/enums.dart`
+- `../database/tables/mpesa.dart` (for `MpesaCompanion`)
 - `../proto/services/sync.pb.dart`
 
 ## `log_processor.dart` — ❌ DELETED (Task C8)
@@ -146,12 +151,22 @@ No files import `log_processor.dart` — all references were removed in Task C7.
 **Module-level helper:**
 - `_runGuarded(void Function() body)` — Wraps `body` in `runZonedGuarded` to catch unhandled async errors from the `http2` transport layer. Used for `_startWatch()` calls (initial + reconnect). Logs caught errors via `dart:developer` with name `'SyncEngine'` and `debugPrint`.
 
-**Inbound (watch) flow — UNCHANGED:**
+**Inbound (watch) flow:**
 1. Opens `SyncClient.watchChanges(WatchRequest(lastSeq: ...))` server-streaming call (wrapped in `_runGuarded` to catch transport teardown errors). Uses a raw-bytes streaming call for better proto parse error diagnostics.
 2. Each incoming `SyncDelta` is applied via `DeltaWriter.apply()`. The first delta transitions status from `disconnected` → `pulling` (with a debugPrint confirming connection).
-3. Tracks `_lastSeq` — persists it to `accounts.lastSeq` via `AccountsDao.updateLastSeq()` whenever the DeltaWriter flushes its buffer (checked via `bufferIsEmpty` getter). Status transitions to `idle` on flush.
-4. On `GrpcError(StatusCode.unauthenticated)` → stops sync entirely (caller handles token refresh).
-5. On other errors or stream completion → sets status to `disconnected`, schedules reconnect with exponential backoff (1s→2s→4s→8s→16s→30s max). All transitions have `debugPrint` for visibility.
+3. After `DeltaWriter.apply()`, if `delta.fileUrls.isNotEmpty`, calls `_handleFileUrls(delta.fileUrls, isPushOriginator: false)` to download files from S3.
+4. After `_handleFileUrls`, if `delta.table == 37` (answer_pages) and `delta.operation != 2` (not a delete), calls `_insertAnswerSubmissions(delta)` to populate `paper_submissions` rows so the UI can discover the downloaded answer files immediately.
+5. Tracks `_lastSeq` — persists it to `accounts.lastSeq` via `AccountsDao.updateLastSeq()` whenever the DeltaWriter flushes its buffer (checked via `bufferIsEmpty` getter). Status transitions to `idle` on flush.
+6. On `GrpcError(StatusCode.unauthenticated)` → stops sync entirely (caller handles token refresh).
+7. On other errors or stream completion → sets status to `disconnected`, schedules reconnect with exponential backoff (1s→2s→4s→8s→16s→30s max). All transitions have `debugPrint` for visibility.
+
+**`_insertAnswerSubmissions(SyncDelta delta)`:**
+- Called only for `delta.table == 37` (answer_pages) after `_handleFileUrls` has downloaded the file(s).
+- Parses `delta.rowKey` (`"{school}|{exam}|{student}|{subject}|{paper}|{page}"`) to extract identity fields.
+- For each `FileUrl` entry in `delta.fileUrls`, resolves `fileUrl.path` to an absolute path via `FileCache.baseDir()` and checks that the file actually exists on disk (only inserts if download succeeded).
+- Calls `ExamsGradesDao(db).insertSubmission(...)` for each confirmed file. Uses `insertOnConflictUpdate` so re-syncing the same file is idempotent.
+- For scheme files (table 36) no hook is needed — the scheme UI uses filesystem directory listing (`_loadSchemeFiles()`) and automatically discovers files at the expected `FileCache.schemeDir(...)` path.
+- Errors are caught and printed; a failed hook never aborts the sync stream.
 
 **Outbound (push) flow — REWRITTEN (Task C7):**
 The push flow was rewritten from a batch-based model (via `LogProcessor`) to a one-at-a-time action-based model. `LogProcessor` is no longer used.
@@ -202,15 +217,18 @@ The push flow was rewritten from a batch-based model (via `LogProcessor`) to a o
 - `dart:async`
 - `dart:convert`
 - `dart:developer`
+- `dart:io` ← **added Tasks C3–C8** (for `File.existsSync()` in `_insertAnswerSubmissions`)
+- `dart:math`
 - `package:fixnum/fixnum.dart`
 - `package:flutter/foundation.dart`
 - `package:grpc/grpc.dart`
 - `../database/database.dart`
 - `../database/daos/accounts_dao.dart`
+- `../database/daos/exams_grades_dao.dart` ← **added Tasks C3–C8** (for `_insertAnswerSubmissions`)
 - `../database/daos/logs_dao.dart`
 - `../proto/services/sync.pb.dart` (as `sync_pb`)
 - `../proto/services/sync.pbgrpc.dart`
-- `../cache/file_cache.dart` ← **added Task 1**
+- `../cache/file_cache.dart`
 - `delta_writer.dart`
 - `sync_status.dart`
 
@@ -249,4 +267,8 @@ The push flow was rewritten from a batch-based model (via `LogProcessor`) to a o
 - **Depended on by:** `client.dart` (✅ integrated — `Client.syncEngine` field, `SyncEngine get sync` global getter, start/stop wired into `active()`, `saveAccount()`, `switchAccount()`, `logOut()`), `ui/widgets/sync_indicator.dart` (binds to `sync.status` ValueNotifier), `main.dart` (global `runZonedGuarded` zone catches unhandled http2 transport errors)
 
 ## Last Updated
-Task 1 — Added `_handleFileUrls()` to `SyncEngine`. Called from `_processActionResponse()` (after success/conflict log deletion, `isPushOriginator: true`) and from `_onDelta()` (after `_deltaWriter.apply()`, `isPushOriginator: false`). Added `../cache/file_cache.dart` import.
+Tasks C3–C8 (File Sync — Marking Schemes & Answer Sheets):
+- `delta_writer.dart`: Added `case 36: await _applySchemePages(delta)` and `case 37: await _applyAnswerPages(delta)` to `_applySingle` switch. Implemented `_applySchemePages()` and `_applyAnswerPages()` with full nullable-paper handling (delete-then-insert for NULL paper, `ON CONFLICT DO UPDATE SET` for non-NULL).
+- `sync_engine.dart`: Added `_insertAnswerSubmissions(SyncDelta delta)` — post-download hook that inserts `paper_submissions` rows after answer sheet files are downloaded via the watch stream. Hook fires in `_onDelta()` after `_handleFileUrls()` when `delta.table == 37 && delta.operation != 2`. Added `dart:io` and `../database/daos/exams_grades_dao.dart` imports.
+
+Previous: Task 1 — Added `_handleFileUrls()` to `SyncEngine`. Called from `_processActionResponse()` (after success/conflict log deletion, `isPushOriginator: true`) and from `_onDelta()` (after `_deltaWriter.apply()`, `isPushOriginator: false`). Added `../cache/file_cache.dart` import.

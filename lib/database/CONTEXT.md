@@ -4,9 +4,9 @@
 
 ## Overview
 
-The Drift database contains **33 tables total**:
-- **30 backend-mirrored tables** — exact replicas of the server SQL schema (see `schema.sql`).
-- **3 client-only tables** — `accounts` (session management), `logs` (offline action queue), and `paper_submissions` (local answer image paths).
+The Drift database contains **35 tables total**:
+- **32 backend-mirrored tables** — exact replicas of the server SQL schema (see `schema.sql`).
+- **3 client-only tables** — `accounts` (session management), `logs` (offline mutation queue), and `paper_submissions` (local answer image paths).
 
 All tables are defined in `tables/`, all query logic lives in `daos/`, and the `AppDatabase` class in `database.dart` registers everything.
 
@@ -14,7 +14,7 @@ All tables are defined in `tables/`, all query logic lives in `daos/`, and the `
 
 | File | Status | Description |
 |---|---|---|
-| `database.dart` | ✅ Complete | `AppDatabase` class — registers all 33 tables + all DAOs. Schema version **5**. `MigrationStrategy.onUpgrade` handles: v1→v2 (add `accounts.lastSeq` column), v2→v3 (drop+recreate `logs` table for action-based model), v3→v4 (drop overly-restrictive unique indexes on exams), v4→v5 (create `paper_submissions` table). `onCreate` applies triggers + indexes as raw SQL. Singleton accessed via global `db` variable set in `client.dart`'s `initializeClient()`. |
+| `database.dart` | ✅ Complete | `AppDatabase` class — registers all 35 tables + all DAOs. Schema version **9**. `MigrationStrategy.onUpgrade` handles: v1→v2 (add `accounts.lastSeq` column), v2→v3 (drop+recreate `logs` table for action-based model), v3→v4 (drop overly-restrictive unique indexes on exams), v4→v5 (create `paper_submissions` table), v5→v6 (add `accounts.theme` column), v6→v7 (add `papers.grade`/`stream`, drop `exam_grades`, recreate triggers), v7→v8 (rebuild `papers` and `grades` tables for new composite PK shape), v8→v9 (create `scheme_pages` and `answer_pages` tables). `onCreate` applies triggers + indexes as raw SQL. Singleton accessed via global `db` variable set in `client.dart`'s `initializeClient()`. |
 | `database.g.dart` | ✅ Generated | Drift code-gen output — `part of` `database.dart`. Contains all generated data classes (`UsersData`, `SchoolsData`, `AccountsData`, etc.) and table accessors. **Never edit manually.** Regenerate with `dart run build_runner build`. |
 
 ## Subdirectories
@@ -34,6 +34,7 @@ All Drift-generated data classes follow the pattern `{TableName}Data` (singular 
 - `FeesData`, `InvoicesData`, `PaymentsData`, `DiscountsData`
 - `AnnouncementsData`, `MasteryData`, `AiusageData`, `SettingsData`
 - `RolesData`, `ScopesData`, `PlansData`, `SubscriptionsData`
+- `SchemePagesData`, `AnswerPagesData`
 - `LogsData`
 - `PaperSubmissionData`
 
@@ -41,7 +42,7 @@ Companion classes for inserts/updates: `{TableName}Companion` (e.g. `UsersCompan
 
 ## Conventions
 
-- **Enum columns:** Every `smallint` enum column uses a `TypeConverter<EnumType, int>`. All enums and converters live in `tables/enums.dart`. The `SyncAction` enum (77 values) and `LogStatus` enum are the log-specific enums; the old `LogTable`, `LogOperation`, and all `*Column` bitset enums have been removed.
+- **Enum columns:** Every `smallint` enum column uses a `TypeConverter<EnumType, int>`. All enums and converters live in `tables/enums.dart`. The `SyncAction` enum (81 values) and `LogStatus` enum are the log-specific enums; the old `LogTable`, `LogOperation`, and all `*Column` bitset enums have been removed.
 - **BigInt DateTime:** `bigint` columns representing timestamps are `Int64Column` in Drift → `BigInt` in Dart. Converted to `int` via `.toInt()` in domain models.
 - **Integer Date:** `integer` columns representing dates are days since Unix epoch.
 - **Composite PKs:** Reproduced via `@override Set<Column> get primaryKey => {col1, col2, ...}`.
@@ -65,7 +66,7 @@ The `logs` table was redesigned in Task C2 from a mutation-tracking model (`tbl`
 |---|---|---|
 | `id` | `integer` (autoIncrement) | Surrogate PK — preserves replay order |
 | `account` | `text` (FK → accounts.id) | The account that performed this action |
-| `action` | `integer` (mapped via `SyncActionConverter`) | `SyncAction` enum — 77 semantic action types |
+| `action` | `integer` (mapped via `SyncActionConverter`) | `SyncAction` enum — 81 semantic action types |
 | `resource` | `text` | Human-readable display key for notification UI |
 | `payload` | `blob` | Serialized protobuf action payload bytes (self-contained) |
 | `status` | `integer` (mapped via `LogStatusConverter`) | `LogStatus` enum: pending (0) / failed (1) |
@@ -77,7 +78,16 @@ The `logs` table was redesigned in Task C2 from a mutation-tracking model (`tbl`
 
 **Removed enums (from `enums.dart`):** `LogTable`, `LogTableConverter`, `LogOperation`, `LogOperationConverter`, and all 27 `*Column` bitset enums (`UsersColumn`, `SchoolsColumn`, `StudentsColumn`, etc.).
 
-**Added enums:** `SyncAction` (77 values, explicit `int value` per entry) + `SyncActionConverter`.
+**Added enums:** `SyncAction` (81 values, explicit `int value` per entry) + `SyncActionConverter`.
 
 ## Last Updated
-Task C1 — Added `AiUsageDao` to `daos/`. No database schema changes. Schema version remains at 5. All 33 tables current.
+Tasks C3–C8 (File Sync — Marking Schemes & Answer Sheets):
+- Created `tables/scheme_pages.dart` (`SchemePages` table — PK: school, exam, subject, paper?, page; stores S3 key per scheme page).
+- Created `tables/answer_pages.dart` (`AnswerPages` table — PK: school, exam, student, subject, paper?, page; stores S3 key per answer page).
+- Bumped `schemaVersion` 8 → **9**. Added `from < 9` migration: `m.createTable(schemePages)` + `m.createTable(answerPages)`.
+- Added `SchemePages` and `AnswerPages` to `@DriftDatabase(tables: [...])` list (after `AiUsage`, before `Scopes`).
+- Added `await delete(schemePages).go()` and `await delete(answerPages).go()` to `deleteAllData()` (before `paperSubmissions`).
+- Added `uploadScheme(91)`, `deleteScheme(92)`, `uploadAnswerSheet(93)`, `deleteAnswerSheet(94)` to `SyncAction` enum → now **81 values**.
+- Added `logUploadScheme`, `logDeleteScheme`, `logUploadAnswerSheet`, `logDeleteAnswerSheet` methods to `ExamsGradesDao`.
+
+Previous: Task C1 — Added `AiUsageDao` to `daos/`. No database schema changes. Schema version was 5 at that point.
