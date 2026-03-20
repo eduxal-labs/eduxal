@@ -6082,8 +6082,8 @@ class _ExamGroupCrossTable extends StatelessWidget {
     final grouped = _groupPapersByDate(allPapers);
     final dates = _sortedPaperDates(grouped);
 
-    const double rowLabelWidth = 140;
-    const double colWidth = 152;
+    const double rowLabelWidth = 128;
+    const double colWidth = 140;
     final totalWidth = rowLabelWidth + dates.length * colWidth;
 
     return Column(
@@ -6146,7 +6146,7 @@ class _ExamGroupCrossTable extends StatelessWidget {
                                   width: colWidth,
                                   child: Padding(
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 4,
+                                      horizontal: 2,
                                     ),
                                     child: Column(
                                       mainAxisSize: MainAxisSize.min,
@@ -6176,7 +6176,7 @@ class _ExamGroupCrossTable extends StatelessWidget {
                                             ),
                                           ),
                                           if (i < cellPapers.length - 1)
-                                            const SizedBox(height: 4),
+                                            const SizedBox(height: 3),
                                         ],
                                       ],
                                     ),
@@ -6536,97 +6536,80 @@ class _PaperSlotBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Subject label from DB lookup
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final subjectName =
         subjectNames[paper.subject] ?? 'Subject ${paper.subject}';
-    final paperLabel = (paper.paper ?? 1) > 1 ? ' · Paper ${paper.paper}' : '';
-
-    // Time fallback: if start is 0 treat as unset
+    final paperLabel = (paper.paper ?? 1) > 1 ? ' · P${paper.paper}' : '';
     final startMs = paper.start.toInt();
     final endMs = paper.end.toInt();
     final timeUnset = startMs == 0;
     final timeRange = timeUnset
         ? null
-        : '${_fmtTime(DateTime.fromMillisecondsSinceEpoch(startMs * 1000))} – '
+        : '${_fmtTime(DateTime.fromMillisecondsSinceEpoch(startMs * 1000))}'
+              ' – '
               '${_fmtTime(DateTime.fromMillisecondsSinceEpoch(endMs * 1000))}';
-
-    // Invigilator fallback: empty string (not found) → show '—'
     final invDisplay = invigilatorName.isNotEmpty ? invigilatorName : '—';
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 2),
       child: InkWell(
         onTap: onTap,
         splashFactory: NoSplash.splashFactory,
-        borderRadius: BorderRadius.circular(4),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 68, maxHeight: 68),
-            decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: 0.06),
-              border: Border(
-                left: BorderSide(color: statusColor, width: 2.5),
-                top: BorderSide(
-                  color: cs.outlineVariant.withValues(alpha: 0.2),
-                ),
-                right: BorderSide(
-                  color: cs.outlineVariant.withValues(alpha: 0.2),
-                ),
-                bottom: BorderSide(
-                  color: cs.outlineVariant.withValues(alpha: 0.2),
-                ),
+        borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 52),
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: statusColor.withValues(alpha: isDark ? 0.12 : 0.08),
+            borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+            border: Border(
+              left: BorderSide(
+                color: statusColor.withValues(alpha: 0.65),
+                width: 2.5,
               ),
             ),
-            padding: const EdgeInsets.fromLTRB(8, 7, 8, 7),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '$subjectName$paperLabel',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurface,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$subjectName$paperLabel',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurface,
+                  height: 1.2,
                 ),
-                const SizedBox(height: 2),
-                if (timeUnset)
-                  Text(
-                    'Time not set',
-                    style: TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w400,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.45),
-                      fontStyle: FontStyle.italic,
-                    ),
-                  )
-                else
-                  Text(
-                    timeRange!,
-                    style: TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w400,
-                      color: cs.onSurfaceVariant,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (timeRange != null) ...[
                 const SizedBox(height: 2),
                 Text(
-                  'Inv: $invDisplay',
+                  timeRange,
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w400,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                    height: 1.2,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ],
-            ),
+              const SizedBox(height: 1),
+              Text(
+                invDisplay,
+                style: TextStyle(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w300,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+                  height: 1.2,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
         ),
       ),
@@ -6641,14 +6624,15 @@ class _PaperEmptyCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 2),
       child: Container(
-        constraints: const BoxConstraints(minHeight: 68, maxHeight: 68),
+        constraints: const BoxConstraints(minHeight: 52),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
           border: Border.all(
-            color: cs.outlineVariant.withValues(alpha: 0.2),
+            color: cs.outline.withValues(alpha: isDark ? 0.06 : 0.08),
             width: 1,
           ),
         ),
@@ -7004,7 +6988,7 @@ class _PaperSlotCard extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(4),
         child: Container(
-          constraints: const BoxConstraints(minHeight: 68),
+          constraints: const BoxConstraints(minHeight: 60),
           decoration: BoxDecoration(
             color: statusColor.withValues(alpha: 0.06),
             border: Border(
@@ -7026,7 +7010,7 @@ class _PaperSlotCard extends StatelessWidget {
               ),
             ),
           ),
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
           child: Row(
             children: [
               Expanded(
@@ -7043,6 +7027,7 @@ class _PaperSlotCard extends StatelessWidget {
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
                               color: cs.onSurface,
+                              height: 1.2,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -7068,15 +7053,17 @@ class _PaperSlotCard extends StatelessWidget {
                         fontSize: 11.5,
                         fontWeight: FontWeight.w400,
                         color: cs.onSurfaceVariant,
+                        height: 1.2,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Inv: $invDisplay',
+                      invDisplay,
                       style: TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w400,
                         color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                        height: 1.2,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -7086,15 +7073,22 @@ class _PaperSlotCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
                 mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  _StatusChip(status: paper.status, cs: cs),
-                  const SizedBox(height: 4),
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: statusColor.withValues(alpha: 0.75),
+                    ),
+                  ),
+                  const SizedBox(height: 5),
                   Icon(
                     Icons.chevron_right_rounded,
                     size: 16,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.35),
                   ),
                 ],
               ),
