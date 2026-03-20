@@ -1673,10 +1673,32 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
     }
   }
 
+  void _resetAi() {
+    if (!mounted) return;
+    setState(() {
+      _aiMarking = false;
+      _aiPhase = _AiPhase.idle;
+      _aiMarkedCount = 0;
+    });
+    widget.onAiPhaseChanged?.call(_AiPhase.idle);
+    widget.onAiProgressChanged?.call(0.0);
+    _progressCtrl.reset();
+  }
+
   Future<void> runAiMarking() async {
     if (!_hasSubmissions || !widget.canGrade || _aiMarking) return;
-    final accountId = cache.currentUser?.user.id;
-    if (accountId == null) return;
+    final token = cache.currentUser?.accessToken;
+    if (token == null) return;
+
+    // Check scheme files
+    if (widget.schemeFiles.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please add a marking scheme first')),
+        );
+      }
+      return;
+    }
 
     final studentsWithSubmissions = widget.students
         .where(
@@ -1685,7 +1707,6 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
               !widget.gradeMap.containsKey(s.adm),
         )
         .toList();
-
     if (studentsWithSubmissions.isEmpty) return;
 
     setState(() {
@@ -1696,76 +1717,192 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
     widget.onAiPhaseChanged?.call(_AiPhase.analyzing);
     widget.onAiProgressChanged?.call(0.0);
 
-    // Phase 2 — "analyzing" with smooth progress from 0% to 40% over ~3.5s
-    const analyzeMs = 3500;
-    const analyzeTicks = 35;
-    const analyzeInterval = analyzeMs ~/ analyzeTicks;
-    for (int tick = 1; tick <= analyzeTicks; tick++) {
-      await Future.delayed(const Duration(milliseconds: analyzeInterval));
-      if (!mounted) return;
-      final analyzeProgress = (tick / analyzeTicks) * 0.4; // 0.0 → 0.4
-      widget.onAiProgressChanged?.call(analyzeProgress);
+    // ── Phase 1: Request upload URLs ──────────────────────────────────────
+    final studentSheetCounts = <int, int>{};
+    for (final s in studentsWithSubmissions) {
+      studentSheetCounts[s.adm] = (_submissions[s.adm] ?? []).length;
     }
 
+    final urlResult = await client.aiMarking.requestUploadUrls(
+      school: widget.schoolId,
+      exam: widget.exam.id,
+      subject: widget.paper.subject,
+      paper: widget.paper.paper,
+      schemeCount: widget.schemeFiles.length,
+      studentSheetCounts: studentSheetCounts,
+      accessToken: token,
+    );
+
+    if (!mounted) return;
+    switch (urlResult) {
+      case Err(:final error):
+        _resetAi();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to get upload URLs: ${error.message}'),
+          ),
+        );
+        return;
+      case Ok():
+        break;
+    }
+    final urlResponse = (urlResult as Ok).value;
+
+    // ── Phase 2: Upload scheme files (0% → 25%) ──────────────────────────
+    final totalFiles =
+        widget.schemeFiles.length +
+        studentsWithSubmissions.fold<int>(
+          0,
+          (sum, s) => sum + (_submissions[s.adm] ?? []).length,
+        );
+    int uploaded = 0;
+
+    for (
+      int i = 0;
+      i < urlResponse.schemeUrls.length && i < widget.schemeFiles.length;
+      i++
+    ) {
+      final ok = await client.aiMarking.uploadFile(
+        urlResponse.schemeUrls[i].url,
+        widget.schemeFiles[i],
+      );
+      if (!ok) {
+        if (mounted) {
+          _resetAi();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to upload scheme page ${i + 1}')),
+          );
+        }
+        return;
+      }
+      uploaded++;
+      if (mounted) {
+        widget.onAiProgressChanged?.call((uploaded / totalFiles) * 0.5);
+      }
+    }
+
+    // ── Phase 3: Upload student answer sheets (25% → 50%) ────────────────
+    final studentKeys = <int, List<String>>{};
+    for (final studentUrl in urlResponse.studentUrls) {
+      final adm = studentUrl.adm;
+      final paths = _submissions[adm] ?? [];
+      final keys = <String>[];
+      for (int i = 0; i < studentUrl.urls.length && i < paths.length; i++) {
+        final ok = await client.aiMarking.uploadFile(
+          studentUrl.urls[i].url,
+          paths[i],
+        );
+        if (!ok) {
+          if (mounted) {
+            _resetAi();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Failed to upload answer sheet for student $adm'),
+              ),
+            );
+          }
+          return;
+        }
+        keys.add(studentUrl.urls[i].key);
+        uploaded++;
+        if (mounted) {
+          widget.onAiProgressChanged?.call((uploaded / totalFiles) * 0.5);
+        }
+      }
+      studentKeys[adm] = keys;
+    }
+
+    // ── Phase 4: Trigger AI marking (50% → 60%) ──────────────────────────
     if (!mounted) return;
     setState(() => _aiPhase = _AiPhase.assigning);
     widget.onAiPhaseChanged?.call(_AiPhase.assigning);
+    widget.onAiProgressChanged?.call(0.5);
 
-    // Phase 3 — assign grades with staggered delays for 5-7s total grading
-    // Compute per-student delay: target ~6s total, clamped 250ms–600ms
-    final rng = math.Random();
-    int marked = 0;
-    final total = studentsWithSubmissions.length;
-    final perStudentDelay = total > 0 ? (6000 ~/ total).clamp(250, 600) : 400;
-    final List<int> gradedAdms = [];
-    for (int i = 0; i < studentsWithSubmissions.length; i++) {
-      final student = studentsWithSubmissions[i];
-      final adm = student.adm;
-      final score = (55 + rng.nextInt(46)).toDouble();
-      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
+    final markResult = await client.aiMarking.markPaper(
+      school: widget.schoolId,
+      exam: widget.exam.id,
+      subject: widget.paper.subject,
+      paper: widget.paper.paper,
+      grade: widget.paper.grade,
+      stream: widget.paper.stream,
+      totalMarks: _maxScore,
+      schemeKeys: urlResponse.schemeUrls.map((u) => u.key).toList(),
+      studentKeys: studentKeys,
+      accessToken: token,
+    );
 
-      try {
-        await widget.dao.upsertGrade(
-          grade: GradesCompanion(
-            school: Value(widget.schoolId),
-            exam: Value(widget.exam.id),
-            student: Value(adm),
-            subject: Value(widget.paper.subject),
-            paper: Value(widget.paper.paper),
-            score: Value(score),
-            total: Value(_maxScore),
-            created: Value(now),
-            updated: Value(now),
-          ),
-          accountId: accountId,
+    if (!mounted) return;
+    switch (markResult) {
+      case Err(:final error):
+        _resetAi();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('AI marking failed: ${error.message}')),
         );
-        if (mounted) {
-          _controllers[adm]?.text = _fmtScore(score);
-          gradedAdms.add(adm);
-          marked++;
-          setState(() => _aiMarkedCount = marked);
-          widget.onAiMarkedCountChanged?.call(marked);
-          // Progress: 40%–100% mapped across graded students
-          final gradingProgress = 0.4 + (marked / total) * 0.6;
-          widget.onAiProgressChanged?.call(gradingProgress);
+        return;
+      case Ok(:final value):
+        if (!value.accepted) {
+          _resetAi();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                value.message.isNotEmpty
+                    ? value.message
+                    : 'AI marking was rejected',
+              ),
+            ),
+          );
+          return;
         }
-      } catch (_) {
-        // skip failed rows — don't abort the whole batch
-      }
-      // Add jitter: ±30% of base delay for natural feel
-      final jitter = (perStudentDelay * 0.3).toInt();
-      final delay = perStudentDelay + rng.nextInt(jitter * 2 + 1) - jitter;
-      await Future.delayed(Duration(milliseconds: delay));
     }
 
-    // Wave flash — staggered 30ms per row for a satisfying top-to-bottom effect
+    widget.onAiProgressChanged?.call(0.6);
+
+    // ── Phase 5: Wait for grades via Drift stream (60% → 100%) ───────────
+    final expectedAdms = studentsWithSubmissions.map((s) => s.adm).toSet();
+    final expectedCount = expectedAdms.length;
+    final gradedAdms = <int>[];
+
+    for (int tick = 0; tick < 60; tick++) {
+      // 60 × 2s = 120s timeout
+      await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+
+      // Check which expected students now have grades
+      int received = 0;
+      for (final adm in expectedAdms) {
+        if (widget.gradeMap.containsKey(adm)) {
+          if (!gradedAdms.contains(adm)) gradedAdms.add(adm);
+          received++;
+        }
+      }
+
+      final progress = 0.6 + (received / expectedCount) * 0.4;
+      setState(() => _aiMarkedCount = received);
+      widget.onAiMarkedCountChanged?.call(received);
+      widget.onAiProgressChanged?.call(progress);
+
+      if (received >= expectedCount) break;
+    }
+
+    // Check if we timed out
+    if (gradedAdms.length < expectedCount && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'AI marking partially complete — ${gradedAdms.length}/$expectedCount graded',
+          ),
+        ),
+      );
+    }
+
+    // Wave flash
     _triggerWaveFlash(gradedAdms);
 
     if (!mounted) return;
     setState(() => _aiPhase = _AiPhase.done);
     widget.onAiPhaseChanged?.call(_AiPhase.done);
 
-    // Phase 4 — show completion label for 2 seconds then reset
+    // Phase 6 — show completion label for 2 seconds then reset
     await Future.delayed(const Duration(milliseconds: 2000));
     if (!mounted) return;
     setState(() {
@@ -2366,10 +2503,32 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
     }
   }
 
+  void _resetAi() {
+    if (!mounted) return;
+    setState(() {
+      _aiMarking = false;
+      _aiPhase = _AiPhase.idle;
+      _aiMarkedCount = 0;
+    });
+    widget.onAiPhaseChanged?.call(_AiPhase.idle);
+    widget.onAiProgressChanged?.call(0.0);
+    _progressCtrl.reset();
+  }
+
   Future<void> runAiMarking() async {
     if (!_hasSubmissions || !widget.canGrade || _aiMarking) return;
-    final accountId = cache.currentUser?.user.id;
-    if (accountId == null) return;
+    final token = cache.currentUser?.accessToken;
+    if (token == null) return;
+
+    // Check scheme files
+    if (widget.schemeFiles.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please add a marking scheme first')),
+        );
+      }
+      return;
+    }
 
     final studentsWithSubmissions = widget.students
         .where(
@@ -2388,75 +2547,192 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
     widget.onAiPhaseChanged?.call(_AiPhase.analyzing);
     widget.onAiProgressChanged?.call(0.0);
 
-    // Phase 2 — "analyzing" with smooth progress from 0% to 40% over ~3.5s
-    const analyzeMs = 3500;
-    const analyzeTicks = 35;
-    const analyzeInterval = analyzeMs ~/ analyzeTicks;
-    for (int tick = 1; tick <= analyzeTicks; tick++) {
-      await Future.delayed(const Duration(milliseconds: analyzeInterval));
-      if (!mounted) return;
-      final analyzeProgress = (tick / analyzeTicks) * 0.4; // 0.0 → 0.4
-      widget.onAiProgressChanged?.call(analyzeProgress);
+    // ── Phase 1: Request upload URLs ──────────────────────────────────────
+    final studentSheetCounts = <int, int>{};
+    for (final s in studentsWithSubmissions) {
+      studentSheetCounts[s.adm] = (_submissions[s.adm] ?? []).length;
     }
 
+    final urlResult = await client.aiMarking.requestUploadUrls(
+      school: widget.schoolId,
+      exam: widget.exam.id,
+      subject: widget.paper.subject,
+      paper: widget.paper.paper,
+      schemeCount: widget.schemeFiles.length,
+      studentSheetCounts: studentSheetCounts,
+      accessToken: token,
+    );
+
+    if (!mounted) return;
+    switch (urlResult) {
+      case Err(:final error):
+        _resetAi();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to get upload URLs: ${error.message}'),
+          ),
+        );
+        return;
+      case Ok():
+        break;
+    }
+    final urlResponse = (urlResult as Ok).value;
+
+    // ── Phase 2: Upload scheme files (0% → 25%) ──────────────────────────
+    final totalFiles =
+        widget.schemeFiles.length +
+        studentsWithSubmissions.fold<int>(
+          0,
+          (sum, s) => sum + (_submissions[s.adm] ?? []).length,
+        );
+    int uploaded = 0;
+
+    for (
+      int i = 0;
+      i < urlResponse.schemeUrls.length && i < widget.schemeFiles.length;
+      i++
+    ) {
+      final ok = await client.aiMarking.uploadFile(
+        urlResponse.schemeUrls[i].url,
+        widget.schemeFiles[i],
+      );
+      if (!ok) {
+        if (mounted) {
+          _resetAi();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to upload scheme page ${i + 1}')),
+          );
+        }
+        return;
+      }
+      uploaded++;
+      if (mounted) {
+        widget.onAiProgressChanged?.call((uploaded / totalFiles) * 0.5);
+      }
+    }
+
+    // ── Phase 3: Upload student answer sheets (25% → 50%) ────────────────
+    final studentKeys = <int, List<String>>{};
+    for (final studentUrl in urlResponse.studentUrls) {
+      final adm = studentUrl.adm;
+      final paths = _submissions[adm] ?? [];
+      final keys = <String>[];
+      for (int i = 0; i < studentUrl.urls.length && i < paths.length; i++) {
+        final ok = await client.aiMarking.uploadFile(
+          studentUrl.urls[i].url,
+          paths[i],
+        );
+        if (!ok) {
+          if (mounted) {
+            _resetAi();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Failed to upload answer sheet for student $adm'),
+              ),
+            );
+          }
+          return;
+        }
+        keys.add(studentUrl.urls[i].key);
+        uploaded++;
+        if (mounted) {
+          widget.onAiProgressChanged?.call((uploaded / totalFiles) * 0.5);
+        }
+      }
+      studentKeys[adm] = keys;
+    }
+
+    // ── Phase 4: Trigger AI marking (50% → 60%) ──────────────────────────
     if (!mounted) return;
     setState(() => _aiPhase = _AiPhase.assigning);
     widget.onAiPhaseChanged?.call(_AiPhase.assigning);
+    widget.onAiProgressChanged?.call(0.5);
 
-    // Phase 3 — assign grades with staggered delays for 5-7s total grading
-    // Compute per-student delay: target ~6s total, clamped 250ms–600ms
-    final rng = math.Random();
-    int marked = 0;
-    final total = studentsWithSubmissions.length;
-    final perStudentDelay = total > 0 ? (6000 ~/ total).clamp(250, 600) : 400;
-    final List<int> gradedAdms = [];
-    for (int i = 0; i < studentsWithSubmissions.length; i++) {
-      final student = studentsWithSubmissions[i];
-      final adm = student.adm;
-      final score = (55 + rng.nextInt(46)).toDouble();
-      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
+    final markResult = await client.aiMarking.markPaper(
+      school: widget.schoolId,
+      exam: widget.exam.id,
+      subject: widget.paper.subject,
+      paper: widget.paper.paper,
+      grade: widget.paper.grade,
+      stream: widget.paper.stream,
+      totalMarks: _maxScore,
+      schemeKeys: urlResponse.schemeUrls.map((u) => u.key).toList(),
+      studentKeys: studentKeys,
+      accessToken: token,
+    );
 
-      try {
-        await widget.dao.upsertGrade(
-          grade: GradesCompanion(
-            school: Value(widget.schoolId),
-            exam: Value(widget.exam.id),
-            student: Value(adm),
-            subject: Value(widget.paper.subject),
-            paper: Value(widget.paper.paper),
-            score: Value(score),
-            total: Value(_maxScore),
-            created: Value(now),
-            updated: Value(now),
-          ),
-          accountId: accountId,
+    if (!mounted) return;
+    switch (markResult) {
+      case Err(:final error):
+        _resetAi();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('AI marking failed: ${error.message}')),
         );
-        if (mounted) {
-          gradedAdms.add(adm);
-          marked++;
-          setState(() => _aiMarkedCount = marked);
-          widget.onAiMarkedCountChanged?.call(marked);
-          // Progress: 40%–100% mapped across graded students
-          final gradingProgress = 0.4 + (marked / total) * 0.6;
-          widget.onAiProgressChanged?.call(gradingProgress);
+        return;
+      case Ok(:final value):
+        if (!value.accepted) {
+          _resetAi();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                value.message.isNotEmpty
+                    ? value.message
+                    : 'AI marking was rejected',
+              ),
+            ),
+          );
+          return;
         }
-      } catch (_) {
-        // skip failed rows — don't abort the whole batch
-      }
-      // Add jitter: ±30% of base delay for natural feel
-      final jitter = (perStudentDelay * 0.3).toInt();
-      final delay = perStudentDelay + rng.nextInt(jitter * 2 + 1) - jitter;
-      await Future.delayed(Duration(milliseconds: delay));
     }
 
-    // Wave flash — staggered 30ms per row for a satisfying top-to-bottom effect
+    widget.onAiProgressChanged?.call(0.6);
+
+    // ── Phase 5: Wait for grades via Drift stream (60% → 100%) ───────────
+    final expectedAdms = studentsWithSubmissions.map((s) => s.adm).toSet();
+    final expectedCount = expectedAdms.length;
+    final gradedAdms = <int>[];
+
+    for (int tick = 0; tick < 60; tick++) {
+      // 60 × 2s = 120s timeout
+      await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+
+      // Check which expected students now have grades
+      int received = 0;
+      for (final adm in expectedAdms) {
+        if (widget.gradeMap.containsKey(adm)) {
+          if (!gradedAdms.contains(adm)) gradedAdms.add(adm);
+          received++;
+        }
+      }
+
+      final progress = 0.6 + (received / expectedCount) * 0.4;
+      setState(() => _aiMarkedCount = received);
+      widget.onAiMarkedCountChanged?.call(received);
+      widget.onAiProgressChanged?.call(progress);
+
+      if (received >= expectedCount) break;
+    }
+
+    // Check if we timed out
+    if (gradedAdms.length < expectedCount && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'AI marking partially complete — ${gradedAdms.length}/$expectedCount graded',
+          ),
+        ),
+      );
+    }
+
+    // Wave flash
     _triggerWaveFlash(gradedAdms);
 
     if (!mounted) return;
     setState(() => _aiPhase = _AiPhase.done);
     widget.onAiPhaseChanged?.call(_AiPhase.done);
 
-    // Phase 4 — show completion label for 2 seconds then reset
+    // Phase 6 — show completion label for 2 seconds then reset
     await Future.delayed(const Duration(milliseconds: 2000));
     if (!mounted) return;
     setState(() {

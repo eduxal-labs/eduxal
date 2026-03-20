@@ -377,7 +377,7 @@ If these aren't already available on the widget, add them as constructor paramet
 - Error states should reset to `_AiPhase.idle` and show a `SnackBar` with the error message
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
