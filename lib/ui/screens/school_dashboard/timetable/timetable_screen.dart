@@ -154,6 +154,7 @@ class _OwnerTimetableShell extends StatefulWidget {
 class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
     with TickerProviderStateMixin {
   final _timetableDao = TimetableDao(db);
+  final _catalogDao = CatalogDao(db);
 
   SchoolConfig? _config;
   TimetableRules? _rules;
@@ -165,6 +166,7 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
   int _currentTabIndex = 0;
 
   StreamSubscription<bool>? _hasTimetableSub;
+  StreamSubscription<List<SchoolStream>>? _configSub;
 
   @override
   void initState() {
@@ -200,18 +202,80 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
             term: term.term,
           )
         : TimetableRules.defaults();
-    if (mounted) {
-      setState(() {
-        _config = SchoolConfig.defaults();
-        _rules = rules;
-      });
+    if (!mounted) return;
+    setState(() => _rules = rules);
+
+    // Reactively build SchoolConfig from the school's streams table.
+    // This mirrors the pattern used by _ExamsTabState._loadConfig().
+    _configSub?.cancel();
+    _configSub = _catalogDao.watchAllStreamsForSchool(schoolId).listen((
+      allStreams,
+    ) {
+      if (!mounted) return;
+      setState(() => _config = _buildConfigFromStreams(allStreams));
+    });
+  }
+
+  /// Builds a [SchoolConfig] from raw [SchoolStream] rows, grouping by
+  /// curriculum type and grade. Mirrors the identical helper in
+  /// [_ExamsTabState] and [_ExamsShellState].
+  SchoolConfig _buildConfigFromStreams(List<SchoolStream> allStreams) {
+    if (allStreams.isEmpty) return SchoolConfig.defaults();
+
+    final allGrades = allStreams.map((s) => s.grade).toSet();
+    final byGrade = <int, List<SchoolStream>>{};
+    for (final s in allStreams) {
+      byGrade.putIfAbsent(s.grade, () => []).add(s);
     }
+
+    CurriculumType curriculumForGrade(int grade) {
+      if (grade >= 41) return CurriculumType.eightFourFour;
+      if (grade >= 9) return CurriculumType.cbc;
+      if (allGrades.any((g) => g >= 41)) return CurriculumType.eightFourFour;
+      return CurriculumType.cbc;
+    }
+
+    final cbcGrades = <GradeConfig>[];
+    final eftGrades = <GradeConfig>[];
+
+    for (final entry in byGrade.entries) {
+      final gradeNum = entry.key;
+      final streamRows = entry.value
+        ..sort((a, b) => a.stream.compareTo(b.stream));
+      final gradeStreams = streamRows
+          .map((s) => GradeStream(name: s.name, code: s.stream))
+          .toList();
+      final gc = GradeConfig(grade: gradeNum, streams: gradeStreams);
+      if (curriculumForGrade(gradeNum) == CurriculumType.cbc) {
+        cbcGrades.add(gc);
+      } else {
+        eftGrades.add(gc);
+      }
+    }
+
+    cbcGrades.sort((a, b) => a.grade.compareTo(b.grade));
+    eftGrades.sort((a, b) => a.grade.compareTo(b.grade));
+
+    final curricula = <CurriculumConfig>[];
+    if (cbcGrades.isNotEmpty) {
+      curricula.add(
+        CurriculumConfig(type: CurriculumType.cbc, grades: cbcGrades),
+      );
+    }
+    if (eftGrades.isNotEmpty) {
+      curricula.add(
+        CurriculumConfig(type: CurriculumType.eightFourFour, grades: eftGrades),
+      );
+    }
+
+    return SchoolConfig(curricula: curricula);
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     _hasTimetableSub?.cancel();
+    _configSub?.cancel();
     super.dispose();
   }
 

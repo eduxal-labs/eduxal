@@ -677,6 +677,8 @@ class DeltaWriter {
   // ---------------------------------------------------------------------------
   // 14: timetable  — PK: (school, year, term, grade, stream, subject, day, start)
   //     rowKey: "{school}|{year}|{term}|{grade}|{stream}|{subject}|{day}|{start}"
+  //     k[0]=school  k[1]=year  k[2]=term  k[3]=grade  k[4]=stream
+  //     k[5]=subject  k[6]=day (DayOfWeek.index)  k[7]=start
   // ---------------------------------------------------------------------------
 
   Future<void> _applyTimetable(SyncDelta delta) async {
@@ -689,8 +691,8 @@ class DeltaWriter {
                 t.term.equals(_parseInt(k[2])) &
                 t.grade.equals(_parseInt(k[3])) &
                 t.stream.equals(_parseInt(k[4])) &
-                t.day.equals(_parseInt(k[5])) &
-                t.subject.equals(_parseInt(k[6])) &
+                t.subject.equals(_parseInt(k[5])) &
+                t.day.equals(_parseInt(k[6])) &
                 t.start.equals(_parseInt(k[7])),
           ))
           .go();
@@ -707,9 +709,9 @@ class DeltaWriter {
             term: Value(_parseInt(k[2])),
             grade: Value(_parseInt(k[3])),
             stream: Value(_parseInt(k[4])),
-            subject: Value(_parseInt(k[6])),
+            subject: Value(_parseInt(k[5])),
             teacher: Value(row.teacher),
-            day: Value(DayOfWeek.values[_parseInt(k[5])]),
+            day: Value(DayOfWeek.values[_parseInt(k[6])]),
             start: Value(_parseInt(k[7])),
             end: Value(row.end),
             created: Value(now),

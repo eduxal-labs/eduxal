@@ -812,6 +812,108 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
     });
     sync.schedulePush();
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Queries — lesson generation helpers
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// One-shot read of all timetable entries for a term on a specific set of
+  /// days of week, joined with the teacher's [Users] row and the subject name
+  /// from [Subjects].
+  ///
+  /// Used by the lesson-generation dialog to expand timetable slots into
+  /// concrete lesson dates before the user confirms and saves.
+  Future<List<TimetableEntry>> getTermTimetableForDays({
+    required String schoolId,
+    required int year,
+    required int term,
+    required List<DayOfWeek> days,
+  }) async {
+    if (days.isEmpty) return [];
+    final dayInts = days.map((d) => d.index).toList();
+    final query =
+        select(timetable).join([
+            innerJoin(users, users.id.equalsExp(timetable.teacher)),
+            leftOuterJoin(subjects, subjects.id.equalsExp(timetable.subject)),
+          ])
+          ..where(
+            timetable.school.equals(schoolId) &
+                timetable.year.equals(year) &
+                timetable.term.equals(term) &
+                timetable.day.isIn(dayInts),
+          )
+          ..orderBy([
+            OrderingTerm.asc(timetable.day),
+            OrderingTerm.asc(timetable.grade),
+            OrderingTerm.asc(timetable.stream),
+            OrderingTerm.asc(timetable.start),
+          ]);
+    final rows = await query.get();
+    return rows.map((r) {
+      final subjectRow = r.readTableOrNull(subjects);
+      return TimetableEntry(
+        slot: r.readTable(timetable),
+        teacher: r.readTable(users),
+        subjectName:
+            subjectRow?.name ?? 'Subject ${r.readTable(timetable).subject}',
+      );
+    }).toList();
+  }
+
+  /// Bulk-saves a list of generated lessons.
+  ///
+  /// For each lesson, any existing row matching (school, year, term, grade,
+  /// stream, date, subject) is deleted first — this cleanly handles teacher
+  /// substitution where the teacher may differ from the timetable default.
+  /// One [SyncAction.createLesson] log entry is written per inserted lesson.
+  Future<void> saveLessons({
+    required List<LessonsCompanion> lessonsList,
+    required String accountId,
+  }) async {
+    if (lessonsList.isEmpty) return;
+    await transaction(() async {
+      final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+      for (final lesson in lessonsList) {
+        // Remove any existing lesson for this (grade, stream, date, subject)
+        // so substituted teachers don't leave behind stale rows.
+        await (delete(lessons)..where(
+              (t) =>
+                  t.school.equals(lesson.school.value) &
+                  t.year.equals(lesson.year.value) &
+                  t.term.equals(lesson.term.value) &
+                  t.grade.equals(lesson.grade.value) &
+                  t.stream.equals(lesson.stream.value) &
+                  t.date.equals(lesson.date.value) &
+                  t.subject.equals(lesson.subject.value),
+            ))
+            .go();
+
+        await into(lessons).insert(lesson);
+
+        final payload = sync_pb.CreateLessonPayload(
+          school: lesson.school.value,
+          year: lesson.year.value,
+          term: lesson.term.value,
+          grade: lesson.grade.value,
+          stream: lesson.stream.value,
+          date: lesson.date.value,
+          subject: lesson.subject.value,
+          teacher: lesson.teacher.value,
+        );
+
+        await into(logs).insert(
+          LogsCompanion(
+            account: Value(accountId),
+            action: Value(SyncAction.createLesson),
+            resource: Value('Lesson ${lesson.date.value}'),
+            payload: Value(payload.writeToBuffer()),
+            created: Value(nowMs),
+          ),
+        );
+      }
+    });
+    sync.schedulePush();
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
