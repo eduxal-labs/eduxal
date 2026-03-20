@@ -906,9 +906,9 @@ class _PaperHeaderState extends State<_PaperHeader>
             ),
           ),
 
-          // ── Scheme indicator chip (always visible for managers) ────────
+          // ── Scheme button (full-width, below invigilator) ─────────────
           if (widget.canManage) ...[
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             GestureDetector(
               onTap: () {
                 showModalBottomSheet(
@@ -927,37 +927,58 @@ class _PaperHeaderState extends State<_PaperHeader>
                 );
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 7,
+                ),
                 decoration: BoxDecoration(
                   color: widget.schemeFiles.isNotEmpty
-                      ? cs.primaryContainer.withValues(alpha: 0.3)
-                      : cs.surfaceContainerHighest.withValues(alpha: 0.4),
+                      ? cs.primaryContainer.withValues(
+                          alpha: isDark ? 0.2 : 0.18,
+                        )
+                      : cs.surfaceContainerHighest.withValues(
+                          alpha: isDark ? 0.3 : 0.35,
+                        ),
                   borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+                  border: Border.all(
+                    color: widget.schemeFiles.isNotEmpty
+                        ? cs.primary.withValues(alpha: 0.25)
+                        : cs.outlineVariant.withValues(alpha: 0.35),
+                  ),
                 ),
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
                       widget.schemeFiles.isNotEmpty
                           ? Icons.description_outlined
                           : Icons.note_add_outlined,
-                      size: 12,
+                      size: 14,
                       color: widget.schemeFiles.isNotEmpty
-                          ? cs.primary.withValues(alpha: 0.7)
+                          ? cs.primary.withValues(alpha: 0.75)
                           : cs.onSurfaceVariant.withValues(alpha: 0.5),
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      widget.schemeFiles.isNotEmpty
-                          ? 'Scheme: ${widget.schemeFiles.length} ${widget.schemeFiles.length == 1 ? 'page' : 'pages'}'
-                          : 'Add marking scheme',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w400,
-                        color: widget.schemeFiles.isNotEmpty
-                            ? cs.primary.withValues(alpha: 0.8)
-                            : cs.onSurfaceVariant.withValues(alpha: 0.5),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        widget.schemeFiles.isNotEmpty
+                            ? 'Marking scheme · ${widget.schemeFiles.length} ${widget.schemeFiles.length == 1 ? 'page' : 'pages'}'
+                            : 'Add marking scheme',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          color: widget.schemeFiles.isNotEmpty
+                              ? cs.primary.withValues(alpha: 0.85)
+                              : cs.onSurfaceVariant.withValues(alpha: 0.55),
+                        ),
                       ),
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: 16,
+                      color: widget.schemeFiles.isNotEmpty
+                          ? cs.primary.withValues(alpha: 0.4)
+                          : cs.onSurfaceVariant.withValues(alpha: 0.3),
                     ),
                   ],
                 ),
@@ -1124,12 +1145,7 @@ class _PaperHeaderState extends State<_PaperHeader>
       return _buildAiProgressButton();
     }
 
-    // State 3a: No scheme yet → prompt to add scheme
-    if (widget.canManage && widget.schemeFiles.isEmpty) {
-      return _buildAddSchemeButton();
-    }
-
-    // State 3b: Has unmarked submissions and scheme exists → indigo AI button
+    // State 3: Has unmarked submissions and scheme exists → indigo AI button
     if (widget.hasUnmarkedSubmissions && widget.schemeFiles.isNotEmpty) {
       return _buildAiMarkButton();
     }
@@ -1160,47 +1176,6 @@ class _PaperHeaderState extends State<_PaperHeader>
               fontSize: 11,
               fontWeight: FontWeight.w500,
               color: Color(0xFF6366F1),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ── Add scheme button ─────────────────────────────────────────────────
-
-  Widget _buildAddSchemeButton() {
-    return Tooltip(
-      message: 'Add marking scheme',
-      child: GestureDetector(
-        onTap: () {
-          showModalBottomSheet(
-            context: context,
-            isScrollControlled: true,
-            backgroundColor: Colors.transparent,
-            builder: (_) => _SchemeUploadSheet(
-              schoolId: widget.schoolId,
-              examId: widget.exam.exam.id,
-              subject: widget.paper.subject,
-              paperNum: widget.paper.paper,
-              existingPaths: widget.schemeFiles,
-              onUpdated: () => widget.onSchemeUpdated?.call(),
-              cs: widget.cs,
-            ),
-          );
-        },
-        child: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: const Color(0xFF0D9488), width: 2.5),
-          ),
-          child: const Center(
-            child: Icon(
-              Icons.note_add_outlined,
-              size: 18,
-              color: Color(0xFF0D9488),
             ),
           ),
         ),
