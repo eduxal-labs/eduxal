@@ -6072,6 +6072,7 @@ class _ExamGroupCrossTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
     final rows = _buildRows();
     final allPapers = rows.expand((r) => r.papers).toList();
 
@@ -6079,116 +6080,263 @@ class _ExamGroupCrossTable extends StatelessWidget {
       return _EmptyPapersTimetableState(cs: cs);
     }
 
+    // ── Build unique time-slot columns from all papers ──
+    final timeCols = <({String start, String end, int startMins})>[];
+    {
+      final seen = <int>{};
+      final sorted = List<Paper>.from(allPapers)
+        ..sort((a, b) => a.start.compareTo(b.start));
+      for (final p in sorted) {
+        if (p.start.toInt() == 0) continue; // skip unset times
+        final sdt = DateTime.fromMillisecondsSinceEpoch(p.start.toInt() * 1000);
+        final mins = sdt.hour * 60 + sdt.minute;
+        if (seen.add(mins)) {
+          final edt = DateTime.fromMillisecondsSinceEpoch(p.end.toInt() * 1000);
+          timeCols.add((
+            start: _fmtTime(sdt),
+            end: _fmtTime(edt),
+            startMins: mins,
+          ));
+        }
+      }
+    }
+
     final grouped = _groupPapersByDate(allPapers);
     final dates = _sortedPaperDates(grouped);
 
-    const double rowLabelWidth = 128;
-    const double colWidth = 140;
-    final totalWidth = rowLabelWidth + dates.length * colWidth;
+    if (timeCols.isEmpty || dates.isEmpty) {
+      return _EmptyPapersTimetableState(cs: cs);
+    }
+
+    // ── Layout constants (matching timetable) ──
+    const double streamLabelW = 100;
+    const double timeColW = 110;
+    const double colGap = 3;
+    final totalW =
+        streamLabelW +
+        colGap +
+        timeCols.length * timeColW +
+        (timeCols.length > 1 ? (timeCols.length - 1) * colGap : 0);
+
+    // ── Helper: find paper for a specific stream's papers at date+time ──
+    Paper? paperAt(List<Paper> papers, DateTime date, int startMins) {
+      for (final p in papers) {
+        final dt = DateTime.fromMillisecondsSinceEpoch(p.start.toInt() * 1000);
+        final day = DateTime(dt.year, dt.month, dt.day);
+        if (day == date && (dt.hour * 60 + dt.minute) == startMins) {
+          return p;
+        }
+      }
+      return null;
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Status legend
         const Padding(
           padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
           child: _PaperStatusLegend(),
         ),
-        // Scrollable matrix
         Expanded(
           child: SingleChildScrollView(
-            scrollDirection: Axis.vertical,
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
+            padding: const EdgeInsets.all(16),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              child: SizedBox(
-                width: totalWidth,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // ── Header row (date labels) ──────────────────────────
-                    _CrossTableHeaderRow(
-                      dates: dates,
-                      rowLabelWidth: rowLabelWidth,
-                      colWidth: colWidth,
-                      cs: cs,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Time header row ──
+                  Row(
+                    children: [
+                      const SizedBox(width: streamLabelW),
+                      const SizedBox(width: colGap),
+                      for (int i = 0; i < timeCols.length; i++) ...[
+                        if (i > 0) const SizedBox(width: colGap),
+                        SizedBox(
+                          width: timeColW,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 7,
+                              horizontal: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: cs.surfaceContainerHighest.withValues(
+                                alpha: 0.3,
+                              ),
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.kChipRadius,
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              '${timeCols[i].start} – ${timeCols[i].end}',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w500,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.7,
+                                ),
+                                letterSpacing: 0.1,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: colGap),
+
+                  // ── Day groups ──
+                  for (int di = 0; di < dates.length; di++) ...[
+                    if (di > 0) const SizedBox(height: 10),
+                    // Day header strip
+                    Container(
+                      width: totalW,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 6,
+                        horizontal: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: cs.surfaceContainerHighest.withValues(
+                          alpha: isDark ? 0.25 : 0.20,
+                        ),
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.kChipRadius,
+                        ),
+                      ),
+                      child: Text(
+                        _fmtDayHeader(dates[di]),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: cs.onSurface.withValues(alpha: 0.75),
+                          letterSpacing: 0.2,
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 6),
-                    // ── Data rows (one per grade+stream) ─────────────────
-                    for (final row in rows)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: IntrinsicHeight(
+
+                    // Grade sub-groups within this day
+                    for (final gradeEntry in group.grades) ...[
+                      // Grade sub-header (only if multiple grades)
+                      if (group.grades.length > 1) ...[
+                        const SizedBox(height: colGap),
+                        Container(
+                          width: totalW,
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 4,
+                            horizontal: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: cs.surfaceContainerHighest.withValues(
+                              alpha: isDark ? 0.12 : 0.10,
+                            ),
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.kChipRadius,
+                            ),
+                          ),
+                          child: Text(
+                            _gradeLabel(gradeEntry.grade, config),
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w500,
+                              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                              letterSpacing: 0.1,
+                            ),
+                          ),
+                        ),
+                      ],
+
+                      // Stream rows
+                      for (final streamEntry in gradeEntry.streams) ...[
+                        const SizedBox(height: colGap),
+                        IntrinsicHeight(
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              // Row label
+                              // Stream label
                               SizedBox(
-                                width: rowLabelWidth,
-                                child: _CrossTableRowLabel(
-                                  label: row.label,
-                                  cs: cs,
-                                ),
-                              ),
-                              // Date cells
-                              ...dates.map((date) {
-                                final cellPapers = _papersOnDate(
-                                  row.papers,
-                                  date,
-                                );
-                                if (cellPapers.isEmpty) {
-                                  return SizedBox(
-                                    width: colWidth,
-                                    child: _PaperEmptyCell(cs: cs),
-                                  );
-                                }
-                                return SizedBox(
-                                  width: colWidth,
+                                width: streamLabelW,
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
                                   child: Padding(
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 2,
+                                      horizontal: 8,
                                     ),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        for (
-                                          int i = 0;
-                                          i < cellPapers.length;
-                                          i++
-                                        ) ...[
-                                          _PaperSlotBox(
-                                            paper: cellPapers[i],
-                                            exam: row.exam,
-                                            subjectNames: subjectNames,
-                                            statusColor: _paperStatusColor(
-                                              cellPapers[i].status,
-                                              cs,
+                                    child: Text(
+                                      streamEntry.streamCode != null
+                                          ? _streamLabel(
+                                              gradeEntry.grade,
+                                              streamEntry.streamCode!,
+                                              config,
+                                            )
+                                          : _gradeLabel(
+                                              gradeEntry.grade,
+                                              config,
                                             ),
-                                            invigilatorName:
-                                                teacherNames[cellPapers[i]
-                                                    .invigilator] ??
-                                                '',
-                                            cs: cs,
-                                            onTap: () => onPaperTap(
-                                              cellPapers[i],
-                                              row.exam,
-                                              row.grade,
-                                            ),
-                                          ),
-                                          if (i < cellPapers.length - 1)
-                                            const SizedBox(height: 3),
-                                        ],
-                                      ],
+                                      style: TextStyle(
+                                        fontSize: 10.5,
+                                        fontWeight: FontWeight.w500,
+                                        color: cs.onSurfaceVariant.withValues(
+                                          alpha: 0.55,
+                                        ),
+                                        letterSpacing: 0.1,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                );
-                              }),
+                                ),
+                              ),
+                              const SizedBox(width: colGap),
+
+                              // Time slot cells
+                              for (int ci = 0; ci < timeCols.length; ci++) ...[
+                                if (ci > 0) const SizedBox(width: colGap),
+                                SizedBox(
+                                  width: timeColW,
+                                  child: Builder(
+                                    builder: (_) {
+                                      final paper = paperAt(
+                                        streamEntry.papers,
+                                        dates[di],
+                                        timeCols[ci].startMins,
+                                      );
+                                      if (paper == null) {
+                                        return _PaperEmptyCell(cs: cs);
+                                      }
+                                      final statusColor = _paperStatusColor(
+                                        paper.status,
+                                        cs,
+                                      );
+                                      return _PaperSlotBox(
+                                        paper: paper,
+                                        exam: streamEntry.exam,
+                                        subjectNames: subjectNames,
+                                        statusColor: statusColor,
+                                        invigilatorName:
+                                            teacherNames[paper.invigilator] ??
+                                            '',
+                                        cs: cs,
+                                        onTap: () => onPaperTap(
+                                          paper,
+                                          streamEntry.exam,
+                                          gradeEntry.grade,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
-                      ),
+                      ],
+                    ],
                   ],
-                ),
+                ],
               ),
             ),
           ),
@@ -6540,77 +6688,53 @@ class _PaperSlotBox extends StatelessWidget {
     final subjectName =
         subjectNames[paper.subject] ?? 'Subject ${paper.subject}';
     final paperLabel = (paper.paper ?? 1) > 1 ? ' · P${paper.paper}' : '';
-    final startMs = paper.start.toInt();
-    final endMs = paper.end.toInt();
-    final timeUnset = startMs == 0;
-    final timeRange = timeUnset
-        ? null
-        : '${_fmtTime(DateTime.fromMillisecondsSinceEpoch(startMs * 1000))}'
-              ' – '
-              '${_fmtTime(DateTime.fromMillisecondsSinceEpoch(endMs * 1000))}';
     final invDisplay = invigilatorName.isNotEmpty ? invigilatorName : '—';
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 2),
-      child: InkWell(
-        onTap: onTap,
-        splashFactory: NoSplash.splashFactory,
-        borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 52),
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: statusColor.withValues(alpha: isDark ? 0.12 : 0.08),
-            borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
-            border: Border(
-              left: BorderSide(
-                color: statusColor.withValues(alpha: 0.65),
-                width: 2.5,
-              ),
+    return InkWell(
+      onTap: onTap,
+      splashFactory: NoSplash.splashFactory,
+      borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 52),
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: statusColor.withValues(alpha: isDark ? 0.15 : 0.08),
+          borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+          border: Border(
+            left: BorderSide(
+              color: statusColor.withValues(alpha: 0.6),
+              width: 2.5,
             ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '$subjectName$paperLabel',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w500,
-                  color: cs.onSurface,
-                  height: 1.2,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '$subjectName$paperLabel',
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w500,
+                color: cs.onSurface,
+                height: 1.2,
               ),
-              if (timeRange != null) ...[
-                const SizedBox(height: 2),
-                Text(
-                  timeRange,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w400,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.65),
-                    height: 1.2,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ],
-              const SizedBox(height: 1),
-              Text(
-                invDisplay,
-                style: TextStyle(
-                  fontSize: 9.5,
-                  fontWeight: FontWeight.w300,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.45),
-                  height: 1.2,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              invDisplay,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                height: 1.2,
               ),
-            ],
-          ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ),
       ),
     );
