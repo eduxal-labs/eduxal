@@ -1900,6 +1900,1109 @@ class _SubstitutePickerDialogState
 - [ ] Update `lib/ui/screens/CONTEXT.md` — note FAB behaviour change in timetable
 - [ ] Mark this task `[x]`
 - [ ] Commit: `feat: generate lessons dialog with scope picker, preview, and teacher substitution`
+
+---
+
+### Task 03: Redesign the Lessons tab — three view modes with meaningful structure
+**Files to create/modify:** `eduxal/lib/ui/screens/school_dashboard/timetable/timetable_screen.dart`
+**Context files to read (if needed):** `eduxal/lib/ui/screens/school_dashboard/CONTEXT.md`
+**Depends on:** none (self-contained UI change)
+**Parallel group:** P3
+
+**Specification:**
+
+Replace the existing flat `_LessonsTab` / `_LessonDateHeader` / `_LessonRow` /
+`_EmptyLessonsState` widgets in `timetable_screen.dart` with a fully redesigned
+Lessons tab that offers three structured view modes: Log (enhanced timeline),
+Teachers (grouped by teacher, expandable), and Coverage (subject frequency bars).
+
+All design follows AGENT.md §21:
+- `AppTheme.nestedBg`, `AppTheme.borderColor`, `AppTheme.tableRowDivider`
+- `AppTheme.kCardRadius = 8`, `AppTheme.kChipRadius = 4`
+- Body text w300/w400, headings/labels w500 max
+- Flat rows, no per-item card elevation
+
+---
+
+#### CHANGE 1 — Update `_LessonsTab` call site
+
+In `_OwnerTimetableShellState.build()`, find:
+
+```dart
+if (term != null)
+  _LessonsTab(
+    schoolId: schoolId,
+    year: term.year,
+    term: term.term,
+    timetableDao: _timetableDao,
+  )
 ```
 
-Now let me spawn the executor agents. I'll do Task 01 (DAO) first, then Task 02 (UI) since it depends on the new DAO method:
+Replace with:
+
+```dart
+if (term != null)
+  _LessonsTab(
+    schoolId: schoolId,
+    year: term.year,
+    term: term.term,
+    timetableDao: _timetableDao,
+    config: _config ?? SchoolConfig.defaults(),
+  )
+```
+
+---
+
+#### CHANGE 2 — Delete old classes, insert new implementation
+
+**Find and DELETE** these four existing classes (they are adjacent in the file):
+- `_LessonsTab` (StatelessWidget)
+- `_LessonDateHeader` (StatelessWidget)
+- `_LessonRow` (StatelessWidget)
+- `_EmptyLessonsState` (StatelessWidget)
+
+**Insert the following complete replacement** in their place:
+
+```dart
+// ═══════════════════════════════════════════════════════════════════════════
+// OWNER — Lessons Tab  (Log · Teachers · Coverage)
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum _LessonView { log, teachers, coverage }
+
+class _LessonsTab extends StatefulWidget {
+  const _LessonsTab({
+    required this.schoolId,
+    required this.year,
+    required this.term,
+    required this.timetableDao,
+    required this.config,
+  });
+
+  final String schoolId;
+  final int year;
+  final int term;
+  final TimetableDao timetableDao;
+  final SchoolConfig config;
+
+  @override
+  State<_LessonsTab> createState() => _LessonsTabState();
+}
+
+class _LessonsTabState extends State<_LessonsTab> {
+  _LessonView _view = _LessonView.log;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    return StreamBuilder<List<LessonEntry>>(
+      stream: widget.timetableDao.watchAllLessons(
+        schoolId: widget.schoolId,
+        year: widget.year,
+        term: widget.term,
+      ),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
+          return Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+              ),
+            ),
+          );
+        }
+
+        final lessons = snapshot.data ?? [];
+
+        if (lessons.isEmpty) {
+          return _LessonsEmptyState(cs: cs);
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _LessonStatsBar(lessons: lessons, cs: cs, isDark: isDark),
+            _LessonViewSwitcher(
+              view: _view,
+              cs: cs,
+              isDark: isDark,
+              onChanged: (v) => setState(() => _view = v),
+            ),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                switchInCurve: Curves.easeIn,
+                switchOutCurve: Curves.easeOut,
+                transitionBuilder: (child, anim) =>
+                    FadeTransition(opacity: anim, child: child),
+                child: switch (_view) {
+                  _LessonView.log => _LessonLogView(
+                      key: const ValueKey('log'),
+                      lessons: lessons,
+                      config: widget.config,
+                      cs: cs,
+                      isDark: isDark,
+                    ),
+                  _LessonView.teachers => _LessonTeachersView(
+                      key: const ValueKey('teachers'),
+                      lessons: lessons,
+                      config: widget.config,
+                      cs: cs,
+                      isDark: isDark,
+                    ),
+                  _LessonView.coverage => _LessonCoverageView(
+                      key: const ValueKey('coverage'),
+                      lessons: lessons,
+                      cs: cs,
+                      isDark: isDark,
+                    ),
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// ── Stats bar ────────────────────────────────────────────────────────────────
+
+class _LessonStatsBar extends StatelessWidget {
+  const _LessonStatsBar({
+    required this.lessons,
+    required this.cs,
+    required this.isDark,
+  });
+
+  final List<LessonEntry> lessons;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final teacherCount = lessons.map((e) => e.teacher.id).toSet().length;
+    final subjectCount = lessons.map((e) => e.lesson.subject).toSet().length;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: _LessonStatChip(
+              value: '${lessons.length}',
+              label: 'Lessons',
+              cs: cs,
+              isDark: isDark,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _LessonStatChip(
+              value: '$teacherCount',
+              label: teacherCount == 1 ? 'Teacher' : 'Teachers',
+              cs: cs,
+              isDark: isDark,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _LessonStatChip(
+              value: '$subjectCount',
+              label: subjectCount == 1 ? 'Subject' : 'Subjects',
+              cs: cs,
+              isDark: isDark,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LessonStatChip extends StatelessWidget {
+  const _LessonStatChip({
+    required this.value,
+    required this.label,
+    required this.cs,
+    required this.isDark,
+  });
+
+  final String value;
+  final String label;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+      decoration: BoxDecoration(
+        color: AppTheme.nestedBg(isDark, cs),
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        border: Border.all(color: AppTheme.borderColor(isDark, cs)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurface,
+              height: 1.1,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── View switcher ─────────────────────────────────────────────────────────────
+
+class _LessonViewSwitcher extends StatelessWidget {
+  const _LessonViewSwitcher({
+    required this.view,
+    required this.cs,
+    required this.isDark,
+    required this.onChanged,
+  });
+
+  final _LessonView view;
+  final ColorScheme cs;
+  final bool isDark;
+  final ValueChanged<_LessonView> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      child: Row(
+        children: [
+          _LessonViewChip(
+            label: 'Log',
+            selected: view == _LessonView.log,
+            cs: cs,
+            isDark: isDark,
+            onTap: () => onChanged(_LessonView.log),
+          ),
+          const SizedBox(width: 6),
+          _LessonViewChip(
+            label: 'Teachers',
+            selected: view == _LessonView.teachers,
+            cs: cs,
+            isDark: isDark,
+            onTap: () => onChanged(_LessonView.teachers),
+          ),
+          const SizedBox(width: 6),
+          _LessonViewChip(
+            label: 'Coverage',
+            selected: view == _LessonView.coverage,
+            cs: cs,
+            isDark: isDark,
+            onTap: () => onChanged(_LessonView.coverage),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LessonViewChip extends StatelessWidget {
+  const _LessonViewChip({
+    required this.label,
+    required this.selected,
+    required this.cs,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final ColorScheme cs;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected
+              ? cs.primary.withValues(alpha: 0.12)
+              : AppTheme.nestedBg(isDark, cs),
+          borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+          border: Border.all(
+            color: selected
+                ? cs.primary.withValues(alpha: 0.4)
+                : AppTheme.borderColor(isDark, cs),
+            width: selected ? 1.0 : 0.8,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: selected
+                ? cs.primary
+                : cs.onSurfaceVariant.withValues(alpha: 0.6),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Log view ──────────────────────────────────────────────────────────────────
+
+class _LessonLogView extends StatelessWidget {
+  const _LessonLogView({
+    super.key,
+    required this.lessons,
+    required this.config,
+    required this.cs,
+    required this.isDark,
+  });
+
+  final List<LessonEntry> lessons;
+  final SchoolConfig config;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final grouped = <int, List<LessonEntry>>{};
+    for (final e in lessons) {
+      grouped.putIfAbsent(e.lesson.date, () => []).add(e);
+    }
+    final dates = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
+
+    final items = <Widget>[];
+    for (final date in dates) {
+      final dayLessons = grouped[date]!;
+      items.add(_LessonDayHeader(
+        date: date,
+        count: dayLessons.length,
+        cs: cs,
+        isDark: isDark,
+      ));
+      for (int i = 0; i < dayLessons.length; i++) {
+        items.add(_LessonLogRow(
+          entry: dayLessons[i],
+          config: config,
+          cs: cs,
+          isDark: isDark,
+        ));
+        if (i < dayLessons.length - 1) {
+          items.add(AppTheme.tableRowDivider(isDark, cs));
+        }
+      }
+      items.add(const SizedBox(height: 8));
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.only(top: 10, bottom: 80),
+      itemCount: items.length,
+      itemBuilder: (_, i) => items[i],
+    );
+  }
+}
+
+class _LessonDayHeader extends StatelessWidget {
+  const _LessonDayHeader({
+    required this.date,
+    required this.count,
+    required this.cs,
+    required this.isDark,
+  });
+
+  final int date;
+  final int count;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+      child: Row(
+        children: [
+          Text(
+            _lessonDayLabel(date),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurface.withValues(alpha: 0.75),
+              letterSpacing: 0.1,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest.withValues(
+                alpha: isDark ? 0.4 : 0.5,
+              ),
+              borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+            ),
+            child: Text(
+              '$count',
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w500,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LessonLogRow extends StatelessWidget {
+  const _LessonLogRow({
+    required this.entry,
+    required this.config,
+    required this.cs,
+    required this.isDark,
+  });
+
+  final LessonEntry entry;
+  final SchoolConfig config;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final subjectColor = _colorForSubject(entry.lesson.subject);
+    final classLabel =
+        _lessonClassLabel(entry.lesson.grade, entry.lesson.stream, config);
+
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            width: 3,
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            decoration: BoxDecoration(
+              color: subjectColor.withValues(alpha: 0.7),
+              borderRadius: const BorderRadius.only(
+                topRight: Radius.circular(2),
+                bottomRight: Radius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 11),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    entry.subjectName,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    entry.teacher.name,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w300,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Align(
+            alignment: Alignment.center,
+            child: Container(
+              margin: const EdgeInsets.only(right: 16),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest.withValues(
+                  alpha: isDark ? 0.55 : 0.5,
+                ),
+                borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+              ),
+              child: Text(
+                classLabel,
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Teachers view ─────────────────────────────────────────────────────────────
+
+class _LessonTeachersView extends StatefulWidget {
+  const _LessonTeachersView({
+    super.key,
+    required this.lessons,
+    required this.config,
+    required this.cs,
+    required this.isDark,
+  });
+
+  final List<LessonEntry> lessons;
+  final SchoolConfig config;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  State<_LessonTeachersView> createState() => _LessonTeachersViewState();
+}
+
+class _LessonTeachersViewState extends State<_LessonTeachersView> {
+  final Set<String> _expanded = {};
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final isDark = widget.isDark;
+
+    final map = <String, ({String name, List<LessonEntry> lessons})>{};
+    for (final e in widget.lessons) {
+      final id = e.teacher.id;
+      final existing = map[id];
+      if (existing == null) {
+        map[id] = (name: e.teacher.name, lessons: [e]);
+      } else {
+        existing.lessons.add(e);
+      }
+    }
+
+    final teachers = map.entries.toList()
+      ..sort((a, b) {
+        final cmp =
+            b.value.lessons.length.compareTo(a.value.lessons.length);
+        return cmp != 0 ? cmp : a.value.name.compareTo(b.value.name);
+      });
+
+    return ListView.builder(
+      padding: const EdgeInsets.only(top: 8, bottom: 80),
+      itemCount: teachers.length,
+      itemBuilder: (context, i) {
+        final tid = teachers[i].key;
+        final tdata = teachers[i].value;
+        final isExpanded = _expanded.contains(tid);
+
+        final allSubjects =
+            tdata.lessons.map((e) => e.subjectName).toSet().toList();
+        final previewSubjects = allSubjects.take(3).join(', ');
+        final extraCount = allSubjects.length - 3;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            InkWell(
+              onTap: () => setState(() {
+                if (isExpanded) {
+                  _expanded.remove(tid);
+                } else {
+                  _expanded.add(tid);
+                }
+              }),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.10),
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        tdata.name.isNotEmpty
+                            ? tdata.name[0].toUpperCase()
+                            : '?',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: cs.primary.withValues(alpha: 0.85),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            tdata.name,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w400,
+                              color: cs.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            extraCount > 0
+                                ? '$previewSubjects +$extraCount more'
+                                : previewSubjects,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w300,
+                              color: cs.onSurfaceVariant
+                                  .withValues(alpha: 0.55),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: cs.surfaceContainerHighest.withValues(
+                            alpha: isDark ? 0.5 : 0.45),
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.kChipRadius),
+                      ),
+                      child: Text(
+                        '${tdata.lessons.length}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: cs.onSurfaceVariant
+                              .withValues(alpha: 0.65),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    AnimatedRotation(
+                      turns: isExpanded ? 0.25 : 0.0,
+                      duration: const Duration(milliseconds: 160),
+                      child: Icon(
+                        Icons.chevron_right_rounded,
+                        size: 18,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            AnimatedCrossFade(
+              duration: const Duration(milliseconds: 180),
+              sizeCurve: Curves.easeInOut,
+              crossFadeState: isExpanded
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+              firstChild: const SizedBox.shrink(),
+              secondChild: Container(
+                margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                decoration: BoxDecoration(
+                  color: AppTheme.nestedBg(isDark, cs),
+                  borderRadius:
+                      BorderRadius.circular(AppTheme.kCardRadius),
+                  border: Border.all(
+                    color: cs.primary.withValues(alpha: 0.15),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: () {
+                    final sorted = [...tdata.lessons]
+                      ..sort((a, b) =>
+                          b.lesson.date.compareTo(a.lesson.date));
+                    final rows = <Widget>[];
+                    for (int j = 0; j < sorted.length; j++) {
+                      rows.add(_TeacherLessonSubRow(
+                        entry: sorted[j],
+                        config: widget.config,
+                        cs: cs,
+                        isDark: isDark,
+                      ));
+                      if (j < sorted.length - 1) {
+                        rows.add(AppTheme.tableRowDivider(isDark, cs));
+                      }
+                    }
+                    return rows;
+                  }(),
+                ),
+              ),
+            ),
+            AppTheme.tableRowDivider(isDark, cs),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _TeacherLessonSubRow extends StatelessWidget {
+  const _TeacherLessonSubRow({
+    required this.entry,
+    required this.config,
+    required this.cs,
+    required this.isDark,
+  });
+
+  final LessonEntry entry;
+  final SchoolConfig config;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final subjectColor = _colorForSubject(entry.lesson.subject);
+    final classLabel =
+        _lessonClassLabel(entry.lesson.grade, entry.lesson.stream, config);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      child: Row(
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: subjectColor.withValues(alpha: 0.75),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              entry.subjectName,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurface.withValues(alpha: 0.85),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest.withValues(
+                  alpha: isDark ? 0.4 : 0.35),
+              borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+            ),
+            child: Text(
+              classLabel,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            formatDateFromDays(entry.lesson.date),
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w300,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Coverage view ─────────────────────────────────────────────────────────────
+
+class _LessonCoverageView extends StatelessWidget {
+  const _LessonCoverageView({
+    super.key,
+    required this.lessons,
+    required this.cs,
+    required this.isDark,
+  });
+
+  final List<LessonEntry> lessons;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final map = <int, ({String name, int count})>{};
+    for (final e in lessons) {
+      final id = e.lesson.subject;
+      final existing = map[id];
+      map[id] = (name: e.subjectName, count: (existing?.count ?? 0) + 1);
+    }
+
+    final subjects = map.entries.toList()
+      ..sort((a, b) => b.value.count.compareTo(a.value.count));
+
+    final maxCount = subjects.isEmpty ? 1 : subjects.first.value.count;
+
+    return ListView.separated(
+      padding: const EdgeInsets.only(top: 10, bottom: 80),
+      itemCount: subjects.length,
+      separatorBuilder: (_, __) => AppTheme.tableRowDivider(isDark, cs),
+      itemBuilder: (context, i) {
+        final subjectId = subjects[i].key;
+        final data = subjects[i].value;
+        final fraction = data.count / maxCount;
+        final subjectColor = _colorForSubject(subjectId);
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: subjectColor.withValues(alpha: 0.8),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      data.name,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        return Stack(
+                          children: [
+                            Container(
+                              height: 4,
+                              width: constraints.maxWidth,
+                              decoration: BoxDecoration(
+                                color: subjectColor.withValues(
+                                    alpha: isDark ? 0.12 : 0.10),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 400),
+                              curve: Curves.easeOut,
+                              height: 4,
+                              width: constraints.maxWidth * fraction,
+                              decoration: BoxDecoration(
+                                color:
+                                    subjectColor.withValues(alpha: 0.65),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Text(
+                '${data.count}',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurface.withValues(alpha: 0.8),
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                data.count == 1 ? 'lesson' : 'lessons',
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ── Empty state ───────────────────────────────────────────────────────────────
+
+class _LessonsEmptyState extends StatelessWidget {
+  const _LessonsEmptyState({required this.cs});
+
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.menu_book_outlined,
+              size: 22,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'No lessons recorded',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurface,
+              letterSpacing: 0.1,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            'Generate lessons from the Timetable tab',
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/// Formats days-since-epoch to "Mon, 15 Jan".
+String _lessonDayLabel(int daysSinceEpoch) {
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  final d = DateTime.fromMillisecondsSinceEpoch(
+    daysSinceEpoch * 86400000,
+    isUtc: true,
+  );
+  // DateTime.weekday: 1=Mon … 7=Sun.  % 7 maps Sun→0, Mon→1 … Sat→6.
+  return '${days[d.weekday % 7]}, ${d.day} ${months[d.month - 1]}';
+}
+
+/// Returns "Form 4 · Blue" or "Grade 3" etc., using config for label lookup.
+String _lessonClassLabel(int grade, int stream, SchoolConfig config) {
+  String gradeLabel = 'Grade $grade';
+  String streamLabel = '';
+  outer:
+  for (final cur in config.curricula) {
+    final labels = gradeLabelsFor(cur.type);
+    if (labels.containsKey(grade)) gradeLabel = labels[grade]!;
+    for (final gc in cur.grades) {
+      if (gc.grade == grade) {
+        for (final s in gc.streams) {
+          if (s.code == stream) {
+            streamLabel = s.name;
+            break outer;
+          }
+        }
+      }
+    }
+  }
+  return streamLabel.isNotEmpty ? '$gradeLabel · $streamLabel' : gradeLabel;
+}
+```
+
+---
+
+#### Key implementation notes
+
+1. **`FontFeature`** — already used in `_SWDesktopMatrix._buildColHeader` in the
+   same file, so the import is already present. No new import needed.
+
+2. **Placement** — Delete the four old classes and insert the new block in the
+   same location in the file (between the Generate Lessons section and
+   `_RulesSheetResult`).
+
+3. **`gradeLabelsFor`** — already imported from `models/school_config.dart`.
+
+4. **`_colorForSubject`** — already defined earlier in the same file.
+
+5. **`formatDateFromDays`** — already imported from `core/academic_utils.dart`.
+
+6. **Do NOT touch** any Generate Lessons classes from Task 02
+   (`_GenerateLessonsDialog`, `_ScopeOptionCard`, `_GenerateLessonsFab`, etc.).
+
+7. **`_lessonDayLabel` weekday note**: `DateTime.weekday` returns 1=Mon…7=Sun.
+   `d.weekday % 7` maps: Mon→1, Tue→2, …, Sat→6, Sun→0. The `days` array is
+   `['Sun','Mon','Tue','Wed','Thu','Fri','Sat']` so index 0=Sun, 1=Mon…6=Sat —
+   this mapping is correct.
+
+8. After all edits, run diagnostics on the file and fix any errors before committing.
+
+---
+
+**After completion:**
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — update timetable section:
+  note `_LessonsTab` is now `StatefulWidget` with `config` param and three views
+  (`_LessonLogView`, `_LessonTeachersView`, `_LessonCoverageView`), plus
+  `_LessonStatsBar`, `_LessonViewSwitcher`, `_LessonDayHeader`, `_LessonLogRow`,
+  `_TeacherLessonSubRow`, `_LessonsEmptyState`, helpers `_lessonDayLabel` and
+  `_lessonClassLabel`
+- [x] Mark this task `[x]`
+- [x] Commit: `ui: redesign Lessons tab — Log/Teachers/Coverage views with stats bar`
