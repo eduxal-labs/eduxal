@@ -278,7 +278,7 @@ Note: `_PaperTimetableGrid` already uses `dateColWidth = 140` — no change need
 
 ---
 
-### Task 02: Redesign paper cell widgets in `exam_detail_page.dart`
+### [x] Task 02: Redesign paper cell widgets in `exam_detail_page.dart`
 
 **Files to modify:** `lib/ui/screens/school_dashboard/academics/exam_detail_page.dart`
 **Context files to read (if needed):** None — all context inlined below.

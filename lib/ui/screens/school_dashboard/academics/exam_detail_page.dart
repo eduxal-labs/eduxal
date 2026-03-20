@@ -2658,7 +2658,7 @@ class _PaperTimetableCard extends StatelessWidget {
                 ),
               ),
             ),
-            padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
             child: Row(
               children: [
                 Expanded(
@@ -2674,6 +2674,7 @@ class _PaperTimetableCard extends StatelessWidget {
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w500,
                                 color: cs.onSurface,
+                                height: 1.2,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -2713,18 +2714,32 @@ class _PaperTimetableCard extends StatelessWidget {
                           fontSize: 10.5,
                           fontWeight: FontWeight.w400,
                           color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                          height: 1.2,
                         ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 8),
-                _PaperStatusChip(status: paper.status, cs: cs),
-                const SizedBox(width: 4),
-                Icon(
-                  Icons.chevron_right,
-                  size: 16,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: statusColor.withValues(alpha: 0.75),
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: 16,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.35),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -2831,8 +2846,8 @@ class _PapersCrossTable extends StatelessWidget {
       return _buildEmpty(cs, 'No papers added to this exam yet');
     }
 
-    const double rowLabelWidth = 120;
-    const double colWidth = 152;
+    const double rowLabelWidth = 110;
+    const double colWidth = 140;
     final totalWidth = rowLabelWidth + dates.length * colWidth;
     final borderColor = cs.outlineVariant.withValues(
       alpha: isDark ? 0.15 : 0.2,
@@ -2954,19 +2969,20 @@ class _PapersCrossTable extends StatelessWidget {
                                     width: colWidth,
                                     child: Padding(
                                       padding: const EdgeInsets.symmetric(
-                                        horizontal: 4,
+                                        horizontal: 2,
                                       ),
                                       child: Container(
                                         constraints: const BoxConstraints(
-                                          minHeight: 68,
-                                          maxHeight: 68,
+                                          minHeight: 52,
                                         ),
                                         decoration: BoxDecoration(
                                           borderRadius: BorderRadius.circular(
-                                            AppTheme.kCardRadius,
+                                            AppTheme.kChipRadius,
                                           ),
                                           border: Border.all(
-                                            color: borderColor,
+                                            color: cs.outline.withValues(
+                                              alpha: isDark ? 0.06 : 0.08,
+                                            ),
                                             width: 1,
                                           ),
                                         ),
@@ -2979,7 +2995,7 @@ class _PapersCrossTable extends StatelessWidget {
                                   width: colWidth,
                                   child: Padding(
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 4,
+                                      horizontal: 2,
                                     ),
                                     child: Column(
                                       mainAxisSize: MainAxisSize.min,
@@ -2996,7 +3012,7 @@ class _PapersCrossTable extends StatelessWidget {
                                             borderColor,
                                           ),
                                           if (i < cellPapers.length - 1)
-                                            const SizedBox(height: 4),
+                                            const SizedBox(height: 3),
                                         ],
                                       ],
                                     ),
@@ -3027,7 +3043,7 @@ class _PapersCrossTable extends StatelessWidget {
     final subjectName =
         subjectNames[paper.subject] ?? 'Subject ${paper.subject}';
     final paperLabel = paper.paper != null && paper.paper! > 1
-        ? ' · Paper ${paper.paper}'
+        ? ' · P${paper.paper}'
         : '';
     final startMs = paper.start.toInt();
     final endMs = paper.end.toInt();
@@ -3041,58 +3057,49 @@ class _PapersCrossTable extends StatelessWidget {
     return InkWell(
       onTap: () => onTap(paper),
       splashFactory: NoSplash.splashFactory,
-      borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 68, maxHeight: 68),
-          decoration: BoxDecoration(
-            color: statusColor.withValues(alpha: 0.06),
-            border: Border(
-              left: BorderSide(color: statusColor, width: 2.5),
-              top: BorderSide(color: borderColor),
-              right: BorderSide(color: borderColor),
-              bottom: BorderSide(color: borderColor),
+      borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 52),
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: statusColor.withValues(alpha: isDark ? 0.12 : 0.08),
+          borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+          border: Border(
+            left: BorderSide(
+              color: statusColor.withValues(alpha: 0.65),
+              width: 2.5,
             ),
           ),
-          padding: const EdgeInsets.fromLTRB(8, 7, 8, 7),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '$subjectName$paperLabel',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: cs.onSurface,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '$subjectName$paperLabel',
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w500,
+                color: cs.onSurface,
+                height: 1.2,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (timeRange != null) ...[
               const SizedBox(height: 2),
-              if (timeUnset)
-                Text(
-                  'Time not set',
-                  style: TextStyle(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w400,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.45),
-                    fontStyle: FontStyle.italic,
-                  ),
-                )
-              else
-                Text(
-                  timeRange!,
-                  style: TextStyle(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w400,
-                    color: cs.onSurfaceVariant,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
+              Text(
+                timeRange,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                  height: 1.2,
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
+              ),
             ],
-          ),
+          ],
         ),
       ),
     );
