@@ -6562,7 +6562,7 @@ class _PaperSlotBox extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(4),
           child: Container(
-            constraints: const BoxConstraints(minHeight: 56),
+            constraints: const BoxConstraints(minHeight: 68, maxHeight: 68),
             decoration: BoxDecoration(
               color: statusColor.withValues(alpha: 0.06),
               border: Border(
@@ -6590,7 +6590,7 @@ class _PaperSlotBox extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                     color: cs.onSurface,
                   ),
-                  maxLines: 2,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
@@ -6644,7 +6644,7 @@ class _PaperEmptyCell extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Container(
-        constraints: const BoxConstraints(minHeight: 56),
+        constraints: const BoxConstraints(minHeight: 68, maxHeight: 68),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
@@ -6995,6 +6995,7 @@ class _PaperSlotCard extends StatelessWidget {
     );
     final endDt = DateTime.fromMillisecondsSinceEpoch(paper.end.toInt() * 1000);
     final timeRange = '${_fmtTime(startDt)} – ${_fmtTime(endDt)}';
+    final invDisplay = invigilatorName.isNotEmpty ? invigilatorName : '—';
 
     return InkWell(
       onTap: onTap,
@@ -7003,6 +7004,7 @@ class _PaperSlotCard extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(4),
         child: Container(
+          constraints: const BoxConstraints(minHeight: 68),
           decoration: BoxDecoration(
             color: statusColor.withValues(alpha: 0.06),
             border: Border(
@@ -7030,15 +7032,20 @@ class _PaperSlotCard extends StatelessWidget {
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Row(
                       children: [
-                        Text(
-                          subjectName,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: cs.onSurface,
+                        Expanded(
+                          child: Text(
+                            subjectName,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: cs.onSurface,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         if (paperLabel.isNotEmpty) ...[
@@ -7063,28 +7070,29 @@ class _PaperSlotCard extends StatelessWidget {
                         color: cs.onSurfaceVariant,
                       ),
                     ),
-                    if (invigilatorName.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        'Inv: $invigilatorName',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w400,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                        ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Inv: $invDisplay',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                       ),
-                    ],
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   _StatusChip(status: paper.status, cs: cs),
                   const SizedBox(height: 4),
                   Icon(
-                    Icons.chevron_right,
+                    Icons.chevron_right_rounded,
                     size: 16,
                     color: cs.onSurfaceVariant.withValues(alpha: 0.4),
                   ),
@@ -9136,6 +9144,7 @@ class _StatusChip extends StatelessWidget {
       PaperStatus.marked => ('Marked', AppTheme.brandGreen),
     };
     return Container(
+      constraints: const BoxConstraints(minWidth: 76),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
@@ -9143,6 +9152,7 @@ class _StatusChip extends StatelessWidget {
       ),
       child: Text(
         label,
+        textAlign: TextAlign.center,
         style: TextStyle(
           fontSize: 11.5,
           fontWeight: FontWeight.w500,

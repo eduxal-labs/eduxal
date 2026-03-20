@@ -28,7 +28,7 @@ Two screen paths display paper cards:
 
 ## Tasks
 
-### Task 01 [ ]: Fix paper card layout in `exams_grades_screen.dart`
+### Task 01 [x]: Fix paper card layout in `exams_grades_screen.dart`
 
 **Files to create/modify:** `lib/ui/screens/school_dashboard/exams/exams_grades_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`
