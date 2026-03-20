@@ -1903,7 +1903,7 @@ class _SubstitutePickerDialogState
 
 ---
 
-### Task 03: Redesign the Lessons tab — three view modes with meaningful structure
+### Task 03 [x]: Redesign the Lessons tab — three view modes with meaningful structure
 **Files to create/modify:** `eduxal/lib/ui/screens/school_dashboard/timetable/timetable_screen.dart`
 **Context files to read (if needed):** `eduxal/lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** none (self-contained UI change)
