@@ -471,7 +471,13 @@ enum SyncAction {
   addExamGrade(89),
   // ignore: deprecated_member_use_from_same_package
   @Deprecated('ExamGrades removed — grade/stream moved to papers')
-  removeExamGrade(90);
+  removeExamGrade(90),
+  // Scheme pages (marking scheme file sync)
+  uploadScheme(91),
+  deleteScheme(92),
+  // Answer pages (student answer sheet file sync)
+  uploadAnswerSheet(93),
+  deleteAnswerSheet(94);
 
   const SyncAction(this.value);
   final int value;

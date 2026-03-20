@@ -5396,12 +5396,16 @@ class DeletePaperPayload extends $pb.GeneratedMessage {
     $core.String? exam,
     $core.int? subject,
     $core.int? paper,
+    $core.int? grade,
+    $core.int? stream,
   }) {
     final result = create();
     if (school != null) result.school = school;
     if (exam != null) result.exam = exam;
     if (subject != null) result.subject = subject;
     if (paper != null) result.paper = paper;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
     return result;
   }
 
@@ -5422,6 +5426,8 @@ class DeletePaperPayload extends $pb.GeneratedMessage {
     ..aOS(2, _omitFieldNames ? '' : 'exam')
     ..aI(3, _omitFieldNames ? '' : 'subject')
     ..aI(4, _omitFieldNames ? '' : 'paper')
+    ..aI(5, _omitFieldNames ? '' : 'grade')
+    ..aI(6, _omitFieldNames ? '' : 'stream')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -5478,6 +5484,24 @@ class DeletePaperPayload extends $pb.GeneratedMessage {
   $core.bool hasPaper() => $_has(3);
   @$pb.TagNumber(4)
   void clearPaper() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get grade => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set grade($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasGrade() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearGrade() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get stream => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set stream($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasStream() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearStream() => $_clearField(6);
 }
 
 class GradeRecord extends $pb.GeneratedMessage {
@@ -9993,6 +10017,422 @@ class DeleteDiscountPayload extends $pb.GeneratedMessage {
   void clearGrade() => $_clearField(5);
 }
 
+/// Action 91: Replace/set scheme pages for a paper. Server deletes existing
+/// pages, creates new rows, returns presigned PUT URLs.
+class UploadSchemePayload extends $pb.GeneratedMessage {
+  factory UploadSchemePayload({
+    $core.String? school,
+    $core.String? exam,
+    $core.int? subject,
+    $core.int? paper,
+    $core.int? count,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (exam != null) result.exam = exam;
+    if (subject != null) result.subject = subject;
+    if (paper != null) result.paper = paper;
+    if (count != null) result.count = count;
+    return result;
+  }
+
+  UploadSchemePayload._();
+
+  factory UploadSchemePayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UploadSchemePayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UploadSchemePayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'exam')
+    ..aI(3, _omitFieldNames ? '' : 'subject')
+    ..aI(4, _omitFieldNames ? '' : 'paper')
+    ..aI(5, _omitFieldNames ? '' : 'count')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UploadSchemePayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UploadSchemePayload copyWith(void Function(UploadSchemePayload) updates) =>
+      super.copyWith((message) => updates(message as UploadSchemePayload))
+          as UploadSchemePayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UploadSchemePayload create() => UploadSchemePayload._();
+  @$core.override
+  UploadSchemePayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UploadSchemePayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UploadSchemePayload>(create);
+  static UploadSchemePayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get exam => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set exam($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasExam() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearExam() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get subject => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set subject($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSubject() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSubject() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get paper => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set paper($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasPaper() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearPaper() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get count => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set count($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasCount() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearCount() => $_clearField(5);
+}
+
+/// Action 92: Remove all scheme pages for a paper.
+class DeleteSchemePayload extends $pb.GeneratedMessage {
+  factory DeleteSchemePayload({
+    $core.String? school,
+    $core.String? exam,
+    $core.int? subject,
+    $core.int? paper,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (exam != null) result.exam = exam;
+    if (subject != null) result.subject = subject;
+    if (paper != null) result.paper = paper;
+    return result;
+  }
+
+  DeleteSchemePayload._();
+
+  factory DeleteSchemePayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteSchemePayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteSchemePayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'exam')
+    ..aI(3, _omitFieldNames ? '' : 'subject')
+    ..aI(4, _omitFieldNames ? '' : 'paper')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteSchemePayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteSchemePayload copyWith(void Function(DeleteSchemePayload) updates) =>
+      super.copyWith((message) => updates(message as DeleteSchemePayload))
+          as DeleteSchemePayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteSchemePayload create() => DeleteSchemePayload._();
+  @$core.override
+  DeleteSchemePayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteSchemePayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteSchemePayload>(create);
+  static DeleteSchemePayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get exam => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set exam($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasExam() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearExam() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get subject => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set subject($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSubject() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSubject() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get paper => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set paper($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasPaper() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearPaper() => $_clearField(4);
+}
+
+/// Action 93: Replace/set answer sheet pages for a student's paper.
+/// Server deletes existing pages, creates new rows, returns presigned PUT URLs.
+class UploadAnswerSheetPayload extends $pb.GeneratedMessage {
+  factory UploadAnswerSheetPayload({
+    $core.String? school,
+    $core.String? exam,
+    $core.int? student,
+    $core.int? subject,
+    $core.int? paper,
+    $core.int? count,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (exam != null) result.exam = exam;
+    if (student != null) result.student = student;
+    if (subject != null) result.subject = subject;
+    if (paper != null) result.paper = paper;
+    if (count != null) result.count = count;
+    return result;
+  }
+
+  UploadAnswerSheetPayload._();
+
+  factory UploadAnswerSheetPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory UploadAnswerSheetPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UploadAnswerSheetPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'exam')
+    ..aI(3, _omitFieldNames ? '' : 'student')
+    ..aI(4, _omitFieldNames ? '' : 'subject')
+    ..aI(5, _omitFieldNames ? '' : 'paper')
+    ..aI(6, _omitFieldNames ? '' : 'count')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UploadAnswerSheetPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UploadAnswerSheetPayload copyWith(
+          void Function(UploadAnswerSheetPayload) updates) =>
+      super.copyWith((message) => updates(message as UploadAnswerSheetPayload))
+          as UploadAnswerSheetPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static UploadAnswerSheetPayload create() => UploadAnswerSheetPayload._();
+  @$core.override
+  UploadAnswerSheetPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static UploadAnswerSheetPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UploadAnswerSheetPayload>(create);
+  static UploadAnswerSheetPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get exam => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set exam($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasExam() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearExam() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get student => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set student($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasStudent() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearStudent() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get subject => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set subject($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSubject() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSubject() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get paper => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set paper($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasPaper() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearPaper() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get count => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set count($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasCount() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearCount() => $_clearField(6);
+}
+
+/// Action 94: Remove all answer sheet pages for a student's paper.
+class DeleteAnswerSheetPayload extends $pb.GeneratedMessage {
+  factory DeleteAnswerSheetPayload({
+    $core.String? school,
+    $core.String? exam,
+    $core.int? student,
+    $core.int? subject,
+    $core.int? paper,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (exam != null) result.exam = exam;
+    if (student != null) result.student = student;
+    if (subject != null) result.subject = subject;
+    if (paper != null) result.paper = paper;
+    return result;
+  }
+
+  DeleteAnswerSheetPayload._();
+
+  factory DeleteAnswerSheetPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeleteAnswerSheetPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeleteAnswerSheetPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'exam')
+    ..aI(3, _omitFieldNames ? '' : 'student')
+    ..aI(4, _omitFieldNames ? '' : 'subject')
+    ..aI(5, _omitFieldNames ? '' : 'paper')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteAnswerSheetPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeleteAnswerSheetPayload copyWith(
+          void Function(DeleteAnswerSheetPayload) updates) =>
+      super.copyWith((message) => updates(message as DeleteAnswerSheetPayload))
+          as DeleteAnswerSheetPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeleteAnswerSheetPayload create() => DeleteAnswerSheetPayload._();
+  @$core.override
+  DeleteAnswerSheetPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeleteAnswerSheetPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeleteAnswerSheetPayload>(create);
+  static DeleteAnswerSheetPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get exam => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set exam($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasExam() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearExam() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get student => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set student($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasStudent() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearStudent() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get subject => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set subject($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSubject() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSubject() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get paper => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set paper($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasPaper() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearPaper() => $_clearField(5);
+}
+
 enum InsertData_Row {
   user,
   school,
@@ -10027,6 +10467,8 @@ enum InsertData_Row {
   topic,
   stream,
   mpesa,
+  schemePage,
+  answerPage,
   notSet
 }
 
@@ -10065,6 +10507,8 @@ class InsertData extends $pb.GeneratedMessage {
     TopicInsert? topic,
     StreamInsert? stream,
     MpesaInsert? mpesa,
+    SchemePageInsert? schemePage,
+    AnswerPageInsert? answerPage,
   }) {
     final result = create();
     if (user != null) result.user = user;
@@ -10100,6 +10544,8 @@ class InsertData extends $pb.GeneratedMessage {
     if (topic != null) result.topic = topic;
     if (stream != null) result.stream = stream;
     if (mpesa != null) result.mpesa = mpesa;
+    if (schemePage != null) result.schemePage = schemePage;
+    if (answerPage != null) result.answerPage = answerPage;
     return result;
   }
 
@@ -10146,6 +10592,8 @@ class InsertData extends $pb.GeneratedMessage {
     32: InsertData_Row.topic,
     33: InsertData_Row.stream,
     34: InsertData_Row.mpesa,
+    36: InsertData_Row.schemePage,
+    37: InsertData_Row.answerPage,
     0: InsertData_Row.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -10185,7 +10633,9 @@ class InsertData extends $pb.GeneratedMessage {
       31,
       32,
       33,
-      34
+      34,
+      36,
+      37
     ])
     ..aOM<UserInsert>(1, _omitFieldNames ? '' : 'user',
         subBuilder: UserInsert.create)
@@ -10253,6 +10703,10 @@ class InsertData extends $pb.GeneratedMessage {
         subBuilder: StreamInsert.create)
     ..aOM<MpesaInsert>(34, _omitFieldNames ? '' : 'mpesa',
         subBuilder: MpesaInsert.create)
+    ..aOM<SchemePageInsert>(36, _omitFieldNames ? '' : 'schemePage',
+        subBuilder: SchemePageInsert.create)
+    ..aOM<AnswerPageInsert>(37, _omitFieldNames ? '' : 'answerPage',
+        subBuilder: AnswerPageInsert.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -10306,6 +10760,8 @@ class InsertData extends $pb.GeneratedMessage {
   @$pb.TagNumber(32)
   @$pb.TagNumber(33)
   @$pb.TagNumber(34)
+  @$pb.TagNumber(36)
+  @$pb.TagNumber(37)
   InsertData_Row whichRow() => _InsertData_RowByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(1)
   @$pb.TagNumber(2)
@@ -10340,6 +10796,8 @@ class InsertData extends $pb.GeneratedMessage {
   @$pb.TagNumber(32)
   @$pb.TagNumber(33)
   @$pb.TagNumber(34)
+  @$pb.TagNumber(36)
+  @$pb.TagNumber(37)
   void clearRow() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -10704,6 +11162,29 @@ class InsertData extends $pb.GeneratedMessage {
   void clearMpesa() => $_clearField(34);
   @$pb.TagNumber(34)
   MpesaInsert ensureMpesa() => $_ensure(32);
+
+  /// ExamGradeInsert exam_grade = 35;  // REMOVED
+  @$pb.TagNumber(36)
+  SchemePageInsert get schemePage => $_getN(33);
+  @$pb.TagNumber(36)
+  set schemePage(SchemePageInsert value) => $_setField(36, value);
+  @$pb.TagNumber(36)
+  $core.bool hasSchemePage() => $_has(33);
+  @$pb.TagNumber(36)
+  void clearSchemePage() => $_clearField(36);
+  @$pb.TagNumber(36)
+  SchemePageInsert ensureSchemePage() => $_ensure(33);
+
+  @$pb.TagNumber(37)
+  AnswerPageInsert get answerPage => $_getN(34);
+  @$pb.TagNumber(37)
+  set answerPage(AnswerPageInsert value) => $_setField(37, value);
+  @$pb.TagNumber(37)
+  $core.bool hasAnswerPage() => $_has(34);
+  @$pb.TagNumber(37)
+  void clearAnswerPage() => $_clearField(37);
+  @$pb.TagNumber(37)
+  AnswerPageInsert ensureAnswerPage() => $_ensure(34);
 }
 
 class UserInsert extends $pb.GeneratedMessage {
@@ -14168,6 +14649,270 @@ class MpesaInsert extends $pb.GeneratedMessage {
   $core.bool hasEnv() => $_has(5);
   @$pb.TagNumber(6)
   void clearEnv() => $_clearField(6);
+}
+
+class SchemePageInsert extends $pb.GeneratedMessage {
+  factory SchemePageInsert({
+    $core.String? school,
+    $core.String? exam,
+    $core.int? subject,
+    $core.int? paper,
+    $core.int? page,
+    $core.String? key,
+    $fixnum.Int64? created,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (exam != null) result.exam = exam;
+    if (subject != null) result.subject = subject;
+    if (paper != null) result.paper = paper;
+    if (page != null) result.page = page;
+    if (key != null) result.key = key;
+    if (created != null) result.created = created;
+    return result;
+  }
+
+  SchemePageInsert._();
+
+  factory SchemePageInsert.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SchemePageInsert.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SchemePageInsert',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'exam')
+    ..aI(3, _omitFieldNames ? '' : 'subject')
+    ..aI(4, _omitFieldNames ? '' : 'paper')
+    ..aI(5, _omitFieldNames ? '' : 'page')
+    ..aOS(6, _omitFieldNames ? '' : 'key')
+    ..aInt64(7, _omitFieldNames ? '' : 'created')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SchemePageInsert clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SchemePageInsert copyWith(void Function(SchemePageInsert) updates) =>
+      super.copyWith((message) => updates(message as SchemePageInsert))
+          as SchemePageInsert;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SchemePageInsert create() => SchemePageInsert._();
+  @$core.override
+  SchemePageInsert createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SchemePageInsert getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SchemePageInsert>(create);
+  static SchemePageInsert? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get exam => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set exam($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasExam() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearExam() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get subject => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set subject($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSubject() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSubject() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get paper => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set paper($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasPaper() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearPaper() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get page => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set page($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasPage() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearPage() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get key => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set key($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasKey() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearKey() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $fixnum.Int64 get created => $_getI64(6);
+  @$pb.TagNumber(7)
+  set created($fixnum.Int64 value) => $_setInt64(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasCreated() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearCreated() => $_clearField(7);
+}
+
+class AnswerPageInsert extends $pb.GeneratedMessage {
+  factory AnswerPageInsert({
+    $core.String? school,
+    $core.String? exam,
+    $core.int? student,
+    $core.int? subject,
+    $core.int? paper,
+    $core.int? page,
+    $core.String? key,
+    $fixnum.Int64? created,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (exam != null) result.exam = exam;
+    if (student != null) result.student = student;
+    if (subject != null) result.subject = subject;
+    if (paper != null) result.paper = paper;
+    if (page != null) result.page = page;
+    if (key != null) result.key = key;
+    if (created != null) result.created = created;
+    return result;
+  }
+
+  AnswerPageInsert._();
+
+  factory AnswerPageInsert.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory AnswerPageInsert.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AnswerPageInsert',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'exam')
+    ..aI(3, _omitFieldNames ? '' : 'student')
+    ..aI(4, _omitFieldNames ? '' : 'subject')
+    ..aI(5, _omitFieldNames ? '' : 'paper')
+    ..aI(6, _omitFieldNames ? '' : 'page')
+    ..aOS(7, _omitFieldNames ? '' : 'key')
+    ..aInt64(8, _omitFieldNames ? '' : 'created')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AnswerPageInsert clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AnswerPageInsert copyWith(void Function(AnswerPageInsert) updates) =>
+      super.copyWith((message) => updates(message as AnswerPageInsert))
+          as AnswerPageInsert;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static AnswerPageInsert create() => AnswerPageInsert._();
+  @$core.override
+  AnswerPageInsert createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static AnswerPageInsert getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<AnswerPageInsert>(create);
+  static AnswerPageInsert? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get exam => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set exam($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasExam() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearExam() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get student => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set student($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasStudent() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearStudent() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get subject => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set subject($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSubject() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSubject() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get paper => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set paper($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasPaper() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearPaper() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get page => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set page($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasPage() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearPage() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get key => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set key($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasKey() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearKey() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $fixnum.Int64 get created => $_getI64(7);
+  @$pb.TagNumber(8)
+  set created($fixnum.Int64 value) => $_setInt64(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasCreated() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearCreated() => $_clearField(8);
 }
 
 class RoleInsert extends $pb.GeneratedMessage {

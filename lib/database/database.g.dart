@@ -16702,6 +16702,984 @@ class AiUsageCompanion extends UpdateCompanion<AiUsageData> {
   }
 }
 
+class $SchemePagesTable extends SchemePages
+    with TableInfo<$SchemePagesTable, SchemePage> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SchemePagesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _schoolMeta = const VerificationMeta('school');
+  @override
+  late final GeneratedColumn<String> school = GeneratedColumn<String>(
+    'school',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES schools (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _examMeta = const VerificationMeta('exam');
+  @override
+  late final GeneratedColumn<String> exam = GeneratedColumn<String>(
+    'exam',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES exams (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _subjectMeta = const VerificationMeta(
+    'subject',
+  );
+  @override
+  late final GeneratedColumn<int> subject = GeneratedColumn<int>(
+    'subject',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _paperMeta = const VerificationMeta('paper');
+  @override
+  late final GeneratedColumn<int> paper = GeneratedColumn<int>(
+    'paper',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pageMeta = const VerificationMeta('page');
+  @override
+  late final GeneratedColumn<int> page = GeneratedColumn<int>(
+    'page',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _keyMeta = const VerificationMeta('key');
+  @override
+  late final GeneratedColumn<String> key = GeneratedColumn<String>(
+    'key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdMeta = const VerificationMeta(
+    'created',
+  );
+  @override
+  late final GeneratedColumn<BigInt> created = GeneratedColumn<BigInt>(
+    'created',
+    aliasedName,
+    false,
+    type: DriftSqlType.bigInt,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    school,
+    exam,
+    subject,
+    paper,
+    page,
+    key,
+    created,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'scheme_pages';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SchemePage> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('school')) {
+      context.handle(
+        _schoolMeta,
+        school.isAcceptableOrUnknown(data['school']!, _schoolMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_schoolMeta);
+    }
+    if (data.containsKey('exam')) {
+      context.handle(
+        _examMeta,
+        exam.isAcceptableOrUnknown(data['exam']!, _examMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_examMeta);
+    }
+    if (data.containsKey('subject')) {
+      context.handle(
+        _subjectMeta,
+        subject.isAcceptableOrUnknown(data['subject']!, _subjectMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_subjectMeta);
+    }
+    if (data.containsKey('paper')) {
+      context.handle(
+        _paperMeta,
+        paper.isAcceptableOrUnknown(data['paper']!, _paperMeta),
+      );
+    }
+    if (data.containsKey('page')) {
+      context.handle(
+        _pageMeta,
+        page.isAcceptableOrUnknown(data['page']!, _pageMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_pageMeta);
+    }
+    if (data.containsKey('key')) {
+      context.handle(
+        _keyMeta,
+        key.isAcceptableOrUnknown(data['key']!, _keyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_keyMeta);
+    }
+    if (data.containsKey('created')) {
+      context.handle(
+        _createdMeta,
+        created.isAcceptableOrUnknown(data['created']!, _createdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => const {};
+  @override
+  SchemePage map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SchemePage(
+      school: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}school'],
+      )!,
+      exam: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}exam'],
+      )!,
+      subject: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}subject'],
+      )!,
+      paper: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}paper'],
+      ),
+      page: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}page'],
+      )!,
+      key: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}key'],
+      )!,
+      created: attachedDatabase.typeMapping.read(
+        DriftSqlType.bigInt,
+        data['${effectivePrefix}created'],
+      )!,
+    );
+  }
+
+  @override
+  $SchemePagesTable createAlias(String alias) {
+    return $SchemePagesTable(attachedDatabase, alias);
+  }
+}
+
+class SchemePage extends DataClass implements Insertable<SchemePage> {
+  final String school;
+  final String exam;
+  final int subject;
+  final int? paper;
+  final int page;
+  final String key;
+  final BigInt created;
+  const SchemePage({
+    required this.school,
+    required this.exam,
+    required this.subject,
+    this.paper,
+    required this.page,
+    required this.key,
+    required this.created,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['school'] = Variable<String>(school);
+    map['exam'] = Variable<String>(exam);
+    map['subject'] = Variable<int>(subject);
+    if (!nullToAbsent || paper != null) {
+      map['paper'] = Variable<int>(paper);
+    }
+    map['page'] = Variable<int>(page);
+    map['key'] = Variable<String>(key);
+    map['created'] = Variable<BigInt>(created);
+    return map;
+  }
+
+  SchemePagesCompanion toCompanion(bool nullToAbsent) {
+    return SchemePagesCompanion(
+      school: Value(school),
+      exam: Value(exam),
+      subject: Value(subject),
+      paper: paper == null && nullToAbsent
+          ? const Value.absent()
+          : Value(paper),
+      page: Value(page),
+      key: Value(key),
+      created: Value(created),
+    );
+  }
+
+  factory SchemePage.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SchemePage(
+      school: serializer.fromJson<String>(json['school']),
+      exam: serializer.fromJson<String>(json['exam']),
+      subject: serializer.fromJson<int>(json['subject']),
+      paper: serializer.fromJson<int?>(json['paper']),
+      page: serializer.fromJson<int>(json['page']),
+      key: serializer.fromJson<String>(json['key']),
+      created: serializer.fromJson<BigInt>(json['created']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'school': serializer.toJson<String>(school),
+      'exam': serializer.toJson<String>(exam),
+      'subject': serializer.toJson<int>(subject),
+      'paper': serializer.toJson<int?>(paper),
+      'page': serializer.toJson<int>(page),
+      'key': serializer.toJson<String>(key),
+      'created': serializer.toJson<BigInt>(created),
+    };
+  }
+
+  SchemePage copyWith({
+    String? school,
+    String? exam,
+    int? subject,
+    Value<int?> paper = const Value.absent(),
+    int? page,
+    String? key,
+    BigInt? created,
+  }) => SchemePage(
+    school: school ?? this.school,
+    exam: exam ?? this.exam,
+    subject: subject ?? this.subject,
+    paper: paper.present ? paper.value : this.paper,
+    page: page ?? this.page,
+    key: key ?? this.key,
+    created: created ?? this.created,
+  );
+  SchemePage copyWithCompanion(SchemePagesCompanion data) {
+    return SchemePage(
+      school: data.school.present ? data.school.value : this.school,
+      exam: data.exam.present ? data.exam.value : this.exam,
+      subject: data.subject.present ? data.subject.value : this.subject,
+      paper: data.paper.present ? data.paper.value : this.paper,
+      page: data.page.present ? data.page.value : this.page,
+      key: data.key.present ? data.key.value : this.key,
+      created: data.created.present ? data.created.value : this.created,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SchemePage(')
+          ..write('school: $school, ')
+          ..write('exam: $exam, ')
+          ..write('subject: $subject, ')
+          ..write('paper: $paper, ')
+          ..write('page: $page, ')
+          ..write('key: $key, ')
+          ..write('created: $created')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(school, exam, subject, paper, page, key, created);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SchemePage &&
+          other.school == this.school &&
+          other.exam == this.exam &&
+          other.subject == this.subject &&
+          other.paper == this.paper &&
+          other.page == this.page &&
+          other.key == this.key &&
+          other.created == this.created);
+}
+
+class SchemePagesCompanion extends UpdateCompanion<SchemePage> {
+  final Value<String> school;
+  final Value<String> exam;
+  final Value<int> subject;
+  final Value<int?> paper;
+  final Value<int> page;
+  final Value<String> key;
+  final Value<BigInt> created;
+  final Value<int> rowid;
+  const SchemePagesCompanion({
+    this.school = const Value.absent(),
+    this.exam = const Value.absent(),
+    this.subject = const Value.absent(),
+    this.paper = const Value.absent(),
+    this.page = const Value.absent(),
+    this.key = const Value.absent(),
+    this.created = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SchemePagesCompanion.insert({
+    required String school,
+    required String exam,
+    required int subject,
+    this.paper = const Value.absent(),
+    required int page,
+    required String key,
+    required BigInt created,
+    this.rowid = const Value.absent(),
+  }) : school = Value(school),
+       exam = Value(exam),
+       subject = Value(subject),
+       page = Value(page),
+       key = Value(key),
+       created = Value(created);
+  static Insertable<SchemePage> custom({
+    Expression<String>? school,
+    Expression<String>? exam,
+    Expression<int>? subject,
+    Expression<int>? paper,
+    Expression<int>? page,
+    Expression<String>? key,
+    Expression<BigInt>? created,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (school != null) 'school': school,
+      if (exam != null) 'exam': exam,
+      if (subject != null) 'subject': subject,
+      if (paper != null) 'paper': paper,
+      if (page != null) 'page': page,
+      if (key != null) 'key': key,
+      if (created != null) 'created': created,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SchemePagesCompanion copyWith({
+    Value<String>? school,
+    Value<String>? exam,
+    Value<int>? subject,
+    Value<int?>? paper,
+    Value<int>? page,
+    Value<String>? key,
+    Value<BigInt>? created,
+    Value<int>? rowid,
+  }) {
+    return SchemePagesCompanion(
+      school: school ?? this.school,
+      exam: exam ?? this.exam,
+      subject: subject ?? this.subject,
+      paper: paper ?? this.paper,
+      page: page ?? this.page,
+      key: key ?? this.key,
+      created: created ?? this.created,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (school.present) {
+      map['school'] = Variable<String>(school.value);
+    }
+    if (exam.present) {
+      map['exam'] = Variable<String>(exam.value);
+    }
+    if (subject.present) {
+      map['subject'] = Variable<int>(subject.value);
+    }
+    if (paper.present) {
+      map['paper'] = Variable<int>(paper.value);
+    }
+    if (page.present) {
+      map['page'] = Variable<int>(page.value);
+    }
+    if (key.present) {
+      map['key'] = Variable<String>(key.value);
+    }
+    if (created.present) {
+      map['created'] = Variable<BigInt>(created.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SchemePagesCompanion(')
+          ..write('school: $school, ')
+          ..write('exam: $exam, ')
+          ..write('subject: $subject, ')
+          ..write('paper: $paper, ')
+          ..write('page: $page, ')
+          ..write('key: $key, ')
+          ..write('created: $created, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $AnswerPagesTable extends AnswerPages
+    with TableInfo<$AnswerPagesTable, AnswerPage> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AnswerPagesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _schoolMeta = const VerificationMeta('school');
+  @override
+  late final GeneratedColumn<String> school = GeneratedColumn<String>(
+    'school',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES schools (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _examMeta = const VerificationMeta('exam');
+  @override
+  late final GeneratedColumn<String> exam = GeneratedColumn<String>(
+    'exam',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES exams (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _studentMeta = const VerificationMeta(
+    'student',
+  );
+  @override
+  late final GeneratedColumn<int> student = GeneratedColumn<int>(
+    'student',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _subjectMeta = const VerificationMeta(
+    'subject',
+  );
+  @override
+  late final GeneratedColumn<int> subject = GeneratedColumn<int>(
+    'subject',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _paperMeta = const VerificationMeta('paper');
+  @override
+  late final GeneratedColumn<int> paper = GeneratedColumn<int>(
+    'paper',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pageMeta = const VerificationMeta('page');
+  @override
+  late final GeneratedColumn<int> page = GeneratedColumn<int>(
+    'page',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _keyMeta = const VerificationMeta('key');
+  @override
+  late final GeneratedColumn<String> key = GeneratedColumn<String>(
+    'key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdMeta = const VerificationMeta(
+    'created',
+  );
+  @override
+  late final GeneratedColumn<BigInt> created = GeneratedColumn<BigInt>(
+    'created',
+    aliasedName,
+    false,
+    type: DriftSqlType.bigInt,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    school,
+    exam,
+    student,
+    subject,
+    paper,
+    page,
+    key,
+    created,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'answer_pages';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AnswerPage> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('school')) {
+      context.handle(
+        _schoolMeta,
+        school.isAcceptableOrUnknown(data['school']!, _schoolMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_schoolMeta);
+    }
+    if (data.containsKey('exam')) {
+      context.handle(
+        _examMeta,
+        exam.isAcceptableOrUnknown(data['exam']!, _examMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_examMeta);
+    }
+    if (data.containsKey('student')) {
+      context.handle(
+        _studentMeta,
+        student.isAcceptableOrUnknown(data['student']!, _studentMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_studentMeta);
+    }
+    if (data.containsKey('subject')) {
+      context.handle(
+        _subjectMeta,
+        subject.isAcceptableOrUnknown(data['subject']!, _subjectMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_subjectMeta);
+    }
+    if (data.containsKey('paper')) {
+      context.handle(
+        _paperMeta,
+        paper.isAcceptableOrUnknown(data['paper']!, _paperMeta),
+      );
+    }
+    if (data.containsKey('page')) {
+      context.handle(
+        _pageMeta,
+        page.isAcceptableOrUnknown(data['page']!, _pageMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_pageMeta);
+    }
+    if (data.containsKey('key')) {
+      context.handle(
+        _keyMeta,
+        key.isAcceptableOrUnknown(data['key']!, _keyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_keyMeta);
+    }
+    if (data.containsKey('created')) {
+      context.handle(
+        _createdMeta,
+        created.isAcceptableOrUnknown(data['created']!, _createdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => const {};
+  @override
+  AnswerPage map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AnswerPage(
+      school: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}school'],
+      )!,
+      exam: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}exam'],
+      )!,
+      student: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}student'],
+      )!,
+      subject: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}subject'],
+      )!,
+      paper: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}paper'],
+      ),
+      page: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}page'],
+      )!,
+      key: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}key'],
+      )!,
+      created: attachedDatabase.typeMapping.read(
+        DriftSqlType.bigInt,
+        data['${effectivePrefix}created'],
+      )!,
+    );
+  }
+
+  @override
+  $AnswerPagesTable createAlias(String alias) {
+    return $AnswerPagesTable(attachedDatabase, alias);
+  }
+}
+
+class AnswerPage extends DataClass implements Insertable<AnswerPage> {
+  final String school;
+  final String exam;
+
+  /// Student admission number.
+  final int student;
+
+  /// FK → subjects.id
+  final int subject;
+
+  /// Paper number (1, 2, 3…) or NULL for single-paper subjects.
+  final int? paper;
+
+  /// 0-based page index within this student's answer sheet for the paper.
+  final int page;
+
+  /// S3 object key for the answer page image. Used to derive a presigned GET
+  /// URL when downloading via [FileCache.download].
+  final String key;
+
+  /// Server-side creation timestamp (milliseconds since epoch).
+  final BigInt created;
+  const AnswerPage({
+    required this.school,
+    required this.exam,
+    required this.student,
+    required this.subject,
+    this.paper,
+    required this.page,
+    required this.key,
+    required this.created,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['school'] = Variable<String>(school);
+    map['exam'] = Variable<String>(exam);
+    map['student'] = Variable<int>(student);
+    map['subject'] = Variable<int>(subject);
+    if (!nullToAbsent || paper != null) {
+      map['paper'] = Variable<int>(paper);
+    }
+    map['page'] = Variable<int>(page);
+    map['key'] = Variable<String>(key);
+    map['created'] = Variable<BigInt>(created);
+    return map;
+  }
+
+  AnswerPagesCompanion toCompanion(bool nullToAbsent) {
+    return AnswerPagesCompanion(
+      school: Value(school),
+      exam: Value(exam),
+      student: Value(student),
+      subject: Value(subject),
+      paper: paper == null && nullToAbsent
+          ? const Value.absent()
+          : Value(paper),
+      page: Value(page),
+      key: Value(key),
+      created: Value(created),
+    );
+  }
+
+  factory AnswerPage.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AnswerPage(
+      school: serializer.fromJson<String>(json['school']),
+      exam: serializer.fromJson<String>(json['exam']),
+      student: serializer.fromJson<int>(json['student']),
+      subject: serializer.fromJson<int>(json['subject']),
+      paper: serializer.fromJson<int?>(json['paper']),
+      page: serializer.fromJson<int>(json['page']),
+      key: serializer.fromJson<String>(json['key']),
+      created: serializer.fromJson<BigInt>(json['created']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'school': serializer.toJson<String>(school),
+      'exam': serializer.toJson<String>(exam),
+      'student': serializer.toJson<int>(student),
+      'subject': serializer.toJson<int>(subject),
+      'paper': serializer.toJson<int?>(paper),
+      'page': serializer.toJson<int>(page),
+      'key': serializer.toJson<String>(key),
+      'created': serializer.toJson<BigInt>(created),
+    };
+  }
+
+  AnswerPage copyWith({
+    String? school,
+    String? exam,
+    int? student,
+    int? subject,
+    Value<int?> paper = const Value.absent(),
+    int? page,
+    String? key,
+    BigInt? created,
+  }) => AnswerPage(
+    school: school ?? this.school,
+    exam: exam ?? this.exam,
+    student: student ?? this.student,
+    subject: subject ?? this.subject,
+    paper: paper.present ? paper.value : this.paper,
+    page: page ?? this.page,
+    key: key ?? this.key,
+    created: created ?? this.created,
+  );
+  AnswerPage copyWithCompanion(AnswerPagesCompanion data) {
+    return AnswerPage(
+      school: data.school.present ? data.school.value : this.school,
+      exam: data.exam.present ? data.exam.value : this.exam,
+      student: data.student.present ? data.student.value : this.student,
+      subject: data.subject.present ? data.subject.value : this.subject,
+      paper: data.paper.present ? data.paper.value : this.paper,
+      page: data.page.present ? data.page.value : this.page,
+      key: data.key.present ? data.key.value : this.key,
+      created: data.created.present ? data.created.value : this.created,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AnswerPage(')
+          ..write('school: $school, ')
+          ..write('exam: $exam, ')
+          ..write('student: $student, ')
+          ..write('subject: $subject, ')
+          ..write('paper: $paper, ')
+          ..write('page: $page, ')
+          ..write('key: $key, ')
+          ..write('created: $created')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(school, exam, student, subject, paper, page, key, created);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AnswerPage &&
+          other.school == this.school &&
+          other.exam == this.exam &&
+          other.student == this.student &&
+          other.subject == this.subject &&
+          other.paper == this.paper &&
+          other.page == this.page &&
+          other.key == this.key &&
+          other.created == this.created);
+}
+
+class AnswerPagesCompanion extends UpdateCompanion<AnswerPage> {
+  final Value<String> school;
+  final Value<String> exam;
+  final Value<int> student;
+  final Value<int> subject;
+  final Value<int?> paper;
+  final Value<int> page;
+  final Value<String> key;
+  final Value<BigInt> created;
+  final Value<int> rowid;
+  const AnswerPagesCompanion({
+    this.school = const Value.absent(),
+    this.exam = const Value.absent(),
+    this.student = const Value.absent(),
+    this.subject = const Value.absent(),
+    this.paper = const Value.absent(),
+    this.page = const Value.absent(),
+    this.key = const Value.absent(),
+    this.created = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AnswerPagesCompanion.insert({
+    required String school,
+    required String exam,
+    required int student,
+    required int subject,
+    this.paper = const Value.absent(),
+    required int page,
+    required String key,
+    required BigInt created,
+    this.rowid = const Value.absent(),
+  }) : school = Value(school),
+       exam = Value(exam),
+       student = Value(student),
+       subject = Value(subject),
+       page = Value(page),
+       key = Value(key),
+       created = Value(created);
+  static Insertable<AnswerPage> custom({
+    Expression<String>? school,
+    Expression<String>? exam,
+    Expression<int>? student,
+    Expression<int>? subject,
+    Expression<int>? paper,
+    Expression<int>? page,
+    Expression<String>? key,
+    Expression<BigInt>? created,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (school != null) 'school': school,
+      if (exam != null) 'exam': exam,
+      if (student != null) 'student': student,
+      if (subject != null) 'subject': subject,
+      if (paper != null) 'paper': paper,
+      if (page != null) 'page': page,
+      if (key != null) 'key': key,
+      if (created != null) 'created': created,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AnswerPagesCompanion copyWith({
+    Value<String>? school,
+    Value<String>? exam,
+    Value<int>? student,
+    Value<int>? subject,
+    Value<int?>? paper,
+    Value<int>? page,
+    Value<String>? key,
+    Value<BigInt>? created,
+    Value<int>? rowid,
+  }) {
+    return AnswerPagesCompanion(
+      school: school ?? this.school,
+      exam: exam ?? this.exam,
+      student: student ?? this.student,
+      subject: subject ?? this.subject,
+      paper: paper ?? this.paper,
+      page: page ?? this.page,
+      key: key ?? this.key,
+      created: created ?? this.created,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (school.present) {
+      map['school'] = Variable<String>(school.value);
+    }
+    if (exam.present) {
+      map['exam'] = Variable<String>(exam.value);
+    }
+    if (student.present) {
+      map['student'] = Variable<int>(student.value);
+    }
+    if (subject.present) {
+      map['subject'] = Variable<int>(subject.value);
+    }
+    if (paper.present) {
+      map['paper'] = Variable<int>(paper.value);
+    }
+    if (page.present) {
+      map['page'] = Variable<int>(page.value);
+    }
+    if (key.present) {
+      map['key'] = Variable<String>(key.value);
+    }
+    if (created.present) {
+      map['created'] = Variable<BigInt>(created.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AnswerPagesCompanion(')
+          ..write('school: $school, ')
+          ..write('exam: $exam, ')
+          ..write('student: $student, ')
+          ..write('subject: $subject, ')
+          ..write('paper: $paper, ')
+          ..write('page: $page, ')
+          ..write('key: $key, ')
+          ..write('created: $created, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $ScopesTable extends Scopes with TableInfo<$ScopesTable, Scope> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -19506,6 +20484,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $AnnouncementsTable announcements = $AnnouncementsTable(this);
   late final $MasteryTable mastery = $MasteryTable(this);
   late final $AiUsageTable aiUsage = $AiUsageTable(this);
+  late final $SchemePagesTable schemePages = $SchemePagesTable(this);
+  late final $AnswerPagesTable answerPages = $AnswerPagesTable(this);
   late final $ScopesTable scopes = $ScopesTable(this);
   late final $SubscriptionsTable subscriptions = $SubscriptionsTable(this);
   late final $DiscountsTable discounts = $DiscountsTable(this);
@@ -19580,6 +20560,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     announcements,
     mastery,
     aiUsage,
+    schemePages,
+    answerPages,
     scopes,
     subscriptions,
     discounts,
@@ -19853,6 +20835,34 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('aiusage', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'schools',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('scheme_pages', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'exams',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('scheme_pages', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'schools',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('answer_pages', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'exams',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('answer_pages', kind: UpdateKind.delete)],
     ),
     WritePropagation(
       on: TableUpdateQuery.onTableName(
@@ -21529,6 +22539,42 @@ final class $$SchoolsTableReferences
     );
   }
 
+  static MultiTypedResultKey<$SchemePagesTable, List<SchemePage>>
+  _schemePagesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.schemePages,
+    aliasName: $_aliasNameGenerator(db.schools.id, db.schemePages.school),
+  );
+
+  $$SchemePagesTableProcessedTableManager get schemePagesRefs {
+    final manager = $$SchemePagesTableTableManager(
+      $_db,
+      $_db.schemePages,
+    ).filter((f) => f.school.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_schemePagesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$AnswerPagesTable, List<AnswerPage>>
+  _answerPagesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.answerPages,
+    aliasName: $_aliasNameGenerator(db.schools.id, db.answerPages.school),
+  );
+
+  $$AnswerPagesTableProcessedTableManager get answerPagesRefs {
+    final manager = $$AnswerPagesTableTableManager(
+      $_db,
+      $_db.answerPages,
+    ).filter((f) => f.school.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_answerPagesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
   static MultiTypedResultKey<$ScopesTable, List<Scope>> _scopesRefsTable(
     _$AppDatabase db,
   ) => MultiTypedResultKey.fromTable(
@@ -22266,6 +23312,56 @@ class $$SchoolsTableFilterComposer
           }) => $$AiUsageTableFilterComposer(
             $db: $db,
             $table: $db.aiUsage,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> schemePagesRefs(
+    Expression<bool> Function($$SchemePagesTableFilterComposer f) f,
+  ) {
+    final $$SchemePagesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.schemePages,
+      getReferencedColumn: (t) => t.school,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SchemePagesTableFilterComposer(
+            $db: $db,
+            $table: $db.schemePages,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> answerPagesRefs(
+    Expression<bool> Function($$AnswerPagesTableFilterComposer f) f,
+  ) {
+    final $$AnswerPagesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.answerPages,
+      getReferencedColumn: (t) => t.school,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AnswerPagesTableFilterComposer(
+            $db: $db,
+            $table: $db.answerPages,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -23085,6 +24181,56 @@ class $$SchoolsTableAnnotationComposer
     return f(composer);
   }
 
+  Expression<T> schemePagesRefs<T extends Object>(
+    Expression<T> Function($$SchemePagesTableAnnotationComposer a) f,
+  ) {
+    final $$SchemePagesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.schemePages,
+      getReferencedColumn: (t) => t.school,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SchemePagesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.schemePages,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> answerPagesRefs<T extends Object>(
+    Expression<T> Function($$AnswerPagesTableAnnotationComposer a) f,
+  ) {
+    final $$AnswerPagesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.answerPages,
+      getReferencedColumn: (t) => t.school,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AnswerPagesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.answerPages,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
   Expression<T> scopesRefs<T extends Object>(
     Expression<T> Function($$ScopesTableAnnotationComposer a) f,
   ) {
@@ -23200,6 +24346,8 @@ class $$SchoolsTableTableManager
             bool announcementsRefs,
             bool masteryRefs,
             bool aiUsageRefs,
+            bool schemePagesRefs,
+            bool answerPagesRefs,
             bool scopesRefs,
             bool subscriptionsRefs,
             bool discountsRefs,
@@ -23307,6 +24455,8 @@ class $$SchoolsTableTableManager
                 announcementsRefs = false,
                 masteryRefs = false,
                 aiUsageRefs = false,
+                schemePagesRefs = false,
+                answerPagesRefs = false,
                 scopesRefs = false,
                 subscriptionsRefs = false,
                 discountsRefs = false,
@@ -23339,6 +24489,8 @@ class $$SchoolsTableTableManager
                     if (announcementsRefs) db.announcements,
                     if (masteryRefs) db.mastery,
                     if (aiUsageRefs) db.aiUsage,
+                    if (schemePagesRefs) db.schemePages,
+                    if (answerPagesRefs) db.answerPages,
                     if (scopesRefs) db.scopes,
                     if (subscriptionsRefs) db.subscriptions,
                     if (discountsRefs) db.discounts,
@@ -23847,6 +24999,48 @@ class $$SchoolsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (schemePagesRefs)
+                        await $_getPrefetchedData<
+                          SchoolsData,
+                          $SchoolsTable,
+                          SchemePage
+                        >(
+                          currentTable: table,
+                          referencedTable: $$SchoolsTableReferences
+                              ._schemePagesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$SchoolsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).schemePagesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.school == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (answerPagesRefs)
+                        await $_getPrefetchedData<
+                          SchoolsData,
+                          $SchoolsTable,
+                          AnswerPage
+                        >(
+                          currentTable: table,
+                          referencedTable: $$SchoolsTableReferences
+                              ._answerPagesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$SchoolsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).answerPagesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.school == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                       if (scopesRefs)
                         await $_getPrefetchedData<
                           SchoolsData,
@@ -23956,6 +25150,8 @@ typedef $$SchoolsTableProcessedTableManager =
         bool announcementsRefs,
         bool masteryRefs,
         bool aiUsageRefs,
+        bool schemePagesRefs,
+        bool answerPagesRefs,
         bool scopesRefs,
         bool subscriptionsRefs,
         bool discountsRefs,
@@ -31792,6 +32988,42 @@ final class $$ExamsTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$SchemePagesTable, List<SchemePage>>
+  _schemePagesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.schemePages,
+    aliasName: $_aliasNameGenerator(db.exams.id, db.schemePages.exam),
+  );
+
+  $$SchemePagesTableProcessedTableManager get schemePagesRefs {
+    final manager = $$SchemePagesTableTableManager(
+      $_db,
+      $_db.schemePages,
+    ).filter((f) => f.exam.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_schemePagesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$AnswerPagesTable, List<AnswerPage>>
+  _answerPagesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.answerPages,
+    aliasName: $_aliasNameGenerator(db.exams.id, db.answerPages.exam),
+  );
+
+  $$AnswerPagesTableProcessedTableManager get answerPagesRefs {
+    final manager = $$AnswerPagesTableTableManager(
+      $_db,
+      $_db.answerPages,
+    ).filter((f) => f.exam.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_answerPagesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$ExamsTableFilterComposer extends Composer<_$AppDatabase, $ExamsTable> {
@@ -31897,6 +33129,56 @@ class $$ExamsTableFilterComposer extends Composer<_$AppDatabase, $ExamsTable> {
           }) => $$PapersTableFilterComposer(
             $db: $db,
             $table: $db.papers,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> schemePagesRefs(
+    Expression<bool> Function($$SchemePagesTableFilterComposer f) f,
+  ) {
+    final $$SchemePagesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.schemePages,
+      getReferencedColumn: (t) => t.exam,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SchemePagesTableFilterComposer(
+            $db: $db,
+            $table: $db.schemePages,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> answerPagesRefs(
+    Expression<bool> Function($$AnswerPagesTableFilterComposer f) f,
+  ) {
+    final $$AnswerPagesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.answerPages,
+      getReferencedColumn: (t) => t.exam,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AnswerPagesTableFilterComposer(
+            $db: $db,
+            $table: $db.answerPages,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -32086,6 +33368,56 @@ class $$ExamsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> schemePagesRefs<T extends Object>(
+    Expression<T> Function($$SchemePagesTableAnnotationComposer a) f,
+  ) {
+    final $$SchemePagesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.schemePages,
+      getReferencedColumn: (t) => t.exam,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SchemePagesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.schemePages,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> answerPagesRefs<T extends Object>(
+    Expression<T> Function($$AnswerPagesTableAnnotationComposer a) f,
+  ) {
+    final $$AnswerPagesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.answerPages,
+      getReferencedColumn: (t) => t.exam,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AnswerPagesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.answerPages,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$ExamsTableTableManager
@@ -32101,7 +33433,12 @@ class $$ExamsTableTableManager
           $$ExamsTableUpdateCompanionBuilder,
           (Exam, $$ExamsTableReferences),
           Exam,
-          PrefetchHooks Function({bool school, bool papersRefs})
+          PrefetchHooks Function({
+            bool school,
+            bool papersRefs,
+            bool schemePagesRefs,
+            bool answerPagesRefs,
+          })
         > {
   $$ExamsTableTableManager(_$AppDatabase db, $ExamsTable table)
     : super(
@@ -32180,60 +33517,113 @@ class $$ExamsTableTableManager
                     (e.readTable(table), $$ExamsTableReferences(db, table, e)),
               )
               .toList(),
-          prefetchHooksCallback: ({school = false, papersRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [if (papersRefs) db.papers],
-              addJoins:
-                  <
-                    T extends TableManagerState<
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic
-                    >
-                  >(state) {
-                    if (school) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.school,
-                                referencedTable: $$ExamsTableReferences
-                                    ._schoolTable(db),
-                                referencedColumn: $$ExamsTableReferences
-                                    ._schoolTable(db)
-                                    .id,
-                              )
-                              as T;
-                    }
+          prefetchHooksCallback:
+              ({
+                school = false,
+                papersRefs = false,
+                schemePagesRefs = false,
+                answerPagesRefs = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (papersRefs) db.papers,
+                    if (schemePagesRefs) db.schemePages,
+                    if (answerPagesRefs) db.answerPages,
+                  ],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (school) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.school,
+                                    referencedTable: $$ExamsTableReferences
+                                        ._schoolTable(db),
+                                    referencedColumn: $$ExamsTableReferences
+                                        ._schoolTable(db)
+                                        .id,
+                                  )
+                                  as T;
+                        }
 
-                    return state;
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (papersRefs)
+                        await $_getPrefetchedData<Exam, $ExamsTable, Paper>(
+                          currentTable: table,
+                          referencedTable: $$ExamsTableReferences
+                              ._papersRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$ExamsTableReferences(db, table, p0).papersRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.exam == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (schemePagesRefs)
+                        await $_getPrefetchedData<
+                          Exam,
+                          $ExamsTable,
+                          SchemePage
+                        >(
+                          currentTable: table,
+                          referencedTable: $$ExamsTableReferences
+                              ._schemePagesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$ExamsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).schemePagesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.exam == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (answerPagesRefs)
+                        await $_getPrefetchedData<
+                          Exam,
+                          $ExamsTable,
+                          AnswerPage
+                        >(
+                          currentTable: table,
+                          referencedTable: $$ExamsTableReferences
+                              ._answerPagesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$ExamsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).answerPagesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.exam == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
                   },
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (papersRefs)
-                    await $_getPrefetchedData<Exam, $ExamsTable, Paper>(
-                      currentTable: table,
-                      referencedTable: $$ExamsTableReferences._papersRefsTable(
-                        db,
-                      ),
-                      managerFromTypedResult: (p0) =>
-                          $$ExamsTableReferences(db, table, p0).papersRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.exam == item.id),
-                      typedResults: items,
-                    ),
-                ];
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -32250,7 +33640,12 @@ typedef $$ExamsTableProcessedTableManager =
       $$ExamsTableUpdateCompanionBuilder,
       (Exam, $$ExamsTableReferences),
       Exam,
-      PrefetchHooks Function({bool school, bool papersRefs})
+      PrefetchHooks Function({
+        bool school,
+        bool papersRefs,
+        bool schemePagesRefs,
+        bool answerPagesRefs,
+      })
     >;
 typedef $$PapersTableCreateCompanionBuilder =
     PapersCompanion Function({
@@ -36735,6 +38130,911 @@ typedef $$AiUsageTableProcessedTableManager =
       AiUsageData,
       PrefetchHooks Function({bool school})
     >;
+typedef $$SchemePagesTableCreateCompanionBuilder =
+    SchemePagesCompanion Function({
+      required String school,
+      required String exam,
+      required int subject,
+      Value<int?> paper,
+      required int page,
+      required String key,
+      required BigInt created,
+      Value<int> rowid,
+    });
+typedef $$SchemePagesTableUpdateCompanionBuilder =
+    SchemePagesCompanion Function({
+      Value<String> school,
+      Value<String> exam,
+      Value<int> subject,
+      Value<int?> paper,
+      Value<int> page,
+      Value<String> key,
+      Value<BigInt> created,
+      Value<int> rowid,
+    });
+
+final class $$SchemePagesTableReferences
+    extends BaseReferences<_$AppDatabase, $SchemePagesTable, SchemePage> {
+  $$SchemePagesTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $SchoolsTable _schoolTable(_$AppDatabase db) => db.schools.createAlias(
+    $_aliasNameGenerator(db.schemePages.school, db.schools.id),
+  );
+
+  $$SchoolsTableProcessedTableManager get school {
+    final $_column = $_itemColumn<String>('school')!;
+
+    final manager = $$SchoolsTableTableManager(
+      $_db,
+      $_db.schools,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_schoolTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $ExamsTable _examTable(_$AppDatabase db) => db.exams.createAlias(
+    $_aliasNameGenerator(db.schemePages.exam, db.exams.id),
+  );
+
+  $$ExamsTableProcessedTableManager get exam {
+    final $_column = $_itemColumn<String>('exam')!;
+
+    final manager = $$ExamsTableTableManager(
+      $_db,
+      $_db.exams,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_examTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$SchemePagesTableFilterComposer
+    extends Composer<_$AppDatabase, $SchemePagesTable> {
+  $$SchemePagesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get subject => $composableBuilder(
+    column: $table.subject,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get paper => $composableBuilder(
+    column: $table.paper,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get page => $composableBuilder(
+    column: $table.page,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<BigInt> get created => $composableBuilder(
+    column: $table.created,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$SchoolsTableFilterComposer get school {
+    final $$SchoolsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.school,
+      referencedTable: $db.schools,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SchoolsTableFilterComposer(
+            $db: $db,
+            $table: $db.schools,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ExamsTableFilterComposer get exam {
+    final $$ExamsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.exam,
+      referencedTable: $db.exams,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExamsTableFilterComposer(
+            $db: $db,
+            $table: $db.exams,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$SchemePagesTableOrderingComposer
+    extends Composer<_$AppDatabase, $SchemePagesTable> {
+  $$SchemePagesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get subject => $composableBuilder(
+    column: $table.subject,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get paper => $composableBuilder(
+    column: $table.paper,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get page => $composableBuilder(
+    column: $table.page,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<BigInt> get created => $composableBuilder(
+    column: $table.created,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$SchoolsTableOrderingComposer get school {
+    final $$SchoolsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.school,
+      referencedTable: $db.schools,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SchoolsTableOrderingComposer(
+            $db: $db,
+            $table: $db.schools,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ExamsTableOrderingComposer get exam {
+    final $$ExamsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.exam,
+      referencedTable: $db.exams,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExamsTableOrderingComposer(
+            $db: $db,
+            $table: $db.exams,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$SchemePagesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SchemePagesTable> {
+  $$SchemePagesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get subject =>
+      $composableBuilder(column: $table.subject, builder: (column) => column);
+
+  GeneratedColumn<int> get paper =>
+      $composableBuilder(column: $table.paper, builder: (column) => column);
+
+  GeneratedColumn<int> get page =>
+      $composableBuilder(column: $table.page, builder: (column) => column);
+
+  GeneratedColumn<String> get key =>
+      $composableBuilder(column: $table.key, builder: (column) => column);
+
+  GeneratedColumn<BigInt> get created =>
+      $composableBuilder(column: $table.created, builder: (column) => column);
+
+  $$SchoolsTableAnnotationComposer get school {
+    final $$SchoolsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.school,
+      referencedTable: $db.schools,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SchoolsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.schools,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ExamsTableAnnotationComposer get exam {
+    final $$ExamsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.exam,
+      referencedTable: $db.exams,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExamsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.exams,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$SchemePagesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SchemePagesTable,
+          SchemePage,
+          $$SchemePagesTableFilterComposer,
+          $$SchemePagesTableOrderingComposer,
+          $$SchemePagesTableAnnotationComposer,
+          $$SchemePagesTableCreateCompanionBuilder,
+          $$SchemePagesTableUpdateCompanionBuilder,
+          (SchemePage, $$SchemePagesTableReferences),
+          SchemePage,
+          PrefetchHooks Function({bool school, bool exam})
+        > {
+  $$SchemePagesTableTableManager(_$AppDatabase db, $SchemePagesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SchemePagesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SchemePagesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SchemePagesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> school = const Value.absent(),
+                Value<String> exam = const Value.absent(),
+                Value<int> subject = const Value.absent(),
+                Value<int?> paper = const Value.absent(),
+                Value<int> page = const Value.absent(),
+                Value<String> key = const Value.absent(),
+                Value<BigInt> created = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SchemePagesCompanion(
+                school: school,
+                exam: exam,
+                subject: subject,
+                paper: paper,
+                page: page,
+                key: key,
+                created: created,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String school,
+                required String exam,
+                required int subject,
+                Value<int?> paper = const Value.absent(),
+                required int page,
+                required String key,
+                required BigInt created,
+                Value<int> rowid = const Value.absent(),
+              }) => SchemePagesCompanion.insert(
+                school: school,
+                exam: exam,
+                subject: subject,
+                paper: paper,
+                page: page,
+                key: key,
+                created: created,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$SchemePagesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({school = false, exam = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (school) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.school,
+                                referencedTable: $$SchemePagesTableReferences
+                                    ._schoolTable(db),
+                                referencedColumn: $$SchemePagesTableReferences
+                                    ._schoolTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+                    if (exam) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.exam,
+                                referencedTable: $$SchemePagesTableReferences
+                                    ._examTable(db),
+                                referencedColumn: $$SchemePagesTableReferences
+                                    ._examTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$SchemePagesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SchemePagesTable,
+      SchemePage,
+      $$SchemePagesTableFilterComposer,
+      $$SchemePagesTableOrderingComposer,
+      $$SchemePagesTableAnnotationComposer,
+      $$SchemePagesTableCreateCompanionBuilder,
+      $$SchemePagesTableUpdateCompanionBuilder,
+      (SchemePage, $$SchemePagesTableReferences),
+      SchemePage,
+      PrefetchHooks Function({bool school, bool exam})
+    >;
+typedef $$AnswerPagesTableCreateCompanionBuilder =
+    AnswerPagesCompanion Function({
+      required String school,
+      required String exam,
+      required int student,
+      required int subject,
+      Value<int?> paper,
+      required int page,
+      required String key,
+      required BigInt created,
+      Value<int> rowid,
+    });
+typedef $$AnswerPagesTableUpdateCompanionBuilder =
+    AnswerPagesCompanion Function({
+      Value<String> school,
+      Value<String> exam,
+      Value<int> student,
+      Value<int> subject,
+      Value<int?> paper,
+      Value<int> page,
+      Value<String> key,
+      Value<BigInt> created,
+      Value<int> rowid,
+    });
+
+final class $$AnswerPagesTableReferences
+    extends BaseReferences<_$AppDatabase, $AnswerPagesTable, AnswerPage> {
+  $$AnswerPagesTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $SchoolsTable _schoolTable(_$AppDatabase db) => db.schools.createAlias(
+    $_aliasNameGenerator(db.answerPages.school, db.schools.id),
+  );
+
+  $$SchoolsTableProcessedTableManager get school {
+    final $_column = $_itemColumn<String>('school')!;
+
+    final manager = $$SchoolsTableTableManager(
+      $_db,
+      $_db.schools,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_schoolTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $ExamsTable _examTable(_$AppDatabase db) => db.exams.createAlias(
+    $_aliasNameGenerator(db.answerPages.exam, db.exams.id),
+  );
+
+  $$ExamsTableProcessedTableManager get exam {
+    final $_column = $_itemColumn<String>('exam')!;
+
+    final manager = $$ExamsTableTableManager(
+      $_db,
+      $_db.exams,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_examTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$AnswerPagesTableFilterComposer
+    extends Composer<_$AppDatabase, $AnswerPagesTable> {
+  $$AnswerPagesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get student => $composableBuilder(
+    column: $table.student,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get subject => $composableBuilder(
+    column: $table.subject,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get paper => $composableBuilder(
+    column: $table.paper,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get page => $composableBuilder(
+    column: $table.page,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<BigInt> get created => $composableBuilder(
+    column: $table.created,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$SchoolsTableFilterComposer get school {
+    final $$SchoolsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.school,
+      referencedTable: $db.schools,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SchoolsTableFilterComposer(
+            $db: $db,
+            $table: $db.schools,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ExamsTableFilterComposer get exam {
+    final $$ExamsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.exam,
+      referencedTable: $db.exams,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExamsTableFilterComposer(
+            $db: $db,
+            $table: $db.exams,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$AnswerPagesTableOrderingComposer
+    extends Composer<_$AppDatabase, $AnswerPagesTable> {
+  $$AnswerPagesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get student => $composableBuilder(
+    column: $table.student,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get subject => $composableBuilder(
+    column: $table.subject,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get paper => $composableBuilder(
+    column: $table.paper,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get page => $composableBuilder(
+    column: $table.page,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<BigInt> get created => $composableBuilder(
+    column: $table.created,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$SchoolsTableOrderingComposer get school {
+    final $$SchoolsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.school,
+      referencedTable: $db.schools,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SchoolsTableOrderingComposer(
+            $db: $db,
+            $table: $db.schools,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ExamsTableOrderingComposer get exam {
+    final $$ExamsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.exam,
+      referencedTable: $db.exams,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExamsTableOrderingComposer(
+            $db: $db,
+            $table: $db.exams,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$AnswerPagesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AnswerPagesTable> {
+  $$AnswerPagesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get student =>
+      $composableBuilder(column: $table.student, builder: (column) => column);
+
+  GeneratedColumn<int> get subject =>
+      $composableBuilder(column: $table.subject, builder: (column) => column);
+
+  GeneratedColumn<int> get paper =>
+      $composableBuilder(column: $table.paper, builder: (column) => column);
+
+  GeneratedColumn<int> get page =>
+      $composableBuilder(column: $table.page, builder: (column) => column);
+
+  GeneratedColumn<String> get key =>
+      $composableBuilder(column: $table.key, builder: (column) => column);
+
+  GeneratedColumn<BigInt> get created =>
+      $composableBuilder(column: $table.created, builder: (column) => column);
+
+  $$SchoolsTableAnnotationComposer get school {
+    final $$SchoolsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.school,
+      referencedTable: $db.schools,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SchoolsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.schools,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ExamsTableAnnotationComposer get exam {
+    final $$ExamsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.exam,
+      referencedTable: $db.exams,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExamsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.exams,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$AnswerPagesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AnswerPagesTable,
+          AnswerPage,
+          $$AnswerPagesTableFilterComposer,
+          $$AnswerPagesTableOrderingComposer,
+          $$AnswerPagesTableAnnotationComposer,
+          $$AnswerPagesTableCreateCompanionBuilder,
+          $$AnswerPagesTableUpdateCompanionBuilder,
+          (AnswerPage, $$AnswerPagesTableReferences),
+          AnswerPage,
+          PrefetchHooks Function({bool school, bool exam})
+        > {
+  $$AnswerPagesTableTableManager(_$AppDatabase db, $AnswerPagesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AnswerPagesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AnswerPagesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AnswerPagesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> school = const Value.absent(),
+                Value<String> exam = const Value.absent(),
+                Value<int> student = const Value.absent(),
+                Value<int> subject = const Value.absent(),
+                Value<int?> paper = const Value.absent(),
+                Value<int> page = const Value.absent(),
+                Value<String> key = const Value.absent(),
+                Value<BigInt> created = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AnswerPagesCompanion(
+                school: school,
+                exam: exam,
+                student: student,
+                subject: subject,
+                paper: paper,
+                page: page,
+                key: key,
+                created: created,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String school,
+                required String exam,
+                required int student,
+                required int subject,
+                Value<int?> paper = const Value.absent(),
+                required int page,
+                required String key,
+                required BigInt created,
+                Value<int> rowid = const Value.absent(),
+              }) => AnswerPagesCompanion.insert(
+                school: school,
+                exam: exam,
+                student: student,
+                subject: subject,
+                paper: paper,
+                page: page,
+                key: key,
+                created: created,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$AnswerPagesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({school = false, exam = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (school) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.school,
+                                referencedTable: $$AnswerPagesTableReferences
+                                    ._schoolTable(db),
+                                referencedColumn: $$AnswerPagesTableReferences
+                                    ._schoolTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+                    if (exam) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.exam,
+                                referencedTable: $$AnswerPagesTableReferences
+                                    ._examTable(db),
+                                referencedColumn: $$AnswerPagesTableReferences
+                                    ._examTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$AnswerPagesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AnswerPagesTable,
+      AnswerPage,
+      $$AnswerPagesTableFilterComposer,
+      $$AnswerPagesTableOrderingComposer,
+      $$AnswerPagesTableAnnotationComposer,
+      $$AnswerPagesTableCreateCompanionBuilder,
+      $$AnswerPagesTableUpdateCompanionBuilder,
+      (AnswerPage, $$AnswerPagesTableReferences),
+      AnswerPage,
+      PrefetchHooks Function({bool school, bool exam})
+    >;
 typedef $$ScopesTableCreateCompanionBuilder =
     ScopesCompanion Function({
       Value<String?> school,
@@ -39045,6 +41345,10 @@ class $AppDatabaseManager {
       $$MasteryTableTableManager(_db, _db.mastery);
   $$AiUsageTableTableManager get aiUsage =>
       $$AiUsageTableTableManager(_db, _db.aiUsage);
+  $$SchemePagesTableTableManager get schemePages =>
+      $$SchemePagesTableTableManager(_db, _db.schemePages);
+  $$AnswerPagesTableTableManager get answerPages =>
+      $$AnswerPagesTableTableManager(_db, _db.answerPages);
   $$ScopesTableTableManager get scopes =>
       $$ScopesTableTableManager(_db, _db.scopes);
   $$SubscriptionsTableTableManager get subscriptions =>

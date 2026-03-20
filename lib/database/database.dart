@@ -61,6 +61,8 @@ import 'tables/payments.dart';
 import 'tables/announcements.dart';
 import 'tables/mastery.dart';
 import 'tables/aiusage.dart';
+import 'tables/scheme_pages.dart';
+import 'tables/answer_pages.dart';
 
 import 'tables/scopes.dart';
 import 'tables/subscriptions.dart';
@@ -106,6 +108,8 @@ late final AppDatabase db;
     Announcements,
     Mastery,
     AiUsage,
+    SchemePages,
+    AnswerPages,
 
     Scopes,
     Subscriptions,
@@ -195,6 +199,8 @@ class AppDatabase extends _$AppDatabase {
     await transaction(() async {
       // Leaf / deepest-child tables first, parents last.
       // ── Sync / client-only ──
+      await delete(schemePages).go();
+      await delete(answerPages).go();
       await delete(paperSubmissions).go();
       await delete(logs).go();
 
@@ -279,7 +285,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -551,6 +557,11 @@ class AppDatabase extends _$AppDatabase {
         );
 
         // Triggers were already dropped above; recreated by beforeOpen.
+      }
+      if (from < 9) {
+        // Add scheme_pages and answer_pages tables for file sync.
+        await m.createTable(schemePages);
+        await m.createTable(answerPages);
       }
     },
     onCreate: (m) async {

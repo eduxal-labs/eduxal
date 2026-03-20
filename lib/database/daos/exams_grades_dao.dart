@@ -1736,4 +1736,134 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         ))
         .go();
   }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Sync log helpers — scheme pages & answer pages file sync
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /// Logs an [uploadScheme] sync action for the given paper's marking scheme.
+  ///
+  /// Called after the user adds or replaces scheme files locally.
+  /// [count] is the total number of scheme pages after the change.
+  Future<void> logUploadScheme({
+    required String schoolId,
+    required String examId,
+    required int subject,
+    required int? paper,
+    required int count,
+    required String accountId,
+  }) async {
+    final payload = sync_pb.UploadSchemePayload()
+      ..school = schoolId
+      ..exam = examId
+      ..subject = subject
+      ..count = count;
+    if (paper != null) payload.paper = paper;
+
+    final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+    await into(logs).insert(
+      LogsCompanion(
+        account: Value(accountId),
+        action: Value(SyncAction.uploadScheme),
+        resource: Value('Marking scheme'),
+        payload: Value(payload.writeToBuffer()),
+        created: Value(now),
+      ),
+    );
+    sync.schedulePush();
+  }
+
+  /// Logs a [deleteScheme] sync action.
+  ///
+  /// Called when the user removes all scheme files for a paper.
+  Future<void> logDeleteScheme({
+    required String schoolId,
+    required String examId,
+    required int subject,
+    required int? paper,
+    required String accountId,
+  }) async {
+    final payload = sync_pb.DeleteSchemePayload()
+      ..school = schoolId
+      ..exam = examId
+      ..subject = subject;
+    if (paper != null) payload.paper = paper;
+
+    final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+    await into(logs).insert(
+      LogsCompanion(
+        account: Value(accountId),
+        action: Value(SyncAction.deleteScheme),
+        resource: Value('Marking scheme'),
+        payload: Value(payload.writeToBuffer()),
+        created: Value(now),
+      ),
+    );
+    sync.schedulePush();
+  }
+
+  /// Logs an [uploadAnswerSheet] sync action for a student's answer pages.
+  ///
+  /// Called after the user adds or replaces answer sheet files locally.
+  /// [count] is the total number of answer pages after the change.
+  Future<void> logUploadAnswerSheet({
+    required String schoolId,
+    required String examId,
+    required int student,
+    required int subject,
+    required int? paper,
+    required int count,
+    required String accountId,
+  }) async {
+    final payload = sync_pb.UploadAnswerSheetPayload()
+      ..school = schoolId
+      ..exam = examId
+      ..student = student
+      ..subject = subject
+      ..count = count;
+    if (paper != null) payload.paper = paper;
+
+    final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+    await into(logs).insert(
+      LogsCompanion(
+        account: Value(accountId),
+        action: Value(SyncAction.uploadAnswerSheet),
+        resource: Value('Answer sheet — student $student'),
+        payload: Value(payload.writeToBuffer()),
+        created: Value(now),
+      ),
+    );
+    sync.schedulePush();
+  }
+
+  /// Logs a [deleteAnswerSheet] sync action.
+  ///
+  /// Called when the user removes all answer sheet files for a student's paper.
+  Future<void> logDeleteAnswerSheet({
+    required String schoolId,
+    required String examId,
+    required int student,
+    required int subject,
+    required int? paper,
+    required String accountId,
+  }) async {
+    final payload = sync_pb.DeleteAnswerSheetPayload()
+      ..school = schoolId
+      ..exam = examId
+      ..student = student
+      ..subject = subject;
+    if (paper != null) payload.paper = paper;
+
+    final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+    await into(logs).insert(
+      LogsCompanion(
+        account: Value(accountId),
+        action: Value(SyncAction.deleteAnswerSheet),
+        resource: Value('Answer sheet — student $student'),
+        payload: Value(payload.writeToBuffer()),
+        created: Value(now),
+      ),
+    );
+    sync.schedulePush();
+  }
 }

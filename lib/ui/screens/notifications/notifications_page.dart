@@ -657,6 +657,11 @@ IconData _iconForAction(SyncAction action) => switch (action) {
   SyncAction.deleteMpesa => Icons.payments_outlined,
   // Exam Grades (junction)
   SyncAction.addExamGrade || SyncAction.removeExamGrade => Icons.grade_outlined,
+  // File sync — marking schemes & answer sheets
+  SyncAction.uploadScheme ||
+  SyncAction.deleteScheme => Icons.description_outlined,
+  SyncAction.uploadAnswerSheet ||
+  SyncAction.deleteAnswerSheet => Icons.photo_library_outlined,
 };
 
 String _relativeTime(DateTime time) {

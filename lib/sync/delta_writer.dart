@@ -179,6 +179,10 @@ class DeltaWriter {
           '[DeltaWriter] ⚠ Received delta for removed exam_grades table '
           '(table=35) — SKIPPED',
         );
+      case 36:
+        await _applySchemePages(delta);
+      case 37:
+        await _applyAnswerPages(delta);
       default:
         debugPrint(
           '[DeltaWriter] ⚠ UNKNOWN table=${delta.table}, '
@@ -1517,5 +1521,126 @@ class DeltaWriter {
             updated: Value(now),
           ),
         );
+  }
+
+  // ---------------------------------------------------------------------------
+  // 36: scheme_pages  — PK: (school, exam, subject, paper, page)  [paper nullable]
+  //     rowKey: "{school}|{exam}|{subject}|{paper}|{page}"
+  //     paper is empty-string when NULL.
+  // ---------------------------------------------------------------------------
+
+  Future<void> _applySchemePages(SyncDelta delta) async {
+    final k = _parseKey(delta.rowKey);
+    final paperVal = _parseIntNullable(k[3]);
+    final pageVal = _parseInt(k[4]);
+
+    if (delta.operation == 2) {
+      // DELETE
+      await _db.customStatement(
+        'DELETE FROM scheme_pages WHERE school = ? AND exam = ? AND subject = ?'
+        ' AND paper ${paperVal == null ? 'IS NULL' : '= ?'}'
+        ' AND page = ?',
+        [k[0], k[1], _parseInt(k[2]), ?paperVal, pageVal],
+      );
+      return;
+    }
+
+    final row = delta.data.schemePage;
+
+    if (paperVal == null) {
+      // NULL paper — ON CONFLICT cannot match NULLs in SQLite, so use
+      // delete-then-insert.
+      await _db.customStatement(
+        'DELETE FROM scheme_pages WHERE school = ? AND exam = ? AND subject = ?'
+        ' AND paper IS NULL AND page = ?',
+        [k[0], k[1], _parseInt(k[2]), pageVal],
+      );
+      await _db.customStatement(
+        'INSERT INTO scheme_pages (school, exam, subject, paper, page, key, created)'
+        ' VALUES (?, ?, ?, NULL, ?, ?, ?)',
+        [k[0], k[1], _parseInt(k[2]), pageVal, row.key, row.created.toInt()],
+      );
+    } else {
+      await _db.customStatement(
+        'INSERT INTO scheme_pages (school, exam, subject, paper, page, key, created)'
+        ' VALUES (?, ?, ?, ?, ?, ?, ?)'
+        ' ON CONFLICT (school, exam, subject, paper, page) DO UPDATE SET'
+        ' key = excluded.key,'
+        ' created = excluded.created',
+        [
+          k[0],
+          k[1],
+          _parseInt(k[2]),
+          paperVal,
+          pageVal,
+          row.key,
+          row.created.toInt(),
+        ],
+      );
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 37: answer_pages  — PK: (school, exam, student, subject, paper, page)  [paper nullable]
+  //     rowKey: "{school}|{exam}|{student}|{subject}|{paper}|{page}"
+  //     paper is empty-string when NULL.
+  // ---------------------------------------------------------------------------
+
+  Future<void> _applyAnswerPages(SyncDelta delta) async {
+    final k = _parseKey(delta.rowKey);
+    final paperVal = _parseIntNullable(k[4]);
+    final pageVal = _parseInt(k[5]);
+
+    if (delta.operation == 2) {
+      await _db.customStatement(
+        'DELETE FROM answer_pages WHERE school = ? AND exam = ? AND student = ? AND subject = ?'
+        ' AND paper ${paperVal == null ? 'IS NULL' : '= ?'}'
+        ' AND page = ?',
+        [k[0], k[1], _parseInt(k[2]), _parseInt(k[3]), ?paperVal, pageVal],
+      );
+      return;
+    }
+
+    final row = delta.data.answerPage;
+
+    if (paperVal == null) {
+      // NULL paper — delete-then-insert.
+      await _db.customStatement(
+        'DELETE FROM answer_pages WHERE school = ? AND exam = ? AND student = ? AND subject = ?'
+        ' AND paper IS NULL AND page = ?',
+        [k[0], k[1], _parseInt(k[2]), _parseInt(k[3]), pageVal],
+      );
+      await _db.customStatement(
+        'INSERT INTO answer_pages (school, exam, student, subject, paper, page, key, created)'
+        ' VALUES (?, ?, ?, ?, NULL, ?, ?, ?)',
+        [
+          k[0],
+          k[1],
+          _parseInt(k[2]),
+          _parseInt(k[3]),
+          pageVal,
+          row.key,
+          row.created.toInt(),
+        ],
+      );
+    } else {
+      await _db.customStatement(
+        'INSERT INTO answer_pages (school, exam, student, subject, paper, page, key, created)'
+        ' VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        ' ON CONFLICT (school, exam, student, subject, paper, page) DO UPDATE SET'
+        ' key = excluded.key,'
+        ' created = excluded.created',
+        [
+          k[0],
+          k[1],
+          _parseInt(k[2]),
+          _parseInt(k[3]),
+          paperVal,
+          pageVal,
+          row.key,
+          row.created.toInt(),
+        ],
+      );
+    }
   }
 }

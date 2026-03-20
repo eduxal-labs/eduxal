@@ -1269,13 +1269,13 @@ const UpdatePaperPayload$json = {
     {'1': 'end', '3': 7, '4': 1, '5': 3, '9': 3, '10': 'end', '17': true},
     {'1': 'status', '3': 8, '4': 1, '5': 5, '9': 4, '10': 'status', '17': true},
     {'1': 'topic', '3': 9, '4': 1, '5': 5, '9': 5, '10': 'topic', '17': true},
-    {'1': 'grade', '3': 10, '4': 1, '5': 5, '9': 6, '10': 'grade', '17': true},
+    {'1': 'grade', '3': 10, '4': 1, '5': 5, '10': 'grade'},
     {
       '1': 'stream',
       '3': 11,
       '4': 1,
       '5': 5,
-      '9': 7,
+      '9': 6,
       '10': 'stream',
       '17': true
     },
@@ -1287,7 +1287,6 @@ const UpdatePaperPayload$json = {
     {'1': '_end'},
     {'1': '_status'},
     {'1': '_topic'},
-    {'1': '_grade'},
     {'1': '_stream'},
   ],
 };
@@ -1298,10 +1297,10 @@ final $typed_data.Uint8List updatePaperPayloadDescriptor = $convert.base64Decode
     'EoCVIEZXhhbRIYCgdzdWJqZWN0GAMgASgFUgdzdWJqZWN0EhkKBXBhcGVyGAQgASgFSABSBXBh'
     'cGVyiAEBEiUKC2ludmlnaWxhdG9yGAUgASgJSAFSC2ludmlnaWxhdG9yiAEBEhkKBXN0YXJ0GA'
     'YgASgDSAJSBXN0YXJ0iAEBEhUKA2VuZBgHIAEoA0gDUgNlbmSIAQESGwoGc3RhdHVzGAggASgF'
-    'SARSBnN0YXR1c4gBARIZCgV0b3BpYxgJIAEoBUgFUgV0b3BpY4gBARIZCgVncmFkZRgKIAEoBU'
-    'gGUgVncmFkZYgBARIbCgZzdHJlYW0YCyABKAVIB1IGc3RyZWFtiAEBQggKBl9wYXBlckIOCgxf'
-    'aW52aWdpbGF0b3JCCAoGX3N0YXJ0QgYKBF9lbmRCCQoHX3N0YXR1c0IICgZfdG9waWNCCAoGX2'
-    'dyYWRlQgkKB19zdHJlYW0=');
+    'SARSBnN0YXR1c4gBARIZCgV0b3BpYxgJIAEoBUgFUgV0b3BpY4gBARIUCgVncmFkZRgKIAEoBV'
+    'IFZ3JhZGUSGwoGc3RyZWFtGAsgASgFSAZSBnN0cmVhbYgBAUIICgZfcGFwZXJCDgoMX2ludmln'
+    'aWxhdG9yQggKBl9zdGFydEIGCgRfZW5kQgkKB19zdGF0dXNCCAoGX3RvcGljQgkKB19zdHJlYW'
+    '0=');
 
 @$core.Deprecated('Use deletePaperPayloadDescriptor instead')
 const DeletePaperPayload$json = {
@@ -1311,9 +1310,12 @@ const DeletePaperPayload$json = {
     {'1': 'exam', '3': 2, '4': 1, '5': 9, '10': 'exam'},
     {'1': 'subject', '3': 3, '4': 1, '5': 5, '10': 'subject'},
     {'1': 'paper', '3': 4, '4': 1, '5': 5, '9': 0, '10': 'paper', '17': true},
+    {'1': 'grade', '3': 5, '4': 1, '5': 5, '10': 'grade'},
+    {'1': 'stream', '3': 6, '4': 1, '5': 5, '9': 1, '10': 'stream', '17': true},
   ],
   '8': [
     {'1': '_paper'},
+    {'1': '_stream'},
   ],
 };
 
@@ -1321,7 +1323,8 @@ const DeletePaperPayload$json = {
 final $typed_data.Uint8List deletePaperPayloadDescriptor = $convert.base64Decode(
     'ChJEZWxldGVQYXBlclBheWxvYWQSFgoGc2Nob29sGAEgASgJUgZzY2hvb2wSEgoEZXhhbRgCIA'
     'EoCVIEZXhhbRIYCgdzdWJqZWN0GAMgASgFUgdzdWJqZWN0EhkKBXBhcGVyGAQgASgFSABSBXBh'
-    'cGVyiAEBQggKBl9wYXBlcg==');
+    'cGVyiAEBEhQKBWdyYWRlGAUgASgFUgVncmFkZRIbCgZzdHJlYW0YBiABKAVIAVIGc3RyZWFtiA'
+    'EBQggKBl9wYXBlckIJCgdfc3RyZWFt');
 
 @$core.Deprecated('Use gradeRecordDescriptor instead')
 const GradeRecord$json = {
@@ -2531,6 +2534,91 @@ final $typed_data.Uint8List deleteDiscountPayloadDescriptor = $convert.base64Dec
     'gCIAEoCVIEcGxhbhISCgR5ZWFyGAMgASgFUgR5ZWFyEhIKBHRlcm0YBCABKAVSBHRlcm0SFAoF'
     'Z3JhZGUYBSABKAVSBWdyYWRl');
 
+@$core.Deprecated('Use uploadSchemePayloadDescriptor instead')
+const UploadSchemePayload$json = {
+  '1': 'UploadSchemePayload',
+  '2': [
+    {'1': 'school', '3': 1, '4': 1, '5': 9, '10': 'school'},
+    {'1': 'exam', '3': 2, '4': 1, '5': 9, '10': 'exam'},
+    {'1': 'subject', '3': 3, '4': 1, '5': 5, '10': 'subject'},
+    {'1': 'paper', '3': 4, '4': 1, '5': 5, '9': 0, '10': 'paper', '17': true},
+    {'1': 'count', '3': 5, '4': 1, '5': 5, '10': 'count'},
+  ],
+  '8': [
+    {'1': '_paper'},
+  ],
+};
+
+/// Descriptor for `UploadSchemePayload`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List uploadSchemePayloadDescriptor = $convert.base64Decode(
+    'ChNVcGxvYWRTY2hlbWVQYXlsb2FkEhYKBnNjaG9vbBgBIAEoCVIGc2Nob29sEhIKBGV4YW0YAi'
+    'ABKAlSBGV4YW0SGAoHc3ViamVjdBgDIAEoBVIHc3ViamVjdBIZCgVwYXBlchgEIAEoBUgAUgVw'
+    'YXBlcogBARIUCgVjb3VudBgFIAEoBVIFY291bnRCCAoGX3BhcGVy');
+
+@$core.Deprecated('Use deleteSchemePayloadDescriptor instead')
+const DeleteSchemePayload$json = {
+  '1': 'DeleteSchemePayload',
+  '2': [
+    {'1': 'school', '3': 1, '4': 1, '5': 9, '10': 'school'},
+    {'1': 'exam', '3': 2, '4': 1, '5': 9, '10': 'exam'},
+    {'1': 'subject', '3': 3, '4': 1, '5': 5, '10': 'subject'},
+    {'1': 'paper', '3': 4, '4': 1, '5': 5, '9': 0, '10': 'paper', '17': true},
+  ],
+  '8': [
+    {'1': '_paper'},
+  ],
+};
+
+/// Descriptor for `DeleteSchemePayload`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List deleteSchemePayloadDescriptor = $convert.base64Decode(
+    'ChNEZWxldGVTY2hlbWVQYXlsb2FkEhYKBnNjaG9vbBgBIAEoCVIGc2Nob29sEhIKBGV4YW0YAi'
+    'ABKAlSBGV4YW0SGAoHc3ViamVjdBgDIAEoBVIHc3ViamVjdBIZCgVwYXBlchgEIAEoBUgAUgVw'
+    'YXBlcogBAUIICgZfcGFwZXI=');
+
+@$core.Deprecated('Use uploadAnswerSheetPayloadDescriptor instead')
+const UploadAnswerSheetPayload$json = {
+  '1': 'UploadAnswerSheetPayload',
+  '2': [
+    {'1': 'school', '3': 1, '4': 1, '5': 9, '10': 'school'},
+    {'1': 'exam', '3': 2, '4': 1, '5': 9, '10': 'exam'},
+    {'1': 'student', '3': 3, '4': 1, '5': 5, '10': 'student'},
+    {'1': 'subject', '3': 4, '4': 1, '5': 5, '10': 'subject'},
+    {'1': 'paper', '3': 5, '4': 1, '5': 5, '9': 0, '10': 'paper', '17': true},
+    {'1': 'count', '3': 6, '4': 1, '5': 5, '10': 'count'},
+  ],
+  '8': [
+    {'1': '_paper'},
+  ],
+};
+
+/// Descriptor for `UploadAnswerSheetPayload`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List uploadAnswerSheetPayloadDescriptor = $convert.base64Decode(
+    'ChhVcGxvYWRBbnN3ZXJTaGVldFBheWxvYWQSFgoGc2Nob29sGAEgASgJUgZzY2hvb2wSEgoEZX'
+    'hhbRgCIAEoCVIEZXhhbRIYCgdzdHVkZW50GAMgASgFUgdzdHVkZW50EhgKB3N1YmplY3QYBCAB'
+    'KAVSB3N1YmplY3QSGQoFcGFwZXIYBSABKAVIAFIFcGFwZXKIAQESFAoFY291bnQYBiABKAVSBW'
+    'NvdW50QggKBl9wYXBlcg==');
+
+@$core.Deprecated('Use deleteAnswerSheetPayloadDescriptor instead')
+const DeleteAnswerSheetPayload$json = {
+  '1': 'DeleteAnswerSheetPayload',
+  '2': [
+    {'1': 'school', '3': 1, '4': 1, '5': 9, '10': 'school'},
+    {'1': 'exam', '3': 2, '4': 1, '5': 9, '10': 'exam'},
+    {'1': 'student', '3': 3, '4': 1, '5': 5, '10': 'student'},
+    {'1': 'subject', '3': 4, '4': 1, '5': 5, '10': 'subject'},
+    {'1': 'paper', '3': 5, '4': 1, '5': 5, '9': 0, '10': 'paper', '17': true},
+  ],
+  '8': [
+    {'1': '_paper'},
+  ],
+};
+
+/// Descriptor for `DeleteAnswerSheetPayload`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List deleteAnswerSheetPayloadDescriptor = $convert.base64Decode(
+    'ChhEZWxldGVBbnN3ZXJTaGVldFBheWxvYWQSFgoGc2Nob29sGAEgASgJUgZzY2hvb2wSEgoEZX'
+    'hhbRgCIAEoCVIEZXhhbRIYCgdzdHVkZW50GAMgASgFUgdzdHVkZW50EhgKB3N1YmplY3QYBCAB'
+    'KAVSB3N1YmplY3QSGQoFcGFwZXIYBSABKAVIAFIFcGFwZXKIAQFCCAoGX3BhcGVy');
+
 @$core.Deprecated('Use insertDataDescriptor instead')
 const InsertData$json = {
   '1': 'InsertData',
@@ -2832,6 +2920,24 @@ const InsertData$json = {
       '9': 0,
       '10': 'mpesa'
     },
+    {
+      '1': 'scheme_page',
+      '3': 36,
+      '4': 1,
+      '5': 11,
+      '6': '.sync.SchemePageInsert',
+      '9': 0,
+      '10': 'schemePage'
+    },
+    {
+      '1': 'answer_page',
+      '3': 37,
+      '4': 1,
+      '5': 11,
+      '6': '.sync.AnswerPageInsert',
+      '9': 0,
+      '10': 'answerPage'
+    },
   ],
   '8': [
     {'1': 'row'},
@@ -2872,8 +2978,10 @@ final $typed_data.Uint8List insertDataDescriptor = $convert.base64Decode(
     'SW5zZXJ0SABSCGRpc2NvdW50Ej4KD3N1YmplY3RfY2F0YWxvZxgfIAEoCzITLnN5bmMuU3Viam'
     'VjdEluc2VydEgAUg5zdWJqZWN0Q2F0YWxvZxIpCgV0b3BpYxggIAEoCzIRLnN5bmMuVG9waWNJ'
     'bnNlcnRIAFIFdG9waWMSLAoGc3RyZWFtGCEgASgLMhIuc3luYy5TdHJlYW1JbnNlcnRIAFIGc3'
-    'RyZWFtEikKBW1wZXNhGCIgASgLMhEuc3luYy5NcGVzYUluc2VydEgAUgVtcGVzYUIFCgNyb3dK'
-    'BAgjECQ=');
+    'RyZWFtEikKBW1wZXNhGCIgASgLMhEuc3luYy5NcGVzYUluc2VydEgAUgVtcGVzYRI5CgtzY2hl'
+    'bWVfcGFnZRgkIAEoCzIWLnN5bmMuU2NoZW1lUGFnZUluc2VydEgAUgpzY2hlbWVQYWdlEjkKC2'
+    'Fuc3dlcl9wYWdlGCUgASgLMhYuc3luYy5BbnN3ZXJQYWdlSW5zZXJ0SABSCmFuc3dlclBhZ2VC'
+    'BQoDcm93SgQIIxAk');
 
 @$core.Deprecated('Use userInsertDescriptor instead')
 const UserInsert$json = {
@@ -3620,6 +3728,55 @@ final $typed_data.Uint8List mpesaInsertDescriptor = $convert.base64Decode(
     'ABKAlSC2NvbnN1bWVyS2V5EicKD2NvbnN1bWVyX3NlY3JldBgDIAEoCVIOY29uc3VtZXJTZWNy'
     'ZXQSGAoHcGFzc2tleRgEIAEoCVIHcGFzc2tleRIcCglzaG9ydGNvZGUYBSABKAlSCXNob3J0Y2'
     '9kZRIQCgNlbnYYBiABKAVSA2Vudg==');
+
+@$core.Deprecated('Use schemePageInsertDescriptor instead')
+const SchemePageInsert$json = {
+  '1': 'SchemePageInsert',
+  '2': [
+    {'1': 'school', '3': 1, '4': 1, '5': 9, '10': 'school'},
+    {'1': 'exam', '3': 2, '4': 1, '5': 9, '10': 'exam'},
+    {'1': 'subject', '3': 3, '4': 1, '5': 5, '10': 'subject'},
+    {'1': 'paper', '3': 4, '4': 1, '5': 5, '9': 0, '10': 'paper', '17': true},
+    {'1': 'page', '3': 5, '4': 1, '5': 5, '10': 'page'},
+    {'1': 'key', '3': 6, '4': 1, '5': 9, '10': 'key'},
+    {'1': 'created', '3': 7, '4': 1, '5': 3, '10': 'created'},
+  ],
+  '8': [
+    {'1': '_paper'},
+  ],
+};
+
+/// Descriptor for `SchemePageInsert`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List schemePageInsertDescriptor = $convert.base64Decode(
+    'ChBTY2hlbWVQYWdlSW5zZXJ0EhYKBnNjaG9vbBgBIAEoCVIGc2Nob29sEhIKBGV4YW0YAiABKA'
+    'lSBGV4YW0SGAoHc3ViamVjdBgDIAEoBVIHc3ViamVjdBIZCgVwYXBlchgEIAEoBUgAUgVwYXBl'
+    'cogBARISCgRwYWdlGAUgASgFUgRwYWdlEhAKA2tleRgGIAEoCVIDa2V5EhgKB2NyZWF0ZWQYBy'
+    'ABKANSB2NyZWF0ZWRCCAoGX3BhcGVy');
+
+@$core.Deprecated('Use answerPageInsertDescriptor instead')
+const AnswerPageInsert$json = {
+  '1': 'AnswerPageInsert',
+  '2': [
+    {'1': 'school', '3': 1, '4': 1, '5': 9, '10': 'school'},
+    {'1': 'exam', '3': 2, '4': 1, '5': 9, '10': 'exam'},
+    {'1': 'student', '3': 3, '4': 1, '5': 5, '10': 'student'},
+    {'1': 'subject', '3': 4, '4': 1, '5': 5, '10': 'subject'},
+    {'1': 'paper', '3': 5, '4': 1, '5': 5, '9': 0, '10': 'paper', '17': true},
+    {'1': 'page', '3': 6, '4': 1, '5': 5, '10': 'page'},
+    {'1': 'key', '3': 7, '4': 1, '5': 9, '10': 'key'},
+    {'1': 'created', '3': 8, '4': 1, '5': 3, '10': 'created'},
+  ],
+  '8': [
+    {'1': '_paper'},
+  ],
+};
+
+/// Descriptor for `AnswerPageInsert`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List answerPageInsertDescriptor = $convert.base64Decode(
+    'ChBBbnN3ZXJQYWdlSW5zZXJ0EhYKBnNjaG9vbBgBIAEoCVIGc2Nob29sEhIKBGV4YW0YAiABKA'
+    'lSBGV4YW0SGAoHc3R1ZGVudBgDIAEoBVIHc3R1ZGVudBIYCgdzdWJqZWN0GAQgASgFUgdzdWJq'
+    'ZWN0EhkKBXBhcGVyGAUgASgFSABSBXBhcGVyiAEBEhIKBHBhZ2UYBiABKAVSBHBhZ2USEAoDa2'
+    'V5GAcgASgJUgNrZXkSGAoHY3JlYXRlZBgIIAEoA1IHY3JlYXRlZEIICgZfcGFwZXI=');
 
 @$core.Deprecated('Use roleInsertDescriptor instead')
 const RoleInsert$json = {

@@ -6,7 +6,8 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
+
+import '../../../../cache/file_cache.dart';
 
 import '../../../../client.dart';
 import '../../../../database/database.dart';
@@ -127,11 +128,14 @@ class _PaperDetailPageState extends State<PaperDetailPage>
   }
 
   Future<Directory> _schemeDirectory() async {
-    final appDir = await getApplicationDocumentsDirectory();
-    final paperKey = '${_paper.subject}_${_paper.paper ?? 0}';
-    return Directory(
-      '${appDir.path}/submissions/${widget.schoolId}/${_exam.id}/$paperKey/scheme',
+    final base = await FileCache.baseDir();
+    final rel = FileCache.schemeDir(
+      widget.schoolId,
+      _exam.id,
+      _paper.subject,
+      _paper.paper ?? 0,
     );
+    return Directory('$base/$rel');
   }
 
   @override
@@ -902,8 +906,8 @@ class _PaperHeaderState extends State<_PaperHeader>
             ),
           ),
 
-          // ── Scheme indicator chip ─────────────────────────────────────
-          if (widget.schemeFiles.isNotEmpty) ...[
+          // ── Scheme indicator chip (always visible for managers) ────────
+          if (widget.canManage) ...[
             const SizedBox(height: 6),
             GestureDetector(
               onTap: () {
@@ -925,24 +929,34 @@ class _PaperHeaderState extends State<_PaperHeader>
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: cs.primaryContainer.withValues(alpha: 0.3),
+                  color: widget.schemeFiles.isNotEmpty
+                      ? cs.primaryContainer.withValues(alpha: 0.3)
+                      : cs.surfaceContainerHighest.withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      Icons.description_outlined,
+                      widget.schemeFiles.isNotEmpty
+                          ? Icons.description_outlined
+                          : Icons.note_add_outlined,
                       size: 12,
-                      color: cs.primary.withValues(alpha: 0.7),
+                      color: widget.schemeFiles.isNotEmpty
+                          ? cs.primary.withValues(alpha: 0.7)
+                          : cs.onSurfaceVariant.withValues(alpha: 0.5),
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      'Scheme: ${widget.schemeFiles.length} ${widget.schemeFiles.length == 1 ? 'page' : 'pages'}',
+                      widget.schemeFiles.isNotEmpty
+                          ? 'Scheme: ${widget.schemeFiles.length} ${widget.schemeFiles.length == 1 ? 'page' : 'pages'}'
+                          : 'Add marking scheme',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w400,
-                        color: cs.primary.withValues(alpha: 0.8),
+                        color: widget.schemeFiles.isNotEmpty
+                            ? cs.primary.withValues(alpha: 0.8)
+                            : cs.onSurfaceVariant.withValues(alpha: 0.5),
                       ),
                     ),
                   ],
@@ -1110,15 +1124,13 @@ class _PaperHeaderState extends State<_PaperHeader>
       return _buildAiProgressButton();
     }
 
-    // State 3a: Has unmarked submissions but no scheme → prompt to add scheme
-    if (widget.hasUnmarkedSubmissions &&
-        widget.canManage &&
-        widget.schemeFiles.isEmpty) {
+    // State 3a: No scheme yet → prompt to add scheme
+    if (widget.canManage && widget.schemeFiles.isEmpty) {
       return _buildAddSchemeButton();
     }
 
     // State 3b: Has unmarked submissions and scheme exists → indigo AI button
-    if (widget.hasUnmarkedSubmissions) {
+    if (widget.hasUnmarkedSubmissions && widget.schemeFiles.isNotEmpty) {
       return _buildAiMarkButton();
     }
 
@@ -3162,31 +3174,61 @@ class _SchemeUploadSheetState extends State<_SchemeUploadSheet> {
     _paths = List.from(widget.existingPaths);
   }
 
+  Future<void> _savePickedFiles(List<XFile> picked) async {
+    if (picked.isEmpty) return;
+
+    final dir = await _schemeDirectory();
+    await dir.create(recursive: true);
+
+    int nextIndex = _paths.length;
+    final newPaths = <String>[];
+    for (final xFile in picked) {
+      final dest = File('${dir.path}/$nextIndex.jpg');
+      await File(xFile.path).copy(dest.path);
+      newPaths.add(dest.path);
+      nextIndex++;
+    }
+
+    if (!mounted) return;
+    setState(() => _paths = [..._paths, ...newPaths]);
+    widget.onUpdated();
+
+    final accountId = cache.currentUser?.user.id;
+    if (accountId != null) {
+      await ExamsGradesDao(db).logUploadScheme(
+        schoolId: widget.schoolId,
+        examId: widget.examId,
+        subject: widget.subject,
+        paper: widget.paperNum,
+        count: _paths.length,
+        accountId: accountId,
+      );
+    }
+  }
+
+  Future<void> _takePhoto() async {
+    if (_picking) return;
+    setState(() => _picking = true);
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+      );
+      if (picked == null) return;
+      await _savePickedFiles([picked]);
+    } finally {
+      if (mounted) setState(() => _picking = false);
+    }
+  }
+
   Future<void> _addPhotos() async {
     if (_picking) return;
     setState(() => _picking = true);
     try {
       final picker = ImagePicker();
       final picked = await picker.pickMultiImage(imageQuality: 85);
-      if (picked.isEmpty) return;
-
-      final dir = await _schemeDirectory();
-      await dir.create(recursive: true);
-
-      // Determine the next file index based on existing files
-      int nextIndex = _paths.length;
-
-      final newPaths = <String>[];
-      for (final xFile in picked) {
-        final dest = File('${dir.path}/$nextIndex.jpg');
-        await File(xFile.path).copy(dest.path);
-        newPaths.add(dest.path);
-        nextIndex++;
-      }
-
-      if (!mounted) return;
-      setState(() => _paths = [..._paths, ...newPaths]);
-      widget.onUpdated();
+      await _savePickedFiles(picked);
     } finally {
       if (mounted) setState(() => _picking = false);
     }
@@ -3199,15 +3241,80 @@ class _SchemeUploadSheetState extends State<_SchemeUploadSheet> {
       if (await file.exists()) await file.delete();
     } catch (_) {}
     setState(() => _paths.removeAt(index));
+
+    // Re-index remaining files on disk to fill the gap.
+    final dir = await _schemeDirectory();
+    for (int i = index; i < _paths.length; i++) {
+      final oldFile = File(_paths[i]);
+      final newDest = File('${dir.path}/$i.jpg');
+      if (oldFile.path != newDest.path && await oldFile.exists()) {
+        await oldFile.rename(newDest.path);
+        _paths[i] = newDest.path;
+      }
+    }
+
+    final accountId = cache.currentUser?.user.id;
+    if (accountId != null) {
+      final dao = ExamsGradesDao(db);
+      if (_paths.isEmpty) {
+        await dao.logDeleteScheme(
+          schoolId: widget.schoolId,
+          examId: widget.examId,
+          subject: widget.subject,
+          paper: widget.paperNum,
+          accountId: accountId,
+        );
+      } else {
+        await dao.logUploadScheme(
+          schoolId: widget.schoolId,
+          examId: widget.examId,
+          subject: widget.subject,
+          paper: widget.paperNum,
+          count: _paths.length,
+          accountId: accountId,
+        );
+      }
+    }
     widget.onUpdated();
   }
 
+  Future<void> _replaceAll() async {
+    if (_picking) return;
+    // Log deleteScheme before clearing so the server purges its copy first.
+    // The subsequent _takePhoto → _savePickedFiles call will log uploadScheme
+    // with the new count if new photos are taken.
+    final accountId = cache.currentUser?.user.id;
+    if (accountId != null) {
+      await ExamsGradesDao(db).logDeleteScheme(
+        schoolId: widget.schoolId,
+        examId: widget.examId,
+        subject: widget.subject,
+        paper: widget.paperNum,
+        accountId: accountId,
+      );
+    }
+    // Delete all existing files
+    for (final path in _paths) {
+      try {
+        final file = File(path);
+        if (await file.exists()) await file.delete();
+      } catch (_) {}
+    }
+    setState(() => _paths = []);
+    widget.onUpdated();
+    // Immediately open camera for new files
+    await _takePhoto();
+  }
+
   Future<Directory> _schemeDirectory() async {
-    final appDir = await getApplicationDocumentsDirectory();
-    final paperKey = '${widget.subject}_${widget.paperNum ?? 0}';
-    return Directory(
-      '${appDir.path}/submissions/${widget.schoolId}/${widget.examId}/$paperKey/scheme',
+    final base = await FileCache.baseDir();
+    final rel = FileCache.schemeDir(
+      widget.schoolId,
+      widget.examId,
+      widget.subject,
+      widget.paperNum ?? 0,
     );
+    return Directory('$base/$rel');
   }
 
   @override
@@ -3289,39 +3396,82 @@ class _SchemeUploadSheetState extends State<_SchemeUploadSheet> {
             ),
           ),
           const SizedBox(height: 16),
-          // Add Photos button
+          // Action buttons row: Camera + Gallery (+ Replace All)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: GestureDetector(
-              onTap: _picking ? null : _addPhotos,
-              child: CustomPaint(
-                painter: _DashedBorderPainter(
-                  color: cs.outline.withValues(alpha: 0.35),
-                  radius: 4,
+            child: Row(
+              children: [
+                // Camera button (primary)
+                Expanded(
+                  flex: 3,
+                  child: GestureDetector(
+                    onTap: _picking ? null : _takePhoto,
+                    child: Container(
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: cs.primary.withValues(alpha: 0.25),
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: _picking
+                          ? SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                                color: cs.primary,
+                              ),
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.camera_alt_outlined,
+                                  size: 16,
+                                  color: cs.primary.withValues(alpha: 0.8),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Camera',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w400,
+                                    color: cs.primary.withValues(alpha: 0.8),
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                  ),
                 ),
-                child: Container(
-                  height: 44,
-                  alignment: Alignment.center,
-                  child: _picking
-                      ? SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 1.5,
-                            color: cs.primary,
-                          ),
-                        )
-                      : Row(
+                const SizedBox(width: 8),
+                // Gallery button (secondary)
+                Expanded(
+                  flex: 2,
+                  child: GestureDetector(
+                    onTap: _picking ? null : _addPhotos,
+                    child: CustomPaint(
+                      painter: _DashedBorderPainter(
+                        color: cs.outline.withValues(alpha: 0.35),
+                        radius: 4,
+                      ),
+                      child: Container(
+                        height: 44,
+                        alignment: Alignment.center,
+                        child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
-                              Icons.add_photo_alternate_outlined,
+                              Icons.photo_library_outlined,
                               size: 16,
                               color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              'Add Photos',
+                              'Gallery',
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w400,
@@ -3332,8 +3482,48 @@ class _SchemeUploadSheetState extends State<_SchemeUploadSheet> {
                             ),
                           ],
                         ),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+                // Replace All button (only when scheme already has pages)
+                if (_paths.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: _picking ? null : _replaceAll,
+                    child: CustomPaint(
+                      painter: _DashedBorderPainter(
+                        color: cs.error.withValues(alpha: 0.3),
+                        radius: 4,
+                      ),
+                      child: Container(
+                        height: 44,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        alignment: Alignment.center,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.refresh_rounded,
+                              size: 15,
+                              color: cs.error.withValues(alpha: 0.6),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Replace',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w400,
+                                color: cs.error.withValues(alpha: 0.6),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           const SizedBox(height: 16),
@@ -3514,60 +3704,96 @@ class _AnswerSubmissionSheetState extends State<_AnswerSubmissionSheet> {
     }
   }
 
+  Future<void> _savePickedFiles(List<XFile> picked) async {
+    if (picked.isEmpty) return;
+
+    final base = await FileCache.baseDir();
+    final rel = FileCache.answerDir(
+      widget.schoolId,
+      widget.examId,
+      widget.subject,
+      widget.paperNum ?? 0,
+      widget.student.adm,
+    );
+    final dir = Directory('$base/$rel');
+    await dir.create(recursive: true);
+
+    final newPaths = <String>[];
+    for (final xFile in picked) {
+      final index = _paths.length + newPaths.length; // 0-indexed
+      final dest = File('${dir.path}/$index.jpg');
+      await File(xFile.path).copy(dest.path);
+      newPaths.add(dest.path);
+    }
+
+    if (!mounted) return;
+
+    // Mark new files as pending before adding them to the list so the
+    // overlay icons appear immediately on the first render.
+    final baseIndex = _paths.length;
+    for (int i = 0; i < newPaths.length; i++) {
+      _uploadStatus[baseIndex + i] = _UploadStatus.pending;
+    }
+
+    setState(() => _paths = [..._paths, ...newPaths]);
+    widget.onUpdated(_paths);
+
+    // Persist new paths to local DB
+    for (final p in newPaths) {
+      await widget.dao.insertSubmission(
+        schoolId: widget.schoolId,
+        examId: widget.examId,
+        student: widget.student.adm,
+        subject: widget.subject,
+        paperNum: widget.paperNum,
+        path: p,
+      );
+    }
+
+    // Trigger background upload (non-blocking fire-and-forget).
+    if (mounted) {
+      // ignore: unawaited_futures
+      _uploadPendingFiles();
+    }
+
+    // Log sync action so the server broadcasts the new pages to other devices.
+    final accountId = cache.currentUser?.user.id;
+    if (accountId != null) {
+      await widget.dao.logUploadAnswerSheet(
+        schoolId: widget.schoolId,
+        examId: widget.examId,
+        student: widget.student.adm,
+        subject: widget.subject,
+        paper: widget.paperNum,
+        count: _paths.length,
+        accountId: accountId,
+      );
+    }
+  }
+
+  Future<void> _takePhoto() async {
+    if (_picking) return;
+    setState(() => _picking = true);
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+      );
+      if (picked == null) return;
+      await _savePickedFiles([picked]);
+    } finally {
+      if (mounted) setState(() => _picking = false);
+    }
+  }
+
   Future<void> _addPhotos() async {
     if (_picking) return;
     setState(() => _picking = true);
     try {
       final picker = ImagePicker();
       final picked = await picker.pickMultiImage(imageQuality: 85);
-      if (picked.isEmpty) return;
-
-      final appDir = await getApplicationDocumentsDirectory();
-      final paperSuffix = widget.paperNum != null
-          ? '${widget.subject}_${widget.paperNum}'
-          : '${widget.subject}';
-      final dir = Directory(
-        '${appDir.path}/submissions/${widget.schoolId}/${widget.examId}/$paperSuffix/${widget.student.adm}',
-      );
-      await dir.create(recursive: true);
-
-      final newPaths = <String>[];
-      for (final xFile in picked) {
-        final index = _paths.length + newPaths.length + 1;
-        final dest = File('${dir.path}/$index.jpg');
-        await File(xFile.path).copy(dest.path);
-        newPaths.add(dest.path);
-      }
-
-      if (!mounted) return;
-
-      // Mark new files as pending before adding them to the list so the
-      // overlay icons appear immediately on the first render.
-      final baseIndex = _paths.length;
-      for (int i = 0; i < newPaths.length; i++) {
-        _uploadStatus[baseIndex + i] = _UploadStatus.pending;
-      }
-
-      setState(() => _paths = [..._paths, ...newPaths]);
-      widget.onUpdated(_paths);
-
-      // Persist new paths to local DB
-      for (final p in newPaths) {
-        await widget.dao.insertSubmission(
-          schoolId: widget.schoolId,
-          examId: widget.examId,
-          student: widget.student.adm,
-          subject: widget.subject,
-          paperNum: widget.paperNum,
-          path: p,
-        );
-      }
-
-      // Trigger background upload (non-blocking fire-and-forget).
-      if (mounted) {
-        // ignore: unawaited_futures
-        _uploadPendingFiles();
-      }
+      await _savePickedFiles(picked);
     } finally {
       if (mounted) setState(() => _picking = false);
     }
@@ -3589,8 +3815,13 @@ class _AnswerSubmissionSheetState extends State<_AnswerSubmissionSheet> {
     });
   }
 
-  void _removePhoto(int index) {
+  Future<void> _removePhoto(int index) async {
     final removedPath = _paths[index];
+    // 1. Delete file from disk.
+    try {
+      final file = File(removedPath);
+      if (await file.exists()) await file.delete();
+    } catch (_) {}
     setState(() {
       _paths.removeAt(index);
       // Rebuild the status map with shifted indices.
@@ -3608,8 +3839,9 @@ class _AnswerSubmissionSheetState extends State<_AnswerSubmissionSheet> {
         ..addAll(updated);
     });
     widget.onUpdated(_paths);
-    // Delete from local DB (fire-and-forget — UI already updated)
-    widget.dao.deleteSubmission(
+
+    // 2. Delete the removed path from local DB.
+    await widget.dao.deleteSubmission(
       schoolId: widget.schoolId,
       examId: widget.examId,
       student: widget.student.adm,
@@ -3617,6 +3849,65 @@ class _AnswerSubmissionSheetState extends State<_AnswerSubmissionSheet> {
       paperNum: widget.paperNum,
       path: removedPath,
     );
+
+    // 3. Re-index remaining files on disk and update DB to match new paths.
+    final base = await FileCache.baseDir();
+    final relDir = FileCache.answerDir(
+      widget.schoolId,
+      widget.examId,
+      widget.subject,
+      widget.paperNum ?? 0,
+      widget.student.adm,
+    );
+    for (int i = index; i < _paths.length; i++) {
+      final oldFile = File(_paths[i]);
+      final newDest = File('$base/$relDir/$i.jpg');
+      if (oldFile.path != newDest.path && await oldFile.exists()) {
+        await widget.dao.deleteSubmission(
+          schoolId: widget.schoolId,
+          examId: widget.examId,
+          student: widget.student.adm,
+          subject: widget.subject,
+          paperNum: widget.paperNum,
+          path: _paths[i],
+        );
+        await oldFile.rename(newDest.path);
+        _paths[i] = newDest.path;
+        await widget.dao.insertSubmission(
+          schoolId: widget.schoolId,
+          examId: widget.examId,
+          student: widget.student.adm,
+          subject: widget.subject,
+          paperNum: widget.paperNum,
+          path: newDest.path,
+        );
+      }
+    }
+
+    // 4. Log sync action.
+    final accountId = cache.currentUser?.user.id;
+    if (accountId != null) {
+      if (_paths.isEmpty) {
+        await widget.dao.logDeleteAnswerSheet(
+          schoolId: widget.schoolId,
+          examId: widget.examId,
+          student: widget.student.adm,
+          subject: widget.subject,
+          paper: widget.paperNum,
+          accountId: accountId,
+        );
+      } else {
+        await widget.dao.logUploadAnswerSheet(
+          schoolId: widget.schoolId,
+          examId: widget.examId,
+          student: widget.student.adm,
+          subject: widget.subject,
+          paper: widget.paperNum,
+          count: _paths.length,
+          accountId: accountId,
+        );
+      }
+    }
   }
 
   @override
@@ -3700,39 +3991,82 @@ class _AnswerSubmissionSheetState extends State<_AnswerSubmissionSheet> {
             ),
           ),
           const SizedBox(height: 16),
-          // Add Photos button
+          // Action buttons row: Camera + Gallery
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: GestureDetector(
-              onTap: _picking ? null : _addPhotos,
-              child: CustomPaint(
-                painter: _DashedBorderPainter(
-                  color: cs.outline.withValues(alpha: 0.35),
-                  radius: 4,
+            child: Row(
+              children: [
+                // Camera button (primary)
+                Expanded(
+                  flex: 3,
+                  child: GestureDetector(
+                    onTap: _picking ? null : _takePhoto,
+                    child: Container(
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: cs.primary.withValues(alpha: 0.25),
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: _picking
+                          ? SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                                color: cs.primary,
+                              ),
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.camera_alt_outlined,
+                                  size: 16,
+                                  color: cs.primary.withValues(alpha: 0.8),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Camera',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w400,
+                                    color: cs.primary.withValues(alpha: 0.8),
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                  ),
                 ),
-                child: Container(
-                  height: 44,
-                  alignment: Alignment.center,
-                  child: _picking
-                      ? SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 1.5,
-                            color: cs.primary,
-                          ),
-                        )
-                      : Row(
+                const SizedBox(width: 8),
+                // Gallery button (secondary)
+                Expanded(
+                  flex: 2,
+                  child: GestureDetector(
+                    onTap: _picking ? null : _addPhotos,
+                    child: CustomPaint(
+                      painter: _DashedBorderPainter(
+                        color: cs.outline.withValues(alpha: 0.35),
+                        radius: 4,
+                      ),
+                      child: Container(
+                        height: 44,
+                        alignment: Alignment.center,
+                        child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
-                              Icons.add_photo_alternate_outlined,
+                              Icons.photo_library_outlined,
                               size: 16,
                               color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              'Add Photos',
+                              'Gallery',
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w400,
@@ -3743,8 +4077,11 @@ class _AnswerSubmissionSheetState extends State<_AnswerSubmissionSheet> {
                             ),
                           ],
                         ),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
           const SizedBox(height: 16),

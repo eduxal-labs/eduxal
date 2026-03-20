@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as dev;
+import 'dart:io';
 import 'dart:math';
 
 import 'package:fixnum/fixnum.dart';
@@ -9,6 +10,7 @@ import 'package:grpc/grpc.dart';
 
 import '../database/database.dart';
 import '../database/daos/accounts_dao.dart';
+import '../database/daos/exams_grades_dao.dart';
 import '../database/daos/logs_dao.dart';
 import '../proto/services/sync.pb.dart' as sync_pb;
 import '../proto/services/sync.pbgrpc.dart';
@@ -781,6 +783,12 @@ class SyncEngine {
       // Download files from S3 if the server provided GET URLs.
       if (delta.fileUrls.isNotEmpty) {
         await _handleFileUrls(delta.fileUrls, isPushOriginator: false);
+
+        // After downloading answer sheet files, insert paper_submissions rows
+        // so the existing UI can discover them via DAO queries.
+        if (delta.table == 37 && delta.operation != 2) {
+          await _insertAnswerSubmissions(delta);
+        }
       }
 
       if (seq > _lastSeq) {
@@ -819,6 +827,51 @@ class SyncEngine {
     } catch (e, st) {
       _log('Error applying delta seq=${delta.seq}: $e', stackTrace: st);
       // Continue listening — one bad delta should not kill the stream.
+    }
+  }
+
+  /// After downloading answer sheet files from the watch stream, insert
+  /// [PaperSubmissions] rows so the existing UI can find them via DAO queries.
+  ///
+  /// For scheme files (table 36) no hook is needed — the UI uses filesystem
+  /// directory listing ([_loadSchemeFiles]) and the files land at predictable
+  /// paths automatically.
+  Future<void> _insertAnswerSubmissions(sync_pb.SyncDelta delta) async {
+    try {
+      final k = delta.rowKey.split('|');
+      // rowKey: "{school}|{exam}|{student}|{subject}|{paper}|{page}"
+      if (k.length < 6) return;
+
+      final schoolId = k[0];
+      final examId = k[1];
+      final student = int.tryParse(k[2]) ?? 0;
+      final subject = int.tryParse(k[3]) ?? 0;
+      final paper = k[4].isEmpty ? null : int.tryParse(k[4]);
+
+      final examsGradesDao = ExamsGradesDao(db);
+
+      for (final fileUrl in delta.fileUrls) {
+        if (fileUrl.path.isEmpty) continue;
+
+        // Resolve relative path to absolute path for paper_submissions storage.
+        final base = await FileCache.baseDir();
+        final absPath = '$base/${fileUrl.path}';
+
+        // Only insert if the file was actually downloaded successfully.
+        final file = File(absPath);
+        if (!file.existsSync()) continue;
+
+        await examsGradesDao.insertSubmission(
+          schoolId: schoolId,
+          examId: examId,
+          student: student,
+          subject: subject,
+          paperNum: paper,
+          path: absPath,
+        );
+      }
+    } catch (e) {
+      debugPrint('[SyncEngine] Error inserting answer submissions: $e');
     }
   }
 

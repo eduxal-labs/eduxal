@@ -36,6 +36,12 @@ class FileCache {
 
   /// Returns the resolved application documents directory path, initialising
   /// it on the first call.
+  ///
+  /// Exposed as a public method so that UI code and the sync engine can
+  /// resolve relative paths (e.g. [schemePath], [answerPath]) to absolute
+  /// filesystem paths without duplicating the resolution logic.
+  static Future<String> baseDir() => _baseDir();
+
   static Future<String> _baseDir() async {
     _appDir ??= (await getApplicationDocumentsDirectory()).path;
     return _appDir!;
@@ -287,6 +293,54 @@ class FileCache {
   /// Not used in Task Group 4 but establishes the convention for later groups.
   static String studentImagePath(String schoolId, int adm) =>
       'schools/$schoolId/students/$adm/image';
+
+  /// Relative path for a single marking scheme page image.
+  ///
+  /// Resolves to `{appDir}/submissions/{schoolId}/{examId}/{subject}_{paper}/scheme/{page}.jpg`.
+  /// Pass [paper] = 0 for single-paper subjects (paper = NULL in the DB).
+  static String schemePath(
+    String schoolId,
+    String examId,
+    int subject,
+    int paper,
+    int page,
+  ) => 'submissions/$schoolId/$examId/${subject}_$paper/scheme/$page.jpg';
+
+  /// Relative directory path containing all scheme pages for a paper.
+  ///
+  /// Resolves to `{appDir}/submissions/{schoolId}/{examId}/{subject}_{paper}/scheme`.
+  /// Pass [paper] = 0 for single-paper subjects.
+  static String schemeDir(
+    String schoolId,
+    String examId,
+    int subject,
+    int paper,
+  ) => 'submissions/$schoolId/$examId/${subject}_$paper/scheme';
+
+  /// Relative path for a single student answer sheet page image.
+  ///
+  /// Resolves to `{appDir}/submissions/{schoolId}/{examId}/{subject}_{paper}/{adm}/{page}.jpg`.
+  /// Pass [paper] = 0 for single-paper subjects.
+  static String answerPath(
+    String schoolId,
+    String examId,
+    int subject,
+    int paper,
+    int adm,
+    int page,
+  ) => 'submissions/$schoolId/$examId/${subject}_$paper/$adm/$page.jpg';
+
+  /// Relative directory path containing all answer pages for a student's paper.
+  ///
+  /// Resolves to `{appDir}/submissions/{schoolId}/{examId}/{subject}_{paper}/{adm}`.
+  /// Pass [paper] = 0 for single-paper subjects.
+  static String answerDir(
+    String schoolId,
+    String examId,
+    int subject,
+    int paper,
+    int adm,
+  ) => 'submissions/$schoolId/$examId/${subject}_$paper/$adm';
 
   // ─────────────────────────────────────────────────────────────────────────
   // Private helpers

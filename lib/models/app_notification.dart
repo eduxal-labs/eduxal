@@ -150,5 +150,9 @@ class AppNotification {
     SyncAction.deleteMpesa => 'Remove M-Pesa',
     SyncAction.addExamGrade => 'Add Exam Grade',
     SyncAction.removeExamGrade => 'Remove Exam Grade',
+    SyncAction.uploadScheme => 'Upload Marking Scheme',
+    SyncAction.deleteScheme => 'Delete Marking Scheme',
+    SyncAction.uploadAnswerSheet => 'Upload Answer Sheet',
+    SyncAction.deleteAnswerSheet => 'Delete Answer Sheet',
   };
 }
