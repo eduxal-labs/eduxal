@@ -6625,16 +6625,13 @@ class _PaperEmptyCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 2),
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 52),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
-          border: Border.all(
-            color: cs.outline.withValues(alpha: isDark ? 0.06 : 0.08),
-            width: 1,
-          ),
+    return Container(
+      constraints: const BoxConstraints(minHeight: 52),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+        border: Border.all(
+          color: cs.outline.withValues(alpha: isDark ? 0.06 : 0.08),
+          width: 1,
         ),
       ),
     );

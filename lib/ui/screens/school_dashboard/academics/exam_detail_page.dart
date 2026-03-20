@@ -2818,7 +2818,7 @@ class _PapersCrossTable extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
 
-    // Build row keys: unique (grade, stream) pairs, sorted by grade then stream
+    // Build row keys
     final rowKeys = <({int grade, int? stream})>[];
     final papersByRow = <({int grade, int? stream}), List<Paper>>{};
     for (final p in papers) {
@@ -2838,20 +2838,61 @@ class _PapersCrossTable extends StatelessWidget {
       return a.stream!.compareTo(b.stream!);
     });
 
-    // Column headers: unique dates from all papers
+    // Build unique time-slot columns
+    final timeCols = <({String start, String end, int startMins})>[];
+    {
+      final seen = <int>{};
+      final sorted = List<Paper>.from(papers)
+        ..sort((a, b) => a.start.compareTo(b.start));
+      for (final p in sorted) {
+        if (p.start.toInt() == 0) continue;
+        final sdt = DateTime.fromMillisecondsSinceEpoch(p.start.toInt() * 1000);
+        final mins = sdt.hour * 60 + sdt.minute;
+        if (seen.add(mins)) {
+          final edt = DateTime.fromMillisecondsSinceEpoch(p.end.toInt() * 1000);
+          timeCols.add((
+            start: _fmtTime(sdt),
+            end: _fmtTime(edt),
+            startMins: mins,
+          ));
+        }
+      }
+    }
+
     final grouped = _groupExamPapersByDate(papers);
     final dates = _sortedExamPaperDates(grouped);
 
-    if (rowKeys.isEmpty || dates.isEmpty) {
+    if (rowKeys.isEmpty || timeCols.isEmpty || dates.isEmpty) {
       return _buildEmpty(cs, 'No papers added to this exam yet');
     }
 
-    const double rowLabelWidth = 110;
-    const double colWidth = 140;
-    final totalWidth = rowLabelWidth + dates.length * colWidth;
+    const double streamLabelW = 100;
+    const double timeColW = 110;
+    const double colGap = 3;
+    final totalW =
+        streamLabelW +
+        colGap +
+        timeCols.length * timeColW +
+        (timeCols.length > 1 ? (timeCols.length - 1) * colGap : 0);
+
     final borderColor = cs.outlineVariant.withValues(
       alpha: isDark ? 0.15 : 0.2,
     );
+
+    // Helper: find paper for row+date+time
+    Paper? paperAt(
+      ({int grade, int? stream}) key,
+      DateTime date,
+      int startMins,
+    ) {
+      final rowPapers = papersByRow[key] ?? [];
+      for (final p in rowPapers) {
+        final dt = DateTime.fromMillisecondsSinceEpoch(p.start.toInt() * 1000);
+        final day = DateTime(dt.year, dt.month, dt.day);
+        if (day == date && (dt.hour * 60 + dt.minute) == startMins) return p;
+      }
+      return null;
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2862,116 +2903,136 @@ class _PapersCrossTable extends StatelessWidget {
         ),
         Expanded(
           child: SingleChildScrollView(
-            scrollDirection: Axis.vertical,
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+            padding: const EdgeInsets.all(16),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              child: SizedBox(
-                width: totalWidth,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // ── Header row (date labels) ──────────────────────────
-                    Row(
-                      children: [
-                        SizedBox(width: rowLabelWidth),
-                        ...dates.map(
-                          (d) => SizedBox(
-                            width: colWidth,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 4,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Time header row ──
+                  Row(
+                    children: [
+                      const SizedBox(width: streamLabelW),
+                      const SizedBox(width: colGap),
+                      for (int i = 0; i < timeCols.length; i++) ...[
+                        if (i > 0) const SizedBox(width: colGap),
+                        SizedBox(
+                          width: timeColW,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 7,
+                              horizontal: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: cs.surfaceContainerHighest.withValues(
+                                alpha: 0.3,
                               ),
-                              child: Text(
-                                _fmtDayHeader(d),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  color: cs.onSurfaceVariant,
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.kChipRadius,
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              '${timeCols[i].start} – ${timeCols[i].end}',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w500,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.7,
                                 ),
-                                textAlign: TextAlign.center,
+                                letterSpacing: 0.1,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
                               ),
+                              textAlign: TextAlign.center,
                             ),
                           ),
                         ),
                       ],
+                    ],
+                  ),
+                  const SizedBox(height: colGap),
+
+                  // ── Day groups ──
+                  for (int di = 0; di < dates.length; di++) ...[
+                    if (di > 0) const SizedBox(height: 10),
+                    // Day header strip
+                    Container(
+                      width: totalW,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 6,
+                        horizontal: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: cs.surfaceContainerHighest.withValues(
+                          alpha: isDark ? 0.25 : 0.20,
+                        ),
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.kChipRadius,
+                        ),
+                      ),
+                      child: Text(
+                        _fmtDayHeader(dates[di]),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: cs.onSurface.withValues(alpha: 0.75),
+                          letterSpacing: 0.2,
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 6),
-                    // ── Data rows (one per grade+stream combo) ────────────
-                    for (final key in rowKeys)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: IntrinsicHeight(
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              // Row label
-                              SizedBox(
-                                width: rowLabelWidth,
+
+                    // Stream rows for this day
+                    for (final key in rowKeys) ...[
+                      const SizedBox(height: colGap),
+                      IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // Stream label
+                            SizedBox(
+                              width: streamLabelW,
+                              child: Align(
+                                alignment: Alignment.centerLeft,
                                 child: Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: cs.surfaceContainerHighest
-                                          .withValues(alpha: 0.4),
-                                      borderRadius: BorderRadius.circular(
-                                        AppTheme.kChipRadius,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
+                                  child: Text(
+                                    key.stream != null
+                                        ? (streamNames[key.stream] ??
+                                              'Stream ${key.stream}')
+                                        : 'All Streams',
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w500,
+                                      color: cs.onSurfaceVariant.withValues(
+                                        alpha: 0.55,
                                       ),
-                                      border: Border.all(
-                                        color: borderColor,
-                                        width: 1,
-                                      ),
+                                      letterSpacing: 0.1,
                                     ),
-                                    child: Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: Text(
-                                        key.stream != null
-                                            ? (streamNames[key.stream] ??
-                                                  'Stream ${key.stream}')
-                                            : 'All Streams',
-                                        style: TextStyle(
-                                          fontSize: 11.5,
-                                          fontWeight: FontWeight.w500,
-                                          color: cs.onSurface,
-                                        ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ),
-                              // Date cells
-                              ...dates.map((date) {
-                                final rowPapers = papersByRow[key]!;
-                                final cellPapers =
-                                    rowPapers.where((p) {
-                                      final dt =
-                                          DateTime.fromMillisecondsSinceEpoch(
-                                            p.start.toInt() * 1000,
-                                          );
-                                      final day = DateTime(
-                                        dt.year,
-                                        dt.month,
-                                        dt.day,
-                                      );
-                                      return day == date;
-                                    }).toList()..sort(
-                                      (a, b) => a.start.compareTo(b.start),
-                                    );
+                            ),
+                            const SizedBox(width: colGap),
 
-                                if (cellPapers.isEmpty) {
-                                  return SizedBox(
-                                    width: colWidth,
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 2,
-                                      ),
-                                      child: Container(
+                            // Time slot cells
+                            for (int ci = 0; ci < timeCols.length; ci++) ...[
+                              if (ci > 0) const SizedBox(width: colGap),
+                              SizedBox(
+                                width: timeColW,
+                                child: Builder(
+                                  builder: (_) {
+                                    final paper = paperAt(
+                                      key,
+                                      dates[di],
+                                      timeCols[ci].startMins,
+                                    );
+                                    if (paper == null) {
+                                      return Container(
                                         constraints: const BoxConstraints(
                                           minHeight: 52,
                                         ),
@@ -2986,45 +3047,24 @@ class _PapersCrossTable extends StatelessWidget {
                                             width: 1,
                                           ),
                                         ),
-                                      ),
-                                    ),
-                                  );
-                                }
-
-                                return SizedBox(
-                                  width: colWidth,
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 2,
-                                    ),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        for (
-                                          int i = 0;
-                                          i < cellPapers.length;
-                                          i++
-                                        ) ...[
-                                          _buildCell(
-                                            cellPapers[i],
-                                            cs,
-                                            isDark,
-                                            borderColor,
-                                          ),
-                                          if (i < cellPapers.length - 1)
-                                            const SizedBox(height: 3),
-                                        ],
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              }),
+                                      );
+                                    }
+                                    return _buildCell(
+                                      paper,
+                                      cs,
+                                      isDark,
+                                      borderColor,
+                                    );
+                                  },
+                                ),
+                              ),
                             ],
-                          ),
+                          ],
                         ),
                       ),
+                    ],
                   ],
-                ),
+                ],
               ),
             ),
           ),
@@ -3045,14 +3085,6 @@ class _PapersCrossTable extends StatelessWidget {
     final paperLabel = paper.paper != null && paper.paper! > 1
         ? ' · P${paper.paper}'
         : '';
-    final startMs = paper.start.toInt();
-    final endMs = paper.end.toInt();
-    final timeUnset = startMs == 0;
-    final timeRange = timeUnset
-        ? null
-        : '${_fmtTime(DateTime.fromMillisecondsSinceEpoch(startMs * 1000))}'
-              ' – '
-              '${_fmtTime(DateTime.fromMillisecondsSinceEpoch(endMs * 1000))}';
 
     return InkWell(
       onTap: () => onTap(paper),
@@ -3062,44 +3094,25 @@ class _PapersCrossTable extends StatelessWidget {
         constraints: const BoxConstraints(minHeight: 52),
         padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
-          color: statusColor.withValues(alpha: isDark ? 0.12 : 0.08),
+          color: statusColor.withValues(alpha: isDark ? 0.15 : 0.08),
           borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
           border: Border(
             left: BorderSide(
-              color: statusColor.withValues(alpha: 0.65),
+              color: statusColor.withValues(alpha: 0.6),
               width: 2.5,
             ),
           ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '$subjectName$paperLabel',
-              style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w500,
-                color: cs.onSurface,
-                height: 1.2,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            if (timeRange != null) ...[
-              const SizedBox(height: 2),
-              Text(
-                timeRange,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.65),
-                  height: 1.2,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-            ],
-          ],
+        child: Text(
+          '$subjectName$paperLabel',
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w500,
+            color: cs.onSurface,
+            height: 1.2,
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
         ),
       ),
     );
