@@ -145,7 +145,7 @@ Future<void> saveLessons({
 
 ---
 
-### Task 02: Generate Lessons UI — dialog, FAB changes, substitution picker
+### Task 02 [x]: Generate Lessons UI — dialog, FAB changes, substitution picker
 **Files to create/modify:** `eduxal/lib/ui/screens/school_dashboard/timetable/timetable_screen.dart`
 **Context files to read (if needed):** `eduxal/lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** Task 01

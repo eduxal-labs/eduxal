@@ -301,6 +301,19 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
     }
   }
 
+  Future<void> _openGenerateLessonsDialog() async {
+    final term = widget.termContext.currentTerm;
+    if (term == null) return;
+    await showGenerateLessonsDialog(
+      context,
+      schoolId: widget.schoolContext.membership.school.id,
+      year: term.year,
+      term: term.term,
+      timetableDao: _timetableDao,
+      config: _config ?? SchoolConfig.defaults(),
+    );
+  }
+
   Future<void> _deleteTimetable() async {
     final term = widget.termContext.currentTerm;
     if (term == null || _deleting || _generating) return;
@@ -594,6 +607,7 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
+                // Delete FAB — shown only when a timetable exists
                 if (_hasTimetable) ...[
                   FloatingActionButton.small(
                     heroTag: 'timetable_delete',
@@ -621,13 +635,21 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
                         : const Icon(Icons.delete_outline_rounded, size: 18),
                   ),
                   const SizedBox(height: 12),
+                  // Generate Lessons FAB — replaces the wizard "+" when timetable exists
+                  _GenerateLessonsFab(
+                    heroTag: 'timetable_gen_lessons',
+                    onTap: _openGenerateLessonsDialog,
+                    cs: cs,
+                  ),
+                ] else ...[
+                  // No timetable yet — show the wizard FAB
+                  _GenerateFab(
+                    heroTag: 'timetable_generate',
+                    onTap: _openRulesSheet,
+                    generating: _generating,
+                    cs: cs,
+                  ),
                 ],
-                _GenerateFab(
-                  heroTag: 'timetable_generate',
-                  onTap: _openRulesSheet,
-                  generating: _generating,
-                  cs: cs,
-                ),
               ],
             )
           : null,
@@ -1667,6 +1689,1483 @@ class _GenerateFab extends StatelessWidget {
               ),
             )
           : const Icon(Icons.add_rounded, size: 20),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Generate Lessons — FAB, dialog, preview, substitution picker
+// ═════════════════════════════════════════════════════════════════════════════
+
+/// FAB shown when a timetable already exists — opens the lesson generation dialog.
+class _GenerateLessonsFab extends StatelessWidget {
+  const _GenerateLessonsFab({
+    required this.onTap,
+    required this.cs,
+    this.heroTag,
+  });
+
+  final VoidCallback onTap;
+  final ColorScheme cs;
+  final Object? heroTag;
+
+  @override
+  Widget build(BuildContext context) {
+    return FloatingActionButton.small(
+      heroTag: heroTag,
+      onPressed: onTap,
+      backgroundColor: AppTheme.brandGreen,
+      foregroundColor: Colors.white,
+      elevation: 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+      ),
+      tooltip: 'Generate lessons from timetable',
+      child: const Icon(Icons.auto_awesome_rounded, size: 18),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// An in-memory lesson generated from a timetable slot — not yet saved to DB.
+class _GeneratedLesson {
+  _GeneratedLesson({
+    required this.schoolId,
+    required this.year,
+    required this.term,
+    required this.grade,
+    required this.stream,
+    required this.date,
+    required this.subjectId,
+    required this.subjectName,
+    required this.teacherId,
+    required this.teacherName,
+    required this.startTime,
+    required this.endTime,
+  });
+
+  final String schoolId;
+  final int year;
+  final int term;
+  final int grade;
+  final int stream;
+  final int date;
+  final int subjectId;
+  final String subjectName;
+  String teacherId;
+  String teacherName;
+  final int startTime;
+  final int endTime;
+
+  LessonsCompanion toCompanion() {
+    final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+    return LessonsCompanion(
+      school: Value(schoolId),
+      year: Value(year),
+      term: Value(term),
+      grade: Value(grade),
+      stream: Value(stream),
+      date: Value(date),
+      subject: Value(subjectId),
+      teacher: Value(teacherId),
+      created: Value(nowMs),
+      updated: Value(nowMs),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Shows the Generate Lessons dialog.
+///
+/// Desktop (≥ kMobileBreakpoint): centred [Dialog] with max width 480.
+/// Mobile (< kMobileBreakpoint): modal bottom sheet (88 % height, top-rounded).
+Future<void> showGenerateLessonsDialog(
+  BuildContext context, {
+  required String schoolId,
+  required int year,
+  required int term,
+  required TimetableDao timetableDao,
+  required SchoolConfig config,
+}) {
+  final isDesktop =
+      MediaQuery.sizeOf(context).width >= AppTheme.kMobileBreakpoint;
+  if (isDesktop) {
+    return showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.35),
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: _GenerateLessonsDialog(
+            schoolId: schoolId,
+            year: year,
+            term: term,
+            timetableDao: timetableDao,
+            config: config,
+          ),
+        ),
+      ),
+    );
+  }
+  return showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: Colors.black.withValues(alpha: 0.35),
+    builder: (ctx) => Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(ctx).height * 0.88,
+        ),
+        child: _GenerateLessonsDialog(
+          schoolId: schoolId,
+          year: year,
+          term: term,
+          timetableDao: timetableDao,
+          config: config,
+        ),
+      ),
+    ),
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _GenerateLessonsDialog extends StatefulWidget {
+  const _GenerateLessonsDialog({
+    required this.schoolId,
+    required this.year,
+    required this.term,
+    required this.timetableDao,
+    required this.config,
+  });
+
+  final String schoolId;
+  final int year;
+  final int term;
+  final TimetableDao timetableDao;
+  final SchoolConfig config;
+
+  @override
+  State<_GenerateLessonsDialog> createState() => _GenerateLessonsDialogState();
+}
+
+class _GenerateLessonsDialogState extends State<_GenerateLessonsDialog> {
+  // ── State ─────────────────────────────────────────────────────────────────
+
+  int _step = 0; // 0 = scope picker, 1 = preview
+
+  /// null = no selection, 0 = Today, 1 = This Week
+  int? _selectedScope;
+
+  bool _loading = false; // true while loading timetable from DB
+  bool _saving = false; // true while writing to DB
+
+  List<_GeneratedLesson> _preview = [];
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  /// Days since Unix epoch for a [DateTime].
+  static int _epochDays(DateTime d) =>
+      d.millisecondsSinceEpoch ~/ Duration.millisecondsPerDay;
+
+  /// Map Dart weekday (1=Mon … 7=Sun) to [DayOfWeek].
+  static DayOfWeek _dartToDayOfWeek(int dartWeekday) {
+    // Dart: Mon=1,Tue=2,...,Sat=6,Sun=7
+    // DayOfWeek: sun=0,mon=1,...,sat=6
+    return dartWeekday == 7 ? DayOfWeek.sunday : DayOfWeek.values[dartWeekday];
+  }
+
+  /// Returns (date: DateTime, dayOfWeek: DayOfWeek) pairs to generate.
+  ///
+  /// For scope 0 (Today): one entry — today.
+  /// For scope 1 (This Week): Monday through Friday of the current calendar week.
+  List<({DateTime date, DayOfWeek dow})> _datesForScope(int scope) {
+    final now = DateTime.now();
+    if (scope == 0) {
+      return [
+        (
+          date: DateTime(now.year, now.month, now.day),
+          dow: _dartToDayOfWeek(now.weekday),
+        ),
+      ];
+    }
+    // This week Mon–Fri
+    final monday = now.subtract(Duration(days: now.weekday - 1));
+    return List.generate(5, (i) {
+      final d = monday.add(Duration(days: i));
+      return (
+        date: DateTime(d.year, d.month, d.day),
+        dow: _dartToDayOfWeek(d.weekday),
+      );
+    });
+  }
+
+  Future<void> _generate() async {
+    if (_selectedScope == null || _loading) return;
+    setState(() => _loading = true);
+    try {
+      final datePairs = _datesForScope(_selectedScope!);
+      final days = datePairs.map((p) => p.dow).toSet().toList();
+
+      final entries = await widget.timetableDao.getTermTimetableForDays(
+        schoolId: widget.schoolId,
+        year: widget.year,
+        term: widget.term,
+        days: days,
+      );
+
+      // Map timetable entries → _GeneratedLesson per (date, slot)
+      final generated = <_GeneratedLesson>[];
+      for (final pair in datePairs) {
+        final dayEntries = entries
+            .where((e) => e.slot.day == pair.dow)
+            .toList();
+        for (final e in dayEntries) {
+          generated.add(
+            _GeneratedLesson(
+              schoolId: widget.schoolId,
+              year: widget.year,
+              term: widget.term,
+              grade: e.slot.grade,
+              stream: e.slot.stream,
+              date: _epochDays(pair.date),
+              subjectId: e.slot.subject,
+              subjectName: e.subjectName,
+              teacherId: e.teacher.id,
+              teacherName: e.teacher.name,
+              startTime: e.slot.start,
+              endTime: e.slot.end,
+            ),
+          );
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _preview = generated;
+          _step = 1;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _save() async {
+    if (_saving) return;
+    final account = cache.currentUser;
+    if (account == null) return;
+    setState(() => _saving = true);
+    try {
+      final companions = _preview.map((l) => l.toCompanion()).toList();
+      await widget.timetableDao.saveLessons(
+        lessonsList: companions,
+        accountId: account.user.id,
+      );
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${companions.length} lesson${companions.length == 1 ? '' : 's'} saved.',
+            ),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+            ),
+            margin: const EdgeInsets.all(16),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save lessons: $e'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Theme.of(context).colorScheme.error,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+            ),
+            margin: const EdgeInsets.all(16),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  // ── Build ──────────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+    final isDesktop =
+        MediaQuery.sizeOf(context).width >= AppTheme.kMobileBreakpoint;
+
+    final radius = isDesktop
+        ? BorderRadius.circular(AppTheme.kModalRadius)
+        : const BorderRadius.only(
+            topLeft: Radius.circular(AppTheme.kModalRadius),
+            topRight: Radius.circular(AppTheme.kModalRadius),
+          );
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.modalBg(isDark, cs),
+        borderRadius: radius,
+        border: Border.all(color: AppTheme.borderColor(isDark, cs)),
+        boxShadow: AppTheme.modalShadow(isDark),
+      ),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildHeader(cs, isDark, isDesktop),
+            Divider(
+              height: 1,
+              thickness: 0.5,
+              color: AppTheme.borderColor(isDark, cs),
+            ),
+            Flexible(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                switchInCurve: Curves.easeIn,
+                switchOutCurve: Curves.easeOut,
+                transitionBuilder: (child, anim) =>
+                    FadeTransition(opacity: anim, child: child),
+                child: _step == 0
+                    ? _buildScopeStep(cs, isDark)
+                    : _buildPreviewStep(cs, isDark),
+              ),
+            ),
+            Divider(
+              height: 1,
+              thickness: 0.5,
+              color: AppTheme.borderColor(isDark, cs),
+            ),
+            _buildFooter(cs, isDark),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(ColorScheme cs, bool isDark, bool isDesktop) {
+    final title = _step == 0 ? 'Generate Lessons' : 'Preview Lessons';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
+      child: Row(
+        children: [
+          if (!isDesktop)
+            Align(
+              alignment: Alignment.topCenter,
+              child: Container(
+                width: 36,
+                height: 3,
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: cs.outlineVariant.withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+          if (_step == 1) ...[
+            GestureDetector(
+              onTap: () => setState(() => _step = 0),
+              child: Icon(
+                Icons.chevron_left_rounded,
+                size: 22,
+                color: cs.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(width: 6),
+          ],
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: cs.onSurface,
+              ),
+            ),
+          ),
+          if (_step == 1) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppTheme.brandGreen.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+              ),
+              child: Text(
+                '${_preview.length} lesson${_preview.length == 1 ? '' : 's'}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.brandGreen,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          GestureDetector(
+            onTap: () => Navigator.of(context).pop(),
+            child: Icon(
+              Icons.close_rounded,
+              size: 18,
+              color: cs.onSurface.withValues(alpha: 0.45),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Step 0: Scope Picker ───────────────────────────────────────────────────
+
+  Widget _buildScopeStep(ColorScheme cs, bool isDark) {
+    final now = DateTime.now();
+    final monday = now.subtract(Duration(days: now.weekday - 1));
+    final friday = monday.add(const Duration(days: 4));
+
+    String todayLabel() {
+      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+      return '${days[now.weekday - 1]} ${now.day} ${months[now.month - 1]}';
+    }
+
+    String weekLabel() {
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+      final m1 = months[monday.month - 1];
+      final m2 = months[friday.month - 1];
+      if (monday.month == friday.month) {
+        return '${monday.day} – ${friday.day} $m1';
+      }
+      return '${monday.day} $m1 – ${friday.day} $m2';
+    }
+
+    return SingleChildScrollView(
+      key: const ValueKey('scope'),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Choose how many lessons to generate',
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurface.withValues(alpha: 0.55),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _ScopeOptionCard(
+                  icon: Icons.today_rounded,
+                  title: 'Today',
+                  subtitle: todayLabel(),
+                  selected: _selectedScope == 0,
+                  cs: cs,
+                  isDark: isDark,
+                  onTap: () => setState(() => _selectedScope = 0),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _ScopeOptionCard(
+                  icon: Icons.calendar_view_week_rounded,
+                  title: 'This Week',
+                  subtitle: weekLabel(),
+                  selected: _selectedScope == 1,
+                  cs: cs,
+                  isDark: isDark,
+                  onTap: () => setState(() => _selectedScope = 1),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Step 1: Preview ────────────────────────────────────────────────────────
+
+  Widget _buildPreviewStep(ColorScheme cs, bool isDark) {
+    if (_preview.isEmpty) {
+      return Padding(
+        key: const ValueKey('preview_empty'),
+        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.event_busy_outlined,
+              size: 32,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'No classes scheduled',
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w500,
+                color: cs.onSurface,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _selectedScope == 0
+                  ? 'No timetable entries for today'
+                  : 'No timetable entries for this week',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Group preview lessons by date (epoch days)
+    final grouped = <int, List<_GeneratedLesson>>{};
+    for (final l in _preview) {
+      grouped.putIfAbsent(l.date, () => []).add(l);
+    }
+    final dates = grouped.keys.toList()..sort();
+
+    return ListView.builder(
+      key: const ValueKey('preview_list'),
+      shrinkWrap: true,
+      physics: const ClampingScrollPhysics(),
+      padding: const EdgeInsets.only(bottom: 8),
+      itemCount: () {
+        int count = 0;
+        for (final date in dates) {
+          count += 1 + grouped[date]!.length; // header + rows
+        }
+        return count;
+      }(),
+      itemBuilder: (context, index) {
+        int cursor = 0;
+        for (final date in dates) {
+          if (index == cursor) {
+            return _PreviewDateHeader(date: date, cs: cs);
+          }
+          cursor++;
+          final dayLessons = grouped[date]!;
+          for (int i = 0; i < dayLessons.length; i++) {
+            if (index == cursor) {
+              return _PreviewLessonItem(
+                lesson: dayLessons[i],
+                allLessons: _preview,
+                cs: cs,
+                isDark: isDark,
+                timetableDao: widget.timetableDao,
+                schoolId: widget.schoolId,
+                year: widget.year,
+                term: widget.term,
+                config: widget.config,
+                onChanged: () => setState(() {}),
+              );
+            }
+            cursor++;
+          }
+        }
+        return const SizedBox.shrink();
+      },
+    );
+  }
+
+  // ── Footer ─────────────────────────────────────────────────────────────────
+
+  Widget _buildFooter(ColorScheme cs, bool isDark) {
+    if (_step == 0) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+        child: Row(
+          children: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: TextButton.styleFrom(
+                foregroundColor: cs.onSurface.withValues(alpha: 0.5),
+                textStyle: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              child: const Text('Cancel'),
+            ),
+            const Spacer(),
+            FilledButton.icon(
+              onPressed: (_selectedScope == null || _loading)
+                  ? null
+                  : _generate,
+              icon: _loading
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.5,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.arrow_forward_rounded, size: 16),
+              label: const Text('Generate'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.brandGreen,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: AppTheme.brandGreen.withValues(
+                  alpha: 0.35,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+                minimumSize: const Size(0, 38),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Step 1 footer: Discard + Save
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+      child: Row(
+        children: [
+          TextButton(
+            onPressed: _saving ? null : () => Navigator.of(context).pop(),
+            style: TextButton.styleFrom(
+              foregroundColor: cs.onSurface.withValues(alpha: 0.5),
+              textStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+            child: const Text('Discard'),
+          ),
+          const Spacer(),
+          FilledButton.icon(
+            onPressed: (_saving || _preview.isEmpty) ? null : _save,
+            icon: _saving
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.check_rounded, size: 16),
+            label: Text(
+              'Save ${_preview.length} lesson${_preview.length == 1 ? '' : 's'}',
+            ),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.brandGreen,
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: AppTheme.brandGreen.withValues(
+                alpha: 0.35,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              ),
+              textStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+              minimumSize: const Size(0, 38),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ScopeOptionCard extends StatefulWidget {
+  const _ScopeOptionCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.cs,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final ColorScheme cs;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  @override
+  State<_ScopeOptionCard> createState() => _ScopeOptionCardState();
+}
+
+class _ScopeOptionCardState extends State<_ScopeOptionCard>
+    with SingleTickerProviderStateMixin {
+  bool _hovered = false;
+  bool _pressed = false;
+  late AnimationController _ctrl;
+  late Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+      reverseDuration: const Duration(milliseconds: 150),
+    );
+    _scale = Tween<double>(
+      begin: 1.0,
+      end: 0.96,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Color get _bg {
+    if (widget.selected) {
+      return widget.cs.primary.withValues(alpha: 0.08);
+    }
+    if (_pressed) return AppTheme.nestedBg(widget.isDark, widget.cs);
+    if (_hovered) {
+      return widget.cs.primary.withValues(alpha: 0.04);
+    }
+    return AppTheme.nestedBg(widget.isDark, widget.cs);
+  }
+
+  Color get _borderColor {
+    if (widget.selected) return widget.cs.primary;
+    if (_hovered) return widget.cs.primary.withValues(alpha: 0.4);
+    return AppTheme.borderColor(widget.isDark, widget.cs);
+  }
+
+  double get _borderWidth => widget.selected ? 1.5 : 1.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTapDown: (_) {
+          setState(() => _pressed = true);
+          _ctrl.forward();
+        },
+        onTapUp: (_) {
+          setState(() => _pressed = false);
+          _ctrl.reverse();
+          widget.onTap();
+        },
+        onTapCancel: () {
+          setState(() => _pressed = false);
+          _ctrl.reverse();
+        },
+        child: ScaleTransition(
+          scale: _scale,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            curve: Curves.easeOut,
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 14),
+            decoration: BoxDecoration(
+              color: _bg,
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              border: Border.all(color: _borderColor, width: _borderWidth),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 140),
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: widget.selected
+                        ? widget.cs.primary.withValues(alpha: 0.12)
+                        : AppTheme.borderColor(
+                            widget.isDark,
+                            widget.cs,
+                          ).withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                  ),
+                  child: Icon(
+                    widget.icon,
+                    size: 22,
+                    color: widget.selected
+                        ? widget.cs.primary
+                        : widget.cs.onSurfaceVariant.withValues(alpha: 0.45),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  widget.title,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: widget.selected
+                        ? widget.cs.primary
+                        : widget.cs.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  widget.subtitle,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w400,
+                    color: widget.cs.onSurfaceVariant.withValues(alpha: 0.55),
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PreviewDateHeader extends StatelessWidget {
+  const _PreviewDateHeader({required this.date, required this.cs});
+
+  final int date; // days since epoch
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+      child: Text(
+        formatDateFromDays(date),
+        style: TextStyle(
+          fontSize: 11.5,
+          fontWeight: FontWeight.w500,
+          color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+          letterSpacing: 0.3,
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PreviewLessonItem extends StatelessWidget {
+  const _PreviewLessonItem({
+    required this.lesson,
+    required this.allLessons,
+    required this.cs,
+    required this.isDark,
+    required this.timetableDao,
+    required this.schoolId,
+    required this.year,
+    required this.term,
+    required this.config,
+    required this.onChanged,
+  });
+
+  final _GeneratedLesson lesson;
+  final List<_GeneratedLesson> allLessons;
+  final ColorScheme cs;
+  final bool isDark;
+  final TimetableDao timetableDao;
+  final String schoolId;
+  final int year;
+  final int term;
+  final SchoolConfig config;
+  final VoidCallback onChanged;
+
+  String _gradeStreamLabel() {
+    // Grade label
+    String gradeLabel = 'Grade ${lesson.grade}';
+    for (final cur in config.curricula) {
+      final labels = gradeLabelsFor(cur.type);
+      final l = labels[lesson.grade];
+      if (l != null) {
+        gradeLabel = l;
+        break;
+      }
+    }
+    // Stream label
+    String streamLabel = '';
+    outer:
+    for (final cur in config.curricula) {
+      for (final gc in cur.grades) {
+        if (gc.grade == lesson.grade) {
+          for (final s in gc.streams) {
+            if (s.code == lesson.stream) {
+              streamLabel = s.name;
+              break outer;
+            }
+          }
+        }
+      }
+    }
+    return streamLabel.isNotEmpty ? '$gradeLabel · $streamLabel' : gradeLabel;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final timeRange =
+        '${_fmtTime(lesson.startTime)} – ${_fmtTime(lesson.endTime)}';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Colour dot
+          Padding(
+            padding: const EdgeInsets.only(top: 5),
+            child: Container(
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _colorForSubject(lesson.subjectId),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          // Content
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  lesson.subjectName,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  lesson.teacherName,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w300,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  timeRange,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w300,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Grade/stream badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: AppTheme.nestedBg(isDark, cs),
+              borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+            ),
+            child: Text(
+              _gradeStreamLabel(),
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          // Edit icon
+          GestureDetector(
+            onTap: () => _showSubstitutePickerDialog(
+              context,
+              lesson: lesson,
+              allLessons: allLessons,
+              timetableDao: timetableDao,
+              schoolId: schoolId,
+              year: year,
+              term: term,
+              cs: cs,
+              isDark: isDark,
+              onChanged: onChanged,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Icon(
+                Icons.edit_outlined,
+                size: 15,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+Future<void> _showSubstitutePickerDialog(
+  BuildContext context, {
+  required _GeneratedLesson lesson,
+  required List<_GeneratedLesson> allLessons,
+  required TimetableDao timetableDao,
+  required String schoolId,
+  required int year,
+  required int term,
+  required ColorScheme cs,
+  required bool isDark,
+  required VoidCallback onChanged,
+}) async {
+  final isDesktop =
+      MediaQuery.sizeOf(context).width >= AppTheme.kMobileBreakpoint;
+  if (isDesktop) {
+    await showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.25),
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 60),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 380),
+          child: _SubstitutePickerDialog(
+            lesson: lesson,
+            allLessons: allLessons,
+            timetableDao: timetableDao,
+            schoolId: schoolId,
+            year: year,
+            term: term,
+            onChanged: onChanged,
+          ),
+        ),
+      ),
+    );
+  } else {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.25),
+      builder: (ctx) => ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(ctx).height * 0.70,
+        ),
+        child: _SubstitutePickerDialog(
+          lesson: lesson,
+          allLessons: allLessons,
+          timetableDao: timetableDao,
+          schoolId: schoolId,
+          year: year,
+          term: term,
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+}
+
+class _SubstitutePickerDialog extends StatefulWidget {
+  const _SubstitutePickerDialog({
+    required this.lesson,
+    required this.allLessons,
+    required this.timetableDao,
+    required this.schoolId,
+    required this.year,
+    required this.term,
+    required this.onChanged,
+  });
+
+  final _GeneratedLesson lesson;
+  final List<_GeneratedLesson> allLessons;
+  final TimetableDao timetableDao;
+  final String schoolId;
+  final int year;
+  final int term;
+  final VoidCallback onChanged;
+
+  @override
+  State<_SubstitutePickerDialog> createState() =>
+      _SubstitutePickerDialogState();
+}
+
+class _SubstitutePickerDialogState extends State<_SubstitutePickerDialog> {
+  bool _loading = true;
+
+  /// (id, name, hasConflict)
+  List<({String id, String name, bool hasConflict})> _candidates = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    // Collect all teachers from the preview that teach this subject.
+    final seen = <String>{};
+    final candidates = <({String id, String name, bool hasConflict})>[];
+    for (final l in widget.allLessons) {
+      if (l.subjectId != widget.lesson.subjectId) continue;
+      if (!seen.add(l.teacherId)) continue;
+      final conflict = widget.allLessons.any(
+        (other) =>
+            other != widget.lesson &&
+            other.teacherId == l.teacherId &&
+            other.date == widget.lesson.date &&
+            other.startTime < widget.lesson.endTime &&
+            other.endTime > widget.lesson.startTime,
+      );
+      candidates.add((
+        id: l.teacherId,
+        name: l.teacherName,
+        hasConflict: conflict,
+      ));
+    }
+    if (mounted) {
+      setState(() {
+        _candidates = candidates;
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+    final isDesktop =
+        MediaQuery.sizeOf(context).width >= AppTheme.kMobileBreakpoint;
+
+    final radius = isDesktop
+        ? BorderRadius.circular(AppTheme.kModalRadius)
+        : const BorderRadius.only(
+            topLeft: Radius.circular(AppTheme.kModalRadius),
+            topRight: Radius.circular(AppTheme.kModalRadius),
+          );
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.modalBg(isDark, cs),
+        borderRadius: radius,
+        border: Border.all(color: AppTheme.borderColor(isDark, cs)),
+        boxShadow: AppTheme.modalShadow(isDark),
+      ),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Change Teacher',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: cs.onSurface,
+                          ),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => Navigator.of(context).pop(),
+                        child: Icon(
+                          Icons.close_rounded,
+                          size: 18,
+                          color: cs.onSurface.withValues(alpha: 0.45),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${widget.lesson.subjectName} · '
+                    '${_fmtTime(widget.lesson.startTime)}–'
+                    '${_fmtTime(widget.lesson.endTime)}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Divider(
+              height: 1,
+              thickness: 0.5,
+              color: AppTheme.borderColor(isDark, cs),
+            ),
+            // Teacher list
+            Flexible(
+              child: _loading
+                  ? const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32),
+                      child: Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                    )
+                  : _candidates.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 32),
+                      child: Center(
+                        child: Text(
+                          'No other teachers assigned to this subject.',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      itemCount: _candidates.length,
+                      separatorBuilder: (_, __) =>
+                          AppTheme.tableRowDivider(isDark, cs),
+                      itemBuilder: (_, i) {
+                        final c = _candidates[i];
+                        final isSelected = c.id == widget.lesson.teacherId;
+                        return InkWell(
+                          onTap: c.hasConflict
+                              ? null
+                              : () {
+                                  widget.lesson.teacherId = c.id;
+                                  widget.lesson.teacherName = c.name;
+                                  widget.onChanged();
+                                  Navigator.of(context).pop();
+                                },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 140),
+                            color: isSelected
+                                ? cs.primary.withValues(alpha: 0.07)
+                                : Colors.transparent,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            child: Row(
+                              children: [
+                                // Avatar initial
+                                Container(
+                                  width: 28,
+                                  height: 28,
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? cs.primary.withValues(alpha: 0.15)
+                                        : cs.surfaceContainerHighest.withValues(
+                                            alpha: 0.5,
+                                          ),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    c.name.isNotEmpty
+                                        ? c.name[0].toUpperCase()
+                                        : '?',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: isSelected
+                                          ? cs.primary
+                                          : cs.onSurfaceVariant.withValues(
+                                              alpha: 0.6,
+                                            ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                // Name
+                                Expanded(
+                                  child: Text(
+                                    c.name,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w400,
+                                      color: c.hasConflict
+                                          ? cs.onSurface.withValues(alpha: 0.35)
+                                          : cs.onSurface,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                // Status badge
+                                if (isSelected)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: cs.primary.withValues(alpha: 0.10),
+                                      borderRadius: BorderRadius.circular(
+                                        AppTheme.kChipRadius,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'Current',
+                                      style: TextStyle(
+                                        fontSize: 10.5,
+                                        fontWeight: FontWeight.w500,
+                                        color: cs.primary,
+                                      ),
+                                    ),
+                                  )
+                                else if (c.hasConflict)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: cs.error.withValues(alpha: 0.10),
+                                      borderRadius: BorderRadius.circular(
+                                        AppTheme.kChipRadius,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.warning_amber_rounded,
+                                          size: 11,
+                                          color: cs.error.withValues(
+                                            alpha: 0.75,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          'Conflict',
+                                          style: TextStyle(
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.w500,
+                                            color: cs.error.withValues(
+                                              alpha: 0.85,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                else
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.brandGreen.withValues(
+                                        alpha: 0.10,
+                                      ),
+                                      borderRadius: BorderRadius.circular(
+                                        AppTheme.kChipRadius,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'Available',
+                                      style: TextStyle(
+                                        fontSize: 10.5,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppTheme.brandGreen.withValues(
+                                          alpha: 0.85,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
