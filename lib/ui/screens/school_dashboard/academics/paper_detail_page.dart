@@ -86,6 +86,9 @@ class _PaperDetailPageState extends State<PaperDetailPage>
   int _aiMarkedCount = 0;
   double _aiProgress = 0.0;
 
+  // ── Marking scheme state ────────────────────────────────────────────────
+  List<String> _schemeFiles = [];
+
   Paper get _paper => widget.paper;
   Exam get _exam => widget.exam.exam;
 
@@ -109,6 +112,26 @@ class _PaperDetailPageState extends State<PaperDetailPage>
   bool get _canManage {
     final entry = widget.schoolContext.currentEntry.value;
     return entry is TeacherEntry || entry is OwnerEntry || entry is StaffEntry;
+  }
+
+  Future<void> _loadSchemeFiles() async {
+    final dir = await _schemeDirectory();
+    if (!await dir.exists()) {
+      if (mounted) setState(() => _schemeFiles = []);
+      return;
+    }
+    final entries = await dir.list().where((e) => e is File).toList();
+    entries.sort((a, b) => a.path.compareTo(b.path));
+    if (mounted)
+      setState(() => _schemeFiles = entries.map((f) => f.path).toList());
+  }
+
+  Future<Directory> _schemeDirectory() async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final paperKey = '${_paper.subject}_${_paper.paper ?? 0}';
+    return Directory(
+      '${appDir.path}/submissions/${widget.schoolId}/${_exam.id}/$paperKey/scheme',
+    );
   }
 
   @override
@@ -144,6 +167,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
       stream: _paper.stream,
     );
     _loadStudents();
+    _loadSchemeFiles();
   }
 
   @override
@@ -315,6 +339,8 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                         hasUnmarkedSubmissions: _hasUnmarkedSubmissions,
                         onAiMark: _runAiMarking,
                         aiProgress: _aiMarking ? _aiProgress : null,
+                        schemeFiles: _schemeFiles,
+                        onSchemeUpdated: _loadSchemeFiles,
                       ),
                       const SizedBox(height: 16),
 
@@ -335,6 +361,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                           dao: _dao,
                           canGrade: _canManage,
                           cs: cs,
+                          schemeFiles: _schemeFiles,
                           onDirtyChanged: (dirty) {
                             if (mounted)
                               setState(() => _hasDirtyGrades = dirty);
@@ -373,6 +400,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                           dao: _dao,
                           canGrade: _canManage,
                           cs: cs,
+                          schemeFiles: _schemeFiles,
                           onDirtyChanged: (dirty) {
                             if (mounted)
                               setState(() => _hasDirtyGrades = dirty);
@@ -437,6 +465,8 @@ class _PaperHeader extends StatefulWidget {
     this.hasUnmarkedSubmissions = false,
     this.onAiMark,
     this.aiProgress,
+    this.schemeFiles = const [],
+    this.onSchemeUpdated,
   });
 
   final Paper paper;
@@ -456,6 +486,8 @@ class _PaperHeader extends StatefulWidget {
   final bool hasUnmarkedSubmissions;
   final VoidCallback? onAiMark;
   final double? aiProgress;
+  final List<String> schemeFiles;
+  final VoidCallback? onSchemeUpdated;
 
   @override
   State<_PaperHeader> createState() => _PaperHeaderState();
@@ -870,6 +902,55 @@ class _PaperHeaderState extends State<_PaperHeader>
             ),
           ),
 
+          // ── Scheme indicator chip ─────────────────────────────────────
+          if (widget.schemeFiles.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            GestureDetector(
+              onTap: () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => _SchemeUploadSheet(
+                    schoolId: widget.schoolId,
+                    examId: widget.exam.exam.id,
+                    subject: paper.subject,
+                    paperNum: paper.paper,
+                    existingPaths: widget.schemeFiles,
+                    onUpdated: () => widget.onSchemeUpdated?.call(),
+                    cs: cs,
+                  ),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: cs.primaryContainer.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.description_outlined,
+                      size: 12,
+                      color: cs.primary.withValues(alpha: 0.7),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Scheme: ${widget.schemeFiles.length} ${widget.schemeFiles.length == 1 ? 'page' : 'pages'}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w400,
+                        color: cs.primary.withValues(alpha: 0.8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+
           // ── Row 5: Analytics (when gradeRows not empty) ───────────────
           if (widget.gradeRows.isNotEmpty) ...[
             const SizedBox(height: 10),
@@ -1029,7 +1110,14 @@ class _PaperHeaderState extends State<_PaperHeader>
       return _buildAiProgressButton();
     }
 
-    // State 3: Has unmarked submissions → indigo AI button
+    // State 3a: Has unmarked submissions but no scheme → prompt to add scheme
+    if (widget.hasUnmarkedSubmissions &&
+        widget.canManage &&
+        widget.schemeFiles.isEmpty) {
+      return _buildAddSchemeButton();
+    }
+
+    // State 3b: Has unmarked submissions and scheme exists → indigo AI button
     if (widget.hasUnmarkedSubmissions) {
       return _buildAiMarkButton();
     }
@@ -1060,6 +1148,47 @@ class _PaperHeaderState extends State<_PaperHeader>
               fontSize: 11,
               fontWeight: FontWeight.w500,
               color: Color(0xFF6366F1),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Add scheme button ─────────────────────────────────────────────────
+
+  Widget _buildAddSchemeButton() {
+    return Tooltip(
+      message: 'Add marking scheme',
+      child: GestureDetector(
+        onTap: () {
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (_) => _SchemeUploadSheet(
+              schoolId: widget.schoolId,
+              examId: widget.exam.exam.id,
+              subject: widget.paper.subject,
+              paperNum: widget.paper.paper,
+              existingPaths: widget.schemeFiles,
+              onUpdated: () => widget.onSchemeUpdated?.call(),
+              cs: widget.cs,
+            ),
+          );
+        },
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: const Color(0xFF0D9488), width: 2.5),
+          ),
+          child: const Center(
+            child: Icon(
+              Icons.note_add_outlined,
+              size: 18,
+              color: Color(0xFF0D9488),
             ),
           ),
         ),
@@ -1376,6 +1505,7 @@ class _GradeSpreadsheet extends StatefulWidget {
     this.onAiProgressChanged,
     this.onAiMarkedCountChanged,
     this.onSubmissionsChanged,
+    this.schemeFiles = const [],
   });
 
   final List<StudentsData> students;
@@ -1391,6 +1521,7 @@ class _GradeSpreadsheet extends StatefulWidget {
   final ValueChanged<double>? onAiProgressChanged;
   final ValueChanged<int>? onAiMarkedCountChanged;
   final VoidCallback? onSubmissionsChanged;
+  final List<String> schemeFiles;
 
   @override
   State<_GradeSpreadsheet> createState() => _GradeSpreadsheetState();
@@ -2144,6 +2275,7 @@ class _GradeList extends StatefulWidget {
     this.onAiProgressChanged,
     this.onAiMarkedCountChanged,
     this.onSubmissionsChanged,
+    this.schemeFiles = const [],
   });
 
   final List<StudentsData> students;
@@ -2159,6 +2291,7 @@ class _GradeList extends StatefulWidget {
   final ValueChanged<double>? onAiProgressChanged;
   final ValueChanged<int>? onAiMarkedCountChanged;
   final VoidCallback? onSubmissionsChanged;
+  final List<String> schemeFiles;
 
   @override
   State<_GradeList> createState() => _GradeListState();
@@ -2712,6 +2845,343 @@ class _ActionSheetRow extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Scheme Upload Sheet — upload/manage marking scheme images
+// ═════════════════════════════════════════════════════════════════════════════
+
+class _SchemeUploadSheet extends StatefulWidget {
+  const _SchemeUploadSheet({
+    required this.schoolId,
+    required this.examId,
+    required this.subject,
+    required this.paperNum,
+    required this.existingPaths,
+    required this.onUpdated,
+    required this.cs,
+  });
+
+  final String schoolId;
+  final String examId;
+  final int subject;
+  final int? paperNum;
+  final List<String> existingPaths;
+  final VoidCallback onUpdated;
+  final ColorScheme cs;
+
+  @override
+  State<_SchemeUploadSheet> createState() => _SchemeUploadSheetState();
+}
+
+class _SchemeUploadSheetState extends State<_SchemeUploadSheet> {
+  late List<String> _paths;
+  bool _picking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _paths = List.from(widget.existingPaths);
+  }
+
+  Future<void> _addPhotos() async {
+    if (_picking) return;
+    setState(() => _picking = true);
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickMultiImage(imageQuality: 85);
+      if (picked.isEmpty) return;
+
+      final dir = await _schemeDirectory();
+      await dir.create(recursive: true);
+
+      // Determine the next file index based on existing files
+      int nextIndex = _paths.length;
+
+      final newPaths = <String>[];
+      for (final xFile in picked) {
+        final dest = File('${dir.path}/$nextIndex.jpg');
+        await File(xFile.path).copy(dest.path);
+        newPaths.add(dest.path);
+        nextIndex++;
+      }
+
+      if (!mounted) return;
+      setState(() => _paths = [..._paths, ...newPaths]);
+      widget.onUpdated();
+    } finally {
+      if (mounted) setState(() => _picking = false);
+    }
+  }
+
+  Future<void> _removePhoto(int index) async {
+    final removedPath = _paths[index];
+    try {
+      final file = File(removedPath);
+      if (await file.exists()) await file.delete();
+    } catch (_) {}
+    setState(() => _paths.removeAt(index));
+    widget.onUpdated();
+  }
+
+  Future<Directory> _schemeDirectory() async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final paperKey = '${widget.subject}_${widget.paperNum ?? 0}';
+    return Directory(
+      '${appDir.path}/submissions/${widget.schoolId}/${widget.examId}/$paperKey/scheme',
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final isDark = cs.brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF1A2435) : cs.surface;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+      ),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Handle
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 16),
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: cs.onSurfaceVariant.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          // Header
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Text(
+              'Marking Scheme',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: cs.onSurface,
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Text(
+              'Upload photos of the rubric or answer key for this paper.',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          // Image grid
+          Flexible(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 360),
+              child: _paths.isEmpty
+                  ? _buildEmptyPlaceholder(cs)
+                  : Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: GridView.builder(
+                        shrinkWrap: true,
+                        itemCount: _paths.length,
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              crossAxisSpacing: 8,
+                              mainAxisSpacing: 8,
+                              childAspectRatio: 1 / 1.3,
+                            ),
+                        itemBuilder: (context, i) => _buildThumbnail(cs, i),
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Add Photos button
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: GestureDetector(
+              onTap: _picking ? null : _addPhotos,
+              child: CustomPaint(
+                painter: _DashedBorderPainter(
+                  color: cs.outline.withValues(alpha: 0.35),
+                  radius: 4,
+                ),
+                child: Container(
+                  height: 44,
+                  alignment: Alignment.center,
+                  child: _picking
+                      ? SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            color: cs.primary,
+                          ),
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.add_photo_alternate_outlined,
+                              size: 16,
+                              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Add Photos',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w400,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.6,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Done button
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: cs.primary,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  'Done',
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyPlaceholder(ColorScheme cs) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: CustomPaint(
+        painter: _DashedBorderPainter(
+          color: cs.outline.withValues(alpha: 0.25),
+          radius: 4,
+        ),
+        child: Container(
+          height: 120,
+          alignment: Alignment.center,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.description_outlined,
+                size: 28,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.25),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'No scheme pages yet',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.35),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThumbnail(ColorScheme cs, int index) {
+    final path = _paths[index];
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: Image.file(
+            File(path),
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Container(
+              color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+              child: Icon(
+                Icons.broken_image_outlined,
+                size: 24,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+              ),
+            ),
+          ),
+        ),
+        // Delete button
+        Positioned(
+          top: 4,
+          right: 4,
+          child: GestureDetector(
+            onTap: () => _removePhoto(index),
+            child: Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.55),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.close, size: 12, color: Colors.white),
+            ),
+          ),
+        ),
+        // Page number label
+        Positioned(
+          bottom: 4,
+          left: 4,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.45),
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Text(
+              '${index + 1}',
+              style: const TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w500,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -289,7 +289,7 @@ When `_schemeFiles.isNotEmpty`, show a small chip/badge near the paper info area
 **UI style:** Follow all conventions from AGENT.md §21 — light font weights, kChipRadius for badges, data-table dividers, no bold text.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
