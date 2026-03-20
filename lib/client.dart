@@ -19,7 +19,7 @@ import 'database/daos/users_dao.dart';
 import 'models/authenticated.dart';
 import 'models/result.dart';
 import 'services/authentication.dart';
-import 'services/file_upload.dart';
+import 'services/ai_marking.dart';
 import 'sync/sync_engine.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -128,9 +128,8 @@ class Client {
   /// account lifecycle.
   late final SyncEngine syncEngine;
 
-  /// File upload service for answer-sheet images.
-  /// Stubbed until the Files gRPC service proto stubs are generated.
-  late final fileUpload = FileUploadService(_channel);
+  /// AI marking service — handles upload URLs, file uploads, and AI grading.
+  late final aiMarking = AiMarkingService(_channel);
 
   // ───────────────────────────────────────────────────────────────────────────
   // Factory

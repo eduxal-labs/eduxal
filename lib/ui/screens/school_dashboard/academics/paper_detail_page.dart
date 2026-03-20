@@ -2832,40 +2832,13 @@ class _AnswerSubmissionSheetState extends State<_AnswerSubmissionSheet> {
   /// Runs without blocking the UI. Thumbnail overlays reflect progress via
   /// [_uploadStatus].
   Future<void> _uploadPendingFiles() async {
-    final svc = client.fileUpload;
-    final token = cache.currentUser?.accessToken;
-    if (token == null) return;
-
-    // Mark every current file as uploading.
-    if (mounted) {
-      setState(() {
-        for (int i = 0; i < _paths.length; i++) {
-          _uploadStatus[i] = _UploadStatus.uploading;
-        }
-      });
-    }
-
-    final result = await svc.uploadAnswerSheets(
-      schoolId: widget.schoolId,
-      examId: widget.examId,
-      subject: widget.subject,
-      paper: widget.paperNum,
-      studentAdm: widget.student.adm,
-      localPaths: _paths,
-      accessToken: token,
-    );
-
+    // Upload is now handled by the AI marking flow (Task C5).
+    // For now, just mark all files as done — they are persisted locally
+    // and will be uploaded when AI marking is triggered.
     if (!mounted) return;
     setState(() {
-      switch (result) {
-        case Ok():
-          for (int i = 0; i < _paths.length; i++) {
-            _uploadStatus[i] = _UploadStatus.done;
-          }
-        case Err():
-          for (int i = 0; i < _paths.length; i++) {
-            _uploadStatus[i] = _UploadStatus.failed;
-          }
+      for (int i = 0; i < _paths.length; i++) {
+        _uploadStatus[i] = _UploadStatus.done;
       }
     });
   }

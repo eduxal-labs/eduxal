@@ -20,7 +20,6 @@ This directory contains **6 service files**. Services sit between the UI and the
 | `members.dart` | `MemberCreationService` | Phone-first member creation (owners, teachers, staff, students, guardians) + profile image saving | ✅ Complete |
 | `member_management.dart` | `MemberManagementService` | Post-creation lifecycle: edit fields, change status, remove members (all types) | ✅ Complete |
 | `ai_marking.dart` | `AiMarkingService` | AI-powered paper marking: request presigned S3 PUT URLs, upload files, trigger server-side AI marking. Wraps `AiMarking` gRPC service. | ✅ Complete |
-| `file_upload.dart` | `FileUploadService` | Answer-sheet image upload via signed HTTP PUT URLs. Stubbed until `Files` gRPC proto stubs are generated. Will be removed in C3. | ⚠️ Deprecated |
 | `timetable_generator.dart` | `TimetableGenerator`, `TimetableSlot`, `GeneratorResult`, `GeneratorSuccess`, `GeneratorFailure`, `GeneratorInput`, `runTimetableGenerator` | Pure-Dart CSP backtracking solver for timetable generation. No Flutter dependencies. Run via `compute(runTimetableGenerator, input)`. | ✅ Complete |
 
 ## Key Methods by Service
@@ -179,4 +178,4 @@ Wraps the `AiMarking` gRPC service for AI-powered paper marking. Handles request
 - `client.dart` is the only file that holds the gRPC `ClientChannel`. Services receive the channel (or a service client) via constructor injection.
 
 ## Last Updated
-Task C2 — Added `ai_marking.dart`: `AiMarkingService` wrapping `AiMarking` gRPC service with `requestUploadUrls`, `uploadFile`, and `markPaper` methods. Marked `file_upload.dart` as deprecated (to be removed in C3).
+Task C3 — Deleted `file_upload.dart` (fully replaced by `ai_marking.dart`). Wired `AiMarkingService` in `client.dart` as `client.aiMarking`. Stubbed `_uploadPendingFiles()` in `paper_detail_page.dart` (upload deferred to AI marking flow in C5).
