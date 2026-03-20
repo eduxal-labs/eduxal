@@ -51,21 +51,24 @@ The current URL in `src/ai/gemini.rs` is:
 const URL: &str = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent";
 ```
 
-**Action required:** Confirm with the project owner which model to use. Options:
-- `gemini-2.5-flash` (fast, cheap, good for structured output like JSON scores)
-- `gemini-2.5-pro` (current — slower, more expensive, higher quality reasoning)
+**Confirmed by project owner:** Use **Gemini 3.1 Pro** (`gemini-3.1-pro-preview`).
 
-Update the `URL` constant accordingly. If the owner wants `gemini-2.5-flash`, change to:
+Update the `URL` constant to:
 ```
-const URL: &str = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+const URL: &str = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent";
 ```
+
+> **Note:** Gemini 3.1 Pro is currently a Preview model. Preview models may have more restrictive
+> rate limits and will be deprecated with at least 2 weeks notice. If Google changes the model
+> string (e.g. adds a date suffix like `gemini-3.1-pro-preview-06-2026`), update this constant.
+> Alternatively, use `gemini-pro-latest` to always point to the newest Pro release automatically.
 
 **Update after completion:**
-- [ ] Confirm model choice with project owner
+- [x] Confirm model choice with project owner — **Gemini 3.1 Pro**
 - [ ] Update `URL` constant in `src/ai/gemini.rs`
 - [ ] `cargo build` succeeds
 - [ ] Mark this task `[x]`
-- [ ] git commit: `fix: update Gemini model to <chosen-model>`
+- [ ] git commit: `fix: update Gemini model to gemini-3.1-pro-preview`
 
 ---
 
