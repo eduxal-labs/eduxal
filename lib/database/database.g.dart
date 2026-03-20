@@ -19543,6 +19543,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final TimetableDao timetableDao = TimetableDao(this as AppDatabase);
   late final AcademicsDao academicsDao = AcademicsDao(this as AppDatabase);
   late final CatalogDao catalogDao = CatalogDao(this as AppDatabase);
+  late final AiUsageDao aiUsageDao = AiUsageDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();

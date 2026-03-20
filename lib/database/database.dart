@@ -27,6 +27,7 @@ import 'daos/academics_dao.dart';
 import 'daos/announcements_dao.dart';
 import 'daos/timetable_dao.dart';
 import 'daos/catalog_dao.dart';
+import 'daos/ai_usage_dao.dart';
 
 import 'tables/users.dart';
 import 'tables/schools.dart';
@@ -144,6 +145,7 @@ late final AppDatabase db;
     TimetableDao,
     AcademicsDao,
     CatalogDao,
+    AiUsageDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {

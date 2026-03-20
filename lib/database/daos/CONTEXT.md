@@ -34,6 +34,7 @@ Each DAO extends `DatabaseAccessor<AppDatabase>` and is annotated with `@DriftAc
 | `terms_dao.dart` | `TermsDao` | Academic year/term management | ✅ Complete |
 | `timetable_dao.dart` | `TimetableDao` | Timetable + lessons | ✅ Complete |
 | `users_dao.dart` | `UsersDao` | User CRUD + lookups | ✅ Complete |
+| `ai_usage_dao.dart` | `AiUsageDao` | AI credit usage tracking per student | ✅ Complete |
 
 ## Key Methods by DAO
 
@@ -247,6 +248,11 @@ Each DAO extends `DatabaseAccessor<AppDatabase>` and is annotated with `@DriftAc
 - `watchRevenueStats() → Stream<RevenueStats>`
 - `watchStudentPlanStats() → Stream<StudentPlanStats>`
 
+### `AiUsageDao`
+- `watchBySchoolTerm(schoolId, year, term)` → `Stream<List<AiUsageData>>` — all AI usage rows for a school term
+- `watchStudent(schoolId, student, year, term)` → `Stream<AiUsageData?>` — single student's AI usage (reactive)
+- `getStudent(schoolId, student, year, term)` → `Future<AiUsageData?>` — non-reactive single student lookup
+
 ## Global DAO Singletons
 
 The following DAOs are instantiated as global `late final` variables in `client.dart` during `initializeClient()`:
@@ -310,4 +316,4 @@ Other DAOs are created locally where needed (e.g. inside service classes or scre
 - **`exams_grades_dao.dart`** — Import changed from `../tables/subjects.dart` to `../tables/subject_teachers.dart`. `@DriftAccessor` tables list changed `Subjects` → `SubjectTeachers`. In `watchMasteryForStudent`: removed `OrderingTerm.asc(m.grade)` from orderBy (mastery no longer has a `grade` column). In `watchMasteryForSubject`: removed `mastery.grade.equals(grade)` from the WHERE clause. In `upsertMastery`: removed `final grade = entry.grade.value`; removed `m.grade.equals(grade)` from both the lookup and update WHERE clauses; removed `grade: grade,` from both `UpdateMasteryPayload` constructions. In `createExam`: replaced `grade: exam.grade.value` with `name: exam.name.value` in `CreateExamPayload`; removed `stream` conditional assignment block. In `createExamBatch`: replaced `grade: e.grade.value` with `name: e.name.value` in `CreateExamPayload`; removed `stream` conditional assignment block. In `updateExam`: replaced `changes.stream` handling block with `changes.name` handling (`payload.name = changes.name.value`). In `addGradeToExamGroup`: removed `grade: Value(grade)` and `stream: Value(streamCode)` from `ExamsCompanion`; removed `grade:` and stream conditional from `CreateExamPayload`; loop variable renamed to `_` to suppress unused-variable warning. **Note:** `ExamsCompanion.name` errors are expected until `build_runner` regenerates `.g.dart` files.
 
 ## Last Updated
-Task 01 — Added `getTermTimetableForDays` (one-shot filtered timetable read for lesson generation) and `saveLessons` (bulk delete-then-insert with per-lesson log entries) to `TimetableDao`. Previous: Task TT-02 — Added `watchSchoolWideTimetable` and `SchoolWideTimetableEntry`.
+Task C1 — Added `AiUsageDao` with `watchBySchoolTerm`, `watchStudent`, and `getStudent` methods for AI credit tracking. Previous: Task 01 — Added `getTermTimetableForDays` and `saveLessons` to `TimetableDao`.

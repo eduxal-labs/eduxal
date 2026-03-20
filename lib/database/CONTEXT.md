@@ -80,4 +80,4 @@ The `logs` table was redesigned in Task C2 from a mutation-tracking model (`tbl`
 **Added enums:** `SyncAction` (77 values, explicit `int value` per entry) + `SyncActionConverter`.
 
 ## Last Updated
-Task 1001 — No database schema changes during UI overhaul tracks. Schema version remains at 5. All 33 tables current.
+Task C1 — Added `AiUsageDao` to `daos/`. No database schema changes. Schema version remains at 5. All 33 tables current.
