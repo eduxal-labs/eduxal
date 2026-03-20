@@ -83,8 +83,8 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _showEntryPicker(SchoolMembership membership) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
 
     showEduSheet(
       context: context,
@@ -97,115 +97,61 @@ class _HomeScreenState extends State<HomeScreen>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
                 child: Text(
-                  'Choose how to enter this school',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
+                  'Choose your role at this school',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.7),
                   ),
                 ),
               ),
-
-              const SizedBox(height: 8),
-              Divider(indent: 16, endIndent: 16),
-
-              // Entry list.
               ...membership.entries.map((entry) {
-                return _buildEntryTile(ctx, theme, cs, membership, entry);
-              }),
+                final roleColor = _roleColor(entry.role);
+                IconData icon = Icons.help_outline;
+                String title = '';
+                String? subtitle;
 
-              const SizedBox(height: 8),
+                switch (entry) {
+                  case OwnerEntry():
+                    icon = Icons.shield_outlined;
+                    title = 'Owner';
+                  case TeacherEntry(:final subjectCount):
+                    icon = Icons.school_outlined;
+                    title = 'Teacher';
+                    subtitle =
+                        '$subjectCount subject${subjectCount == 1 ? '' : 's'} this term';
+                  case StaffEntry():
+                    icon = Icons.badge_outlined;
+                    title = 'Staff';
+                  case StudentEntry():
+                    icon = Icons.person_outline;
+                    title = 'Student';
+                  case GuardianEntry(:final ward):
+                    icon = Icons.family_restroom_outlined;
+                    title = 'Guardian';
+                    subtitle = ward.name;
+                }
+
+                return _EntryOptionCard(
+                  icon: icon,
+                  title: title,
+                  subtitle: subtitle,
+                  roleColor: roleColor,
+                  cs: cs,
+                  isDark: isDark,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _navigateToSchool(membership, entry);
+                  },
+                );
+              }),
+              const SizedBox(height: 16),
             ],
           ),
         );
       },
-    );
-  }
-
-  Widget _buildEntryTile(
-    BuildContext sheetCtx,
-    ThemeData theme,
-    ColorScheme cs,
-    SchoolMembership membership,
-    MembershipEntry entry,
-  ) {
-    IconData icon;
-    String title;
-    String? subtitle;
-    Widget? leading;
-
-    switch (entry) {
-      case OwnerEntry():
-        icon = Icons.shield_outlined;
-        title = 'Owner';
-      case TeacherEntry(:final subjectCount):
-        icon = Icons.school_outlined;
-        title = 'Teacher';
-        subtitle =
-            '$subjectCount subject${subjectCount == 1 ? '' : 's'} this term';
-      case StaffEntry():
-        icon = Icons.badge_outlined;
-        title = 'Staff';
-      case StudentEntry():
-        icon = Icons.person_outline;
-        title = 'Student';
-      case GuardianEntry(:final ward):
-        icon = Icons.family_restroom_outlined;
-        title = 'Guardian';
-        subtitle = ward.name;
-        leading = UserAvatar(userId: ward.user ?? '', radius: 18);
-    }
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(AppTheme.kRadius),
-      onTap: () {
-        Navigator.pop(sheetCtx);
-        _navigateToSchool(membership, entry);
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        child: Row(
-          children: [
-            if (leading != null)
-              leading
-            else
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: _roleColor(entry.role).withValues(
-                    alpha: cs.brightness == Brightness.dark ? 0.18 : 0.1,
-                  ),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, size: 20, color: _roleColor(entry.role)),
-              ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: theme.textTheme.bodyLarge),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            Icon(
-              Icons.chevron_right_rounded,
-              size: 20,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -564,6 +510,216 @@ class _HomeScreenState extends State<HomeScreen>
       MembershipRole.student => AppTheme.brandGreen,
       MembershipRole.guardian => const Color(0xFF26A69A), // brighter teal
     };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Entry option card
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _EntryOptionCard extends StatefulWidget {
+  const _EntryOptionCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.roleColor,
+    required this.cs,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final Color roleColor;
+  final ColorScheme cs;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  @override
+  State<_EntryOptionCard> createState() => _EntryOptionCardState();
+}
+
+class _EntryOptionCardState extends State<_EntryOptionCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _scale;
+  bool _hovered = false;
+  bool _pressed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+      reverseDuration: const Duration(milliseconds: 280),
+    );
+    _scale = Tween<double>(begin: 1.0, end: 0.97).animate(
+      CurvedAnimation(
+        parent: _ctrl,
+        curve: Curves.easeOut,
+        reverseCurve: Curves.elasticOut,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Color get _bgColor {
+    final base = AppTheme.nestedBg(widget.isDark, widget.cs);
+    if (_pressed) {
+      return Color.alphaBlend(
+        widget.roleColor.withValues(alpha: widget.isDark ? 0.12 : 0.08),
+        base,
+      );
+    }
+    if (_hovered) {
+      return Color.alphaBlend(
+        widget.roleColor.withValues(alpha: widget.isDark ? 0.07 : 0.05),
+        base,
+      );
+    }
+    return base;
+  }
+
+  Color get _borderColor => _pressed || _hovered
+      ? widget.roleColor.withValues(alpha: 0.40)
+      : AppTheme.borderColor(widget.isDark, widget.cs);
+
+  double get _accentAlpha => _pressed ? 1.0 : (_hovered ? 0.78 : 0.50);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          onTapDown: (_) {
+            setState(() => _pressed = true);
+            _ctrl.forward();
+          },
+          onTapUp: (_) {
+            setState(() => _pressed = false);
+            _ctrl.reverse();
+            widget.onTap();
+          },
+          onTapCancel: () {
+            setState(() => _pressed = false);
+            _ctrl.reverse();
+          },
+          child: ScaleTransition(
+            scale: _scale,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              curve: Curves.easeOut,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: _bgColor,
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                border: Border.all(color: _borderColor),
+              ),
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // ── Left accent bar
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 3,
+                      color: widget.roleColor.withValues(alpha: _accentAlpha),
+                    ),
+                    const SizedBox(width: 12),
+                    // ── Role icon
+                    Align(
+                      alignment: Alignment.center,
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: widget.roleColor.withValues(
+                            alpha: widget.isDark ? 0.16 : 0.10,
+                          ),
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.kCardRadius,
+                          ),
+                        ),
+                        child: Icon(
+                          widget.icon,
+                          size: 20,
+                          color: widget.roleColor.withValues(alpha: 0.9),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // ── Label + subtitle
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              widget.title,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: widget.cs.onSurface,
+                              ),
+                            ),
+                            if (widget.subtitle != null) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                widget.subtitle!,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w400,
+                                  color: widget.cs.onSurfaceVariant.withValues(
+                                    alpha: 0.65,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    // ── Animated chevron
+                    AnimatedSlide(
+                      offset: _hovered || _pressed
+                          ? const Offset(0.25, 0)
+                          : Offset.zero,
+                      duration: const Duration(milliseconds: 160),
+                      curve: Curves.easeOut,
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 14),
+                        child: Center(
+                          child: Icon(
+                            Icons.chevron_right_rounded,
+                            size: 20,
+                            color: widget.roleColor.withValues(
+                              alpha: _pressed || _hovered ? 0.80 : 0.35,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
