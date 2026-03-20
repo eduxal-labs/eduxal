@@ -5,7 +5,7 @@
 
 ## Overview
 
-This directory contains **5 service files**. Services sit between the UI and the data layer (DAOs + gRPC). They:
+This directory contains **6 service files**. Services sit between the UI and the data layer (DAOs + gRPC). They:
 - Combine multiple DAO calls into transactional operations.
 - Map between proto types and domain models.
 - Write to the `logs` table alongside every synced-table mutation.
@@ -19,7 +19,8 @@ This directory contains **5 service files**. Services sit between the UI and the
 | `authentication.dart` | `Authentication` | Login, verify, setup, refresh, change phone | ✅ Complete |
 | `members.dart` | `MemberCreationService` | Phone-first member creation (owners, teachers, staff, students, guardians) + profile image saving | ✅ Complete |
 | `member_management.dart` | `MemberManagementService` | Post-creation lifecycle: edit fields, change status, remove members (all types) | ✅ Complete |
-| `file_upload.dart` | `FileUploadService` | Answer-sheet image upload via signed HTTP PUT URLs. Stubbed until `Files` gRPC proto stubs are generated. | ✅ Stubbed (F01) |
+| `ai_marking.dart` | `AiMarkingService` | AI-powered paper marking: request presigned S3 PUT URLs, upload files, trigger server-side AI marking. Wraps `AiMarking` gRPC service. | ✅ Complete |
+| `file_upload.dart` | `FileUploadService` | Answer-sheet image upload via signed HTTP PUT URLs. Stubbed until `Files` gRPC proto stubs are generated. Will be removed in C3. | ⚠️ Deprecated |
 | `timetable_generator.dart` | `TimetableGenerator`, `TimetableSlot`, `GeneratorResult`, `GeneratorSuccess`, `GeneratorFailure`, `GeneratorInput`, `runTimetableGenerator` | Pure-Dart CSP backtracking solver for timetable generation. No Flutter dependencies. Run via `compute(runTimetableGenerator, input)`. | ✅ Complete |
 
 ## Key Methods by Service
@@ -138,40 +139,21 @@ Handles the phone-first member creation flow for all school member types + profi
 
 ---
 
-### `FileUploadService` — `file_upload.dart`
+### `AiMarkingService` — `ai_marking.dart`
 
-Handles uploading student answer-sheet images to remote object storage (S3-compatible signed URLs).
+Wraps the `AiMarking` gRPC service for AI-powered paper marking. Handles requesting presigned S3 PUT URLs, uploading files via HTTP PUT, and triggering server-side AI marking.
 
-**Constructor:** `FileUploadService(ClientChannel channel)`
-
-**Upload flow (once proto stubs exist):**
-1. Call `Files.GetAnswerSheetUploadUrls` on the server → obtain signed HTTP PUT URLs (one per file).
-2. HTTP PUT each local file to its URL using `dart:io` `HttpClient`.
-3. Return `Ok(fileNumbers)` or `Err(message)`.
-
-Until the proto stubs are generated, `_getUploadUrls` is **stubbed** (returns mock entries after a 150ms delay). The HTTP PUT logic and entire public API are fully wired so the UI works as-is and the stub can be swapped for real gRPC without touching any call sites.
+**Constructor:** `AiMarkingService(ClientChannel channel)`
 
 | Method | Signature | Description |
 |---|---|---|
-| `uploadAnswerSheets` | `Future<Result<List<int>, String>> uploadAnswerSheets({required String schoolId, required String examId, required int subject, required int? paper, required int studentAdm, required List<String> localPaths, required String accessToken})` | Upload all local paths for a student's paper. Returns assigned file numbers on success. |
-| `getAnswerSheetUrls` | `Future<Result<List<AnswerSheetFile>, String>> getAnswerSheetUrls({required String schoolId, required String examId, required int subject, required int? paper, required int studentAdm, required String accessToken})` | Fetch read URLs for a student's existing uploaded sheets. Stubbed — returns `Ok([])` until proto exists. |
+| `requestUploadUrls` | `Future<Result<UploadUrlsResponse, GrpcError>> requestUploadUrls({required String school, required String exam, required int subject, int? paper, required int schemeCount, required Map<int, int> studentSheetCounts, required String accessToken})` | Request presigned PUT URLs for marking scheme images and student answer sheets. `studentSheetCounts` maps `adm → count`. |
+| `uploadFile` | `Future<bool> uploadFile(String putUrl, String localPath)` | Upload a single file to S3 using a presigned PUT URL. Returns `true` on success. Handles empty URLs (returns `true`), missing files (returns `false`), and HTTP errors (returns `false`). |
+| `markPaper` | `Future<Result<MarkPaperResponse, GrpcError>> markPaper({required String school, required String exam, required int subject, int? paper, required int grade, int? stream, required int totalMarks, required List<String> schemeKeys, required Map<int, List<String>> studentKeys, required String accessToken})` | Trigger server-side AI marking. Returns immediately; actual grades arrive via `watchChanges` SyncDelta stream. `studentKeys` maps `adm → list of S3 keys`. |
 
-**Domain types (same file):**
-- `AnswerSheetFile` — `{int fileNumber, String readUrl}`. Returned by `getAnswerSheetUrls`.
+**Dependencies:** `dart:io` (HttpClient for HTTP PUT), `grpc` package (ClientChannel, CallOptions, GrpcError), `models/result.dart`, `proto/services/ai_marking.pbgrpc.dart` (generated stubs: `AiMarkingClient`, `UploadUrlsRequest`, `UploadUrlsResponse`, `MarkPaperRequest`, `MarkPaperResponse`, `StudentSheetCount`, `StudentMarkTarget`).
 
-**Internal types (private):**
-- `_UploadEntry` — pairs a server-assigned file number with a signed PUT URL.
-
-**Dependencies:** `dart:io` (HttpClient for HTTP PUT), `grpc` package (ClientChannel — held for future gRPC stub), `models/result.dart`.
-
-**Registered on `Client`:**
-```dart
-late final fileUpload = FileUploadService(_channel);  // in client.dart
-```
-
-**TODO items (clearly marked in source with `// TODO:`):**
-- `_getUploadUrls` — replace stub with `Files.GetAnswerSheetUploadUrls` gRPC call.
-- `getAnswerSheetUrls` — replace stub with `Files.GetAnswerSheetReadUrls` gRPC call.
+**Registered on `Client`:** Will be wired as `late final aiMarking = AiMarkingService(_channel);` in Task C3.
 
 ---
 
@@ -197,4 +179,4 @@ late final fileUpload = FileUploadService(_channel);  // in client.dart
 - `client.dart` is the only file that holds the gRPC `ClientChannel`. Services receive the channel (or a service client) via constructor injection.
 
 ## Last Updated
-Task B1 — Added `timetable_generator.dart`: pure-Dart CSP backtracking solver (`TimetableGenerator`, `TimetableSlot`, `GeneratorResult`, `GeneratorSuccess`, `GeneratorFailure`, `GeneratorInput`, `runTimetableGenerator`).
+Task C2 — Added `ai_marking.dart`: `AiMarkingService` wrapping `AiMarking` gRPC service with `requestUploadUrls`, `uploadFile`, and `markPaper` methods. Marked `file_upload.dart` as deprecated (to be removed in C3).
