@@ -6221,34 +6221,32 @@ class _ExamGroupCrossTable extends StatelessWidget {
 
                     // Grade sub-groups within this day
                     for (final gradeEntry in group.grades) ...[
-                      // Grade sub-header (only if multiple grades)
-                      if (group.grades.length > 1) ...[
-                        const SizedBox(height: colGap),
-                        Container(
-                          width: totalW,
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 4,
-                            horizontal: 10,
+                      // Grade sub-header
+                      const SizedBox(height: colGap),
+                      Container(
+                        width: totalW,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 4,
+                          horizontal: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: cs.surfaceContainerHighest.withValues(
+                            alpha: isDark ? 0.12 : 0.10,
                           ),
-                          decoration: BoxDecoration(
-                            color: cs.surfaceContainerHighest.withValues(
-                              alpha: isDark ? 0.12 : 0.10,
-                            ),
-                            borderRadius: BorderRadius.circular(
-                              AppTheme.kChipRadius,
-                            ),
-                          ),
-                          child: Text(
-                            _gradeLabel(gradeEntry.grade, config),
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w500,
-                              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                              letterSpacing: 0.1,
-                            ),
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.kChipRadius,
                           ),
                         ),
-                      ],
+                        child: Text(
+                          _gradeLabel(gradeEntry.grade, config),
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w500,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                            letterSpacing: 0.1,
+                          ),
+                        ),
+                      ),
 
                       // Stream rows
                       for (final streamEntry in gradeEntry.streams) ...[
