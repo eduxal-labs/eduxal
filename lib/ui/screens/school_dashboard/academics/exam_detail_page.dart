@@ -2636,6 +2636,7 @@ class _PaperTimetableCard extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(4),
           child: Container(
+            constraints: const BoxConstraints(minHeight: 60),
             decoration: BoxDecoration(
               color: statusColor.withValues(alpha: 0.06),
               border: Border(
@@ -2674,7 +2675,7 @@ class _PaperTimetableCard extends StatelessWidget {
                                 fontWeight: FontWeight.w500,
                                 color: cs.onSurface,
                               ),
-                              maxLines: 2,
+                              maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -2957,7 +2958,8 @@ class _PapersCrossTable extends StatelessWidget {
                                       ),
                                       child: Container(
                                         constraints: const BoxConstraints(
-                                          minHeight: 56,
+                                          minHeight: 68,
+                                          maxHeight: 68,
                                         ),
                                         decoration: BoxDecoration(
                                           borderRadius: BorderRadius.circular(
@@ -3043,7 +3045,7 @@ class _PapersCrossTable extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
         child: Container(
-          constraints: const BoxConstraints(minHeight: 56),
+          constraints: const BoxConstraints(minHeight: 68, maxHeight: 68),
           decoration: BoxDecoration(
             color: statusColor.withValues(alpha: 0.06),
             border: Border(
@@ -3065,7 +3067,7 @@ class _PapersCrossTable extends StatelessWidget {
                   fontWeight: FontWeight.w500,
                   color: cs.onSurface,
                 ),
-                maxLines: 2,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 2),
@@ -3248,6 +3250,7 @@ class _PaperStatusChip extends StatelessWidget {
     };
 
     return Container(
+      constraints: const BoxConstraints(minWidth: 72),
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(4),
@@ -3255,6 +3258,7 @@ class _PaperStatusChip extends StatelessWidget {
       ),
       child: Text(
         label,
+        textAlign: TextAlign.center,
         style: TextStyle(
           fontSize: 10.5,
           fontWeight: FontWeight.w500,
