@@ -96,8 +96,12 @@ class _PaperDetailPageState extends State<PaperDetailPage>
   Exam get _exam => widget.exam.exam;
 
   bool _computeHasUnmarked(Map<int, Grade> gradeMap) {
+    final enrolledAdms = {for (final s in _students) s.adm};
     return _childSubmissions.entries.any(
-      (e) => e.value.isNotEmpty && !gradeMap.containsKey(e.key),
+      (e) =>
+          e.value.isNotEmpty &&
+          enrolledAdms.contains(e.key) &&
+          !gradeMap.containsKey(e.key),
     );
   }
 
