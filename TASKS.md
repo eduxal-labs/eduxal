@@ -301,7 +301,7 @@ Also add a `GradeRow`-style return if needed — the key field is `student` (the
 
 ---
 
-### Task 4: Support Re-Marking — Replace Answer Sheets and Re-Trigger AI
+### Task 4: Support Re-Marking — Replace Answer Sheets and Re-Trigger AI ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`
 **Context files to read:** None needed — all info is below.

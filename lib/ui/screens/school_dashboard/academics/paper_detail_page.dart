@@ -1680,7 +1680,10 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
 
   bool get hasUnmarkedSubmissions {
     return _submissions.entries.any(
-      (e) => e.value.isNotEmpty && !widget.gradeMap.containsKey(e.key),
+      (e) =>
+          e.value.isNotEmpty &&
+          (!widget.gradeMap.containsKey(e.key) ||
+              _dirtySubmissions.contains(e.key)),
     );
   }
 
@@ -1740,13 +1743,13 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
       return;
     }
 
-    final studentsWithSubmissions = widget.students
-        .where(
-          (s) =>
-              (_submissions[s.adm] ?? []).isNotEmpty &&
-              !widget.gradeMap.containsKey(s.adm),
-        )
-        .toList();
+    final studentsWithSubmissions = widget.students.where((s) {
+      final paths = _submissions[s.adm] ?? [];
+      if (paths.isEmpty) return false;
+      // Include if: no grade yet, OR submissions were modified since last mark
+      return !widget.gradeMap.containsKey(s.adm) ||
+          _dirtySubmissions.contains(s.adm);
+    }).toList();
     if (studentsWithSubmissions.isEmpty) return;
 
     setState(() {
@@ -2201,6 +2204,7 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
                     widget.paper.status.index >= PaperStatus.done.index,
                 paperStatus: widget.paper.status,
                 submissionCount: (_submissions[adm] ?? []).length,
+                isDirtySubmission: _dirtySubmissions.contains(adm),
                 flashController: _flashControllers[adm]!,
                 cs: cs,
                 onChanged: (v) {
@@ -2249,6 +2253,7 @@ class _SpreadsheetRow extends StatefulWidget {
     required this.canGrade,
     required this.paperStatus,
     required this.submissionCount,
+    required this.isDirtySubmission,
     required this.flashController,
     required this.cs,
     required this.onChanged,
@@ -2268,6 +2273,7 @@ class _SpreadsheetRow extends StatefulWidget {
   final bool canGrade;
   final PaperStatus paperStatus;
   final int submissionCount;
+  final bool isDirtySubmission;
   final AnimationController flashController;
   final ColorScheme cs;
   final ValueChanged<String> onChanged;
@@ -2457,6 +2463,20 @@ class _SpreadsheetRowState extends State<_SpreadsheetRow> {
                               ),
                             ),
                           ),
+                        if (widget.isDirtySubmission &&
+                            widget.existingGrade != null)
+                          Positioned(
+                            left: -1,
+                            bottom: -1,
+                            child: Container(
+                              width: 6,
+                              height: 6,
+                              decoration: const BoxDecoration(
+                                color: Colors.amber,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -2551,7 +2571,10 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
 
   bool get hasUnmarkedSubmissions {
     return _submissions.entries.any(
-      (e) => e.value.isNotEmpty && !widget.gradeMap.containsKey(e.key),
+      (e) =>
+          e.value.isNotEmpty &&
+          (!widget.gradeMap.containsKey(e.key) ||
+              _dirtySubmissions.contains(e.key)),
     );
   }
 
@@ -2618,13 +2641,13 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
       return;
     }
 
-    final studentsWithSubmissions = widget.students
-        .where(
-          (s) =>
-              (_submissions[s.adm] ?? []).isNotEmpty &&
-              !widget.gradeMap.containsKey(s.adm),
-        )
-        .toList();
+    final studentsWithSubmissions = widget.students.where((s) {
+      final paths = _submissions[s.adm] ?? [];
+      if (paths.isEmpty) return false;
+      // Include if: no grade yet, OR submissions were modified since last mark
+      return !widget.gradeMap.containsKey(s.adm) ||
+          _dirtySubmissions.contains(s.adm);
+    }).toList();
     if (studentsWithSubmissions.isEmpty) return;
 
     setState(() {
