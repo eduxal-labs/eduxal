@@ -90,15 +90,15 @@ class _PaperDetailPageState extends State<PaperDetailPage>
   // ── Marking scheme state ────────────────────────────────────────────────
   List<String> _schemeFiles = [];
 
+  Map<int, List<String>> _childSubmissions = {};
+
   Paper get _paper => widget.paper;
   Exam get _exam => widget.exam.exam;
 
-  bool get _hasUnmarkedSubmissions {
-    if (_spreadsheetKey.currentState != null) {
-      return _spreadsheetKey.currentState?.hasUnmarkedSubmissions ?? false;
-    } else {
-      return _gradeListKey.currentState?.hasUnmarkedSubmissions ?? false;
-    }
+  bool _computeHasUnmarked(Map<int, Grade> gradeMap) {
+    return _childSubmissions.entries.any(
+      (e) => e.value.isNotEmpty && !gradeMap.containsKey(e.key),
+    );
   }
 
   Future<void> _runAiMarking() async {
@@ -366,7 +366,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                           await _spreadsheetKey.currentState?.saveAllDirty();
                           if (mounted) setState(() => _hasDirtyGrades = false);
                         },
-                        hasUnmarkedSubmissions: _hasUnmarkedSubmissions,
+                        hasUnmarkedSubmissions: _computeHasUnmarked(gradeMap),
                         onAiMark: _runAiMarking,
                         aiProgress: _aiMarking ? _aiProgress : null,
                         schemeFiles: _schemeFiles,
@@ -398,6 +398,10 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                           },
                           onSubmissionsChanged: () {
                             if (mounted) setState(() {});
+                          },
+                          onSubmissionsMapChanged: (map) {
+                            if (mounted)
+                              setState(() => _childSubmissions = map);
                           },
                           onAiPhaseChanged: (phase) {
                             setState(() => _aiPhase = phase);
@@ -445,6 +449,10 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                           },
                           onSubmissionsChanged: () {
                             if (mounted) setState(() {});
+                          },
+                          onSubmissionsMapChanged: (map) {
+                            if (mounted)
+                              setState(() => _childSubmissions = map);
                           },
                           onAiPhaseChanged: (phase) {
                             setState(() => _aiPhase = phase);
@@ -1534,6 +1542,7 @@ class _GradeSpreadsheet extends StatefulWidget {
     this.onAiProgressChanged,
     this.onAiMarkedCountChanged,
     this.onSubmissionsChanged,
+    this.onSubmissionsMapChanged,
     this.schemeFiles = const [],
   });
 
@@ -1550,6 +1559,7 @@ class _GradeSpreadsheet extends StatefulWidget {
   final ValueChanged<double>? onAiProgressChanged;
   final ValueChanged<int>? onAiMarkedCountChanged;
   final VoidCallback? onSubmissionsChanged;
+  final ValueChanged<Map<int, List<String>>>? onSubmissionsMapChanged;
   final List<String> schemeFiles;
 
   @override
@@ -1611,6 +1621,7 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
     if (mounted) {
       setState(() => _submissions.addAll(persisted));
       widget.onSubmissionsChanged?.call();
+      widget.onSubmissionsMapChanged?.call(Map.from(_submissions));
     }
   }
 
@@ -2077,6 +2088,7 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
               if (paths.isNotEmpty) _dirtySubmissions.add(adm);
             });
             widget.onSubmissionsChanged?.call();
+            widget.onSubmissionsMapChanged?.call(Map.from(_submissions));
           }
         },
         dao: widget.dao,
@@ -2464,6 +2476,7 @@ class _GradeList extends StatefulWidget {
     this.onAiProgressChanged,
     this.onAiMarkedCountChanged,
     this.onSubmissionsChanged,
+    this.onSubmissionsMapChanged,
     this.schemeFiles = const [],
   });
 
@@ -2480,6 +2493,7 @@ class _GradeList extends StatefulWidget {
   final ValueChanged<double>? onAiProgressChanged;
   final ValueChanged<int>? onAiMarkedCountChanged;
   final VoidCallback? onSubmissionsChanged;
+  final ValueChanged<Map<int, List<String>>>? onSubmissionsMapChanged;
   final List<String> schemeFiles;
 
   @override
@@ -2552,6 +2566,7 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
     if (mounted) {
       setState(() => _submissions.addAll(persisted));
       widget.onSubmissionsChanged?.call();
+      widget.onSubmissionsMapChanged?.call(Map.from(_submissions));
     }
   }
 
@@ -2848,6 +2863,7 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
               if (paths.isNotEmpty) _dirtySubmissions.add(adm);
             });
             widget.onSubmissionsChanged?.call();
+            widget.onSubmissionsMapChanged?.call(Map.from(_submissions));
           }
         },
         dao: widget.dao,

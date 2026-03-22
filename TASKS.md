@@ -25,7 +25,7 @@ Task 4 runs after P1 completes (sequential).
 
 ---
 
-### Task 1: AI Mark Button — Only Show When There Are Unmarked Submissions
+### Task 1: AI Mark Button — Only Show When There Are Unmarked Submissions ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`
 **Context files to read:** None needed — all info is below.
@@ -88,7 +88,7 @@ This is read during `build()` but NOT triggered reactively — it's only evaluat
 3. This ensures the AI button visibility is reactive to BOTH grade changes (via stream) AND submission changes (via callback).
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Commit: `git add -A && git commit -m "fix: AI mark button reactively hides when all submissions are graded"`
 
 ---
