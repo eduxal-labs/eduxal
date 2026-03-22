@@ -226,3 +226,60 @@ In `exam_detail_page.dart`, `_PerformanceTabState._load()` built rankings from `
 
 **Prevention:**
 The `grades` table lacks `grade`/`stream` columns by design. Any UI or service that displays per-stream grade counts MUST cross-reference grades against the stream-filtered enrolled student list. Never assume that `watchGradesForPaper` or `watchClassGrades` returns stream-scoped results — these queries return grades across all streams. Always filter grade rows through the enrolled student set when computing per-stream metrics.
+
+---
+
+## BUG-008: DeltaWriter `customStatement` writes don't trigger Drift watch streams
+
+**Status:** Fixed
+**Date:** 2025-07-18
+**Files affected:**
+- `lib/sync/delta_writer.dart` — `flush()`
+
+**Symptom:**
+After AI marking completes and the server syncs grade results back via `watchChanges`, the paper detail page UI does not update to show the new grades. The user must navigate away and back to see the updated data. The grades ARE written to the local SQLite database, but the `StreamBuilder` bound to `watchGradesForPaper` never re-emits.
+
+**Root cause:**
+The `DeltaWriter.flush()` method writes all delta data using `_db.customStatement()` (raw SQL). Drift does NOT track `customStatement` writes for stream invalidation — only writes done through Drift's typed API (`into(table).insert(...)`, `update(table)...`, `delete(table)...`) trigger automatic stream notifications. Since `customStatement` bypasses Drift's write tracking, the `StreamQueryStore` is never informed that tables were modified, and `watch*` queries never re-emit.
+
+This affects ALL tables written by the DeltaWriter, not just grades. However, grades are the most visible case because the user is actively watching `watchGradesForPaper` on the paper detail page when AI marking results arrive.
+
+**Fix:**
+Added a `touchedTables` set to `flush()` that collects the `delta.table` index for each successfully applied delta. After the transaction completes and FK checks are re-enabled, the method calls `_db.notifyUpdates(updates)` with a `Set<TableUpdate>` built from the touched table indices mapped to their SQLite table names via a static `_tableNames` constant map. This explicitly tells Drift's stream engine which tables were modified, causing all active `watch*` queries on those tables to re-emit.
+
+**Prevention:**
+Any code that writes to the Drift database using `customStatement` (raw SQL) MUST call `_db.notifyUpdates({TableUpdate('table_name')})` afterwards to notify Drift's stream engine. Prefer Drift's typed API when possible. If `customStatement` is necessary (e.g. for complex upserts, trigger avoidance, or FK-disabled batches), always follow up with `notifyUpdates`.
+
+---
+
+## BUG-009: DeltaWriter `_applyGrades` INSERT ON CONFLICT blocked by `BEFORE INSERT` trigger
+
+**Status:** Fixed
+**Date:** 2025-07-18
+**Files affected:**
+- `lib/sync/delta_writer.dart` — `_applyGrades()`
+
+**Symptom:**
+When the server sends an update (operation=1) for an existing grade record via sync, the DeltaWriter silently fails to apply it. The terminal shows:
+```
+[DeltaWriter] ⚠ Error applying delta: table=18, op=1, key=..., hasData=true — SqliteException(...)
+```
+The grade row retains its old score/total instead of being updated with the server's authoritative values.
+
+**Root cause:**
+The `_applyGrades` method used `INSERT ... ON CONFLICT (school, exam, student, subject, paper) DO UPDATE SET ...` for non-NULL paper grades. The `grades` table has a `BEFORE INSERT` trigger (`grades_enrollment_check`) that validates the student's enrollment by querying the `enrollments`, `exams`, and `papers` tables.
+
+SQLite fires `BEFORE INSERT` triggers **before** evaluating the `ON CONFLICT` clause. When the grade row already exists and the server sends an update delta, the INSERT fires the trigger first. If enrollment data hasn't settled in the current batch (deltas arrive in `seq` order, and enrollments for a different school context may not be present yet), or if the trigger's complex JOIN fails for any timing reason, the trigger aborts the INSERT with an error before the `ON CONFLICT DO UPDATE` clause ever executes. The error is caught by the `flush()` try-catch and logged, but the grade is never updated.
+
+This is the same class of bug as BUG-005 (terms trigger self-collision), though the mechanism differs: BUG-005's trigger checked its own table; this trigger checks parent tables that may not have settled.
+
+**Fix:**
+Changed `_applyGrades` from a branched approach (NULL paper → delete-then-insert, non-NULL paper → INSERT ON CONFLICT) to a unified delete-then-insert pattern for ALL cases. The method now:
+1. Deletes any existing row matching the full PK `(school, exam, student, subject, paper)` — handles both NULL and non-NULL paper with a single conditional SQL clause.
+2. If the operation is a pure delete (operation=2), returns immediately.
+3. Otherwise, inserts the server's authoritative row as a fresh INSERT (no ON CONFLICT needed since the old row was already deleted).
+
+The `BEFORE INSERT` trigger fires on the fresh INSERT, but since the old row is gone, the validation runs against a clean state and is more likely to succeed.
+
+**Prevention:**
+Any table with a `BEFORE INSERT` trigger that queries other tables for validation (e.g. enrollment checks, date range checks, constraint checks) is vulnerable to this issue when the DeltaWriter uses `INSERT ON CONFLICT`. The trigger fires before conflict resolution, potentially failing if referenced data hasn't settled. For such tables, always use delete-then-insert in the DeltaWriter instead of `INSERT ON CONFLICT DO UPDATE`. Currently affected tables: `terms` (BUG-005), `grades` (this bug). Other tables with self-referencing or cross-table `BEFORE INSERT` triggers should be audited for the same pattern.

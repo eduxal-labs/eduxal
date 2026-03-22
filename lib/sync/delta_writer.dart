@@ -48,16 +48,58 @@ class DeltaWriter {
   /// entire batch settle; once all deltas are applied the data is consistent.
   ///
   /// This mirrors the approach used by [AppDatabase.deleteAllData].
+  /// Map from proto table index to SQLite table name, used to notify Drift's
+  /// stream engine after a flush so that watch queries re-emit.
+  static const _tableNames = <int, String>{
+    1: 'users',
+    2: 'schools',
+    3: 'owners',
+    4: 'students',
+    5: 'guardians',
+    6: 'departments',
+    7: 'teachers',
+    8: 'staff',
+    9: 'terms',
+    10: 'class_teachers',
+    11: 'enrollments',
+    12: 'subject_teachers',
+    13: 'attendance',
+    14: 'timetable',
+    15: 'lessons',
+    16: 'exams',
+    17: 'papers',
+    18: 'grades',
+    19: 'fees',
+    20: 'invoices',
+    21: 'payments',
+    22: 'announcements',
+    23: 'mastery',
+    24: 'ai_usage',
+    26: 'roles',
+    27: 'scopes',
+    28: 'plans',
+    29: 'subscriptions',
+    30: 'discounts',
+    31: 'subjects',
+    32: 'topics',
+    33: 'streams',
+    34: 'mpesa',
+    36: 'scheme_pages',
+    37: 'answer_pages',
+  };
+
   Future<void> flush() async {
     if (_buffer.isEmpty) return;
     final batch = List<SyncDelta>.from(_buffer);
     _buffer.clear();
+    final touchedTables = <int>{};
     await _db.customStatement('PRAGMA foreign_keys = OFF');
     try {
       await _db.transaction(() async {
         for (final delta in batch) {
           try {
             await _applySingle(delta);
+            touchedTables.add(delta.table);
           } catch (e, st) {
             debugPrint(
               '[DeltaWriter] ⚠ Error applying delta: '
@@ -72,6 +114,18 @@ class DeltaWriter {
       });
     } finally {
       await _db.customStatement('PRAGMA foreign_keys = ON');
+    }
+
+    // Notify Drift's stream engine about tables modified via customStatement.
+    // Without this, watch queries (e.g. watchGradesForPaper) would NOT re-emit
+    // because Drift doesn't track raw SQL writes for stream invalidation.
+    if (touchedTables.isNotEmpty) {
+      final updates = <TableUpdate>{};
+      for (final idx in touchedTables) {
+        final name = _tableNames[idx];
+        if (name != null) updates.add(TableUpdate(name));
+      }
+      if (updates.isNotEmpty) _db.notifyUpdates(updates);
     }
   }
 
@@ -914,61 +968,49 @@ class DeltaWriter {
     final k = _parseKey(delta.rowKey);
     final paperVal = _parseIntNullable(k[4]);
 
-    if (delta.operation == 2) {
-      await _db.customStatement(
-        'DELETE FROM grades WHERE school = ? AND exam = ? AND student = ? AND subject = ?'
-        ' AND paper ${paperVal == null ? 'IS NULL' : '= ?'}',
-        [k[0], k[1], _parseInt(k[2]), _parseInt(k[3]), ?paperVal],
-      );
-      return;
-    }
+    // Delete any existing row matching the full PK first.
+    // This uses a unified delete for both NULL and non-NULL paper.
+    await _db.customStatement(
+      'DELETE FROM grades WHERE school = ? AND exam = ? AND student = ? AND subject = ?'
+      ' AND paper ${paperVal == null ? 'IS NULL' : '= ?'}',
+      [
+        k[0],
+        k[1],
+        _parseInt(k[2]),
+        _parseInt(k[3]),
+        if (paperVal != null) paperVal,
+      ],
+    );
+
+    if (delta.operation == 2) return; // Pure delete — we're done.
+
+    // Insert the server's authoritative row.
+    //
+    // We always delete-then-insert (instead of INSERT ON CONFLICT) because the
+    // `grades_enrollment_check` BEFORE INSERT trigger queries the enrollments,
+    // exams, and papers tables for validation. With INSERT ON CONFLICT, SQLite
+    // fires the trigger BEFORE evaluating the ON CONFLICT clause, so the
+    // trigger sees the existing row and may fail (e.g. if enrollment data
+    // hasn't settled in this batch yet). Delete-then-insert avoids this:
+    // the old row is gone, so the trigger validates a clean insert.
     final row = delta.data.grade;
     final now = _now();
 
-    if (paperVal == null) {
-      // NULL paper — ON CONFLICT cannot match NULLs, so delete-then-insert.
-      await _db.customStatement(
-        'DELETE FROM grades WHERE school = ? AND exam = ? AND student = ? AND subject = ?'
-        ' AND paper IS NULL',
-        [k[0], k[1], _parseInt(k[2]), _parseInt(k[3])],
-      );
-      await _db.customStatement(
-        'INSERT INTO grades (school, exam, student, subject, paper, score, total, created, updated)'
-        ' VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?)',
-        [
-          k[0],
-          k[1],
-          _parseInt(k[2]),
-          _parseInt(k[3]),
-          row.score,
-          row.total,
-          now.toInt(),
-          now.toInt(),
-        ],
-      );
-    } else {
-      // Non-NULL paper — standard ON CONFLICT upsert works fine.
-      await _db.customStatement(
-        'INSERT INTO grades (school, exam, student, subject, paper, score, total, created, updated)'
-        ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-        ' ON CONFLICT (school, exam, student, subject, paper) DO UPDATE SET'
-        ' score = excluded.score,'
-        ' total = excluded.total,'
-        ' created = excluded.created,'
-        ' updated = excluded.updated',
-        [
-          k[0],
-          k[1],
-          _parseInt(k[2]),
-          _parseInt(k[3]),
-          paperVal,
-          row.score,
-          row.total,
-          now.toInt(),
-          now.toInt(),
-        ],
-      );
-    }
+    await _db.customStatement(
+      'INSERT INTO grades (school, exam, student, subject, paper, score, total, created, updated)'
+      ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        k[0],
+        k[1],
+        _parseInt(k[2]),
+        _parseInt(k[3]),
+        paperVal, // NULL is fine — SQLite accepts it as a positional param
+        row.score,
+        row.total,
+        now.toInt(),
+        now.toInt(),
+      ],
+    );
   }
 
   // ---------------------------------------------------------------------------
