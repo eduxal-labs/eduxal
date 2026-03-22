@@ -91,6 +91,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
   List<String> _schemeFiles = [];
 
   Map<int, List<String>> _childSubmissions = {};
+  Set<int> _childDirtySubmissions = {};
 
   Paper get _paper => widget.paper;
   Exam get _exam => widget.exam.exam;
@@ -101,7 +102,8 @@ class _PaperDetailPageState extends State<PaperDetailPage>
       (e) =>
           e.value.isNotEmpty &&
           enrolledAdms.contains(e.key) &&
-          !gradeMap.containsKey(e.key),
+          (!gradeMap.containsKey(e.key) ||
+              _childDirtySubmissions.contains(e.key)),
     );
   }
 
@@ -407,6 +409,10 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                             if (mounted)
                               setState(() => _childSubmissions = map);
                           },
+                          onDirtySubmissionsChanged: (dirty) {
+                            if (mounted)
+                              setState(() => _childDirtySubmissions = dirty);
+                          },
                           onAiPhaseChanged: (phase) {
                             setState(() => _aiPhase = phase);
                             if (phase == _AiPhase.done) {
@@ -457,6 +463,10 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                           onSubmissionsMapChanged: (map) {
                             if (mounted)
                               setState(() => _childSubmissions = map);
+                          },
+                          onDirtySubmissionsChanged: (dirty) {
+                            if (mounted)
+                              setState(() => _childDirtySubmissions = dirty);
                           },
                           onAiPhaseChanged: (phase) {
                             setState(() => _aiPhase = phase);
@@ -1547,6 +1557,7 @@ class _GradeSpreadsheet extends StatefulWidget {
     this.onAiMarkedCountChanged,
     this.onSubmissionsChanged,
     this.onSubmissionsMapChanged,
+    this.onDirtySubmissionsChanged,
     this.schemeFiles = const [],
   });
 
@@ -1564,6 +1575,7 @@ class _GradeSpreadsheet extends StatefulWidget {
   final ValueChanged<int>? onAiMarkedCountChanged;
   final VoidCallback? onSubmissionsChanged;
   final ValueChanged<Map<int, List<String>>>? onSubmissionsMapChanged;
+  final ValueChanged<Set<int>>? onDirtySubmissionsChanged;
   final List<String> schemeFiles;
 
   @override
@@ -1992,6 +2004,7 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
       _aiPhase = _AiPhase.idle;
       _dirtySubmissions.clear();
     });
+    widget.onDirtySubmissionsChanged?.call(Set.from(_dirtySubmissions));
     _progressCtrl.reset();
   }
 
@@ -2108,6 +2121,7 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
             });
             widget.onSubmissionsChanged?.call();
             widget.onSubmissionsMapChanged?.call(Map.from(_submissions));
+            widget.onDirtySubmissionsChanged?.call(Set.from(_dirtySubmissions));
           }
         },
         dao: widget.dao,
@@ -2522,6 +2536,7 @@ class _GradeList extends StatefulWidget {
     this.onAiMarkedCountChanged,
     this.onSubmissionsChanged,
     this.onSubmissionsMapChanged,
+    this.onDirtySubmissionsChanged,
     this.schemeFiles = const [],
   });
 
@@ -2539,6 +2554,7 @@ class _GradeList extends StatefulWidget {
   final ValueChanged<int>? onAiMarkedCountChanged;
   final VoidCallback? onSubmissionsChanged;
   final ValueChanged<Map<int, List<String>>>? onSubmissionsMapChanged;
+  final ValueChanged<Set<int>>? onDirtySubmissionsChanged;
   final List<String> schemeFiles;
 
   @override
@@ -2890,6 +2906,7 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
       _aiPhase = _AiPhase.idle;
       _dirtySubmissions.clear();
     });
+    widget.onDirtySubmissionsChanged?.call(Set.from(_dirtySubmissions));
     _progressCtrl.reset();
   }
 
@@ -2924,6 +2941,7 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
             });
             widget.onSubmissionsChanged?.call();
             widget.onSubmissionsMapChanged?.call(Map.from(_submissions));
+            widget.onDirtySubmissionsChanged?.call(Set.from(_dirtySubmissions));
           }
         },
         dao: widget.dao,
