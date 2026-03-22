@@ -324,7 +324,14 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                     return _buildLoading(cs);
                   }
 
-                  final gradeRows = snap.data ?? [];
+                  final allGradeRows = snap.data ?? [];
+                  // Filter grades to only students enrolled in this paper's
+                  // grade/stream. The grades table has no stream column, so
+                  // watchGradesForPaper returns grades across all streams.
+                  final enrolledAdms = {for (final s in _students) s.adm};
+                  final gradeRows = allGradeRows
+                      .where((r) => enrolledAdms.contains(r.student.adm))
+                      .toList();
                   final gradeMap = {
                     for (final r in gradeRows) r.student.adm: r.grade,
                   };

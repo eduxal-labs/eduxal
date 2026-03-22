@@ -1584,8 +1584,13 @@ class _PerformanceTabState extends State<_PerformanceTab>
         ? allGrades.where((g) => g.paper == null).toList()
         : allGrades;
 
+    // Filter grades to only students enrolled in this stream/grade.
+    // watchClassGrades returns grades across all streams; restrict to
+    // enrolled students so rankings and graded counts are per-stream.
+    final enrolledAdms = {for (final s in enrolled) s.adm};
     final byStudent = <int, List<Grade>>{};
     for (final g in relevantGrades) {
+      if (!enrolledAdms.contains(g.student)) continue;
       byStudent.putIfAbsent(g.student, () => []).add(g);
     }
 

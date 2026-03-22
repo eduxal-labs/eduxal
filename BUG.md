@@ -194,3 +194,35 @@ For the `NULL paper` branch, the delete-before-insert pattern already used `scho
 
 **Prevention:**
 The `papers` table PK is `(school, exam, subject, paper, grade, stream)`. Any `ON CONFLICT` clause, `UPDATE`, or `DELETE` targeting a single paper row MUST include ALL SIX columns. Never use a partial subset of this PK as a conflict target — SQLite will silently match and overwrite the wrong row. When adding new delta-apply logic for papers (or any table with a multi-column PK that includes nullable columns), verify the `ON CONFLICT` target exactly matches the full PK declaration in `papers.dart`.
+
+---
+
+## BUG-007: Graded count on paper detail page inflated across streams
+
+**Status:** Fixed
+**Date:** 2025-07-17
+**Files affected:**
+- `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart` — `_PaperDetailPageState.build()`
+- `lib/ui/screens/school_dashboard/academics/exam_detail_page.dart` — `_PerformanceTabState._load()`
+
+**Symptom:**
+When viewing an exam with multiple streams (e.g. East with 14 students, West with 9 students), the paper detail header showed "graded 2/14" and "graded 2/9" instead of "graded 1/14" and "graded 1/9". The graded count (X in "graded X/Y") was summed across ALL streams instead of being filtered per-stream. The total students count (Y) was correct because it came from `getEnrolledStudents` which correctly filters by stream.
+
+The same issue affected the Performance tab's rankings and "Graded" metric in the exam detail page — students from other streams were included in the rankings and graded count.
+
+**Root cause:**
+The `grades` table has the composite PK `(school, exam, student, subject, paper)` — it intentionally has NO `grade` or `stream` columns. A student's stream is determined by their enrollment, not stored on the grade row. The comment in `grades.dart` explicitly states: "there is intentionally NO FK from grades to papers. The papers PK includes (grade, stream) which grades does not carry."
+
+`watchGradesForPaper(school, exam, subject, paper)` returns grade rows for ALL students matching those four columns, regardless of which stream those students belong to. When two papers exist for the same exam+subject+paperNum but different streams (e.g. Math Paper 1 for Stream East vs Stream West), the query returns grades from both streams.
+
+In `paper_detail_page.dart`, `_students` was correctly filtered by `_paper.stream` via `getEnrolledStudents`, but `gradeRows` from `watchGradesForPaper` included students from all streams. `_PaperHeader._computeAnalytics()` counted `gradeRows.where((r) => r.grade.score > 0).length` as `gradedCount`, which was inflated by grades from other streams.
+
+In `exam_detail_page.dart`, `_PerformanceTabState._load()` built rankings from `watchClassGrades(schoolId, examId)` (all grades for the exam) but compared against stream-filtered `enrolled` students. Students from other streams appeared in the rankings with fallback names ("Student $adm") and inflated `totalGraded`.
+
+**Fix:**
+1. **`paper_detail_page.dart`** — In `_PaperDetailPageState.build()`, after receiving `snap.data` from the grades stream, filter the grade rows to only include students whose `adm` is in the enrolled students set (`_students`). The enrolled students are already correctly stream-filtered by `getEnrolledStudents(stream: _paper.stream)`. The filtered `gradeRows` list is then passed to both `_PaperHeader` (for analytics) and the grade spreadsheet/list (for display).
+
+2. **`exam_detail_page.dart`** — In `_PerformanceTabState._load()`, build a set of enrolled student adms and skip any grade row whose `student` is not in that set when populating the `byStudent` map. This ensures rankings and the "Graded" metric only count students from the current stream context.
+
+**Prevention:**
+The `grades` table lacks `grade`/`stream` columns by design. Any UI or service that displays per-stream grade counts MUST cross-reference grades against the stream-filtered enrolled student list. Never assume that `watchGradesForPaper` or `watchClassGrades` returns stream-scoped results — these queries return grades across all streams. Always filter grade rows through the enrolled student set when computing per-stream metrics.
