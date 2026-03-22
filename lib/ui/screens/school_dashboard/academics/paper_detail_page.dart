@@ -2183,7 +2183,10 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
                 maxScore: _maxScore,
                 isDirty: isDirty,
                 isSaving: isSaving,
-                canGrade: widget.canGrade && !_aiMarking,
+                canGrade:
+                    widget.canGrade &&
+                    !_aiMarking &&
+                    widget.paper.status.index >= PaperStatus.done.index,
                 paperStatus: widget.paper.status,
                 submissionCount: (_submissions[adm] ?? []).length,
                 flashController: _flashControllers[adm]!,
@@ -2201,8 +2204,10 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
                   _saveRow(adm, _controllers[adm]!.text);
                   _focusNext(i);
                 },
-                onSubmitTap: _aiMarking
-                    ? () {}
+                onSubmitTap:
+                    (_aiMarking ||
+                        widget.paper.status.index < PaperStatus.done.index)
+                    ? null
                     : () => _openSubmissionSheet(context, student),
               );
             },
@@ -2256,7 +2261,7 @@ class _SpreadsheetRow extends StatefulWidget {
   final ValueChanged<String> onChanged;
   final VoidCallback onSave;
   final ValueChanged<String> onSubmitted;
-  final VoidCallback onSubmitTap;
+  final VoidCallback? onSubmitTap;
 
   double? get _pct {
     if (existingGrade == null) return null;
@@ -2400,7 +2405,9 @@ class _SpreadsheetRowState extends State<_SpreadsheetRow> {
               GestureDetector(
                 onTap: widget.onSubmitTap,
                 child: Tooltip(
-                  message: widget.submissionCount > 0
+                  message: widget.onSubmitTap == null
+                      ? 'Paper must be done before submitting'
+                      : widget.submissionCount > 0
                       ? '${widget.submissionCount} page(s) submitted'
                       : 'Submit answer sheets',
                   child: SizedBox(
@@ -2413,7 +2420,9 @@ class _SpreadsheetRowState extends State<_SpreadsheetRow> {
                           child: Icon(
                             Icons.upload_file_outlined,
                             size: 16,
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                            color: widget.onSubmitTap == null
+                                ? cs.onSurface.withValues(alpha: 0.2)
+                                : cs.onSurfaceVariant.withValues(alpha: 0.4),
                           ),
                         ),
                         if (widget.submissionCount > 0)
@@ -2952,24 +2961,28 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
       builder: (ctx) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Action: Submit Answer Sheets (always available)
+          // Action: Submit Answer Sheets (gated by paper status)
           _ActionSheetRow(
             icon: Icons.upload_file_outlined,
             label: 'Submit Answer Sheets',
             cs: cs,
             isDark: isDark,
-            onTap: () {
-              Navigator.pop(ctx);
-              _openSubmissionSheet(context, student);
-            },
+            onTap: widget.paper.status.index >= PaperStatus.done.index
+                ? () {
+                    Navigator.pop(ctx);
+                    _openSubmissionSheet(context, student);
+                  }
+                : null,
           ),
-          // Action: Enter Grade (always shown)
+          // Action: Enter Grade (gated by canGrade + paper status)
           _ActionSheetRow(
             icon: Icons.edit_outlined,
             label: 'Enter Grade',
             cs: cs,
             isDark: isDark,
-            onTap: widget.canGrade
+            onTap:
+                (widget.canGrade &&
+                    widget.paper.status.index >= PaperStatus.done.index)
                 ? () {
                     Navigator.pop(ctx);
                     _openGradeEntry(context, student);
@@ -3011,7 +3024,10 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
               final flashCtrl = _flashControllers[adm];
 
               Widget cardContent = InkWell(
-                onTap: (widget.canGrade && !_aiMarking)
+                onTap:
+                    (widget.canGrade &&
+                        !_aiMarking &&
+                        widget.paper.status.index >= PaperStatus.done.index)
                     ? () => _openGradeEntry(context, student)
                     : null,
                 child: SizedBox(

@@ -93,7 +93,7 @@ This is read during `build()` but NOT triggered reactively — it's only evaluat
 
 ---
 
-### Task 2: Gate Add Sheet / Add Grade Actions Behind Paper Status >= Done
+### Task 2: Gate Add Sheet / Add Grade Actions Behind Paper Status >= Done ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`
 **Context files to read:** None needed — all info is below.
@@ -169,7 +169,7 @@ enum PaperStatus { pending, progress, done, marked }
 6. For the quick-grade tap on list rows (if any), also add the status gate.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Commit: `git add -A && git commit -m "fix: gate add-sheet and add-grade actions behind paper status done or beyond"`
 
 ---
