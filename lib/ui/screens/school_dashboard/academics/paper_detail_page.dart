@@ -109,6 +109,16 @@ class _PaperDetailPageState extends State<PaperDetailPage>
       } else if (_gradeListKey.currentState != null) {
         await _gradeListKey.currentState?.runAiMarking();
       }
+    } catch (e, st) {
+      // Surface ANY exception — previously this was try/finally with no catch,
+      // so exceptions propagated as unhandled Future errors with zero user
+      // feedback (the button just silently reset to idle).
+      print('[_runAiMarking] CAUGHT EXCEPTION: ${e.runtimeType}: $e\n$st');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('AI marking error: $e')));
+      }
     } finally {
       // Safety net: if the child exited without firing onAiPhaseChanged (e.g.
       // due to !mounted silent exits), reset the parent flag so the button
@@ -1843,7 +1853,7 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
     widget.onAiPhaseChanged?.call(_AiPhase.assigning);
     widget.onAiProgressChanged?.call(0.5);
 
-    debugPrint(
+    print(
       '[SPREADSHEET] calling markPaper — school=${widget.schoolId} '
       'exam=${widget.exam.id} subject=${widget.paper.subject} '
       'paper=${widget.paper.paper} grade=${widget.paper.grade} '
@@ -1864,7 +1874,7 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
       studentKeys: studentKeys,
       accessToken: token,
     );
-    debugPrint('[SPREADSHEET] markPaper returned: $markResult');
+    print('[SPREADSHEET] markPaper returned: $markResult');
 
     if (!mounted) return;
     switch (markResult) {
@@ -2696,7 +2706,7 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
     widget.onAiPhaseChanged?.call(_AiPhase.assigning);
     widget.onAiProgressChanged?.call(0.5);
 
-    debugPrint(
+    print(
       '[GRADELIST] calling markPaper — school=${widget.schoolId} '
       'exam=${widget.exam.id} subject=${widget.paper.subject} '
       'paper=${widget.paper.paper} grade=${widget.paper.grade} '
@@ -2717,7 +2727,7 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
       studentKeys: studentKeys,
       accessToken: token,
     );
-    debugPrint('[GRADELIST] markPaper returned: $markResult');
+    print('[GRADELIST] markPaper returned: $markResult');
 
     if (!mounted) return;
     switch (markResult) {

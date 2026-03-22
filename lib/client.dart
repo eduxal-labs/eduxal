@@ -129,7 +129,13 @@ class Client {
   late final SyncEngine syncEngine;
 
   /// AI marking service — handles upload URLs, file uploads, and AI grading.
-  late final aiMarking = AiMarkingService(host: kDomain, port: kPort);
+  /// Uses the main [_channel] (kept alive by the sync engine) for reliability,
+  /// with a fresh-channel fallback if the main channel fails.
+  late final aiMarking = AiMarkingService(
+    channel: _channel,
+    host: kDomain,
+    port: kPort,
+  );
 
   // ───────────────────────────────────────────────────────────────────────────
   // Factory
