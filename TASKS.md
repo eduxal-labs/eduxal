@@ -1,961 +1,430 @@
 # TASKS.md
 
-## Feature: AI Usage Tracking (Client)
-
-### Task C1: Add AI usage DAO methods on client (eduxal) — ✅ DONE
-
----
-
-## Feature: File Sync — Marking Schemes & Answer Sheets
+## Feature: Paper Detail Page — AI Marking UX Fixes
 
 ### Overview
 
-Marking scheme files and student answer sheet files are currently **local-only**. They are saved to the device filesystem and uploaded to S3 only during the AI marking flow (ephemeral, one-shot). They do **not** sync across devices via the push/watch streams.
+Four issues on the paper detail page (`lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`) need fixing:
 
-**Goal:** Wire both file types into the existing sync engine so that:
-1. When Teacher A uploads a marking scheme on Device A, it appears on Device B.
-2. When Teacher B uploads answer sheets on Device B, they appear on Device A.
-3. Any device can trigger AI marking using synced files (future optimization).
-
-### Architecture
-
-The design follows the existing file sync pattern from AGENT.md §P9:
-
-1. Client saves files locally → logs a sync action with a count-based payload.
-2. Sync engine sends the action to the server.
-3. Server creates metadata rows in new tables (`scheme_pages`, `answer_pages`), generates presigned S3 PUT URLs.
-4. Server returns `ActionResponse.file_urls` with PUT URLs + relative paths.
-5. Sync engine uploads local files via `_handleFileUrls` (existing logic).
-6. Server changelog broadcasts to other clients via `watchChanges`.
-7. Watchers receive `SyncDelta` with GET URLs → sync engine downloads via `_handleFileUrls`.
-8. Downloaded files land at predictable local paths — existing UI code finds them.
-
-**Key insight:** `FileCache` uses **relative paths** resolved against `appDir`. The current scheme/answer sheet code uses absolute paths via `getApplicationDocumentsDirectory()` directly. The client must standardize on relative paths through `FileCache` path helpers for sync to work.
-
-### New tables (server + client mirror)
-
-```
-scheme_pages (school, exam, subject, paper, page, key, created)
-  PK: (school, exam, subject, paper, page)  — paper nullable
-  One scheme per subject+paper, shared across all grades/streams.
-
-answer_pages (school, exam, student, subject, paper, page, key, created)
-  PK: (school, exam, student, subject, paper, page)  — paper nullable
-  Per-student answer sheets.
-```
-
-### New SyncAction values
-
-```
-uploadScheme(91)       — set/replace scheme pages for a paper
-deleteScheme(92)       — remove all scheme pages for a paper
-uploadAnswerSheet(93)  — set/replace answer pages for a student's paper
-deleteAnswerSheet(94)  — remove all answer pages for a student's paper
-```
-
-### New InsertData tags (watch stream)
-
-```
-Tag 36: SchemePageInsert   → _applySchemePages() in DeltaWriter
-Tag 37: AnswerPageInsert   → _applyAnswerPages() in DeltaWriter
-```
-
-### What already exists
-
-| Layer | Component | Status |
-|---|---|---|
-| Proto | `FileUrl` message (path, put_url, get_url, expiry) | ✅ Exists |
-| Proto | `ActionResponse.file_urls`, `SyncDelta.file_urls` | ✅ Exists |
-| Proto | `UploadSchemePayload`, `DeleteSchemePayload` | ❌ Needs proto regen after S1 |
-| Proto | `UploadAnswerSheetPayload`, `DeleteAnswerSheetPayload` | ❌ Needs proto regen after S1 |
-| Proto | `SchemePageInsert` (InsertData tag 36) | ❌ Needs proto regen after S1 |
-| Proto | `AnswerPageInsert` (InsertData tag 37) | ❌ Needs proto regen after S1 |
-| Sync engine | `_handleFileUrls()` — uploads PUT / downloads GET | ✅ Exists, works as-is |
-| FileCache | `upload()`, `download()`, `_resolve()` with relative paths | ✅ Exists |
-| FileCache | Path helpers for schemes/answers | ❌ Missing |
-| Drift table | `SchemePages` | ❌ Missing |
-| Drift table | `AnswerPages` | ❌ Missing |
-| Drift table | `PaperSubmissions` (client-only, tracks local answer paths) | ✅ Exists |
-| SyncAction enum | Values 91–94 | ❌ Missing |
-| DeltaWriter | Cases 36, 37 | ❌ Missing |
-| UI (scheme) | `_SchemeUploadSheet` — saves to filesystem, no sync log | ⚠️ Needs sync wiring |
-| UI (answers) | `_AnswerSubmissionSheet` — saves to filesystem + `paper_submissions`, no sync log | ⚠️ Needs sync wiring |
+1. AI mark button shows even when all submitted papers are already graded
+2. "+Add Sheet" and "+Add Grade" actions are available when paper status is Pending/InProgress (should only be available at Done or beyond)
+3. AI marking progress gets stuck at 60% forever — grades arrive via sync but the polling loop doesn't see them because `widget.gradeMap` is stale (the widget instance captured at the start of `runAiMarking` never updates)
+4. Cannot re-mark a student whose paper was already graded — replacing answer sheets and re-triggering AI mark is not supported
 
 ### Dependency Graph
 
 ```
-S1 (proto definitions) ──── BLOCKING ── all other tasks wait for this
-    │
-    ├──→ S2, S3, S4, S5 (server — sequential)
-    │
-    └──→ C2 (proto regen on client)
-           │
-           └──→ C3 (Drift tables + enum + migration)
-                  │
-                  ├──→ C4 (DeltaWriter)      ─┐
-                  ├──→ C5 (FileCache paths)   ─┤── Parallel group P2
-                  │                            │
-                  └──→ C6 (scheme sync wiring) ─┘── Depends on C4 + C5
-                         │
-                         └──→ C7 (answer sync wiring) ── Depends on C6
-                                │
-                                └──→ C8 (post-download hooks) ── Depends on C4 + C7
+Task 1 (AI button visibility)     — independent
+Task 2 (status-gate add actions)  — independent
+Task 3 (stuck at 60%)             — independent
+Task 4 (re-mark support)          — depends on Task 1 (AI button logic) and Task 3 (marking flow must work)
 ```
+
+Tasks 1, 2, and 3 can run in **parallel group P1**.
+Task 4 runs after P1 completes (sequential).
 
 ---
 
-### Task C2: Regenerate proto stubs after S1
+### Task 1: AI Mark Button — Only Show When There Are Unmarked Submissions
 
-**Files to modify:** `lib/proto/services/sync.pb.dart`, `lib/proto/services/sync.pbgrpc.dart`, `lib/proto/services/sync.pbjson.dart`
-**Depends on:** S1 (server proto definitions — BLOCKING)
-**Parallel group:** —
+**Files to modify:** `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`
+**Context files to read:** None needed — all info is below.
+**Depends on:** None
+**Parallel group:** P1
 
-**Specification:**
-
-After the server completes S1 (proto definitions), copy the updated `sync.proto` file and regenerate Dart stubs:
-
-```bash
-# From the eduxal project root:
-protoc --dart_out=grpc:lib/proto -Iproto proto/services/sync.proto
-```
-
-Alternatively, if the project owner provides pre-generated `.pb.dart` files, copy them directly into `lib/proto/services/`.
-
-**Verify these new types exist after generation:**
-- `UploadSchemePayload` — fields: school, exam, subject, paper (optional), count
-- `DeleteSchemePayload` — fields: school, exam, subject, paper (optional)
-- `UploadAnswerSheetPayload` — fields: school, exam, student, subject, paper (optional), count
-- `DeleteAnswerSheetPayload` — fields: school, exam, student, subject, paper (optional)
-- `SchemePageInsert` — fields: school, exam, subject, paper (optional), page, key, created
-- `AnswerPageInsert` — fields: school, exam, student, subject, paper (optional), page, key, created
-- `ActionRequest` oneof includes new payload tags for all 4 actions
-- `InsertData` oneof includes `scheme_page` (tag 36) and `answer_page` (tag 37)
-
-**Update after completion:**
-- [ ] Proto stubs regenerated and compile cleanly
-- [ ] New message types verified
-- [ ] Mark this task `[x]`
-- [ ] git commit: `chore: regenerate proto stubs with scheme/answer file sync messages`
-
----
-
-### Task C3: Add Drift tables, SyncAction enum values, and schema migration
-
-**Files to create:** `lib/database/tables/scheme_pages.dart`, `lib/database/tables/answer_pages.dart`
-**Files to modify:** `lib/database/tables/enums.dart`, `lib/database/database.dart`
-**Context files to read:** `lib/database/tables/papers.dart` (for nullable paper PK pattern), `lib/database/database.dart`
-**Depends on:** C2
-**Parallel group:** —
-
-**Specification:**
-
-#### Step 1 — Create `lib/database/tables/scheme_pages.dart`:
+**Problem:**
+The AI mark button (indigo wand icon) appears whenever `hasUnmarkedSubmissions` is true AND `schemeFiles` is non-empty (line ~1190–1192 in `_buildActionButton`). The `hasUnmarkedSubmissions` getter (line ~1670 in `_GradeSpreadsheetState`, line ~2517 in `_GradeListState`) checks:
 
 ```dart
-import 'package:drift/drift.dart';
-import 'schools.dart';
-import 'exams.dart';
-
-class SchemePages extends Table {
-  @override
-  String get tableName => 'scheme_pages';
-
-  TextColumn get school =>
-      text().references(Schools, #id, onDelete: KeyAction.cascade)();
-  TextColumn get exam =>
-      text().references(Exams, #id, onDelete: KeyAction.cascade)();
-  IntColumn get subject => integer()();
-  IntColumn get paper => integer().nullable()();
-  IntColumn get page => integer()();
-  TextColumn get key => text()(); // S3 object key
-  Int64Column get created => int64()();
-
-  // paper is nullable in the composite PK — same pattern as papers/grades.
-  // Drift does not support nullable columns in primaryKey, so use
-  // customConstraints.
-  @override
-  List<String> get customConstraints => [
-    'PRIMARY KEY (school, exam, subject, paper, page)',
-    'FOREIGN KEY (subject) REFERENCES subjects(id) ON DELETE CASCADE',
-  ];
+bool get hasUnmarkedSubmissions {
+  return _submissions.entries.any(
+    (e) => e.value.isNotEmpty && !widget.gradeMap.containsKey(e.key),
+  );
 }
 ```
 
-#### Step 2 — Create `lib/database/tables/answer_pages.dart`:
+This is correct in principle — it returns true if any student has answer sheet files but no grade. However, the issue is that after AI marking completes and grades are written, `_hasUnmarkedSubmissions` should become false (since `gradeMap` now contains those students). If it's still showing, the likely cause is that `_submissions` contains stale entries for students who DO have grades, OR the parent `_PaperDetailPageState._hasUnmarkedSubmissions` getter (line ~96–101) is returning a cached value.
+
+**Root cause:** The parent getter delegates to the child widget's state via GlobalKey:
 
 ```dart
-import 'package:drift/drift.dart';
-import 'schools.dart';
-import 'exams.dart';
-
-class AnswerPages extends Table {
-  @override
-  String get tableName => 'answer_pages';
-
-  TextColumn get school =>
-      text().references(Schools, #id, onDelete: KeyAction.cascade)();
-  TextColumn get exam =>
-      text().references(Exams, #id, onDelete: KeyAction.cascade)();
-  IntColumn get student => integer()();
-  IntColumn get subject => integer()();
-  IntColumn get paper => integer().nullable()();
-  IntColumn get page => integer()();
-  TextColumn get key => text()(); // S3 object key
-  Int64Column get created => int64()();
-
-  @override
-  List<String> get customConstraints => [
-    'PRIMARY KEY (school, exam, student, subject, paper, page)',
-    'FOREIGN KEY (school, student) REFERENCES students(school, adm) ON DELETE CASCADE',
-    'FOREIGN KEY (subject) REFERENCES subjects(id) ON DELETE CASCADE',
-  ];
+bool get _hasUnmarkedSubmissions {
+  if (_spreadsheetKey.currentState != null) {
+    return _spreadsheetKey.currentState?.hasUnmarkedSubmissions ?? false;
+  } else {
+    return _gradeListKey.currentState?.hasUnmarkedSubmissions ?? false;
+  }
 }
 ```
 
-#### Step 3 — Add SyncAction values in `lib/database/tables/enums.dart`:
+This is read during `build()` but NOT triggered reactively — it's only evaluated when the parent rebuilds. After AI marking completes, the parent might not rebuild because the grade stream update goes to the `StreamBuilder` which rebuilds the child directly, bypassing the parent's `_hasUnmarkedSubmissions` evaluation.
 
-After `removeExamGrade(90)`, add:
+**Specification:**
 
-```dart
-  // Scheme pages (marking scheme file sync)
-  uploadScheme(91), deleteScheme(92),
-  // Answer pages (student answer sheet file sync)
-  uploadAnswerSheet(93), deleteAnswerSheet(94);
-```
+1. In `_PaperDetailPageState.build()`, the `_hasUnmarkedSubmissions` check is already inside the `StreamBuilder<List<GradeRow>>` (line ~340–375). The `gradeMap` is computed there. Instead of delegating to child state via GlobalKey, compute it directly in the parent using `gradeMap` and child submissions.
 
-Change the semicolon after `removeExamGrade(90)` to a comma first.
+2. **Better approach:** Pass `gradeMap` into the `hasUnmarkedSubmissions` computation at the parent level. Change `_PaperDetailPageState` to track submissions from children:
 
-#### Step 4 — Register in `lib/database/database.dart`:
-
-1. Add imports:
+   a. Add a field to `_PaperDetailPageState`:
    ```dart
-   import 'tables/scheme_pages.dart';
-   import 'tables/answer_pages.dart';
+   Map<int, List<String>> _childSubmissions = {};
    ```
 
-2. Add `SchemePages` and `AnswerPages` to the `tables: [...]` list in `@DriftDatabase` (after `AiUsage` and before `Scopes`).
+   b. Add an `onSubmissionsMapChanged` callback to both `_GradeSpreadsheet` and `_GradeList` that fires whenever `_submissions` changes, passing the full map.
 
-3. Add to `deleteAllData()` — delete `scheme_pages` and `answer_pages` before `papers` (they reference papers via subject FK):
+   c. In the parent, update `_childSubmissions` and call `setState`.
+
+   d. Replace the `_hasUnmarkedSubmissions` getter:
    ```dart
-   await delete(schemePages).go();
-   await delete(answerPages).go();
-   ```
-
-4. Bump `schemaVersion` from 5 to 6.
-
-5. Add migration in `onUpgrade`:
-   ```dart
-   if (from < 6) {
-     await m.createTable(schemePages);
-     await m.createTable(answerPages);
+   bool _computeHasUnmarked(Map<int, Grade> gradeMap) {
+     return _childSubmissions.entries.any(
+       (e) => e.value.isNotEmpty && !gradeMap.containsKey(e.key),
+     );
    }
    ```
 
-#### Step 5 — Run codegen:
+   e. In the `StreamBuilder<List<GradeRow>>` builder, call `_computeHasUnmarked(gradeMap)` and pass that to `_PaperHeader.hasUnmarkedSubmissions`.
 
-```bash
-dart run build_runner build --delete-conflicting-outputs
-```
+3. This ensures the AI button visibility is reactive to BOTH grade changes (via stream) AND submission changes (via callback).
 
 **Update after completion:**
-- [ ] Create `lib/database/tables/scheme_pages.dart`
-- [ ] Create `lib/database/tables/answer_pages.dart`
-- [ ] Add `uploadScheme(91)`, `deleteScheme(92)`, `uploadAnswerSheet(93)`, `deleteAnswerSheet(94)` to `SyncAction` enum
-- [ ] Register tables in `database.dart`, bump schema to v6, add migration
-- [ ] Add to `deleteAllData()` in correct order
-- [ ] Run `build_runner` — codegen succeeds
-- [ ] Update `lib/database/tables/CONTEXT.md`
-- [ ] Update `lib/database/CONTEXT.md` (schema version, new tables)
 - [ ] Mark this task `[x]`
-- [ ] git commit: `feat: add SchemePages and AnswerPages Drift tables + SyncAction 91-94 + schema v6`
+- [ ] Commit: `git add -A && git commit -m "fix: AI mark button reactively hides when all submissions are graded"`
 
 ---
 
-### Task C4: Add DeltaWriter handlers for scheme_pages (table 36) and answer_pages (table 37)
+### Task 2: Gate Add Sheet / Add Grade Actions Behind Paper Status >= Done
 
-**Files to modify:** `lib/sync/delta_writer.dart`
-**Context files to read:** `lib/database/tables/scheme_pages.dart`, `lib/database/tables/answer_pages.dart`, existing `_applyPapers()` and `_applyGrades()` in delta_writer.dart for nullable-paper patterns
-**Depends on:** C3
-**Parallel group:** P2
+**Files to modify:** `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`
+**Context files to read:** None needed — all info is below.
+**Depends on:** None
+**Parallel group:** P1
+
+**Problem:**
+The "Submit Answer Sheets" and "Enter Grade" actions (both on desktop's inline icons and mobile's action sheet) are always available regardless of paper status. They should only be interactive when `paper.status == PaperStatus.done || paper.status == PaperStatus.marked`.
 
 **Specification:**
 
-Add two new cases to the table dispatch `switch` in `DeltaWriter.apply()`:
-
+The `PaperStatus` enum (from `lib/database/tables/enums.dart` line 232):
 ```dart
-case 36:
-  await _applySchemePages(delta);
-case 37:
-  await _applyAnswerPages(delta);
+enum PaperStatus { pending, progress, done, marked }
 ```
 
-#### `_applySchemePages(SyncDelta delta)`:
+"Done or beyond" means `status.index >= PaperStatus.done.index` (i.e., `done` or `marked`).
 
-rowKey format: `"{school}|{exam}|{subject}|{paper}|{page}"` where paper is empty string when NULL.
+**Changes to `_GradeSpreadsheet` / `_SpreadsheetRow` (desktop):**
 
-```dart
-Future<void> _applySchemePages(SyncDelta delta) async {
-  final k = _parseKey(delta.rowKey);
-  final paperVal = _parseIntNullable(k[3]);
-  final pageVal = _parseInt(k[4]);
+1. `_SpreadsheetRow` already receives `paperStatus` (line ~2155 in the `itemBuilder`). Locate where `onSubmitTap` is wired (line ~2193–2194):
+   ```dart
+   onSubmitTap: _aiMarking
+       ? () {}
+       : () => _openSubmissionSheet(context, student),
+   ```
+   Change to:
+   ```dart
+   onSubmitTap: (_aiMarking || widget.paper.status.index < PaperStatus.done.index)
+       ? null
+       : () => _openSubmissionSheet(context, student),
+   ```
 
-  if (delta.operation == 2) {
-    // DELETE
-    await _db.customStatement(
-      'DELETE FROM scheme_pages WHERE school = ? AND exam = ? AND subject = ?'
-      ' AND paper ${paperVal == null ? 'IS NULL' : '= ?'}'
-      ' AND page = ?',
-      [k[0], k[1], _parseInt(k[2]), ?paperVal, pageVal],
-    );
-    return;
-  }
+2. In `_SpreadsheetRow`, wherever the camera/upload icon button is rendered, check if `onSubmitTap` is null and grey out / hide the icon accordingly. If `onSubmitTap` is null, use `cs.onSurface.withValues(alpha: 0.2)` for the icon color and ignore taps.
 
-  final row = delta.data.schemePage;
+3. For the grade text field in `_SpreadsheetRow`: the `canGrade` prop already gates editing. Find where `canGrade` is passed (line ~2187):
+   ```dart
+   canGrade: widget.canGrade && !_aiMarking,
+   ```
+   Change to:
+   ```dart
+   canGrade: widget.canGrade && !_aiMarking && widget.paper.status.index >= PaperStatus.done.index,
+   ```
 
-  if (paperVal == null) {
-    // NULL paper — delete-then-insert (SQLite NULL != NULL in PK).
-    await _db.customStatement(
-      'DELETE FROM scheme_pages WHERE school = ? AND exam = ? AND subject = ?'
-      ' AND paper IS NULL AND page = ?',
-      [k[0], k[1], _parseInt(k[2]), pageVal],
-    );
-    await _db.customStatement(
-      'INSERT INTO scheme_pages (school, exam, subject, paper, page, key, created)'
-      ' VALUES (?, ?, ?, NULL, ?, ?, ?)',
-      [k[0], k[1], _parseInt(k[2]), pageVal, row.key, row.created.toInt()],
-    );
-  } else {
-    await _db.customStatement(
-      'INSERT INTO scheme_pages (school, exam, subject, paper, page, key, created)'
-      ' VALUES (?, ?, ?, ?, ?, ?, ?)'
-      ' ON CONFLICT (school, exam, subject, paper, page) DO UPDATE SET'
-      ' key = excluded.key,'
-      ' created = excluded.created',
-      [k[0], k[1], _parseInt(k[2]), paperVal, pageVal, row.key, row.created.toInt()],
-    );
-  }
-}
-```
+**Changes to `_GradeList` (mobile):**
 
-#### `_applyAnswerPages(SyncDelta delta)`:
+4. In `_openStudentActionSheet` (line ~2940–2970), gate the "Submit Answer Sheets" action:
+   ```dart
+   _ActionSheetRow(
+     icon: Icons.upload_file_outlined,
+     label: 'Submit Answer Sheets',
+     cs: cs,
+     isDark: isDark,
+     onTap: widget.paper.status.index >= PaperStatus.done.index
+         ? () {
+             Navigator.pop(ctx);
+             _openSubmissionSheet(context, student);
+           }
+         : null,  // greyed out when pending/progress
+   ),
+   ```
 
-rowKey format: `"{school}|{exam}|{student}|{subject}|{paper}|{page}"` where paper is empty string when NULL.
+5. Similarly gate "Enter Grade":
+   ```dart
+   onTap: (widget.canGrade && widget.paper.status.index >= PaperStatus.done.index)
+       ? () {
+           Navigator.pop(ctx);
+           _openGradeEntry(context, student);
+         }
+       : null,
+   ```
 
-```dart
-Future<void> _applyAnswerPages(SyncDelta delta) async {
-  final k = _parseKey(delta.rowKey);
-  final paperVal = _parseIntNullable(k[4]);
-  final pageVal = _parseInt(k[5]);
-
-  if (delta.operation == 2) {
-    await _db.customStatement(
-      'DELETE FROM answer_pages WHERE school = ? AND exam = ? AND student = ? AND subject = ?'
-      ' AND paper ${paperVal == null ? 'IS NULL' : '= ?'}'
-      ' AND page = ?',
-      [k[0], k[1], _parseInt(k[2]), _parseInt(k[3]), ?paperVal, pageVal],
-    );
-    return;
-  }
-
-  final row = delta.data.answerPage;
-
-  if (paperVal == null) {
-    await _db.customStatement(
-      'DELETE FROM answer_pages WHERE school = ? AND exam = ? AND student = ? AND subject = ?'
-      ' AND paper IS NULL AND page = ?',
-      [k[0], k[1], _parseInt(k[2]), _parseInt(k[3]), pageVal],
-    );
-    await _db.customStatement(
-      'INSERT INTO answer_pages (school, exam, student, subject, paper, page, key, created)'
-      ' VALUES (?, ?, ?, ?, NULL, ?, ?, ?)',
-      [k[0], k[1], _parseInt(k[2]), _parseInt(k[3]), pageVal, row.key, row.created.toInt()],
-    );
-  } else {
-    await _db.customStatement(
-      'INSERT INTO answer_pages (school, exam, student, subject, paper, page, key, created)'
-      ' VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-      ' ON CONFLICT (school, exam, student, subject, paper, page) DO UPDATE SET'
-      ' key = excluded.key,'
-      ' created = excluded.created',
-      [k[0], k[1], _parseInt(k[2]), _parseInt(k[3]), paperVal, pageVal, row.key, row.created.toInt()],
-    );
-  }
-}
-```
+6. For the quick-grade tap on list rows (if any), also add the status gate.
 
 **Update after completion:**
-- [ ] Add `case 36: await _applySchemePages(delta);`
-- [ ] Add `case 37: await _applyAnswerPages(delta);`
-- [ ] Implement `_applySchemePages()` with nullable-paper handling
-- [ ] Implement `_applyAnswerPages()` with nullable-paper handling
-- [ ] Verify no analysis errors
-- [ ] Update `lib/sync/CONTEXT.md` if it exists
 - [ ] Mark this task `[x]`
-- [ ] git commit: `feat: add DeltaWriter handlers for scheme_pages (36) and answer_pages (37)`
+- [ ] Commit: `git add -A && git commit -m "fix: gate add-sheet and add-grade actions behind paper status done or beyond"`
 
 ---
 
-### Task C5: Add FileCache path helpers and standardize local file storage
+### Task 3: Fix AI Marking Progress Stuck at 60%
 
-**Files to modify:** `lib/cache/file_cache.dart`, `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`
-**Context files to read:** `lib/cache/file_cache.dart` (current path helpers section), `_schemeDirectory()` and answer sheet directory logic in `paper_detail_page.dart`
-**Depends on:** C3
-**Parallel group:** P2
+**Files to modify:** `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`
+**Context files to read:** None needed — all info is below.
+**Depends on:** None
+**Parallel group:** P1
+
+**Problem:**
+After the `markPaper` gRPC call returns `accepted: true`, the progress is set to 60% (line ~1908 in Spreadsheet, ~2761 in GradeList). Then Phase 5 polls for grades:
+
+```dart
+// Phase 5: Wait for grades via Drift stream (60% → 100%)
+final expectedAdms = studentsWithSubmissions.map((s) => s.adm).toSet();
+final expectedCount = expectedAdms.length;
+final gradedAdms = <int>[];
+
+for (int tick = 0; tick < 60; tick++) {
+  await Future.delayed(const Duration(seconds: 2));
+  if (!mounted) return;
+
+  int received = 0;
+  for (final adm in expectedAdms) {
+    if (widget.gradeMap.containsKey(adm)) {
+      if (!gradedAdms.contains(adm)) gradedAdms.add(adm);
+      received++;
+    }
+  }
+  // ...update progress...
+  if (received >= expectedCount) break;
+}
+```
+
+**Root cause:** `widget.gradeMap` is passed into the widget constructor. But `runAiMarking()` is an async method that runs across many awaits. During the polling loop, `widget.gradeMap` refers to the map from the LAST widget rebuild. The Drift `StreamBuilder` in the parent (`_PaperDetailPageState.build`) rebuilds the parent tree, which creates new `_GradeSpreadsheet` / `_GradeList` widgets with updated `gradeMap`. But the RUNNING async method still references `widget.gradeMap` from the widget instance it started with — or more precisely, `widget` always points to the current widget (Flutter updates it in `didUpdateWidget`), BUT the problem is that the `_GradeSpreadsheet`/`_GradeList` is rebuilt by the StreamBuilder with a new `gradeMap`, and `widget.gradeMap` DOES update... so why doesn't it work?
+
+**Actual root cause:** The `StreamBuilder<List<GradeRow>>` in the parent rebuilds the child widget tree, causing `didUpdateWidget` on `_GradeSpreadsheetState` / `_GradeListState`. In Flutter, `widget` always refers to the latest widget instance, so `widget.gradeMap` should be up-to-date. BUT — the grades arrive via the sync delta stream, which writes to the local Drift DB, which triggers the `watchGradesForPaper` stream. The issue is likely that **the sync stream is not connected** during AI marking, or the grades are written by the server but the delta never arrives on the client because:
+
+1. The sync `watchChanges` stream may not be active, OR
+2. The grade write on the server happens in the background `tokio::spawn` task, and the changelog append (which triggers the sync delta to connected clients) may not reach this client.
+
+**More likely root cause:** The server marks papers in a background task AFTER returning `accepted: true`. The client gets the accepted response and starts polling. But the server's background task takes 30-60+ seconds (download images, call Gemini, write to DB). During this time, the polling loop checks `widget.gradeMap` every 2 seconds. If the server finishes marking AFTER the 120-second timeout (60 ticks × 2s), the polling loop exits and progress stays at 60%.
+
+But the user says "even if the server sends back the grading results" — implying the server has finished. So the issue is: **how do grades get from server DB to the client's Drift DB?** The answer is: via the `watchChanges` sync stream. The server appends changelog records, and the sync stream pushes `SyncDelta` messages to connected clients. The client's `DeltaWriter` writes to local Drift tables, which triggers the `watchGradesForPaper` stream.
+
+If this pipeline works, `widget.gradeMap` would update and the polling loop would detect it. If it doesn't work, grades only appear when the user pops and comes back (triggering a fresh stream subscription or a full sync).
+
+**The fix must address both scenarios:**
+
+1. **If sync deltas work:** The polling loop should work. Add logging to verify `widget.gradeMap` is actually updating during the loop. The issue might be that `didUpdateWidget` is never called because the `StreamBuilder` uses the same `Key` and the widget is considered the same — but `gradeMap` IS a different map object. Actually, `widget.gradeMap` should always be current because Flutter updates the widget reference. Add debug prints inside the loop to verify.
+
+2. **If sync deltas DON'T work (more likely):** The polling loop will never see grades. Instead of polling `widget.gradeMap`, **actively query the database** inside the loop:
 
 **Specification:**
 
-The sync engine's `_handleFileUrls` uses `FileCache.upload(putUrl, relativePath)` and `FileCache.download(getUrl, relativePath)`. Both resolve `relativePath` against `appDir`. For file sync to work, the scheme and answer sheet files must use relative paths through FileCache — not absolute paths via `getApplicationDocumentsDirectory()`.
-
-#### Step 1 — Add path helpers to `lib/cache/file_cache.dart`:
-
-Add to the "Path helpers" section (after `studentImagePath`):
+In BOTH `_GradeSpreadsheetState.runAiMarking()` (around line 1915-1945) and `_GradeListState.runAiMarking()` (around line 2768-2800), replace the Phase 5 polling loop with one that queries the DAO directly:
 
 ```dart
-/// Relative path for a marking scheme page image.
-///
-/// Resolves to `{appDir}/submissions/{schoolId}/{examId}/{subject}_{paper}/scheme/{page}.jpg`.
-/// [paper] is the paper number; pass 0 for single-paper subjects (paper=NULL).
-static String schemePath(String schoolId, String examId, int subject, int paper, int page) =>
-    'submissions/$schoolId/$examId/${subject}_$paper/scheme/$page.jpg';
+// Phase 5: Wait for grades via direct DB query (60% → 100%)
+final expectedAdms = studentsWithSubmissions.map((s) => s.adm).toSet();
+final expectedCount = expectedAdms.length;
+final gradedAdms = <int>[];
 
-/// Directory (relative) containing all scheme pages for a paper.
-static String schemeDir(String schoolId, String examId, int subject, int paper) =>
-    'submissions/$schoolId/$examId/${subject}_$paper/scheme';
+for (int tick = 0; tick < 120; tick++) {
+  // 120 × 1s = 120s timeout (more responsive than 60 × 2s)
+  await Future.delayed(const Duration(seconds: 1));
+  if (!mounted) return;
 
-/// Relative path for a student answer sheet page image.
-///
-/// Resolves to `{appDir}/submissions/{schoolId}/{examId}/{subject}_{paper}/{adm}/{page}.jpg`.
-static String answerPath(String schoolId, String examId, int subject, int paper, int adm, int page) =>
-    'submissions/$schoolId/$examId/${subject}_$paper/$adm/$page.jpg';
-
-/// Directory (relative) containing all answer pages for a student's paper.
-static String answerDir(String schoolId, String examId, int subject, int paper, int adm) =>
-    'submissions/$schoolId/$examId/${subject}_$paper/$adm';
-```
-
-#### Step 2 — Update `_PaperDetailPageState._schemeDirectory()`:
-
-Replace the current absolute-path logic with FileCache-based resolution:
-
-```dart
-Future<Directory> _schemeDirectory() async {
-  final base = await FileCache.baseDir(); // Need to expose _baseDir or use getApplicationDocumentsDirectory
-  final rel = FileCache.schemeDir(
-    widget.schoolId,
-    _exam.id,
-    _paper.subject,
-    _paper.paper ?? 0,
+  // Query the DB directly — don't rely on widget.gradeMap which may be stale
+  final currentGrades = await widget.dao.getGradesForPaper(
+    schoolId: widget.schoolId,
+    examId: widget.exam.id,
+    subject: widget.paper.subject,
+    paper: widget.paper.paper,
   );
-  return Directory('$base/$rel');
-}
-```
+  final gradedSet = {for (final g in currentGrades) g.student};
 
-**Note:** `FileCache._baseDir()` is currently private. Either:
-- Make it public: `static Future<String> baseDir() async { ... }` (preferred — simple, non-breaking)
-- Or keep using `getApplicationDocumentsDirectory()` with the same relative path convention as FileCache.
-
-Choose making it public — add `static Future<String> baseDir() => _baseDir();` to FileCache's public API.
-
-#### Step 3 — Update `_SchemeUploadSheetState._schemeDirectory()`:
-
-Same change as Step 2 — use FileCache path helpers.
-
-#### Step 4 — Update `_AnswerSubmissionSheetState._savePickedFiles()`:
-
-The answer sheet directory currently uses:
-```dart
-final dir = Directory(
-  '${appDir.path}/submissions/${widget.schoolId}/${widget.examId}/$paperSuffix/${widget.student.adm}',
-);
-```
-
-Update to use FileCache:
-```dart
-final base = await FileCache.baseDir();
-final rel = FileCache.answerDir(
-  widget.schoolId,
-  widget.examId,
-  widget.subject,
-  widget.paperNum ?? 0,
-  widget.student.adm,
-);
-final dir = Directory('$base/$rel');
-```
-
-#### Step 5 — Standardize file naming to 0-indexed:
-
-The scheme files already use 0-indexed naming (`0.jpg`, `1.jpg`, ...). The answer sheet files currently use 1-indexed naming. Change answer sheet `_savePickedFiles` to use 0-indexed:
-
-```dart
-// Before: final index = _paths.length + newPaths.length + 1;
-// After:
-final index = _paths.length + newPaths.length; // 0-indexed
-```
-
-#### Step 6 — Add re-indexing on file removal:
-
-In `_SchemeUploadSheetState._removePhoto()`, after removing a file, re-index the remaining files on disk so there are no gaps:
-
-```dart
-Future<void> _removePhoto(int index) async {
-  final removedPath = _paths[index];
-  try {
-    final file = File(removedPath);
-    if (await file.exists()) await file.delete();
-  } catch (_) {}
-  setState(() => _paths.removeAt(index));
-
-  // Re-index remaining files on disk to fill the gap.
-  final dir = await _schemeDirectory();
-  for (int i = index; i < _paths.length; i++) {
-    final oldFile = File(_paths[i]);
-    final newDest = File('${dir.path}/$i.jpg');
-    if (oldFile.path != newDest.path && await oldFile.exists()) {
-      await oldFile.rename(newDest.path);
-      _paths[i] = newDest.path;
+  int received = 0;
+  for (final adm in expectedAdms) {
+    if (gradedSet.contains(adm)) {
+      if (!gradedAdms.contains(adm)) gradedAdms.add(adm);
+      received++;
     }
   }
 
-  widget.onUpdated();
+  final progress = 0.6 + (received / expectedCount) * 0.4;
+  setState(() => _aiMarkedCount = received);
+  widget.onAiMarkedCountChanged?.call(received);
+  widget.onAiProgressChanged?.call(progress);
+
+  print('[AI-POLL] tick=$tick received=$received/$expectedCount progress=${(progress * 100).toInt()}%');
+
+  if (received >= expectedCount) break;
 }
 ```
 
-Add similar re-indexing to `_AnswerSubmissionSheetState._removePhoto()`.
+**DAO method needed:** Check if `ExamsGradesDao` already has a `getGradesForPaper` method that returns a `Future<List<Grade>>` (not a stream). If not, add one:
+
+```dart
+Future<List<Grade>> getGradesForPaper({
+  required String schoolId,
+  required String examId,
+  required int subject,
+  int? paper,
+}) async {
+  final query = select(grades)
+    ..where((g) =>
+      g.school.equals(schoolId) &
+      g.exam.equals(examId) &
+      g.subject.equals(subject));
+  if (paper != null) {
+    query.where((g) => g.paper.equals(paper));
+  }
+  return query.get();
+}
+```
+
+Check the existing DAO file (`lib/database/daos/exams_grades_dao.dart`) for the exact table name and column names — it might be `gradesTable` or `grades`. The `Grade` type is the Drift-generated data class for the grades table.
+
+Also add a `GradeRow`-style return if needed — the key field is `student` (the ADM number as `int`). We only need to check which ADMs have grades, so even a simpler query returning just ADM numbers would work.
+
+**Important:** Also increase the timeout from 120s to 180s (180 ticks × 1s) to account for slow Gemini responses, especially with the new queue-based server architecture where requests might wait in line.
 
 **Update after completion:**
-- [ ] Add `schemePath`, `schemeDir`, `answerPath`, `answerDir` helpers to FileCache
-- [ ] Expose `FileCache.baseDir()` as a public static method
-- [ ] Update `_schemeDirectory()` in both `_PaperDetailPageState` and `_SchemeUploadSheetState`
-- [ ] Update answer sheet directory logic in `_AnswerSubmissionSheetState`
-- [ ] Standardize answer file naming to 0-indexed
-- [ ] Add re-indexing on file removal for both scheme and answer sheets
-- [ ] Verify no analysis errors
 - [ ] Mark this task `[x]`
-- [ ] git commit: `refactor: standardize scheme/answer file paths through FileCache helpers`
+- [ ] Commit: `git add -A && git commit -m "fix: AI marking progress polls DB directly instead of relying on stale widget.gradeMap"`
 
 ---
 
-### Task C6: Wire scheme upload/replace/delete to sync log
+### Task 4: Support Re-Marking — Replace Answer Sheets and Re-Trigger AI
 
-**Files to modify:** `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`, `lib/database/daos/exams_grades_dao.dart`
-**Context files to read:** `lib/database/daos/exams_grades_dao.dart` (for log insertion pattern), `lib/proto/services/sync.pb.dart` (for `UploadSchemePayload`, `DeleteSchemePayload`)
-**Depends on:** C4, C5
-**Parallel group:** —
+**Files to modify:** `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`
+**Context files to read:** None needed — all info is below.
+**Depends on:** Task 1 (AI button visibility logic), Task 3 (marking flow must complete correctly)
+**Parallel group:** None (sequential after P1)
+
+**Problem:**
+If a student already has a grade (i.e., `gradeMap.containsKey(adm)` is true), and the user replaces their answer sheet files in `_AnswerSubmissionSheet`, the AI mark button does NOT appear because `hasUnmarkedSubmissions` returns false — the student has a grade, so they're considered "marked."
+
+The user wants to be able to:
+1. Open a student's answer submission sheet
+2. Replace/update the files (e.g., they uploaded the wrong student's paper)
+3. Have the AI mark button appear for that student
+4. Click AI mark, which re-grades that student (server upserts the grade)
 
 **Specification:**
 
-When the user adds, replaces, or removes scheme files, log a sync action so the sync engine pushes the change to the server.
-
-#### Step 1 — Add DAO methods for scheme sync logging:
-
-In `ExamsGradesDao`, add:
+The concept is: when a user modifies answer sheets for a student who already has a grade, that student should be considered "dirty" — needing re-marking. The `_dirtySubmissions` set already exists in both `_GradeSpreadsheetState` and `_GradeListState` (line ~1581, ~2497) and is populated when new submissions are added:
 
 ```dart
-/// Logs an [uploadScheme] sync action for the given paper's scheme.
-/// Called after the user adds or replaces scheme files locally.
-///
-/// [count] is the total number of scheme pages after the change.
-Future<void> logUploadScheme({
-  required String schoolId,
-  required String examId,
-  required int subject,
-  required int? paper,
-  required int count,
-  required String accountId,
-}) async {
-  final payload = UploadSchemePayload()
-    ..school = schoolId
-    ..exam = examId
-    ..subject = subject
-    ..count = count;
-  if (paper != null) payload.paper = paper;
-
-  final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
-  await into(logs).insert(
-    LogsCompanion(
-      account: Value(accountId),
-      action: Value(SyncAction.uploadScheme),
-      resource: Value('Marking scheme'),
-      payload: Value(payload.writeToBuffer()),
-      created: Value(now),
-    ),
-  );
-}
-
-/// Logs a [deleteScheme] sync action.
-/// Called when the user removes all scheme files for a paper.
-Future<void> logDeleteScheme({
-  required String schoolId,
-  required String examId,
-  required int subject,
-  required int? paper,
-  required String accountId,
-}) async {
-  final payload = DeleteSchemePayload()
-    ..school = schoolId
-    ..exam = examId
-    ..subject = subject;
-  if (paper != null) payload.paper = paper;
-
-  final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
-  await into(logs).insert(
-    LogsCompanion(
-      account: Value(accountId),
-      action: Value(SyncAction.deleteScheme),
-      resource: Value('Marking scheme'),
-      payload: Value(payload.writeToBuffer()),
-      created: Value(now),
-    ),
-  );
-}
+// In _openSubmissionSheet's onUpdated callback:
+setState(() {
+  _submissions[adm] = paths;
+  if (paths.isNotEmpty) _dirtySubmissions.add(adm);
+});
 ```
 
-Add the required import at the top of `exams_grades_dao.dart`:
-```dart
-import '../../proto/services/sync.pb.dart' show UploadSchemePayload, DeleteSchemePayload, UploadAnswerSheetPayload, DeleteAnswerSheetPayload;
-```
+But `_dirtySubmissions` is only used to clear after AI marking completes — it's never checked in `hasUnmarkedSubmissions`.
 
-#### Step 2 — Wire into `_SchemeUploadSheetState`:
+**Changes:**
 
-After every mutation that changes the scheme file set, call the DAO to log the action. The sheet already calls `widget.onUpdated()` which triggers `_loadSchemeFiles()`. We need to also log:
+1. **Update `hasUnmarkedSubmissions` in BOTH `_GradeSpreadsheetState` and `_GradeListState`:**
 
-**In `_savePickedFiles()` (after files are saved):**
-```dart
-// After: widget.onUpdated();
-final accountId = cache.currentUser?.user.id;
-if (accountId != null) {
-  final dao = ExamsGradesDao(db);
-  await dao.logUploadScheme(
-    schoolId: widget.schoolId,
-    examId: widget.examId,
-    subject: widget.subject,
-    paper: widget.paperNum,
-    count: _paths.length,
-    accountId: accountId,
-  );
-}
-```
+   Old:
+   ```dart
+   bool get hasUnmarkedSubmissions {
+     return _submissions.entries.any(
+       (e) => e.value.isNotEmpty && !widget.gradeMap.containsKey(e.key),
+     );
+   }
+   ```
 
-**In `_removePhoto()` (after re-indexing):**
-```dart
-final accountId = cache.currentUser?.user.id;
-if (accountId != null) {
-  final dao = ExamsGradesDao(db);
-  if (_paths.isEmpty) {
-    await dao.logDeleteScheme(
-      schoolId: widget.schoolId,
-      examId: widget.examId,
-      subject: widget.subject,
-      paper: widget.paperNum,
-      accountId: accountId,
-    );
-  } else {
-    await dao.logUploadScheme(
-      schoolId: widget.schoolId,
-      examId: widget.examId,
-      subject: widget.subject,
-      paper: widget.paperNum,
-      count: _paths.length,
-      accountId: accountId,
-    );
-  }
-}
-```
+   New:
+   ```dart
+   bool get hasUnmarkedSubmissions {
+     return _submissions.entries.any(
+       (e) => e.value.isNotEmpty && (
+         !widget.gradeMap.containsKey(e.key) || _dirtySubmissions.contains(e.key)
+       ),
+     );
+   }
+   ```
 
-**In `_replaceAll()` (after new photos are taken — `_takePhoto` calls `_savePickedFiles` which logs):**
-Before calling `_takePhoto()`, log a `deleteScheme` to clear server state. The subsequent `_takePhoto → _savePickedFiles` will log the new `uploadScheme`.
+   A student needs marking if they have submissions AND (no grade OR their submissions were modified).
 
-Actually, simpler: `_replaceAll` deletes all then takes new photos. The `_savePickedFiles` in `_takePhoto` will log `uploadScheme` with the new count. We just need to handle the case where the user cancels the camera (count stays 0 → should still delete). Add a `deleteScheme` log at the top of `_replaceAll`:
+2. **Update the `_openSubmissionSheet` `onUpdated` callback in BOTH widgets:**
 
-```dart
-final accountId = cache.currentUser?.user.id;
-if (accountId != null) {
-  await ExamsGradesDao(db).logDeleteScheme(
-    schoolId: widget.schoolId,
-    examId: widget.examId,
-    subject: widget.subject,
-    paper: widget.paperNum,
-    accountId: accountId,
-  );
-}
-```
+   Currently (line ~2072–2082 Spreadsheet, ~2839–2849 GradeList):
+   ```dart
+   onUpdated: (paths) {
+     if (mounted) {
+       setState(() {
+         _submissions[adm] = paths;
+         if (paths.isNotEmpty) _dirtySubmissions.add(adm);
+       });
+       widget.onSubmissionsChanged?.call();
+     }
+   },
+   ```
 
-The `_takePhoto → _savePickedFiles` path will then log `uploadScheme` with the new count if photos are taken.
+   This is already correct — it adds to `_dirtySubmissions` when new paths are set. But we need to also handle the case where files are REPLACED (not just added). The current logic adds to `_dirtySubmissions` only when `paths.isNotEmpty`, which covers the replace case (old files removed, new files added = non-empty list). Good.
 
-#### Step 3 — Add proto import to `paper_detail_page.dart`:
+   BUT: we also need to notify the parent so it re-evaluates `_hasUnmarkedSubmissions` for the header button. The `widget.onSubmissionsChanged?.call()` does this. If Task 1's `onSubmissionsMapChanged` callback is implemented, also fire that:
+   ```dart
+   onUpdated: (paths) {
+     if (mounted) {
+       setState(() {
+         _submissions[adm] = paths;
+         if (paths.isNotEmpty) _dirtySubmissions.add(adm);
+       });
+       widget.onSubmissionsChanged?.call();
+       widget.onSubmissionsMapChanged?.call(Map.from(_submissions));
+     }
+   },
+   ```
 
-```dart
-import '../../../../proto/services/sync.pb.dart' show UploadSchemePayload, DeleteSchemePayload;
-```
+3. **Update `runAiMarking()` in BOTH widgets to include dirty students:**
 
-The `db` global and `cache` are already imported.
+   Currently, `studentsWithSubmissions` is computed as:
+   ```dart
+   final studentsWithSubmissions = widget.students.where((s) {
+     final paths = _submissions[s.adm] ?? [];
+     return paths.isNotEmpty && !widget.gradeMap.containsKey(s.adm);
+   }).toList();
+   ```
+
+   (Find the exact location by searching for `studentsWithSubmissions` — it should be in the early phases of `runAiMarking()`.)
+
+   Change to include dirty students:
+   ```dart
+   final studentsWithSubmissions = widget.students.where((s) {
+     final paths = _submissions[s.adm] ?? [];
+     if (paths.isEmpty) return false;
+     // Include if: no grade yet, OR submissions were modified since last mark
+     return !widget.gradeMap.containsKey(s.adm) || _dirtySubmissions.contains(s.adm);
+   }).toList();
+   ```
+
+4. **Clear `_dirtySubmissions` for marked students after AI marking completes:**
+
+   This already happens at line ~1963 (Spreadsheet) and ~2812 (GradeList):
+   ```dart
+   _dirtySubmissions.clear();
+   ```
+
+   This is correct — after marking completes, all dirty flags are cleared.
+
+5. **Visual indicator for re-markable students:**
+
+   In the spreadsheet/list row, if a student has a grade AND is in `_dirtySubmissions`, show a small amber dot or icon next to their submission count to indicate "modified, needs re-marking." This is optional but improves UX — the user can see which students will be re-marked.
+
+   In `_SpreadsheetRow`, add a prop `isDirtySubmission: bool` and render a small amber dot (4px circle) next to the camera icon when true.
 
 **Update after completion:**
-- [ ] Add `logUploadScheme()` and `logDeleteScheme()` to `ExamsGradesDao`
-- [ ] Wire `_savePickedFiles()` in scheme sheet to log `uploadScheme`
-- [ ] Wire `_removePhoto()` in scheme sheet to log `uploadScheme` or `deleteScheme`
-- [ ] Wire `_replaceAll()` to log `deleteScheme` before clearing
-- [ ] Add proto imports
-- [ ] Verify no analysis errors
 - [ ] Mark this task `[x]`
-- [ ] git commit: `feat: wire marking scheme upload/delete to sync action log`
-
----
-
-### Task C7: Wire answer sheet upload/delete to sync log
-
-**Files to modify:** `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`, `lib/database/daos/exams_grades_dao.dart`
-**Context files to read:** Task C6 (same pattern), `_AnswerSubmissionSheetState` in `paper_detail_page.dart`
-**Depends on:** C6 (proto import + DAO pattern established)
-**Parallel group:** —
-
-**Specification:**
-
-Same pattern as C6 but for answer sheets.
-
-#### Step 1 — Add DAO methods:
-
-In `ExamsGradesDao`, add:
-
-```dart
-/// Logs an [uploadAnswerSheet] sync action for a student's answer pages.
-Future<void> logUploadAnswerSheet({
-  required String schoolId,
-  required String examId,
-  required int student,
-  required int subject,
-  required int? paper,
-  required int count,
-  required String accountId,
-}) async {
-  final payload = UploadAnswerSheetPayload()
-    ..school = schoolId
-    ..exam = examId
-    ..student = student
-    ..subject = subject
-    ..count = count;
-  if (paper != null) payload.paper = paper;
-
-  final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
-  await into(logs).insert(
-    LogsCompanion(
-      account: Value(accountId),
-      action: Value(SyncAction.uploadAnswerSheet),
-      resource: Value('Answer sheet — student $student'),
-      payload: Value(payload.writeToBuffer()),
-      created: Value(now),
-    ),
-  );
-}
-
-/// Logs a [deleteAnswerSheet] sync action.
-Future<void> logDeleteAnswerSheet({
-  required String schoolId,
-  required String examId,
-  required int student,
-  required int subject,
-  required int? paper,
-  required String accountId,
-}) async {
-  final payload = DeleteAnswerSheetPayload()
-    ..school = schoolId
-    ..exam = examId
-    ..student = student
-    ..subject = subject;
-  if (paper != null) payload.paper = paper;
-
-  final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
-  await into(logs).insert(
-    LogsCompanion(
-      account: Value(accountId),
-      action: Value(SyncAction.deleteAnswerSheet),
-      resource: Value('Answer sheet — student $student'),
-      payload: Value(payload.writeToBuffer()),
-      created: Value(now),
-    ),
-  );
-}
-```
-
-#### Step 2 — Wire into `_AnswerSubmissionSheetState`:
-
-**In `_savePickedFiles()` (after files saved + `paper_submissions` inserted):**
-```dart
-final accountId = cache.currentUser?.user.id;
-if (accountId != null) {
-  await widget.dao.logUploadAnswerSheet(
-    schoolId: widget.schoolId,
-    examId: widget.examId,
-    student: widget.student.adm,
-    subject: widget.subject,
-    paper: widget.paperNum,
-    count: _paths.length,
-    accountId: accountId,
-  );
-}
-```
-
-**In `_removePhoto()` (after removal):**
-```dart
-final accountId = cache.currentUser?.user.id;
-if (accountId != null) {
-  if (_paths.isEmpty) {
-    await widget.dao.logDeleteAnswerSheet(
-      schoolId: widget.schoolId,
-      examId: widget.examId,
-      student: widget.student.adm,
-      subject: widget.subject,
-      paper: widget.paperNum,
-      accountId: accountId,
-    );
-  } else {
-    await widget.dao.logUploadAnswerSheet(
-      schoolId: widget.schoolId,
-      examId: widget.examId,
-      student: widget.student.adm,
-      subject: widget.subject,
-      paper: widget.paperNum,
-      count: _paths.length,
-      accountId: accountId,
-    );
-  }
-}
-```
-
-#### Step 3 — Add re-indexing to `_AnswerSubmissionSheetState._removePhoto()`:
-
-Same pattern as scheme sheet (Task C5 Step 6). After removing the file, re-index remaining files on disk and update `_paths` list. Also update `paper_submissions` rows to reflect new paths.
-
-**Update after completion:**
-- [ ] Add `logUploadAnswerSheet()` and `logDeleteAnswerSheet()` to `ExamsGradesDao`
-- [ ] Wire `_savePickedFiles()` in answer sheet to log `uploadAnswerSheet`
-- [ ] Wire `_removePhoto()` in answer sheet to log `uploadAnswerSheet` or `deleteAnswerSheet`
-- [ ] Add re-indexing on removal
-- [ ] Verify no analysis errors
-- [ ] Mark this task `[x]`
-- [ ] git commit: `feat: wire answer sheet upload/delete to sync action log`
-
----
-
-### Task C8: Post-download hooks — populate paper_submissions after answer file download
-
-**Files to modify:** `lib/sync/sync_engine.dart`
-**Context files to read:** `lib/sync/sync_engine.dart` (watch stream handler + `_handleFileUrls`), `lib/database/daos/exams_grades_dao.dart` (`insertSubmission`)
-**Depends on:** C4, C7
-**Parallel group:** —
-
-**Specification:**
-
-When a watcher receives answer sheet files via the watch stream, the sync engine downloads them via `_handleFileUrls`. After download, we need to insert `paper_submissions` rows so the existing UI code discovers the files.
-
-For scheme files, no post-download hook is needed — the UI uses filesystem directory listing (`_loadSchemeFiles`), and the downloaded files land at the expected paths.
-
-#### Step 1 — Extend the watch stream handler in `sync_engine.dart`:
-
-After the existing `_handleFileUrls` call for watch deltas, add a post-processing step for answer_pages deltas:
-
-Find this section (around line 782):
-```dart
-await _deltaWriter.apply(delta);
-
-// Download files from S3 if the server provided GET URLs.
-if (delta.fileUrls.isNotEmpty) {
-  await _handleFileUrls(delta.fileUrls, isPushOriginator: false);
-}
-```
-
-After the `_handleFileUrls` call, add:
-```dart
-// After downloading answer sheet files, insert paper_submissions rows
-// so the UI discovers the files.
-if (delta.table == 37 && delta.operation != 2 && delta.fileUrls.isNotEmpty) {
-  await _insertAnswerSubmissions(delta);
-}
-```
-
-#### Step 2 — Implement `_insertAnswerSubmissions`:
-
-```dart
-/// After downloading answer sheet files from the watch stream, insert
-/// [PaperSubmissions] rows so the existing UI can find them via DAO queries.
-Future<void> _insertAnswerSubmissions(sync_pb.SyncDelta delta) async {
-  try {
-    final k = delta.rowKey.split('|');
-    // rowKey: "{school}|{exam}|{student}|{subject}|{paper}|{page}"
-    if (k.length < 6) return;
-
-    final schoolId = k[0];
-    final examId = k[1];
-    final student = int.tryParse(k[2]) ?? 0;
-    final subject = int.tryParse(k[3]) ?? 0;
-    final paper = k[4].isEmpty ? null : int.tryParse(k[4]);
-
-    for (final fileUrl in delta.fileUrls) {
-      if (fileUrl.path.isEmpty) continue;
-      // Resolve to absolute path for paper_submissions storage.
-      final base = await FileCache.baseDir();
-      final absPath = '$base/${fileUrl.path}';
-
-      // Only insert if the file was actually downloaded successfully.
-      final file = File(absPath);
-      if (!file.existsSync()) continue;
-
-      await _examsGradesDao.insertSubmission(
-        schoolId: schoolId,
-        examId: examId,
-        student: student,
-        subject: subject,
-        paperNum: paper,
-        path: absPath,
-      );
-    }
-  } catch (e) {
-    debugPrint('[SyncEngine] Error inserting answer submissions: $e');
-  }
-}
-```
-
-This requires `_examsGradesDao` to be available in the SyncEngine. Check if it already is — if not, add it as a constructor parameter or instantiate it from the database reference.
-
-#### Step 3 — Add FileCache import to sync_engine.dart (if not already imported):
-
-```dart
-import '../cache/file_cache.dart';
-```
-
-**Update after completion:**
-- [ ] Add post-download hook for answer_pages deltas (table 37)
-- [ ] Implement `_insertAnswerSubmissions()` helper
-- [ ] Ensure `ExamsGradesDao` is accessible in SyncEngine (add if missing)
-- [ ] Add necessary imports
-- [ ] Verify no analysis errors
-- [ ] Update `lib/sync/CONTEXT.md` if it exists
-- [ ] Mark this task `[x]`
-- [ ] git commit: `feat: insert paper_submissions rows after downloading synced answer sheets`
-
----
-
-### Notes
-
-#### Future optimization: AI marking with synced files
-
-Once file sync is working, the AI marking flow (`runAiMarking` in `_GradeSpreadsheetState` / `_GradeListState`) could be optimized to reference existing S3 keys from `scheme_pages` and `answer_pages` tables instead of re-uploading all files. This would skip Phases 2 and 3 of the marking flow entirely. Not in scope for this task group.
-
-#### Push originator file path mapping
-
-When the sync engine processes an `uploadScheme` action response, it receives `FileUrl` entries with:
-- `path`: relative path like `submissions/{school}/{exam}/{subj}_{paper}/scheme/0.jpg`
-- `putUrl`: presigned S3 PUT URL
-
-The sync engine calls `FileCache.upload(putUrl, path)` which resolves the relative path to `{appDir}/submissions/...`. This works because Task C5 standardizes local file storage to match these relative paths.
-
-The server must construct `FileUrl.path` using the same convention. This is documented in the server task S3.
-
-#### Handling re-uploads after file changes
-
-`uploadScheme` and `uploadAnswerSheet` are idempotent-replace operations. The server:
-1. Deletes all existing rows for that paper (or student+paper).
-2. Creates N new rows with fresh S3 keys.
-3. Returns PUT URLs for all N pages.
-
-The client uploads all local files, not just the changed ones. This is simple and correct — the server always has the complete set.
+- [ ] Commit: `git add -A && git commit -m "feat: support re-marking students by replacing answer sheets and re-triggering AI"`
