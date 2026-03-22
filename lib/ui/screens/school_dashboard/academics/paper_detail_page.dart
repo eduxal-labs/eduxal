@@ -1759,13 +1759,50 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
       return;
     }
 
+    // ── Diagnostic: log full state before filtering ──────────────────────
+    print('[AI-REMARK-SPREAD] === runAiMarking START ===');
+    print('[AI-REMARK-SPREAD] dirtySubmissions=$_dirtySubmissions');
+    for (final entry in _submissions.entries) {
+      final adm = entry.key;
+      final paths = entry.value;
+      final hasGrade = widget.gradeMap.containsKey(adm);
+      final isDirty = _dirtySubmissions.contains(adm);
+      print(
+        '[AI-REMARK-SPREAD] adm=$adm pathCount=${paths.length} '
+        'hasGrade=$hasGrade isDirty=$isDirty paths=$paths',
+      );
+      // Log each file's existence and size
+      for (int i = 0; i < paths.length; i++) {
+        final f = File(paths[i]);
+        final exists = f.existsSync();
+        final size = exists ? f.lengthSync() : -1;
+        print(
+          '[AI-REMARK-SPREAD]   page[$i] exists=$exists size=$size '
+          'path=${paths[i]}',
+        );
+      }
+    }
+
     final studentsWithSubmissions = widget.students.where((s) {
       final paths = _submissions[s.adm] ?? [];
       if (paths.isEmpty) return false;
       // Include if: no grade yet, OR submissions were modified since last mark
-      return !widget.gradeMap.containsKey(s.adm) ||
+      final included =
+          !widget.gradeMap.containsKey(s.adm) ||
           _dirtySubmissions.contains(s.adm);
+      if (!included) {
+        print(
+          '[AI-REMARK-SPREAD] SKIPPING adm=${s.adm} — '
+          'hasGrade=${widget.gradeMap.containsKey(s.adm)} '
+          'isDirty=${_dirtySubmissions.contains(s.adm)}',
+        );
+      }
+      return included;
     }).toList();
+    print(
+      '[AI-REMARK-SPREAD] selected ${studentsWithSubmissions.length} students '
+      'for remarking: ${studentsWithSubmissions.map((s) => s.adm).toList()}',
+    );
     if (studentsWithSubmissions.isEmpty) return;
 
     setState(() {
@@ -1849,8 +1886,26 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
     for (final studentUrl in urlResponse.studentUrls) {
       final adm = studentUrl.adm;
       final paths = _submissions[adm] ?? [];
+      print(
+        '[AI-UPLOAD-SPREAD] student=$adm pathCount=${paths.length} '
+        'urlCount=${studentUrl.urls.length} paths=$paths',
+      );
       final keys = <String>[];
       for (int i = 0; i < studentUrl.urls.length && i < paths.length; i++) {
+        // Verify file exists and log size for diagnostics
+        final fileToUpload = File(paths[i]);
+        final exists = await fileToUpload.exists();
+        final size = exists ? await fileToUpload.length() : -1;
+        print(
+          '[AI-UPLOAD-SPREAD] student=$adm page=$i '
+          'path=${paths[i]} exists=$exists size=$size',
+        );
+        if (!exists) {
+          print(
+            '[AI-UPLOAD-SPREAD] WARNING: file missing at ${paths[i]} — '
+            'skipping upload. Submissions may be stale.',
+          );
+        }
         final ok = await client.aiMarking.uploadFile(
           studentUrl.urls[i].url,
           paths[i],
@@ -2661,13 +2716,50 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
       return;
     }
 
+    // ── Diagnostic: log full state before filtering ──────────────────────
+    print('[AI-REMARK-LIST] === runAiMarking START ===');
+    print('[AI-REMARK-LIST] dirtySubmissions=$_dirtySubmissions');
+    for (final entry in _submissions.entries) {
+      final adm = entry.key;
+      final paths = entry.value;
+      final hasGrade = widget.gradeMap.containsKey(adm);
+      final isDirty = _dirtySubmissions.contains(adm);
+      print(
+        '[AI-REMARK-LIST] adm=$adm pathCount=${paths.length} '
+        'hasGrade=$hasGrade isDirty=$isDirty paths=$paths',
+      );
+      // Log each file's existence and size
+      for (int i = 0; i < paths.length; i++) {
+        final f = File(paths[i]);
+        final exists = f.existsSync();
+        final size = exists ? f.lengthSync() : -1;
+        print(
+          '[AI-REMARK-LIST]   page[$i] exists=$exists size=$size '
+          'path=${paths[i]}',
+        );
+      }
+    }
+
     final studentsWithSubmissions = widget.students.where((s) {
       final paths = _submissions[s.adm] ?? [];
       if (paths.isEmpty) return false;
       // Include if: no grade yet, OR submissions were modified since last mark
-      return !widget.gradeMap.containsKey(s.adm) ||
+      final included =
+          !widget.gradeMap.containsKey(s.adm) ||
           _dirtySubmissions.contains(s.adm);
+      if (!included) {
+        print(
+          '[AI-REMARK-LIST] SKIPPING adm=${s.adm} — '
+          'hasGrade=${widget.gradeMap.containsKey(s.adm)} '
+          'isDirty=${_dirtySubmissions.contains(s.adm)}',
+        );
+      }
+      return included;
     }).toList();
+    print(
+      '[AI-REMARK-LIST] selected ${studentsWithSubmissions.length} students '
+      'for remarking: ${studentsWithSubmissions.map((s) => s.adm).toList()}',
+    );
     if (studentsWithSubmissions.isEmpty) return;
 
     setState(() {
@@ -2751,8 +2843,26 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
     for (final studentUrl in urlResponse.studentUrls) {
       final adm = studentUrl.adm;
       final paths = _submissions[adm] ?? [];
+      print(
+        '[AI-UPLOAD-LIST] student=$adm pathCount=${paths.length} '
+        'urlCount=${studentUrl.urls.length} paths=$paths',
+      );
       final keys = <String>[];
       for (int i = 0; i < studentUrl.urls.length && i < paths.length; i++) {
+        // Verify file exists and log size for diagnostics
+        final fileToUpload = File(paths[i]);
+        final exists = await fileToUpload.exists();
+        final size = exists ? await fileToUpload.length() : -1;
+        print(
+          '[AI-UPLOAD-LIST] student=$adm page=$i '
+          'path=${paths[i]} exists=$exists size=$size',
+        );
+        if (!exists) {
+          print(
+            '[AI-UPLOAD-LIST] WARNING: file missing at ${paths[i]} — '
+            'skipping upload. Submissions may be stale.',
+          );
+        }
         final ok = await client.aiMarking.uploadFile(
           studentUrl.urls[i].url,
           paths[i],
@@ -3861,6 +3971,10 @@ class _AnswerSubmissionSheetState extends State<_AnswerSubmissionSheet> {
   void initState() {
     super.initState();
     _paths = List.from(widget.existingPaths);
+    print(
+      '[ANSWER-SHEET] initState — student=${widget.student.adm} '
+      'existingPaths(${_paths.length}): $_paths',
+    );
     // Existing paths (loaded from DB) start as pending — they may not yet
     // have been uploaded (e.g. added while offline).
     for (int i = 0; i < _paths.length; i++) {
@@ -3886,7 +4000,15 @@ class _AnswerSubmissionSheetState extends State<_AnswerSubmissionSheet> {
     for (final xFile in picked) {
       final index = _paths.length + newPaths.length; // 0-indexed
       final dest = File('${dir.path}/$index.jpg');
-      await File(xFile.path).copy(dest.path);
+      final srcFile = File(xFile.path);
+      final srcSize = await srcFile.length();
+      await srcFile.copy(dest.path);
+      final destSize = await dest.length();
+      print(
+        '[ANSWER-SHEET] saved page $index — '
+        'src=${xFile.path} ($srcSize bytes) → '
+        'dest=${dest.path} ($destSize bytes)',
+      );
       newPaths.add(dest.path);
     }
 
@@ -3900,6 +4022,10 @@ class _AnswerSubmissionSheetState extends State<_AnswerSubmissionSheet> {
     }
 
     setState(() => _paths = [..._paths, ...newPaths]);
+    print(
+      '[ANSWER-SHEET] _savePickedFiles done — '
+      'total paths(${_paths.length}): $_paths',
+    );
     widget.onUpdated(_paths);
 
     // Persist new paths to local DB
@@ -3981,11 +4107,18 @@ class _AnswerSubmissionSheetState extends State<_AnswerSubmissionSheet> {
 
   Future<void> _removePhoto(int index) async {
     final removedPath = _paths[index];
+    print(
+      '[ANSWER-SHEET] _removePhoto(index=$index) — '
+      'removing $removedPath, total before=${_paths.length}',
+    );
     // 1. Delete file from disk.
     try {
       final file = File(removedPath);
       if (await file.exists()) await file.delete();
-    } catch (_) {}
+      print('[ANSWER-SHEET] deleted file from disk: $removedPath');
+    } catch (e) {
+      print('[ANSWER-SHEET] WARNING: failed to delete $removedPath: $e');
+    }
     setState(() {
       _paths.removeAt(index);
       // Rebuild the status map with shifted indices.
@@ -4002,7 +4135,9 @@ class _AnswerSubmissionSheetState extends State<_AnswerSubmissionSheet> {
         ..clear()
         ..addAll(updated);
     });
-    widget.onUpdated(_paths);
+    // NOTE: Do NOT call widget.onUpdated here — paths are not yet re-indexed.
+    // The parent must receive correctly indexed paths (0.jpg, 1.jpg, …).
+    // We call onUpdated after the re-indexing loop below.
 
     // 2. Delete the removed path from local DB.
     await widget.dao.deleteSubmission(
@@ -4023,10 +4158,15 @@ class _AnswerSubmissionSheetState extends State<_AnswerSubmissionSheet> {
       widget.paperNum ?? 0,
       widget.student.adm,
     );
+    print(
+      '[ANSWER-SHEET] re-indexing ${_paths.length - index} file(s) '
+      'starting at index=$index',
+    );
     for (int i = index; i < _paths.length; i++) {
       final oldFile = File(_paths[i]);
       final newDest = File('$base/$relDir/$i.jpg');
       if (oldFile.path != newDest.path && await oldFile.exists()) {
+        print('[ANSWER-SHEET] re-index[$i]: ${_paths[i]} → ${newDest.path}');
         await widget.dao.deleteSubmission(
           schoolId: widget.schoolId,
           examId: widget.examId,
@@ -4047,6 +4187,13 @@ class _AnswerSubmissionSheetState extends State<_AnswerSubmissionSheet> {
         );
       }
     }
+
+    // 3b. NOW notify the parent with correctly re-indexed paths.
+    print(
+      '[ANSWER-SHEET] _removePhoto done — '
+      'final paths(${_paths.length}): $_paths',
+    );
+    widget.onUpdated(_paths);
 
     // 4. Log sync action.
     final accountId = cache.currentUser?.user.id;

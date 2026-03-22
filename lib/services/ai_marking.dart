@@ -101,7 +101,15 @@ class AiMarkingService {
         return false;
       }
       final bytes = await file.readAsBytes();
-      print('[AI] uploadFile: uploading ${bytes.length} bytes from $localPath');
+      // Log a content fingerprint (first+last 4 bytes) so we can verify
+      // whether old or new file content is actually being uploaded.
+      final fingerprint = bytes.length >= 8
+          ? '${bytes.sublist(0, 4)}...${bytes.sublist(bytes.length - 4)}'
+          : bytes.toString();
+      print(
+        '[AI] uploadFile: uploading ${bytes.length} bytes from $localPath '
+        'fingerprint=$fingerprint',
+      );
       httpClient = HttpClient();
       final request = await httpClient.putUrl(Uri.parse(putUrl));
       request.headers.set(HttpHeaders.contentTypeHeader, 'image/jpeg');
