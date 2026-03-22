@@ -174,7 +174,7 @@ enum PaperStatus { pending, progress, done, marked }
 
 ---
 
-### Task 3: Fix AI Marking Progress Stuck at 60%
+### Task 3: Fix AI Marking Progress Stuck at 60% ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`
 **Context files to read:** None needed — all info is below.
@@ -296,7 +296,7 @@ Also add a `GradeRow`-style return if needed — the key field is `student` (the
 **Important:** Also increase the timeout from 120s to 180s (180 ticks × 1s) to account for slow Gemini responses, especially with the new queue-based server architecture where requests might wait in line.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Commit: `git add -A && git commit -m "fix: AI marking progress polls DB directly instead of relying on stale widget.gradeMap"`
 
 ---

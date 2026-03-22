@@ -1920,20 +1920,28 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
 
     widget.onAiProgressChanged?.call(0.6);
 
-    // ── Phase 5: Wait for grades via Drift stream (60% → 100%) ───────────
+    // ── Phase 5: Wait for grades via direct DB query (60% → 100%) ────────
     final expectedAdms = studentsWithSubmissions.map((s) => s.adm).toSet();
     final expectedCount = expectedAdms.length;
     final gradedAdms = <int>[];
 
-    for (int tick = 0; tick < 60; tick++) {
-      // 60 × 2s = 120s timeout
-      await Future.delayed(const Duration(seconds: 2));
+    for (int tick = 0; tick < 180; tick++) {
+      // 180 × 1s = 180s timeout (more responsive than 60 × 2s)
+      await Future.delayed(const Duration(seconds: 1));
       if (!mounted) return;
 
-      // Check which expected students now have grades
+      // Query the DB directly — don't rely on widget.gradeMap which may be stale
+      final currentGrades = await widget.dao.getGradesForPaper(
+        schoolId: widget.schoolId,
+        examId: widget.exam.id,
+        subject: widget.paper.subject,
+        paper: widget.paper.paper,
+      );
+      final gradedSet = {for (final g in currentGrades) g.student.adm};
+
       int received = 0;
       for (final adm in expectedAdms) {
-        if (widget.gradeMap.containsKey(adm)) {
+        if (gradedSet.contains(adm)) {
           if (!gradedAdms.contains(adm)) gradedAdms.add(adm);
           received++;
         }
@@ -1943,6 +1951,10 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
       setState(() => _aiMarkedCount = received);
       widget.onAiMarkedCountChanged?.call(received);
       widget.onAiProgressChanged?.call(progress);
+
+      print(
+        '[AI-POLL-SPREAD] tick=$tick received=$received/$expectedCount progress=${(progress * 100).toInt()}%',
+      );
 
       if (received >= expectedCount) break;
     }
@@ -2786,20 +2798,28 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
 
     widget.onAiProgressChanged?.call(0.6);
 
-    // ── Phase 5: Wait for grades via Drift stream (60% → 100%) ───────────
+    // ── Phase 5: Wait for grades via direct DB query (60% → 100%) ────────
     final expectedAdms = studentsWithSubmissions.map((s) => s.adm).toSet();
     final expectedCount = expectedAdms.length;
     final gradedAdms = <int>[];
 
-    for (int tick = 0; tick < 60; tick++) {
-      // 60 × 2s = 120s timeout
-      await Future.delayed(const Duration(seconds: 2));
+    for (int tick = 0; tick < 180; tick++) {
+      // 180 × 1s = 180s timeout (more responsive than 60 × 2s)
+      await Future.delayed(const Duration(seconds: 1));
       if (!mounted) return;
 
-      // Check which expected students now have grades
+      // Query the DB directly — don't rely on widget.gradeMap which may be stale
+      final currentGrades = await widget.dao.getGradesForPaper(
+        schoolId: widget.schoolId,
+        examId: widget.exam.id,
+        subject: widget.paper.subject,
+        paper: widget.paper.paper,
+      );
+      final gradedSet = {for (final g in currentGrades) g.student.adm};
+
       int received = 0;
       for (final adm in expectedAdms) {
-        if (widget.gradeMap.containsKey(adm)) {
+        if (gradedSet.contains(adm)) {
           if (!gradedAdms.contains(adm)) gradedAdms.add(adm);
           received++;
         }
@@ -2809,6 +2829,10 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
       setState(() => _aiMarkedCount = received);
       widget.onAiMarkedCountChanged?.call(received);
       widget.onAiProgressChanged?.call(progress);
+
+      print(
+        '[AI-POLL-LIST] tick=$tick received=$received/$expectedCount progress=${(progress * 100).toInt()}%',
+      );
 
       if (received >= expectedCount) break;
     }
