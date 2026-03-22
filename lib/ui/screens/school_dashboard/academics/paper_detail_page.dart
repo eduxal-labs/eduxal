@@ -1870,7 +1870,7 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
       grade: widget.paper.grade,
       stream: widget.paper.stream,
       totalMarks: _maxScore,
-      schemeKeys: urlResponse.schemeUrls.map((u) => u.key).toList(),
+      schemeKeys: [for (final u in urlResponse.schemeUrls) u.key],
       studentKeys: studentKeys,
       accessToken: token,
     );
@@ -2723,7 +2723,7 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
       grade: widget.paper.grade,
       stream: widget.paper.stream,
       totalMarks: _maxScore,
-      schemeKeys: urlResponse.schemeUrls.map((u) => u.key).toList(),
+      schemeKeys: [for (final u in urlResponse.schemeUrls) u.key],
       studentKeys: studentKeys,
       accessToken: token,
     );
