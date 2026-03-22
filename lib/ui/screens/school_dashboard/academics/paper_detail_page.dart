@@ -103,10 +103,19 @@ class _PaperDetailPageState extends State<PaperDetailPage>
 
   Future<void> _runAiMarking() async {
     setState(() => _aiMarking = true);
-    if (_spreadsheetKey.currentState != null) {
-      await _spreadsheetKey.currentState?.runAiMarking();
-    } else if (_gradeListKey.currentState != null) {
-      await _gradeListKey.currentState?.runAiMarking();
+    try {
+      if (_spreadsheetKey.currentState != null) {
+        await _spreadsheetKey.currentState?.runAiMarking();
+      } else if (_gradeListKey.currentState != null) {
+        await _gradeListKey.currentState?.runAiMarking();
+      }
+    } finally {
+      // Safety net: if the child exited without firing onAiPhaseChanged (e.g.
+      // due to !mounted silent exits), reset the parent flag so the button
+      // is never permanently stuck in loading state.
+      if (mounted && _aiMarking) {
+        setState(() => _aiMarking = false);
+      }
     }
   }
 
@@ -376,6 +385,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                           onAiPhaseChanged: (phase) {
                             setState(() => _aiPhase = phase);
                             if (phase == _AiPhase.done) {
+                              // Success path: hold "done" state for 2s for visual feedback, then reset.
                               Future.delayed(const Duration(seconds: 2), () {
                                 if (mounted) {
                                   setState(() {
@@ -385,6 +395,13 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                                     _aiMarkedCount = 0;
                                   });
                                 }
+                              });
+                            } else if (phase == _AiPhase.idle) {
+                              // Error/cancel path: reset immediately — no visual hold needed.
+                              setState(() {
+                                _aiMarking = false;
+                                _aiProgress = 0.0;
+                                _aiMarkedCount = 0;
                               });
                             }
                           },
@@ -415,6 +432,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                           onAiPhaseChanged: (phase) {
                             setState(() => _aiPhase = phase);
                             if (phase == _AiPhase.done) {
+                              // Success path: hold "done" state for 2s for visual feedback, then reset.
                               Future.delayed(const Duration(seconds: 2), () {
                                 if (mounted) {
                                   setState(() {
@@ -424,6 +442,13 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                                     _aiMarkedCount = 0;
                                   });
                                 }
+                              });
+                            } else if (phase == _AiPhase.idle) {
+                              // Error/cancel path: reset immediately — no visual hold needed.
+                              setState(() {
+                                _aiMarking = false;
+                                _aiProgress = 0.0;
+                                _aiMarkedCount = 0;
                               });
                             }
                           },
@@ -1759,6 +1784,10 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Failed to upload scheme page ${i + 1}')),
           );
+        } else {
+          // Widget unmounted — notify parent so it can reset its _aiMarking flag.
+          widget.onAiPhaseChanged?.call(_AiPhase.idle);
+          widget.onAiProgressChanged?.call(0.0);
         }
         return;
       }
@@ -1787,6 +1816,10 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
                 content: Text('Failed to upload answer sheet for student $adm'),
               ),
             );
+          } else {
+            // Widget unmounted — notify parent so it can reset its _aiMarking flag.
+            widget.onAiPhaseChanged?.call(_AiPhase.idle);
+            widget.onAiProgressChanged?.call(0.0);
           }
           return;
         }
@@ -1800,11 +1833,25 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
     }
 
     // ── Phase 4: Trigger AI marking (50% → 60%) ──────────────────────────
-    if (!mounted) return;
+    if (!mounted) {
+      // Widget unmounted — notify parent before bailing out.
+      widget.onAiPhaseChanged?.call(_AiPhase.idle);
+      widget.onAiProgressChanged?.call(0.0);
+      return;
+    }
     setState(() => _aiPhase = _AiPhase.assigning);
     widget.onAiPhaseChanged?.call(_AiPhase.assigning);
     widget.onAiProgressChanged?.call(0.5);
 
+    debugPrint(
+      '[SPREADSHEET] calling markPaper — school=${widget.schoolId} '
+      'exam=${widget.exam.id} subject=${widget.paper.subject} '
+      'paper=${widget.paper.paper} grade=${widget.paper.grade} '
+      'stream=${widget.paper.stream} totalMarks=$_maxScore '
+      'schemeKeys=${urlResponse.schemeUrls.length} '
+      'studentKeys=${studentKeys.length} '
+      'studentKeyEntries=${studentKeys.map((k, v) => MapEntry(k, v.length))}',
+    );
     final markResult = await client.aiMarking.markPaper(
       school: widget.schoolId,
       exam: widget.exam.id,
@@ -1817,6 +1864,7 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
       studentKeys: studentKeys,
       accessToken: token,
     );
+    debugPrint('[SPREADSHEET] markPaper returned: $markResult');
 
     if (!mounted) return;
     switch (markResult) {
@@ -2589,6 +2637,10 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Failed to upload scheme page ${i + 1}')),
           );
+        } else {
+          // Widget unmounted — notify parent so it can reset its _aiMarking flag.
+          widget.onAiPhaseChanged?.call(_AiPhase.idle);
+          widget.onAiProgressChanged?.call(0.0);
         }
         return;
       }
@@ -2617,6 +2669,10 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
                 content: Text('Failed to upload answer sheet for student $adm'),
               ),
             );
+          } else {
+            // Widget unmounted — notify parent so it can reset its _aiMarking flag.
+            widget.onAiPhaseChanged?.call(_AiPhase.idle);
+            widget.onAiProgressChanged?.call(0.0);
           }
           return;
         }
@@ -2630,11 +2686,25 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
     }
 
     // ── Phase 4: Trigger AI marking (50% → 60%) ──────────────────────────
-    if (!mounted) return;
+    if (!mounted) {
+      // Widget unmounted — notify parent before bailing out.
+      widget.onAiPhaseChanged?.call(_AiPhase.idle);
+      widget.onAiProgressChanged?.call(0.0);
+      return;
+    }
     setState(() => _aiPhase = _AiPhase.assigning);
     widget.onAiPhaseChanged?.call(_AiPhase.assigning);
     widget.onAiProgressChanged?.call(0.5);
 
+    debugPrint(
+      '[GRADELIST] calling markPaper — school=${widget.schoolId} '
+      'exam=${widget.exam.id} subject=${widget.paper.subject} '
+      'paper=${widget.paper.paper} grade=${widget.paper.grade} '
+      'stream=${widget.paper.stream} totalMarks=$_maxScore '
+      'schemeKeys=${urlResponse.schemeUrls.length} '
+      'studentKeys=${studentKeys.length} '
+      'studentKeyEntries=${studentKeys.map((k, v) => MapEntry(k, v.length))}',
+    );
     final markResult = await client.aiMarking.markPaper(
       school: widget.schoolId,
       exam: widget.exam.id,
@@ -2647,6 +2717,7 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
       studentKeys: studentKeys,
       accessToken: token,
     );
+    debugPrint('[GRADELIST] markPaper returned: $markResult');
 
     if (!mounted) return;
     switch (markResult) {

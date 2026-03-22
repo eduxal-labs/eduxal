@@ -1,0 +1,87 @@
+{
+  "title": "Form 4 Mathematics CAT",
+  "total_marks": 30,
+  "questions": [
+    {
+      "number": 1,
+      "marks": 3,
+      "text": "Solve the quadratic equation 3x^2 - 7x + 2 = 0, giving your answers correct to 2 decimal places.",
+      "parts": null
+    },
+    {
+      "number": 2,
+      "marks": 4,
+      "text": "Find the range of values of x for which (2x - 1)(x + 3) > 0. Show all working on a number line.",
+      "parts": null
+    },
+    {
+      "number": 3,
+      "marks": 4,
+      "text": "Given that log2(x + 3) + log2(x - 1) = 5, find the value of x.",
+      "parts": null
+    },
+    {
+      "number": 4,
+      "marks": 3,
+      "text": "Find the equation of a straight line passing through (-2, 5) and perpendicular to the line 2x - 3y + 6 = 0.",
+      "parts": null
+    },
+    {
+      "number": 5,
+      "marks": 4,
+      "text": "A triangle has vertices A(1, 2), B(5, 2) and C(5, 6). Find:",
+      "parts": [
+        {
+          "label": "a",
+          "marks": 2,
+          "text": "The length of AC."
+        },
+        {
+          "label": "b",
+          "marks": 2,
+          "text": "The midpoint M of AC, and show that BM is perpendicular to AC."
+        }
+      ]
+    },
+    {
+      "number": 6,
+      "marks": 4,
+      "text": "Differentiate with respect to x:",
+      "parts": [
+        {
+          "label": "a",
+          "marks": 2,
+          "text": "f(x) = 3x^4 - 5x^2 + 7x - 2"
+        },
+        {
+          "label": "b",
+          "marks": 2,
+          "text": "g(x) = (2x + 1)^3"
+        }
+      ]
+    },
+    {
+      "number": 7,
+      "marks": 4,
+      "text": "The table below shows marks scored by 10 students in a test:\nMarks: 12, 18, 15, 20, 14, 19, 17, 13, 16, 21",
+      "parts": [
+        {
+          "label": "a",
+          "marks": 1,
+          "text": "Calculate the mean."
+        },
+        {
+          "label": "b",
+          "marks": 3,
+          "text": "Calculate the standard deviation."
+        }
+      ]
+    },
+    {
+      "number": 8,
+      "marks": 4,
+      "text": "Solve the equation 2sin^2(theta) - sin(theta) - 1 = 0 for 0 deg <= theta <= 360 deg.",
+      "parts": null
+    }
+  ]
+}

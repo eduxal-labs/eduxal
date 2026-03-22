@@ -129,7 +129,7 @@ class Client {
   late final SyncEngine syncEngine;
 
   /// AI marking service — handles upload URLs, file uploads, and AI grading.
-  late final aiMarking = AiMarkingService(_channel);
+  late final aiMarking = AiMarkingService(host: kDomain, port: kPort);
 
   // ───────────────────────────────────────────────────────────────────────────
   // Factory
@@ -144,6 +144,7 @@ class Client {
       port: kPort,
       options: const ChannelOptions(credentials: ChannelCredentials.insecure()),
     );
+
     accountsDao = AccountsDao(db);
     usersDao = UsersDao(db);
     logsDao = LogsDao(db);
