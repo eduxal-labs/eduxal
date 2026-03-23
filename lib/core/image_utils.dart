@@ -6,54 +6,253 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image/image.dart' as img;
 
+// ---------------------------------------------------------------------------
+// Constants used by the isolate processing function.
+// These are top-level so they are accessible from both the class and the
+// top-level isolate entry point (isolates cannot access class statics
+// defined in another library scope reliably on all platforms).
+// ---------------------------------------------------------------------------
+
+const int _kMaxDimension = 1500;
+const int _kQuality = 80;
+const int _kContentThreshold = 230;
+const int _kTrimPadding = 24;
+const int _kSampleStep = 3;
+const double _kMinMarginRatio = 0.03;
+
+// ---------------------------------------------------------------------------
+// Data class passed into the isolate.
+// ---------------------------------------------------------------------------
+
+/// Parameters passed to the background isolate for pure-Dart processing.
+class _ProcessParams {
+  final Uint8List bytes;
+  final int maxDimension;
+  final int quality;
+  final bool grayscale;
+  final bool trimMargins;
+
+  const _ProcessParams({
+    required this.bytes,
+    required this.maxDimension,
+    required this.quality,
+    required this.grayscale,
+    required this.trimMargins,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Top-level isolate entry points.
+// ---------------------------------------------------------------------------
+
+/// Full decode → resize → grayscale → trim → encode pipeline.
+/// Runs in a background isolate via [compute].
+Uint8List _processInIsolate(_ProcessParams params) {
+  var image = img.decodeImage(params.bytes);
+  if (image == null) return params.bytes; // decode failed — return original
+
+  // Resize if either dimension exceeds the cap.
+  if (image.width > params.maxDimension || image.height > params.maxDimension) {
+    if (image.width >= image.height) {
+      image = img.copyResize(image, width: params.maxDimension);
+    } else {
+      image = img.copyResize(image, height: params.maxDimension);
+    }
+  }
+
+  if (params.grayscale) {
+    image = img.grayscale(image);
+  }
+
+  if (params.trimMargins) {
+    image = _trimContentMarginsImpl(image);
+  }
+
+  return Uint8List.fromList(img.encodeJpg(image, quality: params.quality));
+}
+
+/// Grayscale + trim only (image already resized by native compress).
+/// Runs in a background isolate via [compute].
+Uint8List _postNativeProcessInIsolate(_ProcessParams params) {
+  var image = img.decodeImage(params.bytes);
+  if (image == null) return params.bytes; // decode failed — return as-is
+
+  if (params.grayscale) {
+    image = img.grayscale(image);
+  }
+
+  if (params.trimMargins) {
+    image = _trimContentMarginsImpl(image);
+  }
+
+  return Uint8List.fromList(img.encodeJpg(image, quality: params.quality));
+}
+
+// ---------------------------------------------------------------------------
+// Trim / dark-pixel helpers (top-level so isolates can call them).
+// ---------------------------------------------------------------------------
+
+/// Returns `true` if the pixel at ([x], [y]) is darker than the content
+/// threshold — i.e. it contains handwriting, print, or ruled lines rather
+/// than blank paper.
+bool _isDarkImpl(img.Image image, int x, int y) {
+  final pixel = image.getPixel(x, y);
+  return pixel.luminance < _kContentThreshold / 255.0;
+}
+
+/// Detects the bounding box of non-blank content in [image] and crops to it
+/// with [_kTrimPadding] pixels of breathing room on each side.
+///
+/// For a typical A4 answer sheet with 2–3 cm margins on each side, this
+/// removes ~20–40 % of the image area, directly reducing the number of
+/// tokens consumed when the image is sent to an AI model.
+img.Image _trimContentMarginsImpl(img.Image image) {
+  final w = image.width;
+  final h = image.height;
+
+  // Scan from top: find first row with content.
+  int top = 0;
+  topScan:
+  for (int y = 0; y < h; y += _kSampleStep) {
+    for (int x = 0; x < w; x += _kSampleStep) {
+      if (_isDarkImpl(image, x, y)) {
+        top = y;
+        break topScan;
+      }
+    }
+  }
+
+  // Scan from bottom: find last row with content.
+  int bottom = h - 1;
+  bottomScan:
+  for (int y = h - 1; y > top; y -= _kSampleStep) {
+    for (int x = 0; x < w; x += _kSampleStep) {
+      if (_isDarkImpl(image, x, y)) {
+        bottom = y;
+        break bottomScan;
+      }
+    }
+  }
+
+  // Scan from left: find first column with content (within top–bottom).
+  int left = 0;
+  leftScan:
+  for (int x = 0; x < w; x += _kSampleStep) {
+    for (int y = top; y <= bottom; y += _kSampleStep) {
+      if (_isDarkImpl(image, x, y)) {
+        left = x;
+        break leftScan;
+      }
+    }
+  }
+
+  // Scan from right: find last column with content (within top–bottom).
+  int right = w - 1;
+  rightScan:
+  for (int x = w - 1; x > left; x -= _kSampleStep) {
+    for (int y = top; y <= bottom; y += _kSampleStep) {
+      if (_isDarkImpl(image, x, y)) {
+        right = x;
+        break rightScan;
+      }
+    }
+  }
+
+  // Check if we found any content at all (blank page guard).
+  if (top == 0 && bottom == h - 1 && left == 0 && right == w - 1) {
+    bool hasAnyContent = false;
+    for (int y = 0; y < h && !hasAnyContent; y += _kSampleStep * 4) {
+      for (int x = 0; x < w && !hasAnyContent; x += _kSampleStep * 4) {
+        if (_isDarkImpl(image, x, y)) hasAnyContent = true;
+      }
+    }
+    if (!hasAnyContent) {
+      // Cannot use debugPrint inside an isolate — print is fine.
+      print('[ImageUtils] blank page detected — skipping trim');
+      return image;
+    }
+  }
+
+  // Apply padding around the content box.
+  final cropLeft = math.max(0, left - _kTrimPadding);
+  final cropTop = math.max(0, top - _kTrimPadding);
+  final cropRight = math.min(w - 1, right + _kTrimPadding);
+  final cropBottom = math.min(h - 1, bottom + _kTrimPadding);
+
+  final cropW = cropRight - cropLeft + 1;
+  final cropH = cropBottom - cropTop + 1;
+
+  // Only trim if margins are meaningful (> _kMinMarginRatio on at least one
+  // axis). This prevents micro-crops from sampling noise.
+  final horizontalMargin = (w - cropW) / w;
+  final verticalMargin = (h - cropH) / h;
+
+  if (horizontalMargin < _kMinMarginRatio &&
+      verticalMargin < _kMinMarginRatio) {
+    print(
+      '[ImageUtils] margins too small to trim '
+      '(h: ${(horizontalMargin * 100).toStringAsFixed(1)}%, '
+      'v: ${(verticalMargin * 100).toStringAsFixed(1)}%)',
+    );
+    return image;
+  }
+
+  print(
+    '[ImageUtils] trimming margins — '
+    '${w}×$h → ${cropW}×$cropH '
+    '(removed ${(horizontalMargin * 100).toStringAsFixed(0)}% horizontal, '
+    '${(verticalMargin * 100).toStringAsFixed(0)}% vertical)',
+  );
+
+  return img.copyCrop(
+    image,
+    x: cropLeft,
+    y: cropTop,
+    width: cropW,
+    height: cropH,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
 /// Image processing utilities for answer sheets and marking schemes.
 ///
 /// Provides compression, resizing, grayscale conversion, and content-aware
 /// margin trimming to reduce file sizes and improve AI marking accuracy
 /// for handwritten content.
+///
+/// Uses a **hybrid pipeline**:
+/// - **Android / iOS / macOS**: native GPU-accelerated resize via
+///   `flutter_image_compress`, then pure-Dart grayscale + trim in an isolate.
+/// - **Windows / Linux** (and native fallback): entire pipeline runs as pure
+///   Dart in a background isolate via `compute()`, ensuring zero UI jank.
 class ImageUtils {
   ImageUtils._();
 
   /// Maximum dimension (width or height) for answer sheet / scheme images.
-  /// 1500px at ~180 DPI is more than sufficient for clear handwriting on A4.
-  static const int maxDimension = 1500;
+  /// 1500 px at ~180 DPI is more than sufficient for clear handwriting on A4.
+  static const int maxDimension = _kMaxDimension;
 
   /// JPEG quality for compressed images (0–100).
   /// 80 is the sweet spot: visually identical to 95 for handwriting,
   /// but ~60 % smaller file size.
-  static const int quality = 80;
+  static const int quality = _kQuality;
 
-  /// Brightness threshold (0–255) for detecting content vs blank margin.
-  ///
-  /// Pixels with brightness below this value are considered "content"
-  /// (handwriting, printed text, ruled lines). Pixels at or above are
-  /// treated as blank paper.
-  ///
-  /// 230 catches handwriting (~50–180), printed text (~0–120), and faint
-  /// ruled lines (~200–220) while ignoring slight paper texture (240–255).
-  static const int _contentThreshold = 230;
-
-  /// Minimum padding (in pixels) to preserve around detected content after
-  /// trimming. Prevents the crop from cutting too tight against the writing.
-  static const int _trimPadding = 24;
-
-  /// Sampling step when scanning for content boundaries. Checking every Nth
-  /// pixel is 9× faster than every pixel and the ±3 px imprecision is
-  /// invisible after [_trimPadding] is applied.
-  static const int _sampleStep = 3;
-
-  /// Minimum percentage of a dimension that must be margin before we bother
-  /// trimming that axis. Avoids micro-crops that save negligible tokens but
-  /// risk clipping content on messy pages.
-  static const double _minMarginRatio = 0.03; // 3 %
+  /// Whether the current platform supports `flutter_image_compress`.
+  /// Android, iOS, and macOS have native codec support. Windows and Linux
+  /// do not — they fall back to the pure-Dart pipeline.
+  static bool get _hasNativeCompress =>
+      Platform.isAndroid || Platform.isIOS || Platform.isMacOS;
 
   /// Compresses, resizes, converts to grayscale, and trims blank margins
   /// from an image, writing the result to [destPath] as JPEG.
   ///
   /// The full pipeline for paper documents (all flags `true`):
   ///
-  /// 1. **Native resize** — scales to ≤ [maxDimension] px (GPU-accelerated).
-  /// 2. **Grayscale** — removes color noise from paper tint, pen color
+  /// 1. **Resize** — scales to ≤ [maxDimension] px.
+  /// 2. **Grayscale** — removes colour noise from paper tint, pen colour
   ///    variation, and lighting for cleaner AI input.
   /// 3. **Trim margins** — detects the bounding box of actual handwritten /
   ///    printed content and crops away blank paper margins, reducing the
@@ -71,205 +270,91 @@ class ImageUtils {
   }) async {
     final srcSize = await File(srcPath).length();
 
-    try {
-      // Step 1: Native resize + compress (fast, GPU-accelerated on most
-      // platforms). This brings a 12 MP camera image down to ~1500 px.
-      final resized = await FlutterImageCompress.compressAndGetFile(
-        srcPath,
-        destPath,
-        quality: (grayscale || trimMargins) ? 95 : quality,
-        minWidth: maxDimension,
-        minHeight: maxDimension,
-        format: CompressFormat.jpeg,
-        keepExif: false,
-      );
+    // ------------------------------------------------------------------
+    // Native path (Android / iOS / macOS)
+    // ------------------------------------------------------------------
+    if (_hasNativeCompress) {
+      try {
+        // Step 1: Native resize + compress (fast, GPU-accelerated).
+        final resized = await FlutterImageCompress.compressAndGetFile(
+          srcPath,
+          destPath,
+          quality: (grayscale || trimMargins) ? 95 : quality,
+          minWidth: maxDimension,
+          minHeight: maxDimension,
+          format: CompressFormat.jpeg,
+          keepExif: false,
+        );
 
-      if (resized == null || !await File(resized.path).exists()) {
-        throw Exception('compressAndGetFile returned null');
-      }
-
-      // Steps 2 + 3: Grayscale + trim (pure Dart, fast at ≤1500 px).
-      if (grayscale || trimMargins) {
-        final resizedFile = File(resized.path);
-        final bytes = await resizedFile.readAsBytes();
-        var decoded = img.decodeImage(bytes);
-
-        if (decoded != null) {
-          if (grayscale) {
-            decoded = img.grayscale(decoded);
-          }
-
-          if (trimMargins) {
-            decoded = _trimContentMargins(decoded);
-          }
-
-          // Step 4: Final JPEG encode.
-          final encoded = Uint8List.fromList(
-            img.encodeJpg(decoded, quality: quality),
-          );
-          await File(destPath).writeAsBytes(encoded, flush: true);
+        if (resized == null || !await File(resized.path).exists()) {
+          throw Exception('compressAndGetFile returned null');
         }
-        // If decode failed the resized version is already at destPath,
-        // which is still a valid result.
-      }
 
-      final destSize = await File(destPath).length();
-      final flags = [
-        if (grayscale) 'grayscale',
-        if (trimMargins) 'trimmed',
-        'compressed',
-      ].join(' + ');
-      debugPrint(
-        '[ImageUtils] $flags '
-        '${_kb(srcSize)} → ${_kb(destSize)} '
-        '(${(100 - destSize * 100 / srcSize).round()}% reduction)',
-      );
-      return File(destPath);
-    } catch (e, st) {
-      debugPrint('[ImageUtils] processing failed, copying original: $e\n$st');
+        // Steps 2 + 3: Grayscale + trim in a background isolate.
+        if (grayscale || trimMargins) {
+          final resizedBytes = await File(resized.path).readAsBytes();
+          final processed = await compute(
+            _postNativeProcessInIsolate,
+            _ProcessParams(
+              bytes: resizedBytes,
+              maxDimension: maxDimension,
+              quality: quality,
+              grayscale: grayscale,
+              trimMargins: trimMargins,
+            ),
+          );
+          await File(destPath).writeAsBytes(processed, flush: true);
+        }
+
+        final destSize = await File(destPath).length();
+        _logResult(srcSize, destSize, grayscale, trimMargins, 'native');
+        return File(destPath);
+      } catch (e, st) {
+        debugPrint(
+          '[ImageUtils] native processing failed, falling back to '
+          'pure-Dart isolate path: $e\n$st',
+        );
+        // Fall through to pure-Dart path below.
+      }
     }
 
-    // Fallback: copy the original uncompressed file.
+    // ------------------------------------------------------------------
+    // Pure-Dart path (Windows / Linux, or native-path fallback)
+    // ------------------------------------------------------------------
+    try {
+      final srcBytes = await File(srcPath).readAsBytes();
+
+      final processed = await compute(
+        _processInIsolate,
+        _ProcessParams(
+          bytes: srcBytes,
+          maxDimension: maxDimension,
+          quality: quality,
+          grayscale: grayscale,
+          trimMargins: trimMargins,
+        ),
+      );
+
+      await File(destPath).writeAsBytes(processed, flush: true);
+
+      final destSize = await File(destPath).length();
+      _logResult(srcSize, destSize, grayscale, trimMargins, 'dart-isolate');
+      return File(destPath);
+    } catch (e, st) {
+      debugPrint(
+        '[ImageUtils] pure-Dart processing failed, '
+        'copying original: $e\n$st',
+      );
+    }
+
+    // ------------------------------------------------------------------
+    // Ultimate fallback: copy the original uncompressed file.
+    // ------------------------------------------------------------------
     return File(srcPath).copy(destPath);
   }
 
-  /// Detects the bounding box of non-blank content in [image] and crops
-  /// to it with [_trimPadding] pixels of breathing room on each side.
-  ///
-  /// For a typical A4 answer sheet with 2–3 cm margins on each side,
-  /// this removes ~20–40 % of the image area, directly reducing the
-  /// number of tokens consumed when the image is sent to an AI model.
-  ///
-  /// The algorithm scans inward from each edge, sampling every [_sampleStep]
-  /// pixels, looking for any pixel darker than [_contentThreshold]. Once the
-  /// first content row/column is found on each side, the image is cropped to
-  /// that rectangle (plus padding).
-  ///
-  /// Returns the original [image] unchanged if:
-  /// - No content is found (blank page)
-  /// - Margins are smaller than [_minMarginRatio] on both axes
-  static img.Image _trimContentMargins(img.Image image) {
-    final w = image.width;
-    final h = image.height;
-
-    // Scan from top: find first row with content.
-    int top = 0;
-    topScan:
-    for (int y = 0; y < h; y += _sampleStep) {
-      for (int x = 0; x < w; x += _sampleStep) {
-        if (_isDark(image, x, y)) {
-          top = y;
-          break topScan;
-        }
-      }
-    }
-
-    // Scan from bottom: find last row with content.
-    int bottom = h - 1;
-    bottomScan:
-    for (int y = h - 1; y > top; y -= _sampleStep) {
-      for (int x = 0; x < w; x += _sampleStep) {
-        if (_isDark(image, x, y)) {
-          bottom = y;
-          break bottomScan;
-        }
-      }
-    }
-
-    // Scan from left: find first column with content (within top–bottom).
-    int left = 0;
-    leftScan:
-    for (int x = 0; x < w; x += _sampleStep) {
-      for (int y = top; y <= bottom; y += _sampleStep) {
-        if (_isDark(image, x, y)) {
-          left = x;
-          break leftScan;
-        }
-      }
-    }
-
-    // Scan from right: find last column with content (within top–bottom).
-    int right = w - 1;
-    rightScan:
-    for (int x = w - 1; x > left; x -= _sampleStep) {
-      for (int y = top; y <= bottom; y += _sampleStep) {
-        if (_isDark(image, x, y)) {
-          right = x;
-          break rightScan;
-        }
-      }
-    }
-
-    // Check if we found any content at all (blank page guard).
-    if (top == 0 && bottom == h - 1 && left == 0 && right == w - 1) {
-      // Likely a blank page or content fills the entire image — no margins
-      // were detected. Run a secondary check: if no dark pixel was found at
-      // all, this is a blank page and trimming would collapse to nothing.
-      bool hasAnyContent = false;
-      for (int y = 0; y < h && !hasAnyContent; y += _sampleStep * 4) {
-        for (int x = 0; x < w && !hasAnyContent; x += _sampleStep * 4) {
-          if (_isDark(image, x, y)) hasAnyContent = true;
-        }
-      }
-      if (!hasAnyContent) {
-        debugPrint('[ImageUtils] blank page detected — skipping trim');
-        return image;
-      }
-    }
-
-    // Apply padding around the content box.
-    final cropLeft = math.max(0, left - _trimPadding);
-    final cropTop = math.max(0, top - _trimPadding);
-    final cropRight = math.min(w - 1, right + _trimPadding);
-    final cropBottom = math.min(h - 1, bottom + _trimPadding);
-
-    final cropW = cropRight - cropLeft + 1;
-    final cropH = cropBottom - cropTop + 1;
-
-    // Only trim if margins are meaningful (> _minMarginRatio on at least one
-    // axis). This prevents micro-crops from sampling noise.
-    final horizontalMargin = (w - cropW) / w;
-    final verticalMargin = (h - cropH) / h;
-
-    if (horizontalMargin < _minMarginRatio &&
-        verticalMargin < _minMarginRatio) {
-      debugPrint(
-        '[ImageUtils] margins too small to trim '
-        '(h: ${(horizontalMargin * 100).toStringAsFixed(1)}%, '
-        'v: ${(verticalMargin * 100).toStringAsFixed(1)}%)',
-      );
-      return image;
-    }
-
-    debugPrint(
-      '[ImageUtils] trimming margins — '
-      '${w}×$h → ${cropW}×$cropH '
-      '(removed ${(horizontalMargin * 100).toStringAsFixed(0)}% horizontal, '
-      '${(verticalMargin * 100).toStringAsFixed(0)}% vertical)',
-    );
-
-    return img.copyCrop(
-      image,
-      x: cropLeft,
-      y: cropTop,
-      width: cropW,
-      height: cropH,
-    );
-  }
-
-  /// Returns `true` if the pixel at ([x], [y]) is darker than the content
-  /// threshold — i.e. it contains handwriting, print, or ruled lines rather
-  /// than blank paper.
-  static bool _isDark(img.Image image, int x, int y) {
-    final pixel = image.getPixel(x, y);
-    // For grayscale images R == G == B. For color images, luminance is a
-    // reasonable single-value proxy. Using .luminance normalises to 0.0–1.0
-    // in image 4.x, so we compare against a normalised threshold.
-    return pixel.luminance < _contentThreshold / 255.0;
-  }
-
-  /// Compresses a list of files (returned as paths from the document scanner
-  /// or gallery picker) into the target [directory], naming them sequentially
+  /// Compresses a list of files (returned from the document scanner or
+  /// gallery picker) into the target [directory], naming them sequentially
   /// starting from [startIndex].
   ///
   /// When [grayscale] is `true` (default), each image is converted to
@@ -300,6 +385,30 @@ class ImageUtils {
       destPaths.add(destPath);
     }
     return destPaths;
+  }
+
+  // -----------------------------------------------------------------------
+  // Private helpers (main-isolate only)
+  // -----------------------------------------------------------------------
+
+  /// Logs the compression result to the debug console.
+  static void _logResult(
+    int srcSize,
+    int destSize,
+    bool grayscale,
+    bool trimMargins,
+    String pipeline,
+  ) {
+    final flags = [
+      if (grayscale) 'grayscale',
+      if (trimMargins) 'trimmed',
+      'compressed',
+    ].join(' + ');
+    debugPrint(
+      '[ImageUtils] $flags ($pipeline) '
+      '${_kb(srcSize)} → ${_kb(destSize)} '
+      '(${(100 - destSize * 100 / srcSize).round()}% reduction)',
+    );
   }
 
   static String _kb(int bytes) => '${(bytes / 1024).toStringAsFixed(1)} KB';
