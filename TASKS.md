@@ -27,7 +27,7 @@ return ValueListenableBuilder<MembershipEntry>(
 3. Ensure all `StreamBuilder`s that depend on `userId` are inside the `ValueListenableBuilder` so they rebind when the entry changes.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
