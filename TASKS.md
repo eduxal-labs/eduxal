@@ -116,7 +116,7 @@ StreamBuilder<List<Grade>>(
 
 ---
 
-### Task F5: Fix Staff routed to `_AdminFeed` in Announcements without permission check ✅
+### Task F5: Fix Staff routed to `_AdminFeed` in Announcements without permission check
 **Files to create/modify:** `eduxal/lib/ui/screens/school_dashboard/announcements/announcements_screen.dart`
 **Context files to read (if needed):** None
 **Depends on:** None
