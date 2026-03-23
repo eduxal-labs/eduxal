@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:drift/drift.dart' hide Column;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Action;
 
 import '../../../client.dart';
 import '../../../database/database.dart';
@@ -30,7 +30,9 @@ import '../../widgets/sync_indicator.dart';
 import 'announcements/announcements_screen.dart';
 import 'finance/finance_screen.dart';
 import 'roles/school_roles_screen.dart';
+import 'my_classes/my_classes_screen.dart';
 import 'overview/overview_screen.dart';
+import 'progress/guardian_progress_screen.dart';
 import 'timetable/timetable_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -212,7 +214,10 @@ class _DashboardShellState extends State<_DashboardShell>
   @override
   void initState() {
     super.initState();
-    _currentItems = _itemsForRole(widget.schoolContext.currentEntry.value.role);
+    _currentItems = _itemsForRole(
+      widget.schoolContext.currentEntry.value.role,
+      widget.schoolContext.permissions,
+    );
     _tabController = TabController(length: _currentItems.length, vsync: this)
       ..addListener(_onTabChanged);
     widget.schoolContext.currentEntry.addListener(_onEntryChanged);
@@ -237,6 +242,7 @@ class _DashboardShellState extends State<_DashboardShell>
   void _onEntryChanged() {
     final newItems = _itemsForRole(
       widget.schoolContext.currentEntry.value.role,
+      widget.schoolContext.permissions,
     );
     _tabController
       ..removeListener(_onTabChanged)
@@ -257,7 +263,7 @@ class _DashboardShellState extends State<_DashboardShell>
 
   // ── nav items per role ─────────────────────────────────────────────────────
 
-  List<_NavItem> _itemsForRole(MembershipRole role) {
+  List<_NavItem> _itemsForRole(MembershipRole role, SchoolPermissions perms) {
     return switch (role) {
       MembershipRole.owner => const [
         _NavItem(label: 'Overview', icon: Icons.space_dashboard_outlined),
@@ -269,19 +275,80 @@ class _DashboardShellState extends State<_DashboardShell>
         _NavItem(label: 'Timetable', icon: Icons.calendar_view_week_outlined),
         _NavItem(label: 'Roles', icon: Icons.admin_panel_settings_outlined),
       ],
-      MembershipRole.teacher => const [
-        _NavItem(label: 'Overview', icon: Icons.space_dashboard_outlined),
-        _NavItem(label: 'My Classes', icon: Icons.class_outlined),
-        _NavItem(label: 'Exams & Grades', icon: Icons.assignment_outlined),
-        _NavItem(label: 'Timetable', icon: Icons.calendar_view_week_outlined),
-        _NavItem(label: 'Attendance', icon: Icons.fact_check_outlined),
-        _NavItem(label: 'Announcements', icon: Icons.campaign_outlined),
+      MembershipRole.teacher => [
+        // Always visible
+        const _NavItem(label: 'Overview', icon: Icons.space_dashboard_outlined),
+        // My Classes — always visible for teachers (their assigned classes)
+        const _NavItem(label: 'My Classes', icon: Icons.class_outlined),
+        // Academics — visible if user can read/manage classes or schools
+        if (perms.canAny(Resource.classes, [Action.read]) ||
+            perms.canAny(Resource.schools, [Action.read, Action.update]))
+          const _NavItem(label: 'Academics', icon: Icons.menu_book_outlined),
+        // Exams & Grades — always visible for teachers (they grade)
+        const _NavItem(
+          label: 'Exams & Grades',
+          icon: Icons.assignment_outlined,
+        ),
+        // Members — visible if user can read any member resource
+        if (perms.canAny(Resource.teachers, [Action.read]) ||
+            perms.canAny(Resource.students, [Action.read]) ||
+            perms.canAny(Resource.staff, [Action.read]) ||
+            perms.canAny(Resource.owners, [Action.read]))
+          const _NavItem(label: 'Members', icon: Icons.people_alt_outlined),
+        // Finance — visible if user can read fees or payments
+        if (perms.canAny(Resource.fees, [Action.read]) ||
+            perms.canAny(Resource.payments, [Action.read]))
+          const _NavItem(
+            label: 'Finance',
+            icon: Icons.account_balance_outlined,
+          ),
+        // Announcements — always visible
+        const _NavItem(label: 'Announcements', icon: Icons.campaign_outlined),
+        // Timetable — always visible for teachers
+        const _NavItem(
+          label: 'Timetable',
+          icon: Icons.calendar_view_week_outlined,
+        ),
+        // Attendance — always visible for teachers (they mark)
+        const _NavItem(label: 'Attendance', icon: Icons.fact_check_outlined),
+        // Roles — visible if user can read roles
+        if (perms.canAny(Resource.roles, [Action.read]))
+          const _NavItem(
+            label: 'Roles',
+            icon: Icons.admin_panel_settings_outlined,
+          ),
       ],
-      MembershipRole.staff => const [
-        _NavItem(label: 'Overview', icon: Icons.space_dashboard_outlined),
-        _NavItem(label: 'Students', icon: Icons.groups_outlined),
-        _NavItem(label: 'Finance', icon: Icons.account_balance_outlined),
-        _NavItem(label: 'Announcements', icon: Icons.campaign_outlined),
+      MembershipRole.staff => [
+        const _NavItem(label: 'Overview', icon: Icons.space_dashboard_outlined),
+        if (perms.canAny(Resource.students, [Action.read]))
+          const _NavItem(label: 'Students', icon: Icons.groups_outlined),
+        if (perms.canAny(Resource.classes, [Action.read]))
+          const _NavItem(label: 'Academics', icon: Icons.menu_book_outlined),
+        if (perms.canAny(Resource.exams, [Action.read]))
+          const _NavItem(
+            label: 'Exams & Grades',
+            icon: Icons.assignment_outlined,
+          ),
+        if (perms.canAny(Resource.teachers, [Action.read]) ||
+            perms.canAny(Resource.students, [Action.read]))
+          const _NavItem(label: 'Members', icon: Icons.people_alt_outlined),
+        if (perms.canAny(Resource.fees, [Action.read]) ||
+            perms.canAny(Resource.payments, [Action.read]))
+          const _NavItem(
+            label: 'Finance',
+            icon: Icons.account_balance_outlined,
+          ),
+        const _NavItem(label: 'Announcements', icon: Icons.campaign_outlined),
+        if (perms.canAny(Resource.classes, [Action.read]))
+          const _NavItem(
+            label: 'Timetable',
+            icon: Icons.calendar_view_week_outlined,
+          ),
+        if (perms.canAny(Resource.roles, [Action.read]))
+          const _NavItem(
+            label: 'Roles',
+            icon: Icons.admin_panel_settings_outlined,
+          ),
       ],
       MembershipRole.student => const [
         _NavItem(label: 'Overview', icon: Icons.space_dashboard_outlined),
@@ -458,6 +525,12 @@ class _DashboardShellState extends State<_DashboardShell>
           return NoTermsBlankState(
             schoolId: widget.schoolContext.membership.school.id,
             role: entry.role,
+            canCreateTerm:
+                entry.role == MembershipRole.owner ||
+                widget.schoolContext.permissions.can(
+                  Resource.schools,
+                  Action.update,
+                ),
           );
         }
 
@@ -475,6 +548,16 @@ class _DashboardShellState extends State<_DashboardShell>
     // ── Overview — role-based landing page ─────────────────────────────────
     if (item.label == 'Overview') {
       return OverviewScreen(schoolContext: widget.schoolContext);
+    }
+
+    // ── My Classes — teacher's assigned classes ───────────────────────────
+    if (item.label == 'My Classes') {
+      return MyClassesScreen(schoolContext: widget.schoolContext);
+    }
+
+    // ── Progress — guardian's ward academic progress ──────────────────────
+    if (item.label == 'Progress') {
+      return GuardianProgressScreen(schoolContext: widget.schoolContext);
     }
 
     // ── Academics (Departments, Subjects, Classes, Exams) ─────────────────
@@ -730,6 +813,12 @@ class _FullSidebar extends StatelessWidget {
             child: TermSelectorChip(
               termContext: activeTermContext,
               alignRight: true,
+              canCreateTerm:
+                  currentEntry.role == MembershipRole.owner ||
+                  schoolContext.permissions.can(
+                    Resource.schools,
+                    Action.update,
+                  ),
             ),
           ),
 
@@ -976,6 +1065,12 @@ class _IconRail extends StatelessWidget {
               termContext: activeTermContext,
               alignRight: true,
               compact: true,
+              canCreateTerm:
+                  currentEntry.role == MembershipRole.owner ||
+                  schoolContext.permissions.can(
+                    Resource.schools,
+                    Action.update,
+                  ),
             ),
           ),
 
