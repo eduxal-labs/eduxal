@@ -181,7 +181,7 @@ void didUpdateWidget(covariant _TeacherUpcomingExams oldWidget) {
 ```
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
