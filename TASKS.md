@@ -559,7 +559,7 @@ IconButton(
 Apply to both the left and right chevron buttons in the attendance calendar month navigation.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
