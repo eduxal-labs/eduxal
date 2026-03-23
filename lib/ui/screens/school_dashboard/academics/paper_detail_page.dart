@@ -5,7 +5,10 @@ import 'package:drift/drift.dart' hide Column;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cunning_document_scanner/cunning_document_scanner.dart';
 import 'package:image_picker/image_picker.dart';
+
+import '../../../../core/image_utils.dart';
 
 import '../../../../cache/file_cache.dart';
 
@@ -3466,7 +3469,7 @@ class _SchemeUploadSheetState extends State<_SchemeUploadSheet> {
     final newPaths = <String>[];
     for (final xFile in picked) {
       final dest = File('${dir.path}/$nextIndex.jpg');
-      await File(xFile.path).copy(dest.path);
+      await ImageUtils.compressAndSave(xFile.path, dest.path);
       newPaths.add(dest.path);
       nextIndex++;
     }
@@ -3492,13 +3495,25 @@ class _SchemeUploadSheetState extends State<_SchemeUploadSheet> {
     if (_picking) return;
     setState(() => _picking = true);
     try {
+      final pictures = await CunningDocumentScanner.getPictures(
+        isGalleryImportAllowed: false,
+      );
+      if (pictures == null || pictures.isEmpty) return;
+      final xFiles = pictures.map((p) => XFile(p)).toList();
+      await _savePickedFiles(xFiles);
+    } catch (e) {
+      // Fallback to regular camera if scanner is unavailable.
+      debugPrint(
+        '[SchemeUpload] scanner unavailable, falling back to camera: $e',
+      );
       final picker = ImagePicker();
       final picked = await picker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 85,
+        maxWidth: 1500,
+        maxHeight: 1500,
+        imageQuality: 80,
       );
-      if (picked == null) return;
-      await _savePickedFiles([picked]);
+      if (picked != null) await _savePickedFiles([picked]);
     } finally {
       if (mounted) setState(() => _picking = false);
     }
@@ -3509,7 +3524,11 @@ class _SchemeUploadSheetState extends State<_SchemeUploadSheet> {
     setState(() => _picking = true);
     try {
       final picker = ImagePicker();
-      final picked = await picker.pickMultiImage(imageQuality: 85);
+      final picked = await picker.pickMultiImage(
+        maxWidth: 1500,
+        maxHeight: 1500,
+        imageQuality: 85,
+      );
       await _savePickedFiles(picked);
     } finally {
       if (mounted) setState(() => _picking = false);
@@ -4009,13 +4028,11 @@ class _AnswerSubmissionSheetState extends State<_AnswerSubmissionSheet> {
     for (final xFile in picked) {
       final index = _paths.length + newPaths.length; // 0-indexed
       final dest = File('${dir.path}/$index.jpg');
-      final srcFile = File(xFile.path);
-      final srcSize = await srcFile.length();
-      await srcFile.copy(dest.path);
+      await ImageUtils.compressAndSave(xFile.path, dest.path);
       final destSize = await dest.length();
       print(
         '[ANSWER-SHEET] saved page $index — '
-        'src=${xFile.path} ($srcSize bytes) → '
+        'src=${xFile.path} → '
         'dest=${dest.path} ($destSize bytes)',
       );
       newPaths.add(dest.path);
@@ -4074,13 +4091,24 @@ class _AnswerSubmissionSheetState extends State<_AnswerSubmissionSheet> {
     if (_picking) return;
     setState(() => _picking = true);
     try {
+      final pictures = await CunningDocumentScanner.getPictures(
+        isGalleryImportAllowed: false,
+      );
+      if (pictures == null || pictures.isEmpty) return;
+      final xFiles = pictures.map((p) => XFile(p)).toList();
+      await _savePickedFiles(xFiles);
+    } catch (e) {
+      debugPrint(
+        '[AnswerSheet] scanner unavailable, falling back to camera: $e',
+      );
       final picker = ImagePicker();
       final picked = await picker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 85,
+        maxWidth: 1500,
+        maxHeight: 1500,
+        imageQuality: 80,
       );
-      if (picked == null) return;
-      await _savePickedFiles([picked]);
+      if (picked != null) await _savePickedFiles([picked]);
     } finally {
       if (mounted) setState(() => _picking = false);
     }
@@ -4091,7 +4119,11 @@ class _AnswerSubmissionSheetState extends State<_AnswerSubmissionSheet> {
     setState(() => _picking = true);
     try {
       final picker = ImagePicker();
-      final picked = await picker.pickMultiImage(imageQuality: 85);
+      final picked = await picker.pickMultiImage(
+        maxWidth: 1500,
+        maxHeight: 1500,
+        imageQuality: 85,
+      );
       await _savePickedFiles(picked);
     } finally {
       if (mounted) setState(() => _picking = false);
