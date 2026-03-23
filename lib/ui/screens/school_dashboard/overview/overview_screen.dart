@@ -18,6 +18,7 @@ import '../../../../models/school_context.dart';
 import '../../../../models/grade_analytics.dart';
 import '../../../widgets/active_term_provider.dart';
 import '../../../widgets/student_avatar.dart';
+import '../../../theme/app_theme.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Overview Screen — role-dispatched school dashboard landing page
@@ -298,7 +299,7 @@ class _TeacherOverview extends StatelessWidget {
   }
 }
 
-class _TeacherTodaySchedule extends StatelessWidget {
+class _TeacherTodaySchedule extends StatefulWidget {
   const _TeacherTodaySchedule({
     required this.schoolId,
     required this.year,
@@ -312,15 +313,41 @@ class _TeacherTodaySchedule extends StatelessWidget {
   final String teacherUserId;
 
   @override
+  State<_TeacherTodaySchedule> createState() => _TeacherTodayScheduleState();
+}
+
+class _TeacherTodayScheduleState extends State<_TeacherTodaySchedule> {
+  late Future<List<Subject>> _subjectsFuture;
+  late Future<List<SchoolStream>> _streamsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _subjectsFuture = CatalogDao(db).getSubjects();
+    _streamsFuture = CatalogDao(db).getStreamsForSchool(widget.schoolId);
+  }
+
+  @override
+  void didUpdateWidget(covariant _TeacherTodaySchedule oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.schoolId != widget.schoolId) {
+      setState(() {
+        _subjectsFuture = CatalogDao(db).getSubjects();
+        _streamsFuture = CatalogDao(db).getStreamsForSchool(widget.schoolId);
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final timetableDao = TimetableDao(db);
 
     return StreamBuilder<List<TimetableData>>(
       stream: timetableDao.watchTeacherTimetable(
-        schoolId: schoolId,
-        year: year,
-        term: term,
-        teacherUserId: teacherUserId,
+        schoolId: widget.schoolId,
+        year: widget.year,
+        term: widget.term,
+        teacherUserId: widget.teacherUserId,
       ),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
@@ -339,10 +366,33 @@ class _TeacherTodaySchedule extends StatelessWidget {
           );
         }
 
-        return Column(
-          children: todaySlots
-              .map((slot) => _TimetableSlotCard(slot: slot))
-              .toList(),
+        return FutureBuilder<List<Subject>>(
+          future: _subjectsFuture,
+          builder: (context, subSnap) {
+            return FutureBuilder<List<SchoolStream>>(
+              future: _streamsFuture,
+              builder: (context, strSnap) {
+                final subjectMap = <int, String>{};
+                for (final s in subSnap.data ?? []) {
+                  subjectMap[s.id] = s.name;
+                }
+                final streamMap = <(int, int), String>{};
+                for (final s in strSnap.data ?? []) {
+                  streamMap[(s.grade, s.stream)] = s.name;
+                }
+
+                return Column(
+                  children: todaySlots.map((slot) {
+                    return _TimetableSlotCard(
+                      slot: slot,
+                      subjectName: subjectMap[slot.subject],
+                      streamName: streamMap[(slot.grade, slot.stream)],
+                    );
+                  }).toList(),
+                );
+              },
+            );
+          },
         );
       },
     );
@@ -350,9 +400,15 @@ class _TeacherTodaySchedule extends StatelessWidget {
 }
 
 class _TimetableSlotCard extends StatelessWidget {
-  const _TimetableSlotCard({required this.slot});
+  const _TimetableSlotCard({
+    required this.slot,
+    this.subjectName,
+    this.streamName,
+  });
 
   final TimetableData slot;
+  final String? subjectName;
+  final String? streamName;
 
   @override
   Widget build(BuildContext context) {
@@ -382,7 +438,7 @@ class _TimetableSlotCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Grade ${slot.grade} · Stream ${slot.stream}',
+                      'Grade ${slot.grade} · ${streamName ?? 'Stream ${slot.stream}'}',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
@@ -391,7 +447,7 @@ class _TimetableSlotCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Subject ${slot.subject}',
+                      subjectName ?? 'Subject ${slot.subject}',
                       style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w400,
@@ -456,7 +512,11 @@ class _TeacherQuickStats extends StatelessWidget {
             builder: (context, snap) {
               final allExams = snap.data ?? [];
               final myExams = allExams
-                  .where((e) => e.teacher.id == userId)
+                  .where(
+                    (e) =>
+                        e.teacher.id == userId ||
+                        e.papers.any((p) => p.invigilator == userId),
+                  )
                   .length;
               return _StatCard(
                 icon: Icons.assignment_outlined,
@@ -745,7 +805,7 @@ class _TeacherUpcomingExamsState extends State<_TeacherUpcomingExams> {
             return Container(
               decoration: BoxDecoration(
                 color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
                 border: Border.all(color: cs.outline.withValues(alpha: 0.08)),
               ),
               child: Column(
@@ -1263,7 +1323,7 @@ class _StudentTimetableSlotCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Subject ${slot.subject}',
+                      entry.subjectName,
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
@@ -1762,7 +1822,7 @@ class _GuardianQuickStats extends StatelessWidget {
   }
 }
 
-class _WardInfoCard extends StatelessWidget {
+class _WardInfoCard extends StatefulWidget {
   const _WardInfoCard({
     required this.ward,
     required this.schoolId,
@@ -1774,6 +1834,29 @@ class _WardInfoCard extends StatelessWidget {
   final Term? term;
 
   @override
+  State<_WardInfoCard> createState() => _WardInfoCardState();
+}
+
+class _WardInfoCardState extends State<_WardInfoCard> {
+  late Future<List<SchoolStream>> _streamsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _streamsFuture = CatalogDao(db).getStreamsForSchool(widget.schoolId);
+  }
+
+  @override
+  void didUpdateWidget(covariant _WardInfoCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.schoolId != widget.schoolId) {
+      setState(() {
+        _streamsFuture = CatalogDao(db).getStreamsForSchool(widget.schoolId);
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
@@ -1781,15 +1864,15 @@ class _WardInfoCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
         border: Border.all(color: cs.outline.withValues(alpha: 0.08)),
       ),
       child: Row(
         children: [
           StudentAvatar(
-            schoolId: schoolId,
-            adm: ward.adm,
-            name: ward.name,
+            schoolId: widget.schoolId,
+            adm: widget.ward.adm,
+            name: widget.ward.name,
             radius: 20,
           ),
           const SizedBox(width: 12),
@@ -1798,7 +1881,7 @@ class _WardInfoCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  ward.name,
+                  widget.ward.name,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -1807,7 +1890,7 @@ class _WardInfoCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'ADM: ${ward.adm}',
+                  'ADM: ${widget.ward.adm}',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
@@ -1817,34 +1900,48 @@ class _WardInfoCard extends StatelessWidget {
               ],
             ),
           ),
-          if (term != null)
+          if (widget.term != null)
             StreamBuilder<Enrollment?>(
               stream: EnrollmentsDao(db).watchStudentEnrollment(
-                schoolId: schoolId,
-                year: term!.year,
-                term: term!.term,
-                studentAdm: ward.adm,
+                schoolId: widget.schoolId,
+                year: widget.term!.year,
+                term: widget.term!.term,
+                studentAdm: widget.ward.adm,
               ),
               builder: (context, snap) {
                 final enrollment = snap.data;
                 if (enrollment == null) return const SizedBox.shrink();
-                return Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: cs.primary.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    'Grade ${enrollment.grade} · Stream ${enrollment.stream}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: cs.primary.withValues(alpha: 0.8),
-                    ),
-                  ),
+                return FutureBuilder<List<SchoolStream>>(
+                  future: _streamsFuture,
+                  builder: (context, strSnap) {
+                    final streamMap = <(int, int), String>{};
+                    for (final s in strSnap.data ?? []) {
+                      streamMap[(s.grade, s.stream)] = s.name;
+                    }
+                    final streamName =
+                        streamMap[(enrollment.grade, enrollment.stream)];
+                    final label = streamName != null
+                        ? 'Grade ${enrollment.grade} · $streamName'
+                        : 'Grade ${enrollment.grade}';
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: cs.primary.withValues(alpha: 0.8),
+                        ),
+                      ),
+                    );
+                  },
                 );
               },
             ),

@@ -384,7 +384,7 @@ Add the import for `EduEmptyState` if not already present.
 
 ---
 
-### Task P7: Fix `_WardInfoCard` and `_TimetableSlotCard` showing raw IDs instead of names
+### Task P7: Fix `_WardInfoCard` and `_TimetableSlotCard` showing raw IDs instead of names ✅
 **Files to create/modify:** `eduxal/lib/ui/screens/school_dashboard/overview/overview_screen.dart`
 **Context files to read (if needed):** None
 **Depends on:** None
@@ -407,11 +407,11 @@ Fix for `_TimetableSlotCard`:
 - This is an existing widget used across roles (not just guardian). If fixing it requires broader refactoring, defer to a future task. If it accepts a subject name parameter, ensure it's passed correctly.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
-### Task P8: Fix `_TeacherQuickStats` inconsistent "My Exams" definition
+### Task P8: Fix `_TeacherQuickStats` inconsistent "My Exams" definition ✅
 **Files to create/modify:** `eduxal/lib/ui/screens/school_dashboard/overview/overview_screen.dart`
 **Context files to read (if needed):** None
 **Depends on:** None
@@ -432,7 +432,7 @@ final myExams = allExams.where((e) =>
 Or, if `ExamGroup` doesn't expose papers at this level, change the label from "My Exams" to "Created Exams" or "Assigned Exams" for clarity.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -466,7 +466,7 @@ Center(
 
 ---
 
-### Task P10: Fix border radii in overview_screen.dart new widgets
+### Task P10: Fix border radii in overview_screen.dart new widgets ✅
 **Files to create/modify:** `eduxal/lib/ui/screens/school_dashboard/overview/overview_screen.dart`
 **Context files to read (if needed):** None
 **Depends on:** None
@@ -482,7 +482,7 @@ Several new/modified widgets use `BorderRadius.circular(6)` instead of the stand
 Leave `_buildClassChip` at `4` (correct per `kChipRadius`) and status badges at `4` (correct).
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
