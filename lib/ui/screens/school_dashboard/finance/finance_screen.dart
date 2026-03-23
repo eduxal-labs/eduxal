@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Action;
 import 'package:flutter/services.dart';
 
 import '../../../theme/app_theme.dart';
@@ -49,18 +49,21 @@ class FinanceScreen extends StatelessWidget {
         schoolContext: schoolContext,
         termContext: termCtx,
       ),
-      TeacherEntry() => (schoolContext.permissions.canAny(Resource.fees, [Action.read]) ||
-                          schoolContext.permissions.canAny(Resource.payments, [Action.read]))
-          ? _OwnerFinanceShell(
-              schoolContext: schoolContext,
-              termContext: termCtx,
-            )
-          : _GuardianFinanceView(
-              schoolContext: schoolContext,
-              termContext: termCtx,
-              studentAdm: '',
-              studentName: '',
-            ),
+      TeacherEntry() =>
+        (schoolContext.permissions.canAny(Resource.fees, [Action.read]) ||
+                schoolContext.permissions.canAny(Resource.payments, [
+                  Action.read,
+                ]))
+            ? _OwnerFinanceShell(
+                schoolContext: schoolContext,
+                termContext: termCtx,
+              )
+            : _GuardianFinanceView(
+                schoolContext: schoolContext,
+                termContext: termCtx,
+                studentAdm: 0,
+                studentName: '',
+              ),
       GuardianEntry(:final ward) => _GuardianFinanceView(
         schoolContext: schoolContext,
         termContext: termCtx,
@@ -842,11 +845,14 @@ class _InvoiceListView extends StatelessWidget {
         }
         final item = items[index ~/ 2];
         final entry = schoolContext.currentEntry.value;
-        final canRecord = entry is OwnerEntry ||
+        final canRecord =
+            entry is OwnerEntry ||
             schoolContext.permissions.can(Resource.payments, Action.create);
-        final canEditInvoice = entry is OwnerEntry ||
+        final canEditInvoice =
+            entry is OwnerEntry ||
             schoolContext.permissions.can(Resource.fees, Action.update);
-        final canDeleteInvoice = entry is OwnerEntry ||
+        final canDeleteInvoice =
+            entry is OwnerEntry ||
             schoolContext.permissions.can(Resource.fees, Action.delete);
         return _InvoiceRow(
           item: item,
@@ -1169,12 +1175,24 @@ class _PaymentsTab extends StatelessWidget {
               item: item,
               cs: cs,
               isDark: isDark,
-              canApprove: entry is OwnerEntry ||
-                  schoolContext.permissions.can(Resource.payments, Action.approve),
-              canEdit: entry is OwnerEntry ||
-                  schoolContext.permissions.can(Resource.payments, Action.update),
-              canDelete: entry is OwnerEntry ||
-                  schoolContext.permissions.can(Resource.payments, Action.delete),
+              canApprove:
+                  entry is OwnerEntry ||
+                  schoolContext.permissions.can(
+                    Resource.payments,
+                    Action.approve,
+                  ),
+              canEdit:
+                  entry is OwnerEntry ||
+                  schoolContext.permissions.can(
+                    Resource.payments,
+                    Action.update,
+                  ),
+              canDelete:
+                  entry is OwnerEntry ||
+                  schoolContext.permissions.can(
+                    Resource.payments,
+                    Action.delete,
+                  ),
             );
           },
         );
@@ -1392,11 +1410,14 @@ class _FeesTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = cs.brightness == Brightness.dark;
     final entry = schoolContext.currentEntry.value;
-    final canCreateFee = entry is OwnerEntry ||
+    final canCreateFee =
+        entry is OwnerEntry ||
         schoolContext.permissions.can(Resource.fees, Action.create);
-    final canEditFee = entry is OwnerEntry ||
+    final canEditFee =
+        entry is OwnerEntry ||
         schoolContext.permissions.can(Resource.fees, Action.update);
-    final canDeleteFee = entry is OwnerEntry ||
+    final canDeleteFee =
+        entry is OwnerEntry ||
         schoolContext.permissions.can(Resource.fees, Action.delete);
 
     return Stack(
