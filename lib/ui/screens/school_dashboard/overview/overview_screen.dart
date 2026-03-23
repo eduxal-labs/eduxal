@@ -5,6 +5,7 @@ import '../../../../database/database.dart';
 import '../../../../database/daos/academics_dao.dart';
 import '../../../../database/daos/announcements_dao.dart';
 import '../../../../database/daos/attendance_dao.dart';
+import '../../../../database/daos/catalog_dao.dart';
 import '../../../../database/daos/enrollments_dao.dart';
 import '../../../../database/daos/exams_grades_dao.dart';
 import '../../../../database/daos/finance_dao.dart';
@@ -254,6 +255,14 @@ class _TeacherOverview extends StatelessWidget {
           const SizedBox(height: 20),
         ],
 
+        // ── My Classes ───────────────────────────────────────────────────
+        if (term != null && userId.isNotEmpty) ...[
+          _SectionTitle(label: 'My Classes', cs: cs),
+          const SizedBox(height: 8),
+          _TeacherClassChips(schoolId: schoolId, userId: userId, term: term),
+          const SizedBox(height: 20),
+        ],
+
         // ── Quick stats ──────────────────────────────────────────────────
         if (term != null) ...[
           _SectionTitle(label: 'Quick Stats', cs: cs),
@@ -264,6 +273,14 @@ class _TeacherOverview extends StatelessWidget {
             entry: entry,
             userId: userId,
           ),
+          const SizedBox(height: 20),
+        ],
+
+        // ── Upcoming Exams ───────────────────────────────────────────────
+        if (term != null && userId.isNotEmpty) ...[
+          _SectionTitle(label: 'Upcoming Exams', cs: cs),
+          const SizedBox(height: 8),
+          _TeacherUpcomingExams(schoolId: schoolId, userId: userId, term: term),
           const SizedBox(height: 20),
         ],
 
@@ -451,6 +468,357 @@ class _TeacherQuickStats extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ── Teacher Class Chips ──────────────────────────────────────────────────────
+
+class _TeacherClassChips extends StatefulWidget {
+  const _TeacherClassChips({
+    required this.schoolId,
+    required this.userId,
+    required this.term,
+  });
+
+  final String schoolId;
+  final String userId;
+  final Term term;
+
+  @override
+  State<_TeacherClassChips> createState() => _TeacherClassChipsState();
+}
+
+class _TeacherClassChipsState extends State<_TeacherClassChips> {
+  late final Future<List<SchoolStream>> _streamsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _streamsFuture = CatalogDao(db).getStreamsForSchool(widget.schoolId);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final membersDao = MembersDao(db);
+
+    return StreamBuilder<List<ClassTeacher>>(
+      stream: membersDao.watchClassTeacherAssignments(
+        widget.schoolId,
+        widget.userId,
+      ),
+      builder: (context, ctSnap) {
+        return StreamBuilder<List<SubjectTeacher>>(
+          stream: membersDao.watchTeacherSubjects(
+            widget.schoolId,
+            widget.userId,
+          ),
+          builder: (context, stSnap) {
+            if (ctSnap.connectionState == ConnectionState.waiting &&
+                stSnap.connectionState == ConnectionState.waiting) {
+              return const _LoadingShimmer();
+            }
+
+            // Filter to current term only
+            final allCt = (ctSnap.data ?? [])
+                .where(
+                  (c) =>
+                      c.year == widget.term.year && c.term == widget.term.term,
+                )
+                .toList();
+            final allSt = (stSnap.data ?? [])
+                .where(
+                  (s) =>
+                      s.year == widget.term.year && s.term == widget.term.term,
+                )
+                .toList();
+
+            // Build unique (grade, stream) set
+            final gradeStreams = <(int, int)>{};
+            final ctSet = <(int, int)>{};
+            for (final c in allCt) {
+              gradeStreams.add((c.grade, c.stream));
+              ctSet.add((c.grade, c.stream));
+            }
+
+            // Count subjects per (grade, stream)
+            final subjectCounts = <(int, int), int>{};
+            for (final s in allSt) {
+              gradeStreams.add((s.grade, s.stream));
+              subjectCounts[(s.grade, s.stream)] =
+                  (subjectCounts[(s.grade, s.stream)] ?? 0) + 1;
+            }
+
+            if (gradeStreams.isEmpty) {
+              return _EmptyCard(
+                icon: Icons.school_outlined,
+                message: 'No class assignments this term',
+              );
+            }
+
+            final sorted = gradeStreams.toList()
+              ..sort((a, b) {
+                final g = a.$1.compareTo(b.$1);
+                return g != 0 ? g : a.$2.compareTo(b.$2);
+              });
+
+            return FutureBuilder<List<SchoolStream>>(
+              future: _streamsFuture,
+              builder: (context, streamsSnap) {
+                final streamNames = <(int, int), String>{};
+                for (final s in streamsSnap.data ?? []) {
+                  streamNames[(s.grade, s.stream)] = s.name;
+                }
+
+                return Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: sorted.map((gs) {
+                    final isClassTeacher = ctSet.contains(gs);
+                    final subjects = subjectCounts[gs] ?? 0;
+                    final streamName = streamNames[gs] ?? 'Stream ${gs.$2}';
+                    final label = 'Grade ${gs.$1} · $streamName';
+                    final subtitle = isClassTeacher
+                        ? 'Class Teacher'
+                        : '$subjects subject${subjects != 1 ? 's' : ''}';
+
+                    return _buildClassChip(
+                      label: label,
+                      subtitle: subtitle,
+                      isPrimary: isClassTeacher,
+                      cs: cs,
+                    );
+                  }).toList(),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildClassChip({
+    required String label,
+    required String subtitle,
+    required bool isPrimary,
+    required ColorScheme cs,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: isPrimary
+            ? cs.primary.withValues(alpha: 0.08)
+            : cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: isPrimary
+              ? cs.primary.withValues(alpha: 0.2)
+              : cs.outline.withValues(alpha: 0.08),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              color: isPrimary ? cs.primary : cs.onSurface,
+            ),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            subtitle,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w400,
+              color: isPrimary
+                  ? cs.primary.withValues(alpha: 0.6)
+                  : cs.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Teacher Upcoming Exams ───────────────────────────────────────────────────
+
+class _TeacherUpcomingExams extends StatefulWidget {
+  const _TeacherUpcomingExams({
+    required this.schoolId,
+    required this.userId,
+    required this.term,
+  });
+
+  final String schoolId;
+  final String userId;
+  final Term term;
+
+  @override
+  State<_TeacherUpcomingExams> createState() => _TeacherUpcomingExamsState();
+}
+
+class _TeacherUpcomingExamsState extends State<_TeacherUpcomingExams> {
+  late final Future<List<Subject>> _subjectsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _subjectsFuture = CatalogDao(db).getSubjects();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final examsDao = ExamsGradesDao(db);
+    final nowSeconds = BigInt.from(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+    );
+
+    return StreamBuilder<List<ExamWithPapers>>(
+      stream: examsDao.watchExamsForTerm(
+        schoolId: widget.schoolId,
+        year: widget.term.year,
+        term: widget.term.term,
+      ),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const _LoadingShimmer();
+        }
+
+        final allExams = snap.data ?? [];
+
+        // Collect papers where this teacher is invigilator & start is future
+        final upcoming = <({Exam exam, Paper paper})>[];
+        for (final e in allExams) {
+          for (final p in e.papers) {
+            if (p.invigilator == widget.userId && p.start > nowSeconds) {
+              upcoming.add((exam: e.exam, paper: p));
+            }
+          }
+        }
+
+        // Sort by paper start ascending (soonest first)
+        upcoming.sort((a, b) => a.paper.start.compareTo(b.paper.start));
+
+        if (upcoming.isEmpty) {
+          return _EmptyCard(
+            icon: Icons.assignment_outlined,
+            message: 'No upcoming exams',
+          );
+        }
+
+        final display = upcoming.take(3).toList();
+
+        return FutureBuilder<List<Subject>>(
+          future: _subjectsFuture,
+          builder: (context, subSnap) {
+            final subjectMap = <int, String>{};
+            for (final s in subSnap.data ?? []) {
+              subjectMap[s.id] = s.name;
+            }
+
+            return Container(
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: cs.outline.withValues(alpha: 0.08)),
+              ),
+              child: Column(
+                children: [
+                  for (var i = 0; i < display.length; i++) ...[
+                    if (i > 0)
+                      Divider(
+                        height: 0.5,
+                        thickness: 0.5,
+                        color: cs.outline.withValues(alpha: 0.06),
+                      ),
+                    _buildExamRow(
+                      examName: display[i].exam.name,
+                      subjectName:
+                          subjectMap[display[i].paper.subject] ??
+                          'Subject ${display[i].paper.subject}',
+                      paperStart: display[i].paper.start,
+                      status: display[i].paper.status,
+                      cs: cs,
+                    ),
+                  ],
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildExamRow({
+    required String examName,
+    required String subjectName,
+    required BigInt paperStart,
+    required PaperStatus status,
+    required ColorScheme cs,
+  }) {
+    final (statusLabel, statusColor) = switch (status) {
+      PaperStatus.pending => ('Pending', const Color(0xFFFFA726)),
+      PaperStatus.progress => ('In Progress', const Color(0xFF42A5F5)),
+      PaperStatus.done => ('Done', const Color(0xFF4CAF50)),
+      PaperStatus.marked => ('Marked', const Color(0xFF7C4DFF)),
+    };
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  examName,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$subjectName · ${_fmtDateFromSeconds(paperStart)}',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              statusLabel,
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w500,
+                color: statusColor,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
