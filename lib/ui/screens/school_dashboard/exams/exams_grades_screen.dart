@@ -3,7 +3,7 @@ import 'dart:math' as math;
 
 import 'package:drift/drift.dart' hide Column;
 import 'package:fl_chart/fl_chart.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Action;
 import 'package:flutter/services.dart';
 
 import '../../../../client.dart';
@@ -17,6 +17,7 @@ import '../../../../database/tables/enums.dart';
 import '../../../../models/active_term_context.dart';
 import '../../../../models/exam_group.dart';
 import '../../../../models/membership.dart';
+import '../../../../models/permissions.dart';
 import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
@@ -261,6 +262,7 @@ class _ExamsShellState extends State<_ExamsShell> {
             config: _config,
             subjectNames: _subjectNames,
             entry: entry,
+            schoolContext: widget.schoolContext,
             onBack: _popToList,
             onPaperTap: _openPaper,
             onDeleted: _popToList,
@@ -408,7 +410,7 @@ class _ExamsListViewState extends State<_ExamsListView> {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton: _canManage
+      floatingActionButton: _canCreateExam
           ? FloatingActionButton.small(
               heroTag: 'fab_exams_list',
               onPressed: () => _showCreateExam(context),
@@ -460,7 +462,7 @@ class _ExamsListViewState extends State<_ExamsListView> {
                 }
                 final allItems = snap.data ?? [];
                 if (allItems.isEmpty) {
-                  return _EmptyExamsState(canCreate: _canManage);
+                  return _EmptyExamsState(canCreate: _canCreateExam);
                 }
                 final items = _applyFilters(allItems);
                 if (items.isEmpty) {
@@ -506,10 +508,9 @@ class _ExamsListViewState extends State<_ExamsListView> {
     );
   }
 
-  bool get _canManage {
-    final entry = widget.entry;
-    return entry is TeacherEntry || entry is OwnerEntry || entry is StaffEntry;
-  }
+  bool get _canCreateExam =>
+      widget.schoolContext.permissions.can(Resource.exams, Action.create) ||
+      widget.entry is OwnerEntry;
 
   Future<void> _showCreateExam(BuildContext context) async {
     await Navigator.of(context).push(
@@ -828,6 +829,7 @@ class _ExamGroupDetailView extends StatefulWidget {
     required this.config,
     required this.subjectNames,
     required this.entry,
+    required this.schoolContext,
     required this.onBack,
     required this.onPaperTap,
     required this.onDeleted,
@@ -843,6 +845,7 @@ class _ExamGroupDetailView extends StatefulWidget {
   final SchoolConfig config;
   final Map<int, String> subjectNames;
   final MembershipEntry entry;
+  final SchoolContext schoolContext;
   final VoidCallback onBack;
   final void Function(Paper paper, Exam exam, int grade, {int streamIndex})
   onPaperTap;
@@ -1038,10 +1041,24 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
     return gradeEntry.streams.first.exam;
   }
 
-  bool get _canManage {
-    final entry = widget.entry;
-    return entry is TeacherEntry || entry is OwnerEntry || entry is StaffEntry;
-  }
+  MembershipEntry get _entry => widget.entry;
+
+  bool get _canCreateExam =>
+      widget.schoolContext.permissions.can(Resource.exams, Action.create) ||
+      _entry is OwnerEntry;
+
+  bool get _canEditExam =>
+      widget.schoolContext.permissions.can(Resource.exams, Action.update) ||
+      _entry is OwnerEntry;
+
+  bool get _canDeleteExam =>
+      widget.schoolContext.permissions.can(Resource.exams, Action.delete) ||
+      _entry is OwnerEntry;
+
+  bool get _canMarkGrades =>
+      widget.schoolContext.permissions.can(Resource.grades, Action.mark) ||
+      _entry is OwnerEntry ||
+      _entry is TeacherEntry;
 
   Future<void> _showAddPaper(BuildContext context) async {
     if (!_hasStreamSelection) return;
@@ -1399,7 +1416,7 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
                             ],
                           ),
                         ),
-                        if (_canManage)
+                        if (_canEditExam)
                           IconButton(
                             icon: Icon(
                               Icons.edit_outlined,
@@ -1413,7 +1430,7 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
                       ],
                     ),
                   ),
-                  if (_canManage)
+                  if (_canDeleteExam)
                     IconButton(
                       icon: Icon(
                         Icons.delete_outline_rounded,
@@ -1472,7 +1489,7 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
                                 padding: const EdgeInsets.fromLTRB(16, 2, 4, 4),
                               ),
                             ),
-                            if (_canManage)
+                            if (_canDeleteExam)
                               Padding(
                                 padding: const EdgeInsets.only(right: 8),
                                 child: IconButton(
@@ -1509,7 +1526,7 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
                                 subjectNames: widget.subjectNames,
                                 teacherNames: _teacherNames,
                                 dao: _dao,
-                                canManage: _canManage,
+                                canManage: _canCreateExam || _canMarkGrades,
                                 onPaperTap:
                                     (
                                       paper,
@@ -1536,7 +1553,7 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
           ],
         ),
         // ── Expandable FAB (manage-only) ───────────────────────────────────
-        if (_canManage)
+        if (_canCreateExam)
           Positioned(
             right: 12,
             bottom: 16,
