@@ -13,6 +13,7 @@ import '../../../../models/permissions.dart';
 import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
 import '../../../widgets/active_term_provider.dart';
+import '../../../widgets/edu_empty_state.dart';
 import '../../../widgets/edu_sheet.dart';
 import '../../../widgets/edu_tab_bar.dart';
 
@@ -58,15 +59,10 @@ class FinanceScreen extends StatelessWidget {
                 schoolContext: schoolContext,
                 termContext: termCtx,
               )
-            : Center(
-                child: Text(
-                  'No finance access',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
+            : const EduEmptyState(
+                icon: Icons.account_balance_outlined,
+                title: 'No finance access',
+                subtitle: 'You don\'t have permission to view financial data.',
               ),
       GuardianEntry(:final ward) => _GuardianFinanceView(
         schoolContext: schoolContext,

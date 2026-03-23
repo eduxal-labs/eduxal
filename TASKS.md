@@ -358,7 +358,7 @@ Two minor design violations:
 
 ---
 
-### Task P6: Style the Finance teacher fallback as a proper empty state
+### Task P6: Style the Finance teacher fallback as a proper empty state ✅
 **Files to create/modify:** `eduxal/lib/ui/screens/school_dashboard/finance/finance_screen.dart`
 **Context files to read (if needed):** `eduxal/lib/ui/widgets/edu_empty_state.dart`
 **Depends on:** None
@@ -380,7 +380,7 @@ Fix: Replace with `EduEmptyState`:
 Add the import for `EduEmptyState` if not already present.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
