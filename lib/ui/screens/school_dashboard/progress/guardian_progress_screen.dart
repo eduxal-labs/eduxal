@@ -1655,11 +1655,9 @@ class _AttendanceCalendar extends StatelessWidget {
                     color: cs.onSurfaceVariant,
                   ),
                   onPressed: onPreviousMonth,
-                  splashRadius: 18,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 36,
-                    minHeight: 36,
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size(36, 36),
+                    padding: const EdgeInsets.all(8),
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -1679,11 +1677,9 @@ class _AttendanceCalendar extends StatelessWidget {
                     color: cs.onSurfaceVariant,
                   ),
                   onPressed: onNextMonth,
-                  splashRadius: 18,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 36,
-                    minHeight: 36,
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size(36, 36),
+                    padding: const EdgeInsets.all(8),
                   ),
                 ),
               ],

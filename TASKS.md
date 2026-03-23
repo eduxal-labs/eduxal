@@ -488,7 +488,7 @@ Leave `_buildClassChip` at `4` (correct per `kChipRadius`) and status badges at 
 
 ## Track A (Accessibility) — Accessibility & Error Handling
 
-### Task A1: Add StreamBuilder error states to My Classes screen
+### Task A1: Add StreamBuilder error states to My Classes screen ✅
 **Files to create/modify:** `eduxal/lib/ui/screens/school_dashboard/my_classes/my_classes_screen.dart`
 **Context files to read (if needed):** None
 **Depends on:** None
@@ -523,7 +523,7 @@ builder: (context, stSnap) {
 Apply the same pattern to the outermost `StreamBuilder` (streams query) as well.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 

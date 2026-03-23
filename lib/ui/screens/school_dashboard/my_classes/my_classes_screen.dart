@@ -143,6 +143,18 @@ class _MyClassesBodyState extends State<_MyClassesBody> {
         return StreamBuilder<List<SchoolStream>>(
           stream: catalogDao.watchAllStreamsForSchool(_schoolId),
           builder: (context, streamsSnap) {
+            if (streamsSnap.hasError) {
+              return Center(
+                child: Text(
+                  'Failed to load class streams',
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              );
+            }
             final allStreams = streamsSnap.data ?? [];
 
             return StreamBuilder<List<ClassTeacher>>(
@@ -167,6 +179,18 @@ class _MyClassesBodyState extends State<_MyClassesBody> {
                           ))
                           .watch(),
                   builder: (context, stSnap) {
+                    if (ctSnap.hasError || stSnap.hasError) {
+                      return Center(
+                        child: Text(
+                          'Failed to load class assignments',
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w400,
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                      );
+                    }
                     if (!ctSnap.hasData && !stSnap.hasData) {
                       return const Center(
                         child: SizedBox(
