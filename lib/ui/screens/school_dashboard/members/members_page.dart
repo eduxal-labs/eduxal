@@ -931,6 +931,7 @@ class _OwnersTabState extends State<_OwnersTab> {
                   schoolId: widget.schoolId,
                   owner: owner,
                   user: user,
+                  canDelete: _canDelete,
                 );
               },
             );
@@ -938,6 +939,12 @@ class _OwnersTabState extends State<_OwnersTab> {
         );
       },
     );
+  }
+
+  bool get _canDelete {
+    final entry = widget.schoolContext.currentEntry.value;
+    final perms = widget.schoolContext.permissions;
+    return entry is OwnerEntry || perms.can(Resource.owners, Action.delete);
   }
 }
 
@@ -988,7 +995,8 @@ class _OwnerRow extends StatelessWidget {
   void _showOwnerBottomSheet(BuildContext context, UsersData user) {
     showEduSheet(
       context: context,
-      builder: (_) => _OwnerInfoSheet(user: user, schoolId: schoolId),
+      builder: (_) =>
+          _OwnerInfoSheet(user: user, schoolId: schoolId, canDelete: canDelete),
     );
   }
 
@@ -1005,6 +1013,7 @@ class _OwnerRow extends StatelessWidget {
           child: _OwnerInfoSheet(
             user: user,
             schoolId: schoolId,
+            canDelete: canDelete,
             isSideSheet: true,
           ),
         );
@@ -1133,6 +1142,8 @@ class _TeachersTabState extends State<_TeachersTab> {
                   schoolId: widget.schoolId,
                   teacher: t,
                   user: user,
+                  canDelete: _canDelete,
+                  canEdit: _canEdit,
                 );
               },
             );
@@ -1140,6 +1151,18 @@ class _TeachersTabState extends State<_TeachersTab> {
         );
       },
     );
+  }
+
+  bool get _canDelete {
+    final entry = widget.schoolContext.currentEntry.value;
+    final perms = widget.schoolContext.permissions;
+    return entry is OwnerEntry || perms.can(Resource.teachers, Action.delete);
+  }
+
+  bool get _canEdit {
+    final entry = widget.schoolContext.currentEntry.value;
+    final perms = widget.schoolContext.permissions;
+    return entry is OwnerEntry || perms.can(Resource.teachers, Action.update);
   }
 }
 
@@ -1149,11 +1172,13 @@ class _TeacherRow extends StatelessWidget {
     required this.teacher,
     required this.user,
     this.canDelete = true,
+    this.canEdit = true,
   });
   final String schoolId;
   final TeachersData teacher;
   final UsersData? user;
   final bool canDelete;
+  final bool canEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -1198,8 +1223,13 @@ class _TeacherRow extends StatelessWidget {
   void _showTeacherBottomSheet(BuildContext context, UsersData user) {
     showEduSheet(
       context: context,
-      builder: (_) =>
-          _TeacherInfoSheet(user: user, teacher: teacher, schoolId: schoolId),
+      builder: (_) => _TeacherInfoSheet(
+        user: user,
+        teacher: teacher,
+        schoolId: schoolId,
+        canEdit: canEdit,
+        canDelete: canDelete,
+      ),
     );
   }
 
@@ -1217,6 +1247,8 @@ class _TeacherRow extends StatelessWidget {
             user: user,
             teacher: teacher,
             schoolId: schoolId,
+            canEdit: canEdit,
+            canDelete: canDelete,
             isSideSheet: true,
           ),
         );
@@ -1345,6 +1377,8 @@ class _StaffTabState extends State<_StaffTab> {
                   schoolId: widget.schoolId,
                   member: s,
                   user: user,
+                  canDelete: _canDelete,
+                  canEdit: _canEdit,
                 );
               },
             );
@@ -1352,6 +1386,18 @@ class _StaffTabState extends State<_StaffTab> {
         );
       },
     );
+  }
+
+  bool get _canDelete {
+    final entry = widget.schoolContext.currentEntry.value;
+    final perms = widget.schoolContext.permissions;
+    return entry is OwnerEntry || perms.can(Resource.staff, Action.delete);
+  }
+
+  bool get _canEdit {
+    final entry = widget.schoolContext.currentEntry.value;
+    final perms = widget.schoolContext.permissions;
+    return entry is OwnerEntry || perms.can(Resource.staff, Action.update);
   }
 }
 
@@ -1361,11 +1407,13 @@ class _StaffRow extends StatelessWidget {
     required this.member,
     required this.user,
     this.canDelete = true,
+    this.canEdit = true,
   });
   final String schoolId;
   final StaffData member;
   final UsersData? user;
   final bool canDelete;
+  final bool canEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -1410,8 +1458,13 @@ class _StaffRow extends StatelessWidget {
   void _showStaffBottomSheet(BuildContext context, UsersData user) {
     showEduSheet(
       context: context,
-      builder: (_) =>
-          _StaffInfoSheet(user: user, member: member, schoolId: schoolId),
+      builder: (_) => _StaffInfoSheet(
+        user: user,
+        member: member,
+        schoolId: schoolId,
+        canEdit: canEdit,
+        canDelete: canDelete,
+      ),
     );
   }
 
@@ -1429,6 +1482,8 @@ class _StaffRow extends StatelessWidget {
             user: user,
             member: member,
             schoolId: schoolId,
+            canEdit: canEdit,
+            canDelete: canDelete,
             isSideSheet: true,
           ),
         );
@@ -1533,11 +1588,21 @@ class _StudentsTabState extends State<_StudentsTab> {
           itemCount: filtered.length,
           itemBuilder: (context, i) {
             final s = filtered[i];
-            return _StudentRow(schoolId: widget.schoolId, student: s);
+            return _StudentRow(
+              schoolId: widget.schoolId,
+              student: s,
+              canDelete: _canDelete,
+            );
           },
         );
       },
     );
+  }
+
+  bool get _canDelete {
+    final entry = widget.schoolContext.currentEntry.value;
+    final perms = widget.schoolContext.permissions;
+    return entry is OwnerEntry || perms.can(Resource.students, Action.delete);
   }
 }
 
@@ -3119,11 +3184,13 @@ class _OwnerInfoSheet extends StatelessWidget {
   const _OwnerInfoSheet({
     required this.user,
     required this.schoolId,
+    this.canDelete = true,
     this.isSideSheet = false,
   });
 
   final UsersData user;
   final String schoolId;
+  final bool canDelete;
   final bool isSideSheet;
 
   @override
@@ -3226,34 +3293,32 @@ class _OwnerInfoSheet extends StatelessWidget {
                   ],
                 ),
 
-                const SizedBox(height: 24),
-                Divider(
-                  height: 1,
-                  color: cs.outlineVariant.withValues(
-                    alpha: isDark ? 0.15 : 0.3,
+                if (canDelete) ...[
+                  const SizedBox(height: 24),
+                  Divider(
+                    height: 1,
+                    color: cs.outlineVariant.withValues(
+                      alpha: isDark ? 0.15 : 0.3,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-
-                // Actions section
-                Text(
-                  'Actions',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                    letterSpacing: 0.5,
+                  const SizedBox(height: 16),
+                  Text(
+                    'Actions',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w500,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                      letterSpacing: 0.5,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-
-                // Remove owner action
-                _OwnerAction(
-                  icon: Icons.person_remove_outlined,
-                  label: 'Remove from school',
-                  color: cs.error,
-                  onTap: () => _confirmRemoveOwner(context),
-                ),
+                  const SizedBox(height: 12),
+                  _OwnerAction(
+                    icon: Icons.person_remove_outlined,
+                    label: 'Remove from school',
+                    color: cs.error,
+                    onTap: () => _confirmRemoveOwner(context),
+                  ),
+                ],
               ],
             ),
           ),
@@ -3364,12 +3429,16 @@ class _TeacherInfoSheet extends StatefulWidget {
     required this.user,
     required this.teacher,
     required this.schoolId,
+    this.canEdit = true,
+    this.canDelete = true,
     this.isSideSheet = false,
   });
 
   final UsersData user;
   final TeachersData teacher;
   final String schoolId;
+  final bool canEdit;
+  final bool canDelete;
   final bool isSideSheet;
 
   @override
@@ -3676,65 +3745,75 @@ class _TeacherInfoSheetState extends State<_TeacherInfoSheet> {
 
                 _ActionIconGroup(
                   actions: [
-                    _ActionIconItem(
-                      icon: Icons.edit_outlined,
-                      tooltip: 'Edit',
-                      color: cs.primary,
-                      onTap: () => _showEditSheet(context, _service),
-                    ),
-                    _ActionIconItem(
-                      icon: Icons.exit_to_app_outlined,
-                      tooltip: 'Resign',
-                      color: Colors.orange,
-                      onTap: () => _changeStatus(
-                        context,
-                        _service,
-                        TeacherStatus.resigned,
+                    if (widget.canEdit)
+                      _ActionIconItem(
+                        icon: Icons.edit_outlined,
+                        tooltip: 'Edit',
+                        color: cs.primary,
+                        onTap: () => _showEditSheet(context, _service),
                       ),
-                    ),
-                    _ActionIconItem(
-                      icon: Icons.undo_outlined,
-                      tooltip: 'Restore',
-                      color: Colors.green,
-                      onTap: () => _changeStatus(
-                        context,
-                        _service,
-                        TeacherStatus.active,
+                    if (widget.canEdit)
+                      _ActionIconItem(
+                        icon: Icons.exit_to_app_outlined,
+                        tooltip: 'Resign',
+                        color: Colors.orange,
+                        onTap: () => _changeStatus(
+                          context,
+                          _service,
+                          TeacherStatus.resigned,
+                        ),
                       ),
-                    ),
-                    _ActionIconItem(
-                      icon: Icons.swap_horiz_outlined,
-                      tooltip: 'Transfer',
-                      color: cs.tertiary,
-                      onTap: () => _changeStatus(
-                        context,
-                        _service,
-                        TeacherStatus.transferred,
+                    if (widget.canEdit)
+                      _ActionIconItem(
+                        icon: Icons.undo_outlined,
+                        tooltip: 'Restore',
+                        color: Colors.green,
+                        onTap: () => _changeStatus(
+                          context,
+                          _service,
+                          TeacherStatus.active,
+                        ),
                       ),
-                    ),
-                    _ActionIconItem(
-                      icon: Icons.block_outlined,
-                      tooltip: 'Fired',
-                      color: cs.error,
-                      onTap: () =>
-                          _changeStatus(context, _service, TeacherStatus.fired),
-                    ),
-                    _ActionIconItem(
-                      icon: Icons.elderly_outlined,
-                      tooltip: 'Retired',
-                      color: cs.onSurfaceVariant,
-                      onTap: () => _changeStatus(
-                        context,
-                        _service,
-                        TeacherStatus.retired,
+                    if (widget.canEdit)
+                      _ActionIconItem(
+                        icon: Icons.swap_horiz_outlined,
+                        tooltip: 'Transfer',
+                        color: cs.tertiary,
+                        onTap: () => _changeStatus(
+                          context,
+                          _service,
+                          TeacherStatus.transferred,
+                        ),
                       ),
-                    ),
-                    _ActionIconItem(
-                      icon: Icons.person_remove_outlined,
-                      tooltip: 'Remove',
-                      color: cs.error,
-                      onTap: () => _confirmRemove(context, _service),
-                    ),
+                    if (widget.canEdit)
+                      _ActionIconItem(
+                        icon: Icons.block_outlined,
+                        tooltip: 'Fired',
+                        color: cs.error,
+                        onTap: () => _changeStatus(
+                          context,
+                          _service,
+                          TeacherStatus.fired,
+                        ),
+                      ),
+                    if (widget.canEdit)
+                      _ActionIconItem(
+                        icon: Icons.elderly_outlined,
+                        tooltip: 'Retired',
+                        color: cs.onSurfaceVariant,
+                        onTap: () => _changeStatus(
+                          context,
+                          _service,
+                          TeacherStatus.retired,
+                        ),
+                      ),
+                    if (widget.canDelete)
+                      _ActionIconItem(
+                        icon: Icons.person_remove_outlined,
+                        tooltip: 'Remove',
+                        color: cs.error,
+                        onTap: () => _confirmRemove(context, _service),
+                      ),
                   ],
                 ),
               ],
@@ -4161,12 +4240,16 @@ class _StaffInfoSheet extends StatelessWidget {
     required this.user,
     required this.member,
     required this.schoolId,
+    this.canEdit = true,
+    this.canDelete = true,
     this.isSideSheet = false,
   });
 
   final UsersData user;
   final StaffData member;
   final String schoolId;
+  final bool canEdit;
+  final bool canDelete;
   final bool isSideSheet;
 
   @override
@@ -4311,56 +4394,69 @@ class _StaffInfoSheet extends StatelessWidget {
 
                 _ActionIconGroup(
                   actions: [
-                    _ActionIconItem(
-                      icon: Icons.edit_outlined,
-                      tooltip: 'Edit',
-                      color: cs.primary,
-                      onTap: () => _showEditSheet(context, service),
-                    ),
-                    _ActionIconItem(
-                      icon: Icons.exit_to_app_outlined,
-                      tooltip: 'Resign',
-                      color: Colors.orange,
-                      onTap: () =>
-                          _changeStatus(context, service, StaffStatus.resigned),
-                    ),
-                    _ActionIconItem(
-                      icon: Icons.undo_outlined,
-                      tooltip: 'Restore',
-                      color: Colors.green,
-                      onTap: () =>
-                          _changeStatus(context, service, StaffStatus.active),
-                    ),
-                    _ActionIconItem(
-                      icon: Icons.swap_horiz_outlined,
-                      tooltip: 'Transfer',
-                      color: cs.tertiary,
-                      onTap: () => _changeStatus(
-                        context,
-                        service,
-                        StaffStatus.transferred,
+                    if (canEdit)
+                      _ActionIconItem(
+                        icon: Icons.edit_outlined,
+                        tooltip: 'Edit',
+                        color: cs.primary,
+                        onTap: () => _showEditSheet(context, service),
                       ),
-                    ),
-                    _ActionIconItem(
-                      icon: Icons.block_outlined,
-                      tooltip: 'Fired',
-                      color: cs.error,
-                      onTap: () =>
-                          _changeStatus(context, service, StaffStatus.fired),
-                    ),
-                    _ActionIconItem(
-                      icon: Icons.elderly_outlined,
-                      tooltip: 'Retired',
-                      color: cs.onSurfaceVariant,
-                      onTap: () =>
-                          _changeStatus(context, service, StaffStatus.retired),
-                    ),
-                    _ActionIconItem(
-                      icon: Icons.person_remove_outlined,
-                      tooltip: 'Remove',
-                      color: cs.error,
-                      onTap: () => _confirmRemove(context, service),
-                    ),
+                    if (canEdit)
+                      _ActionIconItem(
+                        icon: Icons.exit_to_app_outlined,
+                        tooltip: 'Resign',
+                        color: Colors.orange,
+                        onTap: () => _changeStatus(
+                          context,
+                          service,
+                          StaffStatus.resigned,
+                        ),
+                      ),
+                    if (canEdit)
+                      _ActionIconItem(
+                        icon: Icons.undo_outlined,
+                        tooltip: 'Restore',
+                        color: Colors.green,
+                        onTap: () =>
+                            _changeStatus(context, service, StaffStatus.active),
+                      ),
+                    if (canEdit)
+                      _ActionIconItem(
+                        icon: Icons.swap_horiz_outlined,
+                        tooltip: 'Transfer',
+                        color: cs.tertiary,
+                        onTap: () => _changeStatus(
+                          context,
+                          service,
+                          StaffStatus.transferred,
+                        ),
+                      ),
+                    if (canEdit)
+                      _ActionIconItem(
+                        icon: Icons.block_outlined,
+                        tooltip: 'Fired',
+                        color: cs.error,
+                        onTap: () =>
+                            _changeStatus(context, service, StaffStatus.fired),
+                      ),
+                    if (canEdit)
+                      _ActionIconItem(
+                        icon: Icons.elderly_outlined,
+                        tooltip: 'Retired',
+                        color: cs.onSurfaceVariant,
+                        onTap: () => _changeStatus(
+                          context,
+                          service,
+                          StaffStatus.retired,
+                        ),
+                      ),
+                    if (canDelete)
+                      _ActionIconItem(
+                        icon: Icons.person_remove_outlined,
+                        tooltip: 'Remove',
+                        color: cs.error,
+                        onTap: () => _confirmRemove(context, service),
+                      ),
                   ],
                 ),
               ],
