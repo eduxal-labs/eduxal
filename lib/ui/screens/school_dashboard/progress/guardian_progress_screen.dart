@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/attendance_dao.dart';
 import '../../../../database/daos/catalog_dao.dart';

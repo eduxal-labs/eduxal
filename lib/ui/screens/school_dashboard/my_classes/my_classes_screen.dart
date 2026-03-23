@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/academics_dao.dart';
-import '../../../../database/daos/catalog_dao.dart';
 import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../models/school_config.dart';
 import '../../../../models/membership.dart';
