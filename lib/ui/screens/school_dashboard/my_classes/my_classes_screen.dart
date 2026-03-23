@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
@@ -9,6 +7,7 @@ import '../../../../database/daos/academics_dao.dart';
 import '../../../../database/daos/catalog_dao.dart';
 import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../models/school_config.dart';
+import '../../../../models/membership.dart';
 import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/active_term_provider.dart';
@@ -392,7 +391,7 @@ class _AssignmentsGrid extends StatelessWidget {
                     borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
                   ),
                   child: Text(
-                    '${assignments.length} ${assignments.length == 1 ? 'class' : 'classes'}',
+                    "${assignments.length} ${assignments.length == 1 ? 'class' : 'classes'}",
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
@@ -503,7 +502,6 @@ class _ClassCard extends StatefulWidget {
 class _ClassCardState extends State<_ClassCard>
     with SingleTickerProviderStateMixin {
   bool _isHovered = false;
-  bool _isPressed = false;
   late final AnimationController _pressCtrl;
   late final Animation<double> _scaleAnim;
 
@@ -527,17 +525,14 @@ class _ClassCardState extends State<_ClassCard>
   }
 
   void _onTapDown(TapDownDetails _) {
-    setState(() => _isPressed = true);
     _pressCtrl.forward();
   }
 
   void _onTapUp(TapUpDetails _) {
-    setState(() => _isPressed = false);
     _pressCtrl.reverse();
   }
 
   void _onTapCancel() {
-    setState(() => _isPressed = false);
     _pressCtrl.reverse();
   }
 
@@ -642,7 +637,7 @@ class _ClassCardState extends State<_ClassCard>
                       _InfoChip(
                         icon: Icons.menu_book_outlined,
                         label:
-                            '${a.subjectCount} ${a.subjectCount == 1 ? 'subject' : 'subjects'}',
+                            "${a.subjectCount} ${a.subjectCount == 1 ? 'subject' : 'subjects'}",
                         cs: cs,
                         isDark: isDark,
                       ),
@@ -758,7 +753,7 @@ class _StudentCountChip extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             Text(
-              '$count ${count == 1 ? 'student' : 'students'}',
+              "$count ${count == 1 ? 'student' : 'students'}",
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w400,

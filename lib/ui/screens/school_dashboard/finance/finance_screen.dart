@@ -9,6 +9,7 @@ import '../../../../database/daos/finance_dao.dart';
 import '../../../../database/tables/enums.dart';
 import '../../../../models/active_term_context.dart';
 import '../../../../models/membership.dart';
+import '../../../../models/permissions.dart';
 import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
 import '../../../widgets/active_term_provider.dart';
@@ -48,6 +49,18 @@ class FinanceScreen extends StatelessWidget {
         schoolContext: schoolContext,
         termContext: termCtx,
       ),
+      TeacherEntry() => (schoolContext.permissions.canAny(Resource.fees, [Action.read]) ||
+                          schoolContext.permissions.canAny(Resource.payments, [Action.read]))
+          ? _OwnerFinanceShell(
+              schoolContext: schoolContext,
+              termContext: termCtx,
+            )
+          : _GuardianFinanceView(
+              schoolContext: schoolContext,
+              termContext: termCtx,
+              studentAdm: '',
+              studentName: '',
+            ),
       GuardianEntry(:final ward) => _GuardianFinanceView(
         schoolContext: schoolContext,
         termContext: termCtx,
@@ -191,6 +204,7 @@ class _OwnerFinanceShellState extends State<_OwnerFinanceShell>
                 dao: _dao,
                 config: _config,
                 cs: cs,
+                schoolContext: widget.schoolContext,
               ),
               _PaymentsTab(
                 schoolId: _schoolId,
@@ -198,6 +212,7 @@ class _OwnerFinanceShellState extends State<_OwnerFinanceShell>
                 term: term.term,
                 dao: _dao,
                 cs: cs,
+                schoolContext: widget.schoolContext,
               ),
               _FeesTab(
                 schoolId: _schoolId,
@@ -206,6 +221,7 @@ class _OwnerFinanceShellState extends State<_OwnerFinanceShell>
                 dao: _dao,
                 config: _config,
                 cs: cs,
+                schoolContext: widget.schoolContext,
               ),
             ],
           ),
@@ -602,6 +618,7 @@ class _InvoicesTab extends StatefulWidget {
     required this.dao,
     required this.config,
     required this.cs,
+    required this.schoolContext,
   });
 
   final String schoolId;
@@ -610,6 +627,7 @@ class _InvoicesTab extends StatefulWidget {
   final FinanceDao dao;
   final SchoolConfig config;
   final ColorScheme cs;
+  final SchoolContext schoolContext;
 
   @override
   State<_InvoicesTab> createState() => _InvoicesTabState();
@@ -675,6 +693,7 @@ class _InvoicesTabState extends State<_InvoicesTab> {
                 schoolId: widget.schoolId,
                 cs: cs,
                 isDark: isDark,
+                schoolContext: widget.schoolContext,
               );
             },
           ),
@@ -802,6 +821,7 @@ class _InvoiceListView extends StatelessWidget {
     required this.schoolId,
     required this.cs,
     required this.isDark,
+    required this.schoolContext,
   });
 
   final List<InvoiceWithDetails> items;
@@ -809,6 +829,7 @@ class _InvoiceListView extends StatelessWidget {
   final String schoolId;
   final ColorScheme cs;
   final bool isDark;
+  final SchoolContext schoolContext;
 
   @override
   Widget build(BuildContext context) {
@@ -820,12 +841,22 @@ class _InvoiceListView extends StatelessWidget {
           return AppTheme.tableRowDivider(isDark, cs);
         }
         final item = items[index ~/ 2];
+        final entry = schoolContext.currentEntry.value;
+        final canRecord = entry is OwnerEntry ||
+            schoolContext.permissions.can(Resource.payments, Action.create);
+        final canEditInvoice = entry is OwnerEntry ||
+            schoolContext.permissions.can(Resource.fees, Action.update);
+        final canDeleteInvoice = entry is OwnerEntry ||
+            schoolContext.permissions.can(Resource.fees, Action.delete);
         return _InvoiceRow(
           item: item,
           dao: dao,
           schoolId: schoolId,
           cs: cs,
           isDark: isDark,
+          canRecordPayment: canRecord,
+          canEdit: canEditInvoice,
+          canDelete: canDeleteInvoice,
           onRecordPayment: () =>
               _showRecordPaymentSheet(context, item, dao, schoolId, cs),
         );
@@ -842,6 +873,9 @@ class _InvoiceRow extends StatefulWidget {
     required this.cs,
     required this.isDark,
     required this.onRecordPayment,
+    this.canRecordPayment = true,
+    this.canEdit = true,
+    this.canDelete = true,
   });
 
   final InvoiceWithDetails item;
@@ -850,6 +884,9 @@ class _InvoiceRow extends StatefulWidget {
   final ColorScheme cs;
   final bool isDark;
   final VoidCallback onRecordPayment;
+  final bool canRecordPayment;
+  final bool canEdit;
+  final bool canDelete;
 
   @override
   State<_InvoiceRow> createState() => _InvoiceRowState();
@@ -868,6 +905,7 @@ class _InvoiceRowState extends State<_InvoiceRow> {
     final balance = item.balance;
     final title = item.feeTitle ?? item.invoice.description ?? 'Invoice';
     final canRecordPayment =
+        widget.canRecordPayment &&
         item.invoice.status != InvoiceStatus.paid &&
         item.invoice.status != InvoiceStatus.cancelled;
 
@@ -972,18 +1010,20 @@ class _InvoiceRowState extends State<_InvoiceRow> {
                         color: _kPaidColor,
                         onTap: widget.onRecordPayment,
                       ),
-                    _FinanceRowAction(
-                      icon: Icons.edit_outlined,
-                      label: 'Edit',
-                      color: cs.onSurfaceVariant,
-                      onTap: () {},
-                    ),
-                    _FinanceRowAction(
-                      icon: Icons.delete_outline_rounded,
-                      label: 'Delete',
-                      color: cs.error,
-                      onTap: () {},
-                    ),
+                    if (widget.canEdit)
+                      _FinanceRowAction(
+                        icon: Icons.edit_outlined,
+                        label: 'Edit',
+                        color: cs.onSurfaceVariant,
+                        onTap: () {},
+                      ),
+                    if (widget.canDelete)
+                      _FinanceRowAction(
+                        icon: Icons.delete_outline_rounded,
+                        label: 'Delete',
+                        color: cs.error,
+                        onTap: () {},
+                      ),
                   ],
                 ),
               ],
@@ -1001,18 +1041,20 @@ class _InvoiceRowState extends State<_InvoiceRow> {
                         color: _kPaidColor,
                         onTap: widget.onRecordPayment,
                       ),
-                    _FinanceRowAction(
-                      icon: Icons.edit_outlined,
-                      label: 'Edit',
-                      color: cs.onSurface,
-                      onTap: () {},
-                    ),
-                    _FinanceRowAction(
-                      icon: Icons.delete_outline_rounded,
-                      label: 'Delete',
-                      color: cs.error,
-                      onTap: () {},
-                    ),
+                    if (widget.canEdit)
+                      _FinanceRowAction(
+                        icon: Icons.edit_outlined,
+                        label: 'Edit',
+                        color: cs.onSurface,
+                        onTap: () {},
+                      ),
+                    if (widget.canDelete)
+                      _FinanceRowAction(
+                        icon: Icons.delete_outline_rounded,
+                        label: 'Delete',
+                        color: cs.error,
+                        onTap: () {},
+                      ),
                   ],
                 ),
             ],
@@ -1075,6 +1117,7 @@ class _PaymentsTab extends StatelessWidget {
     required this.term,
     required this.dao,
     required this.cs,
+    required this.schoolContext,
   });
 
   final String schoolId;
@@ -1082,6 +1125,7 @@ class _PaymentsTab extends StatelessWidget {
   final int term;
   final FinanceDao dao;
   final ColorScheme cs;
+  final SchoolContext schoolContext;
 
   @override
   Widget build(BuildContext context) {
@@ -1119,8 +1163,19 @@ class _PaymentsTab extends StatelessWidget {
             if (index.isOdd) {
               return AppTheme.tableRowDivider(isDark, cs);
             }
+            final entry = schoolContext.currentEntry.value;
             final item = items[index ~/ 2];
-            return _PaymentRow(item: item, cs: cs, isDark: isDark);
+            return _PaymentRow(
+              item: item,
+              cs: cs,
+              isDark: isDark,
+              canApprove: entry is OwnerEntry ||
+                  schoolContext.permissions.can(Resource.payments, Action.approve),
+              canEdit: entry is OwnerEntry ||
+                  schoolContext.permissions.can(Resource.payments, Action.update),
+              canDelete: entry is OwnerEntry ||
+                  schoolContext.permissions.can(Resource.payments, Action.delete),
+            );
           },
         );
       },
@@ -1133,11 +1188,17 @@ class _PaymentRow extends StatefulWidget {
     required this.item,
     required this.cs,
     required this.isDark,
+    this.canApprove = true,
+    this.canEdit = true,
+    this.canDelete = true,
   });
 
   final PaymentWithDetails item;
   final ColorScheme cs;
   final bool isDark;
+  final bool canApprove;
+  final bool canEdit;
+  final bool canDelete;
 
   @override
   State<_PaymentRow> createState() => _PaymentRowState();
@@ -1235,24 +1296,27 @@ class _PaymentRowState extends State<_PaymentRow> {
                   isHovered: _isHovered,
                   cs: cs,
                   actions: [
-                    _FinanceRowAction(
-                      icon: Icons.thumb_up_outlined,
-                      label: 'Approve',
-                      color: _kPaidColor,
-                      onTap: () {},
-                    ),
-                    _FinanceRowAction(
-                      icon: Icons.edit_outlined,
-                      label: 'Edit',
-                      color: cs.onSurfaceVariant,
-                      onTap: () {},
-                    ),
-                    _FinanceRowAction(
-                      icon: Icons.delete_outline_rounded,
-                      label: 'Delete',
-                      color: cs.error,
-                      onTap: () {},
-                    ),
+                    if (widget.canApprove)
+                      _FinanceRowAction(
+                        icon: Icons.thumb_up_outlined,
+                        label: 'Approve',
+                        color: _kPaidColor,
+                        onTap: () {},
+                      ),
+                    if (widget.canEdit)
+                      _FinanceRowAction(
+                        icon: Icons.edit_outlined,
+                        label: 'Edit',
+                        color: cs.onSurfaceVariant,
+                        onTap: () {},
+                      ),
+                    if (widget.canDelete)
+                      _FinanceRowAction(
+                        icon: Icons.delete_outline_rounded,
+                        label: 'Delete',
+                        color: cs.error,
+                        onTap: () {},
+                      ),
                   ],
                 ),
               ],
@@ -1263,24 +1327,27 @@ class _PaymentRowState extends State<_PaymentRow> {
                   cs: cs,
                   isDark: isDark,
                   actions: [
-                    _FinanceRowAction(
-                      icon: Icons.thumb_up_outlined,
-                      label: 'Approve',
-                      color: _kPaidColor,
-                      onTap: () {},
-                    ),
-                    _FinanceRowAction(
-                      icon: Icons.edit_outlined,
-                      label: 'Edit',
-                      color: cs.onSurface,
-                      onTap: () {},
-                    ),
-                    _FinanceRowAction(
-                      icon: Icons.delete_outline_rounded,
-                      label: 'Delete',
-                      color: cs.error,
-                      onTap: () {},
-                    ),
+                    if (widget.canApprove)
+                      _FinanceRowAction(
+                        icon: Icons.thumb_up_outlined,
+                        label: 'Approve',
+                        color: _kPaidColor,
+                        onTap: () {},
+                      ),
+                    if (widget.canEdit)
+                      _FinanceRowAction(
+                        icon: Icons.edit_outlined,
+                        label: 'Edit',
+                        color: cs.onSurface,
+                        onTap: () {},
+                      ),
+                    if (widget.canDelete)
+                      _FinanceRowAction(
+                        icon: Icons.delete_outline_rounded,
+                        label: 'Delete',
+                        color: cs.error,
+                        onTap: () {},
+                      ),
                   ],
                 ),
             ],
@@ -1310,6 +1377,7 @@ class _FeesTab extends StatelessWidget {
     required this.dao,
     required this.config,
     required this.cs,
+    required this.schoolContext,
   });
 
   final String schoolId;
@@ -1318,10 +1386,18 @@ class _FeesTab extends StatelessWidget {
   final FinanceDao dao;
   final SchoolConfig config;
   final ColorScheme cs;
+  final SchoolContext schoolContext;
 
   @override
   Widget build(BuildContext context) {
     final isDark = cs.brightness == Brightness.dark;
+    final entry = schoolContext.currentEntry.value;
+    final canCreateFee = entry is OwnerEntry ||
+        schoolContext.permissions.can(Resource.fees, Action.create);
+    final canEditFee = entry is OwnerEntry ||
+        schoolContext.permissions.can(Resource.fees, Action.update);
+    final canDeleteFee = entry is OwnerEntry ||
+        schoolContext.permissions.can(Resource.fees, Action.delete);
 
     return Stack(
       children: [
@@ -1364,38 +1440,41 @@ class _FeesTab extends StatelessWidget {
                   config: config,
                   cs: cs,
                   isDark: isDark,
+                  canEdit: canEditFee,
+                  canDelete: canDeleteFee,
                   onGenerateInvoices: () => _generateInvoices(context, item),
                 );
               },
             );
           },
         ),
-        // FAB
-        Positioned(
-          right: 20,
-          bottom: 20,
-          child: FloatingActionButton.small(
-            heroTag: 'fab_finance_fees',
-            onPressed: () => _showCreateFeeSheet(
-              context,
-              dao,
-              schoolId,
-              year,
-              term,
-              config,
-              cs,
+        // FAB — only if user can create fees
+        if (canCreateFee)
+          Positioned(
+            right: 20,
+            bottom: 20,
+            child: FloatingActionButton.small(
+              heroTag: 'fab_finance_fees',
+              onPressed: () => _showCreateFeeSheet(
+                context,
+                dao,
+                schoolId,
+                year,
+                term,
+                config,
+                cs,
+              ),
+              tooltip: 'New Fee',
+              elevation: 4,
+              highlightElevation: 6,
+              backgroundColor: Colors.green.shade600,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.add, size: 20),
             ),
-            tooltip: 'New Fee',
-            elevation: 4,
-            highlightElevation: 6,
-            backgroundColor: Colors.green.shade600,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.add, size: 20),
           ),
-        ),
       ],
     );
   }
@@ -1451,6 +1530,8 @@ class _FeeRow extends StatefulWidget {
     required this.cs,
     required this.isDark,
     required this.onGenerateInvoices,
+    this.canEdit = true,
+    this.canDelete = true,
   });
 
   final FeeWithStats item;
@@ -1459,6 +1540,8 @@ class _FeeRow extends StatefulWidget {
   final ColorScheme cs;
   final bool isDark;
   final VoidCallback onGenerateInvoices;
+  final bool canEdit;
+  final bool canDelete;
 
   @override
   State<_FeeRow> createState() => _FeeRowState();
@@ -1581,18 +1664,20 @@ class _FeeRowState extends State<_FeeRow> {
                       color: cs.primary,
                       onTap: widget.onGenerateInvoices,
                     ),
-                    _FinanceRowAction(
-                      icon: Icons.edit_outlined,
-                      label: 'Edit',
-                      color: cs.onSurfaceVariant,
-                      onTap: () {},
-                    ),
-                    _FinanceRowAction(
-                      icon: Icons.delete_outline_rounded,
-                      label: 'Delete',
-                      color: cs.error,
-                      onTap: () {},
-                    ),
+                    if (widget.canEdit)
+                      _FinanceRowAction(
+                        icon: Icons.edit_outlined,
+                        label: 'Edit',
+                        color: cs.onSurfaceVariant,
+                        onTap: () {},
+                      ),
+                    if (widget.canDelete)
+                      _FinanceRowAction(
+                        icon: Icons.delete_outline_rounded,
+                        label: 'Delete',
+                        color: cs.error,
+                        onTap: () {},
+                      ),
                   ],
                 ),
               ],
@@ -1609,18 +1694,20 @@ class _FeeRowState extends State<_FeeRow> {
                       color: cs.primary,
                       onTap: widget.onGenerateInvoices,
                     ),
-                    _FinanceRowAction(
-                      icon: Icons.edit_outlined,
-                      label: 'Edit',
-                      color: cs.onSurface,
-                      onTap: () {},
-                    ),
-                    _FinanceRowAction(
-                      icon: Icons.delete_outline_rounded,
-                      label: 'Delete',
-                      color: cs.error,
-                      onTap: () {},
-                    ),
+                    if (widget.canEdit)
+                      _FinanceRowAction(
+                        icon: Icons.edit_outlined,
+                        label: 'Edit',
+                        color: cs.onSurface,
+                        onTap: () {},
+                      ),
+                    if (widget.canDelete)
+                      _FinanceRowAction(
+                        icon: Icons.delete_outline_rounded,
+                        label: 'Delete',
+                        color: cs.error,
+                        onTap: () {},
+                      ),
                   ],
                 ),
             ],
