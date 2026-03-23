@@ -9,6 +9,7 @@ import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/school_scopes_dao.dart';
 import '../../../../database/tables/enums.dart';
+import '../../../../models/membership.dart';
 import '../../../../models/permissions.dart' as models;
 import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
@@ -170,6 +171,16 @@ class _SchoolRolesBodyState extends State<_SchoolRolesBody> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final perms = widget.schoolContext.permissions;
+    final entry = widget.schoolContext.currentEntry.value;
+    final canCreate =
+        perms.can(models.Resource.roles, models.Action.create) ||
+        entry is OwnerEntry;
+    final canEdit =
+        perms.can(models.Resource.roles, models.Action.update) ||
+        entry is OwnerEntry;
+    final canDelete =
+        perms.can(models.Resource.roles, models.Action.delete) ||
+        entry is OwnerEntry;
 
     return StreamBuilder<List<Role>>(
       stream: _dao.watchSchoolRoles(_schoolId),
@@ -213,19 +224,13 @@ class _SchoolRolesBodyState extends State<_SchoolRolesBody> {
                                 label: 'View',
                                 onTap: (r) => _openDetail(context, r),
                               ),
-                              if (perms.can(
-                                models.Resource.roles,
-                                models.Action.update,
-                              ))
+                              if (canEdit)
                                 EduDataTableAction<Role>(
                                   icon: Icons.edit_outlined,
                                   label: 'Edit',
                                   onTap: (_) => _showCreateSheet(context),
                                 ),
-                              if (perms.can(
-                                models.Resource.roles,
-                                models.Action.delete,
-                              ))
+                              if (canDelete)
                                 EduDataTableAction<Role>(
                                   icon: Icons.delete_outline_rounded,
                                   label: 'Delete',
@@ -260,22 +265,23 @@ class _SchoolRolesBodyState extends State<_SchoolRolesBody> {
             ),
 
             // ── FAB ──────────────────────────────────────────────────────
-            Positioned(
-              right: 20,
-              bottom: 24,
-              child: FloatingActionButton.small(
-                heroTag: 'fab_roles_create',
-                onPressed: () => _showCreateSheet(context),
-                backgroundColor: Colors.green.shade600,
-                foregroundColor: Colors.white,
-                elevation: 4,
-                highlightElevation: 6,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+            if (canCreate)
+              Positioned(
+                right: 20,
+                bottom: 24,
+                child: FloatingActionButton.small(
+                  heroTag: 'fab_roles_create',
+                  onPressed: () => _showCreateSheet(context),
+                  backgroundColor: Colors.green.shade600,
+                  foregroundColor: Colors.white,
+                  elevation: 4,
+                  highlightElevation: 6,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.add, size: 20),
                 ),
-                child: const Icon(Icons.add, size: 20),
               ),
-            ),
           ],
         );
       },

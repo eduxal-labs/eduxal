@@ -21,6 +21,7 @@ class NoTermsBlankState extends StatelessWidget {
     super.key,
     required this.schoolId,
     required this.role,
+    this.canCreateTerm = false,
     this.onTermCreated,
   });
 
@@ -30,6 +31,11 @@ class NoTermsBlankState extends StatelessWidget {
   /// The active membership role — determines which copy and CTA to show.
   final MembershipRole role;
 
+  /// Whether the current user has permission to create terms at this school.
+  /// When true, shows the prominent "Create First Term" CTA and owner-style
+  /// copy. When false, shows a softer informational state.
+  final bool canCreateTerm;
+
   /// Called after a term is successfully created. The parent (dashboard shell)
   /// uses this to update the [ActiveTermContext] immediately.
   final VoidCallback? onTermCreated;
@@ -38,7 +44,7 @@ class NoTermsBlankState extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
-    final isOwner = role == MembershipRole.owner;
+    final isOwner = canCreateTerm;
 
     return LayoutBuilder(
       builder: (context, constraints) {

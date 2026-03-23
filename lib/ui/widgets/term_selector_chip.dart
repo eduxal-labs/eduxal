@@ -35,11 +35,16 @@ class TermSelectorChip extends StatefulWidget {
     /// When true, only the calendar icon is shown (no label, no chevron).
     /// Used in the narrow 64 px icon rail where there is no room for text.
     this.compact = false,
+
+    /// Whether the current user has permission to create terms.
+    /// When false the "Add term" row is hidden from the dropdown.
+    this.canCreateTerm = false,
   });
 
   final ActiveTermContext termContext;
   final bool alignRight;
   final bool compact;
+  final bool canCreateTerm;
 
   @override
   State<TermSelectorChip> createState() => _TermSelectorChipState();
@@ -59,6 +64,7 @@ class _TermSelectorChipState extends State<TermSelectorChip> {
         link: _link,
         termContext: widget.termContext,
         alignRight: widget.alignRight,
+        canCreateTerm: widget.canCreateTerm,
         onDismiss: _close,
         onTermSelected: (term) {
           widget.termContext.setTerm(term);
@@ -180,6 +186,7 @@ class _TermDropdown extends StatefulWidget {
     required this.link,
     required this.termContext,
     required this.alignRight,
+    required this.canCreateTerm,
     required this.onDismiss,
     required this.onTermSelected,
     required this.onCreateTap,
@@ -188,6 +195,7 @@ class _TermDropdown extends StatefulWidget {
   final LayerLink link;
   final ActiveTermContext termContext;
   final bool alignRight;
+  final bool canCreateTerm;
   final VoidCallback onDismiss;
   final ValueChanged<Term> onTermSelected;
   final VoidCallback onCreateTap;
@@ -258,6 +266,7 @@ class _TermDropdownState extends State<_TermDropdown>
               position: _slide,
               child: _TermDropdownCard(
                 termContext: widget.termContext,
+                canCreateTerm: widget.canCreateTerm,
                 onTermSelected: widget.onTermSelected,
                 onCreateTap: widget.onCreateTap,
               ),
@@ -278,11 +287,13 @@ class _TermDropdownCard extends StatelessWidget {
     required this.termContext,
     required this.onTermSelected,
     required this.onCreateTap,
+    required this.canCreateTerm,
   });
 
   final ActiveTermContext termContext;
   final ValueChanged<Term> onTermSelected;
   final VoidCallback onCreateTap;
+  final bool canCreateTerm;
 
   @override
   Widget build(BuildContext context) {
@@ -379,14 +390,16 @@ class _TermDropdownCard extends StatelessWidget {
                   ),
                 ),
 
-              // ── Divider + Add term footer ─────────────────────────────
-              Container(height: 1, color: divColor),
-              _AddTermRow(
-                accent: accent,
-                cs: cs,
-                isDark: isDark,
-                onTap: onCreateTap,
-              ),
+              // ── Divider + Add term footer (permission-gated) ──────────
+              if (canCreateTerm) ...[
+                Container(height: 1, color: divColor),
+                _AddTermRow(
+                  accent: accent,
+                  cs: cs,
+                  isDark: isDark,
+                  onTap: onCreateTap,
+                ),
+              ],
             ],
           ),
         ),

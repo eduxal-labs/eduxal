@@ -15,6 +15,7 @@ import '../database/daos/logs_dao.dart';
 import '../proto/services/sync.pb.dart' as sync_pb;
 import '../proto/services/sync.pbgrpc.dart';
 import '../cache/file_cache.dart';
+import '../database/tables/enums.dart';
 import 'delta_writer.dart';
 import 'sync_status.dart';
 
@@ -517,13 +518,29 @@ class SyncEngine {
           await _applyActionRow(row);
         }
 
-        // Delete the log entry — it has been successfully synced.
-        await _logsDao.deleteLog(logId);
-
         // Upload local files to S3 if the server provided PUT URLs.
+        // Do this BEFORE deleting the log so a failed upload can be retried.
         if (response.fileUrls.isNotEmpty) {
-          await _handleFileUrls(response.fileUrls, isPushOriginator: true);
+          final uploadOk = await _handleFileUrlsWithResult(
+            response.fileUrls,
+            isPushOriginator: true,
+          );
+          if (!uploadOk) {
+            debugPrint(
+              '[SyncEngine] Action #$logId — file upload failed, '
+              'marking log as failed for retry',
+            );
+            await _logsDao.markFailed(
+              logId,
+              'File upload to S3 failed — will retry',
+            );
+            return; // Don't delete the log — it will be retried
+          }
         }
+
+        // Delete the log entry — it has been successfully synced
+        // AND files uploaded.
+        await _logsDao.deleteLog(logId);
       } else {
         final errorMsg = response.error.isNotEmpty
             ? response.error
@@ -549,11 +566,10 @@ class SyncEngine {
             for (final row in response.rows) {
               await _applyActionRow(row);
             }
-            await _logsDao.deleteLog(logId);
-
             if (response.fileUrls.isNotEmpty) {
               await _handleFileUrls(response.fileUrls, isPushOriginator: true);
             }
+            await _logsDao.deleteLog(logId);
 
           case 3: // validation_error
             _log('Action $logId: validation error — $errorMsg');
@@ -651,6 +667,37 @@ class SyncEngine {
         );
       }
     }
+  }
+
+  /// Like [_handleFileUrls] but returns `false` if any upload/download failed.
+  Future<bool> _handleFileUrlsWithResult(
+    List<sync_pb.FileUrl> fileUrls, {
+    required bool isPushOriginator,
+  }) async {
+    bool allOk = true;
+    for (final fileUrl in fileUrls) {
+      final path = fileUrl.path;
+      if (path.isEmpty) continue;
+
+      if (isPushOriginator) {
+        final putUrl = fileUrl.putUrl;
+        if (putUrl.isEmpty) continue;
+        debugPrint('[SyncEngine] Uploading file: path=$path');
+        final ok = await FileCache.upload(putUrl, path);
+        debugPrint('[FileSync] Upload result: ok=$ok, path=$path');
+        if (!ok) allOk = false;
+      } else {
+        final getUrl = fileUrl.getUrl;
+        if (getUrl.isEmpty) continue;
+        debugPrint('[SyncEngine] Downloading file: path=$path');
+        final file = await FileCache.download(getUrl, path);
+        debugPrint(
+          '[FileSync] Download result: file=${file?.path ?? "NULL"}, path=$path',
+        );
+        if (file == null) allOk = false;
+      }
+    }
+    return allOk;
   }
 
   // =========================================================================
@@ -782,12 +829,27 @@ class SyncEngine {
 
       // Download files from S3 if the server provided GET URLs.
       if (delta.fileUrls.isNotEmpty) {
-        await _handleFileUrls(delta.fileUrls, isPushOriginator: false);
+        // For answer_pages (table 37), skip file downloads and paper_submissions
+        // insertion if there are pending local mutations for the same student/paper.
+        // This prevents the watch-stream echo from resurrecting files that the
+        // user just deleted or replaced locally.
+        bool skipAnswerPageFiles = false;
+        if (delta.table == 37) {
+          skipAnswerPageFiles = await _hasPendingAnswerMutation(delta);
+        }
 
-        // After downloading answer sheet files, insert paper_submissions rows
-        // so the existing UI can discover them via DAO queries.
-        if (delta.table == 37 && delta.operation != 2) {
+        if (!skipAnswerPageFiles) {
+          await _handleFileUrls(delta.fileUrls, isPushOriginator: false);
+        }
+
+        if (delta.table == 37 && delta.operation != 2 && !skipAnswerPageFiles) {
           await _insertAnswerSubmissions(delta);
+        }
+
+        // When an answer_pages DELETE delta arrives, clean up the
+        // corresponding paper_submissions rows and files from disk.
+        if (delta.table == 37 && delta.operation == 2) {
+          await _cleanupDeletedAnswerSubmissions(delta);
         }
       }
 
@@ -872,6 +934,117 @@ class SyncEngine {
       }
     } catch (e) {
       debugPrint('[SyncEngine] Error inserting answer submissions: $e');
+    }
+  }
+
+  /// Returns `true` if there is a pending [uploadAnswerSheet] or
+  /// [deleteAnswerSheet] log entry that targets the same
+  /// (school, exam, student, subject) as [delta].
+  ///
+  /// When the user modifies answer files locally, log entries are written
+  /// *before* the push happens. If a watch-stream delta for the same entity
+  /// arrives in the meantime (echo from a prior push, or a stale broadcast),
+  /// we must not overwrite the user's local changes.
+  Future<bool> _hasPendingAnswerMutation(sync_pb.SyncDelta delta) async {
+    try {
+      final k = delta.rowKey.split('|');
+      if (k.length < 4) return false;
+      final school = k[0];
+      final exam = k[1];
+      final student = int.tryParse(k[2]) ?? 0;
+      final subject = int.tryParse(k[3]) ?? 0;
+
+      final pending = await _logsDao.getPendingLogs(_accountId);
+      for (final log in pending) {
+        if (log.action != SyncAction.uploadAnswerSheet &&
+            log.action != SyncAction.deleteAnswerSheet) {
+          continue;
+        }
+        try {
+          if (log.action == SyncAction.uploadAnswerSheet) {
+            final p = sync_pb.UploadAnswerSheetPayload.fromBuffer(log.payload);
+            if (p.school == school &&
+                p.exam == exam &&
+                p.student == student &&
+                p.subject == subject) {
+              debugPrint(
+                '[SyncEngine] Skipping answer_pages delta — pending '
+                'uploadAnswerSheet log #${log.id} for same entity',
+              );
+              return true;
+            }
+          } else {
+            final p = sync_pb.DeleteAnswerSheetPayload.fromBuffer(log.payload);
+            if (p.school == school &&
+                p.exam == exam &&
+                p.student == student &&
+                p.subject == subject) {
+              debugPrint(
+                '[SyncEngine] Skipping answer_pages delta — pending '
+                'deleteAnswerSheet log #${log.id} for same entity',
+              );
+              return true;
+            }
+          }
+        } catch (_) {
+          // Malformed payload — skip
+        }
+      }
+      return false;
+    } catch (e) {
+      debugPrint('[SyncEngine] Error checking pending answer mutations: $e');
+      return false;
+    }
+  }
+
+  /// Cleans up [PaperSubmissions] rows and local files when the server
+  /// broadcasts a DELETE for answer_pages (table 37, operation 2).
+  Future<void> _cleanupDeletedAnswerSubmissions(sync_pb.SyncDelta delta) async {
+    try {
+      final k = delta.rowKey.split('|');
+      if (k.length < 5) return;
+
+      final schoolId = k[0];
+      final examId = k[1];
+      final student = int.tryParse(k[2]) ?? 0;
+      final subject = int.tryParse(k[3]) ?? 0;
+      final paper = k[4].isEmpty ? null : int.tryParse(k[4]);
+
+      // Don't clean up if there are pending local mutations — the user
+      // may have re-added files after the delete.
+      if (await _hasPendingAnswerMutation(delta)) return;
+
+      final examsGradesDao = ExamsGradesDao(db);
+      await examsGradesDao.clearSubmissionsForStudent(
+        schoolId: schoolId,
+        examId: examId,
+        student: student,
+        subject: subject,
+        paperNum: paper,
+      );
+
+      // Also delete local files for this student's answer pages.
+      try {
+        final base = await FileCache.baseDir();
+        final dirPath = FileCache.answerDir(
+          schoolId,
+          examId,
+          subject,
+          paper ?? 0,
+          student,
+        );
+        final dir = Directory('$base/$dirPath');
+        if (await dir.exists()) {
+          await dir.delete(recursive: true);
+          debugPrint('[SyncEngine] Cleaned up answer files: $dirPath');
+        }
+      } catch (e) {
+        debugPrint('[SyncEngine] Error cleaning up answer files: $e');
+      }
+    } catch (e) {
+      debugPrint(
+        '[SyncEngine] Error cleaning up deleted answer submissions: $e',
+      );
     }
   }
 

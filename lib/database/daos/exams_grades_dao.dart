@@ -1802,6 +1802,65 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     sync.schedulePush();
   }
 
+  /// Removes any pending [uploadAnswerSheet] or [deleteAnswerSheet] log entries
+  /// for the given student + subject combination.
+  ///
+  /// Called before inserting a new upload/delete log so that only the latest
+  /// user intent is sent to the server. Without this, rapid add/remove cycles
+  /// create multiple queued actions whose watch-stream echoes can resurrect
+  /// files the user already deleted.
+  Future<void> _coalesceAnswerSheetLogs({
+    required String accountId,
+    required String schoolId,
+    required String examId,
+    required int student,
+    required int subject,
+  }) async {
+    // Query all pending answer-sheet logs for this account.
+    final pending =
+        await (select(logs)..where(
+              (t) =>
+                  t.account.equals(accountId) &
+                  t.status.equalsValue(LogStatus.pending) &
+                  (t.action.equalsValue(SyncAction.uploadAnswerSheet) |
+                      t.action.equalsValue(SyncAction.deleteAnswerSheet)),
+            ))
+            .get();
+
+    final idsToDelete = <int>[];
+    for (final row in pending) {
+      try {
+        if (row.action == SyncAction.uploadAnswerSheet) {
+          final p = sync_pb.UploadAnswerSheetPayload.fromBuffer(row.payload);
+          if (p.school == schoolId &&
+              p.exam == examId &&
+              p.student == student &&
+              p.subject == subject) {
+            idsToDelete.add(row.id);
+          }
+        } else {
+          final p = sync_pb.DeleteAnswerSheetPayload.fromBuffer(row.payload);
+          if (p.school == schoolId &&
+              p.exam == examId &&
+              p.student == student &&
+              p.subject == subject) {
+            idsToDelete.add(row.id);
+          }
+        }
+      } catch (_) {
+        // Malformed payload — skip
+      }
+    }
+
+    if (idsToDelete.isNotEmpty) {
+      await (delete(logs)..where((t) => t.id.isIn(idsToDelete))).go();
+      debugPrint(
+        '[ExamsGradesDao] Coalesced ${idsToDelete.length} stale '
+        'answer-sheet log(s) for student $student',
+      );
+    }
+  }
+
   /// Logs an [uploadAnswerSheet] sync action for a student's answer pages.
   ///
   /// Called after the user adds or replaces answer sheet files locally.
@@ -1815,6 +1874,16 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     required int count,
     required String accountId,
   }) async {
+    // Coalesce: remove any pending upload/delete answer-sheet logs for the
+    // same (school, exam, student, subject) so only the latest intent is sent.
+    await _coalesceAnswerSheetLogs(
+      accountId: accountId,
+      schoolId: schoolId,
+      examId: examId,
+      student: student,
+      subject: subject,
+    );
+
     final payload = sync_pb.UploadAnswerSheetPayload()
       ..school = schoolId
       ..exam = examId
@@ -1847,6 +1916,16 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     required int? paper,
     required String accountId,
   }) async {
+    // Coalesce: remove any pending upload/delete answer-sheet logs for the
+    // same (school, exam, student, subject) so only the latest intent is sent.
+    await _coalesceAnswerSheetLogs(
+      accountId: accountId,
+      schoolId: schoolId,
+      examId: examId,
+      student: student,
+      subject: subject,
+    );
+
     final payload = sync_pb.DeleteAnswerSheetPayload()
       ..school = schoolId
       ..exam = examId

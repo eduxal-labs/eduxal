@@ -10,6 +10,7 @@ import '../../../../database/daos/announcements_dao.dart';
 import '../../../../models/active_term_context.dart';
 import '../../../../models/membership.dart';
 import '../../../../models/school_config.dart';
+import '../../../../models/permissions.dart';
 import '../../../../models/school_context.dart';
 import '../../../widgets/active_term_provider.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
@@ -48,11 +49,18 @@ class AnnouncementsScreen extends StatelessWidget {
         schoolContext: schoolContext,
         termContext: termCtx,
       ),
-      TeacherEntry() => _RoleFeed(
-        schoolContext: schoolContext,
-        termContext: termCtx,
-        audienceBit: AudienceBits.teachers,
-      ),
+      TeacherEntry() =>
+        schoolContext.permissions.canAny(Resource.announcements, [
+              Action.create,
+              Action.update,
+              Action.delete,
+            ])
+            ? _AdminFeed(schoolContext: schoolContext, termContext: termCtx)
+            : _RoleFeed(
+                schoolContext: schoolContext,
+                termContext: termCtx,
+                audienceBit: AudienceBits.teachers,
+              ),
       StudentEntry() => _RoleFeed(
         schoolContext: schoolContext,
         termContext: termCtx,
@@ -103,6 +111,26 @@ class _AdminFeedState extends State<_AdminFeed> {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
 
+    final entry = widget.schoolContext.currentEntry.value;
+    final canCreate =
+        entry is OwnerEntry ||
+        widget.schoolContext.permissions.can(
+          Resource.announcements,
+          Action.create,
+        );
+    final canEdit =
+        entry is OwnerEntry ||
+        widget.schoolContext.permissions.can(
+          Resource.announcements,
+          Action.update,
+        );
+    final canDelete =
+        entry is OwnerEntry ||
+        widget.schoolContext.permissions.can(
+          Resource.announcements,
+          Action.delete,
+        );
+
     return Stack(
       children: [
         StreamBuilder<List<AnnouncementWithAuthor>>(
@@ -125,7 +153,9 @@ class _AdminFeedState extends State<_AdminFeed> {
               return _EmptyState(
                 icon: Icons.campaign_outlined,
                 label: 'No announcements yet',
-                sublabel: 'Tap + to broadcast the first message',
+                sublabel: canCreate
+                    ? 'Tap + to broadcast the first message'
+                    : 'Nothing here yet',
                 cs: cs,
               );
             }
@@ -134,7 +164,8 @@ class _AdminFeedState extends State<_AdminFeed> {
               items: items,
               cs: cs,
               isDark: isDark,
-              isAdmin: true,
+              canEdit: canEdit,
+              canDelete: canDelete,
               dao: _dao,
               config: _config,
               schoolContext: widget.schoolContext,
@@ -142,29 +173,30 @@ class _AdminFeedState extends State<_AdminFeed> {
           },
         ),
 
-        // Compose FAB.
-        Positioned(
-          right: 20,
-          bottom: 20,
-          child: FloatingActionButton.small(
-            heroTag: 'fab_announcements_compose',
-            onPressed: () => _showComposeSheet(
-              context,
-              dao: _dao,
-              schoolId: _schoolId,
-              config: _config,
+        // Compose FAB — only visible if user has create permission.
+        if (canCreate)
+          Positioned(
+            right: 20,
+            bottom: 20,
+            child: FloatingActionButton.small(
+              heroTag: 'fab_announcements_compose',
+              onPressed: () => _showComposeSheet(
+                context,
+                dao: _dao,
+                schoolId: _schoolId,
+                config: _config,
+              ),
+              tooltip: 'Compose',
+              elevation: 4,
+              highlightElevation: 6,
+              backgroundColor: cs.primary,
+              foregroundColor: cs.onPrimary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.add, size: 20),
             ),
-            tooltip: 'Compose',
-            elevation: 4,
-            highlightElevation: 6,
-            backgroundColor: cs.primary,
-            foregroundColor: cs.onPrimary,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.add, size: 20),
           ),
-        ),
       ],
     );
   }
@@ -255,7 +287,8 @@ class _AnnouncementList extends StatelessWidget {
     required this.items,
     required this.cs,
     required this.isDark,
-    required this.isAdmin,
+    required this.canEdit,
+    required this.canDelete,
     required this.dao,
     required this.config,
     required this.schoolContext,
@@ -264,7 +297,8 @@ class _AnnouncementList extends StatelessWidget {
   final List<AnnouncementWithAuthor> items;
   final ColorScheme cs;
   final bool isDark;
-  final bool isAdmin;
+  final bool canEdit;
+  final bool canDelete;
   final AnnouncementsDao dao;
   final SchoolConfig config;
   final SchoolContext schoolContext;
@@ -283,7 +317,8 @@ class _AnnouncementList extends StatelessWidget {
           item: item,
           cs: cs,
           isDark: isDark,
-          isAdmin: isAdmin,
+          canEdit: canEdit,
+          canDelete: canDelete,
           dao: dao,
           config: config,
           schoolContext: schoolContext,
@@ -302,7 +337,8 @@ class _AnnouncementRow extends StatefulWidget {
     required this.item,
     required this.cs,
     required this.isDark,
-    required this.isAdmin,
+    required this.canEdit,
+    required this.canDelete,
     required this.dao,
     required this.config,
     required this.schoolContext,
@@ -311,7 +347,8 @@ class _AnnouncementRow extends StatefulWidget {
   final AnnouncementWithAuthor item;
   final ColorScheme cs;
   final bool isDark;
-  final bool isAdmin;
+  final bool canEdit;
+  final bool canDelete;
   final AnnouncementsDao dao;
   final SchoolConfig config;
   final SchoolContext schoolContext;
@@ -499,23 +536,31 @@ class _AnnouncementRowState extends State<_AnnouncementRow>
                     ),
 
                     // ── Desktop actions ──────────────────────────────────
-                    if (widget.isAdmin && isDesktop) ...[
+                    if ((widget.canEdit || widget.canDelete) && isDesktop) ...[
                       const SizedBox(width: 4),
                       _RowActions(
                         isHovered: _isHovered,
-                        onEdit: () => _showEditSheet(context),
-                        onDelete: () => _confirmDelete(context),
+                        onEdit: widget.canEdit
+                            ? () => _showEditSheet(context)
+                            : null,
+                        onDelete: widget.canDelete
+                            ? () => _confirmDelete(context)
+                            : null,
                         cs: cs,
                       ),
                     ],
 
                     // ── Mobile three-dot ─────────────────────────────────
-                    if (widget.isAdmin && !isDesktop)
+                    if ((widget.canEdit || widget.canDelete) && !isDesktop)
                       _MobileRowMenu(
                         cs: cs,
                         isDark: isDark,
-                        onEdit: () => _showEditSheet(context),
-                        onDelete: () => _confirmDelete(context),
+                        onEdit: widget.canEdit
+                            ? () => _showEditSheet(context)
+                            : null,
+                        onDelete: widget.canDelete
+                            ? () => _confirmDelete(context)
+                            : null,
                       ),
                   ],
                 ),
@@ -619,8 +664,8 @@ class _RowActions extends StatelessWidget {
   });
 
   final bool isHovered;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
   final ColorScheme cs;
 
   @override
@@ -628,20 +673,22 @@ class _RowActions extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _ActionBtn(
-          icon: Icons.edit_outlined,
-          label: 'Edit',
-          color: cs.onSurfaceVariant,
-          isRowHovered: isHovered,
-          onTap: onEdit,
-        ),
-        _ActionBtn(
-          icon: Icons.delete_outline_rounded,
-          label: 'Delete',
-          color: cs.error,
-          isRowHovered: isHovered,
-          onTap: onDelete,
-        ),
+        if (onEdit != null)
+          _ActionBtn(
+            icon: Icons.edit_outlined,
+            label: 'Edit',
+            color: cs.onSurfaceVariant,
+            isRowHovered: isHovered,
+            onTap: onEdit!,
+          ),
+        if (onDelete != null)
+          _ActionBtn(
+            icon: Icons.delete_outline_rounded,
+            label: 'Delete',
+            color: cs.error,
+            isRowHovered: isHovered,
+            onTap: onDelete!,
+          ),
       ],
     );
   }
@@ -715,8 +762,8 @@ class _MobileRowMenu extends StatelessWidget {
 
   final ColorScheme cs;
   final bool isDark;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
   Future<void> _showPopupMenu(BuildContext context, GlobalKey key) async {
     final renderBox = key.currentContext?.findRenderObject() as RenderBox?;
@@ -730,18 +777,20 @@ class _MobileRowMenu extends StatelessWidget {
     final position = RelativeRect.fromRect(buttonRect, screenRect);
 
     final actions = [
-      (
-        icon: Icons.edit_outlined,
-        label: 'Edit',
-        isDestructive: false,
-        onTap: onEdit,
-      ),
-      (
-        icon: Icons.delete_outline_rounded,
-        label: 'Delete',
-        isDestructive: true,
-        onTap: onDelete,
-      ),
+      if (onEdit != null)
+        (
+          icon: Icons.edit_outlined,
+          label: 'Edit',
+          isDestructive: false,
+          onTap: onEdit!,
+        ),
+      if (onDelete != null)
+        (
+          icon: Icons.delete_outline_rounded,
+          label: 'Delete',
+          isDestructive: true,
+          onTap: onDelete!,
+        ),
     ];
 
     await showMenu<int>(

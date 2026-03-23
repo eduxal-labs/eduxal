@@ -398,6 +398,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                           canGrade: _canManage,
                           cs: cs,
                           schemeFiles: _schemeFiles,
+                          initialDirtySubmissions: _childDirtySubmissions,
                           onDirtyChanged: (dirty) {
                             if (mounted)
                               setState(() => _hasDirtyGrades = dirty);
@@ -453,6 +454,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                           canGrade: _canManage,
                           cs: cs,
                           schemeFiles: _schemeFiles,
+                          initialDirtySubmissions: _childDirtySubmissions,
                           onDirtyChanged: (dirty) {
                             if (mounted)
                               setState(() => _hasDirtyGrades = dirty);
@@ -1559,6 +1561,7 @@ class _GradeSpreadsheet extends StatefulWidget {
     this.onSubmissionsMapChanged,
     this.onDirtySubmissionsChanged,
     this.schemeFiles = const [],
+    this.initialDirtySubmissions = const {},
   });
 
   final List<StudentsData> students;
@@ -1577,6 +1580,7 @@ class _GradeSpreadsheet extends StatefulWidget {
   final ValueChanged<Map<int, List<String>>>? onSubmissionsMapChanged;
   final ValueChanged<Set<int>>? onDirtySubmissionsChanged;
   final List<String> schemeFiles;
+  final Set<int> initialDirtySubmissions;
 
   @override
   State<_GradeSpreadsheet> createState() => _GradeSpreadsheetState();
@@ -1616,6 +1620,7 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
   void initState() {
     super.initState();
     _initFromMap();
+    _dirtySubmissions.addAll(widget.initialDirtySubmissions);
     _shimmerCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
@@ -2593,6 +2598,7 @@ class _GradeList extends StatefulWidget {
     this.onSubmissionsMapChanged,
     this.onDirtySubmissionsChanged,
     this.schemeFiles = const [],
+    this.initialDirtySubmissions = const {},
   });
 
   final List<StudentsData> students;
@@ -2611,6 +2617,7 @@ class _GradeList extends StatefulWidget {
   final ValueChanged<Map<int, List<String>>>? onSubmissionsMapChanged;
   final ValueChanged<Set<int>>? onDirtySubmissionsChanged;
   final List<String> schemeFiles;
+  final Set<int> initialDirtySubmissions;
 
   @override
   State<_GradeList> createState() => _GradeListState();
@@ -2656,6 +2663,7 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    _dirtySubmissions.addAll(widget.initialDirtySubmissions);
     final first = widget.gradeMap.values.firstOrNull;
     if (first != null) _maxScore = first.total;
     for (final student in widget.students) {
@@ -3963,6 +3971,7 @@ enum _UploadStatus { pending, uploading, done, failed }
 class _AnswerSubmissionSheetState extends State<_AnswerSubmissionSheet> {
   late List<String> _paths;
   bool _picking = false;
+  bool _removing = false;
 
   /// Tracks upload status per file index. Absent = never queued.
   final Map<int, _UploadStatus> _uploadStatus = {};
@@ -4094,130 +4103,133 @@ class _AnswerSubmissionSheetState extends State<_AnswerSubmissionSheet> {
   /// Runs without blocking the UI. Thumbnail overlays reflect progress via
   /// [_uploadStatus].
   Future<void> _uploadPendingFiles() async {
-    // Upload is now handled by the AI marking flow (Task C5).
-    // For now, just mark all files as done — they are persisted locally
-    // and will be uploaded when AI marking is triggered.
-    if (!mounted) return;
-    setState(() {
-      for (int i = 0; i < _paths.length; i++) {
-        _uploadStatus[i] = _UploadStatus.done;
-      }
-    });
+    // Upload is deferred to the AI marking flow (Task C5).
+    // Files are persisted locally and will be uploaded when AI marking runs.
+    // Leave status as pending — don't mislead the user with a "done" icon.
+    // The pending icon accurately reflects that files are saved locally
+    // but not yet uploaded to the server.
   }
 
   Future<void> _removePhoto(int index) async {
-    final removedPath = _paths[index];
-    print(
-      '[ANSWER-SHEET] _removePhoto(index=$index) — '
-      'removing $removedPath, total before=${_paths.length}',
-    );
-    // 1. Delete file from disk.
+    if (_removing) return;
+    _removing = true;
     try {
-      final file = File(removedPath);
-      if (await file.exists()) await file.delete();
-      print('[ANSWER-SHEET] deleted file from disk: $removedPath');
-    } catch (e) {
-      print('[ANSWER-SHEET] WARNING: failed to delete $removedPath: $e');
-    }
-    setState(() {
-      _paths.removeAt(index);
-      // Rebuild the status map with shifted indices.
-      final updated = <int, _UploadStatus>{};
-      for (final entry in _uploadStatus.entries) {
-        if (entry.key < index) {
-          updated[entry.key] = entry.value;
-        } else if (entry.key > index) {
-          updated[entry.key - 1] = entry.value;
+      final removedPath = _paths[index];
+      print(
+        '[ANSWER-SHEET] _removePhoto(index=$index) — '
+        'removing $removedPath, total before=${_paths.length}',
+      );
+      // 1. Delete file from disk.
+      try {
+        final file = File(removedPath);
+        if (await file.exists()) await file.delete();
+        print('[ANSWER-SHEET] deleted file from disk: $removedPath');
+      } catch (e) {
+        print('[ANSWER-SHEET] WARNING: failed to delete $removedPath: $e');
+      }
+      setState(() {
+        _paths.removeAt(index);
+        // Rebuild the status map with shifted indices.
+        final updated = <int, _UploadStatus>{};
+        for (final entry in _uploadStatus.entries) {
+          if (entry.key < index) {
+            updated[entry.key] = entry.value;
+          } else if (entry.key > index) {
+            updated[entry.key - 1] = entry.value;
+          }
+          // entry.key == index is dropped (file removed)
         }
-        // entry.key == index is dropped (file removed)
+        _uploadStatus
+          ..clear()
+          ..addAll(updated);
+      });
+      // NOTE: Do NOT call widget.onUpdated here — paths are not yet re-indexed.
+      // The parent must receive correctly indexed paths (0.jpg, 1.jpg, …).
+      // We call onUpdated after the re-indexing loop below.
+
+      // 2. Delete the removed path from local DB.
+      await widget.dao.deleteSubmission(
+        schoolId: widget.schoolId,
+        examId: widget.examId,
+        student: widget.student.adm,
+        subject: widget.subject,
+        paperNum: widget.paperNum,
+        path: removedPath,
+      );
+
+      // 3. Re-index remaining files on disk and update DB to match new paths.
+      final base = await FileCache.baseDir();
+      final relDir = FileCache.answerDir(
+        widget.schoolId,
+        widget.examId,
+        widget.subject,
+        widget.paperNum ?? 0,
+        widget.student.adm,
+      );
+      print(
+        '[ANSWER-SHEET] re-indexing ${_paths.length - index} file(s) '
+        'starting at index=$index',
+      );
+      for (int i = index; i < _paths.length; i++) {
+        final oldFile = File(_paths[i]);
+        final newDest = File('$base/$relDir/$i.jpg');
+        if (oldFile.path != newDest.path && await oldFile.exists()) {
+          print('[ANSWER-SHEET] re-index[$i]: ${_paths[i]} → ${newDest.path}');
+          await widget.dao.deleteSubmission(
+            schoolId: widget.schoolId,
+            examId: widget.examId,
+            student: widget.student.adm,
+            subject: widget.subject,
+            paperNum: widget.paperNum,
+            path: _paths[i],
+          );
+          await oldFile.rename(newDest.path);
+          _paths[i] = newDest.path;
+          await widget.dao.insertSubmission(
+            schoolId: widget.schoolId,
+            examId: widget.examId,
+            student: widget.student.adm,
+            subject: widget.subject,
+            paperNum: widget.paperNum,
+            path: newDest.path,
+          );
+        }
       }
-      _uploadStatus
-        ..clear()
-        ..addAll(updated);
-    });
-    // NOTE: Do NOT call widget.onUpdated here — paths are not yet re-indexed.
-    // The parent must receive correctly indexed paths (0.jpg, 1.jpg, …).
-    // We call onUpdated after the re-indexing loop below.
 
-    // 2. Delete the removed path from local DB.
-    await widget.dao.deleteSubmission(
-      schoolId: widget.schoolId,
-      examId: widget.examId,
-      student: widget.student.adm,
-      subject: widget.subject,
-      paperNum: widget.paperNum,
-      path: removedPath,
-    );
+      // 3b. NOW notify the parent with correctly re-indexed paths.
+      if (mounted) setState(() {}); // Refresh thumbnails with re-indexed paths
+      print(
+        '[ANSWER-SHEET] _removePhoto done — '
+        'final paths(${_paths.length}): $_paths',
+      );
+      widget.onUpdated(_paths);
 
-    // 3. Re-index remaining files on disk and update DB to match new paths.
-    final base = await FileCache.baseDir();
-    final relDir = FileCache.answerDir(
-      widget.schoolId,
-      widget.examId,
-      widget.subject,
-      widget.paperNum ?? 0,
-      widget.student.adm,
-    );
-    print(
-      '[ANSWER-SHEET] re-indexing ${_paths.length - index} file(s) '
-      'starting at index=$index',
-    );
-    for (int i = index; i < _paths.length; i++) {
-      final oldFile = File(_paths[i]);
-      final newDest = File('$base/$relDir/$i.jpg');
-      if (oldFile.path != newDest.path && await oldFile.exists()) {
-        print('[ANSWER-SHEET] re-index[$i]: ${_paths[i]} → ${newDest.path}');
-        await widget.dao.deleteSubmission(
-          schoolId: widget.schoolId,
-          examId: widget.examId,
-          student: widget.student.adm,
-          subject: widget.subject,
-          paperNum: widget.paperNum,
-          path: _paths[i],
-        );
-        await oldFile.rename(newDest.path);
-        _paths[i] = newDest.path;
-        await widget.dao.insertSubmission(
-          schoolId: widget.schoolId,
-          examId: widget.examId,
-          student: widget.student.adm,
-          subject: widget.subject,
-          paperNum: widget.paperNum,
-          path: newDest.path,
-        );
+      // 4. Log sync action.
+      final accountId = cache.currentUser?.user.id;
+      if (accountId != null) {
+        if (_paths.isEmpty) {
+          await widget.dao.logDeleteAnswerSheet(
+            schoolId: widget.schoolId,
+            examId: widget.examId,
+            student: widget.student.adm,
+            subject: widget.subject,
+            paper: widget.paperNum,
+            accountId: accountId,
+          );
+        } else {
+          await widget.dao.logUploadAnswerSheet(
+            schoolId: widget.schoolId,
+            examId: widget.examId,
+            student: widget.student.adm,
+            subject: widget.subject,
+            paper: widget.paperNum,
+            count: _paths.length,
+            accountId: accountId,
+          );
+        }
       }
-    }
-
-    // 3b. NOW notify the parent with correctly re-indexed paths.
-    print(
-      '[ANSWER-SHEET] _removePhoto done — '
-      'final paths(${_paths.length}): $_paths',
-    );
-    widget.onUpdated(_paths);
-
-    // 4. Log sync action.
-    final accountId = cache.currentUser?.user.id;
-    if (accountId != null) {
-      if (_paths.isEmpty) {
-        await widget.dao.logDeleteAnswerSheet(
-          schoolId: widget.schoolId,
-          examId: widget.examId,
-          student: widget.student.adm,
-          subject: widget.subject,
-          paper: widget.paperNum,
-          accountId: accountId,
-        );
-      } else {
-        await widget.dao.logUploadAnswerSheet(
-          schoolId: widget.schoolId,
-          examId: widget.examId,
-          student: widget.student.adm,
-          subject: widget.subject,
-          paper: widget.paperNum,
-          count: _paths.length,
-          accountId: accountId,
-        );
-      }
+    } finally {
+      if (mounted) setState(() => _removing = false);
     }
   }
 
