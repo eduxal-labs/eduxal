@@ -4,7 +4,7 @@ import 'dart:io';
 import '../../../widgets/inline_date_picker_dialog.dart';
 
 import 'package:drift/drift.dart' hide Column;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Action;
 
 import '../../../../cache/file_cache.dart';
 import '../../../../client.dart';
@@ -17,6 +17,8 @@ import '../../../../database/tables/enums.dart';
 import '../../../../models/curriculum_levels.dart';
 import '../../../../models/result.dart';
 import '../../../../models/school_config.dart';
+import '../../../../models/membership.dart';
+import '../../../../models/permissions.dart';
 import '../../../../models/school_context.dart';
 import '../../../widgets/animated_action_button.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
@@ -71,7 +73,8 @@ class _MembersPageBodyState extends State<_MembersPageBody>
     with TickerProviderStateMixin {
   late TabController _tabController;
   late MembersDao _dao;
-  _MemberTab _currentTab = _MemberTab.departments;
+  late List<_MemberTab> _visibleTabs;
+  late _MemberTab _currentTab;
 
   String get _schoolId => widget.schoolContext.membership.school.id;
 
@@ -79,10 +82,30 @@ class _MembersPageBodyState extends State<_MembersPageBody>
   void initState() {
     super.initState();
     _dao = MembersDao(db);
-    _tabController = TabController(
-      length: _MemberTab.values.length,
-      vsync: this,
-    )..addListener(_onTabChanged);
+
+    final entry = widget.schoolContext.currentEntry.value;
+    final perms = widget.schoolContext.permissions;
+    final isOwner = entry is OwnerEntry;
+
+    _visibleTabs = [
+      if (isOwner || perms.can(Resource.departments, Action.read))
+        _MemberTab.departments,
+      if (isOwner || perms.can(Resource.owners, Action.read)) _MemberTab.owners,
+      if (isOwner || perms.can(Resource.teachers, Action.read))
+        _MemberTab.teachers,
+      if (isOwner || perms.can(Resource.staff, Action.read)) _MemberTab.staff,
+      if (isOwner || perms.can(Resource.students, Action.read))
+        _MemberTab.students,
+      if (isOwner || perms.can(Resource.students, Action.read))
+        _MemberTab.guardians,
+    ];
+
+    // Fallback: if somehow no tabs are visible, show all.
+    if (_visibleTabs.isEmpty) _visibleTabs = _MemberTab.values;
+
+    _currentTab = _visibleTabs.first;
+    _tabController = TabController(length: _visibleTabs.length, vsync: this)
+      ..addListener(_onTabChanged);
   }
 
   @override
@@ -95,11 +118,71 @@ class _MembersPageBodyState extends State<_MembersPageBody>
 
   void _onTabChanged() {
     if (_tabController.indexIsChanging) return;
-    final newTab = _MemberTab.values[_tabController.index];
+    final newTab = _visibleTabs[_tabController.index];
     if (newTab != _currentTab) {
       setState(() => _currentTab = newTab);
     }
   }
+
+  bool _canCreateForCurrentTab() {
+    final entry = widget.schoolContext.currentEntry.value;
+    final perms = widget.schoolContext.permissions;
+    final isOwner = entry is OwnerEntry;
+
+    return switch (_currentTab) {
+      _MemberTab.departments =>
+        isOwner || perms.can(Resource.departments, Action.create),
+      _MemberTab.owners => isOwner || perms.can(Resource.owners, Action.create),
+      _MemberTab.teachers =>
+        isOwner || perms.can(Resource.teachers, Action.create),
+      _MemberTab.staff => isOwner || perms.can(Resource.staff, Action.create),
+      _MemberTab.students =>
+        isOwner || perms.can(Resource.students, Action.create),
+      _MemberTab.guardians =>
+        isOwner || perms.can(Resource.students, Action.assign),
+    };
+  }
+
+  String _tabLabel(_MemberTab tab) => switch (tab) {
+    _MemberTab.departments => 'Departments',
+    _MemberTab.owners => 'Owners',
+    _MemberTab.teachers => 'Teachers',
+    _MemberTab.staff => 'Staff',
+    _MemberTab.students => 'Students',
+    _MemberTab.guardians => 'Guardians',
+  };
+
+  Widget _buildTabContent(_MemberTab tab) => switch (tab) {
+    _MemberTab.departments => _DepartmentsTab(
+      schoolId: _schoolId,
+      schoolContext: widget.schoolContext,
+    ),
+    _MemberTab.owners => _OwnersTab(
+      schoolId: _schoolId,
+      dao: _dao,
+      schoolContext: widget.schoolContext,
+    ),
+    _MemberTab.teachers => _TeachersTab(
+      schoolId: _schoolId,
+      dao: _dao,
+      schoolContext: widget.schoolContext,
+    ),
+    _MemberTab.staff => _StaffTab(
+      schoolId: _schoolId,
+      dao: _dao,
+      schoolContext: widget.schoolContext,
+    ),
+    _MemberTab.students => _StudentsTab(
+      schoolId: _schoolId,
+      dao: _dao,
+      schoolContext: widget.schoolContext,
+    ),
+    _MemberTab.guardians => _GuardiansTab(
+      schoolId: _schoolId,
+      dao: _dao,
+      schoolContext: widget.schoolContext,
+    ),
+  };
 
   // ── FAB action per tab ──────────────────────────────────────────────────
 
@@ -153,10 +236,9 @@ class _MembersPageBodyState extends State<_MembersPageBody>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton: _MembersFab(
-        tab: _currentTab,
-        onPressed: _onFabPressed,
-      ),
+      floatingActionButton: _canCreateForCurrentTab()
+          ? _MembersFab(tab: _currentTab, onPressed: _onFabPressed)
+          : null,
       body: Column(
         children: [
           // ── Tab bar ────────────────────────────────────────────────────
@@ -164,13 +246,8 @@ class _MembersPageBodyState extends State<_MembersPageBody>
             controller: _tabController,
             isScrollable: true,
             padding: const EdgeInsets.only(left: 16, top: 8, bottom: 8),
-            tabs: const [
-              EduTab(label: 'Departments'),
-              EduTab(label: 'Owners'),
-              EduTab(label: 'Teachers'),
-              EduTab(label: 'Staff'),
-              EduTab(label: 'Students'),
-              EduTab(label: 'Guardians'),
+            tabs: [
+              for (final tab in _visibleTabs) EduTab(label: _tabLabel(tab)),
             ],
           ),
 
@@ -178,14 +255,7 @@ class _MembersPageBodyState extends State<_MembersPageBody>
           Expanded(
             child: TabBarView(
               controller: _tabController,
-              children: [
-                _DepartmentsTab(schoolId: _schoolId),
-                _OwnersTab(schoolId: _schoolId, dao: _dao),
-                _TeachersTab(schoolId: _schoolId, dao: _dao),
-                _StaffTab(schoolId: _schoolId, dao: _dao),
-                _StudentsTab(schoolId: _schoolId, dao: _dao),
-                _GuardiansTab(schoolId: _schoolId, dao: _dao),
-              ],
+              children: [for (final tab in _visibleTabs) _buildTabContent(tab)],
             ),
           ),
         ],
@@ -234,8 +304,9 @@ class _MembersFab extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _DepartmentsTab extends StatefulWidget {
-  const _DepartmentsTab({required this.schoolId});
+  const _DepartmentsTab({required this.schoolId, required this.schoolContext});
   final String schoolId;
+  final SchoolContext schoolContext;
 
   @override
   State<_DepartmentsTab> createState() => _DepartmentsTabState();
@@ -405,7 +476,9 @@ class _DepartmentsTabState extends State<_DepartmentsTab> {
                     dao: _dao,
                     isDark: isDark,
                     cs: cs,
-                    onDelete: () => _confirmDeleteDepartment(context, dept),
+                    onDelete: _canDelete
+                        ? () => _confirmDeleteDepartment(context, dept)
+                        : null,
                   );
                 },
               ),
@@ -414,6 +487,13 @@ class _DepartmentsTabState extends State<_DepartmentsTab> {
         );
       },
     );
+  }
+
+  bool get _canDelete {
+    final entry = widget.schoolContext.currentEntry.value;
+    final perms = widget.schoolContext.permissions;
+    return entry is OwnerEntry ||
+        perms.can(Resource.departments, Action.delete);
   }
 
   Future<void> _confirmDeleteDepartment(
@@ -452,7 +532,7 @@ class _DepartmentRow extends StatefulWidget {
     required this.dao,
     required this.isDark,
     required this.cs,
-    required this.onDelete,
+    this.onDelete,
   });
 
   final Department dept;
@@ -460,7 +540,7 @@ class _DepartmentRow extends StatefulWidget {
   final DepartmentsDao dao;
   final bool isDark;
   final ColorScheme cs;
-  final VoidCallback onDelete;
+  final VoidCallback? onDelete;
 
   @override
   State<_DepartmentRow> createState() => _DepartmentRowState();
@@ -664,7 +744,7 @@ class _DepartmentRowState extends State<_DepartmentRow>
                               const SizedBox(width: 8),
 
                               // ── Delete action (desktop: inline; mobile: icon) ─
-                              if (isDesktop)
+                              if (widget.onDelete != null && isDesktop)
                                 AnimatedOpacity(
                                   duration: const Duration(milliseconds: 120),
                                   opacity: _isHovered ? 1.0 : 0.0,
@@ -696,8 +776,8 @@ class _DepartmentRowState extends State<_DepartmentRow>
                                     ),
                                   ),
                                 )
-                              else
-                                _DeptMobileMenu(onDelete: widget.onDelete),
+                              else if (widget.onDelete != null && !isDesktop)
+                                _DeptMobileMenu(onDelete: widget.onDelete!),
 
                               const SizedBox(width: 4),
 
@@ -769,10 +849,15 @@ class _DeptMobileMenu extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _OwnersTab extends StatefulWidget {
-  const _OwnersTab({required this.schoolId, required this.dao});
+  const _OwnersTab({
+    required this.schoolId,
+    required this.dao,
+    required this.schoolContext,
+  });
 
   final String schoolId;
   final MembersDao dao;
+  final SchoolContext schoolContext;
 
   @override
   State<_OwnersTab> createState() => _OwnersTabState();
@@ -861,10 +946,12 @@ class _OwnerRow extends StatelessWidget {
     required this.schoolId,
     required this.owner,
     required this.user,
+    this.canDelete = true,
   });
   final String schoolId;
   final OwnersData owner;
   final UsersData? user;
+  final bool canDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -875,7 +962,7 @@ class _OwnerRow extends StatelessWidget {
       status: user?.status,
       level: user?.level,
       onTap: () => _openDetail(context, user),
-      actions: user == null
+      actions: user == null || !canDelete
           ? const []
           : [
               _RowAction(
@@ -964,10 +1051,15 @@ class _OwnerRow extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _TeachersTab extends StatefulWidget {
-  const _TeachersTab({required this.schoolId, required this.dao});
+  const _TeachersTab({
+    required this.schoolId,
+    required this.dao,
+    required this.schoolContext,
+  });
 
   final String schoolId;
   final MembersDao dao;
+  final SchoolContext schoolContext;
 
   @override
   State<_TeachersTab> createState() => _TeachersTabState();
@@ -1056,10 +1148,12 @@ class _TeacherRow extends StatelessWidget {
     required this.schoolId,
     required this.teacher,
     required this.user,
+    this.canDelete = true,
   });
   final String schoolId;
   final TeachersData teacher;
   final UsersData? user;
+  final bool canDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -1088,7 +1182,7 @@ class _TeacherRow extends StatelessWidget {
           _showTeacherBottomSheet(context, user!);
         }
       },
-      actions: user == null
+      actions: user == null || !canDelete
           ? const []
           : [
               _RowAction(
@@ -1169,10 +1263,15 @@ class _TeacherRow extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _StaffTab extends StatefulWidget {
-  const _StaffTab({required this.schoolId, required this.dao});
+  const _StaffTab({
+    required this.schoolId,
+    required this.dao,
+    required this.schoolContext,
+  });
 
   final String schoolId;
   final MembersDao dao;
+  final SchoolContext schoolContext;
 
   @override
   State<_StaffTab> createState() => _StaffTabState();
@@ -1261,10 +1360,12 @@ class _StaffRow extends StatelessWidget {
     required this.schoolId,
     required this.member,
     required this.user,
+    this.canDelete = true,
   });
   final String schoolId;
   final StaffData member;
   final UsersData? user;
+  final bool canDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -1293,7 +1394,7 @@ class _StaffRow extends StatelessWidget {
           _showStaffBottomSheet(context, user!);
         }
       },
-      actions: user == null
+      actions: user == null || !canDelete
           ? const []
           : [
               _RowAction(
@@ -1374,10 +1475,16 @@ class _StaffRow extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _StudentsTab extends StatefulWidget {
-  const _StudentsTab({required this.schoolId, required this.dao});
+  const _StudentsTab({
+    required this.schoolId,
+    required this.dao,
+    required this.schoolContext,
+  });
 
   final String schoolId;
   final MembersDao dao;
+  final SchoolContext schoolContext;
+  final SchoolContext schoolContext;
 
   @override
   State<_StudentsTab> createState() => _StudentsTabState();
@@ -1436,9 +1543,14 @@ class _StudentsTabState extends State<_StudentsTab> {
 }
 
 class _StudentRow extends StatelessWidget {
-  const _StudentRow({required this.schoolId, required this.student});
+  const _StudentRow({
+    required this.schoolId,
+    required this.student,
+    this.canDelete = true,
+  });
   final String schoolId;
   final StudentsData student;
+  final bool canDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -1465,12 +1577,13 @@ class _StudentRow extends StatelessWidget {
         }
       },
       actions: [
-        _RowAction(
-          icon: Icons.delete_outline_rounded,
-          label: 'Delete',
-          isDestructive: true,
-          onTap: () => _confirmDelete(context),
-        ),
+        if (canDelete)
+          _RowAction(
+            icon: Icons.delete_outline_rounded,
+            label: 'Delete',
+            isDestructive: true,
+            onTap: () => _confirmDelete(context),
+          ),
       ],
     );
   }
@@ -1551,7 +1664,11 @@ class _StudentRow extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _GuardiansTab extends StatefulWidget {
-  const _GuardiansTab({required this.schoolId, required this.dao});
+  const _GuardiansTab({
+    required this.schoolId,
+    required this.dao,
+    required this.schoolContext,
+  });
 
   final String schoolId;
   final MembersDao dao;

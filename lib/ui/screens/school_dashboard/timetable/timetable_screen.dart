@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/foundation.dart' show compute;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Action;
 
 import '../../../../cache/file_cache.dart';
 import '../../../../client.dart';
@@ -14,6 +14,7 @@ import '../../../../database/tables/enums.dart';
 import '../../../../models/active_term_context.dart';
 import '../../../../models/membership.dart';
 import '../../../../models/school_config.dart';
+import '../../../../models/permissions.dart';
 import '../../../../models/school_context.dart';
 import '../../../../database/daos/catalog_dao.dart';
 import '../../../../models/timetable_rules.dart';
@@ -112,10 +113,16 @@ class TimetableScreen extends StatelessWidget {
         schoolContext: schoolContext,
         termContext: termCtx,
       ),
-      TeacherEntry() => _TeacherTimetableView(
-        schoolContext: schoolContext,
-        termContext: termCtx,
-      ),
+      TeacherEntry() =>
+        schoolContext.permissions.can(Resource.classes, Action.create)
+            ? _OwnerTimetableShell(
+                schoolContext: schoolContext,
+                termContext: termCtx,
+              )
+            : _TeacherTimetableView(
+                schoolContext: schoolContext,
+                termContext: termCtx,
+              ),
       StudentEntry(:final student) => _ClassTimetableView(
         schoolContext: schoolContext,
         termContext: termCtx,
@@ -558,6 +565,14 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
 
     final schoolId = widget.schoolContext.membership.school.id;
 
+    final entry = widget.schoolContext.currentEntry.value;
+    final canManage =
+        entry is OwnerEntry ||
+        widget.schoolContext.permissions.can(Resource.classes, Action.create);
+    final canDelete =
+        entry is OwnerEntry ||
+        widget.schoolContext.permissions.can(Resource.classes, Action.delete);
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Column(
@@ -603,53 +618,58 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
           ),
         ],
       ),
-      floatingActionButton: _currentTabIndex == 0
+      floatingActionButton: _currentTabIndex == 0 && (canManage || canDelete)
           ? Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                // Delete FAB — shown only when a timetable exists
+                // Delete FAB — shown only when a timetable exists and user can delete
                 if (_hasTimetable) ...[
-                  FloatingActionButton.small(
-                    heroTag: 'timetable_delete',
-                    onPressed: (_deleting || _generating)
-                        ? null
-                        : _deleteTimetable,
-                    backgroundColor: _deleting
-                        ? cs.errorContainer.withValues(alpha: 0.5)
-                        : cs.errorContainer,
-                    foregroundColor: cs.onErrorContainer,
-                    elevation: 2,
-                    tooltip: 'Delete timetable',
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                  if (canDelete)
+                    FloatingActionButton.small(
+                      heroTag: 'timetable_delete',
+                      onPressed: (_deleting || _generating)
+                          ? null
+                          : _deleteTimetable,
+                      backgroundColor: _deleting
+                          ? cs.errorContainer.withValues(alpha: 0.5)
+                          : cs.errorContainer,
+                      foregroundColor: cs.onErrorContainer,
+                      elevation: 2,
+                      tooltip: 'Delete timetable',
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.kCardRadius,
+                        ),
+                      ),
+                      child: _deleting
+                          ? SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                                color: cs.onErrorContainer,
+                              ),
+                            )
+                          : const Icon(Icons.delete_outline_rounded, size: 18),
                     ),
-                    child: _deleting
-                        ? SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 1.5,
-                              color: cs.onErrorContainer,
-                            ),
-                          )
-                        : const Icon(Icons.delete_outline_rounded, size: 18),
-                  ),
-                  const SizedBox(height: 12),
+                  if (canDelete) const SizedBox(height: 12),
                   // Generate Lessons FAB — replaces the wizard "+" when timetable exists
-                  _GenerateLessonsFab(
-                    heroTag: 'timetable_gen_lessons',
-                    onTap: _openGenerateLessonsDialog,
-                    cs: cs,
-                  ),
+                  if (canManage)
+                    _GenerateLessonsFab(
+                      heroTag: 'timetable_gen_lessons',
+                      onTap: _openGenerateLessonsDialog,
+                      cs: cs,
+                    ),
                 ] else ...[
                   // No timetable yet — show the wizard FAB
-                  _GenerateFab(
-                    heroTag: 'timetable_generate',
-                    onTap: _openRulesSheet,
-                    generating: _generating,
-                    cs: cs,
-                  ),
+                  if (canManage)
+                    _GenerateFab(
+                      heroTag: 'timetable_generate',
+                      onTap: _openRulesSheet,
+                      generating: _generating,
+                      cs: cs,
+                    ),
                 ],
               ],
             )
