@@ -1,9 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Action;
 
 import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/tables/curriculum_subjects.dart';
 
+import '../../../../models/membership.dart';
+import '../../../../models/permissions.dart';
 import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
@@ -465,6 +467,16 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
 
+    // ── Permission checks ──────────────────────────────────────────────────
+    final entry = widget.schoolContext.currentEntry.value;
+    final perms = widget.schoolContext.permissions;
+    final canCreate =
+        entry is OwnerEntry || perms.can(Resource.classes, Action.create);
+    final canEdit =
+        entry is OwnerEntry || perms.can(Resource.classes, Action.update);
+    final canDelete =
+        entry is OwnerEntry || perms.can(Resource.classes, Action.delete);
+
     return StreamBuilder<List<SchoolStream>>(
       stream: catalogDao.watchAllStreamsForSchool(_schoolId),
       builder: (context, snapshot) {
@@ -501,7 +513,9 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
                 if (tree.isEmpty)
                   SliverFillRemaining(
                     child: _EmptyConfigState(
-                      onAdd: () => _showAddGradeSheet(allStreams),
+                      onAdd: canCreate
+                          ? () => _showAddGradeSheet(allStreams)
+                          : null,
                     ),
                   )
                 else
@@ -510,6 +524,9 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
                     cs,
                     isDark,
                     allStreams,
+                    canCreate: canCreate,
+                    canEdit: canEdit,
+                    canDelete: canDelete,
                   ),
 
                 // Bottom padding for FAB
@@ -517,12 +534,15 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
               ],
             ),
 
-            // ── FAB — always visible ────────────────────────────────────
-            Positioned(
-              right: 16,
-              bottom: 16,
-              child: _AddGradeFab(onTap: () => _showAddGradeSheet(allStreams)),
-            ),
+            // ── FAB — only visible when user can create ─────────────────
+            if (canCreate)
+              Positioned(
+                right: 16,
+                bottom: 16,
+                child: _AddGradeFab(
+                  onTap: () => _showAddGradeSheet(allStreams),
+                ),
+              ),
           ],
         );
       },
@@ -533,8 +553,11 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
     List<_CurriculumGroup> curricula,
     ColorScheme cs,
     bool isDark,
-    List<SchoolStream> allStreams,
-  ) {
+    List<SchoolStream> allStreams, {
+    required bool canCreate,
+    required bool canEdit,
+    required bool canDelete,
+  }) {
     final showHeaders = curricula.length > 1;
     final List<Widget> slivers = [];
 
@@ -605,19 +628,23 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
                     gradeLabel,
                     gradeGroup.streams,
                   ),
-                  onAddStream: () => _showAddStreamDialog(
-                    gradeGroup.grade,
-                    gradeLabel,
-                    gradeGroup.streams,
-                  ),
-                  onEditStreams: gradeGroup.streams.isNotEmpty
+                  onAddStream: canCreate
+                      ? () => _showAddStreamDialog(
+                          gradeGroup.grade,
+                          gradeLabel,
+                          gradeGroup.streams,
+                        )
+                      : null,
+                  onEditStreams: canEdit && gradeGroup.streams.isNotEmpty
                       ? () => _showEditStreamsSheet(
                           gradeGroup.grade,
                           gradeLabel,
                           gradeGroup.streams,
                         )
                       : null,
-                  onDelete: () => _deleteGrade(gradeGroup.grade, gradeLabel),
+                  onDelete: canDelete
+                      ? () => _deleteGrade(gradeGroup.grade, gradeLabel)
+                      : null,
                 ),
               );
             },
@@ -657,9 +684,9 @@ class _GradeCard extends StatefulWidget {
     required this.gradeLabel,
     required this.streams,
     required this.onTap,
-    required this.onAddStream,
+    this.onAddStream,
     this.onEditStreams,
-    required this.onDelete,
+    this.onDelete,
   });
 
   final CurriculumType curriculumType;
@@ -667,9 +694,9 @@ class _GradeCard extends StatefulWidget {
   final String gradeLabel;
   final List<SchoolStream> streams;
   final VoidCallback onTap;
-  final VoidCallback onAddStream;
+  final VoidCallback? onAddStream;
   final VoidCallback? onEditStreams;
-  final VoidCallback onDelete;
+  final VoidCallback? onDelete;
 
   @override
   State<_GradeCard> createState() => _GradeCardState();
@@ -690,9 +717,10 @@ class _GradeCardState extends State<_GradeCard>
       duration: const Duration(milliseconds: 100),
       reverseDuration: const Duration(milliseconds: 150),
     );
-    _scaleAnim = Tween<double>(begin: 1.0, end: 0.98).animate(
-      CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut),
-    );
+    _scaleAnim = Tween<double>(
+      begin: 1.0,
+      end: 0.98,
+    ).animate(CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut));
   }
 
   @override
@@ -754,8 +782,8 @@ class _GradeCardState extends State<_GradeCard>
               color: _isPressed
                   ? pressBg
                   : _isHovered
-                      ? hoverBg
-                      : idleBg,
+                  ? hoverBg
+                  : idleBg,
               borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
               border: Border.all(
                 color: _isHovered || _isPressed
@@ -819,9 +847,9 @@ class _GradeCardState extends State<_GradeCard>
                                             color: accentColor.withValues(
                                               alpha: isDark ? 0.18 : 0.10,
                                             ),
-                                            borderRadius:
-                                                BorderRadius.circular(
-                                                    AppTheme.kChipRadius),
+                                            borderRadius: BorderRadius.circular(
+                                              AppTheme.kChipRadius,
+                                            ),
                                           ),
                                           child: Text(
                                             '${widget.streams.length} stream${widget.streams.length == 1 ? '' : 's'}',
@@ -835,8 +863,9 @@ class _GradeCardState extends State<_GradeCard>
                                         ),
                                       const Spacer(),
                                       AnimatedSlide(
-                                        duration:
-                                            const Duration(milliseconds: 200),
+                                        duration: const Duration(
+                                          milliseconds: 200,
+                                        ),
                                         curve: Curves.easeOut,
                                         offset: Offset(
                                           _isHovered ? 0.15 : 0.0,
@@ -844,7 +873,8 @@ class _GradeCardState extends State<_GradeCard>
                                         ),
                                         child: AnimatedOpacity(
                                           duration: const Duration(
-                                              milliseconds: 200),
+                                            milliseconds: 200,
+                                          ),
                                           opacity: _isHovered ? 0.8 : 0.35,
                                           child: Icon(
                                             Icons.chevron_right_rounded,
@@ -859,24 +889,26 @@ class _GradeCardState extends State<_GradeCard>
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                // Action icons
-                                _CardIconBtn(
-                                  icon: Icons.add_rounded,
-                                  tooltip: 'Add stream',
-                                  onTap: widget.onAddStream,
-                                ),
+                                // Action icons (permission-gated)
+                                if (widget.onAddStream != null)
+                                  _CardIconBtn(
+                                    icon: Icons.add_rounded,
+                                    tooltip: 'Add stream',
+                                    onTap: widget.onAddStream!,
+                                  ),
                                 if (widget.onEditStreams != null)
                                   _CardIconBtn(
                                     icon: Icons.edit_outlined,
                                     tooltip: 'Edit streams',
                                     onTap: widget.onEditStreams!,
                                   ),
-                                _CardIconBtn(
-                                  icon: Icons.delete_outline_rounded,
-                                  tooltip: 'Remove grade',
-                                  onTap: widget.onDelete,
-                                  isDestructive: true,
-                                ),
+                                if (widget.onDelete != null)
+                                  _CardIconBtn(
+                                    icon: Icons.delete_outline_rounded,
+                                    tooltip: 'Remove grade',
+                                    onTap: widget.onDelete!,
+                                    isDestructive: true,
+                                  ),
                               ],
                             ),
 
@@ -884,15 +916,18 @@ class _GradeCardState extends State<_GradeCard>
                             const SizedBox(height: 8),
                             if (widget.streams.isEmpty)
                               Padding(
-                                padding:
-                                    const EdgeInsets.only(top: 2, bottom: 2),
+                                padding: const EdgeInsets.only(
+                                  top: 2,
+                                  bottom: 2,
+                                ),
                                 child: Text(
                                   'No streams',
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w400,
-                                    color: cs.onSurfaceVariant
-                                        .withValues(alpha: 0.4),
+                                    color: cs.onSurfaceVariant.withValues(
+                                      alpha: 0.4,
+                                    ),
                                     fontStyle: FontStyle.italic,
                                   ),
                                 ),
@@ -1025,8 +1060,8 @@ class _AddGradeFab extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _EmptyConfigState extends StatelessWidget {
-  const _EmptyConfigState({required this.onAdd});
-  final VoidCallback onAdd;
+  const _EmptyConfigState({this.onAdd});
+  final VoidCallback? onAdd;
 
   @override
   Widget build(BuildContext context) {
@@ -1073,16 +1108,28 @@ class _EmptyConfigState extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 10),
-            Text(
-              'Tap the + button to get started.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.4),
-                fontStyle: FontStyle.italic,
+            if (onAdd != null)
+              Text(
+                'Tap the + button to get started.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                  fontStyle: FontStyle.italic,
+                ),
+              )
+            else
+              Text(
+                'You don\'t have permission to configure grades.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                  fontStyle: FontStyle.italic,
+                ),
               ),
-            ),
           ],
         ),
       ),

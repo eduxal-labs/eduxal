@@ -1484,7 +1484,6 @@ class _StudentsTab extends StatefulWidget {
   final String schoolId;
   final MembersDao dao;
   final SchoolContext schoolContext;
-  final SchoolContext schoolContext;
 
   @override
   State<_StudentsTab> createState() => _StudentsTabState();
@@ -1672,6 +1671,7 @@ class _GuardiansTab extends StatefulWidget {
 
   final String schoolId;
   final MembersDao dao;
+  final SchoolContext schoolContext;
 
   @override
   State<_GuardiansTab> createState() => _GuardiansTabState();
