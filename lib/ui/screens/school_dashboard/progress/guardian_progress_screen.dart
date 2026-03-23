@@ -11,6 +11,7 @@ import '../../../../models/membership.dart';
 import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/active_term_provider.dart';
+import '../../../widgets/edu_empty_state.dart';
 import '../../../widgets/student_avatar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -122,10 +123,8 @@ class _ProgressTabBar extends StatelessWidget {
           height: 38,
           padding: const EdgeInsets.all(3),
           decoration: BoxDecoration(
-            color: isDark
-                ? cs.surfaceContainerHighest.withValues(alpha: 0.6)
-                : cs.surfaceContainerHighest.withValues(alpha: 0.45),
-            borderRadius: BorderRadius.circular(10),
+            color: AppTheme.nestedBg(isDark, cs),
+            borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: isDark ? 0.08 : 0.03),
@@ -207,14 +206,23 @@ class _OverviewTab extends StatelessWidget {
     final term = termContext.currentTerm;
 
     if (term == null) {
-      return ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        children: [
-          _WardIdentityHeader(ward: ward, schoolId: schoolId, term: term),
-          const SizedBox(height: 16),
-          _NoTermPlaceholder(cs: cs),
-          const SizedBox(height: 80),
-        ],
+      return Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 680),
+          child: ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            children: [
+              _WardIdentityHeader(ward: ward, schoolId: schoolId, term: term),
+              const SizedBox(height: 16),
+              const EduEmptyState(
+                icon: Icons.calendar_today_outlined,
+                title: 'No terms configured',
+                subtitle: 'Progress data will appear once a term is set up.',
+              ),
+              const SizedBox(height: 56),
+            ],
+          ),
+        ),
       );
     }
 
@@ -224,30 +232,35 @@ class _OverviewTab extends StatelessWidget {
       builder: (context, gradeSnap) {
         final grades = gradeSnap.data ?? [];
 
-        return ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          children: [
-            // ── Ward identity header ─────────────────────────────────────
-            _WardIdentityHeader(ward: ward, schoolId: schoolId, term: term),
-            const SizedBox(height: 16),
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 680),
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              children: [
+                // ── Ward identity header ─────────────────────────────────────
+                _WardIdentityHeader(ward: ward, schoolId: schoolId, term: term),
+                const SizedBox(height: 16),
 
-            // ── 2×2 Stats grid ───────────────────────────────────────────
-            _StatsGrid(
-              schoolId: schoolId,
-              ward: ward,
-              year: term.year,
-              term: term.term,
-              grades: grades,
+                // ── 2×2 Stats grid ───────────────────────────────────────────
+                _StatsGrid(
+                  schoolId: schoolId,
+                  ward: ward,
+                  year: term.year,
+                  term: term.term,
+                  grades: grades,
+                ),
+                const SizedBox(height: 12),
+
+                // ── Recent exam results ──────────────────────────────────────
+                _SectionTitle(label: 'Recent Exam Results', cs: cs),
+                const SizedBox(height: 8),
+                _RecentExamResults(grades: grades),
+
+                const SizedBox(height: 56),
+              ],
             ),
-            const SizedBox(height: 20),
-
-            // ── Recent exam results ──────────────────────────────────────
-            _SectionTitle(label: 'Recent Exam Results', cs: cs),
-            const SizedBox(height: 8),
-            _RecentExamResults(grades: grades),
-
-            const SizedBox(height: 80),
-          ],
+          ),
         );
       },
     );
@@ -270,13 +283,14 @@ class _WardIdentityHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+        color: AppTheme.nestedBg(isDark, cs),
         borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-        border: Border.all(color: cs.outline.withValues(alpha: 0.08)),
+        border: Border.all(color: AppTheme.borderColor(isDark, cs)),
       ),
       child: Row(
         children: [
@@ -669,11 +683,12 @@ class _RecentExamResults extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
 
     if (grades.isEmpty) {
-      return _EmptyCard(
+      return const EduEmptyState(
         icon: Icons.assignment_outlined,
-        message: 'No exam results yet',
+        title: 'No exam results yet',
       );
     }
 
@@ -691,9 +706,9 @@ class _RecentExamResults extends StatelessWidget {
     }
 
     if (byExam.isEmpty) {
-      return _EmptyCard(
+      return const EduEmptyState(
         icon: Icons.assignment_outlined,
-        message: 'No exam results yet',
+        title: 'No exam results yet',
       );
     }
 
@@ -723,8 +738,8 @@ class _RecentExamResults extends StatelessWidget {
         return Padding(
           padding: const EdgeInsets.only(bottom: 6),
           child: Material(
-            color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-            borderRadius: BorderRadius.circular(AppTheme.kCardRadius - 2),
+            color: AppTheme.nestedBg(isDark, cs),
+            borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               child: Row(
@@ -784,7 +799,13 @@ class _ExamsTab extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final term = termContext.currentTerm;
 
-    if (term == null) return _NoTermPlaceholder(cs: cs);
+    if (term == null) {
+      return const EduEmptyState(
+        icon: Icons.calendar_today_outlined,
+        title: 'No terms configured',
+        subtitle: 'Progress data will appear once a term is set up.',
+      );
+    }
 
     final examsDao = ExamsGradesDao(db);
 
@@ -804,10 +825,10 @@ class _ExamsTab extends StatelessWidget {
 
         final allGrades = gradesSnap.data ?? [];
         if (allGrades.isEmpty) {
-          return Center(
-            child: _EmptyCard(
+          return const Center(
+            child: EduEmptyState(
               icon: Icons.quiz_outlined,
-              message: 'No exam results available',
+              title: 'No exam results available',
             ),
           );
         }
@@ -838,22 +859,30 @@ class _ExamsTab extends StatelessWidget {
               for (final s in subSnap.data ?? []) s.id: s.name,
             };
 
-            return ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              itemCount: examIds.length,
-              itemBuilder: (context, index) {
-                final examId = examIds[index];
-                final grades = byExam[examId]!;
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 680),
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  itemCount: examIds.length,
+                  itemBuilder: (context, index) {
+                    final examId = examIds[index];
+                    final grades = byExam[examId]!;
 
-                return _ExamCard(
-                  examId: examId,
-                  schoolId: schoolId,
-                  grades: grades,
-                  cs: cs,
-                  examsDao: examsDao,
-                  subjectNames: subjectNames,
-                );
-              },
+                    return _ExamCard(
+                      examId: examId,
+                      schoolId: schoolId,
+                      grades: grades,
+                      cs: cs,
+                      examsDao: examsDao,
+                      subjectNames: subjectNames,
+                    );
+                  },
+                ),
+              ),
             );
           },
         );
@@ -901,9 +930,9 @@ class _ExamCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+        color: AppTheme.nestedBg(isDark, cs),
         borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-        border: Border.all(color: cs.outline.withValues(alpha: 0.08)),
+        border: Border.all(color: AppTheme.borderColor(isDark, cs)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -916,7 +945,7 @@ class _ExamCard extends StatelessWidget {
                 height: 32,
                 decoration: BoxDecoration(
                   color: cs.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(AppTheme.kChipRadius + 2),
+                  borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
                 ),
                 alignment: Alignment.center,
                 child: Icon(
@@ -1027,10 +1056,10 @@ class _MasteryTab extends StatelessWidget {
 
         final allMastery = snap.data ?? [];
         if (allMastery.isEmpty) {
-          return Center(
-            child: _EmptyCard(
+          return const Center(
+            child: EduEmptyState(
               icon: Icons.psychology_outlined,
-              message: 'No mastery data available yet',
+              title: 'No mastery data available yet',
             ),
           );
         }
@@ -1056,37 +1085,42 @@ class _MasteryTab extends StatelessWidget {
                   for (final t in topicSnap.data ?? []) t.id: t.name,
                 };
 
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
+                return Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 680),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      itemCount: subjectIds.length,
+                      itemBuilder: (context, index) {
+                        final subjectId = subjectIds[index];
+                        final entries = bySubject[subjectId]!;
+                        final subjectMatch = subjects
+                            .where((s) => s.id == subjectId)
+                            .firstOrNull;
+                        final subjectName =
+                            subjectMatch?.name ?? 'Subject $subjectId';
+
+                        // Average mastery across all topics for this subject
+                        final avgScore = entries.isEmpty
+                            ? 0.0
+                            : entries.fold<double>(0, (s, m) => s + m.score) /
+                                  entries.length;
+                        final pct = (avgScore * 100).clamp(0.0, 100.0);
+
+                        return _MasterySubjectCard(
+                          subjectName: subjectName,
+                          pct: pct,
+                          topicEntries: entries,
+                          cs: cs,
+                          subjectIndex: index,
+                          topicNames: topicNames,
+                        );
+                      },
+                    ),
                   ),
-                  itemCount: subjectIds.length,
-                  itemBuilder: (context, index) {
-                    final subjectId = subjectIds[index];
-                    final entries = bySubject[subjectId]!;
-                    final subjectMatch = subjects
-                        .where((s) => s.id == subjectId)
-                        .firstOrNull;
-                    final subjectName =
-                        subjectMatch?.name ?? 'Subject $subjectId';
-
-                    // Average mastery across all topics for this subject
-                    final avgScore = entries.isEmpty
-                        ? 0.0
-                        : entries.fold<double>(0, (s, m) => s + m.score) /
-                              entries.length;
-                    final pct = (avgScore * 100).clamp(0.0, 100.0);
-
-                    return _MasterySubjectCard(
-                      subjectName: subjectName,
-                      pct: pct,
-                      topicEntries: entries,
-                      cs: cs,
-                      subjectIndex: index,
-                      topicNames: topicNames,
-                    );
-                  },
                 );
               },
             );
@@ -1124,9 +1158,9 @@ class _MasterySubjectCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+        color: AppTheme.nestedBg(isDark, cs),
         borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-        border: Border.all(color: cs.outline.withValues(alpha: 0.08)),
+        border: Border.all(color: AppTheme.borderColor(isDark, cs)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1139,7 +1173,7 @@ class _MasterySubjectCard extends StatelessWidget {
                 height: 28,
                 decoration: BoxDecoration(
                   color: tint.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(AppTheme.kChipRadius + 2),
+                  borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
                 ),
                 alignment: Alignment.center,
                 child: Icon(
@@ -1333,39 +1367,50 @@ class _AttendanceTabState extends State<_AttendanceTab> {
     final cs = Theme.of(context).colorScheme;
     final term = widget.termContext.currentTerm;
 
-    if (term == null) return _NoTermPlaceholder(cs: cs);
+    if (term == null) {
+      return const EduEmptyState(
+        icon: Icons.calendar_today_outlined,
+        title: 'No terms configured',
+        subtitle: 'Progress data will appear once a term is set up.',
+      );
+    }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // ── Summary bar ────────────────────────────────────────────────────
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: _AttendanceSummaryBar(
-            schoolId: widget.schoolId,
-            year: term.year,
-            term: term.term,
-            studentAdm: widget.ward.adm,
-            dao: _dao,
-            cs: cs,
-          ),
-        ),
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 680),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Summary bar ────────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: _AttendanceSummaryBar(
+                schoolId: widget.schoolId,
+                year: term.year,
+                term: term.term,
+                studentAdm: widget.ward.adm,
+                dao: _dao,
+                cs: cs,
+              ),
+            ),
 
-        // ── Calendar ──────────────────────────────────────────────────────
-        Expanded(
-          child: _AttendanceCalendar(
-            schoolId: widget.schoolId,
-            year: term.year,
-            term: term.term,
-            studentAdm: widget.ward.adm,
-            calendarMonth: _calendarMonth,
-            dao: _dao,
-            cs: cs,
-            onPreviousMonth: _previousMonth,
-            onNextMonth: _nextMonth,
-          ),
+            // ── Calendar ──────────────────────────────────────────────────────
+            Expanded(
+              child: _AttendanceCalendar(
+                schoolId: widget.schoolId,
+                year: term.year,
+                term: term.term,
+                studentAdm: widget.ward.adm,
+                calendarMonth: _calendarMonth,
+                dao: _dao,
+                cs: cs,
+                onPreviousMonth: _previousMonth,
+                onNextMonth: _nextMonth,
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -1391,6 +1436,8 @@ class _AttendanceSummaryBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = cs.brightness == Brightness.dark;
+
     return StreamBuilder<({int totalDays, int present, int absent, int leave})>(
       stream: dao.watchStudentAttendanceSummary(
         schoolId: schoolId,
@@ -1409,9 +1456,9 @@ class _AttendanceSummaryBar extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: cs.surfaceContainerHighest.withValues(alpha: 0.35),
+            color: AppTheme.nestedBg(isDark, cs),
             borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-            border: Border.all(color: cs.outline.withValues(alpha: 0.06)),
+            border: Border.all(color: AppTheme.borderColor(isDark, cs)),
           ),
           child: Row(
             children: [
@@ -1870,13 +1917,14 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(AppTheme.kCardRadius - 2),
-        border: Border.all(color: cs.outline.withValues(alpha: 0.08)),
+        color: AppTheme.nestedBg(isDark, cs),
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        border: Border.all(color: AppTheme.borderColor(isDark, cs)),
       ),
       child: Row(
         children: [
@@ -1885,7 +1933,7 @@ class _StatCard extends StatelessWidget {
             height: 34,
             decoration: BoxDecoration(
               color: tint.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
             ),
             alignment: Alignment.center,
             child: Icon(icon, size: 17, color: tint.withValues(alpha: 0.7)),
@@ -1970,69 +2018,20 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-class _EmptyCard extends StatelessWidget {
-  const _EmptyCard({required this.icon, required this.message});
-
-  final IconData icon;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.25),
-        borderRadius: BorderRadius.circular(AppTheme.kCardRadius - 2),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-            ),
-            alignment: Alignment.center,
-            child: Icon(
-              icon,
-              size: 18,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.3),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            message,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.45),
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _LoadingShimmer extends StatelessWidget {
   const _LoadingShimmer();
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
 
     return Container(
       height: 60,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(6),
+        color: AppTheme.nestedBg(isDark, cs),
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
       ),
       alignment: Alignment.center,
       child: SizedBox(
@@ -2041,58 +2040,6 @@ class _LoadingShimmer extends StatelessWidget {
         child: CircularProgressIndicator(
           strokeWidth: 1.5,
           color: cs.onSurfaceVariant.withValues(alpha: 0.25),
-        ),
-      ),
-    );
-  }
-}
-
-class _NoTermPlaceholder extends StatelessWidget {
-  const _NoTermPlaceholder({required this.cs});
-
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                Icons.calendar_today_outlined,
-                size: 22,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.3),
-              ),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              'No terms configured',
-              style: TextStyle(
-                fontSize: 13.5,
-                fontWeight: FontWeight.w500,
-                color: cs.onSurface,
-              ),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              'Progress data will appear once a term is set up',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
         ),
       ),
     );

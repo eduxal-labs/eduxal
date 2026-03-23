@@ -243,7 +243,7 @@ TeacherEntry() => schoolContext.permissions.canAny(Resource.classes, [
 
 ## Track P (Polish) — Visual & Design Consistency
 
-### Task P1: Fix Guardian Progress dark mode colors to use AppTheme helpers
+### Task P1: Fix Guardian Progress dark mode colors to use AppTheme helpers ✅
 **Files to create/modify:** `eduxal/lib/ui/screens/school_dashboard/progress/guardian_progress_screen.dart`
 **Context files to read (if needed):** `eduxal/lib/ui/theme/app_theme.dart`
 **Depends on:** None
@@ -265,11 +265,11 @@ final border = AppTheme.borderColor(isDark, cs);
 ```
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
-### Task P2: Standardize border radii in Guardian Progress screen
+### Task P2: Standardize border radii in Guardian Progress screen ✅
 **Files to create/modify:** `eduxal/lib/ui/screens/school_dashboard/progress/guardian_progress_screen.dart`
 **Context files to read (if needed):** None
 **Depends on:** None
@@ -293,11 +293,11 @@ Fix these specific locations:
 Use the nearest standard token for each.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
-### Task P3: Fix spacing violations in Guardian Progress screen
+### Task P3: Fix spacing violations in Guardian Progress screen ✅
 **Files to create/modify:** `eduxal/lib/ui/screens/school_dashboard/progress/guardian_progress_screen.dart`
 **Context files to read (if needed):** None
 **Depends on:** None
@@ -314,11 +314,11 @@ Several spacing values violate §21 guidelines (12-16px internal, 6-8px gaps, ne
 5. Review all `SizedBox(height: 20)` occurrences and reduce to 12px where they represent inter-section gaps (not scroll padding).
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
-### Task P4: Replace `_EmptyCard` and `_NoTermPlaceholder` with `EduEmptyState`
+### Task P4: Replace `_EmptyCard` and `_NoTermPlaceholder` with `EduEmptyState` ✅
 **Files to create/modify:** `eduxal/lib/ui/screens/school_dashboard/progress/guardian_progress_screen.dart`
 **Context files to read (if needed):** `eduxal/lib/ui/widgets/edu_empty_state.dart`
 **Depends on:** None
@@ -335,7 +335,7 @@ Fix:
 4. Delete the `_EmptyCard` and `_NoTermPlaceholder` classes once all usages are replaced.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -436,7 +436,7 @@ Or, if `ExamGroup` doesn't expose papers at this level, change the label from "M
 
 ---
 
-### Task P9: Add responsive max-width constraint to Guardian Progress screen
+### Task P9: Add responsive max-width constraint to Guardian Progress screen ✅
 **Files to create/modify:** `eduxal/lib/ui/screens/school_dashboard/progress/guardian_progress_screen.dart`
 **Context files to read (if needed):** None
 **Depends on:** None
@@ -462,7 +462,7 @@ Center(
 3. Optionally, for the Overview tab's stats grid, use a `LayoutBuilder` to switch from 2×2 to a single row of 4 on wider screens.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
