@@ -45,10 +45,18 @@ class AnnouncementsScreen extends StatelessWidget {
         schoolContext: schoolContext,
         termContext: termCtx,
       ),
-      StaffEntry() => _AdminFeed(
-        schoolContext: schoolContext,
-        termContext: termCtx,
-      ),
+      StaffEntry() =>
+        schoolContext.permissions.canAny(Resource.announcements, [
+              Action.create,
+              Action.update,
+              Action.delete,
+            ])
+            ? _AdminFeed(schoolContext: schoolContext, termContext: termCtx)
+            : _RoleFeed(
+                schoolContext: schoolContext,
+                termContext: termCtx,
+                audienceBit: AudienceBits.staff,
+              ),
       TeacherEntry() =>
         schoolContext.permissions.canAny(Resource.announcements, [
               Action.create,

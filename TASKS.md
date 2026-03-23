@@ -116,7 +116,7 @@ StreamBuilder<List<Grade>>(
 
 ---
 
-### Task F5: Fix Staff routed to `_AdminFeed` in Announcements without permission check
+### Task F5: Fix Staff routed to `_AdminFeed` in Announcements without permission check ✅
 **Files to create/modify:** `eduxal/lib/ui/screens/school_dashboard/announcements/announcements_screen.dart`
 **Context files to read (if needed):** None
 **Depends on:** None
@@ -142,7 +142,7 @@ StaffEntry() => schoolContext.permissions.canAny(Resource.announcements, [
 ```
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -204,7 +204,7 @@ if (perms.canAny(Resource.attendance, [Action.read, Action.mark]))
 Place it after the Timetable item and before the Roles item in the Staff list.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 

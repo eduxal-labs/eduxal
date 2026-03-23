@@ -490,12 +490,20 @@ class _TeacherClassChips extends StatefulWidget {
 }
 
 class _TeacherClassChipsState extends State<_TeacherClassChips> {
-  late final Future<List<SchoolStream>> _streamsFuture;
+  late Future<List<SchoolStream>> _streamsFuture;
 
   @override
   void initState() {
     super.initState();
     _streamsFuture = CatalogDao(db).getStreamsForSchool(widget.schoolId);
+  }
+
+  @override
+  void didUpdateWidget(covariant _TeacherClassChips oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.schoolId != widget.schoolId) {
+      _streamsFuture = CatalogDao(db).getStreamsForSchool(widget.schoolId);
+    }
   }
 
   @override
@@ -665,12 +673,22 @@ class _TeacherUpcomingExams extends StatefulWidget {
 }
 
 class _TeacherUpcomingExamsState extends State<_TeacherUpcomingExams> {
-  late final Future<List<Subject>> _subjectsFuture;
+  late Future<List<Subject>> _subjectsFuture;
 
   @override
   void initState() {
     super.initState();
     _subjectsFuture = CatalogDao(db).getSubjects();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TeacherUpcomingExams oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.schoolId != widget.schoolId) {
+      setState(() {
+        _subjectsFuture = CatalogDao(db).getSubjects();
+      });
+    }
   }
 
   @override

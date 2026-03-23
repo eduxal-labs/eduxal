@@ -55,15 +55,6 @@ class _MyClassesBody extends StatefulWidget {
 class _MyClassesBodyState extends State<_MyClassesBody> {
   String get _schoolId => widget.schoolContext.membership.school.id;
 
-  String get _userId {
-    final entry = widget.schoolContext.currentEntry.value;
-    if (entry case TeacherEntry(:final teacher)) {
-      return teacher.user;
-    }
-    // Fallback — shouldn't happen if this screen is only shown for teachers.
-    return '';
-  }
-
   /// Determines curriculum type for a grade number, using the same heuristic as
   /// AcademicsScreen: grades ≥ 41 → 8-4-4, grades ≥ 9 → CBC, ambiguous 1–8
   /// resolved by checking for any 8-4-4-only grades in the set.
@@ -134,37 +125,29 @@ class _MyClassesBodyState extends State<_MyClassesBody> {
       );
     }
 
-    final userId = _userId;
-    if (userId.isEmpty) {
-      return const EduEmptyState(
-        icon: Icons.school_outlined,
-        title: 'Not a teacher',
-        subtitle: 'This screen is only available for teacher accounts.',
-      );
-    }
-
     final year = term.year;
     final termNum = term.term;
 
-    return StreamBuilder<List<SchoolStream>>(
-      stream: catalogDao.watchAllStreamsForSchool(_schoolId),
-      builder: (context, streamsSnap) {
-        final allStreams = streamsSnap.data ?? [];
+    return ValueListenableBuilder<MembershipEntry>(
+      valueListenable: widget.schoolContext.currentEntry,
+      builder: (context, entry, _) {
+        final userId = entry is TeacherEntry ? entry.teacher.user : '';
+        if (userId.isEmpty) {
+          return const EduEmptyState(
+            icon: Icons.school_outlined,
+            title: 'Not a teacher',
+            subtitle: 'This screen is only available for teacher accounts.',
+          );
+        }
 
-        return StreamBuilder<List<ClassTeacher>>(
-          stream:
-              (db.select(db.classTeachers)..where(
-                    (t) =>
-                        t.school.equals(_schoolId) &
-                        t.year.equals(year) &
-                        t.term.equals(termNum) &
-                        t.teacher.equals(userId),
-                  ))
-                  .watch(),
-          builder: (context, ctSnap) {
-            return StreamBuilder<List<SubjectTeacher>>(
+        return StreamBuilder<List<SchoolStream>>(
+          stream: catalogDao.watchAllStreamsForSchool(_schoolId),
+          builder: (context, streamsSnap) {
+            final allStreams = streamsSnap.data ?? [];
+
+            return StreamBuilder<List<ClassTeacher>>(
               stream:
-                  (db.select(db.subjectTeachers)..where(
+                  (db.select(db.classTeachers)..where(
                         (t) =>
                             t.school.equals(_schoolId) &
                             t.year.equals(year) &
@@ -172,45 +155,58 @@ class _MyClassesBodyState extends State<_MyClassesBody> {
                             t.teacher.equals(userId),
                       ))
                       .watch(),
-              builder: (context, stSnap) {
-                if (!ctSnap.hasData && !stSnap.hasData) {
-                  return const Center(
-                    child: SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  );
-                }
+              builder: (context, ctSnap) {
+                return StreamBuilder<List<SubjectTeacher>>(
+                  stream:
+                      (db.select(db.subjectTeachers)..where(
+                            (t) =>
+                                t.school.equals(_schoolId) &
+                                t.year.equals(year) &
+                                t.term.equals(termNum) &
+                                t.teacher.equals(userId),
+                          ))
+                          .watch(),
+                  builder: (context, stSnap) {
+                    if (!ctSnap.hasData && !stSnap.hasData) {
+                      return const Center(
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      );
+                    }
 
-                final classTeacherRows = ctSnap.data ?? [];
-                final subjectTeacherRows = stSnap.data ?? [];
+                    final classTeacherRows = ctSnap.data ?? [];
+                    final subjectTeacherRows = stSnap.data ?? [];
 
-                // Build unique (grade, stream) assignments.
-                final assignments = _buildAssignments(
-                  classTeacherRows,
-                  subjectTeacherRows,
-                  allStreams,
-                );
+                    // Build unique (grade, stream) assignments.
+                    final assignments = _buildAssignments(
+                      classTeacherRows,
+                      subjectTeacherRows,
+                      allStreams,
+                    );
 
-                if (assignments.isEmpty) {
-                  return const EduEmptyState(
-                    icon: Icons.class_outlined,
-                    title: 'No class assignments',
-                    subtitle:
-                        'You have no class teacher or subject assignments for this term.',
-                  );
-                }
+                    if (assignments.isEmpty) {
+                      return const EduEmptyState(
+                        icon: Icons.class_outlined,
+                        title: 'No class assignments',
+                        subtitle:
+                            'You have no class teacher or subject assignments for this term.',
+                      );
+                    }
 
-                return _AssignmentsGrid(
-                  assignments: assignments,
-                  allStreams: allStreams,
-                  schoolId: _schoolId,
-                  year: year,
-                  term: termNum,
-                  isDark: isDark,
-                  cs: cs,
-                  onTap: (a) => _navigateToGradeDetail(a, allStreams),
+                    return _AssignmentsGrid(
+                      assignments: assignments,
+                      allStreams: allStreams,
+                      schoolId: _schoolId,
+                      year: year,
+                      term: termNum,
+                      isDark: isDark,
+                      cs: cs,
+                      onTap: (a) => _navigateToGradeDetail(a, allStreams),
+                    );
+                  },
                 );
               },
             );

@@ -114,7 +114,11 @@ class TimetableScreen extends StatelessWidget {
         termContext: termCtx,
       ),
       TeacherEntry() =>
-        schoolContext.permissions.can(Resource.classes, Action.create)
+        schoolContext.permissions.canAny(Resource.classes, [
+              Action.create,
+              Action.update,
+              Action.delete,
+            ])
             ? _OwnerTimetableShell(
                 schoolContext: schoolContext,
                 termContext: termCtx,

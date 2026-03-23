@@ -344,6 +344,8 @@ class _DashboardShellState extends State<_DashboardShell>
             label: 'Timetable',
             icon: Icons.calendar_view_week_outlined,
           ),
+        if (perms.canAny(Resource.attendance, [Action.read, Action.mark]))
+          const _NavItem(label: 'Attendance', icon: Icons.fact_check_outlined),
         if (perms.canAny(Resource.roles, [Action.read]))
           const _NavItem(
             label: 'Roles',
