@@ -31,7 +31,7 @@ return ValueListenableBuilder<MembershipEntry>(
 
 ---
 
-### Task F2: Fix N+1 `watchSubjects()` streams in Guardian Progress Exams tab
+### Task F2: Fix N+1 `watchSubjects()` streams in Guardian Progress Exams tab ✅
 **Files to create/modify:** `eduxal/lib/ui/screens/school_dashboard/progress/guardian_progress_screen.dart`
 **Context files to read (if needed):** None
 **Depends on:** None
@@ -49,11 +49,11 @@ Fix:
 5. Remove `CatalogDao(db)` instantiation from inside `_ExamCard`.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
-### Task F3: Fix N+1 `watchTopicsBySubjectAndGrade()` streams in Guardian Progress Mastery tab
+### Task F3: Fix N+1 `watchTopicsBySubjectAndGrade()` streams in Guardian Progress Mastery tab ✅
 **Files to create/modify:** `eduxal/lib/ui/screens/school_dashboard/progress/guardian_progress_screen.dart`
 **Context files to read (if needed):** None
 **Depends on:** None
@@ -73,11 +73,11 @@ Fix:
 5. Fix the `grade: 0` issue by passing the ward's actual enrolled grade. Get it from the enrollment data already available in the parent widget.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
-### Task F4: Fix quadruple `watchStudentGrades()` subscription on Guardian Progress Overview tab
+### Task F4: Fix quadruple `watchStudentGrades()` subscription on Guardian Progress Overview tab ✅
 **Files to create/modify:** `eduxal/lib/ui/screens/school_dashboard/progress/guardian_progress_screen.dart`
 **Context files to read (if needed):** None
 **Depends on:** None
@@ -112,7 +112,7 @@ StreamBuilder<List<Grade>>(
 3. Remove the individual `ExamsGradesDao(db)` instantiations from each of these widgets.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 

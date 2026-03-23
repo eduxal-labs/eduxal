@@ -206,33 +206,50 @@ class _OverviewTab extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final term = termContext.currentTerm;
 
-    return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      children: [
-        // ── Ward identity header ─────────────────────────────────────────
-        _WardIdentityHeader(ward: ward, schoolId: schoolId, term: term),
-        const SizedBox(height: 16),
-
-        // ── 2×2 Stats grid ───────────────────────────────────────────────
-        if (term != null) ...[
-          _StatsGrid(
-            schoolId: schoolId,
-            ward: ward,
-            year: term.year,
-            term: term.term,
-          ),
-          const SizedBox(height: 20),
-
-          // ── Recent exam results ──────────────────────────────────────────
-          _SectionTitle(label: 'Recent Exam Results', cs: cs),
-          const SizedBox(height: 8),
-          _RecentExamResults(schoolId: schoolId, studentAdm: ward.adm),
+    if (term == null) {
+      return ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        children: [
+          _WardIdentityHeader(ward: ward, schoolId: schoolId, term: term),
+          const SizedBox(height: 16),
+          _NoTermPlaceholder(cs: cs),
+          const SizedBox(height: 80),
         ],
+      );
+    }
 
-        if (term == null) _NoTermPlaceholder(cs: cs),
+    // Single grades stream shared by all stat widgets and recent results
+    return StreamBuilder<List<Grade>>(
+      stream: ExamsGradesDao(db).watchStudentGrades(schoolId, ward.adm),
+      builder: (context, gradeSnap) {
+        final grades = gradeSnap.data ?? [];
 
-        const SizedBox(height: 80),
-      ],
+        return ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          children: [
+            // ── Ward identity header ─────────────────────────────────────
+            _WardIdentityHeader(ward: ward, schoolId: schoolId, term: term),
+            const SizedBox(height: 16),
+
+            // ── 2×2 Stats grid ───────────────────────────────────────────
+            _StatsGrid(
+              schoolId: schoolId,
+              ward: ward,
+              year: term.year,
+              term: term.term,
+              grades: grades,
+            ),
+            const SizedBox(height: 20),
+
+            // ── Recent exam results ──────────────────────────────────────
+            _SectionTitle(label: 'Recent Exam Results', cs: cs),
+            const SizedBox(height: 8),
+            _RecentExamResults(grades: grades),
+
+            const SizedBox(height: 80),
+          ],
+        );
+      },
     );
   }
 }
@@ -339,12 +356,14 @@ class _StatsGrid extends StatelessWidget {
     required this.ward,
     required this.year,
     required this.term,
+    required this.grades,
   });
 
   final String schoolId;
   final StudentsData ward;
   final int year;
   final int term;
+  final List<Grade> grades;
 
   @override
   Widget build(BuildContext context) {
@@ -361,26 +380,20 @@ class _StatsGrid extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Expanded(
-              child: _LatestExamAvgStat(
-                schoolId: schoolId,
-                studentAdm: ward.adm,
-              ),
-            ),
+            Expanded(child: _LatestExamAvgStat(grades: grades)),
           ],
         ),
         const SizedBox(height: 8),
         Row(
           children: [
-            Expanded(
-              child: _SubjectsCountStat(
-                schoolId: schoolId,
-                studentAdm: ward.adm,
-              ),
-            ),
+            Expanded(child: _SubjectsCountStat(grades: grades)),
             const SizedBox(width: 8),
             Expanded(
-              child: _ClassRankStat(schoolId: schoolId, studentAdm: ward.adm),
+              child: _ClassRankStat(
+                schoolId: schoolId,
+                studentAdm: ward.adm,
+                grades: grades,
+              ),
             ),
           ],
         ),
@@ -428,127 +441,170 @@ class _AttendanceStat extends StatelessWidget {
 }
 
 class _LatestExamAvgStat extends StatelessWidget {
-  const _LatestExamAvgStat({required this.schoolId, required this.studentAdm});
+  const _LatestExamAvgStat({required this.grades});
 
-  final String schoolId;
-  final int studentAdm;
+  final List<Grade> grades;
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<Grade>>(
-      stream: ExamsGradesDao(db).watchStudentGrades(schoolId, studentAdm),
-      builder: (context, snap) {
-        final grades = snap.data ?? [];
-        if (grades.isEmpty) {
-          return const _StatCard(
-            icon: Icons.assessment_outlined,
-            label: 'Exam Average',
-            value: '—',
-            tint: Color(0xFF607D8B),
-          );
-        }
+    if (grades.isEmpty) {
+      return const _StatCard(
+        icon: Icons.assessment_outlined,
+        label: 'Exam Average',
+        value: '—',
+        tint: Color(0xFF607D8B),
+      );
+    }
 
-        // Group by exam, pick the latest exam, compute avg %
-        final byExam = <String, List<Grade>>{};
-        for (final g in grades) {
-          if (g.paper != null) continue; // subject-level totals only
-          (byExam[g.exam] ??= []).add(g);
-        }
+    // Group by exam, pick the latest exam, compute avg %
+    final byExam = <String, List<Grade>>{};
+    for (final g in grades) {
+      if (g.paper != null) continue; // subject-level totals only
+      (byExam[g.exam] ??= []).add(g);
+    }
 
-        // If no subject-level totals, fall back to all grades
-        if (byExam.isEmpty) {
-          for (final g in grades) {
-            (byExam[g.exam] ??= []).add(g);
-          }
-        }
+    // If no subject-level totals, fall back to all grades
+    if (byExam.isEmpty) {
+      for (final g in grades) {
+        (byExam[g.exam] ??= []).add(g);
+      }
+    }
 
-        if (byExam.isEmpty) {
-          return const _StatCard(
-            icon: Icons.assessment_outlined,
-            label: 'Exam Average',
-            value: '—',
-            tint: Color(0xFF607D8B),
-          );
-        }
+    if (byExam.isEmpty) {
+      return const _StatCard(
+        icon: Icons.assessment_outlined,
+        label: 'Exam Average',
+        value: '—',
+        tint: Color(0xFF607D8B),
+      );
+    }
 
-        // Find the latest exam by most recent grade created date
-        String? latestExam;
-        BigInt latestTime = BigInt.zero;
-        for (final entry in byExam.entries) {
-          final maxCreated = entry.value
-              .map((g) => g.created)
-              .reduce((a, b) => a > b ? a : b);
-          if (maxCreated > latestTime) {
-            latestTime = maxCreated;
-            latestExam = entry.key;
-          }
-        }
+    // Find the latest exam by most recent grade created date
+    String? latestExam;
+    BigInt latestTime = BigInt.zero;
+    for (final entry in byExam.entries) {
+      final maxCreated = entry.value
+          .map((g) => g.created)
+          .reduce((a, b) => a > b ? a : b);
+      if (maxCreated > latestTime) {
+        latestTime = maxCreated;
+        latestExam = entry.key;
+      }
+    }
 
-        if (latestExam == null) {
-          return const _StatCard(
-            icon: Icons.assessment_outlined,
-            label: 'Exam Average',
-            value: '—',
-            tint: Color(0xFF607D8B),
-          );
-        }
+    if (latestExam == null) {
+      return const _StatCard(
+        icon: Icons.assessment_outlined,
+        label: 'Exam Average',
+        value: '—',
+        tint: Color(0xFF607D8B),
+      );
+    }
 
-        final latestGrades = byExam[latestExam]!;
-        final totalScore = latestGrades.fold<double>(0, (s, g) => s + g.score);
-        final totalMax = latestGrades.fold<double>(0, (s, g) => s + g.total);
-        final pct = totalMax > 0 ? (totalScore / totalMax * 100) : 0.0;
+    final latestGrades = byExam[latestExam]!;
+    final totalScore = latestGrades.fold<double>(0, (s, g) => s + g.score);
+    final totalMax = latestGrades.fold<double>(0, (s, g) => s + g.total);
+    final pct = totalMax > 0 ? (totalScore / totalMax * 100) : 0.0;
 
-        return _StatCard(
-          icon: Icons.assessment_outlined,
-          label: 'Exam Average',
-          value: '${pct.toStringAsFixed(0)}%',
-          tint: _pctColor(pct),
-        );
-      },
+    return _StatCard(
+      icon: Icons.assessment_outlined,
+      label: 'Exam Average',
+      value: '${pct.toStringAsFixed(0)}%',
+      tint: _pctColor(pct),
     );
   }
 }
 
 class _SubjectsCountStat extends StatelessWidget {
-  const _SubjectsCountStat({required this.schoolId, required this.studentAdm});
+  const _SubjectsCountStat({required this.grades});
 
-  final String schoolId;
-  final int studentAdm;
+  final List<Grade> grades;
 
   @override
   Widget build(BuildContext context) {
-    // Count distinct subjects from student's grades
-    return StreamBuilder<List<Grade>>(
-      stream: ExamsGradesDao(db).watchStudentGrades(schoolId, studentAdm),
-      builder: (context, snap) {
-        final grades = snap.data ?? [];
-        final subjectIds = grades.map((g) => g.subject).toSet();
-        return _StatCard(
-          icon: Icons.menu_book_outlined,
-          label: 'Subjects',
-          value: '${subjectIds.length}',
-          tint: const Color(0xFF5C6BC0),
-        );
-      },
+    final subjectIds = grades.map((g) => g.subject).toSet();
+    return _StatCard(
+      icon: Icons.menu_book_outlined,
+      label: 'Subjects',
+      value: '${subjectIds.length}',
+      tint: const Color(0xFF5C6BC0),
     );
   }
 }
 
 class _ClassRankStat extends StatelessWidget {
-  const _ClassRankStat({required this.schoolId, required this.studentAdm});
+  const _ClassRankStat({
+    required this.schoolId,
+    required this.studentAdm,
+    required this.grades,
+  });
 
   final String schoolId;
   final int studentAdm;
+  final List<Grade> grades;
 
   @override
   Widget build(BuildContext context) {
     // Rank is computed from the latest exam: compare this student's total
     // to all other students in the same exam.
+    if (grades.isEmpty) {
+      return const _StatCard(
+        icon: Icons.leaderboard_outlined,
+        label: 'Class Rank',
+        value: '—',
+        tint: Color(0xFF607D8B),
+      );
+    }
+
+    // Find latest exam by created date
+    final byExam = <String, List<Grade>>{};
+    for (final g in grades) {
+      if (g.paper != null) continue;
+      (byExam[g.exam] ??= []).add(g);
+    }
+    if (byExam.isEmpty) {
+      for (final g in grades) {
+        (byExam[g.exam] ??= []).add(g);
+      }
+    }
+    if (byExam.isEmpty) {
+      return const _StatCard(
+        icon: Icons.leaderboard_outlined,
+        label: 'Class Rank',
+        value: '—',
+        tint: Color(0xFF607D8B),
+      );
+    }
+
+    String? latestExam;
+    BigInt latestTime = BigInt.zero;
+    for (final entry in byExam.entries) {
+      final maxCreated = entry.value
+          .map((g) => g.created)
+          .reduce((a, b) => a > b ? a : b);
+      if (maxCreated > latestTime) {
+        latestTime = maxCreated;
+        latestExam = entry.key;
+      }
+    }
+
+    if (latestExam == null) {
+      return const _StatCard(
+        icon: Icons.leaderboard_outlined,
+        label: 'Class Rank',
+        value: '—',
+        tint: Color(0xFF607D8B),
+      );
+    }
+
+    // Use class-wide grades for the latest exam to compute rank
     return StreamBuilder<List<Grade>>(
-      stream: ExamsGradesDao(db).watchStudentGrades(schoolId, studentAdm),
-      builder: (context, snap) {
-        final grades = snap.data ?? [];
-        if (grades.isEmpty) {
+      stream: ExamsGradesDao(
+        db,
+      ).watchClassGrades(schoolId: schoolId, examId: latestExam),
+      builder: (context, classSnap) {
+        final classGrades = classSnap.data ?? [];
+        if (classGrades.isEmpty) {
           return const _StatCard(
             icon: Icons.leaderboard_outlined,
             label: 'Class Rank',
@@ -557,18 +613,22 @@ class _ClassRankStat extends StatelessWidget {
           );
         }
 
-        // Find latest exam by created date
-        final byExam = <String, List<Grade>>{};
-        for (final g in grades) {
+        // Sum scores per student (subject-level only — paper == null)
+        final studentTotals = <int, double>{};
+        for (final g in classGrades) {
           if (g.paper != null) continue;
-          (byExam[g.exam] ??= []).add(g);
+          studentTotals[g.student] = (studentTotals[g.student] ?? 0) + g.score;
         }
-        if (byExam.isEmpty) {
-          for (final g in grades) {
-            (byExam[g.exam] ??= []).add(g);
+
+        // If no subject-level totals, fall back to all
+        if (studentTotals.isEmpty) {
+          for (final g in classGrades) {
+            studentTotals[g.student] =
+                (studentTotals[g.student] ?? 0) + g.score;
           }
         }
-        if (byExam.isEmpty) {
+
+        if (!studentTotals.containsKey(studentAdm)) {
           return const _StatCard(
             icon: Icons.leaderboard_outlined,
             label: 'Class Rank',
@@ -577,86 +637,22 @@ class _ClassRankStat extends StatelessWidget {
           );
         }
 
-        String? latestExam;
-        BigInt latestTime = BigInt.zero;
-        for (final entry in byExam.entries) {
-          final maxCreated = entry.value
-              .map((g) => g.created)
-              .reduce((a, b) => a > b ? a : b);
-          if (maxCreated > latestTime) {
-            latestTime = maxCreated;
-            latestExam = entry.key;
-          }
+        final sorted = studentTotals.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
+
+        int rank = 1;
+        for (final entry in sorted) {
+          if (entry.key == studentAdm) break;
+          rank++;
         }
 
-        if (latestExam == null) {
-          return const _StatCard(
-            icon: Icons.leaderboard_outlined,
-            label: 'Class Rank',
-            value: '—',
-            tint: Color(0xFF607D8B),
-          );
-        }
+        final total = sorted.length;
 
-        // Use class-wide grades for the latest exam to compute rank
-        return StreamBuilder<List<Grade>>(
-          stream: ExamsGradesDao(
-            db,
-          ).watchClassGrades(schoolId: schoolId, examId: latestExam),
-          builder: (context, classSnap) {
-            final classGrades = classSnap.data ?? [];
-            if (classGrades.isEmpty) {
-              return const _StatCard(
-                icon: Icons.leaderboard_outlined,
-                label: 'Class Rank',
-                value: '—',
-                tint: Color(0xFF607D8B),
-              );
-            }
-
-            // Sum scores per student (subject-level only — paper == null)
-            final studentTotals = <int, double>{};
-            for (final g in classGrades) {
-              if (g.paper != null) continue;
-              studentTotals[g.student] =
-                  (studentTotals[g.student] ?? 0) + g.score;
-            }
-
-            // If no subject-level totals, fall back to all
-            if (studentTotals.isEmpty) {
-              for (final g in classGrades) {
-                studentTotals[g.student] =
-                    (studentTotals[g.student] ?? 0) + g.score;
-              }
-            }
-
-            if (!studentTotals.containsKey(studentAdm)) {
-              return const _StatCard(
-                icon: Icons.leaderboard_outlined,
-                label: 'Class Rank',
-                value: '—',
-                tint: Color(0xFF607D8B),
-              );
-            }
-
-            final sorted = studentTotals.entries.toList()
-              ..sort((a, b) => b.value.compareTo(a.value));
-
-            int rank = 1;
-            for (final entry in sorted) {
-              if (entry.key == studentAdm) break;
-              rank++;
-            }
-
-            final total = sorted.length;
-
-            return _StatCard(
-              icon: Icons.leaderboard_outlined,
-              label: 'Class Rank',
-              value: '$rank / $total',
-              tint: const Color(0xFF26A69A),
-            );
-          },
+        return _StatCard(
+          icon: Icons.leaderboard_outlined,
+          label: 'Class Rank',
+          value: '$rank / $total',
+          tint: const Color(0xFF26A69A),
         );
       },
     );
@@ -666,114 +662,104 @@ class _ClassRankStat extends StatelessWidget {
 // ── Recent Exam Results ──────────────────────────────────────────────────────
 
 class _RecentExamResults extends StatelessWidget {
-  const _RecentExamResults({required this.schoolId, required this.studentAdm});
+  const _RecentExamResults({required this.grades});
 
-  final String schoolId;
-  final int studentAdm;
+  final List<Grade> grades;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final examsDao = ExamsGradesDao(db);
 
-    return StreamBuilder<List<Grade>>(
-      stream: examsDao.watchStudentGrades(schoolId, studentAdm),
-      builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
-          return const _LoadingShimmer();
-        }
+    if (grades.isEmpty) {
+      return _EmptyCard(
+        icon: Icons.assignment_outlined,
+        message: 'No exam results yet',
+      );
+    }
 
-        final allGrades = snap.data ?? [];
-        if (allGrades.isEmpty) {
-          return _EmptyCard(
-            icon: Icons.assignment_outlined,
-            message: 'No exam results yet',
-          );
-        }
+    // Subject-level totals (paper == null), grouped by exam
+    final byExam = <String, List<Grade>>{};
+    for (final g in grades) {
+      if (g.paper != null) continue;
+      (byExam[g.exam] ??= []).add(g);
+    }
 
-        // Subject-level totals (paper == null), grouped by exam
-        final byExam = <String, List<Grade>>{};
-        for (final g in allGrades) {
-          if (g.paper != null) continue;
-          (byExam[g.exam] ??= []).add(g);
-        }
+    if (byExam.isEmpty) {
+      for (final g in grades) {
+        (byExam[g.exam] ??= []).add(g);
+      }
+    }
 
-        if (byExam.isEmpty) {
-          for (final g in allGrades) {
-            (byExam[g.exam] ??= []).add(g);
-          }
-        }
+    if (byExam.isEmpty) {
+      return _EmptyCard(
+        icon: Icons.assignment_outlined,
+        message: 'No exam results yet',
+      );
+    }
 
-        final examIds = byExam.keys.toList();
-        examIds.sort((a, b) {
-          final aMax = byExam[a]!
-              .map((g) => g.created)
-              .reduce((v, e) => v > e ? v : e);
-          final bMax = byExam[b]!
-              .map((g) => g.created)
-              .reduce((v, e) => v > e ? v : e);
-          return bMax.compareTo(aMax);
-        });
+    final examIds = byExam.keys.toList();
+    examIds.sort((a, b) {
+      final aMax = byExam[a]!
+          .map((g) => g.created)
+          .reduce((v, e) => v > e ? v : e);
+      final bMax = byExam[b]!
+          .map((g) => g.created)
+          .reduce((v, e) => v > e ? v : e);
+      return bMax.compareTo(aMax);
+    });
 
-        final recentExamIds = examIds.take(3).toList();
+    final recentExamIds = examIds.take(3).toList();
 
-        return Column(
-          children: recentExamIds.map((examId) {
-            final grades = byExam[examId]!;
-            final totalScore = grades.fold<double>(
-              0,
-              (sum, g) => sum + g.score,
-            );
-            final totalMax = grades.fold<double>(0, (sum, g) => sum + g.total);
-            final pct = totalMax > 0 ? (totalScore / totalMax * 100) : 0.0;
-
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Material(
-                color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(AppTheme.kCardRadius - 2),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${grades.length} subject${grades.length == 1 ? '' : 's'}',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: cs.onSurface,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '${totalScore.toStringAsFixed(0)} / ${totalMax.toStringAsFixed(0)}',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w400,
-                                color: cs.onSurfaceVariant.withValues(
-                                  alpha: 0.55,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      _PercentBadge(percent: pct, cs: cs),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
+    return Column(
+      children: recentExamIds.map((examId) {
+        final examGrades = byExam[examId]!;
+        final totalScore = examGrades.fold<double>(
+          0,
+          (sum, g) => sum + g.score,
         );
-      },
+        final totalMax = examGrades.fold<double>(0, (sum, g) => sum + g.total);
+        final pct = totalMax > 0 ? (totalScore / totalMax * 100) : 0.0;
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Material(
+            color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+            borderRadius: BorderRadius.circular(AppTheme.kCardRadius - 2),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${examGrades.length} subject${examGrades.length == 1 ? '' : 's'}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: cs.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${totalScore.toStringAsFixed(0)} / ${totalMax.toStringAsFixed(0)}',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w400,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _PercentBadge(percent: pct, cs: cs),
+                ],
+              ),
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 }
@@ -844,19 +830,30 @@ class _ExamsTab extends StatelessWidget {
           return bMax.compareTo(aMax);
         });
 
-        return ListView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          itemCount: examIds.length,
-          itemBuilder: (context, index) {
-            final examId = examIds[index];
-            final grades = byExam[examId]!;
+        // Hoist subject names to avoid N+1 streams in exam cards
+        return StreamBuilder<List<Subject>>(
+          stream: CatalogDao(db).watchSubjects(),
+          builder: (context, subSnap) {
+            final Map<int, String> subjectNames = {
+              for (final s in subSnap.data ?? []) s.id: s.name,
+            };
 
-            return _ExamCard(
-              examId: examId,
-              schoolId: schoolId,
-              grades: grades,
-              cs: cs,
-              examsDao: examsDao,
+            return ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              itemCount: examIds.length,
+              itemBuilder: (context, index) {
+                final examId = examIds[index];
+                final grades = byExam[examId]!;
+
+                return _ExamCard(
+                  examId: examId,
+                  schoolId: schoolId,
+                  grades: grades,
+                  cs: cs,
+                  examsDao: examsDao,
+                  subjectNames: subjectNames,
+                );
+              },
             );
           },
         );
@@ -872,6 +869,7 @@ class _ExamCard extends StatelessWidget {
     required this.grades,
     required this.cs,
     required this.examsDao,
+    required this.subjectNames,
   });
 
   final String examId;
@@ -879,6 +877,7 @@ class _ExamCard extends StatelessWidget {
   final List<Grade> grades;
   final ColorScheme cs;
   final ExamsGradesDao examsDao;
+  final Map<int, String> subjectNames;
 
   @override
   Widget build(BuildContext context) {
@@ -949,6 +948,7 @@ class _ExamCard extends StatelessWidget {
               final idx = entry.key;
               final g = entry.value;
               final pct = g.total > 0 ? (g.score / g.total * 100) : 0.0;
+              final name = subjectNames[g.subject] ?? 'Subject ${g.subject}';
 
               return Column(
                 children: [
@@ -958,24 +958,13 @@ class _ExamCard extends StatelessWidget {
                     child: Row(
                       children: [
                         Expanded(
-                          child: StreamBuilder<List<Subject>>(
-                            stream: CatalogDao(db).watchSubjects(),
-                            builder: (context, subSnap) {
-                              final subjects = subSnap.data ?? [];
-                              final match = subjects
-                                  .where((s) => s.id == g.subject)
-                                  .firstOrNull;
-                              final name =
-                                  match?.name ?? 'Subject ${g.subject}';
-                              return Text(
-                                g.paper != null ? '$name (P${g.paper})' : name,
-                                style: TextStyle(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w400,
-                                  color: cs.onSurface,
-                                ),
-                              );
-                            },
+                          child: Text(
+                            g.paper != null ? '$name (P${g.paper})' : name,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w400,
+                              color: cs.onSurface,
+                            ),
                           ),
                         ),
                         Text(
@@ -1059,30 +1048,45 @@ class _MasteryTab extends StatelessWidget {
           builder: (context, subSnap) {
             final subjects = subSnap.data ?? [];
 
-            return ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              itemCount: subjectIds.length,
-              itemBuilder: (context, index) {
-                final subjectId = subjectIds[index];
-                final entries = bySubject[subjectId]!;
-                final subjectMatch = subjects
-                    .where((s) => s.id == subjectId)
-                    .firstOrNull;
-                final subjectName = subjectMatch?.name ?? 'Subject $subjectId';
+            // Load all topics once to resolve names without per-row streams
+            return StreamBuilder<List<Topic>>(
+              stream: (db.select(db.topics)).watch(),
+              builder: (context, topicSnap) {
+                final Map<int, String> topicNames = {
+                  for (final t in topicSnap.data ?? []) t.id: t.name,
+                };
 
-                // Average mastery across all topics for this subject
-                final avgScore = entries.isEmpty
-                    ? 0.0
-                    : entries.fold<double>(0, (s, m) => s + m.score) /
-                          entries.length;
-                final pct = (avgScore * 100).clamp(0.0, 100.0);
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  itemCount: subjectIds.length,
+                  itemBuilder: (context, index) {
+                    final subjectId = subjectIds[index];
+                    final entries = bySubject[subjectId]!;
+                    final subjectMatch = subjects
+                        .where((s) => s.id == subjectId)
+                        .firstOrNull;
+                    final subjectName =
+                        subjectMatch?.name ?? 'Subject $subjectId';
 
-                return _MasterySubjectCard(
-                  subjectName: subjectName,
-                  pct: pct,
-                  topicEntries: entries,
-                  cs: cs,
-                  subjectIndex: index,
+                    // Average mastery across all topics for this subject
+                    final avgScore = entries.isEmpty
+                        ? 0.0
+                        : entries.fold<double>(0, (s, m) => s + m.score) /
+                              entries.length;
+                    final pct = (avgScore * 100).clamp(0.0, 100.0);
+
+                    return _MasterySubjectCard(
+                      subjectName: subjectName,
+                      pct: pct,
+                      topicEntries: entries,
+                      cs: cs,
+                      subjectIndex: index,
+                      topicNames: topicNames,
+                    );
+                  },
                 );
               },
             );
@@ -1100,6 +1104,7 @@ class _MasterySubjectCard extends StatelessWidget {
     required this.topicEntries,
     required this.cs,
     required this.subjectIndex,
+    required this.topicNames,
   });
 
   final String subjectName;
@@ -1107,6 +1112,7 @@ class _MasterySubjectCard extends StatelessWidget {
   final List<MasteryData> topicEntries;
   final ColorScheme cs;
   final int subjectIndex;
+  final Map<int, String> topicNames;
 
   @override
   Widget build(BuildContext context) {
@@ -1196,8 +1202,7 @@ class _MasterySubjectCard extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
                     child: _MasteryTopicRow(
-                      topicId: m.topic,
-                      subjectId: m.subject,
+                      topicName: topicNames[m.topic] ?? 'Topic ${m.topic}',
                       pct: topicPct,
                       color: topicColor,
                       cs: cs,
@@ -1215,15 +1220,13 @@ class _MasterySubjectCard extends StatelessWidget {
 
 class _MasteryTopicRow extends StatelessWidget {
   const _MasteryTopicRow({
-    required this.topicId,
-    required this.subjectId,
+    required this.topicName,
     required this.pct,
     required this.color,
     required this.cs,
   });
 
-  final int topicId;
-  final int subjectId;
+  final String topicName;
   final double pct;
   final Color color;
   final ColorScheme cs;
@@ -1234,26 +1237,15 @@ class _MasteryTopicRow extends StatelessWidget {
       children: [
         Expanded(
           flex: 3,
-          child: StreamBuilder<List<Topic>>(
-            stream: CatalogDao(db).watchTopicsBySubjectAndGrade(
-              subjectId: subjectId,
-              grade:
-                  0, // topics are fetched by subject; grade 0 acts as wildcard
+          child: Text(
+            topicName,
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.7),
             ),
-            builder: (context, snap) {
-              final topics = snap.data ?? [];
-              final match = topics.where((t) => t.id == topicId).firstOrNull;
-              return Text(
-                match?.name ?? 'Topic $topicId',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              );
-            },
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
         const SizedBox(width: 8),
