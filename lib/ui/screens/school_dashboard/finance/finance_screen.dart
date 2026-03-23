@@ -58,11 +58,15 @@ class FinanceScreen extends StatelessWidget {
                 schoolContext: schoolContext,
                 termContext: termCtx,
               )
-            : _GuardianFinanceView(
-                schoolContext: schoolContext,
-                termContext: termCtx,
-                studentAdm: 0,
-                studentName: '',
+            : Center(
+                child: Text(
+                  'No finance access',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ),
       GuardianEntry(:final ward) => _GuardianFinanceView(
         schoolContext: schoolContext,
