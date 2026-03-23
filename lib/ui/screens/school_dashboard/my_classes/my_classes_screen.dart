@@ -362,7 +362,7 @@ class _AssignmentsGrid extends StatelessWidget {
         // ── Header ────────────────────────────────────────────────────────
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 14, 16, 2),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 2),
             child: Row(
               children: [
                 Expanded(
@@ -509,7 +509,7 @@ class _ClassCardState extends State<_ClassCard>
     );
     _scaleAnim = Tween<double>(
       begin: 1.0,
-      end: 0.97,
+      end: 0.95,
     ).animate(CurvedAnimation(parent: _pressCtrl, curve: Curves.easeInOut));
   }
 

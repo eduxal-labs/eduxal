@@ -339,7 +339,7 @@ Fix:
 
 ---
 
-### Task P5: Fix My Classes screen header padding and press scale
+### Task P5: Fix My Classes screen header padding and press scale ✅
 **Files to create/modify:** `eduxal/lib/ui/screens/school_dashboard/my_classes/my_classes_screen.dart`
 **Context files to read (if needed):** None
 **Depends on:** None
@@ -354,7 +354,7 @@ Two minor design violations:
 2. Press scale animation at ~L515-516 uses `end: 0.97` but §21 mandates `0.95 → 1.0`. Change to `end: 0.95`.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
