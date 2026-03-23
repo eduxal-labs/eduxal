@@ -237,7 +237,7 @@ TeacherEntry() => schoolContext.permissions.canAny(Resource.classes, [
 ```
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
