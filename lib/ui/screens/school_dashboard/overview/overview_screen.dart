@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../client.dart';
 import '../../../../database/database.dart';
+import '../../../../database/daos/academics_dao.dart';
 import '../../../../database/daos/announcements_dao.dart';
 import '../../../../database/daos/attendance_dao.dart';
 import '../../../../database/daos/enrollments_dao.dart';
@@ -13,7 +14,9 @@ import '../../../../database/tables/enums.dart';
 import '../../../../models/active_term_context.dart';
 import '../../../../models/membership.dart';
 import '../../../../models/school_context.dart';
+import '../../../../models/grade_analytics.dart';
 import '../../../widgets/active_term_provider.dart';
+import '../../../widgets/student_avatar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Overview Screen — role-dispatched school dashboard landing page
@@ -1109,17 +1112,42 @@ class _GuardianOverview extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       children: [
-        // ── Welcome ──────────────────────────────────────────────────────
+        // ── 1. Welcome ───────────────────────────────────────────────────
         _WelcomeCard(name: userName, subtitle: 'Guardian', cs: cs),
 
         const SizedBox(height: 16),
 
-        // ── Ward info ────────────────────────────────────────────────────
+        // ── 2. Ward info (enhanced) ──────────────────────────────────────
         _WardInfoCard(ward: ward, schoolId: schoolId, term: term),
 
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
 
-        // ── Ward attendance ──────────────────────────────────────────────
+        // ── 3. Quick stats (2×2 grid) ────────────────────────────────────
+        if (term != null) ...[
+          _SectionTitle(label: 'Quick Stats', cs: cs),
+          const SizedBox(height: 8),
+          _GuardianQuickStats(
+            schoolId: schoolId,
+            term: term,
+            studentAdm: ward.adm,
+          ),
+          const SizedBox(height: 20),
+        ],
+
+        // ── 4. Today's schedule ──────────────────────────────────────────
+        if (term != null) ...[
+          _SectionTitle(label: "Today's Schedule", cs: cs),
+          const SizedBox(height: 8),
+          _StudentTodaySchedule(
+            schoolId: schoolId,
+            year: term.year,
+            term: term.term,
+            studentAdm: ward.adm,
+          ),
+          const SizedBox(height: 20),
+        ],
+
+        // ── 5. Attendance summary ────────────────────────────────────────
         if (term != null) ...[
           _SectionTitle(label: "Attendance", cs: cs),
           const SizedBox(height: 8),
@@ -1132,7 +1160,7 @@ class _GuardianOverview extends StatelessWidget {
           const SizedBox(height: 20),
         ],
 
-        // ── Ward recent grades ───────────────────────────────────────────
+        // ── 6. Recent grades ─────────────────────────────────────────────
         if (term != null) ...[
           _SectionTitle(label: "Recent Grades", cs: cs),
           const SizedBox(height: 8),
@@ -1140,7 +1168,7 @@ class _GuardianOverview extends StatelessWidget {
           const SizedBox(height: 20),
         ],
 
-        // ── Outstanding invoices ─────────────────────────────────────────
+        // ── 7. Finance summary ───────────────────────────────────────────
         if (term != null) ...[
           _SectionTitle(label: 'Finance', cs: cs),
           const SizedBox(height: 8),
@@ -1153,7 +1181,7 @@ class _GuardianOverview extends StatelessWidget {
           const SizedBox(height: 20),
         ],
 
-        // ── Recent announcements ─────────────────────────────────────────
+        // ── 8. Recent announcements ──────────────────────────────────────
         _SectionTitle(label: 'Recent Announcements', cs: cs),
         const SizedBox(height: 8),
         _RecentAnnouncements(
@@ -1163,6 +1191,187 @@ class _GuardianOverview extends StatelessWidget {
 
         const SizedBox(height: 80),
       ],
+    );
+  }
+}
+
+class _GuardianQuickStats extends StatelessWidget {
+  const _GuardianQuickStats({
+    required this.schoolId,
+    required this.term,
+    required this.studentAdm,
+  });
+
+  final String schoolId;
+  final Term term;
+  final int studentAdm;
+
+  @override
+  Widget build(BuildContext context) {
+    final attendanceDao = AttendanceDao(db);
+    final examsDao = ExamsGradesDao(db);
+    final enrollmentsDao = EnrollmentsDao(db);
+    final academicsDao = AcademicsDao(db);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final statWidth = (constraints.maxWidth - 8) / 2;
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            // ── Attendance % ─────────────────────────────────────────────
+            SizedBox(
+              width: statWidth,
+              child:
+                  StreamBuilder<
+                    ({int totalDays, int present, int absent, int leave})
+                  >(
+                    stream: attendanceDao.watchStudentAttendanceSummary(
+                      schoolId: schoolId,
+                      year: term.year,
+                      term: term.term,
+                      studentAdm: studentAdm,
+                    ),
+                    builder: (context, snap) {
+                      final data = snap.data;
+                      final pct = (data != null && data.totalDays > 0)
+                          ? (data.present / data.totalDays * 100)
+                          : null;
+                      return _StatCard(
+                        icon: Icons.calendar_today_outlined,
+                        label: 'Attendance',
+                        value: pct != null ? '${pct.toStringAsFixed(0)}%' : '—',
+                        tint: pct != null
+                            ? _pctColor(pct)
+                            : const Color(0xFF607D8B),
+                      );
+                    },
+                  ),
+            ),
+
+            // ── Latest exam average ──────────────────────────────────────
+            SizedBox(
+              width: statWidth,
+              child: StreamBuilder<List<Grade>>(
+                stream: examsDao.watchStudentGrades(schoolId, studentAdm),
+                builder: (context, snap) {
+                  final allGrades = snap.data ?? [];
+                  final byExam = <String, List<Grade>>{};
+                  for (final g in allGrades) {
+                    if (g.paper != null) continue;
+                    (byExam[g.exam] ??= []).add(g);
+                  }
+                  double? pct;
+                  if (byExam.isNotEmpty) {
+                    final latestExamId = byExam.keys.reduce((a, b) {
+                      final aMax = byExam[a]!
+                          .map((g) => g.created)
+                          .reduce((v, e) => v > e ? v : e);
+                      final bMax = byExam[b]!
+                          .map((g) => g.created)
+                          .reduce((v, e) => v > e ? v : e);
+                      return aMax > bMax ? a : b;
+                    });
+                    final grades = byExam[latestExamId]!;
+                    final totalScore = grades.fold<double>(
+                      0,
+                      (s, g) => s + g.score,
+                    );
+                    final totalMax = grades.fold<double>(
+                      0,
+                      (s, g) => s + g.total,
+                    );
+                    if (totalMax > 0) pct = totalScore / totalMax * 100;
+                  }
+                  return _StatCard(
+                    icon: Icons.assignment_outlined,
+                    label: 'Latest Exam',
+                    value: pct != null ? '${pct.toStringAsFixed(0)}%' : '—',
+                    tint: pct != null
+                        ? _pctColor(pct)
+                        : const Color(0xFF607D8B),
+                  );
+                },
+              ),
+            ),
+
+            // ── Subjects count ───────────────────────────────────────────
+            SizedBox(
+              width: statWidth,
+              child: StreamBuilder<Enrollment?>(
+                stream: enrollmentsDao.watchStudentEnrollment(
+                  schoolId: schoolId,
+                  year: term.year,
+                  term: term.term,
+                  studentAdm: studentAdm,
+                ),
+                builder: (context, enrollSnap) {
+                  final enrollment = enrollSnap.data;
+                  if (enrollment == null) {
+                    return _StatCard(
+                      icon: Icons.menu_book_outlined,
+                      label: 'Subjects',
+                      value: '—',
+                      tint: const Color(0xFF7C4DFF),
+                    );
+                  }
+                  return StreamBuilder<List<SubjectTeacherEntry>>(
+                    stream: academicsDao.watchSubjectsForGrade(
+                      schoolId: schoolId,
+                      year: term.year,
+                      term: term.term,
+                      grade: enrollment.grade,
+                      stream: enrollment.stream,
+                    ),
+                    builder: (context, subSnap) {
+                      final count = subSnap.data?.length ?? 0;
+                      return _StatCard(
+                        icon: Icons.menu_book_outlined,
+                        label: 'Subjects',
+                        value: '$count',
+                        tint: const Color(0xFF7C4DFF),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+
+            // ── Mastery % ───────────────────────────────────────────────
+            SizedBox(
+              width: statWidth,
+              child: StreamBuilder<List<MasteryData>>(
+                stream: examsDao.watchMasteryForStudent(
+                  schoolId: schoolId,
+                  studentAdm: studentAdm,
+                ),
+                builder: (context, snap) {
+                  final masteryRows = snap.data ?? [];
+                  double? avgPct;
+                  if (masteryRows.isNotEmpty) {
+                    final totalScore = masteryRows.fold<double>(
+                      0,
+                      (s, m) => s + m.score,
+                    );
+                    avgPct = totalScore / masteryRows.length;
+                  }
+                  return _StatCard(
+                    icon: Icons.psychology_outlined,
+                    label: 'Mastery',
+                    value: avgPct != null
+                        ? '${avgPct.toStringAsFixed(0)}%'
+                        : '—',
+                    tint: avgPct != null
+                        ? _pctColor(avgPct)
+                        : const Color(0xFF607D8B),
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -1191,22 +1400,11 @@ class _WardInfoCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: cs.primary.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              _initials(ward.name),
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: cs.primary,
-              ),
-            ),
+          StudentAvatar(
+            schoolId: schoolId,
+            adm: ward.adm,
+            name: ward.name,
+            radius: 20,
           ),
           const SizedBox(width: 12),
           Expanded(
