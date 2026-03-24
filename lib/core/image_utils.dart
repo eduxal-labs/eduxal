@@ -15,10 +15,45 @@ import 'package:image/image.dart' as img;
 
 const int _kMaxDimension = 1500;
 const int _kQuality = 80;
+
+// -- Content detection (Phase 2: white-margin trim) --
 const int _kContentThreshold = 230;
 const int _kTrimPadding = 24;
 const int _kSampleStep = 3;
 const double _kMinMarginRatio = 0.03;
+
+// -- Paper detection (Phase 1: desk/background removal) --
+/// Normalised luminance above which a pixel is considered "paper" rather than
+/// desk/table surface. Desk wood is typically 0.30–0.65, paper 0.80–1.0.
+/// 0.72 gives comfortable separation even for shadowed paper edges.
+const double _kPaperBrightness = 0.72;
+
+/// Row/column scan step for paper detection. Coarser than content scanning
+/// because we are looking for a broad desk→paper transition, not individual
+/// characters.
+const int _kPaperScanStep = 4;
+
+/// Within-row pixel sampling step for paper detection. Coarser than content
+/// sampling — we only need the overall brightness profile of a row, not
+/// per-character precision.
+const int _kPaperPixelStep = 8;
+
+/// Fraction of sampled pixels in a row/column that must be bright for it to
+/// count as a "paper line". 60 % accounts for rows that cross handwriting.
+const double _kPaperLineBrightFraction = 0.60;
+
+/// How many consecutive bright rows/columns are required before we trust
+/// that we have found the paper edge. At [_kPaperScanStep]=4 this spans
+/// ~20 px — enough to confirm a genuine transition while tolerating noise.
+const int _kConsecutivePaperLines = 5;
+
+/// If > 75 % of the image's border pixels are already bright, there is no
+/// desk background and we skip paper detection entirely (fast path).
+const double _kBorderBrightFraction = 0.75;
+
+/// Safety net: if the final crop area is less than 20 % of the original
+/// image area, the algorithm almost certainly misfired. Return the original.
+const double _kMinCropAreaRatio = 0.20;
 
 // ---------------------------------------------------------------------------
 // Data class passed into the isolate.
@@ -88,8 +123,251 @@ Uint8List _postNativeProcessInIsolate(_ProcessParams params) {
   return Uint8List.fromList(img.encodeJpg(image, quality: params.quality));
 }
 
+// ===========================================================================
+//  TRIM PIPELINE — Two-phase + safety net
+// ===========================================================================
+//
+//  Phase 1 (_cropToPaper):  If the image border is dark (desk/table visible),
+//           scan inward from each edge to find the paper region, then crop to
+//           it. If borders are already bright, this is a no-op.
+//
+//  Phase 2 (_trimWhiteMargins):  Within the (now paper-only) image, scan for
+//           the content bounding box and crop away blank white margins.
+//           This is the original trim algorithm.
+//
+//  Safety net:  If the final result is < 20 % of the original area, the
+//               algorithm misfired — return the original image unchanged.
+// ===========================================================================
+
+/// Top-level entry point called by the isolate processing functions.
+/// Orchestrates paper detection → white-margin trim → safety net.
+img.Image _trimContentMarginsImpl(img.Image image) {
+  final originalW = image.width;
+  final originalH = image.height;
+  final originalArea = originalW * originalH;
+
+  // Phase 1: Detect and crop to the paper region (handles desk background).
+  var result = _cropToPaper(image);
+
+  // Phase 2: Trim white margins within the paper region.
+  result = _trimWhiteMargins(result);
+
+  // Safety net: reject catastrophically small crops.
+  final resultArea = result.width * result.height;
+  if (resultArea < originalArea * _kMinCropAreaRatio) {
+    print(
+      '[ImageUtils] safety net — crop is only '
+      '${(resultArea * 100 / originalArea).toStringAsFixed(0)}% of original '
+      '(${result.width}×${result.height} from ${originalW}×$originalH), '
+      'returning uncropped',
+    );
+    return image;
+  }
+
+  return result;
+}
+
 // ---------------------------------------------------------------------------
-// Trim / dark-pixel helpers (top-level so isolates can call them).
+// Phase 1: Paper detection — find the paper within a desk photo
+// ---------------------------------------------------------------------------
+
+/// Returns `true` if the pixel at ([x], [y]) is bright enough to be paper.
+bool _isBrightImpl(img.Image image, int x, int y) {
+  final pixel = image.getPixel(x, y);
+  return pixel.luminance > _kPaperBrightness;
+}
+
+/// Samples pixels along the four borders of [image] and returns `true` if
+/// the majority are bright (paper). When this returns `true` there is no
+/// desk background and paper detection can be skipped.
+bool _borderIsBright(img.Image image) {
+  final w = image.width;
+  final h = image.height;
+  final step = _kPaperPixelStep * 2; // very coarse — just a quick sniff test
+  int bright = 0;
+  int total = 0;
+
+  // Top row.
+  for (int x = 0; x < w; x += step) {
+    if (_isBrightImpl(image, x, 0)) bright++;
+    total++;
+  }
+  // Bottom row.
+  for (int x = 0; x < w; x += step) {
+    if (_isBrightImpl(image, x, h - 1)) bright++;
+    total++;
+  }
+  // Left column.
+  for (int y = 0; y < h; y += step) {
+    if (_isBrightImpl(image, 0, y)) bright++;
+    total++;
+  }
+  // Right column.
+  for (int y = 0; y < h; y += step) {
+    if (_isBrightImpl(image, w - 1, y)) bright++;
+    total++;
+  }
+
+  return total > 0 && bright / total > _kBorderBrightFraction;
+}
+
+/// Returns `true` if the horizontal line at [y] is predominantly bright
+/// (paper-like) when sampled every [_kPaperPixelStep] pixels.
+bool _isRowBright(img.Image image, int y) {
+  final w = image.width;
+  int bright = 0;
+  int total = 0;
+  for (int x = 0; x < w; x += _kPaperPixelStep) {
+    if (_isBrightImpl(image, x, y)) bright++;
+    total++;
+  }
+  return total > 0 && bright / total >= _kPaperLineBrightFraction;
+}
+
+/// Returns `true` if the vertical line at [x] (between [top] and [bottom])
+/// is predominantly bright (paper-like).
+bool _isColumnBright(img.Image image, int x, int top, int bottom) {
+  int bright = 0;
+  int total = 0;
+  for (int y = top; y <= bottom; y += _kPaperPixelStep) {
+    if (_isBrightImpl(image, x, y)) bright++;
+    total++;
+  }
+  return total > 0 && bright / total >= _kPaperLineBrightFraction;
+}
+
+/// Phase 1: Detects the paper region within a photo that may contain a
+/// desk/table background. If the border is already bright (no desk), returns
+/// [image] unchanged.
+///
+/// Algorithm: scan inward from each edge looking for the transition from dark
+/// (desk) to a sustained run of bright rows/columns (paper). "Sustained"
+/// means [_kConsecutivePaperLines] consecutive bright lines at
+/// [_kPaperScanStep] intervals.
+img.Image _cropToPaper(img.Image image) {
+  final w = image.width;
+  final h = image.height;
+
+  // Fast path: borders are already bright → no desk background.
+  if (_borderIsBright(image)) return image;
+
+  print('[ImageUtils] non-paper background detected — finding paper region');
+
+  // -- Scan from top --
+  int paperTop = 0;
+  {
+    int consecutive = 0;
+    for (int y = 0; y < h; y += _kPaperScanStep) {
+      if (_isRowBright(image, y)) {
+        consecutive++;
+        if (consecutive >= _kConsecutivePaperLines) {
+          // Paper starts at the first bright row of this run.
+          paperTop = y - (consecutive - 1) * _kPaperScanStep;
+          break;
+        }
+      } else {
+        consecutive = 0;
+      }
+    }
+  }
+
+  // -- Scan from bottom --
+  int paperBottom = h - 1;
+  {
+    int consecutive = 0;
+    for (int y = h - 1; y >= paperTop; y -= _kPaperScanStep) {
+      if (_isRowBright(image, y)) {
+        consecutive++;
+        if (consecutive >= _kConsecutivePaperLines) {
+          paperBottom = y + (consecutive - 1) * _kPaperScanStep;
+          if (paperBottom > h - 1) paperBottom = h - 1;
+          break;
+        }
+      } else {
+        consecutive = 0;
+      }
+    }
+  }
+
+  // -- Scan from left (within the vertical paper range) --
+  int paperLeft = 0;
+  {
+    int consecutive = 0;
+    for (int x = 0; x < w; x += _kPaperScanStep) {
+      if (_isColumnBright(image, x, paperTop, paperBottom)) {
+        consecutive++;
+        if (consecutive >= _kConsecutivePaperLines) {
+          paperLeft = x - (consecutive - 1) * _kPaperScanStep;
+          break;
+        }
+      } else {
+        consecutive = 0;
+      }
+    }
+  }
+
+  // -- Scan from right --
+  int paperRight = w - 1;
+  {
+    int consecutive = 0;
+    for (int x = w - 1; x >= paperLeft; x -= _kPaperScanStep) {
+      if (_isColumnBright(image, x, paperTop, paperBottom)) {
+        consecutive++;
+        if (consecutive >= _kConsecutivePaperLines) {
+          paperRight = x + (consecutive - 1) * _kPaperScanStep;
+          if (paperRight > w - 1) paperRight = w - 1;
+          break;
+        }
+      } else {
+        consecutive = 0;
+      }
+    }
+  }
+
+  // Clamp to image bounds.
+  paperTop = math.max(0, paperTop);
+  paperLeft = math.max(0, paperLeft);
+  paperBottom = math.min(h - 1, paperBottom);
+  paperRight = math.min(w - 1, paperRight);
+
+  final paperW = paperRight - paperLeft + 1;
+  final paperH = paperBottom - paperTop + 1;
+
+  // Sanity check: the detected paper region must be at least 30 % of the
+  // image in each dimension. If it's smaller, detection probably failed.
+  if (paperW < w * 0.30 || paperH < h * 0.30) {
+    print(
+      '[ImageUtils] paper detection failed — region too small '
+      '(${paperW}×$paperH from ${w}×$h), skipping crop',
+    );
+    return image;
+  }
+
+  // If we barely removed anything, skip the crop.
+  if (paperLeft == 0 &&
+      paperTop == 0 &&
+      paperRight == w - 1 &&
+      paperBottom == h - 1) {
+    return image;
+  }
+
+  print(
+    '[ImageUtils] paper region: ($paperLeft,$paperTop)→($paperRight,$paperBottom) '
+    '— ${paperW}×$paperH from ${w}×$h '
+    '(removed ${((1 - paperW * paperH / (w * h)) * 100).toStringAsFixed(0)}% background)',
+  );
+
+  return img.copyCrop(
+    image,
+    x: paperLeft,
+    y: paperTop,
+    width: paperW,
+    height: paperH,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2: White-margin trim — find content within the paper region
 // ---------------------------------------------------------------------------
 
 /// Returns `true` if the pixel at ([x], [y]) is darker than the content
@@ -97,16 +375,24 @@ Uint8List _postNativeProcessInIsolate(_ProcessParams params) {
 /// than blank paper.
 bool _isDarkImpl(img.Image image, int x, int y) {
   final pixel = image.getPixel(x, y);
+  // For grayscale images R == G == B. For color images, luminance is a
+  // reasonable single-value proxy. Using .luminance normalises to 0.0–1.0
+  // in image 4.x, so we compare against a normalised threshold.
   return pixel.luminance < _kContentThreshold / 255.0;
 }
 
-/// Detects the bounding box of non-blank content in [image] and crops to it
-/// with [_kTrimPadding] pixels of breathing room on each side.
+/// Phase 2: Detects the bounding box of non-blank content in [image] and
+/// crops to it with [_kTrimPadding] pixels of breathing room on each side.
 ///
-/// For a typical A4 answer sheet with 2–3 cm margins on each side, this
-/// removes ~20–40 % of the image area, directly reducing the number of
-/// tokens consumed when the image is sent to an AI model.
-img.Image _trimContentMarginsImpl(img.Image image) {
+/// The algorithm scans inward from each edge, sampling every [_kSampleStep]
+/// pixels, looking for any pixel darker than [_kContentThreshold]. Once the
+/// first content row/column is found on each side, the image is cropped to
+/// that rectangle (plus padding).
+///
+/// Returns the original [image] unchanged if:
+/// - No content is found (blank page)
+/// - Margins are smaller than [_kMinMarginRatio] on both axes
+img.Image _trimWhiteMargins(img.Image image) {
   final w = image.width;
   final h = image.height;
 
@@ -167,7 +453,6 @@ img.Image _trimContentMarginsImpl(img.Image image) {
       }
     }
     if (!hasAnyContent) {
-      // Cannot use debugPrint inside an isolate — print is fine.
       print('[ImageUtils] blank page detected — skipping trim');
       return image;
     }
@@ -228,6 +513,12 @@ img.Image _trimContentMarginsImpl(img.Image image) {
 ///   `flutter_image_compress`, then pure-Dart grayscale + trim in an isolate.
 /// - **Windows / Linux** (and native fallback): entire pipeline runs as pure
 ///   Dart in a background isolate via `compute()`, ensuring zero UI jank.
+///
+/// The trim step uses a **two-phase approach**:
+/// 1. **Paper detection** — if the photo contains a desk/table background,
+///    find the paper region first and crop to it.
+/// 2. **White-margin trim** — within the paper, crop away blank margins
+///    around the handwritten content.
 class ImageUtils {
   ImageUtils._();
 
