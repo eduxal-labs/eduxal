@@ -64,6 +64,7 @@ class Seeder {
       await database.delete(database.payments).go();
       await database.delete(database.invoices).go();
       await database.delete(database.fees).go();
+      await database.delete(database.subjectTeachers).go();
       await database.delete(database.subjects).go();
       await database.delete(database.enrollments).go();
       await database.delete(database.classTeachers).go();
@@ -570,18 +571,23 @@ class _SeederImpl {
     }
   }
 
+  // Offset applied to 8-4-4 subject indices so they don't collide with
+  // CBC indices in the global `subjects` catalog table.
+  static const _k844Offset = 200;
+
   // 8-4-4 KCSE subjects — a realistic set for Forms 3/4
+  // Original enum indices offset by _k844Offset to avoid PK collisions.
   static const _kcseSubjects = [
-    13, // English
-    14, // Kiswahili
-    15, // Mathematics
-    16, // Biology
-    17, // Physics
-    18, // Chemistry
-    19, // History and Government
-    20, // Geography
-    21, // CRE
-    30, // Computer Studies
+    213, // English (was 13)
+    214, // Kiswahili (was 14)
+    215, // Mathematics (was 15)
+    216, // Biology (was 16)
+    217, // Physics (was 17)
+    218, // Chemistry (was 18)
+    219, // History and Government (was 19)
+    220, // Geography (was 20)
+    221, // CRE (was 21)
+    230, // Computer Studies (was 30)
   ];
 
   // CBC Lower Primary subjects (Grades 1–3)
@@ -810,6 +816,7 @@ class _SeederImpl {
   }
 
   Future<void> _seedAll() async {
+    await _seedCatalogSubjects();
     await _seedSchool();
     await _seedDepartments();
     await _seedTeachers();
@@ -1362,6 +1369,52 @@ class _SeederImpl {
   }
 
   // ── Subjects ────────────────────────────────────────────────
+
+  /// Seeds the global `subjects` catalog table with real names derived from
+  /// [CbcSubject] and [EightFourFourSubject] enums.  Uses `insertOrIgnore`
+  /// so the second school seeder call is a no-op for already-inserted rows.
+  Future<void> _seedCatalogSubjects() async {
+    // Collect every unique subject ID referenced by any focus grade.
+    final allIds = <int>{};
+    for (final gc in _focusGrades) {
+      allIds.addAll(gc.subjectIndices);
+    }
+
+    for (final subjectId in allIds) {
+      final String label;
+      final CurriculumType curriculum;
+
+      if (subjectId >= _k844Offset) {
+        // 8-4-4 subject — subtract offset to find enum entry
+        final rawIndex = subjectId - _k844Offset;
+        final entry = EightFourFourSubject.values.firstWhere(
+          (e) => e.index_ == rawIndex,
+        );
+        label = entry.label;
+        curriculum = CurriculumType.eightFourFour;
+      } else {
+        // CBC subject
+        final entry = CbcSubject.values.firstWhere(
+          (e) => e.index_ == subjectId,
+        );
+        label = entry.label;
+        curriculum = CurriculumType.cbc;
+      }
+
+      await _db
+          .into(_db.subjects)
+          .insert(
+            SubjectsCompanion(
+              id: Value(subjectId),
+              name: Value(label),
+              curriculum: Value(curriculum),
+              created: Value(_nowSec),
+              updated: Value(_nowSec),
+            ),
+            mode: InsertMode.insertOrIgnore,
+          );
+    }
+  }
 
   Future<void> _seedSubjects() async {
     final year = _currentTerm.year;

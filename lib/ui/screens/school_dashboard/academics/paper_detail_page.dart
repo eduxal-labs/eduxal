@@ -3896,17 +3896,25 @@ class _SchemeUploadSheetState extends State<_SchemeUploadSheet> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: Image.file(
-            File(path),
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Container(
-              color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-              child: Icon(
-                Icons.broken_image_outlined,
-                size: 24,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+        GestureDetector(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) =>
+                  _ImagePreviewPage(paths: _paths, initialIndex: index),
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: Image.file(
+              File(path),
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+                child: Icon(
+                  Icons.broken_image_outlined,
+                  size: 24,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+                ),
               ),
             ),
           ),
@@ -4509,17 +4517,25 @@ class _AnswerSubmissionSheetState extends State<_AnswerSubmissionSheet> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: Image.file(
-            File(path),
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Container(
-              color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-              child: Icon(
-                Icons.broken_image_outlined,
-                size: 24,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+        GestureDetector(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) =>
+                  _ImagePreviewPage(paths: _paths, initialIndex: index),
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: Image.file(
+              File(path),
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+                child: Icon(
+                  Icons.broken_image_outlined,
+                  size: 24,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+                ),
               ),
             ),
           ),
@@ -4887,6 +4903,88 @@ class _SectionLabel extends StatelessWidget {
         fontWeight: FontWeight.w600,
         color: cs.onSurface,
         letterSpacing: 0.2,
+      ),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Full-screen image preview (pinch-to-zoom + swipe between pages)
+// ═════════════════════════════════════════════════════════════════════════════
+
+class _ImagePreviewPage extends StatefulWidget {
+  const _ImagePreviewPage({required this.paths, required this.initialIndex});
+  final List<String> paths;
+  final int initialIndex;
+
+  @override
+  State<_ImagePreviewPage> createState() => _ImagePreviewPageState();
+}
+
+class _ImagePreviewPageState extends State<_ImagePreviewPage> {
+  late final PageController _controller;
+  late int _currentPage;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentPage = widget.initialIndex;
+    _controller = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.black.withValues(alpha: 0.5),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(
+            Icons.chevron_left_rounded,
+            size: 24,
+            color: Colors.white,
+          ),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(
+          '${_currentPage + 1} / ${widget.paths.length}',
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            color: Colors.white,
+          ),
+        ),
+        centerTitle: true,
+      ),
+      body: PageView.builder(
+        controller: _controller,
+        itemCount: widget.paths.length,
+        onPageChanged: (i) => setState(() => _currentPage = i),
+        itemBuilder: (context, index) {
+          return InteractiveViewer(
+            minScale: 0.5,
+            maxScale: 4.0,
+            child: Center(
+              child: Image.file(
+                File(widget.paths[index]),
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.broken_image_outlined,
+                  size: 48,
+                  color: Colors.white38,
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
