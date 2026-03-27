@@ -34,7 +34,7 @@ class AiMarkingService {
   ClientChannel _freshChannel() => ClientChannel(
     _host,
     port: _port,
-    options: const ChannelOptions(credentials: ChannelCredentials.insecure()),
+    options: const ChannelOptions(credentials: ChannelCredentials.secure()),
   );
 
   /// Request presigned PUT URLs for marking scheme and student answer sheets.

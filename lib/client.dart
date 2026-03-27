@@ -144,11 +144,11 @@ class Client {
   /// Creates a [Client] by opening a gRPC channel and resolving DAOs from the
   /// global [db] singleton (which must already be initialised).
   static Future<Client> create() async {
-    debugPrint('[Client] Creating gRPC channel → $kDomain:$kPort (insecure)');
+    debugPrint('[Client] Creating gRPC channel → $kDomain:$kPort (TLS)');
     final channel = ClientChannel(
       kDomain,
       port: kPort,
-      options: const ChannelOptions(credentials: ChannelCredentials.insecure()),
+      options: const ChannelOptions(credentials: ChannelCredentials.secure()),
     );
 
     accountsDao = AccountsDao(db);

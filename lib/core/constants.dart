@@ -4,11 +4,11 @@
 /// If the backend changes them, update only this file — no logic changes needed.
 library;
 
-/// The gRPC server domain. Placeholder — will be config-driven in a later task.
-const String kDomain = '192.168.8.31';
+/// The gRPC server domain.
+const String kDomain = 'ledger.eduxal.com';
 
-/// The gRPC server port.
-const int kPort = 50051;
+/// The gRPC server port. 443 is the standard TLS port for gRPC.
+const int kPort = 443;
 
 /// The base path for all locally cached files (profile images, school logos, etc.).
 ///
