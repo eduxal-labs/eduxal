@@ -45,3 +45,25 @@ app.*.map.json
 /android/app/release
 prompt.txt
 test_materials/
+
+# Large media files — never commit these to git
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+*.m4v
+
+# Root-level loose screenshots / photos (date-stamped filenames)
+[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_*.jpg
+[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_*.jpeg
+[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_*.png
+
+# Root-level scratch / mockup images (not part of the app)
+/app.png
+/exam.png
+/new-exam.png
+/timetable.png
+
+# Flutter Linux ephemeral — large pre-built GTK binaries downloaded by flutter
+/linux/flutter/ephemeral/
