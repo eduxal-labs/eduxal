@@ -1240,7 +1240,12 @@ class _CreatePlanSheetState extends State<_CreatePlanSheet> {
           Divider(height: 1, thickness: 0.5, color: cs.outlineVariant),
           Flexible(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                20,
+                20,
+                MediaQuery.viewInsetsOf(context).bottom + 32,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [

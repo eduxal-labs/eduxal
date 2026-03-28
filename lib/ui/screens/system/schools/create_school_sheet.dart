@@ -440,7 +440,7 @@ class _CreateSchoolSheetState extends State<CreateSchoolSheet> {
           // Form content
           Flexible(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
               child: _step == 0
                   ? _Step1Form(
                       nameCtrl: _nameCtrl,

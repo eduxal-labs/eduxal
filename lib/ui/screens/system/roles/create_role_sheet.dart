@@ -368,7 +368,12 @@ class _CreateRoleSheetState extends State<CreateRoleSheet> {
           // ── Form body ───────────────────────────────────────────────────
           Flexible(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                16,
+                20,
+                MediaQuery.viewInsetsOf(context).bottom + 32,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [

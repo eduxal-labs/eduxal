@@ -289,7 +289,12 @@ class _RoleDetailSheetState extends State<RoleDetailSheet> {
               // ── Body ─────────────────────────────────────────────────────────
               Flexible(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    16,
+                    20,
+                    MediaQuery.viewInsetsOf(context).bottom + 32,
+                  ),
                   child: _editing
                       ? _EditBody(
                           nameCtrl: _nameCtrl,

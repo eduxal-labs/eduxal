@@ -255,7 +255,7 @@ class _InviteUserSheetState extends State<InviteUserSheet> {
           // ── Form ─────────────────────────────────────────────────────────────
           Flexible(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [

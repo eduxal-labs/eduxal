@@ -2177,7 +2177,9 @@ class _AddMemberSheetState extends State<AddMemberSheet> {
                 }
 
                 return ListView.separated(
-                  padding: const EdgeInsets.only(bottom: 24),
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.viewInsetsOf(context).bottom + 24,
+                  ),
                   itemCount: filtered.length,
                   separatorBuilder: (_, _) => Divider(
                     height: 1,

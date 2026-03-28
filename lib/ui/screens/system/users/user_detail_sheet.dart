@@ -310,7 +310,15 @@ class _UserDetailSheetState extends State<UserDetailSheet> {
               // ── Body ──────────────────────────────────────────────────────
               Flexible(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    24,
+                    20,
+                    32 +
+                        (_editing
+                            ? MediaQuery.viewInsetsOf(context).bottom
+                            : 0),
+                  ),
                   child: _editing
                       ? _EditBody(
                           user: user,

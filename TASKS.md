@@ -106,8 +106,8 @@ After Task A0, `CreateSchoolSheet` will no longer be double-wrapped. Verify the 
 4. Verify the form fields (name, phone, email) are all reachable when the keyboard is open on a small mobile screen (~5" device, ~640px height). The keyboard typically takes ~40% of the screen. With `maxHeight: 0.90` the sheet is ~576px. After keyboard takes ~256px, about 320px remain. The handle + title + divider take ~60px, the button area ~72px, leaving ~188px for the scrollable form. This should be sufficient for the visible portion as long as the ScrollView scrolls properly.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note fix applied to `InviteUserSheet`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — note fix applied to `InviteUserSheet`
+- [x] Mark this task `[x]`
 
 ---
 
