@@ -29,6 +29,7 @@ class SetupScreen extends StatefulWidget {
   const SetupScreen({super.key, required this.token, required this.phone})
     : authenticated = null,
       profileUploadUrl = null,
+      profileReadUrl = null,
       isNewUser = true;
 
   /// Existing user flow — authenticated from [VerifyResultAuthenticated].
@@ -36,6 +37,7 @@ class SetupScreen extends StatefulWidget {
     super.key,
     required this.authenticated,
     this.profileUploadUrl,
+    this.profileReadUrl,
   }) : token = '',
        phone = '',
        isNewUser = false;
@@ -51,6 +53,10 @@ class SetupScreen extends StatefulWidget {
 
   /// Presigned S3 PUT URL for uploading profile image.
   final String? profileUploadUrl;
+
+  /// Presigned S3 GET URL for viewing the user's current profile image.
+  /// Used as a fallback when the local cache file hasn't been downloaded yet.
+  final String? profileReadUrl;
 
   /// Whether this is a new user registration or an existing user update.
   final bool isNewUser;
@@ -484,6 +490,20 @@ class _SetupScreenState extends State<SetupScreen>
               backgroundColor: cs.surfaceContainerHighest,
             );
           }
+
+          // Local cache miss — fall back to the network GET URL if available.
+          // The fire-and-forget download triggered during verify() may still
+          // be in progress; showing the network image avoids a blank avatar.
+          final readUrl = widget.profileReadUrl;
+          if (readUrl != null && readUrl.isNotEmpty) {
+            return CircleAvatar(
+              radius: radius,
+              backgroundImage: NetworkImage(readUrl),
+              backgroundColor: cs.surfaceContainerHighest,
+              onBackgroundImageError: (_, __) {},
+            );
+          }
+
           return _buildPlaceholderCircle(cs, radius);
         },
       );

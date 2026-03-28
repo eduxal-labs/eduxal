@@ -209,6 +209,7 @@ class _OtpScreenState extends State<OtpScreen>
             case VerifyResultAuthenticated(
               :final authenticated,
               :final profileUploadUrl,
+              :final profileReadUrl,
             ):
               try {
                 await client.saveAccount(authenticated);
@@ -226,6 +227,7 @@ class _OtpScreenState extends State<OtpScreen>
                   pageBuilder: (_, _, _) => SetupScreen.existingUser(
                     authenticated: authenticated,
                     profileUploadUrl: profileUploadUrl,
+                    profileReadUrl: profileReadUrl,
                   ),
                   transitionsBuilder: (_, animation, _, child) =>
                       FadeTransition(opacity: animation, child: child),
@@ -456,7 +458,6 @@ class _OtpScreenState extends State<OtpScreen>
                 focusNode: _focusNodes[i],
                 keyboardType: TextInputType.number,
                 textAlign: TextAlign.center,
-                maxLength: 1,
                 enabled: !_isLoading,
                 inputFormatters: [
                   FilteringTextInputFormatter.digitsOnly,
@@ -637,14 +638,23 @@ class _SingleOrPasteFormatter extends TextInputFormatter {
     TextEditingValue newValue,
   ) {
     if (newValue.text.isEmpty) return newValue;
-    if (newValue.text.length == 1) return newValue;
 
     final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
     if (digits.isEmpty) return oldValue;
 
+    // Multi-digit → paste: let all digits through so _onDigitChanged
+    // can detect the paste and distribute across all cells.
+    if (digits.length > 1) {
+      return TextEditingValue(
+        text: digits,
+        selection: TextSelection.collapsed(offset: digits.length),
+      );
+    }
+
+    // Single digit → clamp to 1 character (replaces the old maxLength: 1).
     return TextEditingValue(
-      text: digits,
-      selection: TextSelection.collapsed(offset: digits.length),
+      text: digits[0],
+      selection: const TextSelection.collapsed(offset: 1),
     );
   }
 }

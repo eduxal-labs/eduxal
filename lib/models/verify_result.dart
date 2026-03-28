@@ -34,6 +34,7 @@ final class VerifyResultAuthenticated extends VerifyResult {
   const VerifyResultAuthenticated({
     required this.authenticated,
     this.profileUploadUrl,
+    this.profileReadUrl,
   });
 
   /// The fully populated domain model for the now-authenticated user.
@@ -43,6 +44,12 @@ final class VerifyResultAuthenticated extends VerifyResult {
   /// Null if the server did not return one.
   /// Never store this value — use it immediately or discard it.
   final String? profileUploadUrl;
+
+  /// Presigned S3 GET URL for viewing the user's current profile image.
+  /// Null if the user has no profile image on the server.
+  /// Used by the setup screen to display the existing profile while the
+  /// fire-and-forget [FileCache] download completes in the background.
+  final String? profileReadUrl;
 }
 
 /// Returned when the verified phone number belongs to a new (unregistered) user.

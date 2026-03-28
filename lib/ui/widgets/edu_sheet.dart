@@ -160,11 +160,12 @@ class _SheetTitleRow extends StatelessWidget {
 /// On desktop, wraps the [builder] content in a standard EduXal dialog with
 /// modalBg, border, shadow, and constrained width.
 ///
-/// On mobile, wraps the [builder] content in an [EduSheet] inside a
-/// [showModalBottomSheet].
+/// On mobile, returns the [builder] content directly inside a
+/// [showModalBottomSheet] (each sheet provides its own header).
 Future<T?> showEduSheet<T>({
   required BuildContext context,
   required Widget Function(BuildContext) builder,
+  // title parameter is deprecated — sheets render their own headers
   String? title,
   double maxWidth = 480,
 }) {
@@ -203,10 +204,7 @@ Future<T?> showEduSheet<T>({
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (title != null) _DialogTitleRow(title: title, ctx: ctx),
-                    Flexible(child: builder(ctx)),
-                  ],
+                  children: [Flexible(child: builder(ctx))],
                 ),
               ),
             ),
@@ -221,13 +219,7 @@ Future<T?> showEduSheet<T>({
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (ctx) {
-      return EduSheet(
-        title: title,
-        onClose: () => Navigator.of(ctx).pop(),
-        child: builder(ctx),
-      );
-    },
+    builder: (ctx) => builder(ctx),
   );
 }
 

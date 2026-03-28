@@ -109,6 +109,7 @@ class Authentication {
           VerifyResultAuthenticated(
             authenticated: mapped,
             profileUploadUrl: proto.hasProfile() ? proto.profile : null,
+            profileReadUrl: proto.user.hasProfile() ? proto.user.profile : null,
           ),
         );
       } else {
