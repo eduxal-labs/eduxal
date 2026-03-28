@@ -548,67 +548,79 @@ class _EduDataTableRowState<T> extends State<_EduDataTableRow<T>> {
           splashFactory: NoSplash.splashFactory,
           highlightColor: Colors.transparent,
           hoverColor: Colors.transparent, // handled by AnimatedContainer
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 52),
-            child: Row(
-              children: [
-                // ── selection checkbox ─────────────────────────────────────
-                if (widget.selectable) ...[
-                  Padding(
-                    padding: const EdgeInsets.only(left: 8),
-                    child: _Checkbox(
-                      isChecked: widget.isSelected,
-                      onTap: widget.onSelectionToggled,
-                      cs: cs,
-                    ),
+          child: IntrinsicHeight(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 52),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // ── left accent bar ───────────────────────────────────────
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 3,
+                    color: _isHovered
+                        ? cs.primary.withValues(alpha: 0.7)
+                        : Colors.transparent,
                   ),
-                  const SizedBox(width: 8),
-                ],
 
-                // ── row content ───────────────────────────────────────────
-                Expanded(
-                  child: widget.rowBuilder != null
-                      ? widget.rowBuilder!(context, widget.item, _isHovered)
-                      : Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 8,
-                          ),
-                          child: Row(
-                            children: List.generate(widget.columns!.length, (
-                              index,
-                            ) {
-                              final col = widget.columns![index];
-                              return Expanded(
-                                flex: col.flex,
-                                child: Align(
-                                  alignment: col.alignment,
-                                  child: widget.cellBuilder!(
-                                    context,
-                                    widget.item,
-                                    index,
-                                    _isHovered,
+                  // ── selection checkbox ─────────────────────────────────────
+                  if (widget.selectable) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: _Checkbox(
+                        isChecked: widget.isSelected,
+                        onTap: widget.onSelectionToggled,
+                        cs: cs,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+
+                  // ── row content ───────────────────────────────────────────
+                  Expanded(
+                    child: widget.rowBuilder != null
+                        ? widget.rowBuilder!(context, widget.item, _isHovered)
+                        : Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 8,
+                            ),
+                            child: Row(
+                              children: List.generate(widget.columns!.length, (
+                                index,
+                              ) {
+                                final col = widget.columns![index];
+                                return Expanded(
+                                  flex: col.flex,
+                                  child: Align(
+                                    alignment: col.alignment,
+                                    child: widget.cellBuilder!(
+                                      context,
+                                      widget.item,
+                                      index,
+                                      _isHovered,
+                                    ),
                                   ),
-                                ),
-                              );
-                            }),
+                                );
+                              }),
+                            ),
                           ),
-                        ),
-                ),
+                  ),
 
-                // ── actions ───────────────────────────────────────────────
-                if (widget.actions.isNotEmpty)
-                  widget.isDesktop
-                      ? _DesktopActions<T>(
-                          item: widget.item,
-                          actions: widget.actions,
-                          isRowHovered: _isHovered,
-                        )
-                      : _MobileMenuButton<T>(
-                          item: widget.item,
-                          actions: widget.actions,
-                        ),
-              ],
+                  // ── actions ───────────────────────────────────────────────
+                  if (widget.actions.isNotEmpty)
+                    widget.isDesktop
+                        ? _DesktopActions<T>(
+                            item: widget.item,
+                            actions: widget.actions,
+                            isRowHovered: _isHovered,
+                          )
+                        : _MobileMenuButton<T>(
+                            item: widget.item,
+                            actions: widget.actions,
+                          ),
+                ],
+              ),
             ),
           ),
         ),

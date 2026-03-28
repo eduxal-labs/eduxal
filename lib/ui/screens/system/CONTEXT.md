@@ -150,4 +150,4 @@ For `UserLevel.super_` and `UserLevel.system` users, all permissions are granted
 - Permission gating uses `SystemPermissions.can(action)` — never raw `UserLevel` checks in UI code (except `canSeeDeleted` which is level-specific by design).
 
 ## Last Updated
-Task A10 — Audited `_EditSchoolSheet`, `_AddOwnerSheet`, and `_MpesaConfigSheet` in `school_detail_screen.dart` after `showEduSheet` wrapper removal (Task A0). All three sheets correctly handle keyboard avoidance as the sole `viewInsets` handler — no double-layer issues found, no code changes needed. Previous: Task A3.
+Task A4 — Fixed `AddMemberSheet` keyboard handling in `members_section.dart` after `EduSheet` wrapper removal (Task A0). Changed `ListView.separated` bottom padding from static `24` to `MediaQuery.viewInsetsOf(context).bottom + 24` so the user list scrolls properly when the search field keyboard is open. No bottom action button — search field at top, list below. Previous: Task A5.

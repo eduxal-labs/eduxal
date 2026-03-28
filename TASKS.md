@@ -171,8 +171,8 @@ After Task A0, `CreateSchoolSheet` will no longer be double-wrapped. Verify the 
    Fix: Change ScrollView bottom padding from `32` to `MediaQuery.viewInsetsOf(context).bottom + 32`.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note fix applied to `_CreatePlanSheet`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — note fix applied to `_CreatePlanSheet`
+- [x] Mark this task `[x]`
 
 ---
 
