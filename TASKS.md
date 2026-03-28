@@ -230,8 +230,8 @@ After Task A0, `CreateSchoolSheet` will no longer be double-wrapped. Verify the 
 2. **Keyboard handling:** Has edit mode with name and description fields. The `SingleChildScrollView` has `padding: EdgeInsets.fromLTRB(20, 16, 20, 32)`. Change bottom to `MediaQuery.viewInsetsOf(context).bottom + 32`.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note fix applied to `RoleDetailSheet`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — note fix applied to `RoleDetailSheet`
+- [x] Mark this task `[x]`
 
 ---
 
