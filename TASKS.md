@@ -251,8 +251,8 @@ Both sheets conditionally render a handle when `!isDesktop`. After Task A0, they
 2. **`_AssignRoleSheet`:** Has a search field and a list. The search `TextField` triggers the keyboard. The list is inside an `Expanded(child: StreamBuilder(...))`. Ensure the list's bottom padding accounts for `MediaQuery.viewInsetsOf(context).bottom` so the list scrolls correctly when the keyboard is open from the search field.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note fix applied
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — note fix applied
+- [x] Mark this task `[x]`
 
 ---
 
