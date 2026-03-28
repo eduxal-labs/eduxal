@@ -283,3 +283,40 @@ The `BEFORE INSERT` trigger fires on the fresh INSERT, but since the old row is 
 
 **Prevention:**
 Any table with a `BEFORE INSERT` trigger that queries other tables for validation (e.g. enrollment checks, date range checks, constraint checks) is vulnerable to this issue when the DeltaWriter uses `INSERT ON CONFLICT`. The trigger fires before conflict resolution, potentially failing if referenced data hasn't settled. For such tables, always use delete-then-insert in the DeltaWriter instead of `INSERT ON CONFLICT DO UPDATE`. Currently affected tables: `terms` (BUG-005), `grades` (this bug). Other tables with self-referencing or cross-table `BEFORE INSERT` triggers should be audited for the same pattern.
+
+---
+
+## BUG-010: Mobile modals double-wrapped by `showEduSheet` causing duplicate chrome and keyboard occlusion
+
+**Severity:** Medium (visual glitch + functional keyboard issue on mobile)
+**Discovered:** During Track A task examination
+**Fixed by:** Tasks A0–A10
+
+**Root Cause:**
+`showEduSheet` in `lib/ui/widgets/edu_sheet.dart` wrapped every sheet widget in an `EduSheet` container on mobile (providing `modalBg` background, top border-radius, drag handle, title row, and `viewInsets.bottom` keyboard padding). However, every sheet widget (e.g. `CreateSchoolSheet`, `InviteUserSheet`, `CreateRoleSheet`, etc.) was already self-contained — each provided its own `Container` with `cs.surface` background, top border-radius, `_SheetHandle`, title/header row, and in many cases its own `viewInsets.bottom` padding on action buttons. This created two nested layers of chrome.
+
+On desktop, a similar issue existed: `showEduSheet`'s dialog branch rendered a `_DialogTitleRow` above the sheet content, but each sheet already had its own header.
+
+**Visible symptoms:**
+- Two drag handles stacked vertically on mobile.
+- A faint colour seam between `modalBg` (outer) and `cs.surface` (inner).
+- When the keyboard opened, two layers both tried to account for `viewInsets.bottom`, causing form fields to be sandwiched and invisible.
+
+**Files changed:**
+- `lib/ui/widgets/edu_sheet.dart` — Removed `EduSheet` wrapper from mobile path; removed `_DialogTitleRow` from desktop path. `title` parameter deprecated (kept for backward compat).
+- `lib/ui/screens/system/schools/create_school_sheet.dart` — ScrollView bottom padding 0→16.
+- `lib/ui/screens/system/users/invite_user_sheet.dart` — ScrollView bottom padding 0→16.
+- `lib/ui/screens/system/roles/create_role_sheet.dart` — ScrollView bottom padding now includes `viewInsets.bottom`.
+- `lib/ui/screens/system/roles/role_detail_sheet.dart` — ScrollView bottom padding now includes `viewInsets.bottom`.
+- `lib/ui/screens/system/users/user_detail_sheet.dart` — ScrollView bottom padding includes `viewInsets.bottom` in edit mode.
+- `lib/ui/screens/system/members/members_section.dart` — `AddMemberSheet` ListView and `_AssignRoleSheet` ListView bottom padding now includes `viewInsets.bottom`.
+- `lib/ui/screens/system/plans/plans_section.dart` — `_CreatePlanSheet` and `_PlanDetailSheet` ScrollView bottom padding now includes `viewInsets.bottom`.
+- `lib/ui/screens/system/schools/school_detail_screen.dart` — Audited `_EditSchoolSheet`, `_AddOwnerSheet`, `_MpesaConfigSheet`; all already correct (no changes needed).
+
+**Fix applied:**
+1. `showEduSheet` mobile path now returns `builder(ctx)` directly (no `EduSheet` wrapper).
+2. `showEduSheet` desktop path no longer renders `_DialogTitleRow` (sheets provide their own headers).
+3. Each sheet audited to ensure it is the sole `viewInsets.bottom` handler, with keyboard-aware bottom padding on its ScrollView/ListView.
+
+**Prevention:**
+When adding new sheets launched via `showEduSheet`, the sheet widget must be fully self-contained (own background, handle, title, keyboard padding). `showEduSheet` only provides the system modal/dialog scaffolding (transparent background on mobile, outer chrome on desktop) — it does NOT add any sheet chrome.
