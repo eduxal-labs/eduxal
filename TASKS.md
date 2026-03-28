@@ -376,8 +376,8 @@ Replace the current `ListView.builder` + `_SchoolCard` pattern with a flat-row d
 **Creative freedom:** The executor should make the school status visually distinct through colour while maintaining the flat-row aesthetic. The logo + status dot pattern already exists — the main change is the row container style.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — update Schools section description
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — update Schools section description
+- [x] Mark this task `[x]`
 
 ---
 

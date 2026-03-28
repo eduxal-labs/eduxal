@@ -53,14 +53,14 @@ This directory contains **1 shell screen file** and **8 subdirectories**, each r
 ### `schools/`
 | File | Widget | Status | Description |
 |---|---|---|---|
-| `schools_section.dart` | `SchoolsSection` | ✅ Complete | List of all schools rendered via `EduDataTable<SchoolsData>`. Two-column layout: **School** (logo with `SchoolStatusDot` overlay on bottom-right — color = status — + name + motto) and **Joined** (relative date). No status badge column — status is communicated through the colored dot on the logo. Desktop actions: View details, Edit status (bottom sheet with Trial/Active/Suspended/Cancelled/Trash options), Trash (if not deleted), Purge (super only). Mobile: three-dot. Search/filter toolbar preserved. |
+| `schools_section.dart` | `SchoolsSection` | ✅ Complete | List of all schools rendered as flat data-table rows via `_SchoolRow` (`StatefulWidget` + `SingleTickerProviderStateMixin`). Each row is status-tinted by `SchoolStatus` (trial → blue, active → teal, suspended → amber, cancelled → orange, deleted → red) with a 3px left accent bar that animates to 4px on hover. Leading: school logo wrapped in an animated status ring border with `SchoolStatusDot` overlay. Text: name (13px w500) + motto subtitle (12px w400 muted). "Joined" relative date on right. Press animation: `ScaleTransition` 0.98. Animated chevron slides right and increases opacity on hover. Desktop (≥600px): inline 28×28 icon action buttons shown on hover via `_InlineActions`. Mobile (<600px): three-dot `_MobileActions` popup menu. `ListView.separated` with `AppTheme.tableRowDivider`. Row padding `horizontal: 12, vertical: 4`. Actions: Activate, Suspend, Restore, Delete (contextual by status), Purge (super only). `_SchoolCard` removed. |
 | `school_detail_screen.dart` | `SchoolDetailScreen` | ✅ Complete | Full detail view for a school — name, motto, phone, email, county, domain, established date, status. Edit actions. |
 | `create_school_sheet.dart` | `CreateSchoolSheet` | ✅ Complete | Form to create a new school. Fields: name, motto, phone, email, county. Creates school row + settings row in a transaction. |
 
-**Key private widgets:** `_SchoolIdentityCell` (logo with `SchoolStatusDot` + name + motto), `_SchoolLogo`, `_Toolbar`, `_ToolbarIcon`, `_FilterPanel`, `_ListShimmer`
+**Key private widgets:** `_SchoolRow` (flat data-table row with status-tinted accent bar, press scale animation, animated chevron), `_RowAction` (lightweight action descriptor), `_InlineActions` / `_InlineActionButton` (desktop hover icon buttons), `_MobileActions` (three-dot popup menu), `_SchoolLogo`, `_Toolbar`, `_ToolbarIcon`, `_FilterPanel`, `_ListShimmer`
 
 **Data source:** `SchoolsDao.watchAllSchools()`, `SchoolsDao.getSchoolById(id)`
-**Dependencies:** `database/daos/schools_dao.dart`, `database/daos/settings_dao.dart`, `database/tables/enums.dart` (`SchoolStatus`), `ui/widgets/status_indicator.dart` (`SchoolStatusDot`)
+**Dependencies:** `database/daos/schools_dao.dart`, `database/daos/settings_dao.dart`, `database/tables/enums.dart` (`SchoolStatus`), `ui/widgets/status_indicator.dart` (`SchoolStatusDot`), `ui/theme/app_theme.dart` (`AppTheme.tableRowDivider`, `kCardRadius`, `kModalRadius`, `overlayBg`, `borderColor`)
 
 ---
 
@@ -89,12 +89,12 @@ This directory contains **1 shell screen file** and **8 subdirectories**, each r
 ### `roles/`
 | File | Widget | Status | Description |
 |---|---|---|---|
-| `roles_section.dart` | `RolesSection` | ✅ Complete | System-level roles management rendered via `EduDataTable<Role>`. Three-column layout: **Role** (flex: 2 — compact 28×28 icon + name only), **Description** (flex: 3 — dedicated column for description text or "—"), **Permissions** (flex: 1 — descriptive label "5 perms" / "1 perm" / "—" in plain text, no chip). Desktop actions: View (pushes `RoleDetailScreen`), Delete. Mobile: three-dot. |
+| `roles_section.dart` | `RolesSection` | ✅ Complete | System-level roles management using flat-row data-table pattern (`_RoleRow`). Each row: indigo accent bar (3px→4px on hover), 28×28 tinted shield icon (`_RoleIdentityCell`), role name (13px w500) + description subtitle on desktop (12px w400 muted), trailing permissions count (`_RolePermissionsBadge`), animated chevron on hover. Background: idle `alpha: 0.04`, hover `0.08`, press `0.12`. Press animation: `ScaleTransition` 0.98. Desktop: inline 28×28 icon action buttons appearing on hover (`_InlineActions`). Mobile: three-dot popup menu (`_MobileActions`). `ListView.separated` with `AppTheme.tableRowDivider`. Actions: View (pushes `RoleDetailScreen`), Edit (permission-gated), Delete (permission-gated), Purge (super only). |
 | `role_detail_screen.dart` | `RoleDetailScreen` | ✅ Complete | Full role detail page with 2 tabs: Permissions (toggle chips grouped by resource — `resource.action` format) and Assigned Users (users with this system-scoped role via `scopes` table). Assign/unassign actions. |
 | `role_detail_sheet.dart` | `RoleDetailSheet` | ✅ Complete | Compact sheet version of role detail for quick viewing. |
 | `create_role_sheet.dart` | `CreateRoleSheet` | ✅ Complete | Form to create a new system role — name, description, initial permissions. |
 
-**Key private widgets:** `_RoleIdentityCell` (28×28 tinted icon + name), `_RoleDescriptionCell`, `_RolePermissionsBadge` (plain text count), `_Toolbar`, `_ListShimmer`
+**Key private widgets:** `_RowAction` (action descriptor), `_RoleRow` / `_RoleRowState` (flat-row with accent bar, scale animation, hover states), `_InlineActions` / `_InlineActionButton` (desktop 28×28 icon buttons), `_MobileActions` (three-dot popup menu), `_RoleIdentityCell` (28×28 tinted icon only — name moved to row), `_RoleDescriptionCell` (kept for reuse, currently unused in row), `_RolePermissionsBadge` (plain text count), `_Toolbar`, `_ListShimmer`
 
 **Data source:** `RolesDao.watchSystemRoles()`, `RolesDao.watchRoleById(id)`, `RolesDao.watchSystemScopes(userId)`
 **Dependencies:** `database/daos/roles_dao.dart`, `models/system_permissions.dart` (`SystemPermissions`, `RolePermissions`), `models/permissions.dart`, `ui/widgets/edu_tab_bar.dart`

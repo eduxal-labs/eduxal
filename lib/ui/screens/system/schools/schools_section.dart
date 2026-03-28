@@ -10,7 +10,6 @@ import '../../../../database/tables/enums.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
-import '../../../widgets/edu_data_table.dart';
 import '../../../widgets/status_indicator.dart';
 
 import 'school_detail_screen.dart';
@@ -189,11 +188,75 @@ class _SchoolsSectionState extends State<SchoolsSection> {
     }
   }
 
+  // ── Build row actions for a school ─────────────────────────────────────────
+
+  List<_RowAction> _buildActions(SchoolsData school) {
+    final actions = <_RowAction>[];
+
+    if (school.status == SchoolStatus.trial ||
+        school.status == SchoolStatus.suspended) {
+      actions.add(
+        _RowAction(
+          icon: Icons.check_circle_outline_rounded,
+          label: 'Activate',
+          onTap: () => _setStatus(school, SchoolStatus.active, 'activated'),
+        ),
+      );
+    }
+
+    if (school.status == SchoolStatus.active ||
+        school.status == SchoolStatus.trial) {
+      actions.add(
+        _RowAction(
+          icon: Icons.block_rounded,
+          label: 'Suspend',
+          onTap: () => _setStatus(school, SchoolStatus.suspended, 'suspended'),
+        ),
+      );
+    }
+
+    if (school.status == SchoolStatus.suspended ||
+        school.status == SchoolStatus.deleted) {
+      actions.add(
+        _RowAction(
+          icon: Icons.restore_rounded,
+          label: 'Restore',
+          onTap: () => _setStatus(school, SchoolStatus.active, 'restored'),
+        ),
+      );
+    }
+
+    if (school.status != SchoolStatus.deleted) {
+      actions.add(
+        _RowAction(
+          icon: Icons.delete_outline_rounded,
+          label: 'Delete',
+          isDestructive: true,
+          onTap: () => _trashSchool(school),
+        ),
+      );
+    }
+
+    if (widget.permissions.canSeeDeleted) {
+      actions.add(
+        _RowAction(
+          icon: Icons.delete_forever_rounded,
+          label: 'Purge',
+          isDestructive: true,
+          onTap: () => _purgeSchool(school),
+        ),
+      );
+    }
+
+    return actions;
+  }
+
   // ── Build ───────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
 
     return StreamBuilder<List<SchoolsData>>(
       stream: schoolsDao.watchAllSchools(),
@@ -264,88 +327,17 @@ class _SchoolsSectionState extends State<SchoolsSection> {
                         ],
                       ),
                     )
-                  : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  : ListView.separated(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
                       itemCount: filtered.length,
+                      separatorBuilder: (_, __) =>
+                          AppTheme.tableRowDivider(isDark, cs),
                       itemBuilder: (context, index) {
                         final school = filtered[index];
-
-                        final actions = <EduDataTableAction<SchoolsData>>[];
-
-                        if (school.status == SchoolStatus.trial ||
-                            school.status == SchoolStatus.suspended) {
-                          actions.add(
-                            EduDataTableAction(
-                              icon: Icons.check_circle_outline_rounded,
-                              label: 'Activate',
-                              color: const Color(0xFF26A69A),
-                              onTap: (s) => _setStatus(
-                                s,
-                                SchoolStatus.active,
-                                'activated',
-                              ),
-                            ),
-                          );
-                        }
-
-                        if (school.status == SchoolStatus.active ||
-                            school.status == SchoolStatus.trial) {
-                          actions.add(
-                            EduDataTableAction(
-                              icon: Icons.block_rounded,
-                              label: 'Suspend',
-                              color: const Color(0xFFFFB300),
-                              onTap: (s) => _setStatus(
-                                s,
-                                SchoolStatus.suspended,
-                                'suspended',
-                              ),
-                            ),
-                          );
-                        }
-
-                        if (school.status == SchoolStatus.suspended ||
-                            school.status == SchoolStatus.deleted) {
-                          actions.add(
-                            EduDataTableAction(
-                              icon: Icons.restore_rounded,
-                              label: 'Restore',
-                              color: const Color(0xFF26A69A),
-                              onTap: (s) => _setStatus(
-                                s,
-                                SchoolStatus.active,
-                                'restored',
-                              ),
-                            ),
-                          );
-                        }
-
-                        if (school.status != SchoolStatus.deleted) {
-                          actions.add(
-                            EduDataTableAction(
-                              icon: Icons.delete_outline_rounded,
-                              label: 'Delete',
-                              isDestructive: true,
-                              onTap: (s) => _trashSchool(s),
-                            ),
-                          );
-                        }
-
-                        if (widget.permissions.canSeeDeleted) {
-                          actions.add(
-                            EduDataTableAction(
-                              icon: Icons.delete_forever_rounded,
-                              label: 'Purge',
-                              isDestructive: true,
-                              onTap: (s) => _purgeSchool(s),
-                            ),
-                          );
-                        }
-
-                        return _SchoolCard(
+                        return _SchoolRow(
                           school: school,
                           onTap: () => _openDetail(school),
-                          actions: actions,
+                          actions: _buildActions(school),
                         );
                       },
                     ),
@@ -357,8 +349,30 @@ class _SchoolsSectionState extends State<SchoolsSection> {
   }
 }
 
-class _SchoolCard extends StatefulWidget {
-  const _SchoolCard({
+// ─────────────────────────────────────────────────────────────────────────────
+// _RowAction — lightweight action descriptor
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _RowAction {
+  const _RowAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.isDestructive = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool isDestructive;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _SchoolRow — flat data-table row with status-tinted accent
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SchoolRow extends StatefulWidget {
+  const _SchoolRow({
     required this.school,
     required this.onTap,
     required this.actions,
@@ -366,134 +380,263 @@ class _SchoolCard extends StatefulWidget {
 
   final SchoolsData school;
   final VoidCallback onTap;
-  final List<EduDataTableAction<SchoolsData>> actions;
+  final List<_RowAction> actions;
 
   @override
-  State<_SchoolCard> createState() => _SchoolCardState();
+  State<_SchoolRow> createState() => _SchoolRowState();
 }
 
-class _SchoolCardState extends State<_SchoolCard> {
+class _SchoolRowState extends State<_SchoolRow>
+    with SingleTickerProviderStateMixin {
   bool _isHovered = false;
+  bool _isPressed = false;
+  late final AnimationController _pressCtrl;
+  late final Animation<double> _scaleAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pressCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+      reverseDuration: const Duration(milliseconds: 150),
+    );
+    _scaleAnim = Tween<double>(
+      begin: 1.0,
+      end: 0.98,
+    ).animate(CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut));
+  }
+
+  @override
+  void dispose() {
+    _pressCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails _) {
+    setState(() => _isPressed = true);
+    _pressCtrl.forward();
+  }
+
+  void _onTapUp(TapUpDetails _) {
+    _pressCtrl.reverse();
+    setState(() => _isPressed = false);
+  }
+
+  void _onTapCancel() {
+    _pressCtrl.reverse();
+    setState(() => _isPressed = false);
+  }
+
+  /// Returns the accent colour for a given [SchoolStatus].
+  Color _accentColor() {
+    return switch (widget.school.status) {
+      SchoolStatus.trial => const Color(0xFF42A5F5), // blue
+      SchoolStatus.active => const Color(0xFF26A69A), // green / teal
+      SchoolStatus.suspended => const Color(0xFFFFB300), // amber
+      SchoolStatus.cancelled => const Color(0xFFFF7043), // orange
+      SchoolStatus.deleted => const Color(0xFFEF5350), // red
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final isMobile =
-        MediaQuery.of(context).size.width < AppTheme.kMobileBreakpoint;
+    final isDark = cs.brightness == Brightness.dark;
+    final isDesktop = MediaQuery.sizeOf(context).width >= 600;
+    final accentColor = _accentColor();
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        margin: const EdgeInsets.only(bottom: 8),
-        transform: Matrix4.translationValues(0, _isHovered ? -2 : 0, 0),
-        decoration: BoxDecoration(
-          color: cs.surface,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: _isHovered
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ]
-              : [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.02),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+    // ── Background states ──────────────────────────────────────────────
+    final idleBg = isDark
+        ? accentColor.withValues(alpha: 0.06)
+        : accentColor.withValues(alpha: 0.04);
+    final hoverBg = isDark
+        ? accentColor.withValues(alpha: 0.12)
+        : accentColor.withValues(alpha: 0.08);
+    final pressBg = isDark
+        ? accentColor.withValues(alpha: 0.18)
+        : accentColor.withValues(alpha: 0.12);
+
+    final currentBg = _isPressed
+        ? pressBg
+        : _isHovered
+        ? hoverBg
+        : idleBg;
+
+    // ── Logo with status ring + status dot ─────────────────────────────
+    final logo = Stack(
+      clipBehavior: Clip.none,
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.all(1.5),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppTheme.kCardRadius + 2),
+            border: Border.all(
+              color: accentColor.withValues(
+                alpha: _isHovered || _isPressed ? 0.7 : 0.35,
+              ),
+              width: 1.5,
+            ),
+          ),
+          child: _SchoolLogo(schoolId: widget.school.id, cs: cs),
         ),
-        child: Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          child: InkWell(
+        Positioned(
+          bottom: -1,
+          right: -1,
+          child: SchoolStatusDot(
+            status: widget.school.status,
+            backgroundColor: currentBg,
+          ),
+        ),
+      ],
+    );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: ScaleTransition(
+        scale: _scaleAnim,
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTapDown: _onTapDown,
+            onTapUp: _onTapUp,
+            onTapCancel: _onTapCancel,
             onTap: widget.onTap,
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  Expanded(child: _SchoolIdentityCell(school: widget.school)),
-                  Text(
-                    _formatRelativeDate(widget.school.created.toInt()),
-                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-                  ),
-                  if (widget.actions.isNotEmpty) ...[
-                    const SizedBox(width: 16),
-                    if (isMobile)
-                      MenuAnchor(
-                        builder: (context, controller, child) {
-                          return IconButton(
-                            icon: const Icon(Icons.more_vert_rounded, size: 18),
-                            onPressed: () {
-                              if (controller.isOpen) {
-                                controller.close();
-                              } else {
-                                controller.open();
-                              }
-                            },
-                          );
-                        },
-                        menuChildren: widget.actions.map((action) {
-                          return MenuItemButton(
-                            leadingIcon: Icon(
-                              action.icon,
-                              size: 18,
-                              color: action.color ?? cs.onSurfaceVariant,
-                            ),
-                            child: Text(
-                              action.label,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w400,
-                                color: action.color ?? cs.onSurface,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              curve: Curves.easeOut,
+              decoration: BoxDecoration(
+                color: currentBg,
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                border: Border.all(
+                  color: _isHovered || _isPressed
+                      ? accentColor.withValues(alpha: isDark ? 0.35 : 0.25)
+                      : cs.outline.withValues(alpha: isDark ? 0.10 : 0.08),
+                  width: 0.5,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                child: IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // ── Status accent bar ───────────────────────────
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: _isHovered || _isPressed ? 4 : 3,
+                        decoration: BoxDecoration(
+                          color: accentColor.withValues(
+                            alpha: _isHovered || _isPressed ? 1.0 : 0.7,
+                          ),
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(4),
+                            bottomLeft: Radius.circular(4),
+                          ),
+                        ),
+                      ),
+
+                      // ── Content ─────────────────────────────────────
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                          child: Row(
+                            children: [
+                              // Logo
+                              logo,
+                              const SizedBox(width: 12),
+
+                              // Name + motto
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      widget.school.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: cs.onSurface,
+                                      ),
+                                    ),
+                                    if (widget.school.motto != null &&
+                                        widget.school.motto!.isNotEmpty) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        widget.school.motto!,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w400,
+                                          color: cs.onSurfaceVariant.withValues(
+                                            alpha: 0.55,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
                               ),
-                            ),
-                            onPressed: () => action.onTap(widget.school),
-                          );
-                        }).toList(),
-                      )
-                    else
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: widget.actions.map((action) {
-                          return Padding(
-                            padding: const EdgeInsets.only(left: 4),
-                            child: Tooltip(
-                              message: action.label,
-                              child: Material(
-                                color:
-                                    action.color?.withValues(alpha: 0.1) ??
-                                    cs.surfaceContainerHighest,
-                                shape: const CircleBorder(),
-                                child: InkWell(
-                                  customBorder: const CircleBorder(),
-                                  onTap: () => action.onTap(widget.school),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: const BoxDecoration(
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      action.icon,
-                                      size: 18,
-                                      color:
-                                          action.color ?? cs.onSurfaceVariant,
-                                    ),
+
+                              // Joined date
+                              const SizedBox(width: 8),
+                              Text(
+                                _formatRelativeDate(
+                                  widget.school.created.toInt(),
+                                ),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w400,
+                                  color: cs.onSurfaceVariant.withValues(
+                                    alpha: 0.55,
                                   ),
                                 ),
                               ),
-                            ),
-                          );
-                        }).toList(),
+
+                              // Actions
+                              if (widget.actions.isNotEmpty) ...[
+                                const SizedBox(width: 4),
+                                isDesktop
+                                    ? _InlineActions(
+                                        actions: widget.actions,
+                                        isHovered: _isHovered,
+                                      )
+                                    : _MobileActions(actions: widget.actions),
+                              ],
+
+                              const SizedBox(width: 4),
+
+                              // ── Animated chevron ────────────────────
+                              AnimatedSlide(
+                                duration: const Duration(milliseconds: 200),
+                                curve: Curves.easeOut,
+                                offset: Offset(_isHovered ? 0.15 : 0.0, 0),
+                                child: AnimatedOpacity(
+                                  duration: const Duration(milliseconds: 200),
+                                  opacity: _isHovered ? 0.8 : 0.35,
+                                  child: Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 18,
+                                    color: _isHovered
+                                        ? accentColor
+                                        : cs.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                  ],
-                ],
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -504,70 +647,185 @@ class _SchoolCardState extends State<_SchoolCard> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// School row content — identity cell with logo + status dot + name + motto
+// _InlineActions — desktop: row of icon buttons shown on hover
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _SchoolIdentityCell extends StatelessWidget {
-  const _SchoolIdentityCell({required this.school});
+class _InlineActions extends StatelessWidget {
+  const _InlineActions({required this.actions, required this.isHovered});
 
-  final SchoolsData school;
+  final List<_RowAction> actions;
+  final bool isHovered;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: actions
+            .map((a) => _InlineActionButton(action: a, isRowHovered: isHovered))
+            .toList(),
+      ),
+    );
+  }
+}
+
+class _InlineActionButton extends StatefulWidget {
+  const _InlineActionButton({required this.action, required this.isRowHovered});
+
+  final _RowAction action;
+  final bool isRowHovered;
+
+  @override
+  State<_InlineActionButton> createState() => _InlineActionButtonState();
+}
+
+class _InlineActionButtonState extends State<_InlineActionButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final baseColor = widget.action.isDestructive
+        ? cs.error
+        : cs.onSurfaceVariant;
+    final effectiveAlpha = (_isHovered || widget.isRowHovered) ? 1.0 : 0.0;
+
+    return Tooltip(
+      message: widget.action.label,
+      waitDuration: const Duration(milliseconds: 400),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: widget.action.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 100),
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: _isHovered
+                  ? baseColor.withValues(alpha: 0.08)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 120),
+              opacity: effectiveAlpha,
+              child: Icon(widget.action.icon, size: 16, color: baseColor),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _MobileActions — mobile: three-dot → compact popup menu
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MobileActions extends StatelessWidget {
+  const _MobileActions({required this.actions});
+
+  final List<_RowAction> actions;
+
+  Future<void> _showPopupMenu(BuildContext context, GlobalKey key) async {
+    final renderBox = key.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final buttonRect =
+        renderBox.localToGlobal(Offset.zero, ancestor: overlay) &
+        renderBox.size;
+    final screenSize = MediaQuery.sizeOf(context);
+    final screenRect = Offset.zero & screenSize;
+    final position = RelativeRect.fromRect(buttonRect, screenRect);
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    await showMenu<int>(
+      context: context,
+      position: position,
+      color: AppTheme.overlayBg(isDark, cs),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
+        side: BorderSide(color: AppTheme.borderColor(isDark, cs), width: 0.5),
+      ),
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      constraints: const BoxConstraints(minWidth: 160, maxWidth: 220),
+      items: [
+        for (int i = 0; i < actions.length; i++)
+          PopupMenuItem<int>(
+            value: i,
+            height: 40,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Row(
+              children: [
+                Icon(
+                  actions[i].icon,
+                  size: 16,
+                  color: actions[i].isDestructive
+                      ? cs.error
+                      : cs.onSurfaceVariant,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  actions[i].label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    color: actions[i].isDestructive ? cs.error : cs.onSurface,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    ).then((index) {
+      if (index != null) actions[index].onTap();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    return Row(
-      children: [
-        // ── Logo with status dot overlay ─────────────────────────────
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            _SchoolLogo(schoolId: school.id, cs: cs),
-            Positioned(
-              bottom: -1,
-              right: -1,
-              child: SchoolStatusDot(
-                status: school.status,
-                backgroundColor: cs.surface,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(width: 12),
-
-        // ── Name + motto ──────────────────────────────────────────────
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                school.name,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: cs.onSurface,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              if (school.motto != null && school.motto!.isNotEmpty) ...[
-                const SizedBox(height: 2),
-                Text(
-                  school.motto!,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.8),
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ],
+    // Single action — render directly as an icon button
+    if (actions.length == 1) {
+      final action = actions.first;
+      final color = action.isDestructive ? cs.error : cs.onSurfaceVariant;
+      return Tooltip(
+        message: action.label,
+        waitDuration: const Duration(milliseconds: 400),
+        child: SizedBox(
+          width: 36,
+          height: 36,
+          child: IconButton(
+            padding: EdgeInsets.zero,
+            iconSize: 18,
+            icon: Icon(action.icon, size: 18, color: color),
+            onPressed: action.onTap,
           ),
         ),
-      ],
+      );
+    }
+
+    // Multiple actions — three-dot → compact positioned popup menu
+    final key = GlobalKey();
+    return SizedBox(
+      width: 36,
+      height: 36,
+      child: IconButton(
+        key: key,
+        padding: EdgeInsets.zero,
+        iconSize: 18,
+        icon: Icon(Icons.more_vert, size: 18, color: cs.onSurfaceVariant),
+        tooltip: 'More actions',
+        onPressed: () => _showPopupMenu(context, key),
+      ),
     );
   }
 }

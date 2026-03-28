@@ -10,7 +10,6 @@ import '../../../../models/permissions.dart' as models;
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
-import '../../../widgets/edu_data_table.dart';
 import '../../../widgets/edu_sheet.dart';
 import 'role_detail_screen.dart';
 import 'role_detail_sheet.dart';
@@ -155,6 +154,7 @@ class _RolesSectionState extends State<RolesSection> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
 
     return StreamBuilder<List<Role>>(
       stream: rolesDao.watchSystemRoles(),
@@ -203,16 +203,18 @@ class _RolesSectionState extends State<RolesSection> {
                         ],
                       ),
                     )
-                  : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(0, 8, 0, 24),
                       itemCount: filtered.length,
+                      separatorBuilder: (context, _) =>
+                          AppTheme.tableRowDivider(isDark, cs),
                       itemBuilder: (context, index) {
                         final role = filtered[index];
-                        final actions = <EduDataTableAction<Role>>[
-                          EduDataTableAction(
+                        final actions = <_RowAction>[
+                          _RowAction(
                             icon: Icons.open_in_new_rounded,
                             label: 'View',
-                            onTap: (r) => _openDetail(context, r),
+                            onTap: () => _openDetail(context, role),
                           ),
                         ];
 
@@ -221,10 +223,10 @@ class _RolesSectionState extends State<RolesSection> {
                           models.Action.update,
                         )) {
                           actions.add(
-                            EduDataTableAction(
+                            _RowAction(
                               icon: Icons.edit_outlined,
                               label: 'Edit',
-                              onTap: (r) => _openEditSheet(context, r),
+                              onTap: () => _openEditSheet(context, role),
                             ),
                           );
                         }
@@ -234,27 +236,27 @@ class _RolesSectionState extends State<RolesSection> {
                           models.Action.delete,
                         )) {
                           actions.add(
-                            EduDataTableAction(
+                            _RowAction(
                               icon: Icons.delete_outline_rounded,
                               label: 'Delete',
                               isDestructive: true,
-                              onTap: (r) => _deleteRole(context, r),
+                              onTap: () => _deleteRole(context, role),
                             ),
                           );
                         }
 
                         if (widget.permissions.level == UserLevel.super_) {
                           actions.add(
-                            EduDataTableAction(
+                            _RowAction(
                               icon: Icons.delete_forever_rounded,
                               label: 'Purge',
                               isDestructive: true,
-                              onTap: (r) => _purgeRole(context, r),
+                              onTap: () => _purgeRole(context, role),
                             ),
                           );
                         }
 
-                        return _RoleCard(
+                        return _RoleRow(
                           role: role,
                           onTap: () => _openDetail(context, role),
                           actions: actions,
@@ -270,11 +272,29 @@ class _RolesSectionState extends State<RolesSection> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Role identity cell — icon + name only
+// _RowAction — lightweight action descriptor for row buttons
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _RoleCard extends StatefulWidget {
-  const _RoleCard({
+class _RowAction {
+  const _RowAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.isDestructive = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool isDestructive;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _RoleRow — flat-row data-table pattern (replaces _RoleCard)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _RoleRow extends StatefulWidget {
+  const _RoleRow({
     required this.role,
     required this.onTap,
     required this.actions,
@@ -282,139 +302,216 @@ class _RoleCard extends StatefulWidget {
 
   final Role role;
   final VoidCallback onTap;
-  final List<EduDataTableAction<Role>> actions;
+  final List<_RowAction> actions;
 
   @override
-  State<_RoleCard> createState() => _RoleCardState();
+  State<_RoleRow> createState() => _RoleRowState();
 }
 
-class _RoleCardState extends State<_RoleCard> {
+class _RoleRowState extends State<_RoleRow>
+    with SingleTickerProviderStateMixin {
   bool _isHovered = false;
+  bool _isPressed = false;
+  late final AnimationController _pressCtrl;
+  late final Animation<double> _scaleAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pressCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+      reverseDuration: const Duration(milliseconds: 150),
+    );
+    _scaleAnim = Tween<double>(
+      begin: 1.0,
+      end: 0.98,
+    ).animate(CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut));
+  }
+
+  @override
+  void dispose() {
+    _pressCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails _) {
+    setState(() => _isPressed = true);
+    _pressCtrl.forward();
+  }
+
+  void _onTapUp(TapUpDetails _) {
+    _pressCtrl.reverse();
+    setState(() => _isPressed = false);
+  }
+
+  void _onTapCancel() {
+    _pressCtrl.reverse();
+    setState(() => _isPressed = false);
+  }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final isMobile =
-        MediaQuery.of(context).size.width < AppTheme.kMobileBreakpoint;
+    final isDark = cs.brightness == Brightness.dark;
+    final isDesktop =
+        MediaQuery.sizeOf(context).width >= AppTheme.kMobileBreakpoint;
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        margin: const EdgeInsets.only(bottom: 8),
-        transform: Matrix4.translationValues(0, _isHovered ? -2 : 0, 0),
-        decoration: BoxDecoration(
-          color: cs.surface,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: _isHovered
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ]
-              : [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.02),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
-        ),
-        child: Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          child: InkWell(
+    // Accent — muted indigo since roles have no status
+    final accentColor = isDark
+        ? const Color(0xFF7986CB) // indigo 300
+        : const Color(0xFF3949AB); // indigo 600
+
+    final idleBg = isDark
+        ? cs.primary.withValues(alpha: 0.06)
+        : cs.primary.withValues(alpha: 0.04);
+    final hoverBg = isDark
+        ? accentColor.withValues(alpha: 0.12)
+        : accentColor.withValues(alpha: 0.08);
+    final pressBg = isDark
+        ? accentColor.withValues(alpha: 0.18)
+        : accentColor.withValues(alpha: 0.12);
+
+    final hasDescription =
+        widget.role.description != null && widget.role.description!.isNotEmpty;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: ScaleTransition(
+        scale: _scaleAnim,
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTapDown: _onTapDown,
+            onTapUp: _onTapUp,
+            onTapCancel: _onTapCancel,
             onTap: widget.onTap,
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: _RoleIdentityCell(role: widget.role),
-                  ),
-                  if (!isMobile)
-                    Expanded(
-                      flex: 3,
-                      child: _RoleDescriptionCell(role: widget.role),
-                    ),
-                  _RolePermissionsBadge(role: widget.role),
-                  if (widget.actions.isNotEmpty) ...[
-                    const SizedBox(width: 16),
-                    if (isMobile)
-                      MenuAnchor(
-                        builder: (context, controller, child) {
-                          return IconButton(
-                            icon: const Icon(Icons.more_vert_rounded, size: 18),
-                            onPressed: () {
-                              if (controller.isOpen) {
-                                controller.close();
-                              } else {
-                                controller.open();
-                              }
-                            },
-                          );
-                        },
-                        menuChildren: widget.actions.map((action) {
-                          return MenuItemButton(
-                            leadingIcon: Icon(
-                              action.icon,
-                              size: 18,
-                              color: action.color ?? cs.onSurfaceVariant,
-                            ),
-                            child: Text(
-                              action.label,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w400,
-                                color: action.color ?? cs.onSurface,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              curve: Curves.easeOut,
+              decoration: BoxDecoration(
+                color: _isPressed
+                    ? pressBg
+                    : _isHovered
+                    ? hoverBg
+                    : idleBg,
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                border: Border.all(
+                  color: _isHovered || _isPressed
+                      ? accentColor.withValues(alpha: isDark ? 0.35 : 0.25)
+                      : cs.outline.withValues(alpha: isDark ? 0.10 : 0.08),
+                  width: 0.5,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                child: IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // ── Accent bar ──────────────────────────────────
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: _isHovered || _isPressed ? 4 : 3,
+                        decoration: BoxDecoration(
+                          color: accentColor.withValues(
+                            alpha: _isHovered || _isPressed ? 1.0 : 0.7,
+                          ),
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(4),
+                            bottomLeft: Radius.circular(4),
+                          ),
+                        ),
+                      ),
+
+                      // ── Content ─────────────────────────────────────
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                          child: Row(
+                            children: [
+                              // Leading — role icon
+                              _RoleIdentityCell(role: widget.role),
+                              const SizedBox(width: 12),
+
+                              // Name + description subtitle
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      widget.role.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: cs.onSurface,
+                                      ),
+                                    ),
+                                    if (isDesktop && hasDescription) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        widget.role.description!,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w400,
+                                          color: cs.onSurfaceVariant.withValues(
+                                            alpha: 0.55,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
                               ),
-                            ),
-                            onPressed: () => action.onTap(widget.role),
-                          );
-                        }).toList(),
-                      )
-                    else
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: widget.actions.map((action) {
-                          return Padding(
-                            padding: const EdgeInsets.only(left: 4),
-                            child: Tooltip(
-                              message: action.label,
-                              child: Material(
-                                color:
-                                    action.color?.withValues(alpha: 0.1) ??
-                                    cs.surfaceContainerHighest,
-                                shape: const CircleBorder(),
-                                child: InkWell(
-                                  customBorder: const CircleBorder(),
-                                  onTap: () => action.onTap(widget.role),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: const BoxDecoration(
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      action.icon,
-                                      size: 18,
-                                      color:
-                                          action.color ?? cs.onSurfaceVariant,
-                                    ),
+
+                              // Trailing — permissions count
+                              const SizedBox(width: 8),
+                              _RolePermissionsBadge(role: widget.role),
+
+                              // Actions
+                              if (widget.actions.isNotEmpty) ...[
+                                const SizedBox(width: 4),
+                                isDesktop
+                                    ? _InlineActions(
+                                        actions: widget.actions,
+                                        isHovered: _isHovered,
+                                      )
+                                    : _MobileActions(actions: widget.actions),
+                              ],
+
+                              const SizedBox(width: 4),
+
+                              // ── Animated chevron ────────────────────
+                              AnimatedSlide(
+                                duration: const Duration(milliseconds: 200),
+                                curve: Curves.easeOut,
+                                offset: Offset(_isHovered ? 0.15 : 0.0, 0),
+                                child: AnimatedOpacity(
+                                  duration: const Duration(milliseconds: 200),
+                                  opacity: _isHovered ? 0.8 : 0.35,
+                                  child: Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 18,
+                                    color: _isHovered
+                                        ? accentColor
+                                        : cs.onSurfaceVariant,
                                   ),
                                 ),
                               ),
-                            ),
-                          );
-                        }).toList(),
+                            ],
+                          ),
+                        ),
                       ),
-                  ],
-                ],
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -423,6 +520,198 @@ class _RoleCardState extends State<_RoleCard> {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _InlineActions — desktop: icon buttons that appear on hover
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _InlineActions extends StatelessWidget {
+  const _InlineActions({required this.actions, required this.isHovered});
+
+  final List<_RowAction> actions;
+  final bool isHovered;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: actions
+            .map((a) => _InlineActionButton(action: a, isRowHovered: isHovered))
+            .toList(),
+      ),
+    );
+  }
+}
+
+class _InlineActionButton extends StatefulWidget {
+  const _InlineActionButton({required this.action, required this.isRowHovered});
+
+  final _RowAction action;
+  final bool isRowHovered;
+
+  @override
+  State<_InlineActionButton> createState() => _InlineActionButtonState();
+}
+
+class _InlineActionButtonState extends State<_InlineActionButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final baseColor = widget.action.isDestructive
+        ? cs.error
+        : cs.onSurfaceVariant;
+    final effectiveAlpha = (_isHovered || widget.isRowHovered) ? 1.0 : 0.0;
+
+    return Tooltip(
+      message: widget.action.label,
+      waitDuration: const Duration(milliseconds: 400),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: widget.action.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 100),
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: _isHovered
+                  ? baseColor.withValues(alpha: 0.08)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 120),
+              opacity: effectiveAlpha,
+              child: Icon(widget.action.icon, size: 16, color: baseColor),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _MobileActions — mobile: three-dot → positioned popup menu
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MobileActions extends StatelessWidget {
+  const _MobileActions({required this.actions});
+
+  final List<_RowAction> actions;
+
+  Future<void> _showPopupMenu(BuildContext context, GlobalKey key) async {
+    final renderBox = key.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final buttonRect =
+        renderBox.localToGlobal(Offset.zero, ancestor: overlay) &
+        renderBox.size;
+    final screenSize = MediaQuery.sizeOf(context);
+    final screenRect = Offset.zero & screenSize;
+    final position = RelativeRect.fromRect(buttonRect, screenRect);
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    await showMenu<int>(
+      context: context,
+      position: position,
+      color: AppTheme.overlayBg(isDark, cs),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
+        side: BorderSide(color: AppTheme.borderColor(isDark, cs), width: 0.5),
+      ),
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      constraints: const BoxConstraints(minWidth: 160, maxWidth: 220),
+      items: [
+        for (int i = 0; i < actions.length; i++)
+          PopupMenuItem<int>(
+            value: i,
+            height: 40,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Row(
+              children: [
+                Icon(
+                  actions[i].icon,
+                  size: 16,
+                  color: actions[i].isDestructive
+                      ? cs.error
+                      : cs.onSurfaceVariant,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  actions[i].label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    color: actions[i].isDestructive ? cs.error : cs.onSurface,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    ).then((index) {
+      if (index != null) actions[index].onTap();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    // Single action — render it directly as an icon button (no three-dot)
+    if (actions.length == 1) {
+      final action = actions.first;
+      final color = action.isDestructive ? cs.error : cs.onSurfaceVariant;
+      return Tooltip(
+        message: action.label,
+        waitDuration: const Duration(milliseconds: 400),
+        child: SizedBox(
+          width: 36,
+          height: 36,
+          child: IconButton(
+            padding: EdgeInsets.zero,
+            iconSize: 18,
+            icon: Icon(action.icon, size: 18, color: color),
+            onPressed: action.onTap,
+          ),
+        ),
+      );
+    }
+
+    // Multiple actions — three-dot → compact positioned popup menu
+    final key = GlobalKey();
+    return SizedBox(
+      width: 36,
+      height: 36,
+      child: IconButton(
+        key: key,
+        padding: EdgeInsets.zero,
+        iconSize: 18,
+        icon: Icon(
+          Icons.more_vert_rounded,
+          size: 18,
+          color: cs.onSurfaceVariant,
+        ),
+        tooltip: 'More actions',
+        onPressed: () => _showPopupMenu(context, key),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _RoleIdentityCell — 28×28 tinted icon container (leading element)
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _RoleIdentityCell extends StatelessWidget {
   const _RoleIdentityCell({required this.role});
@@ -434,44 +723,24 @@ class _RoleIdentityCell extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
 
-    return Row(
-      children: [
-        // ── Role icon ──────────────────────────────────────────────────
-        Container(
-          width: 28,
-          height: 28,
-          decoration: BoxDecoration(
-            color: cs.primary.withValues(alpha: isDark ? 0.12 : 0.06),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Icon(
-            Icons.shield_outlined,
-            size: 14,
-            color: cs.primary.withValues(alpha: 0.7),
-          ),
-        ),
-        const SizedBox(width: 10),
-
-        // ── Name ───────────────────────────────────────────────────────
-        Expanded(
-          child: Text(
-            role.name,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: cs.onSurface,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
+    return Container(
+      width: 28,
+      height: 28,
+      decoration: BoxDecoration(
+        color: cs.primary.withValues(alpha: isDark ? 0.12 : 0.06),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Icon(
+        Icons.shield_outlined,
+        size: 14,
+        color: cs.primary.withValues(alpha: 0.7),
+      ),
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Role description cell
+// _RoleDescriptionCell — standalone description text (kept for reuse)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _RoleDescriptionCell extends StatelessWidget {
@@ -501,7 +770,7 @@ class _RoleDescriptionCell extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Role permissions badge — descriptive count or dash
+// _RolePermissionsBadge — descriptive count or dash
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _RolePermissionsBadge extends StatelessWidget {
