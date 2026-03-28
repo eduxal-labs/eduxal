@@ -150,4 +150,4 @@ For `UserLevel.super_` and `UserLevel.system` users, all permissions are granted
 - Permission gating uses `SystemPermissions.can(action)` — never raw `UserLevel` checks in UI code (except `canSeeDeleted` which is level-specific by design).
 
 ## Last Updated
-Task 1001 — Reflects completion of UI overhaul Tracks 1–10. All four data sections (users, schools, roles, members) redesigned with badge-free data tables using `StatusIndicator` overlays on avatars. Plans section uses `EduDataTable<Plan>`. Settings tab added with Plans and Subjects CRUD. System dashboard tabs restyled to match school dashboard members page tab aesthetics. All modals use `EduSheet`/`EduDialog` wrappers. Profile photos shown everywhere. `EduDataTable` used across all sections.
+Task B4 — Roles section rewritten with flat-row data-table pattern (`_RoleRow`). Replaced `_RoleCard` with accent-bar rows, `ScaleTransition` press animation, `_InlineActions`/`_MobileActions` action patterns, `ListView.separated` with `AppTheme.tableRowDivider`. `_RoleIdentityCell` adapted to icon-only (name moved inline to row). `_RoleDescriptionCell` kept for reuse. Previous: Task 1001.

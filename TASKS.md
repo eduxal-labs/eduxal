@@ -415,7 +415,7 @@ Replace `ListView.builder` + `_MemberCard` with flat-row pattern.
 
 ---
 
-### Task B4: Rewrite Roles section list rendering
+### Task B4: Rewrite Roles section list rendering ✅
 
 **Files to modify:** `lib/ui/screens/system/roles/roles_section.dart`
 **Context files to read:** `lib/ui/screens/system/CONTEXT.md`, `lib/ui/screens/school_dashboard/members/members_page.dart` (reference: `_FlatRow`)
@@ -444,8 +444,8 @@ Replace `ListView.builder` + `_RoleCard` with flat-row pattern.
 4. **Keep:** `_RoleIdentityCell` (adapt or inline), `_RoleDescriptionCell`, `_RolePermissionsBadge`, `_Toolbar`, `_ListShimmer`.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — update Roles section description
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — update Roles section description
+- [x] Mark this task `[x]`
 
 ---
 
