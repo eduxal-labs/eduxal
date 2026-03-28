@@ -150,8 +150,8 @@ After Task A0, `CreateSchoolSheet` will no longer be double-wrapped. Verify the 
 3. Also verify the search `TextField` (around line 1830) — when focused, the keyboard should push up the content properly. Since the Container's maxHeight is based on `MediaQuery.sizeOf(context).height` (which doesn't change with keyboard), the sheet itself won't shrink. But `showModalBottomSheet` with `isScrollControlled: true` handles the keyboard positioning by default. Verify on device.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note fix applied to `AddMemberSheet`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — note fix applied to `AddMemberSheet`
+- [x] Mark this task `[x]`
 
 ---
 
