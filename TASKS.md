@@ -83,8 +83,8 @@ After Task A0, `CreateSchoolSheet` will no longer be double-wrapped. Verify the 
 3. **Nested county picker sheet** (`_CountyPickerSheet`): This is also launched via `showEduSheet` from within `CreateSchoolSheet`. It has its own Container + handle + title. After Task A0 it will no longer be double-wrapped. Verify it looks correct on mobile. Its `_CountyPickerSheetState.build()` (around line 1105) has a Container with `cs.surface` background, handle, and title. This should be fine after A0. No changes needed unless visual issues remain.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note fix applied to `CreateSchoolSheet`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — note fix applied to `CreateSchoolSheet`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -127,8 +127,8 @@ After Task A0, `CreateSchoolSheet` will no longer be double-wrapped. Verify the 
    Fix: Add viewInsets-aware bottom padding to the form's scroll area. Change the ScrollView padding bottom from `32` to `MediaQuery.viewInsetsOf(context).bottom + 32`. This ensures the form content (especially the name and description fields at the top, and the permission toggles below) can all be scrolled above the keyboard.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note fix applied to `CreateRoleSheet`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — note fix applied to `CreateRoleSheet`
+- [x] Mark this task `[x]`
 
 ---
 
