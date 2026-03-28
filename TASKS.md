@@ -449,7 +449,7 @@ Replace `ListView.builder` + `_RoleCard` with flat-row pattern.
 
 ---
 
-### Task B5: Review Plans section consistency (optional polish)
+### Task B5: Review Plans section consistency (optional polish) ✅
 
 **Files to modify:** `lib/ui/screens/system/plans/plans_section.dart` (only if needed)
 **Context files to read:** `lib/ui/screens/system/CONTEXT.md`
@@ -469,8 +469,8 @@ to bring visual consistency. **Do NOT rewrite EduDataTable** — only make minor
 If the Plans section already looks visually consistent with the new pattern, mark this task as done with no changes.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note Plans section status
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — note Plans section status
+- [x] Mark this task `[x]`
 
 ---
 
