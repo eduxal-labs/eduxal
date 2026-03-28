@@ -340,8 +340,8 @@ Replace the current `ListView.builder` + `_UserCard` pattern with a flat-row dat
 **Creative freedom:** The executor may adjust colours, timing curves, alpha values, and spacing to achieve the best visual result. The goal is a polished, interactive flat-row list that communicates user status through colour — not an exact copy of `_UserDataRow`.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — update Users section description
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — update Users section description
+- [x] Mark this task `[x]`
 
 ---
 
