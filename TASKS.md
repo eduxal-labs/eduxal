@@ -211,8 +211,8 @@ After Task A0, `CreateSchoolSheet` will no longer be double-wrapped. Verify the 
 2. **Keyboard handling:** This sheet has edit mode with name and email fields. Action buttons are in the header. Body uses `SingleChildScrollView`. Ensure the ScrollView's bottom padding includes `MediaQuery.viewInsetsOf(context).bottom` when in edit mode.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note fix applied to `UserDetailSheet`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — note fix applied to `UserDetailSheet`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -276,8 +276,8 @@ These sheets are launched via `showEduSheet` from the school detail screen (a pu
 For all three: simply verify they render correctly on mobile without the double-layer after A0. Fix only if issues are found.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note audit result
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — note audit result
+- [x] Mark this task `[x]`
 
 ---
 
