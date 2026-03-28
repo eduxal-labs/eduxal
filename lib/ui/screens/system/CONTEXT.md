@@ -79,7 +79,7 @@ This directory contains **1 shell screen file** and **8 subdirectories**, each r
 ### `plans/`
 | File | Widget | Status | Description |
 |---|---|---|---|
-| `plans_section.dart` | `PlansSection` | ✅ Complete | Subscription plan management rendered via `EduDataTable<Plan>`. Each row: plan icon (32×32 tinted) + name (13px w500) + price `KES x` (12px muted) + grade levels badge + `_PlanStatusBadge`. Left accent bar (3px, `cs.primary @ 0.7`) appears on hover via `_EduDataTableRow` enhancement in `edu_data_table.dart` — visually consistent with redesigned flat-row sections. Desktop actions: Edit (opens `_PlanDetailSheet`), Delete, Purge (super only). Mobile: three-dot. Existing `_PlanDetailSheet` and `openCreatePlan` unchanged. |
+| `plans_section.dart` | `PlansSection` | ✅ Complete | Subscription plan management rendered via `EduDataTable<Plan>`. Each row: plan icon (32×32 tinted) + name (13px w500) + price `KES x` (12px muted) + grade levels badge + `_PlanStatusBadge`. Left accent bar (3px, `cs.primary @ 0.7`) appears on hover via `_EduDataTableRow` enhancement in `edu_data_table.dart` — visually consistent with redesigned flat-row sections. Desktop actions: Edit (opens `_PlanDetailSheet`), Delete, Purge (super only). Mobile: three-dot. `_CreatePlanSheet` (Task A5) and `_PlanDetailSheet` (Task A6) both have viewInsets-aware bottom padding on their `SingleChildScrollView` to prevent keyboard occlusion in edit mode. |
 
 **Data source:** `PlansDao.watchAllPlans()`
 **Dependencies:** `database/daos/plans_dao.dart`, `database/tables/enums.dart` (`PlanStatus`), `models/plan_features.dart` (`kPlanFeatures`, `gradeLabel()`, `GradeLevel`)
@@ -150,4 +150,4 @@ For `UserLevel.super_` and `UserLevel.system` users, all permissions are granted
 - Permission gating uses `SystemPermissions.can(action)` — never raw `UserLevel` checks in UI code (except `canSeeDeleted` which is level-specific by design).
 
 ## Last Updated
-Task B5 — Reviewed Plans section visual consistency with redesigned flat-row sections (B1–B4). Added a subtle left accent bar (3px wide, `cs.primary @ 0.7` on hover) to generic `_EduDataTableRow` in `lib/ui/widgets/edu_data_table.dart` using `IntrinsicHeight` + `CrossAxisAlignment.stretch`. No changes to `plans_section.dart` itself — the enhancement applies to all `EduDataTable` consumers. Previous: Task A7.
+Task A6 — Added viewInsets-aware bottom padding to `_PlanDetailSheet`'s `SingleChildScrollView` for keyboard handling in edit mode. Previous: Task B5.

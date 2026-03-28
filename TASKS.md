@@ -192,8 +192,8 @@ After Task A0, `CreateSchoolSheet` will no longer be double-wrapped. Verify the 
    Find the `SingleChildScrollView` in the build method and ensure its padding bottom accounts for `MediaQuery.viewInsetsOf(context).bottom`.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note fix applied to `_PlanDetailSheet`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — note fix applied to `_PlanDetailSheet`
+- [x] Mark this task `[x]`
 
 ---
 

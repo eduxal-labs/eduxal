@@ -1496,6 +1496,7 @@ class _AssignRoleSheetState extends State<_AssignRoleSheet> {
     final isDark = !isLight;
     final isDesktop =
         MediaQuery.sizeOf(context).width >= AppTheme.kMobileBreakpoint;
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
     final inner = Column(
       mainAxisSize: MainAxisSize.min,
@@ -1672,7 +1673,7 @@ class _AssignRoleSheetState extends State<_AssignRoleSheet> {
               }
 
               return ListView.separated(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                padding: EdgeInsets.fromLTRB(16, 8, 16, 24 + bottomInset),
                 itemCount: filtered.length,
                 separatorBuilder: (_, _) => const SizedBox(height: 6),
                 itemBuilder: (context, index) {

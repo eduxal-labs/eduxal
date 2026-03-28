@@ -1822,7 +1822,12 @@ class _PlanDetailSheetState extends State<_PlanDetailSheet> {
 
           Flexible(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                20,
+                20,
+                _editing ? 32 + MediaQuery.viewInsetsOf(context).bottom : 32,
+              ),
               child: _editing
                   ? _PlanEditForm(
                       nameCtrl: _nameCtrl,
