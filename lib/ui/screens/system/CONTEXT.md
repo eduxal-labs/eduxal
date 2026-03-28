@@ -150,4 +150,4 @@ For `UserLevel.super_` and `UserLevel.system` users, all permissions are granted
 - Permission gating uses `SystemPermissions.can(action)` — never raw `UserLevel` checks in UI code (except `canSeeDeleted` which is level-specific by design).
 
 ## Last Updated
-Task A4 — Fixed `AddMemberSheet` keyboard handling in `members_section.dart` after `EduSheet` wrapper removal (Task A0). Changed `ListView.separated` bottom padding from static `24` to `MediaQuery.viewInsetsOf(context).bottom + 24` so the user list scrolls properly when the search field keyboard is open. No bottom action button — search field at top, list below. Previous: Task A5.
+Task A7 — Fixed `UserDetailSheet` keyboard handling in `user_detail_sheet.dart` after `EduSheet` wrapper removal (Task A0). Changed `SingleChildScrollView` bottom padding from static `32` to `32 + MediaQuery.viewInsetsOf(context).bottom` when in edit mode so name/email form fields can be scrolled above the keyboard. Action buttons are in `_SheetHeader` at the top, so no bottom action button viewInsets handling needed. Previous: Task A4.
