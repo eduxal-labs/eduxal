@@ -381,7 +381,7 @@ Replace the current `ListView.builder` + `_SchoolCard` pattern with a flat-row d
 
 ---
 
-### Task B3: Rewrite Members section list rendering
+### Task B3: Rewrite Members section list rendering ✅
 
 **Files to modify:** `lib/ui/screens/system/members/members_section.dart` (the `_MemberCard` widget at ~line 514 and the ListView in the build method at ~line 290)
 **Context files to read:** `lib/ui/screens/system/CONTEXT.md`, `lib/ui/screens/school_dashboard/members/members_page.dart` (reference: `_UserDataRow`)
@@ -410,8 +410,8 @@ Replace `ListView.builder` + `_MemberCard` with flat-row pattern.
 4. **Keep:** `_MemberIdentityCell` (adapt or inline), `_Toolbar`, `_ListShimmer`, all action methods, `_MemberRolesSheet`, `_AssignRoleSheet`, `AddMemberSheet`.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — update Members section description
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — update Members section description
+- [x] Mark this task `[x]`
 
 ---
 

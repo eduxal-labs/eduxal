@@ -9,7 +9,6 @@ import '../../../../models/permissions.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
-import '../../../widgets/edu_data_table.dart';
 import '../../../widgets/edu_sheet.dart';
 import '../../../widgets/status_indicator.dart';
 import '../../../widgets/user_avatar.dart';
@@ -231,6 +230,7 @@ class _MembersSectionState extends State<MembersSection> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
 
     return StreamBuilder<List<UsersData>>(
       stream: usersDao.watchSystemMembers(),
@@ -279,31 +279,33 @@ class _MembersSectionState extends State<MembersSection> {
                         ],
                       ),
                     )
-                  : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  : ListView.separated(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
                       itemCount: filtered.length,
+                      separatorBuilder: (_, __) =>
+                          AppTheme.tableRowDivider(isDark, cs),
                       itemBuilder: (context, index) {
                         final user = filtered[index];
                         final isMe = user.id == cache.currentUser?.user.id;
                         final isSuper =
                             widget.permissions.level == UserLevel.super_;
 
-                        final actions = <EduDataTableAction<UsersData>>[
-                          EduDataTableAction(
+                        final actions = <_RowAction>[
+                          _RowAction(
                             icon: Icons.assignment_ind_outlined,
                             label: 'Roles',
-                            onTap: (u) => _openRolesSheet(context, u),
+                            onTap: () => _openRolesSheet(context, user),
                           ),
                         ];
 
                         if (!isMe) {
                           if (isSuper && user.level == UserLevel.system) {
                             actions.add(
-                              EduDataTableAction(
+                              _RowAction(
                                 icon: Icons.arrow_upward_rounded,
                                 label: 'Promote',
                                 color: const Color(0xFFFF7043),
-                                onTap: (u) => _promoteMember(u),
+                                onTap: () => _promoteMember(user),
                               ),
                             );
                           }
@@ -311,18 +313,18 @@ class _MembersSectionState extends State<MembersSection> {
                           if (user.status == UserStatus.active ||
                               user.status == UserStatus.invited) {
                             actions.add(
-                              EduDataTableAction(
+                              _RowAction(
                                 icon: Icons.block_rounded,
                                 label: 'Suspend',
                                 color: const Color(0xFFFFB300),
-                                onTap: (u) => _updateStatus(
-                                  u,
+                                onTap: () => _updateStatus(
+                                  user,
                                   UserStatus.suspended,
                                   'suspended',
                                   confirm: true,
                                   confirmTitle: 'Suspend member',
                                   confirmMessage:
-                                      'Suspend "${u.name}"? They will lose access until restored.',
+                                      'Suspend "${user.name}"? They will lose access until restored.',
                                 ),
                               ),
                             );
@@ -331,12 +333,12 @@ class _MembersSectionState extends State<MembersSection> {
                           if (user.status == UserStatus.suspended ||
                               user.status == UserStatus.deleted) {
                             actions.add(
-                              EduDataTableAction(
+                              _RowAction(
                                 icon: Icons.check_circle_outline_rounded,
                                 label: 'Restore',
                                 color: const Color(0xFF26A69A),
-                                onTap: (u) => _updateStatus(
-                                  u,
+                                onTap: () => _updateStatus(
+                                  user,
                                   UserStatus.active,
                                   'restored',
                                 ),
@@ -347,44 +349,44 @@ class _MembersSectionState extends State<MembersSection> {
                           if (user.status == UserStatus.active ||
                               user.status == UserStatus.invited) {
                             actions.add(
-                              EduDataTableAction(
+                              _RowAction(
                                 icon: Icons.delete_outline_rounded,
                                 label: 'Delete',
                                 isDestructive: true,
-                                onTap: (u) => _updateStatus(
-                                  u,
+                                onTap: () => _updateStatus(
+                                  user,
                                   UserStatus.deleted,
                                   'deleted',
                                   confirm: true,
                                   confirmTitle: 'Delete member',
                                   confirmMessage:
-                                      'Mark "${u.name}" as deleted? They can be restored later.',
+                                      'Mark "${user.name}" as deleted? They can be restored later.',
                                 ),
                               ),
                             );
                           }
 
                           actions.add(
-                            EduDataTableAction(
+                            _RowAction(
                               icon: Icons.arrow_downward_rounded,
                               label: 'Demote',
-                              onTap: (u) => _removeMember(u),
+                              onTap: () => _removeMember(user),
                             ),
                           );
 
                           if (isSuper) {
                             actions.add(
-                              EduDataTableAction(
+                              _RowAction(
                                 icon: Icons.delete_forever_rounded,
                                 label: 'Purge',
                                 isDestructive: true,
-                                onTap: (u) => _purgeMember(u),
+                                onTap: () => _purgeMember(user),
                               ),
                             );
                           }
                         }
 
-                        return _MemberCard(
+                        return _MemberRow(
                           user: user,
                           isMe: isMe,
                           onTap: () => _openRolesSheet(context, user),
@@ -410,109 +412,31 @@ class _MembersSectionState extends State<MembersSection> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Member identity cell — avatar + status indicator + name + phone
+// Row action model
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _MemberIdentityCell extends StatelessWidget {
-  const _MemberIdentityCell({required this.user, required this.isMe});
+class _RowAction {
+  const _RowAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.color,
+    this.isDestructive = false,
+  });
 
-  final UsersData user;
-  final bool isMe;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    return Row(
-      children: [
-        // ── Avatar ───────────────────────────────────────────────────────
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            UserAvatar(userId: user.id, radius: 16),
-            Positioned(
-              bottom: -1,
-              right: -1,
-              child: StatusIndicator(
-                status: user.status,
-                level: user.level,
-                backgroundColor: cs.surface,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(width: 10),
-
-        // ── Name + phone ──────────────────────────────────────────────────
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      user.name,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: cs.onSurface,
-                        letterSpacing: 0.1,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (isMe) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 5,
-                        vertical: 1,
-                      ),
-                      decoration: BoxDecoration(
-                        color: cs.primary.withValues(alpha: 0.07),
-                        borderRadius: BorderRadius.circular(
-                          AppTheme.kChipRadius,
-                        ),
-                        border: Border.all(
-                          color: cs.primary.withValues(alpha: 0.5),
-                          width: 1,
-                        ),
-                      ),
-                      child: Text(
-                        'YOU',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                          color: cs.primary,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 2),
-              Text(
-                user.phone,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.8),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final Color? color;
+  final bool isDestructive;
 }
 
-class _MemberCard extends StatefulWidget {
-  const _MemberCard({
+// ─────────────────────────────────────────────────────────────────────────────
+// _MemberRow — flat data-table row with status tinting
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MemberRow extends StatefulWidget {
+  const _MemberRow({
     required this.user,
     required this.isMe,
     required this.onTap,
@@ -522,135 +446,312 @@ class _MemberCard extends StatefulWidget {
   final UsersData user;
   final bool isMe;
   final VoidCallback onTap;
-  final List<EduDataTableAction<UsersData>> actions;
+  final List<_RowAction> actions;
 
   @override
-  State<_MemberCard> createState() => _MemberCardState();
+  State<_MemberRow> createState() => _MemberRowState();
 }
 
-class _MemberCardState extends State<_MemberCard> {
+class _MemberRowState extends State<_MemberRow>
+    with SingleTickerProviderStateMixin {
   bool _isHovered = false;
+  bool _isPressed = false;
+  late final AnimationController _pressCtrl;
+  late final Animation<double> _scaleAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pressCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+      reverseDuration: const Duration(milliseconds: 150),
+    );
+    _scaleAnim = Tween<double>(
+      begin: 1.0,
+      end: 0.98,
+    ).animate(CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut));
+  }
+
+  @override
+  void dispose() {
+    _pressCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails _) {
+    setState(() => _isPressed = true);
+    _pressCtrl.forward();
+  }
+
+  void _onTapUp(TapUpDetails _) {
+    _pressCtrl.reverse();
+    setState(() => _isPressed = false);
+  }
+
+  void _onTapCancel() {
+    _pressCtrl.reverse();
+    setState(() => _isPressed = false);
+  }
+
+  /// Accent colour: super active → amber/gold, system active → indigo,
+  /// non-active statuses → status colour.
+  Color _accentColor(bool isDark) {
+    if (widget.user.status == UserStatus.active ||
+        widget.user.status == UserStatus.invited) {
+      if (widget.user.level == UserLevel.super_) {
+        return isDark ? const Color(0xFFFFB74D) : const Color(0xFFF57C00);
+      }
+      return isDark ? const Color(0xFF7986CB) : const Color(0xFF3F51B5);
+    }
+    switch (widget.user.status) {
+      case UserStatus.suspended:
+        return AppTheme.statusSuspended;
+      case UserStatus.deleted:
+        return AppTheme.statusDeleted;
+      default:
+        return AppTheme.statusInvited;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final isMobile =
-        MediaQuery.of(context).size.width < AppTheme.kMobileBreakpoint;
+    final isDark = cs.brightness == Brightness.dark;
+    final isDesktop =
+        MediaQuery.sizeOf(context).width >= AppTheme.kMobileBreakpoint;
+    final accentColor = _accentColor(isDark);
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        margin: const EdgeInsets.only(bottom: 8),
-        transform: Matrix4.translationValues(0, _isHovered ? -2 : 0, 0),
-        decoration: BoxDecoration(
-          color: cs.surface,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: _isHovered
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ]
-              : [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.02),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+    // ── Background states ──────────────────────────────────────────────
+    final idleBg = accentColor.withValues(alpha: isDark ? 0.06 : 0.04);
+    final hoverBg = accentColor.withValues(alpha: isDark ? 0.12 : 0.08);
+    final pressBg = accentColor.withValues(alpha: isDark ? 0.18 : 0.12);
+
+    // ── Avatar with status ring ────────────────────────────────────────
+    Widget avatar = Container(
+      padding: const EdgeInsets.all(1.5),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: accentColor.withValues(
+            alpha: _isHovered || _isPressed ? 0.7 : 0.35,
+          ),
+          width: 1.5,
         ),
-        child: Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          child: InkWell(
+      ),
+      child: UserAvatar(userId: widget.user.id, radius: 15),
+    );
+
+    avatar = Stack(
+      clipBehavior: Clip.none,
+      children: [
+        avatar,
+        Positioned(
+          bottom: -1,
+          right: -1,
+          child: StatusIndicator(
+            status: widget.user.status,
+            level: widget.user.level,
+            backgroundColor: _isPressed
+                ? pressBg
+                : _isHovered
+                ? hoverBg
+                : idleBg,
+          ),
+        ),
+      ],
+    );
+
+    // ── Level label ────────────────────────────────────────────────────
+    final levelLabel = widget.user.level == UserLevel.super_
+        ? 'Super'
+        : 'System';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: ScaleTransition(
+        scale: _scaleAnim,
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTapDown: _onTapDown,
+            onTapUp: _onTapUp,
+            onTapCancel: _onTapCancel,
             onTap: widget.onTap,
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _MemberIdentityCell(
-                      user: widget.user,
-                      isMe: widget.isMe,
-                    ),
-                  ),
-                  if (widget.actions.isNotEmpty) ...[
-                    const SizedBox(width: 16),
-                    if (isMobile)
-                      MenuAnchor(
-                        builder: (context, controller, child) {
-                          return IconButton(
-                            icon: const Icon(Icons.more_vert_rounded, size: 18),
-                            onPressed: () {
-                              if (controller.isOpen) {
-                                controller.close();
-                              } else {
-                                controller.open();
-                              }
-                            },
-                          );
-                        },
-                        menuChildren: widget.actions.map((action) {
-                          return MenuItemButton(
-                            leadingIcon: Icon(
-                              action.icon,
-                              size: 18,
-                              color: action.color ?? cs.onSurfaceVariant,
-                            ),
-                            child: Text(
-                              action.label,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w400,
-                                color: action.color ?? cs.onSurface,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              curve: Curves.easeOut,
+              decoration: BoxDecoration(
+                color: _isPressed
+                    ? pressBg
+                    : _isHovered
+                    ? hoverBg
+                    : idleBg,
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                border: Border.all(
+                  color: _isHovered || _isPressed
+                      ? accentColor.withValues(alpha: isDark ? 0.35 : 0.25)
+                      : cs.outline.withValues(alpha: isDark ? 0.10 : 0.08),
+                  width: 0.5,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                child: IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // ── Status accent bar ───────────────────────────
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: _isHovered || _isPressed ? 4 : 3,
+                        decoration: BoxDecoration(
+                          color: accentColor.withValues(
+                            alpha: _isHovered || _isPressed ? 1.0 : 0.7,
+                          ),
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(4),
+                            bottomLeft: Radius.circular(4),
+                          ),
+                        ),
+                      ),
+
+                      // ── Content ─────────────────────────────────────
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                          child: Row(
+                            children: [
+                              // Avatar
+                              avatar,
+                              const SizedBox(width: 12),
+
+                              // Name + phone
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            widget.user.name,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w500,
+                                              color: cs.onSurface,
+                                              letterSpacing: 0.1,
+                                            ),
+                                          ),
+                                        ),
+                                        if (widget.isMe) ...[
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 5,
+                                              vertical: 1,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: cs.primary.withValues(
+                                                alpha: 0.07,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                    AppTheme.kChipRadius,
+                                                  ),
+                                              border: Border.all(
+                                                color: cs.primary.withValues(
+                                                  alpha: 0.5,
+                                                ),
+                                                width: 1,
+                                              ),
+                                            ),
+                                            child: Text(
+                                              'YOU',
+                                              style: TextStyle(
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.w500,
+                                                color: cs.primary,
+                                                letterSpacing: 0.8,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      widget.user.phone,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w400,
+                                        color: cs.onSurfaceVariant.withValues(
+                                          alpha: 0.55,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                            onPressed: () => action.onTap(widget.user),
-                          );
-                        }).toList(),
-                      )
-                    else
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: widget.actions.map((action) {
-                          return Padding(
-                            padding: const EdgeInsets.only(left: 4),
-                            child: Tooltip(
-                              message: action.label,
-                              child: Material(
-                                color:
-                                    action.color?.withValues(alpha: 0.1) ??
-                                    cs.surfaceContainerHighest,
-                                shape: const CircleBorder(),
-                                child: InkWell(
-                                  customBorder: const CircleBorder(),
-                                  onTap: () => action.onTap(widget.user),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: const BoxDecoration(
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      action.icon,
-                                      size: 18,
-                                      color:
-                                          action.color ?? cs.onSurfaceVariant,
-                                    ),
+
+                              // Level label
+                              const SizedBox(width: 8),
+                              Text(
+                                levelLabel,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w400,
+                                  color: cs.onSurfaceVariant.withValues(
+                                    alpha: 0.6,
+                                  ),
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+
+                              // Actions
+                              if (widget.actions.isNotEmpty) ...[
+                                const SizedBox(width: 4),
+                                isDesktop
+                                    ? _InlineActions(
+                                        actions: widget.actions,
+                                        isHovered: _isHovered,
+                                      )
+                                    : _MobileActions(actions: widget.actions),
+                              ],
+
+                              const SizedBox(width: 4),
+
+                              // ── Animated chevron ────────────────────
+                              AnimatedSlide(
+                                duration: const Duration(milliseconds: 200),
+                                curve: Curves.easeOut,
+                                offset: Offset(_isHovered ? 0.15 : 0.0, 0),
+                                child: AnimatedOpacity(
+                                  duration: const Duration(milliseconds: 200),
+                                  opacity: _isHovered ? 0.8 : 0.35,
+                                  child: Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 18,
+                                    color: _isHovered
+                                        ? accentColor
+                                        : cs.onSurfaceVariant,
                                   ),
                                 ),
                               ),
-                            ),
-                          );
-                        }).toList(),
+                            ],
+                          ),
+                        ),
                       ),
-                  ],
-                ],
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -661,7 +762,193 @@ class _MemberCardState extends State<_MemberCard> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Member level badge — compact chip
+// _InlineActions — desktop: icon buttons that fade in on row hover
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _InlineActions extends StatelessWidget {
+  const _InlineActions({required this.actions, required this.isHovered});
+
+  final List<_RowAction> actions;
+  final bool isHovered;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: actions
+            .map((a) => _InlineActionButton(action: a, isRowHovered: isHovered))
+            .toList(),
+      ),
+    );
+  }
+}
+
+class _InlineActionButton extends StatefulWidget {
+  const _InlineActionButton({required this.action, required this.isRowHovered});
+
+  final _RowAction action;
+  final bool isRowHovered;
+
+  @override
+  State<_InlineActionButton> createState() => _InlineActionButtonState();
+}
+
+class _InlineActionButtonState extends State<_InlineActionButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final baseColor = widget.action.isDestructive
+        ? cs.error
+        : widget.action.color ?? cs.onSurfaceVariant;
+    final effectiveAlpha = (_isHovered || widget.isRowHovered) ? 1.0 : 0.0;
+
+    return Tooltip(
+      message: widget.action.label,
+      waitDuration: const Duration(milliseconds: 400),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: widget.action.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 100),
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: _isHovered
+                  ? baseColor.withValues(alpha: 0.08)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 120),
+              opacity: effectiveAlpha,
+              child: Icon(widget.action.icon, size: 16, color: baseColor),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _MobileActions — mobile: three-dot → positioned popup menu
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MobileActions extends StatelessWidget {
+  const _MobileActions({required this.actions});
+
+  final List<_RowAction> actions;
+
+  Future<void> _showPopupMenu(BuildContext context, GlobalKey key) async {
+    final renderBox = key.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final buttonRect =
+        renderBox.localToGlobal(Offset.zero, ancestor: overlay) &
+        renderBox.size;
+    final screenSize = MediaQuery.sizeOf(context);
+    final screenRect = Offset.zero & screenSize;
+    final position = RelativeRect.fromRect(buttonRect, screenRect);
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    await showMenu<int>(
+      context: context,
+      position: position,
+      color: AppTheme.overlayBg(isDark, cs),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
+        side: BorderSide(color: AppTheme.borderColor(isDark, cs), width: 0.5),
+      ),
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      constraints: const BoxConstraints(minWidth: 160, maxWidth: 220),
+      items: [
+        for (int i = 0; i < actions.length; i++)
+          PopupMenuItem<int>(
+            value: i,
+            height: 40,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Row(
+              children: [
+                Icon(
+                  actions[i].icon,
+                  size: 16,
+                  color: actions[i].isDestructive
+                      ? cs.error
+                      : actions[i].color ?? cs.onSurfaceVariant,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  actions[i].label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    color: actions[i].isDestructive ? cs.error : cs.onSurface,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    ).then((index) {
+      if (index != null) actions[index].onTap();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    // Single action — render directly as icon button
+    if (actions.length == 1) {
+      final action = actions.first;
+      final color = action.isDestructive
+          ? cs.error
+          : action.color ?? cs.onSurfaceVariant;
+      return Tooltip(
+        message: action.label,
+        waitDuration: const Duration(milliseconds: 400),
+        child: SizedBox(
+          width: 36,
+          height: 36,
+          child: IconButton(
+            padding: EdgeInsets.zero,
+            iconSize: 18,
+            icon: Icon(action.icon, size: 18, color: color),
+            onPressed: action.onTap,
+          ),
+        ),
+      );
+    }
+
+    // Multiple actions — three-dot → compact positioned popup
+    final key = GlobalKey();
+    return SizedBox(
+      width: 36,
+      height: 36,
+      child: IconButton(
+        key: key,
+        padding: EdgeInsets.zero,
+        iconSize: 18,
+        icon: Icon(Icons.more_vert, size: 18, color: cs.onSurfaceVariant),
+        tooltip: 'More actions',
+        onPressed: () => _showPopupMenu(context, key),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Toolbar
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _Toolbar extends StatelessWidget {

@@ -67,12 +67,12 @@ This directory contains **1 shell screen file** and **8 subdirectories**, each r
 ### `members/`
 | File | Widget | Status | Description |
 |---|---|---|---|
-| `members_section.dart` | `MembersSection` | ✅ Complete | System-wide view of users with `level = system` or `level = super_`. Two-column layout: **Member** (avatar with `StatusIndicator` overlay + name + phone subtitle) and **Level** (plain muted text "System" or "Super" — no badge/chip). No status badge column — status communicated through `StatusIndicator` dot/star color on avatar. Desktop actions: View roles, Edit status (bottom sheet with Suspend/Restore/Trash options via `_StatusActionTile`), Remove (demotes to Normal), Purge (super only). Mobile: three-dot. Tap opens `_MemberRolesSheet`. Unused action methods removed. |
+| `members_section.dart` | `MembersSection` | ✅ Complete | System-wide view of users with `level = system` or `level = super_`. Flat-row data-table pattern using `ListView.separated` with `AppTheme.tableRowDivider`. Each row (`_MemberRow`): status-tinted background (super active → amber/gold, system active → indigo, non-active → status colour), left accent bar (3px → 4px on hover), avatar with status ring border + `StatusIndicator` overlay, name (13px w500) + phone subtitle (12px w400 muted), trailing "System"/"Super" muted level label, `ScaleTransition` press animation (0.98), animated chevron. Desktop (≥600px): inline icon actions (`_InlineActions` / `_InlineActionButton`, 28×28, fade in on hover). Mobile (<600px): `_MobileActions` three-dot → positioned popup menu. Actions: Roles, Promote (super only, for system members), Suspend, Restore, Delete, Demote, Purge (super only). Tap opens `_MemberRolesSheet`. |
 
-**Key private widgets:** `_MemberIdentityCell` (avatar + status indicator + name + phone), `_MemberLevelCell` (plain text), `_StatusActionTile`, `_MemberRolesSheet`, `_AssignRoleSheet`, `AddMemberSheet`, `_Toolbar`, `_ListShimmer`
+**Key private widgets:** `_RowAction` (action model with icon, label, onTap, optional color, isDestructive), `_MemberRow` (flat data-table row with status tinting and press animation), `_InlineActions` + `_InlineActionButton` (desktop hover actions), `_MobileActions` (mobile popup menu), `_MemberRolesSheet`, `_AssignRoleSheet`, `AddMemberSheet`, `_Toolbar`, `_ListShimmer`
 
 **Data source:** `UsersDao.watchSystemMembers()`
-**Dependencies:** `database/daos/users_dao.dart`, `database/tables/enums.dart` (`UserLevel`, `UserStatus`), `ui/widgets/status_indicator.dart`, `ui/widgets/user_avatar.dart`, `models/permissions.dart`, `models/system_permissions.dart`
+**Dependencies:** `database/daos/users_dao.dart`, `database/tables/enums.dart` (`UserLevel`, `UserStatus`), `ui/widgets/status_indicator.dart`, `ui/widgets/user_avatar.dart`, `ui/theme/app_theme.dart` (`AppTheme.tableRowDivider`, `kCardRadius`, `kChipRadius`, `kMobileBreakpoint`, `kModalRadius`, `overlayBg`, `borderColor`, status colours), `models/permissions.dart`, `models/system_permissions.dart`
 
 ---
 
@@ -150,4 +150,4 @@ For `UserLevel.super_` and `UserLevel.system` users, all permissions are granted
 - Permission gating uses `SystemPermissions.can(action)` — never raw `UserLevel` checks in UI code (except `canSeeDeleted` which is level-specific by design).
 
 ## Last Updated
-Task B1 — Users section rewritten with flat-row data-table pattern (`_UserRow`). Replaced `_UserCard` and `_UserIdentityCell` with status-tinted accent-bar rows, `ScaleTransition` press animation, status ring around `UserAvatar`, `_InlineActions`/`_MobileActions` action patterns, `ListView.separated` with `AppTheme.tableRowDivider`. Removed `edu_data_table.dart` dependency. Previous: Task B4.
+Task B3 — Members section rewritten with flat-row data-table pattern (`_MemberRow`). Replaced `_MemberCard`, `_MemberCardState`, and `_MemberIdentityCell` with status-tinted accent-bar rows (`_MemberRow`/`_MemberRowState`), `ScaleTransition` press animation (0.98), status ring around `UserAvatar`, `_InlineActions`/`_InlineActionButton`/`_MobileActions` action patterns, `ListView.separated` with `AppTheme.tableRowDivider`. Super active users get amber/gold accent; system active users get indigo. Removed `edu_data_table.dart` dependency. Previous: Task B1.
