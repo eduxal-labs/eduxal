@@ -24,6 +24,7 @@ import '../../../widgets/edu_tab_bar.dart';
 import '../../../widgets/inline_calendar.dart';
 import '../../../widgets/member_creation/add_guardian_panel.dart';
 import '../../../widgets/user_avatar.dart';
+import '../../../theme/app_theme.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Student Detail Page — thin wrapper that opens StudentDetailSheet

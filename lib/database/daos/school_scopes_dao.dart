@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert' show utf8;
 import 'dart:typed_data';
 
 import 'package:drift/drift.dart';
@@ -336,7 +337,7 @@ class SchoolScopesDao extends DatabaseAccessor<AppDatabase>
             ? companion.description.value
             : null,
         permissions: companion.permissions.present
-            ? companion.permissions.value.codeUnits
+            ? utf8.encode(companion.permissions.value)
             : null,
       );
       await into(logs).insert(
@@ -382,7 +383,7 @@ class SchoolScopesDao extends DatabaseAccessor<AppDatabase>
         anyField = true;
       }
       if (changes.permissions.present) {
-        payload.permissions.addAll(changes.permissions.value.codeUnits);
+        payload.permissions.addAll(utf8.encode(changes.permissions.value));
         anyField = true;
       }
 

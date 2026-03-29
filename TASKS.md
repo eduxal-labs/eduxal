@@ -841,7 +841,7 @@ if (changes.permissions.present) {
 Add `import 'dart:convert' show utf8;` at the top of the file if not already present.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Git commit: `fix: use utf8.encode for permission encoding in SchoolScopesDao`
 
 ---
