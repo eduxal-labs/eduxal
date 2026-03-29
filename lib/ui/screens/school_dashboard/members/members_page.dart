@@ -6271,95 +6271,137 @@ class _CreateDepartmentSheetState extends State<_CreateDepartmentSheet> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            EduFormField(
-              controller: _nameCtrl,
-              label: 'Department name',
-              hint: 'e.g. Mathematics',
-              autofocus: true,
-              validator: (v) {
-                if (v == null || v.trim().isEmpty) return 'Enter a name';
-                return null;
-              },
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.92,
+      ),
+      decoration: BoxDecoration(
+        color: AppTheme.modalBg(isDark, cs),
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(AppTheme.kModalRadius),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Drag handle
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 10, bottom: 6),
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: cs.onSurfaceVariant.withValues(alpha: 0.28),
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-            const SizedBox(height: 10),
-            EduFormField(
-              controller: _descCtrl,
-              label: 'Description',
-              hint: 'Optional',
-              maxLines: 2,
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                // ── Cancel ──────────────────────────────────────────
-                Tooltip(
-                  message: 'Cancel',
-                  child: SizedBox(
-                    width: 36,
-                    height: 36,
-                    child: IconButton(
-                      padding: EdgeInsets.zero,
-                      iconSize: 20,
-                      icon: Icon(
-                        Icons.close_rounded,
-                        size: 20,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-                      ),
-                      onPressed: () => Navigator.pop(context),
+          ),
+          // Scrollable form content
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                8,
+                20,
+                MediaQuery.viewInsetsOf(context).bottom + 24,
+              ),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    EduFormField(
+                      controller: _nameCtrl,
+                      label: 'Department name',
+                      hint: 'e.g. Mathematics',
+                      autofocus: true,
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty)
+                          return 'Enter a name';
+                        return null;
+                      },
                     ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                // ── Save ────────────────────────────────────────────
-                Tooltip(
-                  message: 'Save',
-                  child: SizedBox(
-                    width: 36,
-                    height: 36,
-                    child: IconButton(
-                      padding: EdgeInsets.zero,
-                      iconSize: 20,
-                      icon: _saving
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 1.5,
+                    const SizedBox(height: 10),
+                    EduFormField(
+                      controller: _descCtrl,
+                      label: 'Description',
+                      hint: 'Optional',
+                      maxLines: 2,
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        // ── Cancel ──────────────────────────────────────────
+                        Tooltip(
+                          message: 'Cancel',
+                          child: SizedBox(
+                            width: 36,
+                            height: 36,
+                            child: IconButton(
+                              padding: EdgeInsets.zero,
+                              iconSize: 20,
+                              icon: Icon(
+                                Icons.close_rounded,
+                                size: 20,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.7,
+                                ),
                               ),
-                            )
-                          : const Icon(
-                              Icons.check_rounded,
-                              size: 20,
-                              color: Colors.white,
+                              onPressed: () => Navigator.pop(context),
                             ),
-                      style: IconButton.styleFrom(
-                        backgroundColor: _saving
-                            ? Colors.green.shade600.withValues(alpha: 0.6)
-                            : Colors.green.shade600,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(
-                            AppTheme.kCardRadius,
                           ),
                         ),
-                      ),
-                      onPressed: _saving ? null : _save,
+                        const SizedBox(width: 4),
+                        // ── Save ────────────────────────────────────────────
+                        Tooltip(
+                          message: 'Save',
+                          child: SizedBox(
+                            width: 36,
+                            height: 36,
+                            child: IconButton(
+                              padding: EdgeInsets.zero,
+                              iconSize: 20,
+                              icon: _saving
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 1.5,
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.check_rounded,
+                                      size: 20,
+                                      color: Colors.white,
+                                    ),
+                              style: IconButton.styleFrom(
+                                backgroundColor: _saving
+                                    ? Colors.green.shade600.withValues(
+                                        alpha: 0.6,
+                                      )
+                                    : Colors.green.shade600,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    AppTheme.kCardRadius,
+                                  ),
+                                ),
+                              ),
+                              onPressed: _saving ? null : _save,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -223,8 +223,8 @@ The `_CreateDepartmentSheet` (around line 6211–6366) returns a bare `Padding >
 4. Keep the `autofocus: true` on the name field.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `fix: department creation sheet mobile keyboard handling`
+- [x] Mark this task `[x]`
+- [x] Git commit: `fix: department creation sheet mobile keyboard handling`
 
 ---
 
@@ -300,8 +300,8 @@ The `_ComposeSheet` (around line 1153–1530) returns a bare `Column(mainAxisSiz
 4. Remove the comment claiming EduSheet handles chrome.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `fix: compose announcement sheet mobile keyboard handling`
+- [x] Mark this task `[x]`
+- [x] Git commit: `fix: compose announcement sheet mobile keyboard handling`
 
 ---
 
