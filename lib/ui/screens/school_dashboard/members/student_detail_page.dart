@@ -2012,201 +2012,233 @@ class _SubscribeSheetState extends State<_SubscribeSheet> {
     final isDark = widget.isDark;
 
     return Container(
-      padding: EdgeInsets.only(
-        left: 24,
-        right: 24,
-        top: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.92,
       ),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF18222E) : cs.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        color: AppTheme.modalBg(isDark, cs),
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(AppTheme.kModalRadius),
+        ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Drag handle
           Center(
             child: Container(
+              margin: const EdgeInsets.only(top: 10, bottom: 6),
               width: 36,
-              height: 3.5,
-              margin: const EdgeInsets.only(bottom: 20),
+              height: 4,
               decoration: BoxDecoration(
-                color: cs.onSurfaceVariant.withValues(alpha: 0.20),
+                color: cs.onSurfaceVariant.withValues(alpha: 0.28),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
           ),
-          Text(
-            'Subscribe to Plan',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              color: cs.onSurface,
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Subscribe to Plan',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurface,
+                ),
+              ),
             ),
           ),
-          const SizedBox(height: 20),
-
-          // Plan selector
-          if (_plans.isEmpty)
-            Text(
-              'No active plans available.',
-              style: TextStyle(
-                fontSize: 13,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+          // Scrollable form content
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                24,
+                20,
+                24,
+                MediaQuery.viewInsetsOf(context).bottom + 24,
               ),
-            )
-          else ...[
-            Text(
-              'Select Plan',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _plans.map((p) {
-                final selected = _selectedPlan?.id == p.id;
-                return ChoiceChip(
-                  label: Text(p.name),
-                  selected: selected,
-                  labelStyle: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w400,
-                    color: selected ? cs.onPrimary : cs.onSurfaceVariant,
-                  ),
-                  selectedColor: cs.primary,
-                  backgroundColor: isDark
-                      ? const Color(0xFF1E2A38)
-                      : cs.surfaceContainerLow,
-                  side: BorderSide(
-                    color: selected
-                        ? cs.primary
-                        : cs.outlineVariant.withValues(alpha: 0.3),
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  onSelected: (sel) {
-                    if (sel) setState(() => _selectedPlan = p);
-                  },
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 14),
-
-            // Year + Term row
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _yearCtrl,
-                    keyboardType: TextInputType.number,
-                    style: TextStyle(fontSize: 13.5, color: cs.onSurface),
-                    decoration: InputDecoration(
-                      labelText: 'Year',
-                      labelStyle: TextStyle(
-                        fontSize: 12.5,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Plan selector
+                  if (_plans.isEmpty)
+                    Text(
+                      'No active plans available.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                      ),
+                    )
+                  else ...[
+                    Text(
+                      'Select Plan',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
                         color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                       ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(4),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _plans.map((p) {
+                        final selected = _selectedPlan?.id == p.id;
+                        return ChoiceChip(
+                          label: Text(p.name),
+                          selected: selected,
+                          labelStyle: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w400,
+                            color: selected
+                                ? cs.onPrimary
+                                : cs.onSurfaceVariant,
+                          ),
+                          selectedColor: cs.primary,
+                          backgroundColor: isDark
+                              ? const Color(0xFF1E2A38)
+                              : cs.surfaceContainerLow,
+                          side: BorderSide(
+                            color: selected
+                                ? cs.primary
+                                : cs.outlineVariant.withValues(alpha: 0.3),
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          onSelected: (sel) {
+                            if (sel) setState(() => _selectedPlan = p);
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Year + Term row
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _yearCtrl,
+                            keyboardType: TextInputType.number,
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              color: cs.onSurface,
+                            ),
+                            decoration: InputDecoration(
+                              labelText: 'Year',
+                              labelStyle: TextStyle(
+                                fontSize: 12.5,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.6,
+                                ),
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: _termCtrl,
+                            keyboardType: TextInputType.number,
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              color: cs.onSurface,
+                            ),
+                            decoration: InputDecoration(
+                              labelText: 'Term',
+                              labelStyle: TextStyle(
+                                fontSize: 12.5,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.6,
+                                ),
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Discount field
+                    TextField(
+                      controller: _discountCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
                       ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
+                      style: TextStyle(fontSize: 13.5, color: cs.onSurface),
+                      decoration: InputDecoration(
+                        labelText: 'Discount %',
+                        hintText: '0',
+                        labelStyle: TextStyle(
+                          fontSize: 12.5,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    controller: _termCtrl,
-                    keyboardType: TextInputType.number,
-                    style: TextStyle(fontSize: 13.5, color: cs.onSurface),
-                    decoration: InputDecoration(
-                      labelText: 'Term',
-                      labelStyle: TextStyle(
-                        fontSize: 12.5,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
+                    const SizedBox(height: 20),
+
+                    // Subscribe button
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: (_selectedPlan == null || _saving)
+                            ? null
+                            : _subscribe,
+                        style: FilledButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: _saving
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text(
+                                'Subscribe',
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
                       ),
                     ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-
-            // Discount field
-            TextField(
-              controller: _discountCtrl,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              style: TextStyle(fontSize: 13.5, color: cs.onSurface),
-              decoration: InputDecoration(
-                labelText: 'Discount %',
-                hintText: '0',
-                labelStyle: TextStyle(
-                  fontSize: 12.5,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
+                  ],
+                ],
               ),
             ),
-            const SizedBox(height: 20),
-
-            // Subscribe button
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: (_selectedPlan == null || _saving)
-                    ? null
-                    : _subscribe,
-                style: FilledButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                child: _saving
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text(
-                        'Subscribe',
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-              ),
-            ),
-          ],
+          ),
         ],
       ),
     );

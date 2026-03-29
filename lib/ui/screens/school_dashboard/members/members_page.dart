@@ -3117,7 +3117,10 @@ class _StudentPickerSheetState extends State<_StudentPickerSheet> {
                   )
                 : ListView.builder(
                     shrinkWrap: true,
-                    padding: const EdgeInsets.only(top: 4, bottom: 16),
+                    padding: EdgeInsets.only(
+                      top: 4,
+                      bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
+                    ),
                     itemCount: _results.length,
                     itemBuilder: (context, i) {
                       final s = _results[i];

@@ -33,14 +33,53 @@ Future<StudentsData?> showAddStudentPanel({
   return showEduSheet<StudentsData>(
     context: context,
     maxWidth: 460,
-    builder: (ctx) => SingleChildScrollView(
-      child: _AddStudentForm(
-        schoolId: schoolId,
-        service: service,
-        onDone: (s) => Navigator.of(ctx).pop(s),
-        onCancel: () => Navigator.of(ctx).pop(),
-      ),
-    ),
+    builder: (ctx) {
+      final cs = Theme.of(ctx).colorScheme;
+      final isDark = cs.brightness == Brightness.dark;
+      return Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(ctx).height * 0.92,
+        ),
+        decoration: BoxDecoration(
+          color: AppTheme.modalBg(isDark, cs),
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(AppTheme.kModalRadius),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(top: 10, bottom: 6),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.28),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                  0,
+                  0,
+                  0,
+                  MediaQuery.viewInsetsOf(ctx).bottom + 16,
+                ),
+                child: _AddStudentForm(
+                  schoolId: schoolId,
+                  service: service,
+                  onDone: (s) => Navigator.of(ctx).pop(s),
+                  onCancel: () => Navigator.of(ctx).pop(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    },
   );
 }
 

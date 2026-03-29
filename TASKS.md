@@ -278,8 +278,8 @@ For each of these three inline sheets:
 - Fix: Add `viewInsets.bottom` to the ListView's `padding.bottom`.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `fix: subscribe and student picker sheets keyboard handling`
+- [x] Mark this task `[x]`
+- [x] Git commit: `fix: subscribe and student picker sheets keyboard handling`
 
 ---
 
