@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart' hide Action;
 import 'package:flutter/services.dart';
 
@@ -5,6 +7,7 @@ import '../../../theme/app_theme.dart';
 import '../../../widgets/inline_date_picker_dialog.dart';
 import '../../../../client.dart';
 import '../../../../database/database.dart';
+import '../../../../database/daos/catalog_dao.dart';
 import '../../../../database/daos/finance_dao.dart';
 import '../../../../database/tables/enums.dart';
 import '../../../../models/active_term_context.dart';
@@ -16,6 +19,7 @@ import '../../../widgets/active_term_provider.dart';
 import '../../../widgets/edu_empty_state.dart';
 import '../../../widgets/edu_sheet.dart';
 import '../../../widgets/edu_tab_bar.dart';
+import 'fee_detail_page.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Entry point
@@ -135,7 +139,6 @@ class _OwnerFinanceShellState extends State<_OwnerFinanceShell>
   late final FinanceDao _dao;
   late TabController _tabController;
   _FinanceTab _currentTab = _FinanceTab.overview;
-  final SchoolConfig _config = SchoolConfig.defaults();
 
   String get _schoolId => widget.schoolContext.membership.school.id;
 
@@ -147,12 +150,6 @@ class _OwnerFinanceShellState extends State<_OwnerFinanceShell>
       length: _FinanceTab.values.length,
       vsync: this,
     )..addListener(_onTabChanged);
-    _loadConfig();
-  }
-
-  Future<void> _loadConfig() async {
-    // TODO: reload config from new settings source when available
-    return;
   }
 
   @override
@@ -205,7 +202,6 @@ class _OwnerFinanceShellState extends State<_OwnerFinanceShell>
                 year: term.year,
                 term: term.term,
                 dao: _dao,
-                config: _config,
                 cs: cs,
                 schoolContext: widget.schoolContext,
               ),
@@ -222,7 +218,6 @@ class _OwnerFinanceShellState extends State<_OwnerFinanceShell>
                 year: term.year,
                 term: term.term,
                 dao: _dao,
-                config: _config,
                 cs: cs,
                 schoolContext: widget.schoolContext,
               ),
@@ -355,51 +350,71 @@ class _OverviewContent extends StatelessWidget {
                   ],
                 )
               else
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    _MetricCard(
-                      label: 'Total Invoiced',
-                      value: _fmtCurrency(summary.totalInvoiced),
-                      count: summary.invoiceCount,
-                      countLabel: 'invoices',
-                      color: cs.primary,
-                      cs: cs,
-                      isDark: isDark,
-                      width: (constraints.maxWidth - 32) / 2,
-                    ),
-                    _MetricCard(
-                      label: 'Total Collected',
-                      value: _fmtCurrency(summary.totalPaid),
-                      count: summary.paidCount,
-                      countLabel: 'paid',
-                      color: _kPaidColor,
-                      cs: cs,
-                      isDark: isDark,
-                      width: (constraints.maxWidth - 32) / 2,
-                    ),
-                    _MetricCard(
-                      label: 'Pending',
-                      value: _fmtCurrency(summary.totalPending),
-                      count: summary.pendingCount,
-                      countLabel: 'pending',
-                      color: _kPendingColor,
-                      cs: cs,
-                      isDark: isDark,
-                      width: (constraints.maxWidth - 32) / 2,
-                    ),
-                    _MetricCard(
-                      label: 'Overdue',
-                      value: _fmtCurrency(summary.totalOverdue),
-                      count: summary.overdueCount,
-                      countLabel: 'overdue',
-                      color: _kOverdueColor,
-                      cs: cs,
-                      isDark: isDark,
-                      width: (constraints.maxWidth - 32) / 2,
-                    ),
-                  ],
+                Builder(
+                  builder: (context) {
+                    // Available width after ScrollView padding (20 each side).
+                    final available = constraints.maxWidth - 40;
+                    const spacing = 12.0;
+                    const minCardWidth = 130.0;
+                    // Optimal column count that fills width without waste.
+                    final columns = math.min(
+                      4,
+                      math.max(
+                        1,
+                        ((available + spacing) / (minCardWidth + spacing))
+                            .floor(),
+                      ),
+                    );
+                    final cardWidth =
+                        (available - (columns - 1) * spacing) / columns;
+
+                    return Wrap(
+                      spacing: spacing,
+                      runSpacing: spacing,
+                      children: [
+                        _MetricCard(
+                          label: 'Total Invoiced',
+                          value: _fmtCurrency(summary.totalInvoiced),
+                          count: summary.invoiceCount,
+                          countLabel: 'invoices',
+                          color: cs.primary,
+                          cs: cs,
+                          isDark: isDark,
+                          width: cardWidth,
+                        ),
+                        _MetricCard(
+                          label: 'Total Collected',
+                          value: _fmtCurrency(summary.totalPaid),
+                          count: summary.paidCount,
+                          countLabel: 'paid',
+                          color: _kPaidColor,
+                          cs: cs,
+                          isDark: isDark,
+                          width: cardWidth,
+                        ),
+                        _MetricCard(
+                          label: 'Pending',
+                          value: _fmtCurrency(summary.totalPending),
+                          count: summary.pendingCount,
+                          countLabel: 'pending',
+                          color: _kPendingColor,
+                          cs: cs,
+                          isDark: isDark,
+                          width: cardWidth,
+                        ),
+                        _MetricCard(
+                          label: 'Overdue',
+                          value: _fmtCurrency(summary.totalOverdue),
+                          count: summary.overdueCount,
+                          countLabel: 'overdue',
+                          color: _kOverdueColor,
+                          cs: cs,
+                          isDark: isDark,
+                          width: cardWidth,
+                        ),
+                      ],
+                    );
+                  },
                 ),
             ],
           ),
@@ -568,13 +583,17 @@ class _MetricCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurfaceVariant,
-                  letterSpacing: 0.2,
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurfaceVariant,
+                    letterSpacing: 0.2,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -588,6 +607,8 @@ class _MetricCard extends StatelessWidget {
               color: cs.onSurface,
               letterSpacing: -0.3,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 4),
           Text(
@@ -619,7 +640,6 @@ class _InvoicesTab extends StatefulWidget {
     required this.year,
     required this.term,
     required this.dao,
-    required this.config,
     required this.cs,
     required this.schoolContext,
   });
@@ -628,7 +648,6 @@ class _InvoicesTab extends StatefulWidget {
   final int year;
   final int term;
   final FinanceDao dao;
-  final SchoolConfig config;
   final ColorScheme cs;
   final SchoolContext schoolContext;
 
@@ -1393,7 +1412,6 @@ class _FeesTab extends StatelessWidget {
     required this.year,
     required this.term,
     required this.dao,
-    required this.config,
     required this.cs,
     required this.schoolContext,
   });
@@ -1402,7 +1420,6 @@ class _FeesTab extends StatelessWidget {
   final int year;
   final int term;
   final FinanceDao dao;
-  final SchoolConfig config;
   final ColorScheme cs;
   final SchoolContext schoolContext;
 
@@ -1413,12 +1430,6 @@ class _FeesTab extends StatelessWidget {
     final canCreateFee =
         entry is OwnerEntry ||
         schoolContext.permissions.can(Resource.fees, Action.create);
-    final canEditFee =
-        entry is OwnerEntry ||
-        schoolContext.permissions.can(Resource.fees, Action.update);
-    final canDeleteFee =
-        entry is OwnerEntry ||
-        schoolContext.permissions.can(Resource.fees, Action.delete);
 
     return Stack(
       children: [
@@ -1447,23 +1458,42 @@ class _FeesTab extends StatelessWidget {
                 cs: cs,
               );
             }
+
+            // Group fees by title for consolidated display.
+            final grouped = <String, List<FeeWithStats>>{};
+            for (final item in items) {
+              grouped.putIfAbsent(item.fee.title, () => []).add(item);
+            }
+            final groups = grouped.entries.toList();
+
             return ListView.builder(
               padding: const EdgeInsets.fromLTRB(0, 4, 0, 80),
-              itemCount: items.length * 2 - 1,
+              itemCount: groups.length * 2 - 1,
               itemBuilder: (context, index) {
                 if (index.isOdd) {
                   return AppTheme.tableRowDivider(isDark, cs);
                 }
-                final item = items[index ~/ 2];
-                return _FeeRow(
-                  item: item,
-                  dao: dao,
-                  config: config,
+                final group = groups[index ~/ 2];
+                return _FeeGroupRow(
+                  title: group.key,
+                  fees: group.value,
                   cs: cs,
                   isDark: isDark,
-                  canEdit: canEditFee,
-                  canDelete: canDeleteFee,
-                  onGenerateInvoices: () => _generateInvoices(context, item),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ActiveTermProvider(
+                          termContext: ActiveTermProvider.read(context),
+                          child: FeeDetailPage(
+                            feeTitle: group.key,
+                            fees: group.value,
+                            schoolContext: schoolContext,
+                            dao: dao,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 );
               },
             );
@@ -1476,15 +1506,8 @@ class _FeesTab extends StatelessWidget {
             bottom: 20,
             child: FloatingActionButton.small(
               heroTag: 'fab_finance_fees',
-              onPressed: () => _showCreateFeeSheet(
-                context,
-                dao,
-                schoolId,
-                year,
-                term,
-                config,
-                cs,
-              ),
+              onPressed: () =>
+                  _showCreateFeeSheet(context, dao, schoolId, year, term, cs),
               tooltip: 'New Fee',
               elevation: 4,
               highlightElevation: 6,
@@ -1499,239 +1522,168 @@ class _FeesTab extends StatelessWidget {
       ],
     );
   }
-
-  Future<void> _generateInvoices(
-    BuildContext context,
-    FeeWithStats item,
-  ) async {
-    final accountId = cache.currentUser?.user.id;
-    if (accountId == null) return;
-
-    int counter = 0;
-    try {
-      final count = await dao.generateInvoicesFromFee(
-        fee: item.fee,
-        generateId: () {
-          counter++;
-          return '${item.fee.id}_inv_${DateTime.now().millisecondsSinceEpoch}_$counter';
-        },
-        accountId: accountId,
-      );
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              count > 0
-                  ? 'Generated $count invoice${count == 1 ? '' : 's'}'
-                  : 'All enrolled students already have invoices for this fee',
-            ),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to generate invoices: $e'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    }
-  }
 }
 
-class _FeeRow extends StatefulWidget {
-  const _FeeRow({
-    required this.item,
-    required this.dao,
-    required this.config,
+class _FeeGroupRow extends StatefulWidget {
+  const _FeeGroupRow({
+    required this.title,
+    required this.fees,
     required this.cs,
     required this.isDark,
-    required this.onGenerateInvoices,
-    this.canEdit = true,
-    this.canDelete = true,
+    required this.onTap,
   });
 
-  final FeeWithStats item;
-  final FinanceDao dao;
-  final SchoolConfig config;
+  final String title;
+  final List<FeeWithStats> fees;
   final ColorScheme cs;
   final bool isDark;
-  final VoidCallback onGenerateInvoices;
-  final bool canEdit;
-  final bool canDelete;
+  final VoidCallback onTap;
 
   @override
-  State<_FeeRow> createState() => _FeeRowState();
+  State<_FeeGroupRow> createState() => _FeeGroupRowState();
 }
 
-class _FeeRowState extends State<_FeeRow> {
+class _FeeGroupRowState extends State<_FeeGroupRow> {
   bool _isHovered = false;
 
   @override
   Widget build(BuildContext context) {
     final cs = widget.cs;
     final isDark = widget.isDark;
-    final fee = widget.item.fee;
-    final isDesktop = MediaQuery.sizeOf(context).width >= 600;
-    final gradeLabel = _gradeLabel(fee.grade, widget.config);
-    final typeLabel = fee.mandatory ? 'Mandatory' : 'Optional';
-    final typeColor = fee.mandatory ? cs.primary : cs.onSurfaceVariant;
+    final fees = widget.fees;
+    final totalInvoices = fees.fold<int>(0, (sum, f) => sum + f.invoiceCount);
+    final amount = fees.first.fee.amount;
+    final gradeCount = fees.length;
+    final isMandatory = fees.first.fee.mandatory;
+    final typeLabel = isMandatory ? 'Mandatory' : 'Optional';
+    final typeColor = isMandatory ? cs.primary : cs.onSurfaceVariant;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      cursor: SystemMouseCursors.basic,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 100),
-        color: _isHovered
-            ? cs.primary.withValues(alpha: 0.04)
-            : Colors.transparent,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // ── Main info ──────────────────────────────────────────────
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Fee title + amount
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            fee.title,
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 100),
+          color: _isHovered
+              ? cs.primary.withValues(alpha: 0.04)
+              : Colors.transparent,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // ── Main info ────────────────────────────────────────────
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Fee title + amount
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              widget.title,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: cs.onSurface,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _fmtCurrency(amount),
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
                               color: cs.onSurface,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _fmtCurrency(fee.amount),
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: cs.onSurface,
-                            letterSpacing: -0.2,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                    // Grade + type badge + invoice count
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '$gradeLabel · ${widget.item.invoiceCount} invoice${widget.item.invoiceCount == 1 ? '' : 's'} · Due ${_fmtDateFromEpoch(fee.due.toInt())}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w400,
-                              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        // Type badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 7,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: typeColor.withValues(
-                              alpha: isDark ? 0.15 : 0.08,
-                            ),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            typeLabel,
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w500,
-                              color: typeColor,
+                              letterSpacing: -0.2,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      // Grade count + invoices + type badge
+                      Row(
+                        children: [
+                          // Grade count badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 1,
+                            ),
+                            margin: const EdgeInsets.only(right: 6),
+                            decoration: BoxDecoration(
+                              color: cs.primary.withValues(
+                                alpha: isDark ? 0.15 : 0.08,
+                              ),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '$gradeCount grade${gradeCount == 1 ? '' : 's'}',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w500,
+                                color: cs.primary,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              '$totalInvoices invoice${totalInvoices == 1 ? '' : 's'} · Due ${_fmtDateFromEpoch(fees.first.fee.due.toInt())}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w400,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.6,
+                                ),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // Type badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: typeColor.withValues(
+                                alpha: isDark ? 0.15 : 0.08,
+                              ),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              typeLabel,
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w500,
+                                color: typeColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
 
-              // ── Desktop actions ────────────────────────────────────────
-              if (isDesktop) ...[
-                const SizedBox(width: 4),
-                _FinanceRowActions(
-                  isHovered: _isHovered,
-                  cs: cs,
-                  actions: [
-                    _FinanceRowAction(
-                      icon: Icons.send_outlined,
-                      label: 'Generate Invoices',
-                      color: cs.primary,
-                      onTap: widget.onGenerateInvoices,
-                    ),
-                    if (widget.canEdit)
-                      _FinanceRowAction(
-                        icon: Icons.edit_outlined,
-                        label: 'Edit',
-                        color: cs.onSurfaceVariant,
-                        onTap: () {},
-                      ),
-                    if (widget.canDelete)
-                      _FinanceRowAction(
-                        icon: Icons.delete_outline_rounded,
-                        label: 'Delete',
-                        color: cs.error,
-                        onTap: () {},
-                      ),
-                  ],
+                // ── Chevron ──────────────────────────────────────────────
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 20,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.4),
                 ),
               ],
-
-              // ── Mobile three-dot ───────────────────────────────────────
-              if (!isDesktop)
-                _FinanceMobileMenu(
-                  cs: cs,
-                  isDark: isDark,
-                  actions: [
-                    _FinanceRowAction(
-                      icon: Icons.send_outlined,
-                      label: 'Generate Invoices',
-                      color: cs.primary,
-                      onTap: widget.onGenerateInvoices,
-                    ),
-                    if (widget.canEdit)
-                      _FinanceRowAction(
-                        icon: Icons.edit_outlined,
-                        label: 'Edit',
-                        color: cs.onSurface,
-                        onTap: () {},
-                      ),
-                    if (widget.canDelete)
-                      _FinanceRowAction(
-                        icon: Icons.delete_outline_rounded,
-                        label: 'Delete',
-                        color: cs.error,
-                        onTap: () {},
-                      ),
-                  ],
-                ),
-            ],
+            ),
           ),
         ),
       ),
@@ -2335,19 +2287,13 @@ Future<void> _showCreateFeeSheet(
   String schoolId,
   int year,
   int term,
-  SchoolConfig config,
   ColorScheme cs,
 ) {
   return showEduSheet(
     context: context,
     title: 'Create Fee Structure',
-    builder: (_) => _CreateFeeSheet(
-      dao: dao,
-      schoolId: schoolId,
-      year: year,
-      term: term,
-      config: config,
-    ),
+    builder: (_) =>
+        _CreateFeeSheet(dao: dao, schoolId: schoolId, year: year, term: term),
   );
 }
 
@@ -2357,14 +2303,12 @@ class _CreateFeeSheet extends StatefulWidget {
     required this.schoolId,
     required this.year,
     required this.term,
-    required this.config,
   });
 
   final FinanceDao dao;
   final String schoolId;
   final int year;
   final int term;
-  final SchoolConfig config;
 
   @override
   State<_CreateFeeSheet> createState() => _CreateFeeSheetState();
@@ -2376,20 +2320,38 @@ class _CreateFeeSheetState extends State<_CreateFeeSheet> {
   final _descCtrl = TextEditingController();
   final _amountCtrl = TextEditingController();
   bool _mandatory = true;
-  int? _selectedGrade;
+  final Set<int> _selectedGrades = {};
   DateTime _dueDate = DateTime.now().add(const Duration(days: 30));
   bool _saving = false;
 
-  List<MapEntry<int, String>> get _gradeOptions {
-    final entries = <MapEntry<int, String>>[];
-    for (final curr in widget.config.curricula) {
-      final labels = gradeLabelsFor(curr.type);
-      for (final gc in curr.grades) {
-        final label = labels[gc.grade] ?? 'Grade ${gc.grade}';
-        entries.add(MapEntry(gc.grade, label));
-      }
+  late final CatalogDao _catalogDao;
+  List<MapEntry<int, String>> _gradeOptions = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _catalogDao = CatalogDao(db);
+    _loadGrades();
+  }
+
+  Future<void> _loadGrades() async {
+    final streams = await _catalogDao.getStreamsForSchool(widget.schoolId);
+    if (!mounted) return;
+
+    // Collect distinct grades and resolve labels.
+    final gradeSet = <int>{};
+    for (final s in streams) {
+      gradeSet.add(s.grade);
     }
-    return entries;
+    final sortedGrades = gradeSet.toList()..sort();
+
+    setState(() {
+      _gradeOptions = sortedGrades.map((g) {
+        final label =
+            kCbcGradeLabels[g] ?? kEightFourFourGradeLabels[g] ?? 'Grade $g';
+        return MapEntry(g, label);
+      }).toList();
+    });
   }
 
   @override
@@ -2402,10 +2364,10 @@ class _CreateFeeSheetState extends State<_CreateFeeSheet> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedGrade == null) {
+    if (_selectedGrades.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please select a grade'),
+          content: Text('Please select at least one grade'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -2418,24 +2380,32 @@ class _CreateFeeSheetState extends State<_CreateFeeSheet> {
     setState(() => _saving = true);
 
     try {
-      final id =
-          '${widget.schoolId}_fee_${DateTime.now().millisecondsSinceEpoch}';
       final amount = double.parse(_amountCtrl.text.trim());
       final dueEpoch = BigInt.from(_dueDate.millisecondsSinceEpoch ~/ 1000);
+      final title = _titleCtrl.text.trim();
+      final description = _descCtrl.text.trim();
+      final baseTs = DateTime.now().millisecondsSinceEpoch;
 
-      await widget.dao.createFee(
-        id: id,
-        schoolId: widget.schoolId,
-        year: widget.year,
-        term: widget.term,
-        grade: _selectedGrade!,
-        title: _titleCtrl.text.trim(),
-        description: _descCtrl.text.trim(),
-        amount: amount,
-        mandatory: _mandatory,
-        due: dueEpoch,
-        accountId: accountId,
-      );
+      // Create one fee record per selected grade.
+      var i = 0;
+      for (final grade in _selectedGrades) {
+        final id = '${widget.schoolId}_fee_${baseTs}_$i';
+        i++;
+
+        await widget.dao.createFee(
+          id: id,
+          schoolId: widget.schoolId,
+          year: widget.year,
+          term: widget.term,
+          grade: grade,
+          title: title,
+          description: description,
+          amount: amount,
+          mandatory: _mandatory,
+          due: dueEpoch,
+          accountId: accountId,
+        );
+      }
 
       if (mounted) Navigator.pop(context);
     } catch (e) {
@@ -2468,7 +2438,6 @@ class _CreateFeeSheetState extends State<_CreateFeeSheet> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
-    final gradeOptions = _gradeOptions;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
@@ -2524,31 +2493,105 @@ class _CreateFeeSheetState extends State<_CreateFeeSheet> {
             ),
             const SizedBox(height: 14),
 
-            // Grade dropdown
-            DropdownButtonFormField<int>(
-              initialValue: _selectedGrade,
-              decoration: _fieldDecoration(
-                label: 'Grade',
-                cs: cs,
-                isDark: isDark,
-              ),
-              dropdownColor: isDark ? cs.surfaceContainerHighest : cs.surface,
+            // Grade selection — multi-select chips
+            Text(
+              'Grades',
               style: TextStyle(
-                fontSize: 13.5,
+                fontSize: 12.5,
                 fontWeight: FontWeight.w400,
-                color: cs.onSurface,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.7),
               ),
-              items: gradeOptions
-                  .map(
-                    (e) => DropdownMenuItem<int>(
-                      value: e.key,
-                      child: Text(e.value),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (v) => setState(() => _selectedGrade = v),
-              validator: (v) => v == null ? 'Required' : null,
             ),
+            const SizedBox(height: 8),
+            if (_gradeOptions.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(AppTheme.kRadius),
+                ),
+                child: Text(
+                  'No grades configured. Add grades in school settings.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+              )
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _gradeOptions.map((entry) {
+                  final isSelected = _selectedGrades.contains(entry.key);
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        if (isSelected) {
+                          _selectedGrades.remove(entry.key);
+                        } else {
+                          _selectedGrades.add(entry.key);
+                        }
+                      });
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? cs.primary.withValues(alpha: isDark ? 0.2 : 0.1)
+                            : cs.surfaceContainerHighest.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isSelected
+                              ? cs.primary.withValues(alpha: 0.5)
+                              : Colors.transparent,
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isSelected) ...[
+                            Icon(
+                              Icons.check_rounded,
+                              size: 14,
+                              color: cs.primary,
+                            ),
+                            const SizedBox(width: 4),
+                          ],
+                          Text(
+                            entry.value,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: isSelected
+                                  ? FontWeight.w500
+                                  : FontWeight.w400,
+                              color: isSelected ? cs.primary : cs.onSurface,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            if (_selectedGrades.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  '${_selectedGrades.length} grade${_selectedGrades.length == 1 ? '' : 's'} selected',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w400,
+                    color: cs.primary.withValues(alpha: 0.7),
+                  ),
+                ),
+              ),
             const SizedBox(height: 14),
 
             // Due date
@@ -2794,7 +2837,7 @@ class _RecordPaymentSheetState extends State<_RecordPaymentSheet> {
 
             // Payment method
             DropdownButtonFormField<PaymentMethod>(
-              initialValue: _method,
+              value: _method,
               decoration: _fieldDecoration(
                 label: 'Payment Method',
                 cs: cs,
@@ -3138,14 +3181,4 @@ String _fmtDateDt(DateTime dt) {
     'Dec',
   ];
   return '${dt.day} ${months[dt.month]} ${dt.year}';
-}
-
-String _gradeLabel(int grade, SchoolConfig config) {
-  for (final curr in config.curricula) {
-    final labels = gradeLabelsFor(curr.type);
-    if (labels.containsKey(grade)) {
-      return labels[grade]!;
-    }
-  }
-  return 'Grade $grade';
 }
