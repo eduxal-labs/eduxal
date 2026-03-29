@@ -735,6 +735,7 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
   Future<void> createStudent({
     required StudentsCompanion student,
     required String accountId,
+    String? userPhone,
   }) async {
     await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
@@ -754,7 +755,12 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
         adm: adm,
         name: student.name.value,
       );
-      if (student.user.present && student.user.value != null) {
+      // Send phone in payload for server-side user resolution.
+      // The local DB may have user ID set (optimistic link to known user),
+      // but the server always resolves by phone.
+      if (userPhone != null && userPhone.isNotEmpty) {
+        payload.user = userPhone;
+      } else if (student.user.present && student.user.value != null) {
         payload.user = student.user.value!;
       }
       if (student.dob.present && student.dob.value != null) {
@@ -790,6 +796,7 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     required int adm,
     required StudentsCompanion changes,
     required String accountId,
+    String? userPhone,
   }) async {
     await transaction(() async {
       await (update(students)
@@ -799,7 +806,12 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
       final payload = sync_pb.UpdateStudentPayload(school: schoolId, adm: adm);
       bool hasChanges = false;
 
-      if (changes.user.present) {
+      if (userPhone != null) {
+        // Phone-based user resolution: send phone to server.
+        // "-" = "unlink user". Non-empty phone = "resolve this phone".
+        payload.user = userPhone;
+        hasChanges = true;
+      } else if (changes.user.present) {
         if (changes.user.value != null) payload.user = changes.user.value!;
         hasChanges = true;
       }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:drift/drift.dart' hide Column;
@@ -334,11 +335,69 @@ class _StudentDetailSheetState extends State<StudentDetailSheet>
         : null;
     File? imageFile;
 
+    // Phone (optional user link)
+    final phoneCtrl = TextEditingController();
+    bool phoneLooking = false;
+    bool phoneChecked = false;
+    UsersData? resolvedUser;
+    bool phoneInitialized = false;
+    String? originalPhone; // to detect changes
+    Timer? phoneDebounce;
+
     showEduSheet(
       context: context,
       title: 'Edit Student',
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) {
+          // Initialize phone from linked user (once).
+          if (!phoneInitialized) {
+            phoneInitialized = true;
+            if (student.user != null) {
+              _membersDao.findUserById(student.user!).then((u) {
+                if (u != null) {
+                  phoneCtrl.text = u.phone;
+                  originalPhone = u.phone;
+                  resolvedUser = u;
+                  phoneChecked = true;
+                  setSheetState(() {});
+                }
+              });
+            }
+          }
+
+          void onPhoneChanged(String value) {
+            phoneDebounce?.cancel();
+            final trimmed = value.trim();
+            final digitCount = trimmed.replaceAll(RegExp(r'[^\d]'), '').length;
+            if (digitCount < 9) {
+              if (phoneChecked || resolvedUser != null) {
+                setSheetState(() {
+                  resolvedUser = null;
+                  phoneLooking = false;
+                  phoneChecked = false;
+                });
+              }
+              return;
+            }
+            setSheetState(() => phoneLooking = true);
+            phoneDebounce = Timer(const Duration(milliseconds: 480), () async {
+              final existing = await _membersDao.findUserByPhone(trimmed);
+              if (existing != null && existing.status != UserStatus.deleted) {
+                setSheetState(() {
+                  phoneLooking = false;
+                  phoneChecked = true;
+                  resolvedUser = existing;
+                });
+              } else {
+                setSheetState(() {
+                  phoneLooking = false;
+                  phoneChecked = true;
+                  resolvedUser = null;
+                });
+              }
+            });
+          }
+
           return Padding(
             padding: EdgeInsets.only(
               left: 24,
@@ -506,6 +565,136 @@ class _StudentDetailSheetState extends State<StudentDetailSheet>
                       );
                     }).toList(),
                   ),
+                  const SizedBox(height: 14),
+
+                  // Phone (optional)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'PHONE (OPTIONAL)',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.9,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Link to a user account by phone number.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: phoneCtrl,
+                        keyboardType: TextInputType.phone,
+                        onChanged: onPhoneChanged,
+                        style: TextStyle(fontSize: 13.5, color: cs.onSurface),
+                        decoration: InputDecoration(
+                          hintText: 'e.g. 0712345678',
+                          hintStyle: TextStyle(
+                            fontSize: 13,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                          ),
+                          prefixIcon: Icon(
+                            Icons.phone_outlined,
+                            size: 18,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                          ),
+                          suffixIcon: phoneLooking
+                              ? const Padding(
+                                  padding: EdgeInsets.all(12),
+                                  child: SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 1.5,
+                                    ),
+                                  ),
+                                )
+                              : phoneChecked && resolvedUser != null
+                              ? Icon(
+                                  Icons.link_rounded,
+                                  size: 18,
+                                  color: Colors.green.shade600,
+                                )
+                              : phoneCtrl.text.isNotEmpty
+                              ? IconButton(
+                                  icon: Icon(
+                                    Icons.close_rounded,
+                                    size: 16,
+                                    color: cs.onSurfaceVariant.withValues(
+                                      alpha: 0.5,
+                                    ),
+                                  ),
+                                  onPressed: () {
+                                    phoneCtrl.clear();
+                                    phoneDebounce?.cancel();
+                                    setSheetState(() {
+                                      resolvedUser = null;
+                                      phoneLooking = false;
+                                      phoneChecked = false;
+                                    });
+                                  },
+                                )
+                              : null,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                        ),
+                      ),
+                      // Lookup result hint
+                      if (phoneChecked &&
+                          phoneCtrl.text
+                                  .trim()
+                                  .replaceAll(RegExp(r'[^\d]'), '')
+                                  .length >=
+                              9)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Row(
+                            children: [
+                              Icon(
+                                resolvedUser != null
+                                    ? Icons.person_outline_rounded
+                                    : Icons.person_add_outlined,
+                                size: 14,
+                                color: resolvedUser != null
+                                    ? Colors.green.shade600
+                                    : cs.primary,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  resolvedUser != null
+                                      ? 'Linked to ${resolvedUser!.name}'
+                                      : 'New invitation will be sent',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w400,
+                                    color: resolvedUser != null
+                                        ? Colors.green.shade600
+                                        : cs.primary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+
                   const SizedBox(height: 16),
 
                   // Save — compact, right-aligned
@@ -517,12 +706,26 @@ class _StudentDetailSheetState extends State<StudentDetailSheet>
                             ? null
                             : nameCtrl.text.trim();
 
+                        // Determine if phone changed.
+                        final currentPhone = phoneCtrl.text.trim();
+                        String? phoneParam;
+                        if (originalPhone != null && currentPhone.isEmpty) {
+                          // User cleared the phone → unlink.
+                          phoneParam = '';
+                        } else if (currentPhone.isNotEmpty &&
+                            currentPhone != originalPhone) {
+                          // Phone entered or changed → link.
+                          phoneParam = currentPhone;
+                        }
+                        // else: phoneParam stays null → no change
+
                         await _service.updateStudent(
                           schoolId: widget.schoolId,
                           adm: student.adm,
                           name: name,
                           dob: dob,
                           gender: gender,
+                          phone: phoneParam,
                         );
 
                         if (imageFile != null) {

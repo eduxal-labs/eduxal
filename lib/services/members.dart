@@ -418,6 +418,7 @@ class MemberCreationService {
     DateTime? dob,
     Gender? gender,
     DateTime? admitted,
+    String? phone,
   }) async {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
@@ -427,10 +428,28 @@ class MemberCreationService {
     final adm = await _dao.nextAdmissionNumber(schoolId);
     final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
 
+    // ── Optional phone → user resolution ──────────────────────────────────
+    // If a phone is provided, try to find the user locally for an optimistic
+    // link.  The phone is always forwarded to the DAO so the sync payload
+    // carries the phone (not the user ID) — the server resolves by phone.
+    String? userId;
+    String? userPhone;
+    if (phone != null && phone.trim().isNotEmpty) {
+      userPhone = phone.trim();
+      final existing = await _dao.findUserByPhone(userPhone);
+      if (existing != null && existing.status != UserStatus.deleted) {
+        // User exists locally — link optimistically for immediate UI display.
+        userId = existing.id;
+      }
+      // If not found locally, leave userId null.  The server will resolve
+      // the phone → user and sync back the authoritative student row.
+    }
+
     final companion = StudentsCompanion(
       school: Value(schoolId),
       adm: Value(adm),
       name: Value(name.trim()),
+      user: userId != null ? Value(userId) : const Value.absent(),
       dob: dob != null
           ? Value(_dateToDaysSinceEpoch(dob))
           : const Value.absent(),
@@ -443,7 +462,11 @@ class MemberCreationService {
       updated: Value(nowSec),
     );
 
-    await _dao.createStudent(student: companion, accountId: accountId);
+    await _dao.createStudent(
+      student: companion,
+      accountId: accountId,
+      userPhone: userPhone,
+    );
 
     final created = await _dao.getStudent(schoolId, adm);
     return Ok(created!);

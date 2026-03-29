@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -73,12 +74,21 @@ class _AddStudentFormState extends State<_AddStudentForm> {
   DateTime? _admitted;
   File? _imageFile;
 
+  // ── Phone (optional user link) ──────────────────────────────────────────
+  final _phoneCtrl = TextEditingController();
+  Timer? _phoneDebounce;
+  UsersData? _resolvedUser; // non-null when phone matched an existing user
+  bool _phoneLooking = false; // true while debounce lookup is in flight
+  bool _phoneChecked = false; // true after at least one lookup completed
+
   bool _saving = false;
   String? _error;
 
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _phoneCtrl.dispose();
+    _phoneDebounce?.cancel();
     super.dispose();
   }
 
@@ -96,6 +106,43 @@ class _AddStudentFormState extends State<_AddStudentForm> {
     }
   }
 
+  // ── Phone lookup ────────────────────────────────────────────────────────────
+
+  void _onPhoneChanged(String value) {
+    _phoneDebounce?.cancel();
+    final trimmed = value.trim();
+    final digitCount = trimmed.replaceAll(RegExp(r'[^\d]'), '').length;
+
+    // Reset state if phone is cleared or too short.
+    if (digitCount < 9) {
+      if (_phoneChecked || _resolvedUser != null) {
+        setState(() {
+          _resolvedUser = null;
+          _phoneLooking = false;
+          _phoneChecked = false;
+        });
+      }
+      return;
+    }
+
+    setState(() => _phoneLooking = true);
+    _phoneDebounce = Timer(const Duration(milliseconds: 480), () async {
+      if (!mounted) return;
+      final result = await widget.service.lookupPhone(trimmed);
+      if (!mounted) return;
+      setState(() {
+        _phoneLooking = false;
+        _phoneChecked = true;
+        switch (result) {
+          case UserFound(:final user):
+            _resolvedUser = user;
+          case UserNotFound():
+            _resolvedUser = null;
+        }
+      });
+    });
+  }
+
   // ── Submission ──────────────────────────────────────────────────────────────
 
   Future<void> _submit() async {
@@ -107,12 +154,16 @@ class _AddStudentFormState extends State<_AddStudentForm> {
     });
 
     try {
+      final phone = _phoneCtrl.text.trim().isEmpty
+          ? null
+          : _phoneCtrl.text.trim();
       final result = await widget.service.createStudent(
         schoolId: widget.schoolId,
         name: _nameCtrl.text.trim(),
         dob: _dob,
         gender: _gender,
         admitted: _admitted,
+        phone: phone,
       );
 
       switch (result) {
@@ -365,6 +416,151 @@ class _AddStudentFormState extends State<_AddStudentForm> {
               ),
             ),
 
+            const SizedBox(height: 14),
+
+            // ── Phone (optional) ──────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'PHONE (OPTIONAL)',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.9,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Link this student to a user account.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+                      height: 1.3,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    controller: _phoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9+\s\-]')),
+                    ],
+                    onChanged: _onPhoneChanged,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      color: cs.onSurface,
+                    ),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: isDark
+                          ? const Color(0xFF1E2A3A)
+                          : cs.surfaceContainerLowest,
+                      hintText: 'e.g. 0712345678',
+                      hintStyle: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                      ),
+                      prefixIcon: Icon(
+                        Icons.phone_outlined,
+                        size: 18,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                      ),
+                      suffixIcon: _phoneLooking
+                          ? const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                ),
+                              ),
+                            )
+                          : _phoneChecked && _resolvedUser != null
+                          ? Icon(
+                              Icons.link_rounded,
+                              size: 18,
+                              color: Colors.green.shade600,
+                            )
+                          : null,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: isDark
+                            ? BorderSide(
+                                color: cs.outlineVariant.withValues(alpha: 0.3),
+                                width: 0.5,
+                              )
+                            : BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: isDark
+                            ? BorderSide(
+                                color: cs.outlineVariant.withValues(alpha: 0.3),
+                                width: 0.5,
+                              )
+                            : BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: cs.primary, width: 1.5),
+                      ),
+                    ),
+                  ),
+                  // ── Lookup result hint ──────────────────────────────────────
+                  if (_phoneChecked &&
+                      _phoneCtrl.text
+                              .trim()
+                              .replaceAll(RegExp(r'[^\d]'), '')
+                              .length >=
+                          9)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _resolvedUser != null
+                                ? Icons.person_outline_rounded
+                                : Icons.person_add_outlined,
+                            size: 14,
+                            color: _resolvedUser != null
+                                ? Colors.green.shade600
+                                : cs.primary,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              _resolvedUser != null
+                                  ? 'Will link to ${_resolvedUser!.name} (${_resolvedUser!.phone})'
+                                  : 'New invitation will be sent',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w400,
+                                color: _resolvedUser != null
+                                    ? Colors.green.shade600
+                                    : cs.primary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
             // ── Error banner ──────────────────────────────────────────────────
             if (_error != null)
               Padding(
@@ -372,50 +568,43 @@ class _AddStudentFormState extends State<_AddStudentForm> {
                 child: _ErrorBanner(message: _error!, cs: cs, isDark: isDark),
               ),
 
-            // ── CTA ───────────────────────────────────────────────────────────
+            // ── Action buttons ────────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: FilledButton.icon(
-                  onPressed: _saving ? null : _submit,
-                  icon: _saving
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 1.5,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.check_rounded, size: 18),
-                  label: Text(
-                    _saving ? 'Saving…' : 'Add Student',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  IconButton(
+                    onPressed: widget.onCancel,
+                    icon: const Icon(Icons.close_rounded),
+                    tooltip: 'Cancel',
+                    style: IconButton.styleFrom(
+                      foregroundColor: cs.onSurfaceVariant,
                     ),
                   ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: accent,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: accent.withValues(
-                      alpha: isDark ? 0.28 : 0.24,
+                  const SizedBox(width: 4),
+                  IconButton(
+                    onPressed: _saving ? null : _submit,
+                    tooltip: 'Save',
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.green.shade600,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: Colors.green.shade600.withValues(
+                        alpha: 0.5,
+                      ),
                     ),
-                    disabledForegroundColor: Colors.white.withValues(
-                      alpha: isDark ? 0.45 : 0.50,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 10,
-                    ),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    icon: _saving
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 1.5,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.check_rounded),
                   ),
-                ),
+                ],
               ),
             ),
           ],

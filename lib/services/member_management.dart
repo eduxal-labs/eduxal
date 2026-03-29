@@ -267,12 +267,18 @@ class MemberManagementService {
   ///
   /// Only non-null parameters are written. A log UPDATE entry is enqueued
   /// automatically by the DAO.
+  ///
+  /// [phone] controls user-linking:
+  ///   • `null` → no change to user field
+  ///   • empty string → unlink current user (set user to null)
+  ///   • non-empty → lookup user by phone; link if found locally, server resolves
   Future<Result<void, MemberActionError>> updateStudent({
     required String schoolId,
     required int adm,
     String? name,
     DateTime? dob,
     Gender? gender,
+    String? phone,
   }) async {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
@@ -282,12 +288,38 @@ class MemberManagementService {
     try {
       final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
 
+      // ── Optional phone → user resolution ──────────────────────────
+      // Phone-based linking: the phone is forwarded to the DAO so the
+      // sync payload carries the phone for server-side resolution.
+      // Locally, link to the user only if they already exist in the DB.
+      Value<String?> userValue = const Value.absent();
+      String? userPhone;
+      if (phone != null) {
+        if (phone.trim().isEmpty) {
+          // Explicitly unlink user.
+          userValue = const Value(null);
+          userPhone = '-'; // Server interprets "-" as unlink.
+        } else {
+          userPhone = phone.trim();
+          final existing = await _dao.findUserByPhone(userPhone);
+          if (existing != null && existing.status != UserStatus.deleted) {
+            // User exists locally — link optimistically.
+            userValue = Value(existing.id);
+          } else {
+            // User not found locally — clear stale link; server will
+            // resolve the phone and sync back the authoritative user ID.
+            userValue = const Value(null);
+          }
+        }
+      }
+
       final companion = StudentsCompanion(
         name: name != null ? Value(name) : const Value.absent(),
         dob: dob != null
             ? Value(_dateToDaysSinceEpoch(dob))
             : const Value.absent(),
         gender: gender != null ? Value(gender) : const Value.absent(),
+        user: userValue,
         updated: Value(nowSec),
       );
 
@@ -296,6 +328,7 @@ class MemberManagementService {
         adm: adm,
         changes: companion,
         accountId: accountId,
+        userPhone: userPhone,
       );
 
       return const Ok(null);
