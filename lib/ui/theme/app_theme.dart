@@ -52,6 +52,12 @@ class AppTheme {
   /// slate-800 — surfaceContainer: section containers, input fills.
   static const Color _slateContainer = Color(0xFF1A2435);
 
+  /// Between _slateBg and _slateContainer — surfaceContainerLow.
+  static const _slateContainerLow = Color(0xFF10161F);
+
+  /// Between _slateContainer and _slateItem — surfaceContainerHigh.
+  static const _slateContainerHigh = Color(0xFF1F2A3C);
+
   /// slate-700 — surfaceContainerHighest: row backgrounds, elevated items.
   static const Color _slateItem = Color(0xFF243042);
 
@@ -314,6 +320,8 @@ class AppTheme {
       onSurface: const Color(0xFFE3E8ED), // warm off-white, high readability
       onSurfaceVariant: const Color(0xFF94A3B3), // brighter secondary text
       surfaceContainer: _slateContainer, // section containers, input fills
+      surfaceContainerLow: _slateContainerLow,
+      surfaceContainerHigh: _slateContainerHigh,
       surfaceContainerHighest: _slateItem, // row/item backgrounds
       outline: _slateBorder, // primary borders — clearly visible
       outlineVariant: _slateBorderLight, // softer borders — still visible

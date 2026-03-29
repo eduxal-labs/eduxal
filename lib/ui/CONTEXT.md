@@ -36,6 +36,13 @@ ui/
   - `AppTheme.dark()` → `ThemeData` — dark theme.
   - `AppTheme.resolveThemeMode(AppThemeMode mode)` → `ThemeMode` — maps `AppThemeMode` enum to Flutter's `ThemeMode`.
 - **Used by:** `main.dart` in the `MaterialApp` widget.
+- **Dark theme surface staircase constants:**
+  - `_slateBg` (`#0A0E13`) — scaffoldBg / surfaceContainerLowest
+  - `_slateContainerLow` (`#10161F`) — surfaceContainerLow (added in Task A1)
+  - `_slateSurface` (`#121A24`) — surface
+  - `_slateContainer` (`#1A2435`) — surfaceContainer
+  - `_slateContainerHigh` (`#1F2A3C`) — surfaceContainerHigh (added in Task A1)
+  - `_slateItem` (`#243042`) — surfaceContainerHighest
 
 ## Key UI Patterns
 
@@ -114,4 +121,4 @@ All design tokens are codified in `AppTheme` (`lib/ui/theme/app_theme.dart`) and
 - All tab surfaces in the app use `EduTabBar`, whether icon-only or text-label mode.
 
 ## Last Updated
-Task 1001 — Reflects completion of all UI overhaul tracks (101–901). Design system widgets fully codified in `widgets/`. `EduDataTable` overhauled with multi-select, search, filters. System dashboard tabs restyled. All data tables across system and school dashboards migrated to flat data-table style rows with `AppTheme.tableRowDivider`. All modals/sheets migrated to `EduSheet`/`EduDialog` wrappers. All forms use `EduFormField` consistently. Detail screens have consistent entrance animations. Profile photos shown in all user/member/student-facing tables and detail views.
+Task A1 — Added `_slateContainerLow` (`#10161F`) and `_slateContainerHigh` (`#1F2A3C`) constants to `app_theme.dart` dark theme. These fill the `surfaceContainerLow` and `surfaceContainerHigh` slots in the dark `ColorScheme.copyWith`, replacing the brownish auto-generated values with cool blue-gray tones consistent with the rest of the slate staircase.

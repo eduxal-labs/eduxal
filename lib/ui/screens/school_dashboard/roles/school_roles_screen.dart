@@ -578,9 +578,18 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
+    final viewInsetsBottom = MediaQuery.viewInsetsOf(context).bottom;
 
-    return Form(
-      key: _formKey,
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.92,
+      ),
+      decoration: BoxDecoration(
+        color: AppTheme.modalBg(isDark, cs),
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(AppTheme.kModalRadius),
+        ),
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -589,10 +598,10 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
           Center(
             child: Container(
               width: 36,
-              height: 3,
-              margin: const EdgeInsets.only(top: 12, bottom: 4),
+              height: 4,
+              margin: const EdgeInsets.only(top: 10, bottom: 6),
               decoration: BoxDecoration(
-                color: cs.onSurfaceVariant.withValues(alpha: 0.2),
+                color: cs.onSurfaceVariant.withValues(alpha: 0.28),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -613,39 +622,45 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
 
           const SizedBox(height: 14),
 
-          // ── Name field ─────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: EduFormField(
-              controller: _nameCtrl,
-              label: 'Role name',
-              hint: 'e.g. Registrar',
-              autofocus: true,
-              textCapitalization: TextCapitalization.words,
-              onChanged: (_) => setState(() {}),
-              validator: (v) {
-                if (v == null || v.trim().isEmpty) {
-                  return 'Role name is required';
-                }
-                return null;
-              },
+          // ── Scrollable form fields ─────────────────────────────────────
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, viewInsetsBottom + 24),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // ── Name field ───────────────────────────────────────
+                    EduFormField(
+                      controller: _nameCtrl,
+                      label: 'Role name',
+                      hint: 'e.g. Registrar',
+                      autofocus: true,
+                      textCapitalization: TextCapitalization.words,
+                      onChanged: (_) => setState(() {}),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Role name is required';
+                        }
+                        return null;
+                      },
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // ── Description field ────────────────────────────────
+                    EduFormField(
+                      controller: _descCtrl,
+                      label: 'Description',
+                      hint: 'Optional',
+                      maxLines: 2,
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
-
-          const SizedBox(height: 10),
-
-          // ── Description field ──────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: EduFormField(
-              controller: _descCtrl,
-              label: 'Description',
-              hint: 'Optional',
-              maxLines: 2,
-            ),
-          ),
-
-          const SizedBox(height: 12),
 
           Divider(
             height: 1,
@@ -653,14 +668,9 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
             color: AppTheme.borderColor(isDark, cs),
           ),
 
-          // ── Action buttons ─────────────────────────────────────────────
+          // ── Action buttons (fixed outside scroll) ──────────────────────
           Padding(
-            padding: EdgeInsets.fromLTRB(
-              16,
-              10,
-              16,
-              MediaQuery.viewInsetsOf(context).bottom > 0 ? 8 : 24,
-            ),
+            padding: EdgeInsets.fromLTRB(16, 10, 16, viewInsetsBottom + 16),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [

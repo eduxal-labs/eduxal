@@ -2230,7 +2230,12 @@ class _AssignUserSheetState extends State<_AssignUserSheet> {
                 }
 
                 return ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    8,
+                    20,
+                    MediaQuery.viewInsetsOf(context).bottom + 24,
+                  ),
                   itemCount: filtered.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 4),
                   itemBuilder: (context, index) {

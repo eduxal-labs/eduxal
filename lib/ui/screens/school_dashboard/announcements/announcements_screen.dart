@@ -1303,206 +1303,246 @@ class _ComposeSheetState extends State<_ComposeSheet> {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
 
-    // EduSheet already handles: background colour, border radius, drag handle,
-    // and keyboard inset padding. This widget provides ONLY the form content.
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // ── Header: title + publish/spinner ─────────────────────────────
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  _isEditing ? 'Edit Announcement' : 'New Announcement',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurface,
-                  ),
-                ),
-              ),
-              if (_saving)
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 14),
-                  child: SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 1.5),
-                  ),
-                )
-              else
-                TextButton(
-                  onPressed: _save,
-                  style: TextButton.styleFrom(
-                    foregroundColor: cs.primary,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    minimumSize: const Size(0, 36),
-                  ),
-                  child: Text(
-                    _isEditing ? 'Update' : 'Publish',
-                    style: const TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              // Close button aligned with EduSheet title row convention.
-              IconButton(
-                icon: const Icon(Icons.close_rounded, size: 20),
-                color: cs.onSurfaceVariant,
-                onPressed: () => Navigator.of(context).pop(),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-              ),
-            ],
-          ),
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.92,
+      ),
+      decoration: BoxDecoration(
+        color: AppTheme.modalBg(isDark, cs),
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(AppTheme.kModalRadius),
         ),
-
-        // Thin divider beneath the header row.
-        Container(height: 0.5, color: cs.outlineVariant.withValues(alpha: 0.3)),
-
-        // ── Form body ────────────────────────────────────────────────────
-        Flexible(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title field.
-                  _SheetField(
-                    controller: _titleCtrl,
-                    label: 'Title',
-                    hint: 'Announcement title',
-                    cs: cs,
-                    isDark: isDark,
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Required' : null,
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  // Content field — multiline.
-                  _SheetField(
-                    controller: _contentCtrl,
-                    label: 'Content',
-                    hint: 'Write your message...',
-                    cs: cs,
-                    isDark: isDark,
-                    maxLines: 6,
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Required' : null,
-                  ),
-
-                  const SizedBox(height: 18),
-
-                  // ── Audience targeting ───────────────────────────────
-                  _SectionLabel(label: 'Audience', cs: cs),
-                  const SizedBox(height: 8),
-
-                  _AudienceCheckbox(
-                    label: 'Everyone',
-                    value: _audienceAll,
-                    cs: cs,
-                    onChanged: (v) {
-                      setState(() {
-                        _audienceAll = v ?? true;
-                        if (_audienceAll) {
-                          _audienceStudents = false;
-                          _audienceGuardians = false;
-                          _audienceTeachers = false;
-                          _audienceStaff = false;
-                        }
-                      });
-                    },
-                  ),
-                  if (!_audienceAll) ...[
-                    _AudienceCheckbox(
-                      label: 'Students',
-                      value: _audienceStudents,
-                      cs: cs,
-                      onChanged: (v) =>
-                          setState(() => _audienceStudents = v ?? false),
-                    ),
-                    _AudienceCheckbox(
-                      label: 'Guardians',
-                      value: _audienceGuardians,
-                      cs: cs,
-                      onChanged: (v) =>
-                          setState(() => _audienceGuardians = v ?? false),
-                    ),
-                    _AudienceCheckbox(
-                      label: 'Teachers',
-                      value: _audienceTeachers,
-                      cs: cs,
-                      onChanged: (v) =>
-                          setState(() => _audienceTeachers = v ?? false),
-                    ),
-                    _AudienceCheckbox(
-                      label: 'Staff',
-                      value: _audienceStaff,
-                      cs: cs,
-                      onChanged: (v) =>
-                          setState(() => _audienceStaff = v ?? false),
-                    ),
-                  ],
-
-                  const SizedBox(height: 18),
-
-                  // ── Grade / stream targeting ─────────────────────────
-                  _SectionLabel(label: 'Target class (optional)', cs: cs),
-                  const SizedBox(height: 8),
-
-                  // Grade dropdown.
-                  _DropdownField<int?>(
-                    label: 'Grade',
-                    value: _selectedGrade,
-                    items: [
-                      const DropdownMenuItem(
-                        value: null,
-                        child: Text('All grades'),
-                      ),
-                      for (final g in _gradeOptions)
-                        DropdownMenuItem(value: g, child: Text(_gradeLabel(g))),
-                    ],
-                    cs: cs,
-                    isDark: isDark,
-                    onChanged: (v) {
-                      setState(() {
-                        _selectedGrade = v;
-                        _selectedStream = null;
-                      });
-                    },
-                  ),
-
-                  if (_selectedGrade != null && _streamOptions.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    _DropdownField<int?>(
-                      label: 'Stream',
-                      value: _selectedStream,
-                      items: [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('All streams'),
-                        ),
-                        for (final s in _streamOptions)
-                          DropdownMenuItem(value: s.code, child: Text(s.name)),
-                      ],
-                      cs: cs,
-                      isDark: isDark,
-                      onChanged: (v) => setState(() => _selectedStream = v),
-                    ),
-                  ],
-                ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ── Drag handle ──────────────────────────────────────────────
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 10, bottom: 6),
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: cs.onSurfaceVariant.withValues(alpha: 0.28),
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
           ),
-        ),
-      ],
+
+          // ── Header: title + publish/spinner ─────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _isEditing ? 'Edit Announcement' : 'New Announcement',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                ),
+                if (_saving)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 14),
+                    child: SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 1.5),
+                    ),
+                  )
+                else
+                  TextButton(
+                    onPressed: _save,
+                    style: TextButton.styleFrom(
+                      foregroundColor: cs.primary,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      minimumSize: const Size(0, 36),
+                    ),
+                    child: Text(
+                      _isEditing ? 'Update' : 'Publish',
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                // Close button aligned with EduSheet title row convention.
+                IconButton(
+                  icon: const Icon(Icons.close_rounded, size: 20),
+                  color: cs.onSurfaceVariant,
+                  onPressed: () => Navigator.of(context).pop(),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Thin divider beneath the header row.
+          Container(
+            height: 0.5,
+            color: cs.outlineVariant.withValues(alpha: 0.3),
+          ),
+
+          // ── Form body ────────────────────────────────────────────────────
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                12,
+                16,
+                MediaQuery.viewInsetsOf(context).bottom + 24,
+              ),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title field.
+                    _SheetField(
+                      controller: _titleCtrl,
+                      label: 'Title',
+                      hint: 'Announcement title',
+                      cs: cs,
+                      isDark: isDark,
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    // Content field — multiline.
+                    _SheetField(
+                      controller: _contentCtrl,
+                      label: 'Content',
+                      hint: 'Write your message...',
+                      cs: cs,
+                      isDark: isDark,
+                      maxLines: 6,
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    ),
+
+                    const SizedBox(height: 18),
+
+                    // ── Audience targeting ───────────────────────────────
+                    _SectionLabel(label: 'Audience', cs: cs),
+                    const SizedBox(height: 8),
+
+                    _AudienceCheckbox(
+                      label: 'Everyone',
+                      value: _audienceAll,
+                      cs: cs,
+                      onChanged: (v) {
+                        setState(() {
+                          _audienceAll = v ?? true;
+                          if (_audienceAll) {
+                            _audienceStudents = false;
+                            _audienceGuardians = false;
+                            _audienceTeachers = false;
+                            _audienceStaff = false;
+                          }
+                        });
+                      },
+                    ),
+                    if (!_audienceAll) ...[
+                      _AudienceCheckbox(
+                        label: 'Students',
+                        value: _audienceStudents,
+                        cs: cs,
+                        onChanged: (v) =>
+                            setState(() => _audienceStudents = v ?? false),
+                      ),
+                      _AudienceCheckbox(
+                        label: 'Guardians',
+                        value: _audienceGuardians,
+                        cs: cs,
+                        onChanged: (v) =>
+                            setState(() => _audienceGuardians = v ?? false),
+                      ),
+                      _AudienceCheckbox(
+                        label: 'Teachers',
+                        value: _audienceTeachers,
+                        cs: cs,
+                        onChanged: (v) =>
+                            setState(() => _audienceTeachers = v ?? false),
+                      ),
+                      _AudienceCheckbox(
+                        label: 'Staff',
+                        value: _audienceStaff,
+                        cs: cs,
+                        onChanged: (v) =>
+                            setState(() => _audienceStaff = v ?? false),
+                      ),
+                    ],
+
+                    const SizedBox(height: 18),
+
+                    // ── Grade / stream targeting ─────────────────────────
+                    _SectionLabel(label: 'Target class (optional)', cs: cs),
+                    const SizedBox(height: 8),
+
+                    // Grade dropdown.
+                    _DropdownField<int?>(
+                      label: 'Grade',
+                      value: _selectedGrade,
+                      items: [
+                        const DropdownMenuItem(
+                          value: null,
+                          child: Text('All grades'),
+                        ),
+                        for (final g in _gradeOptions)
+                          DropdownMenuItem(
+                            value: g,
+                            child: Text(_gradeLabel(g)),
+                          ),
+                      ],
+                      cs: cs,
+                      isDark: isDark,
+                      onChanged: (v) {
+                        setState(() {
+                          _selectedGrade = v;
+                          _selectedStream = null;
+                        });
+                      },
+                    ),
+
+                    if (_selectedGrade != null &&
+                        _streamOptions.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      _DropdownField<int?>(
+                        label: 'Stream',
+                        value: _selectedStream,
+                        items: [
+                          const DropdownMenuItem(
+                            value: null,
+                            child: Text('All streams'),
+                          ),
+                          for (final s in _streamOptions)
+                            DropdownMenuItem(
+                              value: s.code,
+                              child: Text(s.name),
+                            ),
+                        ],
+                        cs: cs,
+                        isDark: isDark,
+                        onChanged: (v) => setState(() => _selectedStream = v),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
