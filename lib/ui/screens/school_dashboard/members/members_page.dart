@@ -4527,120 +4527,156 @@ class _StaffInfoSheet extends StatelessWidget {
     showEduSheet(
       context: context,
       title: 'Edit Staff',
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          left: 24,
-          right: 24,
-          top: 12,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Role field
-            TextField(
-              controller: roleCtrl,
-              style: TextStyle(fontSize: 13.5, color: cs.onSurface),
-              decoration: InputDecoration(
-                labelText: 'Role',
-                labelStyle: TextStyle(
-                  fontSize: 12.5,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-              ),
+      builder: (ctx) {
+        final sheetCs = Theme.of(ctx).colorScheme;
+        final sheetIsDark = sheetCs.brightness == Brightness.dark;
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(ctx).height * 0.92,
+          ),
+          decoration: BoxDecoration(
+            color: AppTheme.modalBg(sheetIsDark, sheetCs),
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(AppTheme.kModalRadius),
             ),
-            const SizedBox(height: 14),
-
-            // Department field
-            TextField(
-              controller: deptCtrl,
-              style: TextStyle(fontSize: 13.5, color: cs.onSurface),
-              decoration: InputDecoration(
-                labelText: 'Department',
-                labelStyle: TextStyle(
-                  fontSize: 12.5,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-
-            // ID Number field
-            TextField(
-              controller: idCtrl,
-              style: TextStyle(fontSize: 13.5, color: cs.onSurface),
-              decoration: InputDecoration(
-                labelText: 'ID Number',
-                labelStyle: TextStyle(
-                  fontSize: 12.5,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Save button
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () async {
-                  final role = roleCtrl.text.trim().isEmpty
-                      ? null
-                      : roleCtrl.text.trim();
-                  final dept = deptCtrl.text.trim().isEmpty
-                      ? null
-                      : deptCtrl.text.trim();
-                  final idNum = idCtrl.text.trim().isEmpty
-                      ? null
-                      : idCtrl.text.trim();
-
-                  await service.updateStaff(
-                    schoolId: schoolId,
-                    userId: member.user,
-                    role: role,
-                    department: dept,
-                    idNumber: idNum,
-                  );
-
-                  if (ctx.mounted) Navigator.pop(ctx);
-                },
-                style: FilledButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 10, bottom: 6),
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: sheetCs.onSurfaceVariant.withValues(alpha: 0.28),
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                child: const Text(
-                  'Save',
-                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500),
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(
+                    24,
+                    8,
+                    24,
+                    MediaQuery.viewInsetsOf(ctx).bottom + 24,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Role field
+                      TextField(
+                        controller: roleCtrl,
+                        style: TextStyle(fontSize: 13.5, color: cs.onSurface),
+                        decoration: InputDecoration(
+                          labelText: 'Role',
+                          labelStyle: TextStyle(
+                            fontSize: 12.5,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Department field
+                      TextField(
+                        controller: deptCtrl,
+                        style: TextStyle(fontSize: 13.5, color: cs.onSurface),
+                        decoration: InputDecoration(
+                          labelText: 'Department',
+                          labelStyle: TextStyle(
+                            fontSize: 12.5,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // ID Number field
+                      TextField(
+                        controller: idCtrl,
+                        style: TextStyle(fontSize: 13.5, color: cs.onSurface),
+                        decoration: InputDecoration(
+                          labelText: 'ID Number',
+                          labelStyle: TextStyle(
+                            fontSize: 12.5,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Save button
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          onPressed: () async {
+                            final role = roleCtrl.text.trim().isEmpty
+                                ? null
+                                : roleCtrl.text.trim();
+                            final dept = deptCtrl.text.trim().isEmpty
+                                ? null
+                                : deptCtrl.text.trim();
+                            final idNum = idCtrl.text.trim().isEmpty
+                                ? null
+                                : idCtrl.text.trim();
+
+                            await service.updateStaff(
+                              schoolId: schoolId,
+                              userId: member.user,
+                              role: role,
+                              department: dept,
+                              idNumber: idNum,
+                            );
+
+                            if (ctx.mounted) Navigator.pop(ctx);
+                          },
+                          style: FilledButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          child: const Text(
+                            'Save',
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -4980,143 +5016,188 @@ class _WardItem extends StatelessWidget {
       context: context,
       title: 'Edit Guardian',
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) => Padding(
-          padding: EdgeInsets.only(
-            left: 24,
-            right: 24,
-            top: 12,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Relationship dropdown
-              Text(
-                'Relationship',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                ),
+        builder: (ctx, setSheetState) {
+          final sheetCs = Theme.of(ctx).colorScheme;
+          final sheetIsDark = sheetCs.brightness == Brightness.dark;
+          return Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(ctx).height * 0.92,
+            ),
+            decoration: BoxDecoration(
+              color: AppTheme.modalBg(sheetIsDark, sheetCs),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(AppTheme.kModalRadius),
               ),
-              const SizedBox(height: 6),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: cs.outlineVariant.withValues(alpha: 0.4),
-                  ),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<GuardianRelationship>(
-                    value: selectedRelationship,
-                    isExpanded: true,
-                    style: TextStyle(fontSize: 13.5, color: cs.onSurface),
-                    dropdownColor: isDarkLocal
-                        ? const Color(0xFF18222E)
-                        : cs.surface,
-                    items: GuardianRelationship.values
-                        .map(
-                          (r) =>
-                              DropdownMenuItem(value: r, child: Text(r.name)),
-                        )
-                        .toList(),
-                    onChanged: (v) {
-                      if (v != null) {
-                        setSheetState(() => selectedRelationship = v);
-                      }
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              // Role dropdown
-              Text(
-                'Role',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: cs.outlineVariant.withValues(alpha: 0.4),
-                  ),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<GuardianRole>(
-                    value: selectedRole,
-                    isExpanded: true,
-                    style: TextStyle(fontSize: 13.5, color: cs.onSurface),
-                    dropdownColor: isDarkLocal
-                        ? const Color(0xFF18222E)
-                        : cs.surface,
-                    items: GuardianRole.values
-                        .map(
-                          (r) =>
-                              DropdownMenuItem(value: r, child: Text(r.name)),
-                        )
-                        .toList(),
-                    onChanged: (v) {
-                      if (v != null) {
-                        setSheetState(() => selectedRole = v);
-                      }
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Save button
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: () async {
-                    final relChanged =
-                        selectedRelationship != guardian.relationship;
-                    final roleChanged = selectedRole != guardian.role;
-
-                    if (!relChanged && !roleChanged) {
-                      Navigator.pop(ctx);
-                      return;
-                    }
-
-                    await service.updateGuardian(
-                      schoolId: schoolId,
-                      userId: guardian.user,
-                      studentAdm: guardian.student,
-                      relationship: relChanged ? selectedRelationship : null,
-                      role: roleChanged ? selectedRole : null,
-                    );
-
-                    if (ctx.mounted) Navigator.pop(ctx);
-                  },
-                  style: FilledButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  child: const Text(
-                    'Save',
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w500,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.only(top: 10, bottom: 6),
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: sheetCs.onSurfaceVariant.withValues(alpha: 0.28),
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        ),
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(
+                      24,
+                      8,
+                      24,
+                      MediaQuery.viewInsetsOf(ctx).bottom + 24,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Relationship dropdown
+                        Text(
+                          'Relationship',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: cs.outlineVariant.withValues(alpha: 0.4),
+                            ),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<GuardianRelationship>(
+                              value: selectedRelationship,
+                              isExpanded: true,
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                color: cs.onSurface,
+                              ),
+                              dropdownColor: isDarkLocal
+                                  ? const Color(0xFF18222E)
+                                  : cs.surface,
+                              items: GuardianRelationship.values
+                                  .map(
+                                    (r) => DropdownMenuItem(
+                                      value: r,
+                                      child: Text(r.name),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (v) {
+                                if (v != null) {
+                                  setSheetState(() => selectedRelationship = v);
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Role dropdown
+                        Text(
+                          'Role',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: cs.outlineVariant.withValues(alpha: 0.4),
+                            ),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<GuardianRole>(
+                              value: selectedRole,
+                              isExpanded: true,
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                color: cs.onSurface,
+                              ),
+                              dropdownColor: isDarkLocal
+                                  ? const Color(0xFF18222E)
+                                  : cs.surface,
+                              items: GuardianRole.values
+                                  .map(
+                                    (r) => DropdownMenuItem(
+                                      value: r,
+                                      child: Text(r.name),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (v) {
+                                if (v != null) {
+                                  setSheetState(() => selectedRole = v);
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Save button
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton(
+                            onPressed: () async {
+                              final relChanged =
+                                  selectedRelationship != guardian.relationship;
+                              final roleChanged = selectedRole != guardian.role;
+
+                              if (!relChanged && !roleChanged) {
+                                Navigator.pop(ctx);
+                                return;
+                              }
+
+                              await service.updateGuardian(
+                                schoolId: schoolId,
+                                userId: guardian.user,
+                                studentAdm: guardian.student,
+                                relationship: relChanged
+                                    ? selectedRelationship
+                                    : null,
+                                role: roleChanged ? selectedRole : null,
+                              );
+
+                              if (ctx.mounted) Navigator.pop(ctx);
+                            },
+                            style: FilledButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            child: const Text(
+                              'Save',
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

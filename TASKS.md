@@ -249,8 +249,8 @@ For each of these three inline sheets:
 6. **Edit guardian** — has dropdowns + save button. Same treatment (dropdowns don't trigger keyboard, but consistency matters).
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `fix: member edit sheets mobile keyboard handling`
+- [x] Mark this task `[x]`
+- [x] Git commit: `fix: member edit sheets mobile keyboard handling`
 
 ---
 
