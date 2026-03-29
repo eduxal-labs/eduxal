@@ -939,7 +939,7 @@ class _PermissionsTabState extends State<_PermissionsTab> {
     final isSuperUser = widget.permissions.level == UserLevel.super_;
     final groups = _buildResourceGroups(isSuperUser: isSuperUser);
 
-    final activeGrouped = _groupByResource(_editPermissions);
+    final hasAnyPermissions = _editPermissions.values.any((v) => v == true);
     final hasChanges = _hasChanges;
     final changes = _changeSummary;
     final selectionMode = _selectedResources.isNotEmpty;
@@ -981,81 +981,103 @@ class _PermissionsTabState extends State<_PermissionsTab> {
 
         // ── Resource list ─────────────────────────────────────────────────
         Expanded(
-          child: activeGrouped.isEmpty
-              ? _PermissionsEmptyState(cs: cs)
-              : ListView.builder(
-                  padding: EdgeInsets.fromLTRB(
-                    widget.horizontalPadding,
-                    16,
-                    widget.horizontalPadding,
-                    40,
+          child: ListView.builder(
+            padding: EdgeInsets.fromLTRB(
+              widget.horizontalPadding,
+              16,
+              widget.horizontalPadding,
+              40,
+            ),
+            itemCount: groups.length + (hasAnyPermissions ? 0 : 1),
+            itemBuilder: (context, index) {
+              // ── Info banner when no permissions are set ──
+              if (!hasAnyPermissions && index == 0) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
                   ),
-                  itemCount: groups.length,
-                  itemBuilder: (context, gi) {
-                    final group = groups[gi];
-                    final activeResources = group.resources.entries
-                        .where(
-                          (e) => e.value.any(
-                            (a) => _editPermissions['${e.key}.$a'] == true,
-                          ),
-                        )
-                        .toList();
-
-                    if (activeResources.isEmpty) return const SizedBox.shrink();
-
-                    return Padding(
-                      padding: EdgeInsets.only(
-                        bottom: gi < groups.length - 1 ? 20 : 0,
+                  decoration: BoxDecoration(
+                    color: cs.primaryContainer.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: cs.primary.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline_rounded,
+                        size: 16,
+                        color: cs.primary.withValues(alpha: 0.7),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Text(
-                              group.label.toUpperCase(),
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: cs.onSurfaceVariant.withValues(
-                                  alpha: 0.45,
-                                ),
-                                letterSpacing: 1.2,
-                              ),
-                            ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'No permissions configured yet. Expand a resource to start granting actions.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: cs.onSurfaceVariant,
                           ),
-                          ...activeResources.map((entry) {
-                            return _ResourceRow(
-                              resource: entry.key,
-                              allActions: entry.value,
-                              editPermissions: _editPermissions,
-                              originalPermissions: _originalPermissions,
-                              isExpanded: _expandedResources.contains(
-                                entry.key,
-                              ),
-                              isSelected: _selectedResources.contains(
-                                entry.key,
-                              ),
-                              selectionMode: selectionMode,
-                              changeSummary: _resourceChangeSummary(entry.key),
-                              canEdit: widget.permissions.can(
-                                Resource.roles,
-                                Action.update,
-                              ),
-                              isLight: isLight,
-                              onToggleExpand: () => _toggleExpand(entry.key),
-                              onToggleSelection: () =>
-                                  _toggleResourceSelection(entry.key),
-                              onTogglePermission: _togglePermission,
-                              onRemove: () => _removeResource(entry.key),
-                              cs: cs,
-                            );
-                          }),
-                        ],
+                        ),
                       ),
-                    );
-                  },
+                    ],
+                  ),
+                );
+              }
+
+              final gi = hasAnyPermissions ? index : index - 1;
+              final group = groups[gi];
+              final allResources = group.resources.entries.toList();
+
+              return Padding(
+                padding: EdgeInsets.only(
+                  bottom: gi < groups.length - 1 ? 20 : 0,
                 ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        group.label.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ),
+                    ...allResources.map((entry) {
+                      return _ResourceRow(
+                        resource: entry.key,
+                        allActions: entry.value,
+                        editPermissions: _editPermissions,
+                        originalPermissions: _originalPermissions,
+                        isExpanded: _expandedResources.contains(entry.key),
+                        isSelected: _selectedResources.contains(entry.key),
+                        selectionMode: selectionMode,
+                        changeSummary: _resourceChangeSummary(entry.key),
+                        canEdit: widget.permissions.can(
+                          Resource.roles,
+                          Action.update,
+                        ),
+                        isLight: isLight,
+                        onToggleExpand: () => _toggleExpand(entry.key),
+                        onToggleSelection: () =>
+                            _toggleResourceSelection(entry.key),
+                        onTogglePermission: _togglePermission,
+                        onRemove: () => _removeResource(entry.key),
+                        cs: cs,
+                      );
+                    }),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ],
     );
@@ -1611,58 +1633,6 @@ class _ExpandedPermissions extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // Empty state — no permissions
 // ─────────────────────────────────────────────────────────────────────────────
-
-class _PermissionsEmptyState extends StatelessWidget {
-  const _PermissionsEmptyState({required this.cs});
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                Icons.shield_outlined,
-                size: 24,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.35),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No permissions assigned',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: cs.onSurface.withValues(alpha: 0.7),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'This role has no permissions. Edit the role to add resource permissions.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                height: 1.4,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Assigned Tab

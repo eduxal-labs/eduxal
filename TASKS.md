@@ -374,8 +374,8 @@ The `_AssignUserSheet` (around line 1950–2256) already has its own Container w
 Fix: Add `MediaQuery.viewInsetsOf(context).bottom` to the ListView's bottom padding so keyboard doesn't obscure search results.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `fix: assign user sheet keyboard handling`
+- [x] Mark this task `[x]`
+- [x] Git commit: `fix: assign user sheet keyboard handling`
 
 ---
 

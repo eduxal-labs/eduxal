@@ -1133,149 +1133,150 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
     final ctrl = TextEditingController(text: currentName);
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final sheetBg = isDark ? const Color(0xFF18222E) : cs.surface;
 
     await showEduSheet<void>(
       context: context,
-      builder: (_) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
+      builder: (_) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.92,
         ),
-        child: Container(
-          decoration: BoxDecoration(
-            color: sheetBg,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.1),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
+        decoration: BoxDecoration(
+          color: AppTheme.modalBg(isDark, cs),
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(AppTheme.kModalRadius),
           ),
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Drag handle
-              Center(
-                child: Container(
-                  width: 32,
-                  height: 3.5,
-                  margin: const EdgeInsets.only(bottom: 14),
-                  decoration: BoxDecoration(
-                    color: cs.outlineVariant.withValues(
-                      alpha: isDark ? 0.4 : 0.5,
-                    ),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(top: 10, bottom: 6),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.28),
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              Text(
-                'Edit Exam Name',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: cs.onSurface,
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  8,
+                  16,
+                  MediaQuery.viewInsetsOf(context).bottom + 20,
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: ctrl,
-                autofocus: true,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurface,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'e.g. Mid-Term Exam',
-                  hintStyle: TextStyle(
-                    fontSize: 13,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                  ),
-                  filled: true,
-                  fillColor: isDark
-                      ? const Color(0xFF1E2C3C)
-                      : cs.surfaceContainerHighest.withValues(alpha: 0.5),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(
-                      color: cs.outlineVariant.withValues(
-                        alpha: isDark ? 0.3 : 0.5,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Edit Exam Name',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: cs.onSurface,
                       ),
                     ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(
-                      color: cs.outlineVariant.withValues(
-                        alpha: isDark ? 0.25 : 0.4,
-                      ),
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(
-                      color: cs.primary.withValues(alpha: 0.7),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: TextButton.styleFrom(
-                      splashFactory: NoSplash.splashFactory,
-                    ),
-                    child: Text(
-                      'Cancel',
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: ctrl,
+                      autofocus: true,
                       style: TextStyle(
                         fontSize: 13,
-                        color: cs.onSurfaceVariant,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurface,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'e.g. Mid-Term Exam',
+                        hintStyle: TextStyle(
+                          fontSize: 13,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                        ),
+                        filled: true,
+                        fillColor: isDark
+                            ? const Color(0xFF1E2C3C)
+                            : cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: cs.outlineVariant.withValues(
+                              alpha: isDark ? 0.3 : 0.5,
+                            ),
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: cs.outlineVariant.withValues(
+                              alpha: isDark ? 0.25 : 0.4,
+                            ),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: cs.primary.withValues(alpha: 0.7),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton.icon(
-                    onPressed: () async {
-                      final name = ctrl.text.trim();
-                      if (name.isEmpty) return;
-                      Navigator.of(context).pop();
-                      final accountId = cache.currentUser?.user.id;
-                      if (accountId == null) return;
-                      await _dao.updateExamName(
-                        examIds: group.examIds,
-                        name: name,
-                        accountId: accountId,
-                      );
-                    },
-                    icon: const Icon(Icons.check_rounded, size: 16),
-                    label: const Text('Save', style: TextStyle(fontSize: 13)),
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
+                    const SizedBox(height: 14),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: TextButton.styleFrom(
+                            splashFactory: NoSplash.splashFactory,
+                          ),
+                          child: Text(
+                            'Cancel',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton.icon(
+                          onPressed: () async {
+                            final name = ctrl.text.trim();
+                            if (name.isEmpty) return;
+                            Navigator.of(context).pop();
+                            final accountId = cache.currentUser?.user.id;
+                            if (accountId == null) return;
+                            await _dao.updateExamName(
+                              examIds: group.examIds,
+                              name: name,
+                              accountId: accountId,
+                            );
+                          },
+                          icon: const Icon(Icons.check_rounded, size: 16),
+                          label: const Text(
+                            'Save',
+                            style: TextStyle(fontSize: 13),
+                          ),
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 8,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
