@@ -203,50 +203,88 @@ class _AccountScreenState extends State<AccountScreen>
       context: context,
       title: 'Edit name',
       builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                EduFormField(
-                  controller: controller,
-                  label: 'Display name',
-                  hint: 'Your name',
-                  autofocus: true,
-                  textCapitalization: TextCapitalization.words,
-                  validator: (value) {
-                    final trimmed = value?.trim() ?? '';
-                    if (trimmed.length < 2) {
-                      return 'Name must be at least 2 characters';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  height: 48,
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppTheme.brandGreen,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppTheme.kRadius),
-                      ),
-                    ),
-                    onPressed: () async {
-                      if (!formKey.currentState!.validate()) return;
-                      final newName = controller.text.trim();
-                      await accountsDao.updateName(userId, newName);
-                      if (ctx.mounted) Navigator.pop(ctx);
-                    },
-                    child: const Text('Save'),
+        final cs = Theme.of(ctx).colorScheme;
+        final isDark = cs.brightness == Brightness.dark;
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(ctx).height * 0.92,
+          ),
+          decoration: BoxDecoration(
+            color: AppTheme.modalBg(isDark, cs),
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(AppTheme.kModalRadius),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 10, bottom: 6),
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.28),
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-              ],
-            ),
+              ),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    8,
+                    16,
+                    MediaQuery.viewInsetsOf(ctx).bottom + 16,
+                  ),
+                  child: Form(
+                    key: formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        EduFormField(
+                          controller: controller,
+                          label: 'Display name',
+                          hint: 'Your name',
+                          autofocus: true,
+                          textCapitalization: TextCapitalization.words,
+                          validator: (value) {
+                            final trimmed = value?.trim() ?? '';
+                            if (trimmed.length < 2) {
+                              return 'Name must be at least 2 characters';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          height: 48,
+                          child: FilledButton(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppTheme.brandGreen,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.kRadius,
+                                ),
+                              ),
+                            ),
+                            onPressed: () async {
+                              if (!formKey.currentState!.validate()) return;
+                              final newName = controller.text.trim();
+                              await accountsDao.updateName(userId, newName);
+                              if (ctx.mounted) Navigator.pop(ctx);
+                            },
+                            child: const Text('Save'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -265,52 +303,91 @@ class _AccountScreenState extends State<AccountScreen>
       context: context,
       title: 'Edit email',
       builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                EduFormField(
-                  controller: controller,
-                  label: 'Email address',
-                  hint: 'you@example.com',
-                  autofocus: true,
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (value) {
-                    final trimmed = value?.trim() ?? '';
-                    if (trimmed.isEmpty) return null;
-                    if (!trimmed.contains('@') || !trimmed.contains('.')) {
-                      return 'Enter a valid email address';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  height: 48,
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppTheme.brandGreen,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppTheme.kRadius),
-                      ),
-                    ),
-                    onPressed: () async {
-                      if (!formKey.currentState!.validate()) return;
-                      final raw = controller.text.trim();
-                      final email = raw.isEmpty ? null : raw;
-                      await accountsDao.updateEmail(userId, email);
-                      if (ctx.mounted) Navigator.pop(ctx);
-                    },
-                    child: const Text('Save'),
+        final cs = Theme.of(ctx).colorScheme;
+        final isDark = cs.brightness == Brightness.dark;
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(ctx).height * 0.92,
+          ),
+          decoration: BoxDecoration(
+            color: AppTheme.modalBg(isDark, cs),
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(AppTheme.kModalRadius),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 10, bottom: 6),
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.28),
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-              ],
-            ),
+              ),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    8,
+                    16,
+                    MediaQuery.viewInsetsOf(ctx).bottom + 16,
+                  ),
+                  child: Form(
+                    key: formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        EduFormField(
+                          controller: controller,
+                          label: 'Email address',
+                          hint: 'you@example.com',
+                          autofocus: true,
+                          keyboardType: TextInputType.emailAddress,
+                          validator: (value) {
+                            final trimmed = value?.trim() ?? '';
+                            if (trimmed.isEmpty) return null;
+                            if (!trimmed.contains('@') ||
+                                !trimmed.contains('.')) {
+                              return 'Enter a valid email address';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          height: 48,
+                          child: FilledButton(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppTheme.brandGreen,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.kRadius,
+                                ),
+                              ),
+                            ),
+                            onPressed: () async {
+                              if (!formKey.currentState!.validate()) return;
+                              final raw = controller.text.trim();
+                              final email = raw.isEmpty ? null : raw;
+                              await accountsDao.updateEmail(userId, email);
+                              if (ctx.mounted) Navigator.pop(ctx);
+                            },
+                            child: const Text('Save'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -347,127 +424,164 @@ class _AccountScreenState extends State<AccountScreen>
       builder: (ctx) {
         final theme = Theme.of(ctx);
         final cs = theme.colorScheme;
+        final isDark = cs.brightness == Brightness.dark;
 
-        return SafeArea(
-          top: false,
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(ctx).height * 0.92,
+          ),
+          decoration: BoxDecoration(
+            color: AppTheme.modalBg(isDark, cs),
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(AppTheme.kModalRadius),
+            ),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // ── Other accounts ──────────────────────────────────────
-              if (others.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 16,
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 10, bottom: 6),
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.28),
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                  child: Text(
-                    'No other accounts on this device.',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
-                )
-              else
-                ...others.map((account) {
-                  return InkWell(
-                    onTap: () async {
-                      Navigator.pop(ctx);
-                      final result = await client.switchAccount(
-                        account.user.id,
-                      );
-                      if (!mounted) return;
-                      if (result == null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Session expired. Please log in again.',
-                            ),
-                          ),
-                        );
-                        _navigateToLogin(replaceAll: true);
-                      } else {
-                        // Switched — go to home.
-                        _navigateToHome();
-                      }
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
-                      ),
-                      child: Row(
-                        children: [
-                          UserAvatar(userId: account.user.id, radius: 20),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  account.user.name,
-                                  style: theme.textTheme.bodyMedium,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  _formatPhone(account.user.phone),
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: cs.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }),
-
-              // ── Divider ─────────────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Divider(
-                  indent: 20,
-                  endIndent: 20,
-                  height: 1,
-                  color: cs.outlineVariant,
                 ),
               ),
-
-              // ── Add account ─────────────────────────────────────────
-              InkWell(
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _navigateToLogin();
-                },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.viewInsetsOf(ctx).bottom + 16,
                   ),
-                  child: Row(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: cs.surfaceContainerHighest,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.person_add_alt_1_rounded,
-                          size: 18,
-                          color: AppTheme.brandGreen,
+                      // ── Other accounts ──────────────────────────────
+                      if (others.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 16,
+                          ),
+                          child: Text(
+                            'No other accounts on this device.',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        )
+                      else
+                        ...others.map((account) {
+                          return InkWell(
+                            onTap: () async {
+                              Navigator.pop(ctx);
+                              final result = await client.switchAccount(
+                                account.user.id,
+                              );
+                              if (!mounted) return;
+                              if (result == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Session expired. Please log in again.',
+                                    ),
+                                  ),
+                                );
+                                _navigateToLogin(replaceAll: true);
+                              } else {
+                                // Switched — go to home.
+                                _navigateToHome();
+                              }
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 12,
+                              ),
+                              child: Row(
+                                children: [
+                                  UserAvatar(
+                                    userId: account.user.id,
+                                    radius: 20,
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          account.user.name,
+                                          style: theme.textTheme.bodyMedium,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          _formatPhone(account.user.phone),
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                                color: cs.onSurfaceVariant,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }),
+
+                      // ── Divider ─────────────────────────────────────
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Divider(
+                          indent: 20,
+                          endIndent: 20,
+                          height: 1,
+                          color: cs.outlineVariant,
                         ),
                       ),
-                      const SizedBox(width: 14),
-                      Text(
-                        'Add account',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: AppTheme.brandGreen,
+
+                      // ── Add account ─────────────────────────────────
+                      InkWell(
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _navigateToLogin();
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: cs.surfaceContainerHighest,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.person_add_alt_1_rounded,
+                                  size: 18,
+                                  color: AppTheme.brandGreen,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Text(
+                                'Add account',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: AppTheme.brandGreen,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
@@ -1431,38 +1545,51 @@ class _ChangePhoneSheetState extends State<_ChangePhoneSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
 
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.92,
       ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-          child: AnimatedSize(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOut,
-            alignment: Alignment.topCenter,
-            child: _onOtpStep
-                ? _buildOtpStep(theme, cs)
-                : _buildPhoneStep(theme, cs),
+      decoration: BoxDecoration(
+        color: AppTheme.modalBg(isDark, cs),
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(AppTheme.kModalRadius),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 10, bottom: 6),
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: cs.onSurfaceVariant.withValues(alpha: 0.28),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
           ),
-        ),
-      ),
-    );
-  }
-
-  // ── Handle bar ─────────────────────────────────────────────────────────────
-
-  Widget _buildHandle(ColorScheme cs) {
-    return Center(
-      child: Container(
-        width: 36,
-        height: 4,
-        decoration: BoxDecoration(
-          color: cs.onSurfaceVariant.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(2),
-        ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                8,
+                20,
+                MediaQuery.viewInsetsOf(context).bottom + 24,
+              ),
+              child: AnimatedSize(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOut,
+                alignment: Alignment.topCenter,
+                child: _onOtpStep
+                    ? _buildOtpStep(theme, cs)
+                    : _buildPhoneStep(theme, cs),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1510,8 +1637,6 @@ class _ChangePhoneSheetState extends State<_ChangePhoneSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildHandle(cs),
-          const SizedBox(height: 20),
           Text(
             'Change phone number',
             style: TextStyle(
@@ -1592,8 +1717,6 @@ class _ChangePhoneSheetState extends State<_ChangePhoneSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildHandle(cs),
-          const SizedBox(height: 20),
           Row(
             children: [
               GestureDetector(

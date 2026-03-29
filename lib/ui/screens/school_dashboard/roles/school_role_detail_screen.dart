@@ -1545,83 +1545,98 @@ class _ExpandedPermissions extends StatelessWidget {
         ),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
+        padding: const EdgeInsets.fromLTRB(14, 6, 14, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: applicableActions.map((action) {
-            final isOn = currentMask & action.mask != 0;
-            final wasOn = originalMask & action.mask != 0;
+            final isOn = (currentMask & action.mask) != 0;
+            final wasOn = (originalMask & action.mask) != 0;
             final changed = isOn != wasOn;
-            final color = _kActionColors[action] ?? cs.onSurfaceVariant;
-            final icon = _kActionIcons[action] ?? Icons.circle_outlined;
+            final color = _kActionColors[action] ?? cs.primary;
+            final icon = _kActionIcons[action] ?? Icons.help_outline;
 
-            return Tooltip(
-              message: action.label,
-              child: GestureDetector(
+            return Material(
+              color: Colors.transparent,
+              child: InkWell(
                 onTap: () => onToggle(resource, action),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      curve: Curves.easeOut,
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 7,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        icon,
+                        size: 16,
                         color: isOn
-                            ? color.withValues(alpha: 0.12)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: isOn
-                              ? color.withValues(alpha: 0.35)
-                              : cs.outlineVariant.withValues(alpha: 0.4),
-                          width: 1,
+                            ? color.withValues(alpha: 0.85)
+                            : cs.onSurfaceVariant.withValues(alpha: 0.25),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          action.label,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                            color: isOn
+                                ? cs.onSurface
+                                : cs.onSurfaceVariant.withValues(alpha: 0.45),
+                            letterSpacing: 0.1,
+                          ),
                         ),
                       ),
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Icon(
-                            icon,
-                            size: 16,
-                            color: isOn
-                                ? color
-                                : cs.onSurfaceVariant.withValues(alpha: 0.35),
+                      if (changed) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 1,
                           ),
-                          // Changed indicator dot (top-right corner)
-                          if (changed)
-                            Positioned(
-                              top: 3,
-                              right: 3,
-                              child: Container(
-                                width: 5,
-                                height: 5,
-                                decoration: BoxDecoration(
-                                  color: isOn
-                                      ? const Color(0xFF66BB6A)
-                                      : const Color(0xFFEF5350),
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
+                          decoration: BoxDecoration(
+                            color: isOn
+                                ? const Color(0xFF66BB6A).withValues(alpha: 0.1)
+                                : const Color(
+                                    0xFFEF5350,
+                                  ).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            isOn ? 'added' : 'removed',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                              color: isOn
+                                  ? const Color(0xFF66BB6A)
+                                  : const Color(0xFFEF5350),
+                              letterSpacing: 0.3,
                             ),
-                        ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      SizedBox(
+                        width: 36,
+                        height: 22,
+                        child: FittedBox(
+                          child: Switch(
+                            value: isOn,
+                            onChanged: (_) => onToggle(resource, action),
+                            activeTrackColor: color.withValues(alpha: 0.3),
+                            activeThumbColor: color,
+                            inactiveTrackColor: cs.surfaceContainerHighest
+                                .withValues(alpha: 0.5),
+                            inactiveThumbColor: cs.onSurfaceVariant.withValues(
+                              alpha: 0.3,
+                            ),
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      action.label,
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w400,
-                        color: isOn
-                            ? cs.onSurface.withValues(alpha: 0.75)
-                            : cs.onSurfaceVariant.withValues(alpha: 0.4),
-                        letterSpacing: 0.1,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             );

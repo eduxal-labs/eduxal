@@ -284,80 +284,129 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
     bool isFirstStream = false,
   }) {
     final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final nameCtrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
 
     showEduSheet(
       context: context,
-      title: isFirstStream
-          ? 'Name the first stream for $gradeLabel'
-          : 'Add stream to $gradeLabel',
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(16),
+      builder: (ctx) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(ctx).height * 0.92,
+        ),
+        decoration: BoxDecoration(
+          color: AppTheme.modalBg(isDark, cs),
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(AppTheme.kModalRadius),
+          ),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Form(
-              key: formKey,
-              child: EduFormField(
-                controller: nameCtrl,
-                label: 'Stream name',
-                hint: 'e.g. East, West',
-                autofocus: true,
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty)
-                    return 'Enter a stream name';
-                  if (existingStreams.any(
-                    (s) => s.name.toLowerCase() == v.trim().toLowerCase(),
-                  )) {
-                    return 'Stream already exists';
-                  }
-                  return null;
-                },
-                onFieldSubmitted: (_) => _submitAddStream(
-                  ctx,
-                  formKey,
-                  nameCtrl,
-                  gradeNum,
-                  existingStreams,
-                  isFirstStream: isFirstStream,
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(top: 10, bottom: 6),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.28),
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: Text(
-                    'Cancel',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w400,
-                      color: cs.onSurfaceVariant,
-                    ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  isFirstStream
+                      ? 'Name the first stream for $gradeLabel'
+                      : 'Add stream to $gradeLabel',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
                   ),
                 ),
-                TextButton(
-                  onPressed: () => _submitAddStream(
-                    ctx,
-                    formKey,
-                    nameCtrl,
-                    gradeNum,
-                    existingStreams,
-                    isFirstStream: isFirstStream,
-                  ),
-                  child: Text(
-                    'Add',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: cs.primary,
-                    ),
-                  ),
+              ),
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  12,
+                  20,
+                  MediaQuery.viewInsetsOf(ctx).bottom + 24,
                 ),
-              ],
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Form(
+                      key: formKey,
+                      child: EduFormField(
+                        controller: nameCtrl,
+                        label: 'Stream name',
+                        hint: 'e.g. East, West',
+                        autofocus: true,
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty)
+                            return 'Enter a stream name';
+                          if (existingStreams.any(
+                            (s) =>
+                                s.name.toLowerCase() == v.trim().toLowerCase(),
+                          )) {
+                            return 'Stream already exists';
+                          }
+                          return null;
+                        },
+                        onFieldSubmitted: (_) => _submitAddStream(
+                          ctx,
+                          formKey,
+                          nameCtrl,
+                          gradeNum,
+                          existingStreams,
+                          isFirstStream: isFirstStream,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: Text(
+                            'Cancel',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w400,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => _submitAddStream(
+                            ctx,
+                            formKey,
+                            nameCtrl,
+                            gradeNum,
+                            existingStreams,
+                            isFirstStream: isFirstStream,
+                          ),
+                          child: Text(
+                            'Add',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: cs.primary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
@@ -1557,30 +1606,34 @@ class _EditStreamsSheetState extends State<_EditStreamsSheet> {
     final isDark = cs.brightness == Brightness.dark;
     final activeStreams = _streams.where((s) => !s.removed).toList();
 
-    return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          20,
-          16,
-          20,
-          MediaQuery.of(context).viewInsets.bottom + 16,
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.92,
+      ),
+      decoration: BoxDecoration(
+        color: AppTheme.modalBg(isDark, cs),
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(AppTheme.kModalRadius),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 32,
-                height: 3.5,
-                decoration: BoxDecoration(
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(2),
-                ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 10, bottom: 6),
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: cs.onSurfaceVariant.withValues(alpha: 0.28),
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 16),
-            Row(
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+            child: Row(
               children: [
                 Expanded(
                   child: Text(
@@ -1623,103 +1676,122 @@ class _EditStreamsSheetState extends State<_EditStreamsSheet> {
                   ),
               ],
             ),
-            const SizedBox(height: 14),
-            if (activeStreams.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Text(
-                  'All streams removed. Save to confirm.',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w400,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              )
-            else
-              ...List.generate(activeStreams.length, (i) {
-                final s = activeStreams[i];
-                final realIndex = _streams.indexOf(s);
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: s.controller,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w400,
-                            color: cs.onSurface,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: 'Stream name',
-                            hintStyle: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w400,
-                              color: cs.onSurfaceVariant.withValues(alpha: 0.4),
-                            ),
-                            filled: true,
-                            fillColor: isDark
-                                ? cs.surfaceContainerHighest.withValues(
-                                    alpha: 0.4,
-                                  )
-                                : cs.surfaceContainerHighest.withValues(
-                                    alpha: 0.3,
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                8,
+                20,
+                MediaQuery.viewInsetsOf(context).bottom + 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (activeStreams.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Text(
+                        'All streams removed. Save to confirm.',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w400,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    )
+                  else
+                    ...List.generate(activeStreams.length, (i) {
+                      final s = activeStreams[i];
+                      final realIndex = _streams.indexOf(s);
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: s.controller,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w400,
+                                  color: cs.onSurface,
+                                ),
+                                decoration: InputDecoration(
+                                  hintText: 'Stream name',
+                                  hintStyle: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w400,
+                                    color: cs.onSurfaceVariant.withValues(
+                                      alpha: 0.4,
+                                    ),
                                   ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(6),
-                              borderSide: BorderSide(
-                                color: cs.outline.withValues(alpha: 0.2),
+                                  filled: true,
+                                  fillColor: isDark
+                                      ? cs.surfaceContainerHighest.withValues(
+                                          alpha: 0.4,
+                                        )
+                                      : cs.surfaceContainerHighest.withValues(
+                                          alpha: 0.3,
+                                        ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(6),
+                                    borderSide: BorderSide(
+                                      color: cs.outline.withValues(alpha: 0.2),
+                                    ),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(6),
+                                    borderSide: BorderSide(
+                                      color: cs.outline.withValues(alpha: 0.2),
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(6),
+                                    borderSide: BorderSide(
+                                      color: cs.primary,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 10,
+                                  ),
+                                  isDense: true,
+                                  prefixText: '${s.code}  ',
+                                  prefixStyle: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w400,
+                                    color: cs.onSurfaceVariant.withValues(
+                                      alpha: 0.4,
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(6),
-                              borderSide: BorderSide(
-                                color: cs.outline.withValues(alpha: 0.2),
+                            const SizedBox(width: 6),
+                            InkWell(
+                              onTap: () => _removeStream(realIndex),
+                              borderRadius: BorderRadius.circular(4),
+                              child: Padding(
+                                padding: const EdgeInsets.all(6),
+                                child: Icon(
+                                  Icons.close_rounded,
+                                  size: 16,
+                                  color: cs.error.withValues(alpha: 0.6),
+                                ),
                               ),
                             ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(6),
-                              borderSide: BorderSide(
-                                color: cs.primary,
-                                width: 1,
-                              ),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
-                            ),
-                            isDense: true,
-                            prefixText: '${s.code}  ',
-                            prefixStyle: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w400,
-                              color: cs.onSurfaceVariant.withValues(alpha: 0.4),
-                            ),
-                          ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      InkWell(
-                        onTap: () => _removeStream(realIndex),
-                        borderRadius: BorderRadius.circular(4),
-                        child: Padding(
-                          padding: const EdgeInsets.all(6),
-                          child: Icon(
-                            Icons.close_rounded,
-                            size: 16,
-                            color: cs.error.withValues(alpha: 0.6),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
-          ],
-        ),
+                      );
+                    }),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

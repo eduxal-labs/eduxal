@@ -719,8 +719,8 @@ Column(
 Keep the existing `_ResourceRow` collapse/expand behavior and the count badge ("3/5"). Only replace the inner action display from icon tiles to switch rows.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `ui: replace icon-tile permissions with switch-row pattern on school dashboard`
+- [x] Mark this task `[x]`
+- [x] Git commit: `ui: replace icon-tile permissions with switch-row pattern on school dashboard`
 
 ---
 
