@@ -324,8 +324,8 @@ For **each** sheet:
 4. Add `maxHeight` constraint on the outer Container.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `fix: finance sheets mobile keyboard handling`
+- [x] Mark this task `[x]`
+- [x] Git commit: `fix: finance sheets mobile keyboard handling`
 
 ---
 
@@ -355,8 +355,8 @@ For **each** sheet:
 - Fix: Add Container wrapper with background/radius and maxHeight.
 
 **Update after completion:**
-- [x] Mark this task `[x]`
-- [x] Git commit: `fix: exam and academic sheets mobile keyboard handling`
+- [ ] Mark this task `[x]`
+- [ ] Git commit: `fix: exam and academic sheets mobile keyboard handling`
 
 ---
 
@@ -408,8 +408,8 @@ Four sheets need fixing:
 - Fix: Add Container wrapper with background/radius, handle, maxHeight.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `fix: account screen sheets mobile keyboard handling`
+- [x] Mark this task `[x]`
+- [x] Git commit: `fix: account screen sheets mobile keyboard handling`
 
 ---
 
