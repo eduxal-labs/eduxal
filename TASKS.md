@@ -201,7 +201,7 @@ Wrap the entire widget in the standard mobile sheet pattern:
 5. **Remove the partial viewInsets hack** at the action button row (around line 658–663) — replace it with proper viewInsets padding.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Git commit: `fix: school role form sheet mobile keyboard handling`
 
 ---
