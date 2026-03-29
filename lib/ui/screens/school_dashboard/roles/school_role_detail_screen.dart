@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart' hide Column;
@@ -15,130 +14,7 @@ import '../../../theme/app_theme.dart';
 import '../../../widgets/animated_save_button.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_sheet.dart';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Resource groupings — uses the typed Resource enum from models/permissions.dart
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _ResourceGroup {
-  const _ResourceGroup(this.label, this.resources);
-  final String label;
-  final List<Resource> resources;
-}
-
-List<_ResourceGroup> _buildResourceGroups() => const [
-  _ResourceGroup('People', [
-    Resource.users,
-    Resource.students,
-    Resource.teachers,
-    Resource.staff,
-    Resource.owners,
-  ]),
-  _ResourceGroup('Academic', [
-    Resource.subjects,
-    Resource.lessons,
-    Resource.exams,
-    Resource.grades,
-    Resource.attendance,
-    Resource.classes,
-    Resource.departments,
-  ]),
-  _ResourceGroup('Finance', [Resource.fees, Resource.payments, Resource.plans]),
-  _ResourceGroup('School Admin', [
-    Resource.schools,
-    Resource.announcements,
-    Resource.ai,
-  ]),
-  _ResourceGroup('System', [Resource.roles]),
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Action colour / icon mapping
-// ─────────────────────────────────────────────────────────────────────────────
-
-const _kActionColors = <Action, Color>{
-  Action.read: Color(0xFF42A5F5),
-  Action.create: Color(0xFF66BB6A),
-  Action.update: Color(0xFFFFA726),
-  Action.delete: Color(0xFFEF5350),
-  Action.purge: Color(0xFFB71C1C),
-  Action.assign: Color(0xFF26C6DA),
-  Action.unassign: Color(0xFF78909C),
-  Action.mark: Color(0xFF7E57C2),
-  Action.approve: Color(0xFF26A69A),
-};
-
-const _kActionIcons = <Action, IconData>{
-  Action.create: Icons.add_rounded,
-  Action.read: Icons.visibility_outlined,
-  Action.update: Icons.edit_outlined,
-  Action.delete: Icons.delete_outline_rounded,
-  Action.purge: Icons.delete_forever_outlined,
-  Action.assign: Icons.link_rounded,
-  Action.unassign: Icons.link_off_rounded,
-  Action.mark: Icons.check_box_outline_blank_rounded,
-  Action.approve: Icons.thumb_up_outlined,
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Permission helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Parses the JSON string stored in `roles.permissions` into a mutable
-/// `Map<Resource, int>` bitmask map.  Handles null, empty string, empty
-/// JSON array `"[]"`, and both legacy JSON shapes via [Permissions.fromJson].
-/// Never throws — always returns an empty map on bad input.
-Map<Resource, int> _parsePermissions(String? jsonStr) {
-  if (jsonStr == null ||
-      jsonStr.isEmpty ||
-      jsonStr == '[]' ||
-      jsonStr == '{}') {
-    return {};
-  }
-  try {
-    final decoded = jsonDecode(jsonStr);
-    final perms = Permissions.fromJson(decoded);
-    return Map<Resource, int>.from(perms.map);
-  } catch (_) {
-    return {};
-  }
-}
-
-/// Serialises a `Map<Resource, int>` bitmask map back to the JSON string
-/// format stored in `roles.permissions`.
-///
-/// Output shape: `[{"resource": "users", "actions": ["read", "create"]}, …]`
-String _serialisePermissions(Map<Resource, int> perms) {
-  final list = <Map<String, dynamic>>[];
-  for (final entry in perms.entries) {
-    if (entry.value == 0) continue;
-    final actions = Action.values
-        .where((a) => entry.value & a.mask != 0)
-        .map((a) => a.name)
-        .toList();
-    if (actions.isNotEmpty) {
-      list.add({'resource': entry.key.name, 'actions': actions});
-    }
-  }
-  return jsonEncode(list);
-}
-
-/// Returns the total count of granted permissions across all resources.
-int _countPermissions(Map<Resource, int> perms) {
-  var count = 0;
-  for (final mask in perms.values) {
-    count += _popcount(mask);
-  }
-  return count;
-}
-
-/// Count set bits in a 16-bit integer (Hamming weight / popcount).
-int _popcount(int v) {
-  var n = v & 0xFFFF;
-  n = n - ((n >> 1) & 0x5555);
-  n = (n & 0x3333) + ((n >> 2) & 0x3333);
-  return (((n + (n >> 4)) & 0x0F0F) * 0x0101) & 0xFF;
-}
+import '_role_helpers.dart';
 
 String _initials(String name) {
   final parts = name.trim().split(RegExp(r'\s+'));
@@ -427,8 +303,8 @@ class _HeaderSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final perms = _parsePermissions(role.permissions);
-    final totalPerms = _countPermissions(perms);
+    final perms = parsePermissions(role.permissions);
+    final totalPerms = countPermissions(perms);
     final totalResources = perms.entries.where((e) => e.value != 0).length;
 
     return Container(
@@ -779,7 +655,7 @@ class _PermissionsTabState extends State<_PermissionsTab> {
   }
 
   void _resetFromRole(Role role) {
-    _originalPermissions = _parsePermissions(role.permissions);
+    _originalPermissions = parsePermissions(role.permissions);
     _editPermissions = Map.of(_originalPermissions);
     _selectedResources.clear();
   }
@@ -806,8 +682,8 @@ class _PermissionsTabState extends State<_PermissionsTab> {
       final curr = _editPermissions[r] ?? 0;
       final addedBits = curr & ~orig;
       final removedBits = orig & ~curr;
-      added += _popcount(addedBits);
-      removed += _popcount(removedBits);
+      added += popcount(addedBits);
+      removed += popcount(removedBits);
     }
     return (added: added, removed: removed);
   }
@@ -817,7 +693,7 @@ class _PermissionsTabState extends State<_PermissionsTab> {
     final curr = _editPermissions[resource] ?? 0;
     final addedBits = curr & ~orig;
     final removedBits = orig & ~curr;
-    return (added: _popcount(addedBits), removed: _popcount(removedBits));
+    return (added: popcount(addedBits), removed: popcount(removedBits));
   }
 
   void _togglePermission(Resource resource, Action action) {
@@ -894,7 +770,7 @@ class _PermissionsTabState extends State<_PermissionsTab> {
       await widget.dao.updateRole(
         widget.role.id,
         RolesCompanion(
-          permissions: Value(_serialisePermissions(cleaned)),
+          permissions: Value(serialisePermissions(cleaned)),
           updated: Value(nowSeconds),
         ),
         accountId: accountId,
@@ -930,7 +806,7 @@ class _PermissionsTabState extends State<_PermissionsTab> {
   Widget build(BuildContext context) {
     final cs = widget.cs;
     final isLight = cs.brightness == Brightness.light;
-    final groups = _buildResourceGroups();
+    final groups = buildResourceGroups();
 
     final hasAnyPermissions = _editPermissions.values.any((m) => m != 0);
     final hasChanges = _hasChanges;
@@ -1396,10 +1272,10 @@ class _ResourceRow extends StatelessWidget {
                                 mainAxisSize: MainAxisSize.min,
                                 children: activeActions.map((action) {
                                   final color =
-                                      _kActionColors[action] ??
+                                      kActionColors[action] ??
                                       cs.onSurfaceVariant;
                                   final icon =
-                                      _kActionIcons[action] ??
+                                      kActionIcons[action] ??
                                       Icons.circle_outlined;
                                   return Padding(
                                     padding: const EdgeInsets.only(right: 4),
@@ -1552,8 +1428,8 @@ class _ExpandedPermissions extends StatelessWidget {
             final isOn = (currentMask & action.mask) != 0;
             final wasOn = (originalMask & action.mask) != 0;
             final changed = isOn != wasOn;
-            final color = _kActionColors[action] ?? cs.primary;
-            final icon = _kActionIcons[action] ?? Icons.help_outline;
+            final color = kActionColors[action] ?? cs.primary;
+            final icon = kActionIcons[action] ?? Icons.help_outline;
 
             return Material(
               color: Colors.transparent,

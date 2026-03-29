@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:drift/drift.dart' hide Column;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Action;
 import 'package:bson/bson.dart';
 
 import '../../../../client.dart';
@@ -10,13 +10,14 @@ import '../../../../database/database.dart';
 import '../../../../database/daos/school_scopes_dao.dart';
 import '../../../../database/tables/enums.dart';
 import '../../../../models/membership.dart';
-import '../../../../models/permissions.dart' as models;
+import '../../../../models/permissions.dart';
 import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_form_field.dart';
 import '../../../widgets/edu_data_table.dart';
 import '../../../widgets/edu_sheet.dart';
+import '_role_helpers.dart';
 import 'school_role_detail_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -173,14 +174,11 @@ class _SchoolRolesBodyState extends State<_SchoolRolesBody> {
     final perms = widget.schoolContext.permissions;
     final entry = widget.schoolContext.currentEntry.value;
     final canCreate =
-        perms.can(models.Resource.roles, models.Action.create) ||
-        entry is OwnerEntry;
+        perms.can(Resource.roles, Action.create) || entry is OwnerEntry;
     final canEdit =
-        perms.can(models.Resource.roles, models.Action.update) ||
-        entry is OwnerEntry;
+        perms.can(Resource.roles, Action.update) || entry is OwnerEntry;
     final canDelete =
-        perms.can(models.Resource.roles, models.Action.delete) ||
-        entry is OwnerEntry;
+        perms.can(Resource.roles, Action.delete) || entry is OwnerEntry;
 
     return StreamBuilder<List<Role>>(
       stream: _dao.watchSchoolRoles(_schoolId),
@@ -522,6 +520,11 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
   late final TextEditingController _descCtrl;
   bool _saving = false;
 
+  // ── Permission state ────────────────────────────────────────────────────
+  late final List<ResourceGroup> _resourceGroups = buildResourceGroups();
+  final Map<Resource, int> _permissions = {};
+  final Set<Resource> _expandedResources = {};
+
   @override
   void initState() {
     super.initState();
@@ -537,6 +540,54 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
   }
 
   bool get _isDirty => _nameCtrl.text.trim().isNotEmpty;
+
+  // ── Permission toggles ─────────────────────────────────────────────────
+
+  void _togglePermission(Resource r, Action a) {
+    setState(() {
+      final current = _permissions[r] ?? 0;
+      _permissions[r] = current ^ a.mask;
+      if (_permissions[r] == 0) _permissions.remove(r);
+    });
+  }
+
+  void _toggleResourceAll(Resource r) {
+    setState(() {
+      final allMask = r.applicableActions.fold<int>(0, (m, a) => m | a.mask);
+      final current = _permissions[r] ?? 0;
+      if (current == allMask) {
+        _permissions.remove(r);
+      } else {
+        _permissions[r] = allMask;
+      }
+    });
+  }
+
+  void _toggleSelectAll() {
+    setState(() {
+      final allPerms = <Resource, int>{};
+      for (final g in _resourceGroups) {
+        for (final r in g.resources) {
+          allPerms[r] = r.applicableActions.fold<int>(0, (m, a) => m | a.mask);
+        }
+      }
+      final totalPossible = allPerms.values.fold<int>(
+        0,
+        (s, v) => s + popcount(v),
+      );
+      final totalCurrent = _permissions.values.fold<int>(
+        0,
+        (s, v) => s + popcount(v),
+      );
+      if (totalCurrent == totalPossible) {
+        _permissions.clear();
+      } else {
+        _permissions.addAll(allPerms);
+      }
+    });
+  }
+
+  // ── Save ────────────────────────────────────────────────────────────────
 
   Future<void> _save() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
@@ -556,7 +607,7 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
           description: Value(
             _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
           ),
-          permissions: const Value('[]'),
+          permissions: Value(serialisePermissions(_permissions)),
           created: Value(nowSec),
           updated: Value(nowSec),
         ),
@@ -656,6 +707,144 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
                       hint: 'Optional',
                       maxLines: 2,
                     ),
+
+                    const SizedBox(height: 16),
+
+                    // ── Divider ──────────────────────────────────────────
+                    Divider(
+                      height: 1,
+                      thickness: 0.5,
+                      color: AppTheme.borderColor(isDark, cs),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // ── Permissions header ───────────────────────────────
+                    Row(
+                      children: [
+                        Text(
+                          'PERMISSIONS',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: countPermissions(_permissions) > 0
+                                ? cs.primary.withValues(alpha: 0.08)
+                                : cs.surfaceContainerHighest.withValues(
+                                    alpha: 0.5,
+                                  ),
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.kChipRadius,
+                            ),
+                          ),
+                          child: Text(
+                            '${countPermissions(_permissions)}',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              color: countPermissions(_permissions) > 0
+                                  ? cs.primary.withValues(alpha: 0.8)
+                                  : cs.onSurfaceVariant.withValues(alpha: 0.4),
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: _toggleSelectAll,
+                          child: Text(
+                            'Select All',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: cs.primary.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    // ── Permission groups ────────────────────────────────
+                    ..._resourceGroups.asMap().entries.map((groupEntry) {
+                      final gi = groupEntry.key;
+                      final group = groupEntry.value;
+                      return Padding(
+                        padding: EdgeInsets.only(
+                          bottom: gi < _resourceGroups.length - 1 ? 16 : 0,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // Section header
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Text(
+                                group.label.toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: cs.onSurfaceVariant.withValues(
+                                    alpha: 0.45,
+                                  ),
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                            ),
+                            // Resource rows
+                            ...group.resources.map((resource) {
+                              final currentMask = _permissions[resource] ?? 0;
+                              final applicable = resource.applicableActions;
+                              final activeCount = applicable
+                                  .where((a) => currentMask & a.mask != 0)
+                                  .length;
+                              final totalCount = applicable.length;
+                              final isExpanded = _expandedResources.contains(
+                                resource,
+                              );
+
+                              return _PermResourceRow(
+                                resource: resource,
+                                activeCount: activeCount,
+                                totalCount: totalCount,
+                                isExpanded: isExpanded,
+                                isDark: isDark,
+                                onToggleExpand: () {
+                                  setState(() {
+                                    if (isExpanded) {
+                                      _expandedResources.remove(resource);
+                                    } else {
+                                      _expandedResources.add(resource);
+                                    }
+                                  });
+                                },
+                                onToggleAll: () => _toggleResourceAll(resource),
+                                cs: cs,
+                                expandedChild: isExpanded
+                                    ? _PermExpandedActions(
+                                        resource: resource,
+                                        permissions: _permissions,
+                                        isDark: isDark,
+                                        onToggle: _togglePermission,
+                                        cs: cs,
+                                      )
+                                    : null,
+                              );
+                            }),
+                          ],
+                        ),
+                      );
+                    }),
                   ],
                 ),
               ),
@@ -735,4 +924,235 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Shared helpers
+// Inline permissions editor widgets (used by _RoleFormSheet)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PermResourceRow extends StatelessWidget {
+  const _PermResourceRow({
+    required this.resource,
+    required this.activeCount,
+    required this.totalCount,
+    required this.isExpanded,
+    required this.isDark,
+    required this.onToggleExpand,
+    required this.onToggleAll,
+    required this.cs,
+    this.expandedChild,
+  });
+
+  final Resource resource;
+  final int activeCount;
+  final int totalCount;
+  final bool isExpanded;
+  final bool isDark;
+  final VoidCallback onToggleExpand;
+  final VoidCallback onToggleAll;
+  final ColorScheme cs;
+  final Widget? expandedChild;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasAny = activeCount > 0;
+    final isLight = !isDark;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        decoration: BoxDecoration(
+          color: isLight ? Colors.white : cs.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isLight ? 0.06 : 0.2),
+              blurRadius: isExpanded ? 6 : 3,
+              offset: const Offset(0, 1),
+            ),
+            if (isLight)
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 1,
+              ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ── Collapsed header row ──────────────────────────────────
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: onToggleExpand,
+                onLongPress: onToggleAll,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                  child: Row(
+                    children: [
+                      AnimatedRotation(
+                        turns: isExpanded ? 0.25 : 0,
+                        duration: const Duration(milliseconds: 200),
+                        child: Icon(
+                          Icons.chevron_right_rounded,
+                          size: 18,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          resource.label,
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w500,
+                            color: cs.onSurface,
+                            letterSpacing: 0.1,
+                          ),
+                        ),
+                      ),
+                      // Count badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: hasAny
+                              ? cs.primary.withValues(alpha: 0.08)
+                              : cs.surfaceContainerHighest.withValues(
+                                  alpha: 0.5,
+                                ),
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.kChipRadius,
+                          ),
+                        ),
+                        child: Text(
+                          '$activeCount\u202F/\u202F$totalCount',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                            color: hasAny
+                                ? cs.primary.withValues(alpha: 0.8)
+                                : cs.onSurfaceVariant.withValues(alpha: 0.4),
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            if (expandedChild != null) expandedChild!,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PermExpandedActions extends StatelessWidget {
+  const _PermExpandedActions({
+    required this.resource,
+    required this.permissions,
+    required this.isDark,
+    required this.onToggle,
+    required this.cs,
+  });
+
+  final Resource resource;
+  final Map<Resource, int> permissions;
+  final bool isDark;
+  final void Function(Resource r, Action a) onToggle;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    final applicableActions = resource.applicableActions;
+    final currentMask = permissions[resource] ?? 0;
+    final isLight = !isDark;
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: isLight ? cs.surfaceContainerLowest : cs.surfaceContainer,
+        border: Border(
+          top: BorderSide(
+            color: cs.outlineVariant.withValues(alpha: 0.3),
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 6, 14, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: applicableActions.map((action) {
+            final isOn = (currentMask & action.mask) != 0;
+            final color = kActionColors[action] ?? cs.primary;
+            final icon = kActionIcons[action] ?? Icons.help_outline;
+
+            return Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => onToggle(resource, action),
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 7,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        icon,
+                        size: 16,
+                        color: isOn
+                            ? color.withValues(alpha: 0.85)
+                            : cs.onSurfaceVariant.withValues(alpha: 0.25),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          action.label,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                            color: isOn
+                                ? cs.onSurface
+                                : cs.onSurfaceVariant.withValues(alpha: 0.45),
+                            letterSpacing: 0.1,
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 36,
+                        height: 22,
+                        child: FittedBox(
+                          child: Switch(
+                            value: isOn,
+                            onChanged: (_) => onToggle(resource, action),
+                            activeTrackColor: color.withValues(alpha: 0.3),
+                            activeThumbColor: color,
+                            inactiveTrackColor: cs.surfaceContainerHighest
+                                .withValues(alpha: 0.5),
+                            inactiveThumbColor: cs.onSurfaceVariant.withValues(
+                              alpha: 0.3,
+                            ),
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+}

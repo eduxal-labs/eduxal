@@ -522,7 +522,7 @@ The school dashboard uses the **correct typed bitmask model** (`Map<Resource, in
 
 ---
 
-### Task C1: Add inline permissions editor to school dashboard role creation form
+### Task C1 [x]: Add inline permissions editor to school dashboard role creation form
 
 **Files to modify:** `eduxal/lib/ui/screens/school_dashboard/roles/school_roles_screen.dart`
 **Context files to read (if needed):**
