@@ -485,8 +485,8 @@ return showEduSheet<ResultType>(
 The inner form widget (`_AddOwnerForm`, `_AddTeacherForm`, etc.) needs **no changes** — it already provides its own internal padding. The container + scroll + viewInsets + maxHeight are added at the caller level.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `fix: member creation panels mobile keyboard handling`
+- [x] Mark this task `[x]`
+- [x] Git commit: `fix: member creation panels mobile keyboard handling`
 
 ---
 
