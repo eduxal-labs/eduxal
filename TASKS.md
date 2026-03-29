@@ -355,8 +355,8 @@ For **each** sheet:
 - Fix: Add Container wrapper with background/radius and maxHeight.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `fix: exam and academic sheets mobile keyboard handling`
+- [x] Mark this task `[x]`
+- [x] Git commit: `fix: exam and academic sheets mobile keyboard handling`
 
 ---
 
@@ -794,7 +794,7 @@ if (!hasAnyPermissions)
 **Note on data model:** The system dashboard currently uses the legacy `Map<String, bool>` model with string keys. Migrating it to the typed `Map<Resource, int>` model is a larger refactor that can be done in a future task. For now, just fix the filtering issue — show all resources from the existing `_buildResourceGroups()` function regardless of their current permission state.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Git commit: `fix: system dashboard permissions tab shows all resources`
 
 ---

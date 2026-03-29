@@ -3937,149 +3937,186 @@ class _TeacherInfoSheetState extends State<_TeacherInfoSheet> {
       title: 'Edit Teacher',
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) {
-          return Padding(
-            padding: EdgeInsets.only(
-              left: 24,
-              right: 24,
-              top: 12,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+          final sheetCs = Theme.of(ctx).colorScheme;
+          final sheetIsDark = sheetCs.brightness == Brightness.dark;
+          return Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(ctx).height * 0.92,
+            ),
+            decoration: BoxDecoration(
+              color: AppTheme.modalBg(sheetIsDark, sheetCs),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(AppTheme.kModalRadius),
+              ),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Role field
-                TextField(
-                  controller: roleCtrl,
-                  style: TextStyle(fontSize: 13.5, color: cs.onSurface),
-                  decoration: InputDecoration(
-                    labelText: 'Role',
-                    labelStyle: TextStyle(
-                      fontSize: 12.5,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-
-                // Department field
-                TextField(
-                  controller: deptCtrl,
-                  style: TextStyle(fontSize: 13.5, color: cs.onSurface),
-                  decoration: InputDecoration(
-                    labelText: 'Department',
-                    labelStyle: TextStyle(
-                      fontSize: 12.5,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-
-                // Hired date picker
-                InkWell(
-                  onTap: () async {
-                    final picked = await showInlineDatePicker(
-                      context: ctx,
-                      initialDate: hiredDate ?? DateTime.now(),
-                      firstDate: DateTime(1970),
-                      lastDate: DateTime.now(),
-                      title: 'Hire date',
-                    );
-                    if (picked != null) {
-                      setSheetState(() => hiredDate = picked);
-                    }
-                  },
-                  borderRadius: BorderRadius.circular(4),
+                Center(
                   child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
-                    ),
+                    margin: const EdgeInsets.only(top: 10, bottom: 6),
+                    width: 36,
+                    height: 4,
                     decoration: BoxDecoration(
-                      border: Border.all(
-                        color: cs.outline.withValues(alpha: 0.4),
-                      ),
-                      borderRadius: BorderRadius.circular(4),
+                      color: sheetCs.onSurfaceVariant.withValues(alpha: 0.28),
+                      borderRadius: BorderRadius.circular(2),
                     ),
-                    child: Row(
+                  ),
+                ),
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(
+                      24,
+                      8,
+                      24,
+                      MediaQuery.viewInsetsOf(ctx).bottom + 24,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Text(
-                            hiredDate != null
-                                ? _formatHiredDate(
-                                    hiredDate!.toUtc().millisecondsSinceEpoch ~/
-                                        86400000,
-                                  )!
-                                : 'Hired date',
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              color: hiredDate != null
-                                  ? cs.onSurface
-                                  : cs.onSurfaceVariant.withValues(alpha: 0.6),
+                        // Role field
+                        TextField(
+                          controller: roleCtrl,
+                          style: TextStyle(fontSize: 13.5, color: cs.onSurface),
+                          decoration: InputDecoration(
+                            labelText: 'Role',
+                            labelStyle: TextStyle(
+                              fontSize: 12.5,
+                              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
                             ),
                           ),
                         ),
-                        Icon(
-                          Icons.calendar_today_outlined,
-                          size: 16,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                        const SizedBox(height: 14),
+
+                        // Department field
+                        TextField(
+                          controller: deptCtrl,
+                          style: TextStyle(fontSize: 13.5, color: cs.onSurface),
+                          decoration: InputDecoration(
+                            labelText: 'Department',
+                            labelStyle: TextStyle(
+                              fontSize: 12.5,
+                              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Hired date picker
+                        InkWell(
+                          onTap: () async {
+                            final picked = await showInlineDatePicker(
+                              context: ctx,
+                              initialDate: hiredDate ?? DateTime.now(),
+                              firstDate: DateTime(1970),
+                              lastDate: DateTime.now(),
+                              title: 'Hire date',
+                            );
+                            if (picked != null) {
+                              setSheetState(() => hiredDate = picked);
+                            }
+                          },
+                          borderRadius: BorderRadius.circular(4),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: cs.outline.withValues(alpha: 0.4),
+                              ),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    hiredDate != null
+                                        ? _formatHiredDate(
+                                            hiredDate!
+                                                    .toUtc()
+                                                    .millisecondsSinceEpoch ~/
+                                                86400000,
+                                          )!
+                                        : 'Hired date',
+                                    style: TextStyle(
+                                      fontSize: 13.5,
+                                      color: hiredDate != null
+                                          ? cs.onSurface
+                                          : cs.onSurfaceVariant.withValues(
+                                              alpha: 0.6,
+                                            ),
+                                    ),
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.calendar_today_outlined,
+                                  size: 16,
+                                  color: cs.onSurfaceVariant.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Save button
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton(
+                            onPressed: () async {
+                              final role = roleCtrl.text.trim().isEmpty
+                                  ? null
+                                  : roleCtrl.text.trim();
+                              final dept = deptCtrl.text.trim().isEmpty
+                                  ? null
+                                  : deptCtrl.text.trim();
+
+                              await service.updateTeacher(
+                                schoolId: schoolId,
+                                userId: teacher.user,
+                                role: role,
+                                department: dept,
+                                hiredDate: hiredDate,
+                              );
+
+                              if (ctx.mounted) Navigator.pop(ctx);
+                            },
+                            style: FilledButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            child: const Text(
+                              'Save',
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
                         ),
                       ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // Save button
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () async {
-                      final role = roleCtrl.text.trim().isEmpty
-                          ? null
-                          : roleCtrl.text.trim();
-                      final dept = deptCtrl.text.trim().isEmpty
-                          ? null
-                          : deptCtrl.text.trim();
-
-                      await service.updateTeacher(
-                        schoolId: schoolId,
-                        userId: teacher.user,
-                        role: role,
-                        department: dept,
-                        hiredDate: hiredDate,
-                      );
-
-                      if (ctx.mounted) Navigator.pop(ctx);
-                    },
-                    style: FilledButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: const Text(
-                      'Save',
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w500,
-                      ),
                     ),
                   ),
                 ),

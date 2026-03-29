@@ -2439,237 +2439,280 @@ class _CreateFeeSheetState extends State<_CreateFeeSheet> {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Title
-            _SheetField(
-              controller: _titleCtrl,
-              label: 'Title',
-              hint: 'e.g. Tuition Fee',
-              cs: cs,
-              isDark: isDark,
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Required' : null,
-            ),
-            const SizedBox(height: 14),
-
-            // Description
-            _SheetField(
-              controller: _descCtrl,
-              label: 'Description',
-              hint: 'Describe the fee',
-              cs: cs,
-              isDark: isDark,
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Required' : null,
-            ),
-            const SizedBox(height: 14),
-
-            // Amount
-            _SheetField(
-              controller: _amountCtrl,
-              label: 'Amount (KES)',
-              hint: '0.00',
-              cs: cs,
-              isDark: isDark,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
-              ],
-              validator: (v) {
-                if (v == null || v.trim().isEmpty) return 'Required';
-                final n = double.tryParse(v.trim());
-                if (n == null || n <= 0) return 'Must be > 0';
-                return null;
-              },
-            ),
-            const SizedBox(height: 14),
-
-            // Grade selection — multi-select chips
-            Text(
-              'Grades',
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.92,
+      ),
+      decoration: BoxDecoration(
+        color: AppTheme.modalBg(isDark, cs),
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(AppTheme.kModalRadius),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 10, bottom: 6),
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: cs.onSurfaceVariant.withValues(alpha: 0.28),
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 8),
-            if (_gradeOptions.isEmpty)
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(AppTheme.kRadius),
-                ),
-                child: Text(
-                  'No grades configured. Add grades in school settings.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                  ),
-                ),
-              )
-            else
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _gradeOptions.map((entry) {
-                  final isSelected = _selectedGrades.contains(entry.key);
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        if (isSelected) {
-                          _selectedGrades.remove(entry.key);
-                        } else {
-                          _selectedGrades.add(entry.key);
-                        }
-                      });
-                    },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                24,
+                8,
+                24,
+                MediaQuery.viewInsetsOf(context).bottom + 24,
+              ),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Title
+                    _SheetField(
+                      controller: _titleCtrl,
+                      label: 'Title',
+                      hint: 'e.g. Tuition Fee',
+                      cs: cs,
+                      isDark: isDark,
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Description
+                    _SheetField(
+                      controller: _descCtrl,
+                      label: 'Description',
+                      hint: 'Describe the fee',
+                      cs: cs,
+                      isDark: isDark,
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Amount
+                    _SheetField(
+                      controller: _amountCtrl,
+                      label: 'Amount (KES)',
+                      hint: '0.00',
+                      cs: cs,
+                      isDark: isDark,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
                       ),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? cs.primary.withValues(alpha: isDark ? 0.2 : 0.1)
-                            : cs.surfaceContainerHighest.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: isSelected
-                              ? cs.primary.withValues(alpha: 0.5)
-                              : Colors.transparent,
-                          width: 1.2,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
+                      ],
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return 'Required';
+                        final n = double.tryParse(v.trim());
+                        if (n == null || n <= 0) return 'Must be > 0';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Grade selection — multi-select chips
+                    Text(
+                      'Grades',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (_gradeOptions.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: cs.surfaceContainerHighest.withValues(
+                            alpha: 0.4,
+                          ),
+                          borderRadius: BorderRadius.circular(AppTheme.kRadius),
+                        ),
+                        child: Text(
+                          'No grades configured. Add grades in school settings.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                          ),
+                        ),
+                      )
+                    else
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _gradeOptions.map((entry) {
+                          final isSelected = _selectedGrades.contains(
+                            entry.key,
+                          );
+                          return GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                if (isSelected) {
+                                  _selectedGrades.remove(entry.key);
+                                } else {
+                                  _selectedGrades.add(entry.key);
+                                }
+                              });
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? cs.primary.withValues(
+                                        alpha: isDark ? 0.2 : 0.1,
+                                      )
+                                    : cs.surfaceContainerHighest.withValues(
+                                        alpha: 0.4,
+                                      ),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? cs.primary.withValues(alpha: 0.5)
+                                      : Colors.transparent,
+                                  width: 1.2,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (isSelected) ...[
+                                    Icon(
+                                      Icons.check_rounded,
+                                      size: 14,
+                                      color: cs.primary,
+                                    ),
+                                    const SizedBox(width: 4),
+                                  ],
+                                  Text(
+                                    entry.value,
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: isSelected
+                                          ? FontWeight.w500
+                                          : FontWeight.w400,
+                                      color: isSelected
+                                          ? cs.primary
+                                          : cs.onSurface,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    if (_selectedGrades.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                          '${_selectedGrades.length} grade${_selectedGrades.length == 1 ? '' : 's'} selected',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w400,
+                            color: cs.primary.withValues(alpha: 0.7),
+                          ),
                         ),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (isSelected) ...[
-                            Icon(
-                              Icons.check_rounded,
-                              size: 14,
-                              color: cs.primary,
-                            ),
-                            const SizedBox(width: 4),
-                          ],
-                          Text(
-                            entry.value,
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: isSelected
-                                  ? FontWeight.w500
-                                  : FontWeight.w400,
-                              color: isSelected ? cs.primary : cs.onSurface,
-                            ),
-                          ),
-                        ],
+                    const SizedBox(height: 14),
+
+                    // Due date
+                    GestureDetector(
+                      onTap: _pickDueDate,
+                      child: InputDecorator(
+                        decoration: _fieldDecoration(
+                          label: 'Due Date',
+                          cs: cs,
+                          isDark: isDark,
+                        ),
+                        child: Text(
+                          _fmtDateDt(_dueDate),
+                          style: TextStyle(fontSize: 13.5, color: cs.onSurface),
+                        ),
                       ),
                     ),
-                  );
-                }).toList(),
-              ),
-            if (_selectedGrades.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text(
-                  '${_selectedGrades.length} grade${_selectedGrades.length == 1 ? '' : 's'} selected',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w400,
-                    color: cs.primary.withValues(alpha: 0.7),
-                  ),
-                ),
-              ),
-            const SizedBox(height: 14),
+                    const SizedBox(height: 14),
 
-            // Due date
-            GestureDetector(
-              onTap: _pickDueDate,
-              child: InputDecorator(
-                decoration: _fieldDecoration(
-                  label: 'Due Date',
-                  cs: cs,
-                  isDark: isDark,
-                ),
-                child: Text(
-                  _fmtDateDt(_dueDate),
-                  style: TextStyle(fontSize: 13.5, color: cs.onSurface),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-
-            // Mandatory toggle
-            Row(
-              children: [
-                Text(
-                  'Mandatory',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400,
-                    color: cs.onSurface,
-                  ),
-                ),
-                const Spacer(),
-                Switch.adaptive(
-                  value: _mandatory,
-                  onChanged: (v) => setState(() => _mandatory = v),
-                  activeTrackColor: cs.primary,
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            // Action buttons
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close_rounded),
-                  tooltip: 'Cancel',
-                  style: IconButton.styleFrom(
-                    foregroundColor: cs.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                IconButton(
-                  onPressed: _saving ? null : _save,
-                  tooltip: 'Save',
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.green.shade600,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.green.shade600.withValues(
-                      alpha: 0.5,
-                    ),
-                  ),
-                  icon: _saving
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 1.5,
-                            color: Colors.white,
+                    // Mandatory toggle
+                    Row(
+                      children: [
+                        Text(
+                          'Mandatory',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                            color: cs.onSurface,
                           ),
-                        )
-                      : const Icon(Icons.check_rounded),
+                        ),
+                        const Spacer(),
+                        Switch.adaptive(
+                          value: _mandatory,
+                          onChanged: (v) => setState(() => _mandatory = v),
+                          activeTrackColor: cs.primary,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Action buttons
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.close_rounded),
+                          tooltip: 'Cancel',
+                          style: IconButton.styleFrom(
+                            foregroundColor: cs.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          onPressed: _saving ? null : _save,
+                          tooltip: 'Save',
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.green.shade600,
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: Colors.green.shade600
+                                .withValues(alpha: 0.5),
+                          ),
+                          icon: _saving
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 1.5,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.check_rounded),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -2772,140 +2815,178 @@ class _RecordPaymentSheetState extends State<_RecordPaymentSheet> {
     final invoiceTitle =
         widget.item.feeTitle ?? widget.item.invoice.description ?? 'Invoice';
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Invoice subtitle + balance summary
-            Text(
-              '$invoiceTitle · ${widget.item.studentName}',
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Text(
-                  'Balance: ',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.65),
-                  ),
-                ),
-                Text(
-                  _fmtCurrency(widget.item.balance),
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: widget.item.balance > 0.01
-                        ? _kOverdueColor
-                        : _kPaidColor,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            // Amount
-            _SheetField(
-              controller: _amountCtrl,
-              label: 'Amount (KES)',
-              hint: '0.00',
-              cs: cs,
-              isDark: isDark,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
-              ],
-              validator: (v) {
-                if (v == null || v.trim().isEmpty) return 'Required';
-                final n = double.tryParse(v.trim());
-                if (n == null || n <= 0) return 'Must be > 0';
-                return null;
-              },
-            ),
-            const SizedBox(height: 14),
-
-            // Payment method
-            DropdownButtonFormField<PaymentMethod>(
-              value: _method,
-              decoration: _fieldDecoration(
-                label: 'Payment Method',
-                cs: cs,
-                isDark: isDark,
-              ),
-              dropdownColor: isDark ? cs.surfaceContainerHighest : cs.surface,
-              style: TextStyle(
-                fontSize: 13.5,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurface,
-              ),
-              items: PaymentMethod.values
-                  .map(
-                    (m) => DropdownMenuItem(
-                      value: m,
-                      child: Text(_paymentMethodLabel(m)),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (v) {
-                if (v != null) setState(() => _method = v);
-              },
-            ),
-            const SizedBox(height: 14),
-
-            // Reference
-            _SheetField(
-              controller: _refCtrl,
-              label: 'Reference (optional)',
-              hint: 'e.g. M-Pesa code, cheque number',
-              cs: cs,
-              isDark: isDark,
-            ),
-            const SizedBox(height: 20),
-
-            // Save button
-            SizedBox(
-              height: 44,
-              child: ElevatedButton(
-                onPressed: _saving ? null : _save,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _kPaidColor,
-                  foregroundColor: Colors.white,
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.kRadius),
-                  ),
-                ),
-                child: _saving
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text(
-                        'Record Payment',
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-              ),
-            ),
-          ],
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.92,
+      ),
+      decoration: BoxDecoration(
+        color: AppTheme.modalBg(isDark, cs),
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(AppTheme.kModalRadius),
         ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 10, bottom: 6),
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: cs.onSurfaceVariant.withValues(alpha: 0.28),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                24,
+                8,
+                24,
+                MediaQuery.viewInsetsOf(context).bottom + 24,
+              ),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Invoice subtitle + balance summary
+                    Text(
+                      '$invoiceTitle · ${widget.item.studentName}',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Text(
+                          'Balance: ',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                          ),
+                        ),
+                        Text(
+                          _fmtCurrency(widget.item.balance),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: widget.item.balance > 0.01
+                                ? _kOverdueColor
+                                : _kPaidColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Amount
+                    _SheetField(
+                      controller: _amountCtrl,
+                      label: 'Amount (KES)',
+                      hint: '0.00',
+                      cs: cs,
+                      isDark: isDark,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
+                      ],
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return 'Required';
+                        final n = double.tryParse(v.trim());
+                        if (n == null || n <= 0) return 'Must be > 0';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Payment method
+                    DropdownButtonFormField<PaymentMethod>(
+                      value: _method,
+                      decoration: _fieldDecoration(
+                        label: 'Payment Method',
+                        cs: cs,
+                        isDark: isDark,
+                      ),
+                      dropdownColor: isDark
+                          ? cs.surfaceContainerHighest
+                          : cs.surface,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurface,
+                      ),
+                      items: PaymentMethod.values
+                          .map(
+                            (m) => DropdownMenuItem(
+                              value: m,
+                              child: Text(_paymentMethodLabel(m)),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) {
+                        if (v != null) setState(() => _method = v);
+                      },
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Reference
+                    _SheetField(
+                      controller: _refCtrl,
+                      label: 'Reference (optional)',
+                      hint: 'e.g. M-Pesa code, cheque number',
+                      cs: cs,
+                      isDark: isDark,
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Save button
+                    SizedBox(
+                      height: 44,
+                      child: ElevatedButton(
+                        onPressed: _saving ? null : _save,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _kPaidColor,
+                          foregroundColor: Colors.white,
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.kRadius,
+                            ),
+                          ),
+                        ),
+                        child: _saving
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text(
+                                'Record Payment',
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
