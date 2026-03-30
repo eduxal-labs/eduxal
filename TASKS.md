@@ -645,7 +645,7 @@ If any checks are missing, add them.
 
 ---
 
-### Task E3: Audit and enforce read-only mode for Roles tab
+### Task E3: Audit and enforce read-only mode for Roles tab [x]
 
 **Files to create/modify:** `lib/ui/screens/school_dashboard/roles/school_roles_screen.dart`, `lib/ui/screens/school_dashboard/roles/school_role_detail_screen.dart`
 **Context files to read (if needed):** None — read the files directly

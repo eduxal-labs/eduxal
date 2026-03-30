@@ -8,6 +8,7 @@ import '../../../../cache/file_cache.dart';
 import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/school_scopes_dao.dart';
+import '../../../../models/membership.dart';
 import '../../../../models/permissions.dart';
 import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
@@ -160,6 +161,18 @@ class _SchoolRoleDetailScreenState extends State<SchoolRoleDetailScreen>
     final maxWidth = isDesktop ? 760.0 : double.infinity;
     final horizontalPadding = isDesktop ? 28.0 : 20.0;
 
+    // ── Permission gates ───────────────────────────────────────────────
+    final perms = widget.schoolContext.permissions;
+    final entry = widget.schoolContext.currentEntry.value;
+    final canDelete =
+        perms.can(Resource.roles, Action.delete) || entry is OwnerEntry;
+    final canAssign =
+        perms.can(Resource.roles, Action.assign) || entry is OwnerEntry;
+    final canUnassign =
+        perms.can(Resource.roles, Action.unassign) || entry is OwnerEntry;
+    final canUpdate =
+        perms.can(Resource.roles, Action.update) || entry is OwnerEntry;
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -194,29 +207,30 @@ class _SchoolRoleDetailScreenState extends State<SchoolRoleDetailScreen>
         elevation: 0,
         scrolledUnderElevation: 0,
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: IconButton(
-              icon: Icon(
-                Icons.delete_outline_rounded,
-                size: 18,
-                color: cs.error.withValues(alpha: 0.7),
-              ),
-              onPressed: () => _confirmDelete(widget.role),
-              tooltip: 'Delete role',
-              style: IconButton.styleFrom(
-                backgroundColor: cs.surfaceContainer,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  side: BorderSide(
-                    color: cs.outlineVariant.withValues(alpha: 0.5),
-                  ),
+          if (canDelete)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: IconButton(
+                icon: Icon(
+                  Icons.delete_outline_rounded,
+                  size: 18,
+                  color: cs.error.withValues(alpha: 0.7),
                 ),
-                padding: const EdgeInsets.all(8),
-                minimumSize: const Size(36, 36),
+                onPressed: () => _confirmDelete(widget.role),
+                tooltip: 'Delete role',
+                style: IconButton.styleFrom(
+                  backgroundColor: cs.surfaceContainer,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    side: BorderSide(
+                      color: cs.outlineVariant.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  padding: const EdgeInsets.all(8),
+                  minimumSize: const Size(36, 36),
+                ),
               ),
             ),
-          ),
         ],
       ),
       body: SlideTransition(
@@ -257,7 +271,9 @@ class _SchoolRoleDetailScreenState extends State<SchoolRoleDetailScreen>
                             cs: cs,
                             isLight: isLight,
                             horizontalPadding: horizontalPadding,
-                            onAssign: () => _openAssignSheet(role),
+                            onAssign: canAssign
+                                ? () => _openAssignSheet(role)
+                                : null,
                           ),
                         ),
                       ];
@@ -271,6 +287,7 @@ class _SchoolRoleDetailScreenState extends State<SchoolRoleDetailScreen>
                           dao: widget.dao,
                           cs: cs,
                           horizontalPadding: horizontalPadding,
+                          canUpdate: canUpdate,
                         ),
                         _AssignedTab(
                           role: role,
@@ -278,6 +295,7 @@ class _SchoolRoleDetailScreenState extends State<SchoolRoleDetailScreen>
                           dao: widget.dao,
                           cs: cs,
                           horizontalPadding: horizontalPadding,
+                          canUnassign: canUnassign,
                         ),
                       ],
                     ),
@@ -459,7 +477,7 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
   final ColorScheme cs;
   final bool isLight;
   final double horizontalPadding;
-  final VoidCallback onAssign;
+  final VoidCallback? onAssign;
 
   @override
   double get minExtent => 56.0;
@@ -565,36 +583,40 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
             ),
           ),
 
-          // + assign button — only visible on the Assigned tab.
-          const SizedBox(width: 10),
-          AnimatedBuilder(
-            animation: tabController,
-            builder: (context, child) {
-              final isAssignedTab = tabController.index == 1;
-              return AnimatedOpacity(
-                opacity: isAssignedTab ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 200),
-                child: IgnorePointer(ignoring: !isAssignedTab, child: child),
-              );
-            },
-            child: SizedBox(
-              width: 32,
-              height: 32,
-              child: IconButton(
-                onPressed: onAssign,
-                icon: Icon(Icons.add_rounded, size: 18, color: cs.primary),
-                tooltip: 'Assign user',
-                padding: EdgeInsets.zero,
-                style: IconButton.styleFrom(
-                  backgroundColor: cs.primary.withValues(alpha: 0.08),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    side: BorderSide(color: cs.primary.withValues(alpha: 0.2)),
+          // + assign button — only visible on the Assigned tab when permitted.
+          if (onAssign != null) ...[
+            const SizedBox(width: 10),
+            AnimatedBuilder(
+              animation: tabController,
+              builder: (context, child) {
+                final isAssignedTab = tabController.index == 1;
+                return AnimatedOpacity(
+                  opacity: isAssignedTab ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: IgnorePointer(ignoring: !isAssignedTab, child: child),
+                );
+              },
+              child: SizedBox(
+                width: 32,
+                height: 32,
+                child: IconButton(
+                  onPressed: onAssign,
+                  icon: Icon(Icons.add_rounded, size: 18, color: cs.primary),
+                  tooltip: 'Assign user',
+                  padding: EdgeInsets.zero,
+                  style: IconButton.styleFrom(
+                    backgroundColor: cs.primary.withValues(alpha: 0.08),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: BorderSide(
+                        color: cs.primary.withValues(alpha: 0.2),
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -615,12 +637,14 @@ class _PermissionsTab extends StatefulWidget {
     required this.dao,
     required this.cs,
     required this.horizontalPadding,
+    required this.canUpdate,
   });
 
   final Role role;
   final SchoolScopesDao dao;
   final ColorScheme cs;
   final double horizontalPadding;
+  final bool canUpdate;
 
   @override
   State<_PermissionsTab> createState() => _PermissionsTabState();
@@ -703,6 +727,7 @@ class _PermissionsTabState extends State<_PermissionsTab> {
   }
 
   void _togglePermission(Resource resource, Action action) {
+    if (!widget.canUpdate) return;
     setState(() {
       final current = (_editPermissions[resource] ?? 0) & action.mask != 0;
       if (current) {
@@ -717,6 +742,7 @@ class _PermissionsTabState extends State<_PermissionsTab> {
   }
 
   void _clearResource(Resource resource) {
+    if (!widget.canUpdate) return;
     setState(() {
       _editPermissions.remove(resource);
       _expandedResources.remove(resource);
@@ -725,6 +751,7 @@ class _PermissionsTabState extends State<_PermissionsTab> {
   }
 
   void _removeSelectedResources() {
+    if (!widget.canUpdate) return;
     setState(() {
       for (final resource in _selectedResources) {
         _editPermissions.remove(resource);
@@ -735,6 +762,7 @@ class _PermissionsTabState extends State<_PermissionsTab> {
   }
 
   void _toggleResourceSelection(Resource resource) {
+    if (!widget.canUpdate) return;
     setState(() {
       if (_selectedResources.contains(resource)) {
         _selectedResources.remove(resource);
@@ -822,14 +850,14 @@ class _PermissionsTabState extends State<_PermissionsTab> {
     return Column(
       children: [
         // ── Save / selection bar ──────────────────────────────────────────
-        if (selectionMode)
+        if (widget.canUpdate && selectionMode)
           _SelectionBar(
             count: _selectedResources.length,
             onClear: () => setState(() => _selectedResources.clear()),
             onDelete: _removeSelectedResources,
             cs: cs,
           )
-        else if (hasChanges)
+        else if (widget.canUpdate && hasChanges)
           _ChangeBar(
             added: changes.added,
             removed: changes.removed,
@@ -941,6 +969,7 @@ class _PermissionsTabState extends State<_PermissionsTab> {
                         selectionMode: selectionMode,
                         changeSummary: _resourceChangeSummary(resource),
                         isLight: isLight,
+                        readOnly: !widget.canUpdate,
                         onToggleExpand: () => _toggleExpand(resource),
                         onToggleSelection: () =>
                             _toggleResourceSelection(resource),
@@ -1150,6 +1179,7 @@ class _ResourceRow extends StatelessWidget {
     required this.selectionMode,
     required this.changeSummary,
     required this.isLight,
+    this.readOnly = false,
     required this.onToggleExpand,
     required this.onToggleSelection,
     required this.onTogglePermission,
@@ -1165,6 +1195,7 @@ class _ResourceRow extends StatelessWidget {
   final bool selectionMode;
   final ({int added, int removed}) changeSummary;
   final bool isLight;
+  final bool readOnly;
   final VoidCallback onToggleExpand;
   final VoidCallback onToggleSelection;
   final void Function(Resource resource, Action action) onTogglePermission;
@@ -1354,7 +1385,7 @@ class _ResourceRow extends StatelessWidget {
                         ),
                       ),
                       // ── Clear / selection-mode buttons ─────────────────
-                      if (!selectionMode) ...[
+                      if (!selectionMode && !readOnly) ...[
                         const SizedBox(width: 6),
                         GestureDetector(
                           onTap: hasAnyActive ? onClear : null,
@@ -1378,6 +1409,7 @@ class _ResourceRow extends StatelessWidget {
                 editPermissions: editPermissions,
                 originalPermissions: originalPermissions,
                 isLight: isLight,
+                readOnly: readOnly,
                 onToggle: onTogglePermission,
                 cs: cs,
               ),
@@ -1398,6 +1430,7 @@ class _ExpandedPermissions extends StatelessWidget {
     required this.editPermissions,
     required this.originalPermissions,
     required this.isLight,
+    this.readOnly = false,
     required this.onToggle,
     required this.cs,
   });
@@ -1406,6 +1439,7 @@ class _ExpandedPermissions extends StatelessWidget {
   final Map<Resource, int> editPermissions;
   final Map<Resource, int> originalPermissions;
   final bool isLight;
+  final bool readOnly;
   final void Function(Resource resource, Action action) onToggle;
   final ColorScheme cs;
 
@@ -1440,7 +1474,7 @@ class _ExpandedPermissions extends StatelessWidget {
             return Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: () => onToggle(resource, action),
+                onTap: readOnly ? null : () => onToggle(resource, action),
                 borderRadius: BorderRadius.circular(4),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
@@ -1504,7 +1538,9 @@ class _ExpandedPermissions extends StatelessWidget {
                         child: FittedBox(
                           child: Switch(
                             value: isOn,
-                            onChanged: (_) => onToggle(resource, action),
+                            onChanged: readOnly
+                                ? null
+                                : (_) => onToggle(resource, action),
                             activeTrackColor: color.withValues(alpha: 0.3),
                             activeThumbColor: color,
                             inactiveTrackColor: cs.surfaceContainerHighest
@@ -1544,6 +1580,7 @@ class _AssignedTab extends StatefulWidget {
     required this.dao,
     required this.cs,
     required this.horizontalPadding,
+    required this.canUnassign,
   });
 
   final Role role;
@@ -1551,6 +1588,7 @@ class _AssignedTab extends StatefulWidget {
   final SchoolScopesDao dao;
   final ColorScheme cs;
   final double horizontalPadding;
+  final bool canUnassign;
 
   @override
   State<_AssignedTab> createState() => _AssignedTabState();
@@ -1636,6 +1674,7 @@ class _AssignedTabState extends State<_AssignedTab> {
               cs: cs,
               isLight: isLight,
               isUnassigning: isUnassigning,
+              canUnassign: widget.canUnassign,
               onUnassign: () => _unassign(entry.user),
             );
           },
@@ -1712,6 +1751,7 @@ class _AssignedRow extends StatelessWidget {
     required this.cs,
     required this.isLight,
     required this.isUnassigning,
+    required this.canUnassign,
     required this.onUnassign,
   });
 
@@ -1719,6 +1759,7 @@ class _AssignedRow extends StatelessWidget {
   final ColorScheme cs;
   final bool isLight;
   final bool isUnassigning;
+  final bool canUnassign;
   final VoidCallback onUnassign;
 
   @override
@@ -1804,35 +1845,37 @@ class _AssignedRow extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 6),
-            // ── Unassign button ──────────────────────────────────────
-            isUnassigning
-                ? Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 1.5,
+            if (canUnassign) ...[
+              const SizedBox(width: 6),
+              // ── Unassign button ──────────────────────────────────────
+              isUnassigning
+                  ? Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.5,
+                          color: cs.error.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    )
+                  : IconButton(
+                      onPressed: onUnassign,
+                      icon: Icon(
+                        Icons.person_remove_outlined,
+                        size: 17,
                         color: cs.error.withValues(alpha: 0.6),
                       ),
+                      tooltip: 'Unassign',
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.all(6),
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
                     ),
-                  )
-                : IconButton(
-                    onPressed: onUnassign,
-                    icon: Icon(
-                      Icons.person_remove_outlined,
-                      size: 17,
-                      color: cs.error.withValues(alpha: 0.6),
-                    ),
-                    tooltip: 'Unassign',
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.all(6),
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
-                    ),
-                  ),
+            ],
           ],
         ),
       ),
