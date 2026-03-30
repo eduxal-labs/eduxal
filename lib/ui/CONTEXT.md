@@ -125,8 +125,10 @@ All design tokens are codified in `AppTheme` (`lib/ui/theme/app_theme.dart`) and
 - All tab surfaces in the app use `EduTabBar`, whether icon-only or text-label mode.
 
 ## Last Updated
-Task D1 — Audited and enforced RBAC permission gates on the Academics tab for teacher role.
+Task C4 — Fixed "My Subjects" and "My Exams" quick stats showing 0 in teacher overview.
 
+- `overview_screen.dart` (`_TeacherQuickStats`) — **Fixed.** "My Subjects" now uses a reactive `StreamBuilder<List<SubjectTeacher>>` via `MembersDao.watchTeacherSubjectsForTerm(schoolId, userId, year, term)` instead of the stale `entry.subjectCount` pre-computed once at home-screen load. Distinct subject IDs are counted client-side. "My Exams" filter expanded: in addition to matching exams where the teacher is the creator or an invigilator, it now also matches exams containing papers whose subject is in the teacher's assigned subject set (`teacherSubjectIds.contains(p.subject)`). Both stats update live when the underlying tables change.
+- `members_dao.dart` — **Added two methods:** `watchTeacherSubjectsForTerm(schoolId, teacherUserId, {year, term})` returns `Stream<List<SubjectTeacher>>` filtered to a specific year/term. `watchTeacherSubjectCount(schoolId, teacherUserId, {year, term})` returns `Stream<int>` with a reactive `COUNT(DISTINCT subject)` query.
 - `academics_screen.dart` — **Already fully gated.** Grade/stream tree mutations (add grade, add/edit streams, delete grade) are gated behind `Resource.classes` with `Action.create/update/delete`. FAB and empty-state CTA respect `canCreate`. `OwnerEntry` bypass is correct.
 - `grade_detail_page.dart` — **Fixed.** The contextual FAB in `_actionsForContentTab` previously returned all mutation actions unconditionally. Added per-tab RBAC gates:
   - Students FAB → `Resource.students, Action.assign`

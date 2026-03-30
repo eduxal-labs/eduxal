@@ -1202,6 +1202,47 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
             ]))
           .watch();
 
+  /// Watches subjects assigned to a teacher at a school for a **specific**
+  /// year/term. Used by the overview quick-stats to build a live subject set.
+  Stream<List<SubjectTeacher>> watchTeacherSubjectsForTerm(
+    String schoolId,
+    String teacherUserId, {
+    required int year,
+    required int term,
+  }) =>
+      (select(subjectTeachers)
+            ..where(
+              (t) =>
+                  t.school.equals(schoolId) &
+                  t.teacher.equals(teacherUserId) &
+                  t.year.equals(year) &
+                  t.term.equals(term),
+            )
+            ..orderBy([(t) => OrderingTerm.asc(t.grade)]))
+          .watch();
+
+  /// Reactive count of **distinct subjects** assigned to [teacherUserId] at
+  /// [schoolId] for the given [year] and [term].
+  ///
+  /// Returns a `Stream<int>` that re-emits whenever `subject_teachers` changes.
+  Stream<int> watchTeacherSubjectCount(
+    String schoolId,
+    String teacherUserId, {
+    required int year,
+    required int term,
+  }) {
+    final countExpr = subjectTeachers.subject.count(distinct: true);
+    final query = selectOnly(subjectTeachers)
+      ..addColumns([countExpr])
+      ..where(
+        subjectTeachers.school.equals(schoolId) &
+            subjectTeachers.teacher.equals(teacherUserId) &
+            subjectTeachers.year.equals(year) &
+            subjectTeachers.term.equals(term),
+      );
+    return query.watchSingle().map((row) => row.read(countExpr) ?? 0);
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Unique guardians + ward queries
   // ─────────────────────────────────────────────────────────────────────────

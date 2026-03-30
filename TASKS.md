@@ -405,7 +405,7 @@ The current `_TeacherClassChips` widget shows **all** classes the teacher is inv
 
 ---
 
-### Task C4: Fix "My Subjects" and "My Exams" quick stats showing 0
+### Task C4: Fix "My Subjects" and "My Exams" quick stats showing 0 [x]
 
 **Files to create/modify:** `lib/ui/screens/school_dashboard/overview/overview_screen.dart`, `lib/database/daos/memberships_dao.dart`
 **Context files to read (if needed):** `lib/database/daos/memberships_dao.dart` (L232–265 for `_subjectCount`), `lib/database/daos/exams_grades_dao.dart` (L101–148 for `watchExamsForTerm`)
@@ -453,8 +453,8 @@ final myExams = allExams.where((e) {
 3. Add a second `StreamBuilder` wrapping the exams one to provide the teacher's subject set.
 
 **Update after completion:**
-- [ ] Update `lib/ui/CONTEXT.md` — note changes to overview quick stats
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/CONTEXT.md` — note changes to overview quick stats
+- [x] Mark this task `[x]`
 
 ---
 

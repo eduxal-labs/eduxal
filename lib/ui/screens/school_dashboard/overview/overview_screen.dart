@@ -484,45 +484,72 @@ class _TeacherQuickStats extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final membersDao = MembersDao(db);
     final examsDao = ExamsGradesDao(db);
 
-    return Row(
-      children: [
-        Expanded(
-          child: _StatCard(
-            icon: Icons.menu_book_outlined,
-            label: 'My Subjects',
-            value: '${entry.subjectCount}',
-            tint: const Color(0xFF3F51B5),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: StreamBuilder<List<ExamWithPapers>>(
-            stream: examsDao.watchExamsForTerm(
-              schoolId: schoolId,
-              year: term.year,
-              term: term.term,
+    // Outer StreamBuilder: reactively watches the teacher's subject assignments
+    // for the current term. Drives both the "My Subjects" count and the
+    // subject-set used to filter "My Exams".
+    return StreamBuilder<List<SubjectTeacher>>(
+      stream: membersDao.watchTeacherSubjectsForTerm(
+        schoolId,
+        userId,
+        year: term.year,
+        term: term.term,
+      ),
+      builder: (context, subjectsSnap) {
+        final teacherSubjects = subjectsSnap.data ?? [];
+        // Distinct subject IDs this teacher is assigned to this term.
+        final teacherSubjectIds = teacherSubjects.map((s) => s.subject).toSet();
+        final subjectCount = teacherSubjectIds.length;
+
+        return Row(
+          children: [
+            // ── My Subjects (live count) ─────────────────────────────────
+            Expanded(
+              child: _StatCard(
+                icon: Icons.menu_book_outlined,
+                label: 'My Subjects',
+                value: '$subjectCount',
+                tint: const Color(0xFF3F51B5),
+              ),
             ),
-            builder: (context, snap) {
-              final allExams = snap.data ?? [];
-              final myExams = allExams
-                  .where(
-                    (e) =>
-                        e.teacher.id == userId ||
-                        e.papers.any((p) => p.invigilator == userId),
-                  )
-                  .length;
-              return _StatCard(
-                icon: Icons.assignment_outlined,
-                label: 'My Exams',
-                value: '$myExams',
-                tint: const Color(0xFF009688),
-              );
-            },
-          ),
-        ),
-      ],
+            const SizedBox(width: 10),
+            // ── My Exams (matches: creator OR invigilator OR teaches subject)
+            Expanded(
+              child: StreamBuilder<List<ExamWithPapers>>(
+                stream: examsDao.watchExamsForTerm(
+                  schoolId: schoolId,
+                  year: term.year,
+                  term: term.term,
+                ),
+                builder: (context, snap) {
+                  final allExams = snap.data ?? [];
+                  final myExams = allExams
+                      .where(
+                        (e) =>
+                            // Teacher created the exam
+                            e.teacher.id == userId ||
+                            // Teacher is invigilator on any paper
+                            e.papers.any((p) => p.invigilator == userId) ||
+                            // Teacher teaches the subject of any paper
+                            e.papers.any(
+                              (p) => teacherSubjectIds.contains(p.subject),
+                            ),
+                      )
+                      .length;
+                  return _StatCard(
+                    icon: Icons.assignment_outlined,
+                    label: 'My Exams',
+                    value: '$myExams',
+                    tint: const Color(0xFF009688),
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
