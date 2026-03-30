@@ -767,7 +767,7 @@ After F1 fixes the roundtrip, verify that:
 
 ---
 
-### Task G1: Rename "Exams & Grades" to "Exams" for teacher role
+### Task G1: Rename "Exams & Grades" to "Exams" for teacher role [x]
 
 **Files to create/modify:** `lib/ui/screens/school_dashboard/school_dashboard_screen.dart`
 **Context files to read (if needed):** None
@@ -790,7 +790,7 @@ Or change the existing check to: `if (item.label == 'Exams & Grades' || item.lab
 The `ExamsGradesScreen` widget itself does not need to change — it already adapts based on `SchoolContext` and permissions.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
