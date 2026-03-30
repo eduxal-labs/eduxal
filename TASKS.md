@@ -71,7 +71,7 @@ Also remove the word "Grade" as prefix from the labels returned. Per user reques
 
 ---
 
-### Task A2: Fix grade display in `overview_screen.dart` (4 locations)
+### Task A2: Fix grade display in `overview_screen.dart` (4 locations) ✅
 
 **Files to create/modify:** `lib/ui/screens/school_dashboard/overview/overview_screen.dart`
 **Context files to read (if needed):** `lib/core/extensions.dart` (from Task A1)
@@ -126,12 +126,12 @@ Import the new `gradeLabel` / `gradeStreamLabel` from `lib/core/extensions.dart`
    ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/CONTEXT.md` — note the grade label fix in overview_screen
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/CONTEXT.md` — note the grade label fix in overview_screen
+- [x] Mark this task `[x]`
 
 ---
 
-### Task A3: Fix grade display in `guardian_progress_screen.dart`
+### Task A3: Fix grade display in `guardian_progress_screen.dart` [x]
 
 **Files to create/modify:** `lib/ui/screens/school_dashboard/progress/guardian_progress_screen.dart`
 **Context files to read (if needed):** `lib/core/extensions.dart` (from Task A1)

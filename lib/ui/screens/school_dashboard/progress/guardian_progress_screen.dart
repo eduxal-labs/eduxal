@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/extensions.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/attendance_dao.dart';
 import '../../../../database/daos/catalog_dao.dart';
@@ -346,7 +347,7 @@ class _WardIdentityHeader extends StatelessWidget {
                     borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
                   ),
                   child: Text(
-                    'Grade ${enrollment.grade} · Stream ${enrollment.stream}',
+                    gradeLabel(enrollment.grade),
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,

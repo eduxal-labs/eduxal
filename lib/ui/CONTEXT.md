@@ -121,4 +121,4 @@ All design tokens are codified in `AppTheme` (`lib/ui/theme/app_theme.dart`) and
 - All tab surfaces in the app use `EduTabBar`, whether icon-only or text-label mode.
 
 ## Last Updated
-Task A1 — Added `_slateContainerLow` (`#10161F`) and `_slateContainerHigh` (`#1F2A3C`) constants to `app_theme.dart` dark theme. These fill the `surfaceContainerLow` and `surfaceContainerHigh` slots in the dark `ColorScheme.copyWith`, replacing the brownish auto-generated values with cool blue-gray tones consistent with the rest of the slate staircase.
+Task A2 — Replaced raw `'Grade ${n}'` / `'Stream ${n}'` strings in `overview_screen.dart` with `gradeLabel()` and `gradeStreamLabel()` from `lib/core/extensions.dart`. Four locations fixed: `_TimetableSlotCard`, `_TeacherClassChipsState`, `_StudentEnrollmentInfo`, `_WardInfoCardState`. Raw integer grade/stream IDs no longer leak to the UI.

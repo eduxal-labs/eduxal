@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/extensions.dart';
 import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/academics_dao.dart';
@@ -438,7 +439,7 @@ class _TimetableSlotCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Grade ${slot.grade} · ${streamName ?? 'Stream ${slot.stream}'}',
+                      gradeStreamLabel(slot.grade, streamName: streamName),
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
@@ -645,8 +646,11 @@ class _TeacherClassChipsState extends State<_TeacherClassChips> {
                   children: sorted.map((gs) {
                     final isClassTeacher = ctSet.contains(gs);
                     final subjects = subjectCounts[gs] ?? 0;
-                    final streamName = streamNames[gs] ?? 'Stream ${gs.$2}';
-                    final label = 'Grade ${gs.$1} · $streamName';
+                    final streamName = streamNames[gs];
+                    final label = gradeStreamLabel(
+                      gs.$1,
+                      streamName: streamName,
+                    );
                     final subtitle = isClassTeacher
                         ? 'Class Teacher'
                         : '$subjects subject${subjects != 1 ? 's' : ''}';
@@ -1192,7 +1196,7 @@ class _StudentEnrollmentInfo extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Text(
-                'Grade ${enrollment.grade} · Stream ${enrollment.stream}',
+                gradeLabel(enrollment.grade),
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
@@ -1920,9 +1924,10 @@ class _WardInfoCardState extends State<_WardInfoCard> {
                     }
                     final streamName =
                         streamMap[(enrollment.grade, enrollment.stream)];
-                    final label = streamName != null
-                        ? 'Grade ${enrollment.grade} · $streamName'
-                        : 'Grade ${enrollment.grade}';
+                    final label = gradeStreamLabel(
+                      enrollment.grade,
+                      streamName: streamName,
+                    );
                     return Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
