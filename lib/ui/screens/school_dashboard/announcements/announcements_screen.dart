@@ -4,6 +4,7 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart' hide Action;
 
 import '../../../../client.dart';
+import '../../../../core/extensions.dart';
 import '../../../theme/app_theme.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/announcements_dao.dart';
@@ -609,20 +610,18 @@ class _AnnouncementRowState extends State<_AnnouncementRow>
     final grade = item.grade;
     if (grade == null) return [];
 
-    final label = _gradeLabel(grade);
+    final label = gradeLabel(grade, config: widget.config);
     final tags = <Widget>[
       _Tag(label: label, color: cs.secondary, cs: cs, isDark: isDark),
     ];
 
     if (item.stream != null) {
-      tags.add(
-        _Tag(
-          label: 'Stream ${item.stream}',
-          color: cs.secondary,
-          cs: cs,
-          isDark: isDark,
-        ),
-      );
+      final streamName = _resolveStreamName(grade, item.stream!, widget.config);
+      if (streamName != null) {
+        tags.add(
+          _Tag(label: streamName, color: cs.secondary, cs: cs, isDark: isDark),
+        );
+      }
     }
     return tags;
   }
@@ -630,7 +629,12 @@ class _AnnouncementRowState extends State<_AnnouncementRow>
   void _showDetailSheet(BuildContext context) {
     showEduSheet(
       context: context,
-      builder: (_) => _DetailSheet(item: item, cs: cs, isDark: isDark),
+      builder: (_) => _DetailSheet(
+        item: item,
+        cs: cs,
+        isDark: isDark,
+        config: widget.config,
+      ),
     );
   }
 
@@ -912,11 +916,13 @@ class _DetailSheet extends StatelessWidget {
     required this.item,
     required this.cs,
     required this.isDark,
+    required this.config,
   });
 
   final AnnouncementWithAuthor item;
   final ColorScheme cs;
   final bool isDark;
+  final SchoolConfig config;
 
   @override
   Widget build(BuildContext context) {
@@ -1070,18 +1076,24 @@ class _DetailSheet extends StatelessWidget {
                                 ),
                           if (item.grade != null)
                             _Tag(
-                              label: _gradeLabel(item.grade!),
+                              label: gradeLabel(item.grade!, config: config),
                               color: cs.secondary,
                               cs: cs,
                               isDark: isDark,
                             ),
-                          if (item.stream != null)
-                            _Tag(
-                              label: 'Stream ${item.stream}',
-                              color: cs.secondary,
-                              cs: cs,
-                              isDark: isDark,
-                            ),
+                          if (item.stream != null && item.grade != null)
+                            if (_resolveStreamName(
+                                  item.grade!,
+                                  item.stream!,
+                                  config,
+                                )
+                                case final String name)
+                              _Tag(
+                                label: name,
+                                color: cs.secondary,
+                                cs: cs,
+                                isDark: isDark,
+                              ),
                         ],
                       ),
                     ),
@@ -1501,7 +1513,7 @@ class _ComposeSheetState extends State<_ComposeSheet> {
                         for (final g in _gradeOptions)
                           DropdownMenuItem(
                             value: g,
-                            child: Text(_gradeLabel(g)),
+                            child: Text(gradeLabel(g, config: widget.config)),
                           ),
                       ],
                       cs: cs,
@@ -1926,10 +1938,17 @@ String _monthAbbr(int month) => const [
   'Dec',
 ][month - 1];
 
-/// Returns a human-readable grade label. Attempts CBC labels first, then
-/// 8-4-4, then falls back to "Grade N".
-String _gradeLabel(int grade) {
-  return kCbcGradeLabels[grade] ??
-      kEightFourFourGradeLabels[grade] ??
-      'Grade $grade';
+/// Resolves a stream code to its display name using [SchoolConfig].
+///
+/// Returns `null` if the stream code cannot be resolved — callers should
+/// omit the stream tag entirely rather than showing a raw integer.
+String? _resolveStreamName(int grade, int streamCode, SchoolConfig config) {
+  for (final c in config.curricula) {
+    final gc = c.grades.where((g) => g.grade == grade).firstOrNull;
+    if (gc != null) {
+      final s = gc.streams.where((s) => s.code == streamCode).firstOrNull;
+      if (s != null) return s.name;
+    }
+  }
+  return null;
 }

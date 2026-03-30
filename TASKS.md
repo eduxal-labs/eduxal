@@ -159,7 +159,7 @@ If stream name is not available, use `gradeLabel(enrollment.grade)` alone. Never
 
 ---
 
-### Task A4: Audit and fix any remaining raw grade integer leaks
+### Task A4: Audit and fix any remaining raw grade integer leaks [x]
 
 **Files to create/modify:** Any file in `lib/ui/` that uses `'Grade $'` pattern
 **Depends on:** Task A1
@@ -178,7 +178,7 @@ Files already known to handle it correctly (do NOT break these):
 For any file that already has a private `_gradeLabel` helper, optionally migrate it to use the shared `gradeLabel()` from `lib/core/extensions.dart` for consistency, but this is a nice-to-have — the primary goal is fixing the broken locations.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 

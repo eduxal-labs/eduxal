@@ -19,6 +19,7 @@ import '../../../../models/school_context.dart';
 import '../../../../database/daos/catalog_dao.dart';
 import '../../../../models/timetable_rules.dart';
 import '../../../../core/academic_utils.dart';
+import '../../../../core/extensions.dart';
 import '../../../../services/timetable_generator.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/active_term_provider.dart';
@@ -299,6 +300,7 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
       initialRules: _rules!,
       schoolContext: widget.schoolContext,
       termContext: widget.termContext,
+      config: _config ?? SchoolConfig.defaults(),
     );
 
     if (result == null || !mounted) return;
@@ -4269,6 +4271,7 @@ Future<_RulesSheetResult?> showTimetableWizardDialog({
   required TimetableRules initialRules,
   required SchoolContext schoolContext,
   required ActiveTermContext termContext,
+  required SchoolConfig config,
 }) {
   final w = MediaQuery.sizeOf(context).width;
   final cs = Theme.of(context).colorScheme;
@@ -4296,6 +4299,7 @@ Future<_RulesSheetResult?> showTimetableWizardDialog({
                 initialRules: initialRules,
                 schoolContext: schoolContext,
                 termContext: termContext,
+                config: config,
               ),
             ),
           ),
@@ -4329,6 +4333,7 @@ Future<_RulesSheetResult?> showTimetableWizardDialog({
             initialRules: initialRules,
             schoolContext: schoolContext,
             termContext: termContext,
+            config: config,
           ),
         ),
       );
@@ -4343,11 +4348,13 @@ class _TimetableWizard extends StatefulWidget {
     required this.initialRules,
     required this.schoolContext,
     required this.termContext,
+    required this.config,
   });
 
   final TimetableRules initialRules;
   final SchoolContext schoolContext;
   final ActiveTermContext termContext;
+  final SchoolConfig config;
 
   @override
   State<_TimetableWizard> createState() => _TimetableWizardState();
@@ -4708,6 +4715,7 @@ class _TimetableWizardState extends State<_TimetableWizard> {
         rules: _rules,
         assignments: _assignments,
         subjects: _subjects,
+        config: widget.config,
         cs: cs,
         isDark: isDark,
         onChanged: (r) => setState(() => _rules = r),
@@ -7603,6 +7611,7 @@ class _Stage3RemainderSlots extends StatefulWidget {
     required this.rules,
     required this.assignments,
     required this.subjects,
+    required this.config,
     required this.cs,
     required this.isDark,
     required this.onChanged,
@@ -7611,6 +7620,7 @@ class _Stage3RemainderSlots extends StatefulWidget {
   final TimetableRules rules;
   final List<SolverAssignment> assignments;
   final List<_WizardSubject> subjects;
+  final SchoolConfig config;
   final ColorScheme cs;
   final bool isDark;
   final void Function(TimetableRules) onChanged;
@@ -7719,7 +7729,7 @@ class _Stage3RemainderSlotsState extends State<_Stage3RemainderSlots> {
     final streamCount = streamGroups.length;
 
     return _WizardEntityRow(
-      name: 'Grade $grade',
+      name: gradeLabel(grade, config: widget.config),
       subtitle: '$streamCount stream${streamCount == 1 ? '' : 's'}',
       icon: Icons.school_outlined,
       isExpanded: isExpanded,
@@ -7768,7 +7778,22 @@ class _Stage3RemainderSlotsState extends State<_Stage3RemainderSlots> {
       if (!orderedSubjects.contains(sid)) orderedSubjects.add(sid);
     }
 
-    final streamLabel = stream == null ? 'All' : 'Stream $stream';
+    String? resolvedName;
+    if (stream != null) {
+      for (final c in widget.config.curricula) {
+        final gc = c.grades.where((g) => g.grade == grade).firstOrNull;
+        if (gc != null) {
+          final s = gc.streams.where((s) => s.code == stream).firstOrNull;
+          if (s != null) {
+            resolvedName = s.name;
+            break;
+          }
+        }
+      }
+    }
+    final streamLabel = stream == null
+        ? 'All'
+        : (resolvedName ?? 'Stream $stream');
 
     return _WizardEntityRow(
       name: streamLabel,
