@@ -874,6 +874,10 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
   List<({int? streamCode, String? streamName})> _streamEntries = [];
   StreamSubscription? _streamSub;
 
+  // ── Teacher subject restriction (only populated for TeacherEntry) ───────
+  List<SubjectTeacher> _teacherSubjects = [];
+  StreamSubscription? _teacherSubjectsSub;
+
   @override
   void initState() {
     super.initState();
@@ -895,6 +899,7 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
         });
     _subscribeToStreams();
     _loadTeacherNames();
+    _subscribeToTeacherSubjects();
   }
 
   @override
@@ -928,7 +933,41 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
     _gradeTabController.dispose();
     _streamTabController?.dispose();
     _streamSub?.cancel();
+    _teacherSubjectsSub?.cancel();
     super.dispose();
+  }
+
+  /// Subscribe to the teacher's subject assignments for the current term.
+  /// Only active when the current entry is a [TeacherEntry].
+  void _subscribeToTeacherSubjects() {
+    _teacherSubjectsSub?.cancel();
+    final entry = widget.entry;
+    if (entry is TeacherEntry) {
+      _teacherSubjectsSub = _membersDao
+          .watchTeacherSubjectsForTerm(
+            widget.schoolId,
+            entry.teacher.user,
+            year: widget.year,
+            term: widget.term,
+          )
+          .listen((subjects) {
+            if (mounted) setState(() => _teacherSubjects = subjects);
+          });
+    }
+  }
+
+  /// Whether the teacher teaches at least one subject for the currently
+  /// selected grade/stream.  Always returns `true` for non-teacher entries.
+  bool get _teacherHasSubjectsForCurrentSelection {
+    if (widget.entry is! TeacherEntry) return true;
+    final grades = widget.group.grades;
+    if (grades.isEmpty) return false;
+    final currentGrade = grades[_selectedGradeIndex].grade;
+    final stream = _currentStreamCode;
+    return _teacherSubjects.any(
+      (st) =>
+          st.grade == currentGrade && (stream == null || st.stream == stream),
+    );
   }
 
   void _onGradeTabChanged(int index) {
@@ -1082,6 +1121,9 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
         subjectNames: widget.subjectNames,
         dao: _dao,
         subjectsDao: SubjectsDao(db),
+        teacherUserId: widget.entry is TeacherEntry
+            ? (widget.entry as TeacherEntry).teacher.user
+            : null,
       ),
     );
   }
@@ -1559,7 +1601,8 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
             right: 12,
             bottom: 16,
             child: _ExpandableFab(
-              paperEnabled: _hasStreamSelection,
+              paperEnabled:
+                  _hasStreamSelection && _teacherHasSubjectsForCurrentSelection,
               onAddPaper: () => _showAddPaper(context),
               onAddGrade: () => _showAddGradeModal(context),
               onAddStream: () => _showAddStreamModal(context),
@@ -7356,6 +7399,7 @@ class _CreatePaperSheet extends StatefulWidget {
     required this.subjectNames,
     required this.dao,
     required this.subjectsDao,
+    this.teacherUserId,
   });
 
   final ExamGroup examGroup;
@@ -7369,6 +7413,10 @@ class _CreatePaperSheet extends StatefulWidget {
   final Map<int, String> subjectNames;
   final ExamsGradesDao dao;
   final SubjectsDao subjectsDao;
+
+  /// When non-null, only subjects assigned to this teacher are shown.
+  /// Used to restrict paper creation for [TeacherEntry] users.
+  final String? teacherUserId;
 
   @override
   State<_CreatePaperSheet> createState() => _CreatePaperSheetState();
@@ -7462,13 +7510,19 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
       year: widget.year,
       term: widget.term,
     );
-    final filtered = allSubs
+    var filtered = allSubs
         .where(
           (s) =>
               s.grade == widget.grade &&
               (widget.stream == null || s.stream == widget.stream),
         )
         .toList();
+    // Teacher restriction: only show subjects the teacher is assigned to.
+    if (widget.teacherUserId != null) {
+      filtered = filtered
+          .where((s) => s.teacher == widget.teacherUserId)
+          .toList();
+    }
     if (mounted) {
       setState(() {
         _subjects = filtered;

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -93,6 +94,10 @@ class _PaperDetailPageState extends State<PaperDetailPage>
   // ── Marking scheme state ────────────────────────────────────────────────
   List<String> _schemeFiles = [];
 
+  // ── Teacher subject restriction (only for TeacherEntry) ─────────────────
+  List<SubjectTeacher> _teacherSubjects = [];
+  StreamSubscription? _teacherSubjectsSub;
+
   Map<int, List<String>> _childSubmissions = {};
   Set<int> _childDirtySubmissions = {};
 
@@ -140,7 +145,18 @@ class _PaperDetailPageState extends State<PaperDetailPage>
 
   bool get _canManage {
     final entry = widget.schoolContext.currentEntry.value;
-    return entry is TeacherEntry || entry is OwnerEntry || entry is StaffEntry;
+    if (entry is OwnerEntry || entry is StaffEntry) return true;
+    if (entry is TeacherEntry) {
+      // Teacher can only manage papers for subjects they teach to this
+      // paper's grade/stream.
+      return _teacherSubjects.any(
+        (st) =>
+            st.grade == _paper.grade &&
+            st.subject == _paper.subject &&
+            (_paper.stream == null || st.stream == _paper.stream),
+      );
+    }
+    return false;
   }
 
   Future<void> _loadSchemeFiles() async {
@@ -200,10 +216,26 @@ class _PaperDetailPageState extends State<PaperDetailPage>
     );
     _loadStudents();
     _loadSchemeFiles();
+
+    // Subscribe to teacher subjects if the current entry is a teacher.
+    final entry = widget.schoolContext.currentEntry.value;
+    if (entry is TeacherEntry) {
+      _teacherSubjectsSub = MembersDao(db)
+          .watchTeacherSubjectsForTerm(
+            widget.schoolId,
+            entry.teacher.user,
+            year: widget.year,
+            term: widget.term,
+          )
+          .listen((subjects) {
+            if (mounted) setState(() => _teacherSubjects = subjects);
+          });
+    }
   }
 
   @override
   void dispose() {
+    _teacherSubjectsSub?.cancel();
     _entranceController.dispose();
     super.dispose();
   }

@@ -1284,4 +1284,36 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
           return results;
         });
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Class teacher check
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Returns `true` if [teacherUserId] is the active class teacher for the
+  /// given grade/stream in the specified school/year/term.
+  ///
+  /// "Active" means a row exists in [ClassTeachers] with `end IS NULL`
+  /// (the teacher has not been replaced).
+  Future<bool> isClassTeacherFor({
+    required String schoolId,
+    required int year,
+    required int term,
+    required int grade,
+    required int stream,
+    required String teacherUserId,
+  }) async {
+    final row =
+        await (select(classTeachers)..where(
+              (t) =>
+                  t.school.equals(schoolId) &
+                  t.year.equals(year) &
+                  t.term.equals(term) &
+                  t.grade.equals(grade) &
+                  t.stream.equals(stream) &
+                  t.teacher.equals(teacherUserId) &
+                  t.end.isNull(),
+            ))
+            .getSingleOrNull();
+    return row != null;
+  }
 }

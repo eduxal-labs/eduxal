@@ -4,7 +4,10 @@ import '../../../../widgets/inline_date_picker_dialog.dart';
 import '../../../../../client.dart';
 import '../../../../../database/database.dart';
 import '../../../../../database/daos/attendance_dao.dart';
+import '../../../../../database/daos/members_dao.dart';
 import '../../../../../database/tables/enums.dart';
+import '../../../../../models/membership.dart';
+import '../../../../../models/permissions.dart' as perms;
 import '../../../../../models/school_context.dart';
 import '../../../../theme/app_theme.dart';
 
@@ -122,6 +125,7 @@ class AttendanceTab extends StatefulWidget {
 class _AttendanceTabState extends State<AttendanceTab>
     with AutomaticKeepAliveClientMixin {
   late final AttendanceDao _dao;
+  late final MembersDao _membersDao;
 
   // ── Date state ─────────────────────────────────────────────────────────────
 
@@ -134,6 +138,18 @@ class _AttendanceTabState extends State<AttendanceTab>
   /// The month currently being viewed in the calendar history view.
   late DateTime _calendarMonth;
 
+  /// Whether the current user is allowed to mark attendance for this class.
+  ///
+  /// - Owners: always `true` (bypass all checks).
+  /// - Staff with `Resource.attendance, Action.mark` permission: `true`.
+  /// - Teachers: only `true` if they are the active class teacher for the
+  ///   current grade/stream (row in `class_teachers` with `end IS NULL`).
+  /// - Students / Guardians: always `false`.
+  bool _canMark = false;
+
+  /// True while the async class-teacher check is in flight.
+  bool _loadingCanMark = true;
+
   // ── Keep-alive ─────────────────────────────────────────────────────────────
 
   @override
@@ -145,9 +161,51 @@ class _AttendanceTabState extends State<AttendanceTab>
   void initState() {
     super.initState();
     _dao = AttendanceDao(db);
+    _membersDao = MembersDao(db);
     _selectedDate = DateTime.now();
     _selectedDateEpochDays = _dateToEpochDays(_selectedDate);
     _calendarMonth = DateTime(DateTime.now().year, DateTime.now().month);
+    _resolveCanMark();
+  }
+
+  /// Determines whether the current user may mark attendance.
+  Future<void> _resolveCanMark() async {
+    final entry = widget.schoolContext.currentEntry.value;
+    bool result;
+
+    switch (entry) {
+      case OwnerEntry():
+        // Owners bypass all permission checks.
+        result = true;
+      case TeacherEntry():
+        // Teachers can only mark attendance for classes where they are
+        // the active class teacher.
+        final userId = cache.currentUser!.user.id;
+        result = await _membersDao.isClassTeacherFor(
+          schoolId: widget.schoolId,
+          year: widget.year,
+          term: widget.term,
+          grade: widget.grade,
+          stream: widget.streamCode,
+          teacherUserId: userId,
+        );
+      case StaffEntry():
+        // Staff with the attendance mark permission can mark any class.
+        result = widget.schoolContext.permissions.can(
+          perms.Resource.attendance,
+          perms.Action.mark,
+        );
+      case StudentEntry():
+      case GuardianEntry():
+        result = false;
+    }
+
+    if (mounted) {
+      setState(() {
+        _canMark = result;
+        _loadingCanMark = false;
+      });
+    }
   }
 
   // ── Date navigation ────────────────────────────────────────────────────────
@@ -289,6 +347,7 @@ class _AttendanceTabState extends State<AttendanceTab>
                   date: _selectedDateEpochDays,
                   dao: _dao,
                   cs: cs,
+                  canMark: !_loadingCanMark && _canMark,
                 ),
         ),
       ],
@@ -651,6 +710,7 @@ class _AttendanceMarkingBody extends StatefulWidget {
     required this.date,
     required this.dao,
     required this.cs,
+    this.canMark = true,
   });
 
   final String schoolId;
@@ -661,6 +721,11 @@ class _AttendanceMarkingBody extends StatefulWidget {
   final int date;
   final AttendanceDao dao;
   final ColorScheme cs;
+
+  /// Whether the current user is allowed to mark attendance.
+  /// When `false`, the action bar and per-student toggle buttons are hidden
+  /// and the view is read-only.
+  final bool canMark;
 
   @override
   State<_AttendanceMarkingBody> createState() => _AttendanceMarkingBodyState();
@@ -780,12 +845,13 @@ class _AttendanceMarkingBodyState extends State<_AttendanceMarkingBody> {
               cs: cs,
             ),
 
-            // ── Action bar ────────────────────────────────────────────────
-            _ActionBar(
-              markingAll: _markingAllPresent,
-              onMarkAllPresent: () => _markAllPresent(rows),
-              cs: cs,
-            ),
+            // ── Action bar (only when user can mark) ──────────────────────
+            if (widget.canMark)
+              _ActionBar(
+                markingAll: _markingAllPresent,
+                onMarkAllPresent: () => _markAllPresent(rows),
+                cs: cs,
+              ),
 
             // ── Student list ──────────────────────────────────────────────
             Expanded(
@@ -800,9 +866,11 @@ class _AttendanceMarkingBodyState extends State<_AttendanceMarkingBody> {
                     student: row.student,
                     currentStatus: currentStatus,
                     cs: cs,
-                    onStatusChanged: (status) {
-                      _markSingle(row.student.adm, status);
-                    },
+                    onStatusChanged: widget.canMark
+                        ? (status) {
+                            _markSingle(row.student.adm, status);
+                          }
+                        : null,
                   );
                 },
               ),
@@ -1046,7 +1114,9 @@ class _StudentAttendanceTile extends StatelessWidget {
   final StudentsData student;
   final AttendanceStatus? currentStatus;
   final ColorScheme cs;
-  final ValueChanged<AttendanceStatus> onStatusChanged;
+
+  /// Callback when a status button is tapped. `null` = read-only mode.
+  final ValueChanged<AttendanceStatus>? onStatusChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1120,48 +1190,61 @@ class _StatusToggleGroup extends StatelessWidget {
   const _StatusToggleGroup({
     required this.currentStatus,
     required this.cs,
-    required this.onStatusChanged,
+    this.onStatusChanged,
   });
 
   final AttendanceStatus? currentStatus;
   final ColorScheme cs;
-  final ValueChanged<AttendanceStatus> onStatusChanged;
+
+  /// Callback when a status button is tapped. `null` = read-only mode
+  /// (buttons are visually disabled and non-interactive).
+  final ValueChanged<AttendanceStatus>? onStatusChanged;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      padding: const EdgeInsets.all(3),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _ToggleButton(
-            label: 'P',
-            isActive: currentStatus == AttendanceStatus.present,
-            activeColor: _kPresentColor,
-            cs: cs,
-            onTap: () => onStatusChanged(AttendanceStatus.present),
-          ),
-          const SizedBox(width: 2),
-          _ToggleButton(
-            label: 'A',
-            isActive: currentStatus == AttendanceStatus.absent,
-            activeColor: _kAbsentColor,
-            cs: cs,
-            onTap: () => onStatusChanged(AttendanceStatus.absent),
-          ),
-          const SizedBox(width: 2),
-          _ToggleButton(
-            label: 'L',
-            isActive: currentStatus == AttendanceStatus.leave,
-            activeColor: _kLeaveColor,
-            cs: cs,
-            onTap: () => onStatusChanged(AttendanceStatus.leave),
-          ),
-        ],
+    final enabled = onStatusChanged != null;
+    return Opacity(
+      opacity: enabled ? 1.0 : 0.45,
+      child: Container(
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        padding: const EdgeInsets.all(3),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _ToggleButton(
+              label: 'P',
+              isActive: currentStatus == AttendanceStatus.present,
+              activeColor: _kPresentColor,
+              cs: cs,
+              onTap: enabled
+                  ? () => onStatusChanged!(AttendanceStatus.present)
+                  : null,
+            ),
+            const SizedBox(width: 2),
+            _ToggleButton(
+              label: 'A',
+              isActive: currentStatus == AttendanceStatus.absent,
+              activeColor: _kAbsentColor,
+              cs: cs,
+              onTap: enabled
+                  ? () => onStatusChanged!(AttendanceStatus.absent)
+                  : null,
+            ),
+            const SizedBox(width: 2),
+            _ToggleButton(
+              label: 'L',
+              isActive: currentStatus == AttendanceStatus.leave,
+              activeColor: _kLeaveColor,
+              cs: cs,
+              onTap: enabled
+                  ? () => onStatusChanged!(AttendanceStatus.leave)
+                  : null,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1180,7 +1263,7 @@ class _ToggleButton extends StatelessWidget {
   final bool isActive;
   final Color activeColor;
   final ColorScheme cs;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {

@@ -512,7 +512,7 @@ However, the `AcademicsScreen` currently shows the **full grade/stream tree** wi
 
 ---
 
-### Task D2: Teacher-specific attendance marking restriction
+### Task D2: Teacher-specific attendance marking restriction [x]
 
 **Files to create/modify:** `lib/ui/screens/school_dashboard/academics/tabs/` (attendance tab file), potentially `lib/ui/screens/school_dashboard/attendance/attendance_screen.dart`
 **Context files to read (if needed):** `lib/database/daos/members_dao.dart` (L1173–1186 for `watchClassTeacherAssignments`)
