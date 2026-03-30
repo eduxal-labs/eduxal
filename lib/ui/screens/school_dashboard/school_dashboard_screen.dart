@@ -463,7 +463,13 @@ class _DashboardShellState extends State<_DashboardShell>
                     ? () => _showRoleSwitcherSheet(ctx)
                     : null,
               ),
-            if (isMobile)
+            if (isMobile && currentEntry.role == MembershipRole.teacher)
+              _SimpleTabBar(
+                items: _currentItems,
+                controller: _tabController,
+                cs: cs,
+              )
+            else if (isMobile)
               LoopingTabStrip(
                 items: _currentItems
                     .map((e) => LoopingTabItem(label: e.label, icon: e.icon))
@@ -1314,6 +1320,57 @@ class _TabLayoutTopBar extends StatelessWidget {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pill tab strip — icon-only, fills full pill width (mobile only, < 600 px)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SimpleTabBar extends StatelessWidget {
+  const _SimpleTabBar({
+    required this.items,
+    required this.controller,
+    required this.cs,
+  });
+
+  final List<_NavItem> items;
+  final TabController controller;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: TabBar(
+        controller: controller,
+        isScrollable: true,
+        tabAlignment: TabAlignment.start,
+        splashBorderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+        dividerColor: Colors.transparent,
+        dividerHeight: 0,
+        indicatorSize: TabBarIndicatorSize.tab,
+        indicator: BoxDecoration(
+          color: cs.primary,
+          borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+        ),
+        labelColor: cs.onPrimary,
+        unselectedLabelColor: cs.onSurfaceVariant,
+        labelStyle: const TextStyle(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w400,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w400,
+        ),
+        labelPadding: const EdgeInsets.symmetric(horizontal: 12),
+        overlayColor: WidgetStateProperty.all(Colors.transparent),
+        splashFactory: NoSplash.splashFactory,
+        tabs: items.map((item) => Tab(height: 32, text: item.label)).toList(),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pill tab strip — icon-only for rail/sidebar layouts
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _PillTabStrip extends StatelessWidget {

@@ -189,7 +189,7 @@ For any file that already has a private `_gradeLabel` helper, optionally migrate
 
 ---
 
-### Task B1: Replace `LoopingTabStrip` with a simple static tab bar for teacher role
+### Task B1: Replace `LoopingTabStrip` with a simple static tab bar for teacher role [x]
 
 **Files to create/modify:** `lib/ui/screens/school_dashboard/school_dashboard_screen.dart`
 **Context files to read (if needed):** `lib/ui/widgets/looping_tab_strip.dart` (for understanding what to replace)
@@ -227,8 +227,8 @@ The `LoopingTabStrip` is an infinite-scrolling custom widget used for mobile tab
 3. **Remove icons from the teacher's `_NavItem` definitions** in `_itemsForRole`. Since the teacher uses `_SimpleTabBar` which doesn't show icons, the icons in `_NavItem` are irrelevant for display but can remain in the data model (other layouts like rail/sidebar still use them).
 
 **Update after completion:**
-- [ ] Update `lib/ui/CONTEXT.md` — document the new `_SimpleTabBar` widget
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/CONTEXT.md` — document the new `_SimpleTabBar` widget
+- [x] Mark this task `[x]`
 
 ---
 

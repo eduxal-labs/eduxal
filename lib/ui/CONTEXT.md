@@ -72,10 +72,14 @@ The school dashboard uses `SchoolContext` (provided via `InheritedWidget` or sim
 
 Navigation items vary by role (determined by `currentEntry.role`):
 - **Owner:** Overview | Academics | Members | Finance | Timetable | Roles
-- **Teacher:** Overview | Academics | Exams & Grades | Attendance | Timetable
+- **Teacher:** Overview | My Classes | Academics | Exams & Grades | Members | Finance | Announcements | Timetable | Attendance | Roles (permission-gated extras)
 - **Staff:** Overview | Members | Finance | Attendance | Announcements
 - **Student:** Overview | Timetable | Grades | Attendance
 - **Guardian:** Overview | Attendance | Grades | Finance (read-only)
+
+#### Mobile Tab Navigation
+- **Teacher role:** Uses `_SimpleTabBar` — a scrollable, text-only `TabBar` with pill-style selected indicator (`cs.primary` bg, white text). No icons. Height 40px, font 12.5/w400, border radius `kChipRadius` (4.0). Uses `isScrollable: true` with `TabAlignment.start`.
+- **All other roles:** Use `LoopingTabStrip` — the existing infinite-scrolling icon+label tab strip.
 
 `ActiveTermContext` scopes all academic data to the selected year/term.
 
@@ -121,4 +125,4 @@ All design tokens are codified in `AppTheme` (`lib/ui/theme/app_theme.dart`) and
 - All tab surfaces in the app use `EduTabBar`, whether icon-only or text-label mode.
 
 ## Last Updated
-Task A2 — Replaced raw `'Grade ${n}'` / `'Stream ${n}'` strings in `overview_screen.dart` with `gradeLabel()` and `gradeStreamLabel()` from `lib/core/extensions.dart`. Four locations fixed: `_TimetableSlotCard`, `_TeacherClassChipsState`, `_StudentEnrollmentInfo`, `_WardInfoCardState`. Raw integer grade/stream IDs no longer leak to the UI.
+Task B1 — Added `_SimpleTabBar` widget to `school_dashboard_screen.dart`. Mobile layout now conditionally renders `_SimpleTabBar` (text-only, scrollable pill tabs) for the teacher role instead of `LoopingTabStrip`. All other roles continue using `LoopingTabStrip`.
