@@ -125,4 +125,16 @@ All design tokens are codified in `AppTheme` (`lib/ui/theme/app_theme.dart`) and
 - All tab surfaces in the app use `EduTabBar`, whether icon-only or text-label mode.
 
 ## Last Updated
-Task B2 — Restructured teacher navigation items in `school_dashboard_screen.dart`. Teacher role now has 4 always-visible core tabs (Overview, Academics, Exams, Timetable) and 5 permission-gated extras (Attendance, Members, Finance, Announcements, Roles). Removed "My Classes" tab (absorbed into Overview). Renamed "Exams & Grades" → "Exams" for teacher role. Updated `_kAcademicNavLabels` set and `_buildContentPanel` to handle both `'Exams'` and `'Exams & Grades'` labels.
+Task D1 — Audited and enforced RBAC permission gates on the Academics tab for teacher role.
+
+- `academics_screen.dart` — **Already fully gated.** Grade/stream tree mutations (add grade, add/edit streams, delete grade) are gated behind `Resource.classes` with `Action.create/update/delete`. FAB and empty-state CTA respect `canCreate`. `OwnerEntry` bypass is correct.
+- `grade_detail_page.dart` — **Fixed.** The contextual FAB in `_actionsForContentTab` previously returned all mutation actions unconditionally. Added per-tab RBAC gates:
+  - Students FAB → `Resource.students, Action.assign`
+  - Exams FAB → `Resource.exams, Action.create`
+  - Subjects FAB → `Resource.classes, Action.assign`
+  - Timetable FAB → `Resource.classes, Action.create`
+  - Lessons FAB → `Resource.lessons, Action.create`
+  - Teachers FAB → `Resource.classes, Action.assign` (both class-teacher and subject-teacher)
+  - Attendance — no FAB (inline marking, gated separately by Task D2)
+- Added `_can(Resource, Action)` helper with `OwnerEntry` bypass, `_hasFabForContentTab` now delegates to `_actionsForContentTab(...).isNotEmpty`, and `initState` FAB scale accounts for permissions.
+- New imports in `grade_detail_page.dart`: `permissions.dart`, `material.dart` now hides `Action`.

@@ -465,7 +465,7 @@ final myExams = allExams.where((e) {
 
 ---
 
-### Task D1: Wire the teacher "Academics" tab to the existing `AcademicsScreen`
+### Task D1: Wire the teacher "Academics" tab to the existing `AcademicsScreen` [x]
 
 **Files to create/modify:** `lib/ui/screens/school_dashboard/school_dashboard_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/academics/academics_screen.dart`
@@ -493,8 +493,22 @@ However, the `AcademicsScreen` currently shows the **full grade/stream tree** wi
 - **Lessons tab:** Create lesson gated on `Resource.lessons, Action.create`
 
 **Update after completion:**
-- [ ] Update `lib/ui/CONTEXT.md` — note teacher Academics tab permission verification
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/CONTEXT.md` — note teacher Academics tab permission verification
+- [x] Mark this task `[x]`
+
+**Audit results (completed):**
+- `AcademicsScreen` — ✅ Already fully gated. Lines 521–528 check `Resource.classes` with `Action.create/update/delete`. FAB, add-stream, edit-streams, delete-grade, and empty-state all properly gated. `OwnerEntry` bypass correct.
+- `GradeDetailPage` — ❌ **Fixed.** The FAB's `_actionsForContentTab` returned all 7 tabs' mutation actions unconditionally. Added permission gates:
+  - Students tab FAB → `Resource.students, Action.assign`
+  - Exams tab FAB → `Resource.exams, Action.create`
+  - Subjects tab FAB → `Resource.classes, Action.assign`
+  - Timetable tab FAB → `Resource.classes, Action.create`
+  - Lessons tab FAB → `Resource.lessons, Action.create`
+  - Teachers tab FAB → `Resource.classes, Action.assign` (both assign-class-teacher and assign-subject-teacher)
+  - Attendance tab — no FAB (marking is inline, gated by D2)
+- Also fixed: `_hasFabForContentTab` now delegates to `_actionsForContentTab(...).isNotEmpty` instead of hardcoding `index != 3`. Initial FAB scale in `initState` accounts for permissions.
+- Added `_can(Resource, Action)` helper with `OwnerEntry` bypass.
+- Added `import '../../../../models/permissions.dart'` and `hide Action` on material import.
 
 ---
 
