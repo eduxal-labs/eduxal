@@ -560,7 +560,7 @@ Add this to `MembersDao` or `AcademicsDao`.
 
 ---
 
-### Task D3: Teacher-specific exam/grade paper restriction
+### Task D3: Teacher-specific exam/grade paper restriction [x]
 
 **Files to create/modify:** `lib/ui/screens/school_dashboard/exams/exams_grades_screen.dart`, `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`
 **Context files to read (if needed):** `lib/database/daos/exams_grades_dao.dart`, `lib/database/daos/members_dao.dart` (L1190–1206 for `watchTeacherSubjects`)
@@ -582,7 +582,7 @@ A teacher should **only be able to set up answer sheets and mark grades** for pa
 4. For owners and staff with exam permissions, this restriction does NOT apply.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
