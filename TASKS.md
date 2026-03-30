@@ -297,7 +297,7 @@ if (item.label == 'Exams' || item.label == 'Exams & Grades') {
 
 ---
 
-### Task C1: Remove `_WelcomeCard` from teacher overview and restructure layout
+### Task C1: Remove `_WelcomeCard` from teacher overview and restructure layout [x]
 
 **Files to create/modify:** `lib/ui/screens/school_dashboard/overview/overview_screen.dart`
 **Context files to read (if needed):** None
@@ -318,7 +318,7 @@ The final section order in `_TeacherOverview` should be:
 5. Recent Announcements (keep as-is)
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 

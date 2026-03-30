@@ -233,17 +233,11 @@ class _TeacherOverview extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final schoolId = schoolContext.membership.school.id;
     final term = termContext.currentTerm;
-    final userName = cache.currentUser?.user.name ?? 'Teacher';
     final userId = cache.currentUser?.user.id ?? '';
 
     return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       children: [
-        // ── Welcome ──────────────────────────────────────────────────────
-        _WelcomeCard(name: userName, subtitle: 'Teacher', cs: cs),
-
-        const SizedBox(height: 20),
-
         // ── Today's schedule ─────────────────────────────────────────────
         if (term != null && userId.isNotEmpty) ...[
           _SectionTitle(label: "Today's Schedule", cs: cs),
