@@ -81,13 +81,20 @@ Map<Resource, int> parsePermissions(String? jsonStr) {
       jsonStr.isEmpty ||
       jsonStr == '[]' ||
       jsonStr == '{}') {
+    debugPrint('[parsePermissions] Empty/null input: "$jsonStr"');
     return {};
   }
+  debugPrint('[parsePermissions] Input: $jsonStr');
   try {
     final decoded = jsonDecode(jsonStr);
     final perms = Permissions.fromJson(decoded);
-    return Map<Resource, int>.from(perms.map);
-  } catch (_) {
+    final result = Map<Resource, int>.from(perms.map);
+    debugPrint('[parsePermissions] Parsed ${result.length} resources: $result');
+    return result;
+  } catch (e, st) {
+    debugPrint('[parsePermissions] Failed to parse: $jsonStr');
+    debugPrint('[parsePermissions] Error: $e');
+    debugPrint('[parsePermissions] Stack: $st');
     return {};
   }
 }

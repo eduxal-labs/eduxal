@@ -661,7 +661,7 @@ If any checks are missing, add them.
 
 ---
 
-### Task F1: Debug and fix the permissions empty-after-save bug
+### Task F1: Debug and fix the permissions empty-after-save bug [x]
 
 **Files to create/modify:** `lib/ui/screens/school_dashboard/roles/_role_helpers.dart`, `lib/ui/screens/school_dashboard/roles/school_role_detail_screen.dart`, `lib/ui/screens/school_dashboard/roles/school_roles_screen.dart`
 **Context files to read (if needed):** `lib/models/permissions.dart` (L281–319 for `fromBlob`/`toBlob`, L345–400 for `fromJson`), `lib/database/daos/school_scopes_dao.dart` (L322–410 for `createRole`/`updateRole`)
@@ -731,8 +731,8 @@ If any checks are missing, add them.
 - Remove the empty `catch (_)` — at minimum log the error, or rethrow in debug mode.
 
 **Update after completion:**
-- [ ] Append BUG-011 to `BUG.md` with root cause and fix details
-- [ ] Mark this task `[x]`
+- [x] Append BUG-011 to `BUG.md` with root cause and fix details
+- [x] Mark this task `[x]`
 
 ---
 

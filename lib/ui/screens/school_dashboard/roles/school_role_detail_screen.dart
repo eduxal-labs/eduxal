@@ -266,6 +266,7 @@ class _SchoolRoleDetailScreenState extends State<SchoolRoleDetailScreen>
                       controller: _tabController,
                       children: [
                         _PermissionsTab(
+                          key: ValueKey('perms_${role.id}_${role.updated}'),
                           role: role,
                           dao: widget.dao,
                           cs: cs,
@@ -609,6 +610,7 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
 
 class _PermissionsTab extends StatefulWidget {
   const _PermissionsTab({
+    super.key,
     required this.role,
     required this.dao,
     required this.cs,
@@ -655,7 +657,11 @@ class _PermissionsTabState extends State<_PermissionsTab> {
   }
 
   void _resetFromRole(Role role) {
+    debugPrint(
+      '[_resetFromRole] role.id=${role.id}, permissions="${role.permissions}"',
+    );
     _originalPermissions = parsePermissions(role.permissions);
+    debugPrint('[_resetFromRole] parsed: $_originalPermissions');
     _editPermissions = Map.of(_originalPermissions);
     _selectedResources.clear();
   }

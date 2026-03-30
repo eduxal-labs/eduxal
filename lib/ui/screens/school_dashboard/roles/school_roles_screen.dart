@@ -599,6 +599,10 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
       final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
       final id = ObjectId().oid;
 
+      final json = serialisePermissions(_permissions);
+      debugPrint('[_RoleFormSheet._save] serialised: $json');
+      debugPrint('[_RoleFormSheet._save] roundtrip: ${parsePermissions(json)}');
+
       await widget.dao.createRole(
         RolesCompanion(
           id: Value(id),
@@ -607,7 +611,7 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
           description: Value(
             _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
           ),
-          permissions: Value(serialisePermissions(_permissions)),
+          permissions: Value(json),
           created: Value(nowSec),
           updated: Value(nowSec),
         ),

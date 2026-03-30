@@ -320,3 +320,40 @@ On desktop, a similar issue existed: `showEduSheet`'s dialog branch rendered a `
 
 **Prevention:**
 When adding new sheets launched via `showEduSheet`, the sheet widget must be fully self-contained (own background, handle, title, keyboard padding). `showEduSheet` only provides the system modal/dialog scaffolding (transparent background on mobile, outer chrome on desktop) — it does NOT add any sheet chrome.
+
+---
+
+## BUG-011: Permissions appear empty after saving a role (create or edit flow)
+
+**Severity:** High (permissions silently show as 0 after save — misleads admins into thinking save failed)
+**Discovered:** Track F investigation
+**Fixed by:** Task F1
+
+**Root Cause:**
+Two independent issues combined to make permissions appear empty after save:
+
+1. **Silent error swallowing in `parsePermissions`:** The `catch (_) { return {}; }` block in `_role_helpers.dart` discarded all parse errors without any logging. If `Permissions.fromJson` or `jsonDecode` threw for any reason (e.g. unexpected input shape, encoding edge case), the function silently returned an empty map — making it appear as if the role had no permissions. No diagnostic information was available to identify when or why parsing failed.
+
+2. **Stale `didUpdateWidget` lifecycle in `_PermissionsTabState`:** After `_save()` in the permissions tab, the following race existed:
+   - `await widget.dao.updateRole(...)` completes → DB updated
+   - The parent `StreamBuilder` could fire with the new role data *before* `setState(() { _originalPermissions = Map.of(_editPermissions); })` ran
+   - In `didUpdateWidget`, the condition `!_hasChanges` would be `false` (because `_originalPermissions` hadn't been updated yet), so `_resetFromRole` was skipped
+   - On subsequent stream emissions, `old.role.permissions == widget.role.permissions` (both are the new value), so `_resetFromRole` was again skipped
+   - The widget kept stale state from before the save
+
+   Without a `Key` on the `_PermissionsTab` widget, Flutter reused the same `State` object across `StreamBuilder` rebuilds, making the `didUpdateWidget` timing-dependent behavior the sole mechanism for state refresh.
+
+**Files changed:**
+- `lib/ui/screens/school_dashboard/roles/_role_helpers.dart` — Replaced silent `catch (_)` with `catch (e, st)` that logs the input string, error, and stack trace via `debugPrint`. Added input logging at the start of `parsePermissions` and result logging on successful parse.
+- `lib/ui/screens/school_dashboard/roles/school_role_detail_screen.dart` — Added `super.key` to `_PermissionsTab` constructor. Added `key: ValueKey('perms_${role.id}_${role.updated}')` to the `_PermissionsTab` instantiation in `_SchoolRoleDetailScreenState.build()`, forcing Flutter to create a fresh `State` whenever the role's `updated` timestamp changes (i.e. after every save). Added diagnostic logging to `_resetFromRole` (logs role ID, raw permissions string, and parsed result).
+- `lib/ui/screens/school_dashboard/roles/school_roles_screen.dart` — Added roundtrip verification logging in `_RoleFormSheet._save()`: after `serialisePermissions`, logs the serialised JSON and the result of parsing it back via `parsePermissions`, confirming the roundtrip is lossless before writing to the DB.
+
+**Fix applied:**
+1. `parsePermissions` now logs all inputs, outputs, and errors — silent failures are no longer possible.
+2. `_PermissionsTab` receives a `ValueKey` derived from `role.id` + `role.updated`, so after any save (which updates `role.updated`), Flutter disposes the old state and creates a fresh one via `initState` → `_resetFromRole`. This eliminates the `didUpdateWidget` timing race entirely.
+3. `_RoleFormSheet._save()` reuses the serialised JSON variable for both logging and DB write, eliminating any possibility of double-serialisation.
+
+**Prevention:**
+- Never use empty `catch (_)` blocks in data parsing functions — always log at minimum the input and error in debug mode.
+- When a `StatefulWidget` inside a `StreamBuilder` must reflect the latest stream data, prefer a `ValueKey` tied to the data's version/timestamp over relying on `didUpdateWidget` lifecycle timing.
+- Add roundtrip verification logging when serialisation/deserialisation flows are introduced, at least during development.
