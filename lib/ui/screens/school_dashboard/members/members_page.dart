@@ -476,6 +476,8 @@ class _DepartmentsTabState extends State<_DepartmentsTab> {
                     dao: _dao,
                     isDark: isDark,
                     cs: cs,
+                    schschoolCoolContext: widget.schoolContext,
+                    ontext: widget.schoolContext,
                     onDelete: _canDelete
                         ? () => _confirmDeleteDepartment(context, dept)
                         : null,
@@ -532,6 +534,7 @@ class _DepartmentRow extends StatefulWidget {
     required this.dao,
     required this.isDark,
     required this.cs,
+    required this.schoolContext,
     this.onDelete,
   });
 
@@ -540,6 +543,7 @@ class _DepartmentRow extends StatefulWidget {
   final DepartmentsDao dao;
   final bool isDark;
   final ColorScheme cs;
+  final SchoolContext schoolContext;
   final VoidCallback? onDelete;
 
   @override
@@ -595,6 +599,7 @@ class _DepartmentRowState extends State<_DepartmentRow>
           dept: widget.dept,
           schoolId: widget.schoolId,
           dao: widget.dao,
+          schoolContext: widget.schoolContext,
         ),
       ),
     );
@@ -1752,6 +1757,18 @@ class _GuardiansTabState extends State<_GuardiansTab> {
     super.dispose();
   }
 
+  bool get _canEditGuardian {
+    final entry = widget.schoolContext.currentEntry.value;
+    final perms = widget.schoolContext.permissions;
+    return entry is OwnerEntry || perms.can(Resource.students, Action.update);
+  }
+
+  bool get _canUnlinkGuardian {
+    final entry = widget.schoolContext.currentEntry.value;
+    final perms = widget.schoolContext.permissions;
+    return entry is OwnerEntry || perms.can(Resource.students, Action.unassign);
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<({UsersData user, int wardCount})>>(
@@ -1790,6 +1807,8 @@ class _GuardiansTabState extends State<_GuardiansTab> {
               schoolId: widget.schoolId,
               user: item.user,
               wardCount: item.wardCount,
+              canEditGuardian: _canEditGuardian,
+              canUnlinkGuardian: _canUnlinkGuardian,
             );
           },
         );
@@ -1803,11 +1822,15 @@ class _UniqueGuardianRow extends StatelessWidget {
     required this.schoolId,
     required this.user,
     required this.wardCount,
+    this.canEditGuardian = true,
+    this.canUnlinkGuardian = true,
   });
 
   final String schoolId;
   final UsersData user;
   final int wardCount;
+  final bool canEditGuardian;
+  final bool canUnlinkGuardian;
 
   @override
   Widget build(BuildContext context) {
@@ -1834,7 +1857,12 @@ class _UniqueGuardianRow extends StatelessWidget {
   void _showGuardianBottomSheet(BuildContext context) {
     showEduSheet(
       context: context,
-      builder: (_) => _GuardianWardsSheet(user: user, schoolId: schoolId),
+      builder: (_) => _GuardianWardsSheet(
+        user: user,
+        schoolId: schoolId,
+        canEditGuardian: canEditGuardian,
+        canUnlinkGuardian: canUnlinkGuardian,
+      ),
     );
   }
 
@@ -1851,6 +1879,8 @@ class _UniqueGuardianRow extends StatelessWidget {
           child: _GuardianWardsSheet(
             user: user,
             schoolId: schoolId,
+            canEditGuardian: canEditGuardian,
+            canUnlinkGuardian: canUnlinkGuardian,
             isSideSheet: true,
           ),
         );
@@ -4728,11 +4758,15 @@ class _GuardianWardsSheet extends StatelessWidget {
   const _GuardianWardsSheet({
     required this.user,
     required this.schoolId,
+    this.canEditGuardian = true,
+    this.canUnlinkGuardian = true,
     this.isSideSheet = false,
   });
 
   final UsersData user;
   final String schoolId;
+  final bool canEditGuardian;
+  final bool canUnlinkGuardian;
   final bool isSideSheet;
 
   @override
@@ -4880,6 +4914,8 @@ class _GuardianWardsSheet extends StatelessWidget {
                               service: service,
                               cs: cs,
                               isDark: isDark,
+                              canEdit: canEditGuardian,
+                              canUnlink: canUnlinkGuardian,
                             );
                           },
                         );
@@ -4906,6 +4942,8 @@ class _WardItem extends StatelessWidget {
     required this.service,
     required this.cs,
     required this.isDark,
+    this.canEdit = true,
+    this.canUnlink = true,
   });
 
   final GuardiansData guardian;
@@ -4914,6 +4952,8 @@ class _WardItem extends StatelessWidget {
   final MemberManagementService service;
   final ColorScheme cs;
   final bool isDark;
+  final bool canEdit;
+  final bool canUnlink;
 
   @override
   Widget build(BuildContext context) {
@@ -4975,33 +5015,35 @@ class _WardItem extends StatelessWidget {
                   ],
                 ),
               ),
-              // Edit button
-              InkWell(
-                onTap: () => _editGuardianLink(context),
-                borderRadius: BorderRadius.circular(4),
-                child: Padding(
-                  padding: const EdgeInsets.all(6),
-                  child: Icon(
-                    Icons.edit_outlined,
-                    size: 15,
-                    color: cs.primary.withValues(alpha: 0.6),
+              // Edit button (permission-gated)
+              if (canEdit)
+                InkWell(
+                  onTap: () => _editGuardianLink(context),
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: Icon(
+                      Icons.edit_outlined,
+                      size: 15,
+                      color: cs.primary.withValues(alpha: 0.6),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 4),
-              // Unlink button
-              InkWell(
-                onTap: () => _unlinkGuardian(context),
-                borderRadius: BorderRadius.circular(4),
-                child: Padding(
-                  padding: const EdgeInsets.all(6),
-                  child: Icon(
-                    Icons.link_off_outlined,
-                    size: 15,
-                    color: cs.error.withValues(alpha: 0.5),
+              if (canEdit) const SizedBox(width: 4),
+              // Unlink button (permission-gated)
+              if (canUnlink)
+                InkWell(
+                  onTap: () => _unlinkGuardian(context),
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: Icon(
+                      Icons.link_off_outlined,
+                      size: 15,
+                      color: cs.error.withValues(alpha: 0.5),
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
         ),
@@ -5233,11 +5275,14 @@ class _DepartmentDetailScreen extends StatefulWidget {
     required this.dept,
     required this.schoolId,
     required this.dao,
+    required this.schoolContext,
   });
 
   final Department dept;
   final String schoolId;
   final DepartmentsDao dao;
+  final SchoolContext schoolContext;
+  final SchoolContext schoolContext;
 
   @override
   State<_DepartmentDetailScreen> createState() =>
@@ -5247,6 +5292,20 @@ class _DepartmentDetailScreen extends StatefulWidget {
 class _DepartmentDetailScreenState extends State<_DepartmentDetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tab;
+
+  bool get _canDeleteDept {
+    final entry = widget.schoolContext.currentEntry.value;
+    final perms = widget.schoolContext.permissions;
+    return entry is OwnerEntry ||
+        perms.can(Resource.departments, Action.delete);
+  }
+
+  bool get _canUpdateDept {
+    final entry = widget.schoolContext.currentEntry.value;
+    final perms = widget.schoolContext.permissions;
+    return entry is OwnerEntry ||
+        perms.can(Resource.departments, Action.update);
+  }
 
   @override
   void initState() {
@@ -5258,6 +5317,20 @@ class _DepartmentDetailScreenState extends State<_DepartmentDetailScreen>
   void dispose() {
     _tab.dispose();
     super.dispose();
+  }
+
+  bool get _canDeleteDept {
+    final entry = widget.schoolContext.currentEntry.value;
+    final perms = widget.schoolContext.permissions;
+    return entry is OwnerEntry ||
+        perms.can(Resource.departments, Action.delete);
+  }
+
+  bool get _canUpdateDept {
+    final entry = widget.schoolContext.currentEntry.value;
+    final perms = widget.schoolContext.permissions;
+    return entry is OwnerEntry ||
+        perms.can(Resource.departments, Action.update);
   }
 
   @override
@@ -5283,15 +5356,16 @@ class _DepartmentDetailScreenState extends State<_DepartmentDetailScreen>
         scrolledUnderElevation: 0,
         backgroundColor: cs.surface,
         actions: [
-          IconButton(
-            icon: Icon(
-              Icons.delete_outline_rounded,
-              size: 19,
-              color: cs.error.withValues(alpha: 0.7),
+          if (_canDeleteDept)
+            IconButton(
+              icon: Icon(
+                Icons.delete_outline_rounded,
+                size: 19,
+                color: cs.error.withValues(alpha: 0.7),
+              ),
+              tooltip: 'Delete department',
+              onPressed: () => _confirmDelete(context),
             ),
-            tooltip: 'Delete department',
-            onPressed: () => _confirmDelete(context),
-          ),
           const SizedBox(width: 4),
         ],
         bottom: EduTabBarBottom(
@@ -5305,16 +5379,19 @@ class _DepartmentDetailScreenState extends State<_DepartmentDetailScreen>
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.small(
-        heroTag: 'fab_dept_detail_assign',
-        onPressed: () => _showAssignMember(context),
-        tooltip: 'Assign member',
-        elevation: 4,
-        backgroundColor: Colors.green.shade600,
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        child: const Icon(Icons.add, size: 20),
-      ),
+      floatingActionButton: _canUpdateDept
+          ? FloatingActionButton.small(
+              heroTag: 'fab_dept_detail_assign',
+              onPressed: () => _showAssignMember(context),
+              tooltip: 'Assign member',
+              elevation: 4,
+              backgroundColor: Colors.green.shade600,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+              child: const Icon(Icons.add, size: 20),
+            )
+          : null,
       body: TabBarView(
         controller: _tab,
         physics: const NeverScrollableScrollPhysics(),
@@ -5328,8 +5405,12 @@ class _DepartmentDetailScreenState extends State<_DepartmentDetailScreen>
               widget.schoolId,
               widget.dept.name,
             ),
-            onRemoveTeacher: (userId) => _removeTeacher(userId),
-            onRemoveStaff: (userId) => _removeStaff(userId),
+            onRemoveTeacher: _canUpdateDept
+                ? (userId) => _removeTeacher(userId)
+                : null,
+            onRemoveStaff: _canUpdateDept
+                ? (userId) => _removeStaff(userId)
+                : null,
           ),
           _DeptMemberList<({TeachersData teacher, UsersData user})>(
             stream: widget.dao.watchTeachersInDept(
@@ -5339,7 +5420,9 @@ class _DepartmentDetailScreenState extends State<_DepartmentDetailScreen>
             emptyLabel: 'No teachers assigned',
             nameOf: (item) => item.user.name,
             statusOf: (item) => item.teacher.status.name,
-            onRemove: (item) => _removeTeacher(item.teacher.user),
+            onRemove: _canUpdateDept
+                ? (item) => _removeTeacher(item.teacher.user)
+                : null,
           ),
           _DeptMemberList<({StaffData staff, UsersData user})>(
             stream: widget.dao.watchStaffInDept(
@@ -5349,7 +5432,9 @@ class _DepartmentDetailScreenState extends State<_DepartmentDetailScreen>
             emptyLabel: 'No staff assigned',
             nameOf: (item) => item.user.name,
             statusOf: (item) => item.staff.status.name,
-            onRemove: (item) => _removeStaff(item.staff.user),
+            onRemove: _canUpdateDept
+                ? (item) => _removeStaff(item.staff.user)
+                : null,
           ),
         ],
       ),
@@ -5422,14 +5507,14 @@ class _DeptAllMemberList extends StatelessWidget {
   const _DeptAllMemberList({
     required this.teacherStream,
     required this.staffStream,
-    required this.onRemoveTeacher,
-    required this.onRemoveStaff,
+    this.onRemoveTeacher,
+    this.onRemoveStaff,
   });
 
   final Stream<List<({TeachersData teacher, UsersData user})>> teacherStream;
   final Stream<List<({StaffData staff, UsersData user})>> staffStream;
-  final Future<void> Function(String userId) onRemoveTeacher;
-  final Future<void> Function(String userId) onRemoveStaff;
+  final Future<void> Function(String userId)? onRemoveTeacher;
+  final Future<void> Function(String userId)? onRemoveStaff;
 
   @override
   Widget build(BuildContext context) {
@@ -5451,18 +5536,8 @@ class _DeptAllMemberList extends StatelessWidget {
                   name: t.user.name,
                   statusLabel: t.teacher.status.name,
                   roleTag: 'Teacher',
-                  onRemove: () async => onRemoveTeacher(t.teacher.user),
-                ),
-              ),
-              ...staffMembers.map(
-                (s) => _DeptAllItem(
-                  name: s.user.name,
-                  statusLabel: s.staff.status.name,
-                  roleTag: 'Staff',
-                  onRemove: () async => onRemoveStaff(s.staff.user),
-                ),
-              ),
-            ];
+                  onRemove: onRemoveTeacher != null
+                      ? () async => onRemoveTeacher!(
 
             if (combined.isEmpty) {
               return Center(
@@ -5495,13 +5570,13 @@ class _DeptAllItem extends StatefulWidget {
     required this.name,
     required this.statusLabel,
     required this.roleTag,
-    required this.onRemove,
+    this.onRemove,
   });
 
   final String name;
   final String statusLabel;
   final String roleTag;
-  final Future<void> Function() onRemove;
+  final Future<void> Function()? onRemove;
 
   @override
   State<_DeptAllItem> createState() => _DeptAllItemState();
@@ -5706,18 +5781,19 @@ class _DeptAllItemState extends State<_DeptAllItem>
                               ),
                               const SizedBox(width: 6),
 
-                              // ── Remove button ──────────────────
-                              AnimatedActionButton(
-                                icon: Icons.close_rounded,
-                                iconSize: 15,
-                                color: _isHovered
-                                    ? cs.error.withValues(alpha: 0.7)
-                                    : cs.error.withValues(alpha: 0.4),
-                                size: 28,
-                                tooltip: 'Remove',
-                                showCheckOnSuccess: false,
-                                onTap: widget.onRemove,
-                              ),
+                              // ── Remove button (permission-gated) ─
+                              if (widget.onRemove != null)
+                                AnimatedActionButton(
+                                  icon: Icons.close_rounded,
+                                  iconSize: 15,
+                                  color: _isHovered
+                                      ? cs.error.withValues(alpha: 0.7)
+                                      : cs.error.withValues(alpha: 0.4),
+                                  size: 28,
+                                  tooltip: 'Remove',
+                                  showCheckOnSuccess: false,
+                                  onTap: widget.onRemove!,
+                                ),
                             ],
                           ),
                         ),
@@ -5740,14 +5816,14 @@ class _DeptMemberList<T> extends StatelessWidget {
     required this.emptyLabel,
     required this.nameOf,
     required this.statusOf,
-    required this.onRemove,
+    this.onRemove,
   });
 
   final Stream<List<T>> stream;
   final String emptyLabel;
   final String Function(T) nameOf;
   final String Function(T) statusOf;
-  final Future<void> Function(T) onRemove;
+  final Future<void> Function(T)? onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -5794,7 +5870,9 @@ class _DeptMemberList<T> extends StatelessWidget {
                     return _DeptMemberRow(
                       name: nameOf(item),
                       statusLabel: statusOf(item),
-                      onRemove: () async => onRemove(item),
+                      onRemove: onRemove != null
+                          ? () async => onRemove!(item)
+                          : null,
                     );
                   },
                 ),
@@ -5810,12 +5888,12 @@ class _DeptMemberRow extends StatefulWidget {
   const _DeptMemberRow({
     required this.name,
     required this.statusLabel,
-    required this.onRemove,
+    this.onRemove,
   });
 
   final String name;
   final String statusLabel;
-  final Future<void> Function() onRemove;
+  final Future<void> Function()? onRemove;
 
   @override
   State<_DeptMemberRow> createState() => _DeptMemberRowState();
@@ -5996,18 +6074,19 @@ class _DeptMemberRowState extends State<_DeptMemberRow>
 
                               const SizedBox(width: 6),
 
-                              // ── Remove button ──────────────────
-                              AnimatedActionButton(
-                                icon: Icons.close_rounded,
-                                iconSize: 15,
-                                color: _isHovered
-                                    ? cs.error.withValues(alpha: 0.7)
-                                    : cs.error.withValues(alpha: 0.4),
-                                size: 28,
-                                tooltip: 'Remove',
-                                showCheckOnSuccess: false,
-                                onTap: widget.onRemove,
-                              ),
+                              // ── Remove button (permission-gated) ─
+                              if (widget.onRemove != null)
+                                AnimatedActionButton(
+                                  icon: Icons.close_rounded,
+                                  iconSize: 15,
+                                  color: _isHovered
+                                      ? cs.error.withValues(alpha: 0.7)
+                                      : cs.error.withValues(alpha: 0.4),
+                                  size: 28,
+                                  tooltip: 'Remove',
+                                  showCheckOnSuccess: false,
+                                  onTap: widget.onRemove!,
+                                ),
                             ],
                           ),
                         ),

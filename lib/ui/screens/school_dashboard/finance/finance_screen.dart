@@ -898,9 +898,9 @@ class _InvoiceRow extends StatefulWidget {
     required this.cs,
     required this.isDark,
     required this.onRecordPayment,
-    this.canRecordPayment = true,
-    this.canEdit = true,
-    this.canDelete = true,
+    this.canRecordPayment = false,
+    this.canEdit = false,
+    this.canDelete = false,
   });
 
   final InvoiceWithDetails item;
@@ -912,6 +912,9 @@ class _InvoiceRow extends StatefulWidget {
   final bool canRecordPayment;
   final bool canEdit;
   final bool canDelete;
+
+  /// Whether the row has any actionable permission (used to hide empty menus).
+  bool get hasAnyAction => canRecordPayment || canEdit || canDelete;
 
   @override
   State<_InvoiceRow> createState() => _InvoiceRowState();
@@ -933,6 +936,7 @@ class _InvoiceRowState extends State<_InvoiceRow> {
         widget.canRecordPayment &&
         item.invoice.status != InvoiceStatus.paid &&
         item.invoice.status != InvoiceStatus.cancelled;
+    final hasAnyAction = canRecordPayment || widget.canEdit || widget.canDelete;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -1054,7 +1058,7 @@ class _InvoiceRowState extends State<_InvoiceRow> {
               ],
 
               // ── Mobile three-dot ───────────────────────────────────────
-              if (!isDesktop)
+              if (!isDesktop && hasAnyAction)
                 _FinanceMobileMenu(
                   cs: cs,
                   isDark: isDark,
@@ -1225,9 +1229,9 @@ class _PaymentRow extends StatefulWidget {
     required this.item,
     required this.cs,
     required this.isDark,
-    this.canApprove = true,
-    this.canEdit = true,
-    this.canDelete = true,
+    this.canApprove = false,
+    this.canEdit = false,
+    this.canDelete = false,
   });
 
   final PaymentWithDetails item;
@@ -1252,6 +1256,8 @@ class _PaymentRowState extends State<_PaymentRow> {
     final isDesktop = MediaQuery.sizeOf(context).width >= 600;
     final methodLabel = _paymentMethodLabel(item.payment.method);
     final ref = item.payment.reference;
+    final hasAnyAction =
+        widget.canApprove || widget.canEdit || widget.canDelete;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -1359,7 +1365,7 @@ class _PaymentRowState extends State<_PaymentRow> {
               ],
 
               // ── Mobile three-dot ───────────────────────────────────────
-              if (!isDesktop)
+              if (!isDesktop && hasAnyAction)
                 _FinanceMobileMenu(
                   cs: cs,
                   isDark: isDark,

@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import '../../../widgets/inline_date_picker_dialog.dart';
 
 import 'package:drift/drift.dart' hide Column;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Action;
 
 import '../../../../client.dart';
 import '../../../../database/database.dart';
@@ -15,6 +15,7 @@ import '../../../../database/daos/subjects_dao.dart';
 import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../database/tables/enums.dart' show ExamType, PaperStatus;
 import '../../../../models/membership.dart';
+import '../../../../models/permissions.dart';
 import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
@@ -179,10 +180,14 @@ class _GradeDetailPageState extends State<GradeDetailPage>
     _contentTabController.addListener(_onContentTabChanged);
 
     // FAB scale animation — used for show/hide and tab-switch bounce.
+    // Start hidden when on the All tab OR when the user has no permitted
+    // actions for the initial content tab.
+    final showFabInitially =
+        !_isComparisons && _hasFabForContentTab(initContent);
     _fabScaleController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 150),
-      value: _isComparisons ? 0.0 : 1.0,
+      value: showFabInitially ? 1.0 : 0.0,
     );
     _fabScaleAnimation = CurvedAnimation(
       parent: _fabScaleController,
@@ -251,9 +256,16 @@ class _GradeDetailPageState extends State<GradeDetailPage>
   }
 
   /// Returns true if the given content tab index should show a FAB.
+  /// Whether the user has permission to perform any action on the given tab.
   bool _hasFabForContentTab(int index) {
-    // Attendance (3) has no FAB — marking is inline.
-    return index != 3;
+    return _actionsForContentTab(index).isNotEmpty;
+  }
+
+  /// Permission helper — owners bypass all checks; others use RBAC.
+  bool _can(Resource resource, Action action) {
+    final entry = widget.schoolContext.currentEntry.value;
+    return entry is OwnerEntry ||
+        widget.schoolContext.permissions.can(resource, action);
   }
 
   /// Brief scale-down-then-up bounce for the FAB.
@@ -609,69 +621,86 @@ class _GradeDetailPageState extends State<GradeDetailPage>
     );
   }
 
-  /// Returns the actions available for the current content tab.
+  /// Returns the actions available for the current content tab, filtered by
+  /// the user's RBAC permissions.  Owners bypass all permission checks.
+  ///
+  /// Permission mapping per tab:
+  ///   Students  → Resource.students / Action.assign
+  ///   Exams     → Resource.exams    / Action.create
+  ///   Subjects  → Resource.classes  / Action.assign
+  ///   Attendance (3) — no FAB (marking is inline)
+  ///   Timetable → Resource.classes  / Action.create
+  ///   Lessons   → Resource.lessons  / Action.create
+  ///   Teachers  → Resource.classes  / Action.assign
   List<_FabAction> _actionsForContentTab(int tabIndex) {
     return switch (tabIndex) {
       0 => [
-        // Students tab — single action.
-        _FabAction(
-          icon: Icons.person_add_outlined,
-          label: 'Add Student',
-          subtitle: 'Enroll a student into this class',
-          onTap: () => _showEnrollSheet(context),
-        ),
+        // Students tab — enroll requires assign on students.
+        if (_can(Resource.students, Action.assign))
+          _FabAction(
+            icon: Icons.person_add_outlined,
+            label: 'Add Student',
+            subtitle: 'Enroll a student into this class',
+            onTap: () => _showEnrollSheet(context),
+          ),
       ],
       1 => [
-        // Exams tab — single action.
-        _FabAction(
-          icon: Icons.quiz_outlined,
-          label: 'Create Exam',
-          subtitle: 'Create a new exam for this class',
-          onTap: () => _showCreateExam(context),
-        ),
+        // Exams tab — create requires create on exams.
+        if (_can(Resource.exams, Action.create))
+          _FabAction(
+            icon: Icons.quiz_outlined,
+            label: 'Create Exam',
+            subtitle: 'Create a new exam for this class',
+            onTap: () => _showCreateExam(context),
+          ),
       ],
       2 => [
-        // Subjects tab — single action.
-        _FabAction(
-          icon: Icons.assignment_ind_outlined,
-          label: 'Assign Subject Teacher',
-          subtitle: 'Assign a teacher to a subject in this stream',
-          onTap: () => _showAssignSubjectTeacherSheet(context),
-        ),
+        // Subjects tab — assign subject teacher requires assign on classes.
+        if (_can(Resource.classes, Action.assign))
+          _FabAction(
+            icon: Icons.assignment_ind_outlined,
+            label: 'Assign Subject Teacher',
+            subtitle: 'Assign a teacher to a subject in this stream',
+            onTap: () => _showAssignSubjectTeacherSheet(context),
+          ),
       ],
-      // 3 = Attendance — no FAB (handled by _hasFabForContentTab).
+      // 3 = Attendance — no FAB (marking is inline).
       4 => [
-        // Timetable tab — stub.
-        _FabAction(
-          icon: Icons.schedule_outlined,
-          label: 'Add Slot',
-          subtitle: 'Add a timetable slot',
-          onTap: () => _showStubSnackbar(context, 'Add Slot'),
-        ),
+        // Timetable tab — add slot requires create on classes.
+        if (_can(Resource.classes, Action.create))
+          _FabAction(
+            icon: Icons.schedule_outlined,
+            label: 'Add Slot',
+            subtitle: 'Add a timetable slot',
+            onTap: () => _showStubSnackbar(context, 'Add Slot'),
+          ),
       ],
       5 => [
-        // Lessons tab — stub.
-        _FabAction(
-          icon: Icons.menu_book_outlined,
-          label: 'Record Lesson',
-          subtitle: 'Record a lesson for this class',
-          onTap: () => _showStubSnackbar(context, 'Record Lesson'),
-        ),
+        // Lessons tab — record lesson requires create on lessons.
+        if (_can(Resource.lessons, Action.create))
+          _FabAction(
+            icon: Icons.menu_book_outlined,
+            label: 'Record Lesson',
+            subtitle: 'Record a lesson for this class',
+            onTap: () => _showStubSnackbar(context, 'Record Lesson'),
+          ),
       ],
       6 => [
-        // Teachers tab — multiple actions.
-        _FabAction(
-          icon: Icons.school_outlined,
-          label: 'Assign Class Teacher',
-          subtitle: 'Set the class teacher for this stream',
-          onTap: () => _showAssignClassTeacherSheet(context),
-        ),
-        _FabAction(
-          icon: Icons.assignment_ind_outlined,
-          label: 'Assign Subject Teacher',
-          subtitle: 'Assign a teacher to a subject in this stream',
-          onTap: () => _showAssignSubjectTeacherSheet(context),
-        ),
+        // Teachers tab — assign class/subject teacher requires assign on classes.
+        if (_can(Resource.classes, Action.assign))
+          _FabAction(
+            icon: Icons.school_outlined,
+            label: 'Assign Class Teacher',
+            subtitle: 'Set the class teacher for this stream',
+            onTap: () => _showAssignClassTeacherSheet(context),
+          ),
+        if (_can(Resource.classes, Action.assign))
+          _FabAction(
+            icon: Icons.assignment_ind_outlined,
+            label: 'Assign Subject Teacher',
+            subtitle: 'Assign a teacher to a subject in this stream',
+            onTap: () => _showAssignSubjectTeacherSheet(context),
+          ),
       ],
       _ => [],
     };

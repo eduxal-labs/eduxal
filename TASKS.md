@@ -609,7 +609,7 @@ if (schoolContext.permissions.can(Resource.teachers, Action.create))
 
 ---
 
-### Task E2: Audit and enforce read-only mode for Finance tab
+### Task E2: Audit and enforce read-only mode for Finance tab [x]
 
 **Files to create/modify:** `lib/ui/screens/school_dashboard/finance/finance_screen.dart`
 **Context files to read (if needed):** None — read the file directly
@@ -627,7 +627,7 @@ Same pattern as Task E1 but for the Finance tab. When a teacher has read-only ac
 If any checks are missing, add them.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
