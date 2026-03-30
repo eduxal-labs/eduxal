@@ -13,7 +13,7 @@ This directory contains **6 files** providing app-wide constants, extension meth
 | `academic_utils.dart` | `percentageColor`, `masteryColor`, `formatPercent`, `formatScore`, `formatDateFromDays`, `formatDateFromSeconds`, `formatTimeOfDay` | ✅ Complete |
 | `app_cache.dart` | `AppCache` | ✅ Complete |
 | `constants.dart` | `kDomain`, `kPort`, `kVerificationExpiry`, `kResendCooldown`, `kAccessTokenDuration`, `kRefreshTokenDuration` | ✅ Complete |
-| `extensions.dart` | `PhoneNormalisation` extension on `String` | ✅ Complete |
+| `extensions.dart` | `PhoneNormalisation` extension on `String`, `gradeLabel()`, `gradeStreamLabel()` | ✅ Complete |
 | `grpc_errors.dart` | `GrpcErrorMessage` extension on `GrpcError` | ✅ Complete |
 | `seeder.dart` | `Seeder` | ✅ Complete |
 
@@ -108,7 +108,7 @@ Run `dart run flutter_launcher_icons` after changing `assets/icon.png` to regene
 | iOS | `Info.plist` `CFBundleName` | `EduXal` |
 | pubspec | `description` | `EduXal — School management, simplified.` |
 
-### `PhoneNormalisation` — `extensions.dart`
+### `PhoneNormalisation`, `gradeLabel`, `gradeStreamLabel` — `extensions.dart`
 
 Extension on `String` providing `String? toKenyanPhone()`.
 
@@ -122,7 +122,16 @@ Accepted input formats:
 
 Returns `null` if the input is not a recognisable Kenyan mobile number.
 
-**Dependencies:** None (pure Dart).
+**Dependencies:** None (pure Dart — phone normalisation only).
+
+**Grade label utilities:**
+
+| Function | Signature | Description |
+|---|---|---|
+| `gradeLabel` | `String gradeLabel(int grade, {SchoolConfig? config})` | Converts a raw grade integer to a human-readable label ("Form 4", "Grade 3", "PP1", etc.). If `config` is provided, constrains lookup to the school's active curricula. Otherwise uses dual-lookup: CBC first, then 8-4-4. Falls back to `'Level $grade'` for unknown values. |
+| `gradeStreamLabel` | `String gradeStreamLabel(int grade, {String? streamName, SchoolConfig? config})` | Builds a "Grade · Stream" display string. If `streamName` is null or empty, returns just the grade label. Raw stream IDs never leak to the UI. |
+
+**Dependencies:** `models/school_config.dart` (for `SchoolConfig`, `gradeLabelsFor`, `kCbcGradeLabels`, `kEightFourFourGradeLabels`).
 
 ### `GrpcErrorMessage` — `grpc_errors.dart`
 
@@ -248,4 +257,4 @@ Populates the local Drift database with a realistic Kenyan secondary school for 
 - `applicationId = "com.eduxal.app"`, `android:label = "EduXal"` (set in Task 12)
 
 ## Last Updated
-Task 1001 — No core utility changes during UI overhaul tracks. All 6 files remain current.
+Task A1 — Added `gradeLabel` and `gradeStreamLabel` utility functions to `extensions.dart`. All 6 files remain current.

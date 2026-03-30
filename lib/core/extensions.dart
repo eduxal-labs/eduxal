@@ -4,6 +4,8 @@
 /// without a Flutter binding.
 library;
 
+import '../models/school_config.dart';
+
 /// Kenyan phone number normalisation.
 ///
 /// Kenyan mobile numbers use the prefixes 07xx and 01xx (Safaricom, Airtel,
@@ -71,4 +73,43 @@ extension PhoneNormalisation on String {
 
     return null;
   }
+}
+
+// ============================================================
+// Grade label utilities
+// ============================================================
+
+/// Converts a raw grade integer to a human-readable label.
+///
+/// Uses the dual-lookup pattern: checks CBC labels first, then 8-4-4.
+/// Grade numbers 41–44 are unambiguous (only exist in 8-4-4: Form 1–4).
+/// Grade numbers 1–14 check CBC first (PP1, PP2, Grade 1–12).
+///
+/// If [config] is provided, it constrains the lookup to only the school's
+/// active curricula. If null, the dual-lookup fallback is used.
+///
+/// **Never returns the raw integer.** Falls back to 'Level $grade' only as
+/// a last resort for truly unknown values.
+String gradeLabel(int grade, {SchoolConfig? config}) {
+  if (config != null) {
+    for (final c in config.curricula) {
+      final labels = gradeLabelsFor(c.type);
+      if (labels.containsKey(grade)) return labels[grade]!;
+    }
+  }
+  // Dual-lookup fallback (no config or grade not found in config's curricula)
+  return kCbcGradeLabels[grade] ??
+      kEightFourFourGradeLabels[grade] ??
+      'Level $grade';
+}
+
+/// Builds a "Grade · Stream" display string.
+///
+/// [streamName] is the resolved stream name (from CatalogDao). If null,
+/// only the grade label is returned (no " · Stream X" fallback — raw stream
+/// IDs must never leak to the UI).
+String gradeStreamLabel(int grade, {String? streamName, SchoolConfig? config}) {
+  final g = gradeLabel(grade, config: config);
+  if (streamName != null && streamName.isNotEmpty) return '$g · $streamName';
+  return g;
 }
