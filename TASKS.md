@@ -373,7 +373,7 @@ Keep `_SectionTitle(label: "Today's Schedule", cs: cs)`. If all lessons have pas
 
 ---
 
-### Task C3: Redesign "My Classes" section — class-teacher-only classes
+### Task C3: Redesign "My Classes" section — class-teacher-only classes [x]
 
 **Files to create/modify:** `lib/ui/screens/school_dashboard/overview/overview_screen.dart`
 **Context files to read (if needed):** `lib/database/daos/members_dao.dart` (L1173–1186 for `watchClassTeacherAssignments`)

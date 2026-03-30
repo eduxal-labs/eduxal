@@ -770,92 +770,58 @@ class _TeacherClassChipsState extends State<_TeacherClassChips> {
         widget.userId,
       ),
       builder: (context, ctSnap) {
-        return StreamBuilder<List<SubjectTeacher>>(
-          stream: membersDao.watchTeacherSubjects(
-            widget.schoolId,
-            widget.userId,
-          ),
-          builder: (context, stSnap) {
-            if (ctSnap.connectionState == ConnectionState.waiting &&
-                stSnap.connectionState == ConnectionState.waiting) {
-              return const _LoadingShimmer();
+        if (ctSnap.connectionState == ConnectionState.waiting) {
+          return const _LoadingShimmer();
+        }
+
+        // Filter to current term + active (end == null) only
+        final activeCt = (ctSnap.data ?? [])
+            .where(
+              (c) =>
+                  c.year == widget.term.year &&
+                  c.term == widget.term.term &&
+                  c.end == null,
+            )
+            .toList();
+
+        if (activeCt.isEmpty) {
+          return _EmptyCard(
+            icon: Icons.school_outlined,
+            message: 'No class teacher assignments this term',
+          );
+        }
+
+        // Sort by grade, then stream
+        activeCt.sort((a, b) {
+          final g = a.grade.compareTo(b.grade);
+          return g != 0 ? g : a.stream.compareTo(b.stream);
+        });
+
+        return FutureBuilder<List<SchoolStream>>(
+          future: _streamsFuture,
+          builder: (context, streamsSnap) {
+            final streamNames = <(int, int), String>{};
+            for (final s in streamsSnap.data ?? []) {
+              streamNames[(s.grade, s.stream)] = s.name;
             }
 
-            // Filter to current term only
-            final allCt = (ctSnap.data ?? [])
-                .where(
-                  (c) =>
-                      c.year == widget.term.year && c.term == widget.term.term,
-                )
-                .toList();
-            final allSt = (stSnap.data ?? [])
-                .where(
-                  (s) =>
-                      s.year == widget.term.year && s.term == widget.term.term,
-                )
-                .toList();
-
-            // Build unique (grade, stream) set
-            final gradeStreams = <(int, int)>{};
-            final ctSet = <(int, int)>{};
-            for (final c in allCt) {
-              gradeStreams.add((c.grade, c.stream));
-              ctSet.add((c.grade, c.stream));
-            }
-
-            // Count subjects per (grade, stream)
-            final subjectCounts = <(int, int), int>{};
-            for (final s in allSt) {
-              gradeStreams.add((s.grade, s.stream));
-              subjectCounts[(s.grade, s.stream)] =
-                  (subjectCounts[(s.grade, s.stream)] ?? 0) + 1;
-            }
-
-            if (gradeStreams.isEmpty) {
-              return _EmptyCard(
-                icon: Icons.school_outlined,
-                message: 'No class assignments this term',
-              );
-            }
-
-            final sorted = gradeStreams.toList()
-              ..sort((a, b) {
-                final g = a.$1.compareTo(b.$1);
-                return g != 0 ? g : a.$2.compareTo(b.$2);
-              });
-
-            return FutureBuilder<List<SchoolStream>>(
-              future: _streamsFuture,
-              builder: (context, streamsSnap) {
-                final streamNames = <(int, int), String>{};
-                for (final s in streamsSnap.data ?? []) {
-                  streamNames[(s.grade, s.stream)] = s.name;
-                }
-
-                return Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  children: sorted.map((gs) {
-                    final isClassTeacher = ctSet.contains(gs);
-                    final subjects = subjectCounts[gs] ?? 0;
-                    final streamName = streamNames[gs];
-                    final label = gradeStreamLabel(
-                      gs.$1,
-                      streamName: streamName,
-                    );
-                    final subtitle = isClassTeacher
-                        ? 'Class Teacher'
-                        : '$subjects subject${subjects != 1 ? 's' : ''}';
-
-                    return _buildClassChip(
-                      label: label,
-                      subtitle: subtitle,
-                      isPrimary: isClassTeacher,
-                      cs: cs,
-                    );
-                  }).toList(),
+            return Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: activeCt.map((ct) {
+                final streamName = streamNames[(ct.grade, ct.stream)];
+                final label = gradeStreamLabel(
+                  ct.grade,
+                  streamName: streamName,
                 );
-              },
+
+                return _buildClassChip(
+                  label: label,
+                  subtitle: 'Class Teacher',
+                  isPrimary: true,
+                  cs: cs,
+                );
+              }).toList(),
             );
           },
         );
