@@ -476,8 +476,7 @@ class _DepartmentsTabState extends State<_DepartmentsTab> {
                     dao: _dao,
                     isDark: isDark,
                     cs: cs,
-                    schschoolCoolContext: widget.schoolContext,
-                    ontext: widget.schoolContext,
+                    schoolContext: widget.schoolContext,
                     onDelete: _canDelete
                         ? () => _confirmDeleteDepartment(context, dept)
                         : null,
@@ -5282,7 +5281,6 @@ class _DepartmentDetailScreen extends StatefulWidget {
   final String schoolId;
   final DepartmentsDao dao;
   final SchoolContext schoolContext;
-  final SchoolContext schoolContext;
 
   @override
   State<_DepartmentDetailScreen> createState() =>
@@ -5317,20 +5315,6 @@ class _DepartmentDetailScreenState extends State<_DepartmentDetailScreen>
   void dispose() {
     _tab.dispose();
     super.dispose();
-  }
-
-  bool get _canDeleteDept {
-    final entry = widget.schoolContext.currentEntry.value;
-    final perms = widget.schoolContext.permissions;
-    return entry is OwnerEntry ||
-        perms.can(Resource.departments, Action.delete);
-  }
-
-  bool get _canUpdateDept {
-    final entry = widget.schoolContext.currentEntry.value;
-    final perms = widget.schoolContext.permissions;
-    return entry is OwnerEntry ||
-        perms.can(Resource.departments, Action.update);
   }
 
   @override
@@ -5388,7 +5372,8 @@ class _DepartmentDetailScreenState extends State<_DepartmentDetailScreen>
               backgroundColor: Colors.green.shade600,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
+                borderRadius: BorderRadius.circular(8),
+              ),
               child: const Icon(Icons.add, size: 20),
             )
           : null,
@@ -5537,7 +5522,21 @@ class _DeptAllMemberList extends StatelessWidget {
                   statusLabel: t.teacher.status.name,
                   roleTag: 'Teacher',
                   onRemove: onRemoveTeacher != null
-                      ? () async => onRemoveTeacher!(
+                      ? () async => onRemoveTeacher!(t.teacher.user)
+                      : null,
+                ),
+              ),
+              ...staffMembers.map(
+                (s) => _DeptAllItem(
+                  name: s.user.name,
+                  statusLabel: s.staff.status.name,
+                  roleTag: 'Staff',
+                  onRemove: onRemoveStaff != null
+                      ? () async => onRemoveStaff!(s.staff.user)
+                      : null,
+                ),
+              ),
+            ];
 
             if (combined.isEmpty) {
               return Center(

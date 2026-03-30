@@ -594,7 +594,7 @@ A teacher should **only be able to set up answer sheets and mark grades** for pa
 
 ---
 
-### Task E1: Audit and enforce read-only mode for Members tab
+### Task E1: Audit and enforce read-only mode for Members tab [x]
 
 **Files to create/modify:** `lib/ui/screens/school_dashboard/members/members_page.dart`
 **Context files to read (if needed):** None — read the file directly
@@ -619,7 +619,7 @@ if (schoolContext.permissions.can(Resource.teachers, Action.create))
 ```
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
