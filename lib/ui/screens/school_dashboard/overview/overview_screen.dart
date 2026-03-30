@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/extensions.dart';
@@ -314,12 +316,22 @@ class _TeacherTodaySchedule extends StatefulWidget {
 class _TeacherTodayScheduleState extends State<_TeacherTodaySchedule> {
   late Future<List<Subject>> _subjectsFuture;
   late Future<List<SchoolStream>> _streamsFuture;
+  Timer? _refreshTimer;
+  bool _showAll = false;
+
+  int get _nowSeconds {
+    final now = DateTime.now();
+    return now.hour * 3600 + now.minute * 60 + now.second;
+  }
 
   @override
   void initState() {
     super.initState();
     _subjectsFuture = CatalogDao(db).getSubjects();
     _streamsFuture = CatalogDao(db).getStreamsForSchool(widget.schoolId);
+    _refreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -329,8 +341,30 @@ class _TeacherTodayScheduleState extends State<_TeacherTodaySchedule> {
       setState(() {
         _subjectsFuture = CatalogDao(db).getSubjects();
         _streamsFuture = CatalogDao(db).getStreamsForSchool(widget.schoolId);
+        _showAll = false;
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Filters out past lessons and sorts by proximity to now.
+  List<TimetableData> _filterAndSort(List<TimetableData> slots) {
+    final nowSec = _nowSeconds;
+    // Remove lessons that have already ended.
+    final active = slots.where((s) => s.end > nowSec).toList();
+    // Sort by proximity to now (closest start first), break ties by grade.
+    active.sort((a, b) {
+      final diffA = (a.start - nowSec).abs();
+      final diffB = (b.start - nowSec).abs();
+      final cmp = diffA.compareTo(diffB);
+      return cmp != 0 ? cmp : a.grade.compareTo(b.grade);
+    });
+    return active;
   }
 
   @override
@@ -351,11 +385,19 @@ class _TeacherTodayScheduleState extends State<_TeacherTodaySchedule> {
 
         final allSlots = snap.data ?? [];
         final todayDay = _currentDayOfWeek();
-        final todaySlots = allSlots.where((s) => s.day == todayDay).toList()
-          ..sort((a, b) => a.start.compareTo(b.start));
+        final todaySlots = allSlots.where((s) => s.day == todayDay).toList();
+        final activeSlots = _filterAndSort(todaySlots);
 
-        if (todaySlots.isEmpty) {
-          return _EmptyCard(
+        // All lessons have passed for the day (but some were scheduled).
+        if (activeSlots.isEmpty && todaySlots.isNotEmpty) {
+          return const _EmptyCard(
+            icon: Icons.celebration_outlined,
+            message: 'All done for today! 🎉',
+          );
+        }
+
+        if (activeSlots.isEmpty) {
+          return const _EmptyCard(
             icon: Icons.event_available_outlined,
             message: 'No classes scheduled today',
           );
@@ -376,14 +418,12 @@ class _TeacherTodayScheduleState extends State<_TeacherTodaySchedule> {
                   streamMap[(s.grade, s.stream)] = s.name;
                 }
 
-                return Column(
-                  children: todaySlots.map((slot) {
-                    return _TimetableSlotCard(
-                      slot: slot,
-                      subjectName: subjectMap[slot.subject],
-                      streamName: streamMap[(slot.grade, slot.stream)],
-                    );
-                  }).toList(),
+                return _TodayScheduleGrid(
+                  slots: activeSlots,
+                  subjectMap: subjectMap,
+                  streamMap: streamMap,
+                  showAll: _showAll,
+                  onToggleShowAll: () => setState(() => _showAll = !_showAll),
                 );
               },
             );
@@ -394,8 +434,110 @@ class _TeacherTodayScheduleState extends State<_TeacherTodaySchedule> {
   }
 }
 
-class _TimetableSlotCard extends StatelessWidget {
-  const _TimetableSlotCard({
+// ── Responsive grid for today's lessons ──────────────────────────────────────
+
+class _TodayScheduleGrid extends StatelessWidget {
+  const _TodayScheduleGrid({
+    required this.slots,
+    required this.subjectMap,
+    required this.streamMap,
+    required this.showAll,
+    required this.onToggleShowAll,
+  });
+
+  final List<TimetableData> slots;
+  final Map<int, String> subjectMap;
+  final Map<(int, int), String> streamMap;
+  final bool showAll;
+  final VoidCallback onToggleShowAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final columns = width < 360 ? 2 : (width < 600 ? 3 : 4);
+        final defaultVisible = columns * 2; // 2 rows
+        final total = slots.length;
+        final visibleCount = showAll ? total : total.clamp(0, defaultVisible);
+        final hasMore = total > defaultVisible;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: List.generate(visibleCount, (i) {
+                final slot = slots[i];
+                // Calculate card width to fill columns with spacing.
+                final totalSpacing = 8.0 * (columns - 1);
+                final cardWidth = (width - totalSpacing) / columns;
+
+                return SizedBox(
+                  width: cardWidth,
+                  height: 72,
+                  child: _TodayLessonCard(
+                    slot: slot,
+                    subjectName: subjectMap[slot.subject],
+                    streamName: streamMap[(slot.grade, slot.stream)],
+                  ),
+                );
+              }),
+            ),
+            if (hasMore && !showAll) ...[
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: GestureDetector(
+                  onTap: onToggleShowAll,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Text(
+                      'Show all ($total)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        color: cs.primary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            if (hasMore && showAll) ...[
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: GestureDetector(
+                  onTap: onToggleShowAll,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Text(
+                      'Show less',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        color: cs.primary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+// ── Single lesson card in the grid ───────────────────────────────────────────
+
+class _TodayLessonCard extends StatelessWidget {
+  const _TodayLessonCard({
     required this.slot,
     this.subjectName,
     this.streamName,
@@ -409,61 +551,90 @@ class _TimetableSlotCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final color = _subjectColor(slot.subject);
+    final timeLabel = _fmtTime(slot.start);
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Material(
+    return DecoratedBox(
+      decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(6),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          child: Row(
-            children: [
-              Container(
-                width: 3,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.08)),
+      ),
+      child: Row(
+        children: [
+          // Left color stripe.
+          Container(
+            width: 3,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(AppTheme.kCardRadius),
+                bottomLeft: Radius.circular(AppTheme.kCardRadius),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      gradeStreamLabel(slot.grade, streamName: streamName),
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: cs.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subjectName ?? 'Subject ${slot.subject}',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w400,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                '${_fmtTime(slot.start)} – ${_fmtTime(slot.end)}',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w400,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
+          // Card content.
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Top row: subject name + time badge.
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          subjectName ?? 'Subject ${slot.subject}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: cs.onSurface,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: cs.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.kChipRadius,
+                          ),
+                        ),
+                        child: Text(
+                          timeLabel,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w400,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  // Bottom: grade + stream.
+                  Text(
+                    gradeStreamLabel(slot.grade, streamName: streamName),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w300,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

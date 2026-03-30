@@ -322,7 +322,7 @@ The final section order in `_TeacherOverview` should be:
 
 ---
 
-### Task C2: Redesign Today's Schedule as a responsive time-aware grid
+### Task C2: Redesign Today's Schedule as a responsive time-aware grid [x]
 
 **Files to create/modify:** `lib/ui/screens/school_dashboard/overview/overview_screen.dart`
 **Context files to read (if needed):** `lib/core/extensions.dart` (grade labels from Task A1)
