@@ -276,42 +276,31 @@ class _DashboardShellState extends State<_DashboardShell>
         _NavItem(label: 'Roles', icon: Icons.admin_panel_settings_outlined),
       ],
       MembershipRole.teacher => [
-        // Always visible
+        // ── Always visible (core 4) ──────────────────────────────
         const _NavItem(label: 'Overview', icon: Icons.space_dashboard_outlined),
-        // My Classes — always visible for teachers (their assigned classes)
-        const _NavItem(label: 'My Classes', icon: Icons.class_outlined),
-        // Academics — visible if user can read/manage classes or schools
-        if (perms.canAny(Resource.classes, [Action.read]) ||
-            perms.canAny(Resource.schools, [Action.read, Action.update]))
-          const _NavItem(label: 'Academics', icon: Icons.menu_book_outlined),
-        // Exams & Grades — always visible for teachers (they grade)
+        const _NavItem(label: 'Academics', icon: Icons.menu_book_outlined),
+        const _NavItem(label: 'Exams', icon: Icons.assignment_outlined),
         const _NavItem(
-          label: 'Exams & Grades',
-          icon: Icons.assignment_outlined,
+          label: 'Timetable',
+          icon: Icons.calendar_view_week_outlined,
         ),
-        // Members — visible if user can read any member resource
-        if (perms.canAny(Resource.teachers, [Action.read]) ||
-            perms.canAny(Resource.students, [Action.read]) ||
+
+        // ── Permission-gated (visible only with proper role/scope) ──
+        if (perms.canAny(Resource.attendance, [Action.read, Action.mark]))
+          const _NavItem(label: 'Attendance', icon: Icons.fact_check_outlined),
+        if (perms.canAny(Resource.students, [Action.read]) ||
+            perms.canAny(Resource.teachers, [Action.read]) ||
             perms.canAny(Resource.staff, [Action.read]) ||
             perms.canAny(Resource.owners, [Action.read]))
           const _NavItem(label: 'Members', icon: Icons.people_alt_outlined),
-        // Finance — visible if user can read fees or payments
         if (perms.canAny(Resource.fees, [Action.read]) ||
             perms.canAny(Resource.payments, [Action.read]))
           const _NavItem(
             label: 'Finance',
             icon: Icons.account_balance_outlined,
           ),
-        // Announcements — always visible
-        const _NavItem(label: 'Announcements', icon: Icons.campaign_outlined),
-        // Timetable — always visible for teachers
-        const _NavItem(
-          label: 'Timetable',
-          icon: Icons.calendar_view_week_outlined,
-        ),
-        // Attendance — always visible for teachers (they mark)
-        const _NavItem(label: 'Attendance', icon: Icons.fact_check_outlined),
-        // Roles — visible if user can read roles
+        if (perms.canAny(Resource.announcements, [Action.read]))
+          const _NavItem(label: 'Announcements', icon: Icons.campaign_outlined),
         if (perms.canAny(Resource.roles, [Action.read]))
           const _NavItem(
             label: 'Roles',
@@ -507,11 +496,13 @@ class _DashboardShellState extends State<_DashboardShell>
   // Non-academic sections (Overview, Settings, etc.) are always shown.
 
   static const _kAcademicNavLabels = {
+    'Academics',
     'My Classes',
+    'Students',
     'Exams & Grades',
+    'Exams',
     'Timetable',
     'Attendance',
-    'Academics',
     'Members',
     'Finance',
     'Grades',
@@ -578,7 +569,7 @@ class _DashboardShellState extends State<_DashboardShell>
     // ── Exams & Grades (Teacher view) ─────────────────────────────────────
     // Teachers reach the full grading hierarchy directly via the
     // 'Exams & Grades' nav item — no Academics wrapper needed.
-    if (item.label == 'Exams & Grades') {
+    if (item.label == 'Exams & Grades' || item.label == 'Exams') {
       return ExamsGradesScreen(schoolContext: widget.schoolContext);
     }
 

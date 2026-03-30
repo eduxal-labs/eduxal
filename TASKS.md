@@ -232,7 +232,7 @@ The `LoopingTabStrip` is an infinite-scrolling custom widget used for mobile tab
 
 ---
 
-### Task B2: Restructure teacher navigation items — 4 core tabs + permission-gated extras
+### Task B2: Restructure teacher navigation items — 4 core tabs + permission-gated extras [x]
 
 **Files to create/modify:** `lib/ui/screens/school_dashboard/school_dashboard_screen.dart`
 **Context files to read (if needed):** `lib/models/permissions.dart`

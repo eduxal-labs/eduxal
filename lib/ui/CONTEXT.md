@@ -72,7 +72,7 @@ The school dashboard uses `SchoolContext` (provided via `InheritedWidget` or sim
 
 Navigation items vary by role (determined by `currentEntry.role`):
 - **Owner:** Overview | Academics | Members | Finance | Timetable | Roles
-- **Teacher:** Overview | My Classes | Academics | Exams & Grades | Members | Finance | Announcements | Timetable | Attendance | Roles (permission-gated extras)
+- **Teacher:** Core 4 always visible: Overview | Academics | Exams | Timetable. Permission-gated extras: Attendance | Members | Finance | Announcements | Roles
 - **Staff:** Overview | Members | Finance | Attendance | Announcements
 - **Student:** Overview | Timetable | Grades | Attendance
 - **Guardian:** Overview | Attendance | Grades | Finance (read-only)
@@ -125,4 +125,4 @@ All design tokens are codified in `AppTheme` (`lib/ui/theme/app_theme.dart`) and
 - All tab surfaces in the app use `EduTabBar`, whether icon-only or text-label mode.
 
 ## Last Updated
-Task B1 — Added `_SimpleTabBar` widget to `school_dashboard_screen.dart`. Mobile layout now conditionally renders `_SimpleTabBar` (text-only, scrollable pill tabs) for the teacher role instead of `LoopingTabStrip`. All other roles continue using `LoopingTabStrip`.
+Task B2 — Restructured teacher navigation items in `school_dashboard_screen.dart`. Teacher role now has 4 always-visible core tabs (Overview, Academics, Exams, Timetable) and 5 permission-gated extras (Attendance, Members, Finance, Announcements, Roles). Removed "My Classes" tab (absorbed into Overview). Renamed "Exams & Grades" → "Exams" for teacher role. Updated `_kAcademicNavLabels` set and `_buildContentPanel` to handle both `'Exams'` and `'Exams & Grades'` labels.
