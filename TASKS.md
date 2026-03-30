@@ -736,7 +736,7 @@ If any checks are missing, add them.
 
 ---
 
-### Task F2: Verify permissions display in role list and detail header
+### Task F2: Verify permissions display in role list and detail header [x]
 
 **Files to create/modify:** `lib/ui/screens/school_dashboard/roles/school_roles_screen.dart`, `lib/ui/screens/school_dashboard/roles/school_role_detail_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/roles/_role_helpers.dart`
