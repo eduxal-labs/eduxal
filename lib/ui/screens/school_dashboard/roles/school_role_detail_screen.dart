@@ -675,17 +675,24 @@ class _PermissionsTabState extends State<_PermissionsTab> {
   @override
   void didUpdateWidget(_PermissionsTab old) {
     super.didUpdateWidget(old);
-    if (old.role.permissions != widget.role.permissions && !_hasChanges) {
+    final permsDiffer = old.role.permissions != widget.role.permissions;
+    final hasChanges = _hasChanges;
+    debugPrint(
+      '[PermTab.didUpdateWidget] permsDiffer=$permsDiffer, hasChanges=$hasChanges',
+    );
+    if (permsDiffer && !hasChanges) {
+      debugPrint('[PermTab.didUpdateWidget] Resetting from updated role');
       _resetFromRole(widget.role);
     }
   }
 
   void _resetFromRole(Role role) {
-    debugPrint(
-      '[_resetFromRole] role.id=${role.id}, permissions="${role.permissions}"',
-    );
+    debugPrint('[_resetFromRole] role.id=${role.id}, updated=${role.updated}');
+    debugPrint('[_resetFromRole] raw permissions="${role.permissions}"');
     _originalPermissions = parsePermissions(role.permissions);
-    debugPrint('[_resetFromRole] parsed: $_originalPermissions');
+    debugPrint(
+      '[_resetFromRole] parsed ${_originalPermissions.length} resources: $_originalPermissions',
+    );
     _editPermissions = Map.of(_originalPermissions);
     _selectedResources.clear();
   }
@@ -792,23 +799,46 @@ class _PermissionsTabState extends State<_PermissionsTab> {
     });
 
     try {
-      final nowSeconds = BigInt.from(
-        DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      );
+      final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
       // Filter out zero-mask entries before serialising
       final cleaned = Map.fromEntries(
         _editPermissions.entries.where((e) => e.value != 0),
       );
 
+      final serialised = serialisePermissions(cleaned);
+      debugPrint('[PermTab._save] roleId=${widget.role.id}');
+      debugPrint('[PermTab._save] cleaned map: $cleaned');
+      debugPrint('[PermTab._save] serialised: $serialised');
+      debugPrint('[PermTab._save] roundtrip: ${parsePermissions(serialised)}');
+      debugPrint('[PermTab._save] new updated=$nowMs');
+
       await widget.dao.updateRole(
         widget.role.id,
-        RolesCompanion(
-          permissions: Value(serialisePermissions(cleaned)),
-          updated: Value(nowSeconds),
-        ),
+        RolesCompanion(permissions: Value(serialised), updated: Value(nowMs)),
         accountId: accountId,
       );
+
+      // ── Post-save verification ──────────────────────────────────────────
+      final verifyRows = await (widget.dao.select(
+        widget.dao.roles,
+      )..where((t) => t.id.equals(widget.role.id))).get();
+      if (verifyRows.isNotEmpty) {
+        final saved = verifyRows.first;
+        debugPrint(
+          '[PermTab._save] VERIFY permissions in DB: ${saved.permissions}',
+        );
+        debugPrint('[PermTab._save] VERIFY updated in DB: ${saved.updated}');
+        final roundtrip = parsePermissions(saved.permissions);
+        debugPrint('[PermTab._save] VERIFY roundtrip parse: $roundtrip');
+        if (roundtrip.isEmpty && cleaned.isNotEmpty) {
+          debugPrint(
+            '[PermTab._save] ⚠️ ROUNDTRIP MISMATCH: saved ${cleaned.length} resources but parsed back 0',
+          );
+        }
+      } else {
+        debugPrint('[PermTab._save] ⚠️ Role not found in DB after save!');
+      }
 
       if (mounted) {
         setState(() {

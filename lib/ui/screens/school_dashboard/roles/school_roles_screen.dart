@@ -596,7 +596,7 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
 
     setState(() => _saving = true);
     try {
-      final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
+      final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final id = ObjectId().oid;
 
       final json = serialisePermissions(_permissions);
