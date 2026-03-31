@@ -4776,104 +4776,155 @@ class _MobileGradeEntrySheetState extends State<_MobileGradeEntrySheet> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    // Return ONLY form content — EduSheet (via showEduSheet) owns the
-    // background container, border-radius, drag handle, title row, and
-    // keyboard-inset padding. Adding any of those here causes double chrome.
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Student admission number as a compact subtitle under the
-            // EduSheet title row (student name is already shown in the title).
-            Text(
-              'Adm: ${widget.student.adm}',
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant,
+    // Self-contained sheet — provides its own EduSheet wrapper (background,
+    // handle, title, keyboard padding) per BUG-010 convention.
+    return EduSheet(
+      title: widget.student.name,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Student admission number as a compact subtitle under the
+              // EduSheet title row (student name is already shown in the title).
+              Text(
+                'Adm: ${widget.student.adm}',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurfaceVariant,
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _scoreCtrl,
-                    autofocus: true,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _scoreCtrl,
+                      autofocus: true,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(
+                          RegExp(r'^\d+\.?\d{0,2}'),
+                        ),
+                      ],
+                      decoration: _inputDeco(cs, label: 'Score').copyWith(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                      ),
+                      validator: (v) {
+                        final n = double.tryParse(v ?? '');
+                        if (n == null) return 'Enter a valid number';
+                        final total = int.tryParse(_totalCtrl.text) ?? 100;
+                        if (n < 0 || n > total) return '0 – $total';
+                        return null;
+                      },
                     ),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(
-                        RegExp(r'^\d+\.?\d{0,2}'),
-                      ),
-                    ],
-                    decoration: _inputDeco(cs, label: 'Score'),
-                    validator: (v) {
-                      final n = double.tryParse(v ?? '');
-                      if (n == null) return 'Enter a valid number';
-                      final total = int.tryParse(_totalCtrl.text) ?? 100;
-                      if (n < 0 || n > total) return '0 – $total';
-                      return null;
-                    },
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Text(
-                    '/',
-                    style: TextStyle(fontSize: 20, color: cs.onSurfaceVariant),
-                  ),
-                ),
-                Expanded(
-                  child: TextFormField(
-                    controller: _totalCtrl,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: _inputDeco(cs, label: 'Out of'),
-                    validator: (v) {
-                      final n = int.tryParse(v ?? '');
-                      if (n == null || n <= 0) return 'Must be > 0';
-                      return null;
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _saving ? null : _save,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: cs.primary,
-                foregroundColor: cs.onPrimary,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-              child: _saving
-                  ? SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 1.5,
-                        color: cs.onPrimary,
-                      ),
-                    )
-                  : const Text(
-                      'Save Grade',
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      '/',
                       style: TextStyle(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
+                        fontSize: 20,
+                        color: cs.onSurfaceVariant,
                       ),
                     ),
-            ),
-          ],
+                  ),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _totalCtrl,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      decoration: _inputDeco(cs, label: 'Out of').copyWith(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                      ),
+                      validator: (v) {
+                        final n = int.tryParse(v ?? '');
+                        if (n == null || n <= 0) return 'Must be > 0';
+                        return null;
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  // Cancel
+                  IconButton(
+                    tooltip: 'Cancel',
+                    icon: Icon(
+                      Icons.close_rounded,
+                      size: 20,
+                      color: cs.onSurfaceVariant,
+                    ),
+                    onPressed: () => Navigator.of(context).pop(),
+                    constraints: const BoxConstraints(
+                      minWidth: 36,
+                      minHeight: 36,
+                    ),
+                    padding: EdgeInsets.zero,
+                    style: IconButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.kCardRadius,
+                        ),
+                        side: BorderSide(
+                          color: cs.outlineVariant.withValues(alpha: 0.5),
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Save
+                  IconButton(
+                    tooltip: 'Save Grade',
+                    icon: _saving
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 1.5,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(
+                            Icons.check_rounded,
+                            size: 20,
+                            color: Colors.white,
+                          ),
+                    onPressed: _saving ? null : _save,
+                    constraints: const BoxConstraints(
+                      minWidth: 36,
+                      minHeight: 36,
+                    ),
+                    padding: EdgeInsets.zero,
+                    style: IconButton.styleFrom(
+                      backgroundColor: AppTheme.brandGreen,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.kCardRadius,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
