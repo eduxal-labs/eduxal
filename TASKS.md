@@ -262,9 +262,9 @@ debugPrint('[SchoolDashboard] Aggregated permissions: $aggregated');
 5. **Verify that conditional tabs now appear** — for a teacher with roles granting e.g. `Resource.students: Read`, the Members tab should now appear in `_itemsForRole()` because `perms.canAny(Resource.students, [Action.read])` returns `true`.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note that `_initializeSession` now uses `parsePermissions` from `core/permission_parser.dart`
-- [ ] Mark this task `[x]`
-- [ ] git commit: `fix: use resilient parsePermissions in dashboard session init`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note that `_initializeSession` now uses `parsePermissions` from `core/permission_parser.dart`
+- [x] Mark this task `[x]`
+- [x] git commit: `fix: use resilient parsePermissions in dashboard session init`
 
 ---
 
@@ -459,10 +459,10 @@ final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 6. **Ensure `_resetFromRole` uses `parsePermissions` from the shared location** (imported in step 1) rather than any inline parsing. The current code already calls `parsePermissions(role.permissions)` from `_role_helpers.dart` which will re-export from the shared location after Task B1.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the diagnostic logging added to the permissions tab save flow
-- [ ] If the create flow timestamp was also changed, update the roles section
-- [ ] Mark this task `[x]`
-- [ ] git commit: `fix: add role edit save verification logging and use ms-precision timestamps`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the diagnostic logging added to the permissions tab save flow
+- [x] If the create flow timestamp was also changed, update the roles section
+- [x] Mark this task `[x]`
+- [x] git commit: `fix: add role edit save verification logging and use ms-precision timestamps`
 
 ---
 
@@ -654,10 +654,10 @@ final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 4. **Verify `EduSheet` import** — should already be present after Task D1. If not, add `import '../../../widgets/edu_sheet.dart';`.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note that `_openStudentActionSheet` now wraps content in `EduSheet` for proper modal chrome
-- [ ] Append BUG-016 entry to `BUG.md` (see below)
-- [ ] Mark this task `[x]`
-- [ ] git commit: `fix: wrap student action sheet in EduSheet for background and chrome`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note that `_openStudentActionSheet` now wraps content in `EduSheet` for proper modal chrome
+- [x] Append BUG-016 entry to `BUG.md` (see below)
+- [x] Mark this task `[x]`
+- [x] git commit: `fix: wrap student action sheet in EduSheet for background and chrome`
 
 ---
 
