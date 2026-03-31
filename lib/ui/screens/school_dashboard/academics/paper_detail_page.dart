@@ -3179,40 +3179,45 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
 
     showEduSheet(
       context: context,
-      title: student.name,
-      builder: (ctx) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Action: Submit Answer Sheets (gated by paper status)
-          _ActionSheetRow(
-            icon: Icons.upload_file_outlined,
-            label: 'Submit Answer Sheets',
-            cs: cs,
-            isDark: isDark,
-            onTap: widget.paper.status.index >= PaperStatus.done.index
-                ? () {
-                    Navigator.pop(ctx);
-                    _openSubmissionSheet(context, student);
-                  }
-                : null,
+      builder: (ctx) => EduSheet(
+        title: student.name,
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Action: Submit Answer Sheets (gated by paper status)
+              _ActionSheetRow(
+                icon: Icons.upload_file_outlined,
+                label: 'Submit Answer Sheets',
+                cs: cs,
+                isDark: isDark,
+                onTap: widget.paper.status.index >= PaperStatus.done.index
+                    ? () {
+                        Navigator.pop(ctx);
+                        _openSubmissionSheet(context, student);
+                      }
+                    : null,
+              ),
+              // Action: Enter Grade (gated by canGrade + paper status)
+              _ActionSheetRow(
+                icon: Icons.edit_outlined,
+                label: 'Enter Grade',
+                cs: cs,
+                isDark: isDark,
+                onTap:
+                    (widget.canGrade &&
+                        widget.paper.status.index >= PaperStatus.done.index)
+                    ? () {
+                        Navigator.pop(ctx);
+                        _openGradeEntry(context, student);
+                      }
+                    : null,
+              ),
+              const SizedBox(height: 8),
+            ],
           ),
-          // Action: Enter Grade (gated by canGrade + paper status)
-          _ActionSheetRow(
-            icon: Icons.edit_outlined,
-            label: 'Enter Grade',
-            cs: cs,
-            isDark: isDark,
-            onTap:
-                (widget.canGrade &&
-                    widget.paper.status.index >= PaperStatus.done.index)
-                ? () {
-                    Navigator.pop(ctx);
-                    _openGradeEntry(context, student);
-                  }
-                : null,
-          ),
-          const SizedBox(height: 8),
-        ],
+        ),
       ),
     );
   }
