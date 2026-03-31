@@ -357,3 +357,34 @@ Two independent issues combined to make permissions appear empty after save:
 - Never use empty `catch (_)` blocks in data parsing functions — always log at minimum the input and error in debug mode.
 - When a `StatefulWidget` inside a `StreamBuilder` must reflect the latest stream data, prefer a `ValueKey` tied to the data's version/timestamp over relying on `didUpdateWidget` lifecycle timing.
 - Add roundtrip verification logging when serialisation/deserialisation flows are introduced, at least during development.
+
+---
+
+## BUG-012: Permissions data corruption from seeder format and delta writer encoding
+
+**Severity:** High (permissions silently empty — same user-visible symptom as BUG-011 but different root cause)
+**Discovered:** Task 03 deep code trace
+**Related:** BUG-011 (previous fix addressed UI state timing symptoms, not the underlying data corruption)
+
+**Root Cause:**
+Two independent data-layer bugs corrupt the `roles.permissions` text column so that `parsePermissions()` returns an empty map:
+
+1. **Seeder stored permissions in an unparseable format.** In `lib/core/seeder.dart`, the seeder built a raw binary blob as a `List<int>` (`[5, 2, 0, 7, 2, 0, 8, 130, 0, ...]`) using the `[resource_id, lo_byte, hi_byte]` encoding, then stored `jsonEncode(permBytes)` — producing a JSON array of raw integers like `'[5,2,0,7,2,0,8,130,0,9,15,0,11,134,0,14,2,0]'`. `Permissions.fromJson()` only handles two shapes: (a) list of `{"resource": "...", "actions": [...]}` objects, (b) flat `{"resource.action": true}` map. The seeder's integer array matched neither shape — every entry was an `int`, not a `Map<String, dynamic>`, so all entries were silently skipped. Result: empty permissions for all seeded roles.
+
+2. **Delta writer base64-encoded instead of UTF-8-decoding.** In `lib/sync/delta_writer.dart`, `_applyRoles` stored `base64Encode(row.permissions)` where `row.permissions` is a protobuf `bytes` field (`List<int>`). The client originally sent these bytes as `utf8.encode(jsonString)`. The server stores and returns the same bytes. But the delta writer base64-encoded them instead of UTF-8-decoding them back to the original JSON string. After a server sync, the permissions column contained a base64 string like `'W3sicmVzb3VyY2UiOiJ1c2VycyIsImFjdGlvbnMiOlsicmVhZCJdfV0='` — which `jsonDecode()` throws on, causing `parsePermissions` to return empty.
+
+**Files changed:**
+- `lib/ui/screens/school_dashboard/roles/_role_helpers.dart` — `parsePermissions()` rewritten to be resilient to all three storage formats: (1) standard JSON objects via `Permissions.fromJson`, (2) JSON integer arrays via `Permissions.fromBlob`, (3) base64-encoded strings via base64 decode then try UTF-8 JSON or raw binary blob. Each attempt is logged. Falls through gracefully — never throws.
+- `lib/sync/delta_writer.dart` — Added `_decodePermissions(List<int> bytes)` helper that tries `utf8.decode` first (restoring the original JSON string), falls back to `base64Encode` if the bytes aren't valid UTF-8. Changed `_applyRoles` from `base64Encode(row.permissions)` to `_decodePermissions(row.permissions)`.
+- `lib/core/seeder.dart` — Replaced the manual binary blob construction (`permBytes` + `addPerm` + `jsonEncode(permBytes)`) with a proper `Map<Resource, int>` built using typed `Resource` and `Action` enums from `models/permissions.dart`, serialised to the standard JSON list-of-objects format (`[{"resource": "students", "actions": ["read"]}, ...]`) that `Permissions.fromJson()` parses directly. The `CreateRolePayload.permissions` field now uses `utf8.encode(permJson)` for consistency.
+
+**Fix applied:**
+1. `parsePermissions` handles all three storage formats with clear logging at each step — no format silently produces an empty map if the data is valid in any known encoding.
+2. Delta writer correctly UTF-8-decodes permissions bytes back to JSON, with base64 fallback that `parsePermissions` can recover from.
+3. Seeder produces the canonical JSON format, eliminating the source of binary-int-array corruption for new seed data.
+
+**Prevention:**
+- When storing protobuf `bytes` fields into Drift `text` columns, always decode with `utf8.decode` — never `base64Encode` — unless the column is explicitly documented as base64.
+- When a data format has multiple possible encodings, the parser must handle all of them defensively rather than assuming a single canonical form.
+- Seeder code must use the same serialisation functions as production code (or equivalent logic) — never hand-roll a different encoding for the same column.
+- Cross-reference BUG-011: the UI-level fixes (ValueKey, logging) from BUG-011 remain valuable as defense-in-depth, but would not have fixed the data-layer corruption addressed here.

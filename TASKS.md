@@ -49,7 +49,7 @@ The `_SimpleTabBar` widget (lines ~1316–1361) can be deleted or repurposed. Th
 
 ---
 
-### Task 02: Fix pinkish input fields in light theme + add optional ADM field to student creation ✅
+### Task 02: Fix pinkish input fields in light theme + add optional ADM field to student creation
 
 **Files to create/modify:** `lib/ui/theme/app_theme.dart`, `lib/ui/widgets/member_creation/add_student_panel.dart`, `lib/services/members.dart`
 **Context files to read (if needed):** `lib/ui/widgets/CONTEXT.md`, `lib/services/CONTEXT.md`
@@ -97,9 +97,9 @@ Currently, `add_student_panel.dart` has no ADM input field. The subtitle text at
 3. **Update the subtitle text** to say something like: `'Fill in the student\'s details. You can optionally specify an admission number.'`
 
 **Update after completion:**
-- [x] Update `lib/ui/widgets/CONTEXT.md` — note the ADM field addition to `add_student_panel.dart`
-- [x] Update `lib/services/CONTEXT.md` — note the new `adm` parameter on `createStudent()`
-- [x] Mark this task `[x]`
+- [ ] Update `lib/ui/widgets/CONTEXT.md` — note the ADM field addition to `add_student_panel.dart`
+- [ ] Update `lib/services/CONTEXT.md` — note the new `adm` parameter on `createStudent()`
+- [ ] Mark this task `[x]`
 
 ---
 
