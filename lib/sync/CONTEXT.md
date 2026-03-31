@@ -103,7 +103,7 @@ Every lifecycle transition has a `debugPrint('[SyncEngine] ...')` call:
 
 **Enum conversion:** Proto sends raw integers for enum columns. The delta writer converts them to the corresponding Dart enum types (e.g., `UserLevel.values[row.level]`, `AttendanceStatus.values.firstWhere((e) => e.value == row.status)` for non-zero-indexed enums).
 
-**Permissions encoding:** `RoleInsert.permissions` arrives as `List<int>` (proto bytes) but the Drift `roles.permissions` column is currently `text`. The delta writer encodes bytes as base64 via `base64Encode()`.
+**Permissions encoding:** `RoleInsert.permissions` arrives as `List<int>` (proto bytes) but the Drift `roles.permissions` column is currently `text`. The delta writer decodes bytes via the `_decodePermissions()` helper: tries `utf8.decode` first (restoring the original JSON string the client sent), falls back to `base64Encode` if bytes aren't valid UTF-8. This ensures `parsePermissions()` in `_role_helpers.dart` can always recover the permissions. **BUG-012 fix:** Previously used `base64Encode()` directly, which produced a base64 string that `jsonDecode()` couldn't parse, causing permissions to appear empty after sync.
 
 **Helpers:**
 - `_parseKey(String rowKey) → List<String>` — splits pipe-delimited row keys
@@ -267,7 +267,10 @@ The push flow was rewritten from a batch-based model (via `LogProcessor`) to a o
 - **Depended on by:** `client.dart` (✅ integrated — `Client.syncEngine` field, `SyncEngine get sync` global getter, start/stop wired into `active()`, `saveAccount()`, `switchAccount()`, `logOut()`), `ui/widgets/sync_indicator.dart` (binds to `sync.status` ValueNotifier), `main.dart` (global `runZonedGuarded` zone catches unhandled http2 transport errors)
 
 ## Last Updated
-Tasks C3–C8 (File Sync — Marking Schemes & Answer Sheets):
+Task 03 (BUG-012 — Permissions data corruption fix):
+- `delta_writer.dart`: Added `_decodePermissions(List<int> bytes)` helper method — tries `utf8.decode` first (with `jsonDecode` validation), falls back to `base64Encode`. Changed `_applyRoles` from `permissions: Value(base64Encode(row.permissions))` to `permissions: Value(_decodePermissions(row.permissions))`. This fixes the root cause where base64-encoded permissions were unparseable by `parsePermissions()`.
+
+Previous: Tasks C3–C8 (File Sync — Marking Schemes & Answer Sheets):
 - `delta_writer.dart`: Added `case 36: await _applySchemePages(delta)` and `case 37: await _applyAnswerPages(delta)` to `_applySingle` switch. Implemented `_applySchemePages()` and `_applyAnswerPages()` with full nullable-paper handling (delete-then-insert for NULL paper, `ON CONFLICT DO UPDATE SET` for non-NULL).
 - `sync_engine.dart`: Added `_insertAnswerSubmissions(SyncDelta delta)` — post-download hook that inserts `paper_submissions` rows after answer sheet files are downloaded via the watch stream. Hook fires in `_onDelta()` after `_handleFileUrls()` when `delta.table == 37 && delta.operation != 2`. Added `dart:io` and `../database/daos/exams_grades_dao.dart` imports.
 

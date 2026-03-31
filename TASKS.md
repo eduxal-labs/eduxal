@@ -103,7 +103,7 @@ Currently, `add_student_panel.dart` has no ADM input field. The subtitle text at
 
 ---
 
-### Task 03: Fix roles permissions persistence — root cause diagnosis and fix
+### Task 03: Fix roles permissions persistence — root cause diagnosis and fix ✅ [x]
 
 **Files to create/modify:** `lib/ui/screens/school_dashboard/roles/_role_helpers.dart`, `lib/sync/delta_writer.dart`, `lib/core/seeder.dart`
 **Context files to read (if needed):** `lib/models/CONTEXT.md`, `lib/sync/CONTEXT.md`, `lib/ui/screens/school_dashboard/CONTEXT.md`
