@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart' hide Action;
@@ -9,6 +8,7 @@ import '../../../database/database.dart';
 import '../../../database/daos/terms_dao.dart';
 import '../../../models/active_term_context.dart';
 import '../../../models/membership.dart';
+import '../../../core/permission_parser.dart';
 import '../../../models/permissions.dart';
 import '../../../models/school_context.dart';
 import '../../../models/school_permissions.dart';
@@ -111,11 +111,12 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
         db.roles,
       )..where((t) => t.id.isIn(roleIds))).get();
 
+      // FIXED — uses resilient parsePermissions from core/permission_parser.dart
       for (final r in rolesRows) {
-        try {
-          final decoded = jsonDecode(r.permissions);
-          aggregated = aggregated.union(Permissions.fromJson(decoded));
-        } catch (_) {}
+        final parsed = parsePermissions(r.permissions);
+        if (parsed.isNotEmpty) {
+          aggregated = aggregated.union(Permissions(parsed));
+        }
       }
     }
 
@@ -124,6 +125,12 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
       userId: user.id,
       permissions: aggregated,
     );
+
+    debugPrint(
+      '[SchoolDashboard] Loaded ${scopesRows.length} scopes, '
+      '${roleIds.length} roles for user ${user.id} at school $schoolId',
+    );
+    debugPrint('[SchoolDashboard] Aggregated permissions: $aggregated');
 
     // ── 2. Load terms for the initial ActiveTermContext ──────────────────────
     final termsDao = TermsDao(db);
