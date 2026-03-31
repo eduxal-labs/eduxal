@@ -107,6 +107,7 @@ class _AddStudentForm extends StatefulWidget {
 class _AddStudentFormState extends State<_AddStudentForm> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
+  final _admCtrl = TextEditingController();
 
   Gender? _gender;
   DateTime? _dob;
@@ -126,6 +127,7 @@ class _AddStudentFormState extends State<_AddStudentForm> {
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _admCtrl.dispose();
     _phoneCtrl.dispose();
     _phoneDebounce?.cancel();
     super.dispose();
@@ -196,9 +198,13 @@ class _AddStudentFormState extends State<_AddStudentForm> {
       final phone = _phoneCtrl.text.trim().isEmpty
           ? null
           : _phoneCtrl.text.trim();
+      final admText = _admCtrl.text.trim();
+      final int? parsedAdm = admText.isNotEmpty ? int.tryParse(admText) : null;
+
       final result = await widget.service.createStudent(
         schoolId: widget.schoolId,
         name: _nameCtrl.text.trim(),
+        adm: parsedAdm,
         dob: _dob,
         gender: _gender,
         admitted: _admitted,
@@ -296,8 +302,8 @@ class _AddStudentFormState extends State<_AddStudentForm> {
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          'Fill in the student\'s details. An admission number '
-                          'will be assigned automatically.',
+                          'Fill in the student\'s details. You can optionally '
+                          'specify an admission number.',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w400,
@@ -360,6 +366,20 @@ class _AddStudentFormState extends State<_AddStudentForm> {
                   }
                   return null;
                 },
+              ),
+            ),
+
+            const SizedBox(height: 14),
+
+            // ── Admission number (optional) ───────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: EduFormField(
+                controller: _admCtrl,
+                label: 'Admission number',
+                hint: 'Leave blank to auto-assign',
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               ),
             ),
 

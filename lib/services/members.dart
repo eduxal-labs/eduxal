@@ -415,6 +415,7 @@ class MemberCreationService {
   Future<Result<StudentsData, MemberCreationError>> createStudent({
     required String schoolId,
     required String name,
+    int? adm,
     DateTime? dob,
     Gender? gender,
     DateTime? admitted,
@@ -425,7 +426,17 @@ class MemberCreationService {
       return const Err(MemberCreationError.noActiveAccount);
     }
 
-    final adm = await _dao.nextAdmissionNumber(schoolId);
+    // If caller provided a valid ADM, check for conflicts; otherwise auto-assign.
+    final int resolvedAdm;
+    if (adm != null && adm > 0) {
+      final existing = await _dao.getStudent(schoolId, adm);
+      if (existing != null) {
+        return const Err(MemberCreationError.alreadyExists);
+      }
+      resolvedAdm = adm;
+    } else {
+      resolvedAdm = await _dao.nextAdmissionNumber(schoolId);
+    }
     final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
 
     // ── Optional phone → user resolution ──────────────────────────────────
@@ -447,7 +458,7 @@ class MemberCreationService {
 
     final companion = StudentsCompanion(
       school: Value(schoolId),
-      adm: Value(adm),
+      adm: Value(resolvedAdm),
       name: Value(name.trim()),
       user: userId != null ? Value(userId) : const Value.absent(),
       dob: dob != null
@@ -468,7 +479,7 @@ class MemberCreationService {
       userPhone: userPhone,
     );
 
-    final created = await _dao.getStudent(schoolId, adm);
+    final created = await _dao.getStudent(schoolId, resolvedAdm);
     return Ok(created!);
   }
 

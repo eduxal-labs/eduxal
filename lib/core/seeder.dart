@@ -10,6 +10,7 @@ import 'package:protobuf/protobuf.dart' show GeneratedMessage;
 import '../database/database.dart';
 import '../database/tables/enums.dart';
 import '../database/tables/curriculum_subjects.dart';
+import '../models/permissions.dart' show Resource, Action;
 
 import '../proto/services/sync.pb.dart' as sync_pb;
 
@@ -2183,32 +2184,36 @@ class _SeederImpl {
     _roleId = _id();
 
     // Create a "Teacher" role with teaching-related permissions.
-    // Permissions blob: Resource/Action bitmask.
-    // For the Teacher role we grant:
-    //   Attendance (8): Read(2) + Mark(128) = 130
-    //   Lessons (9): CRUD = 1+2+4+8 = 15
-    //   Grades (11): Read(2) + Mark(128) + Update(4) = 134
-    //   Students (5): Read(2) = 2
-    //   Classes (7): Read(2) = 2
-    //   Announcements (14): Read(2) = 2
-    // Binary blob: [resource, lo, hi] per non-empty resource
-    final permBytes = <int>[];
-    void addPerm(int resource, int actionMask) {
-      permBytes.add(resource);
-      permBytes.add(actionMask & 0xFF); // lo byte
-      permBytes.add((actionMask >> 8) & 0xFF); // hi byte
+    // Build a Map<Resource, int> using the typed enums, then serialise to
+    // the standard JSON format: [{"resource": "students", "actions": ["read"]}, ...]
+    // This is the same format produced by serialisePermissions() in _role_helpers.dart.
+    final permMap = <Resource, int>{
+      Resource.students: Action.read.mask,
+      Resource.classes: Action.read.mask,
+      Resource.attendance: Action.read.mask | Action.mark.mask,
+      Resource.lessons:
+          Action.create.mask |
+          Action.read.mask |
+          Action.update.mask |
+          Action.delete.mask,
+      Resource.grades: Action.read.mask | Action.update.mask | Action.mark.mask,
+      Resource.announcements: Action.read.mask,
+    };
+
+    // Serialise to the standard JSON list-of-objects format that
+    // Permissions.fromJson() can parse directly.
+    final permList = <Map<String, dynamic>>[];
+    for (final entry in permMap.entries) {
+      if (entry.value == 0) continue;
+      final actions = Action.values
+          .where((a) => entry.value & a.mask != 0)
+          .map((a) => a.name)
+          .toList();
+      if (actions.isNotEmpty) {
+        permList.add({'resource': entry.key.name, 'actions': actions});
+      }
     }
-
-    addPerm(5, 2); // Students: Read
-    addPerm(7, 2); // Classes: Read
-    addPerm(8, 130); // Attendance: Read + Mark
-    addPerm(9, 15); // Lessons: CRUD
-    addPerm(11, 134); // Grades: Read + Update + Mark
-    addPerm(14, 2); // Announcements: Read
-
-    // Note: roles.permissions is text in the schema but we store the
-    // bitmask encoded as JSON for now, matching the current column type.
-    final permJson = jsonEncode(permBytes);
+    final permJson = jsonEncode(permList);
 
     await _db
         .into(_db.roles)
@@ -2231,7 +2236,7 @@ class _SeederImpl {
         school: _schoolId,
         name: 'Teacher',
         description: 'Standard teaching staff permissions',
-        permissions: permBytes,
+        permissions: utf8.encode(permJson),
       ),
     );
 

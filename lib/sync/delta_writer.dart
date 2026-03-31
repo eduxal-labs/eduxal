@@ -1231,6 +1231,26 @@ class DeltaWriter {
   // 26: roles  — PK: (id)  — rowKey: "{id}"
   // ---------------------------------------------------------------------------
 
+  /// Decodes the protobuf `bytes` field for role permissions back to a JSON
+  /// string suitable for storage in the Drift `roles.permissions` text column.
+  ///
+  /// The server stores and returns the same bytes the client originally sent
+  /// (UTF-8-encoded JSON). We try `utf8.decode` first. If that fails (e.g. the
+  /// server returns raw binary blob bytes), we fall back to `base64Encode` so
+  /// that [parsePermissions] in `_role_helpers.dart` can still recover it via
+  /// its base64 fallback path.
+  String _decodePermissions(List<int> bytes) {
+    try {
+      final json = utf8.decode(bytes);
+      // Verify it's valid JSON before storing
+      jsonDecode(json);
+      return json;
+    } catch (_) {
+      // Fallback: store as base64 — parsePermissions knows how to handle it
+      return base64Encode(bytes);
+    }
+  }
+
   Future<void> _applyRoles(SyncDelta delta) async {
     if (delta.operation == 2) {
       await (_db.delete(
@@ -1248,7 +1268,7 @@ class DeltaWriter {
             school: Value(row.hasSchool() ? row.school : null),
             name: Value(row.name),
             description: Value(row.hasDescription() ? row.description : null),
-            permissions: Value(base64Encode(row.permissions)),
+            permissions: Value(_decodePermissions(row.permissions)),
             created: Value(now),
             updated: Value(now),
           ),

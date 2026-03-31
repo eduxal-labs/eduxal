@@ -286,7 +286,9 @@ class AppTheme {
       surfaceContainerLowest: _lightBg,
       onSurface: const Color(0xFF1A1C1E),
       onSurfaceVariant: const Color(0xFF555E68),
+      surfaceContainerLow: const Color(0xFFF5F6F8),
       surfaceContainer: _lightContainer, // section containers, input fills
+      surfaceContainerHigh: const Color(0xFFEBEDF0),
       surfaceContainerHighest: _lightItem, // row/item backgrounds
       outline: _lightBorder,
       outlineVariant: _lightBorderLight,

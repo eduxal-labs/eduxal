@@ -14,7 +14,6 @@ import '../../../models/school_context.dart';
 import '../../../models/school_permissions.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/active_term_provider.dart';
-import '../../widgets/looping_tab_strip.dart';
 
 import '../../widgets/edu_sheet.dart';
 import '../../widgets/no_terms_blank_state.dart';
@@ -268,7 +267,7 @@ class _DashboardShellState extends State<_DashboardShell>
       MembershipRole.owner => const [
         _NavItem(label: 'Overview', icon: Icons.space_dashboard_outlined),
         _NavItem(label: 'Academics', icon: Icons.menu_book_outlined),
-        _NavItem(label: 'Exams & Grades', icon: Icons.assignment_outlined),
+        _NavItem(label: 'Exams', icon: Icons.assignment_outlined),
         _NavItem(label: 'Members', icon: Icons.people_alt_outlined),
         _NavItem(label: 'Finance', icon: Icons.account_balance_outlined),
         _NavItem(label: 'Announcements', icon: Icons.campaign_outlined),
@@ -314,10 +313,7 @@ class _DashboardShellState extends State<_DashboardShell>
         if (perms.canAny(Resource.classes, [Action.read]))
           const _NavItem(label: 'Academics', icon: Icons.menu_book_outlined),
         if (perms.canAny(Resource.exams, [Action.read]))
-          const _NavItem(
-            label: 'Exams & Grades',
-            icon: Icons.assignment_outlined,
-          ),
+          const _NavItem(label: 'Exams', icon: Icons.assignment_outlined),
         if (perms.canAny(Resource.teachers, [Action.read]) ||
             perms.canAny(Resource.students, [Action.read]))
           const _NavItem(label: 'Members', icon: Icons.people_alt_outlined),
@@ -452,17 +448,9 @@ class _DashboardShellState extends State<_DashboardShell>
                     ? () => _showRoleSwitcherSheet(ctx)
                     : null,
               ),
-            if (isMobile && currentEntry.role == MembershipRole.teacher)
-              _SimpleTabBar(
+            if (isMobile)
+              _UnifiedMobileTabBar(
                 items: _currentItems,
-                controller: _tabController,
-                cs: cs,
-              )
-            else if (isMobile)
-              LoopingTabStrip(
-                items: _currentItems
-                    .map((e) => LoopingTabItem(label: e.label, icon: e.icon))
-                    .toList(),
                 selectedIndex: _selectedIndex,
                 onTabSelected: _selectIndex,
               ),
@@ -1313,50 +1301,104 @@ class _TabLayoutTopBar extends StatelessWidget {
 // Pill tab strip — icon-only, fills full pill width (mobile only, < 600 px)
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _SimpleTabBar extends StatelessWidget {
-  const _SimpleTabBar({
+class _UnifiedMobileTabBar extends StatelessWidget {
+  const _UnifiedMobileTabBar({
     required this.items,
-    required this.controller,
-    required this.cs,
+    required this.selectedIndex,
+    required this.onTabSelected,
   });
 
   final List<_NavItem> items;
-  final TabController controller;
-  final ColorScheme cs;
+  final int selectedIndex;
+  final ValueChanged<int> onTabSelected;
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isScrollable = items.length > 5;
+
     return Container(
-      height: 40,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: TabBar(
-        controller: controller,
-        isScrollable: true,
-        tabAlignment: TabAlignment.start,
-        splashBorderRadius: BorderRadius.circular(AppTheme.kChipRadius),
-        dividerColor: Colors.transparent,
-        dividerHeight: 0,
-        indicatorSize: TabBarIndicatorSize.tab,
-        indicator: BoxDecoration(
-          color: cs.primary,
-          borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+      height: 44,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: isDark
+            ? cs.surfaceContainerHighest.withValues(alpha: 0.6)
+            : cs.surfaceContainerHighest.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.08 : 0.03),
+            blurRadius: 2,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: isScrollable
+          ? SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                children: List.generate(items.length, (index) {
+                  return _buildTab(index, cs, isDark, fixedWidth: 80);
+                }),
+              ),
+            )
+          : Row(
+              children: List.generate(items.length, (index) {
+                return Expanded(child: _buildTab(index, cs, isDark));
+              }),
+            ),
+    );
+  }
+
+  Widget _buildTab(
+    int index,
+    ColorScheme cs,
+    bool isDark, {
+    double? fixedWidth,
+  }) {
+    final isSelected = index == selectedIndex;
+    final child = GestureDetector(
+      onTap: () => onTabSelected(index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        margin: const EdgeInsets.all(1),
+        decoration: BoxDecoration(
+          color: isSelected ? cs.surface : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.16 : 0.07),
+                    blurRadius: 5,
+                    offset: const Offset(0, 1.5),
+                  ),
+                ]
+              : null,
         ),
-        labelColor: cs.onPrimary,
-        unselectedLabelColor: cs.onSurfaceVariant,
-        labelStyle: const TextStyle(
-          fontSize: 12.5,
-          fontWeight: FontWeight.w400,
+        child: Center(
+          child: Text(
+            items[index].label,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
+              color: isSelected
+                  ? cs.onSurface
+                  : cs.onSurfaceVariant.withValues(alpha: 0.7),
+              letterSpacing: 0.15,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
-        unselectedLabelStyle: const TextStyle(
-          fontSize: 12.5,
-          fontWeight: FontWeight.w400,
-        ),
-        labelPadding: const EdgeInsets.symmetric(horizontal: 12),
-        overlayColor: WidgetStateProperty.all(Colors.transparent),
-        splashFactory: NoSplash.splashFactory,
-        tabs: items.map((item) => Tab(height: 32, text: item.label)).toList(),
       ),
     );
+    if (fixedWidth != null) {
+      return SizedBox(width: fixedWidth, child: child);
+    }
+    return child;
   }
 }
 

@@ -58,7 +58,7 @@ Phone-first (and name-first for students) member creation panels used by the Mem
 | `add_guardian_panel.dart` | `AddGuardianPanel` | ✅ Complete | Phone-first guardian creation flow. Linked to a specific student (ward). Fields: phone → user lookup → relationship, role. Uses `MemberCreationService.createGuardian()`. |
 | `add_owner_panel.dart` | `AddOwnerPanel` | ✅ Complete | Phone-first owner creation flow. Fields: phone → user lookup → confirm link. Uses `MemberCreationService.createOwner()`. |
 | `add_staff_panel.dart` | `AddStaffPanel` | ✅ Complete | Phone-first staff creation flow. Fields: phone → user lookup → ID number, role, department. Uses `MemberCreationService.createStaff()`. |
-| `add_student_panel.dart` | `AddStudentPanel` | ✅ Complete | Name-first student creation flow (students don't need a phone number). Fields: name, DOB, gender, photo, admission date. Uses `MemberCreationService.createStudent()`. **UI polish (Task 09):** Replaced full-width `_CtaButton` with a compact right-aligned `FilledButton.icon` (check icon + label, `BorderRadius.circular(6)`). Added form entrance animation (`TweenAnimationBuilder` fade+slide, 350ms ease-out). Reduced inter-field spacing from 20px to 14–16px for a tighter, more compact layout. Removed the now-unused `_CtaButton` private widget class entirely. |
+| `add_student_panel.dart` | `AddStudentPanel` | ✅ Complete | Name-first student creation flow (students don't need a phone number). Fields: name, **admission number (optional)**, DOB, gender, photo, admission date, phone (optional). Uses `MemberCreationService.createStudent()`. **UI polish (Task 09):** Replaced full-width `_CtaButton` with a compact right-aligned `FilledButton.icon` (check icon + label, `BorderRadius.circular(6)`). Added form entrance animation (`TweenAnimationBuilder` fade+slide, 350ms ease-out). Reduced inter-field spacing from 20px to 14–16px for a tighter, more compact layout. Removed the now-unused `_CtaButton` private widget class entirely. **Task 02:** Added optional ADM number field (digits only, `EduFormField`, hint "Leave blank to auto-assign"). Updated subtitle text to mention optional ADM. Passes parsed `int?` to `createStudent(adm:)`. |
 | `add_teacher_panel.dart` | `AddTeacherPanel` | ✅ Complete | Phone-first teacher creation flow. Fields: phone → user lookup → hired date, role, department. Uses `MemberCreationService.createTeacher()`. |
 | `phone_first_panel.dart` | `PhoneFirstPanel` | ✅ Complete | Shared base component for the phone-first lookup pattern. Renders a phone number input field, calls `MemberCreationService.lookupPhone()`, then expands to show either "User found — link?" confirmation or "User not found — enter name" expansion. Used by `AddOwnerPanel`, `AddTeacherPanel`, `AddStaffPanel`, `AddGuardianPanel`. |
 
@@ -73,8 +73,8 @@ Phone-first (and name-first for students) member creation panels used by the Mem
 ### Student Flow (name-first)
 
 Students use `AddStudentPanel` which does NOT use `PhoneFirstPanel`. Instead:
-1. User enters admission number, name, DOB, gender.
-2. On submit, calls `MemberCreationService.createStudent()` which creates the student row directly.
+1. User enters name, optionally an admission number (leave blank to auto-assign), DOB, gender, photo, admission date, and optionally a phone number.
+2. On submit, calls `MemberCreationService.createStudent(adm: parsedAdm)` which validates ADM uniqueness (if provided) or auto-assigns via `nextAdmissionNumber()`.
 3. Students may optionally be linked to a `users` row later (when the student gets a phone/account).
 
 ## Key Widget Details
@@ -135,4 +135,4 @@ Internally calls `FileCache.get(FileCache.profilePath(userId))` to check for a c
 - Widgets never import services or DAOs directly for business logic — they receive callbacks or data via constructor parameters. Exception: `CreateTermModal` and member creation panels which instantiate service calls directly (they are self-contained mini-flows, not pure presentational widgets).
 
 ## Last Updated
-Task A0 — Updated `edu_sheet.dart`: `showEduSheet` no longer wraps `builder(ctx)` in `EduSheet` on mobile (returns builder output directly) and no longer renders `_DialogTitleRow` on desktop (dialog provides only outer visual chrome — background, border, shadow, rounded corners). The `title` parameter is deprecated; each sheet renders its own header. `EduSheet`, `_SheetHandle`, `_SheetTitleRow`, and `_DialogTitleRow` widget classes are all retained. File count: 24 files + 1 subdirectory (`member_creation/`).
+Task 02 — `add_student_panel.dart`: Added optional ADM number input field (`EduFormField`, digits only, hint "Leave blank to auto-assign") after the Name field. Updated subtitle text from "An admission number will be assigned automatically" to "You can optionally specify an admission number." Passes parsed `int?` to `MemberCreationService.createStudent(adm:)`. File count: 24 files + 1 subdirectory (`member_creation/`).
