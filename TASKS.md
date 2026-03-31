@@ -141,9 +141,9 @@ if (isMobile)
    - \> 5 tabs: `isScrollable: true, tabAlignment: TabAlignment.start` — tabs scroll horizontally
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note that `_UnifiedMobileTabBar` now uses `TabBar` + `TabController` instead of custom `GestureDetector` + `AnimatedContainer`
-- [ ] Mark this task `[x]`
-- [ ] git commit: `fix: replace mobile tab AnimatedContainer with TabBar to eliminate dual-ripple`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note that `_UnifiedMobileTabBar` now uses `TabBar` + `TabController` instead of custom `GestureDetector` + `AnimatedContainer`
+- [x] Mark this task `[x]`
+- [x] git commit: `fix: replace mobile tab AnimatedContainer with TabBar to eliminate dual-ripple`
 
 ---
 
@@ -196,9 +196,9 @@ Remove the function bodies that were moved. Keep the `ResourceGroup`, `buildReso
 3. **Verify imports compile** — all existing importers of `_role_helpers.dart` that use `parsePermissions` or `serialisePermissions` should continue to work via the re-export.
 
 **Update after completion:**
-- [ ] Update `lib/core/CONTEXT.md` — add entry for `permission_parser.dart`
-- [ ] Mark this task `[x]`
-- [ ] git commit: `refactor: extract parsePermissions to lib/core/permission_parser.dart`
+- [x] Update `lib/core/CONTEXT.md` — add entry for `permission_parser.dart`
+- [x] Mark this task `[x]`
+- [x] git commit: `refactor: extract parsePermissions to lib/core/permission_parser.dart`
 
 ---
 
@@ -577,9 +577,9 @@ final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
    ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note that `_MobileGradeEntrySheet` now wraps in `EduSheet`, uses compact inputs, and has icon action buttons instead of `ElevatedButton`
-- [ ] Mark this task `[x]`
-- [ ] git commit: `fix: wrap mobile grade entry sheet in EduSheet and compact layout`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note that `_MobileGradeEntrySheet` now wraps in `EduSheet`, uses compact inputs, and has icon action buttons instead of `ElevatedButton`
+- [x] Mark this task `[x]`
+- [x] git commit: `fix: wrap mobile grade entry sheet in EduSheet and compact layout`
 
 ---
 
