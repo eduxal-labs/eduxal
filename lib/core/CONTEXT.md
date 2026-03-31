@@ -4,7 +4,7 @@
 
 ## Overview
 
-This directory contains **6 files** providing app-wide constants, extension methods, error mapping, an in-memory cache, academic formatting utilities, and a demo data seeder. Nothing here has domain-specific business logic — these are pure utilities.
+This directory contains **7 files** providing app-wide constants, extension methods, error mapping, an in-memory cache, academic formatting utilities, a demo data seeder, and permission parsing/serialisation utilities. Nothing here has domain-specific business logic — these are pure utilities.
 
 ## Files
 
@@ -15,6 +15,7 @@ This directory contains **6 files** providing app-wide constants, extension meth
 | `constants.dart` | `kDomain`, `kPort`, `kVerificationExpiry`, `kResendCooldown`, `kAccessTokenDuration`, `kRefreshTokenDuration` | ✅ Complete |
 | `extensions.dart` | `PhoneNormalisation` extension on `String`, `gradeLabel()`, `gradeStreamLabel()` | ✅ Complete |
 | `grpc_errors.dart` | `GrpcErrorMessage` extension on `GrpcError` | ✅ Complete |
+| `permission_parser.dart` | `parsePermissions`, `serialisePermissions`, `countPermissions`, `popcount` | ✅ Complete |
 | `seeder.dart` | `Seeder` | ✅ Complete |
 
 ## Detailed Exports
@@ -158,6 +159,23 @@ Uses internal `_serverMessageOr(String fallback)` helper — returns server-prov
 
 **Dependencies:** `package:grpc/grpc.dart`.
 
+### Permission Parser — `permission_parser.dart`
+
+Shared permission parsing and serialisation utilities, extracted from the roles UI layer for reuse across the codebase (dashboard session init, role detail, role creation, etc.).
+
+**Functions:**
+
+| Function | Signature | Description |
+|---|---|---|
+| `parsePermissions` | `Map<Resource, int> parsePermissions(String? jsonStr)` | Resilient multi-format parser that handles: (1) standard JSON objects via `Permissions.fromJson`, (2) seeder binary-int JSON arrays via `Permissions.fromBlob`, (3) base64-encoded strings via base64 decode → UTF-8 JSON or raw binary blob. Each attempt is logged via `debugPrint`. Falls through gracefully — never throws. Returns empty map for null/empty input. |
+| `serialisePermissions` | `String serialisePermissions(Map<Resource, int> perms)` | Serialises a `Map<Resource, int>` to the canonical JSON list-of-objects format: `[{"resource": "students", "actions": ["read", "update"]}]`. |
+| `countPermissions` | `int countPermissions(Map<Resource, int> perms)` | Returns the total number of granted individual permission bits across all resources (Hamming weight sum). |
+| `popcount` | `int popcount(int v)` | Hamming weight helper — counts the number of set bits in an integer. |
+
+**Dependencies:** `dart:convert`, `dart:typed_data`, `package:flutter/foundation.dart` (debugPrint), `models/permissions.dart` (Resource, Permissions).
+
+**Depended on by:** `ui/screens/school_dashboard/roles/_role_helpers.dart` (re-export), `ui/screens/school_dashboard/school_dashboard_screen.dart` (session init), `ui/screens/school_dashboard/roles/school_role_detail_screen.dart` (save verification).
+
 ### Seeder — `seeder.dart`
 
 Populates the local Drift database with a realistic Kenyan secondary school for demo purposes. Called once on first login when no schools exist locally.
@@ -257,4 +275,4 @@ Populates the local Drift database with a realistic Kenyan secondary school for 
 - `applicationId = "com.eduxal.app"`, `android:label = "EduXal"` (set in Task 12)
 
 ## Last Updated
-Task A1 — Added `gradeLabel` and `gradeStreamLabel` utility functions to `extensions.dart`. All 6 files remain current.
+Added `permission_parser.dart` — shared permission parsing and serialisation utilities. All 7 files current.

@@ -388,3 +388,99 @@ Two independent data-layer bugs corrupt the `roles.permissions` text column so t
 - When a data format has multiple possible encodings, the parser must handle all of them defensively rather than assuming a single canonical form.
 - Seeder code must use the same serialisation functions as production code (or equivalent logic) — never hand-roll a different encoding for the same column.
 - Cross-reference BUG-011: the UI-level fixes (ValueKey, logging) from BUG-011 remain valuable as defense-in-depth, but would not have fixed the data-layer corruption addressed here.
+
+---
+
+## BUG-013: Mobile tab dual-animation ripple on school dashboard
+
+**Severity:** Low (visual glitch — dual ripple when switching tabs)
+**Discovered:** User-reported Issue 1
+**Fixed by:** Task A1
+
+**Root Cause:**
+Each tab in `_UnifiedMobileTabBar` was an independent `AnimatedContainer` whose `color` and `boxShadow` properties transitioned when `selectedIndex` changed. When the parent rebuilt with a new `selectedIndex`, every tab widget rebuilt — the old selected tab animated from `cs.surface` → `transparent` while the new selected tab animated from `transparent` → `cs.surface`. Both animations ran in parallel, creating a visible dual-ripple effect.
+
+**Files changed:**
+- `lib/ui/screens/school_dashboard/school_dashboard_screen.dart` — `_UnifiedMobileTabBar` rewritten to use `TabBar` + `TabController` instead of custom `GestureDetector` + `AnimatedContainer`. `_buildTab` helper removed. Constructor changed from `selectedIndex` + `onTabSelected` to `TabController controller`.
+
+**Fix applied:**
+Replaced the custom per-tab `AnimatedContainer` approach with Flutter's `TabBar` widget connected to the existing `_tabController`. `TabBar` uses a single sliding `BoxDecoration` indicator that moves between tabs — only one visual element animates. Splash and overlay effects suppressed via `NoSplash.splashFactory` + transparent `overlayColor`.
+
+**Prevention:**
+When building custom tab indicators, prefer Flutter's built-in `TabBar` with `TabController` to get a single sliding indicator animation. Avoid multiple independent `AnimatedContainer` widgets that all respond to the same state change.
+
+---
+
+## BUG-014: Silent permission parse failure in dashboard session init
+
+**Severity:** High (dashboard tabs silently missing — teachers see only 4 base tabs regardless of permissions)
+**Discovered:** User-reported Issue 2
+**Fixed by:** Task B2
+
+**Root Cause:**
+In `_SchoolDashboardScreenState._initializeSession()`, permissions were parsed using inline `jsonDecode(r.permissions)` + `Permissions.fromJson(decoded)` wrapped in a silent `catch (_) {}`. If the permission string was in any format that `jsonDecode` or `Permissions.fromJson` couldn't handle (e.g. the seeder's binary-int-array format, or base64-encoded strings from the delta writer), the catch block silently swallowed the error. The result: `aggregated` stayed as `Permissions.empty()`, `SchoolPermissions` had no permissions, and all conditional tabs in `_itemsForRole()` were skipped.
+
+The resilient `parsePermissions()` function (written as part of BUG-012's fix) handles ALL known formats — but `_initializeSession()` wasn't using it.
+
+**Files changed:**
+- `lib/core/permission_parser.dart` — Created (Task B1): extracted `parsePermissions`, `serialisePermissions`, `countPermissions`, `popcount` from `_role_helpers.dart`.
+- `lib/ui/screens/school_dashboard/roles/_role_helpers.dart` — Modified (Task B1): function bodies replaced with re-export from `permission_parser.dart`.
+- `lib/ui/screens/school_dashboard/school_dashboard_screen.dart` — Modified (Task B2): replaced inline `jsonDecode` + `Permissions.fromJson` + silent `catch` with `parsePermissions()` from `core/permission_parser.dart`. Added diagnostic logging. Removed `dart:convert` import.
+
+**Fix applied:**
+1. Extracted `parsePermissions` to `lib/core/permission_parser.dart` for shared use.
+2. Replaced the fragile inline parsing in `_initializeSession()` with the resilient `parsePermissions()` call.
+3. Added diagnostic logging showing scope count, role count, and aggregated permissions.
+
+**Prevention:**
+- Never use empty `catch (_) {}` blocks in data parsing — always log at minimum the error.
+- Reuse shared parsing functions instead of duplicating parsing logic inline.
+- Cross-reference BUG-012 which originally created the resilient parser.
+
+---
+
+## BUG-015: Role edit permissions not persisting (ValueKey timestamp collision)
+
+**Severity:** Medium (permissions appear to save but revert on re-entry)
+**Discovered:** User-reported Issue 3
+**Fixed by:** Task C1
+
+**Root Cause:**
+The `_PermissionsTabState._save()` method used seconds-precision timestamps (`DateTime.now().millisecondsSinceEpoch ~/ 1000`) for the `roles.updated` column. When two saves occurred within the same second, the `ValueKey('perms_${role.id}_${role.updated}')` on the `_PermissionsTab` widget did not change, so Flutter reused the old `State` object instead of creating a fresh one via `initState` → `_resetFromRole`. The stale state showed the old permissions. Additionally, `didUpdateWidget` could race with the stream emission after save, potentially skipping `_resetFromRole`.
+
+**Files changed:**
+- `lib/ui/screens/school_dashboard/roles/school_role_detail_screen.dart` — Changed `nowSeconds` (seconds) to `nowMs` (milliseconds) for `updated` timestamp. Added comprehensive diagnostic logging to `_save()`, `_resetFromRole`, and `didUpdateWidget`. Added post-save DB verification read.
+- `lib/ui/screens/school_dashboard/roles/school_roles_screen.dart` — Changed create flow timestamp from seconds to milliseconds for consistency.
+
+**Fix applied:**
+1. Switched from seconds to milliseconds precision for `updated` timestamps, making `ValueKey` collisions virtually impossible.
+2. Added pre-save logging (cleaned map, serialised string, roundtrip parse).
+3. Added post-save verification (read role back from DB, log stored permissions and roundtrip parse, flag mismatches).
+4. Added `didUpdateWidget` logging to trace when/why permission resets happen.
+
+**Prevention:**
+- Use millisecond-precision timestamps for any column that drives a `ValueKey` — seconds granularity is too coarse for interactive saves.
+- Add roundtrip verification logging during development to catch serialisation/deserialisation issues early.
+
+---
+
+## BUG-016: Paper detail mobile sheets missing EduSheet wrapper post BUG-010
+
+**Severity:** Medium (grading form inputs hidden behind keyboard; action sheet has no background)
+**Discovered:** User-reported Issues 4 & 5
+**Fixed by:** Tasks D1 + D2
+
+**Root Cause:**
+After BUG-010, `showEduSheet` on mobile no longer wraps builder content in an `EduSheet` container — every sheet must be self-contained (own background, drag handle, title row, `viewInsets.bottom` keyboard padding). However, `_MobileGradeEntrySheet` and `_openStudentActionSheet` in `paper_detail_page.dart` were never updated to be self-contained. They still returned bare widgets expecting the now-removed `EduSheet` wrapper. A stale comment even said "EduSheet (via showEduSheet) owns the background container…" — which was incorrect post BUG-010.
+
+**Files changed:**
+- `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart` — (Task D1) `_MobileGradeEntrySheet.build()` wrapped in `EduSheet(title: student.name)`. Stale comment replaced. Layout compacted (tighter padding, reduced gaps, compact input decorations). `ElevatedButton` replaced with two icon buttons (cancel + green save). (Task D2) `_openStudentActionSheet` content wrapped in `EduSheet(title: student.name)` + `SafeArea(top: false)`. `title` param removed from `showEduSheet` call.
+
+**Fix applied:**
+1. Both sheets now wrap their content in `EduSheet` directly, providing modal background, drag handle, title row, and keyboard padding.
+2. Grade entry form compacted for better mobile fit.
+3. Save button replaced with icon buttons per §21 guidelines.
+4. Student action sheet gains proper `SafeArea` for bottom home indicator.
+
+**Prevention:**
+When `showEduSheet`'s wrapping behaviour changes (as in BUG-010), ALL existing sheets launched through it must be audited. Search for all `showEduSheet` call sites and verify each builder returns a self-contained widget.

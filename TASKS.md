@@ -294,8 +294,8 @@ After Task B2 is complete, verify that `MembersPage.initState()` (lines 82-108) 
 If the sub-tabs do NOT filter correctly after B2, investigate and fix the `_visibleTabs` logic. The existing code looks correct, so this should work once permissions load properly.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] git commit (only if changes were made): `fix: members page sub-tab permission filtering`
+- [x] Mark this task `[x]`
+- [x] git commit (only if changes were made): `fix: members page sub-tab permission filtering` — ✅ Verification passed, no changes needed.
 
 ---
 
