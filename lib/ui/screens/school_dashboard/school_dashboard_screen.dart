@@ -451,8 +451,7 @@ class _DashboardShellState extends State<_DashboardShell>
             if (isMobile)
               _UnifiedMobileTabBar(
                 items: _currentItems,
-                selectedIndex: _selectedIndex,
-                onTabSelected: _selectIndex,
+                controller: _tabController,
               ),
             Expanded(child: mainRow),
           ],
@@ -1302,15 +1301,10 @@ class _TabLayoutTopBar extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _UnifiedMobileTabBar extends StatelessWidget {
-  const _UnifiedMobileTabBar({
-    required this.items,
-    required this.selectedIndex,
-    required this.onTabSelected,
-  });
+  const _UnifiedMobileTabBar({required this.items, required this.controller});
 
   final List<_NavItem> items;
-  final int selectedIndex;
-  final ValueChanged<int> onTabSelected;
+  final TabController controller;
 
   @override
   Widget build(BuildContext context) {
@@ -1335,70 +1329,43 @@ class _UnifiedMobileTabBar extends StatelessWidget {
           ),
         ],
       ),
-      child: isScrollable
-          ? SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              child: Row(
-                children: List.generate(items.length, (index) {
-                  return _buildTab(index, cs, isDark, fixedWidth: 80);
-                }),
-              ),
-            )
-          : Row(
-              children: List.generate(items.length, (index) {
-                return Expanded(child: _buildTab(index, cs, isDark));
-              }),
-            ),
-    );
-  }
-
-  Widget _buildTab(
-    int index,
-    ColorScheme cs,
-    bool isDark, {
-    double? fixedWidth,
-  }) {
-    final isSelected = index == selectedIndex;
-    final child = GestureDetector(
-      onTap: () => onTabSelected(index),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        margin: const EdgeInsets.all(1),
-        decoration: BoxDecoration(
-          color: isSelected ? cs.surface : Colors.transparent,
+      child: TabBar(
+        controller: controller,
+        isScrollable: isScrollable,
+        tabAlignment: isScrollable ? TabAlignment.start : TabAlignment.fill,
+        splashBorderRadius: BorderRadius.circular(8),
+        dividerColor: Colors.transparent,
+        dividerHeight: 0,
+        indicatorSize: TabBarIndicatorSize.tab,
+        indicator: BoxDecoration(
+          color: cs.surface,
           borderRadius: BorderRadius.circular(8),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.16 : 0.07),
-                    blurRadius: 5,
-                    offset: const Offset(0, 1.5),
-                  ),
-                ]
-              : null,
-        ),
-        child: Center(
-          child: Text(
-            items[index].label,
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
-              color: isSelected
-                  ? cs.onSurface
-                  : cs.onSurfaceVariant.withValues(alpha: 0.7),
-              letterSpacing: 0.15,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.16 : 0.07),
+              blurRadius: 5,
+              offset: const Offset(0, 1.5),
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
+          ],
         ),
+        labelColor: cs.onSurface,
+        unselectedLabelColor: cs.onSurfaceVariant.withValues(alpha: 0.7),
+        labelPadding: EdgeInsets.symmetric(horizontal: isScrollable ? 16 : 0),
+        labelStyle: const TextStyle(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0.15,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w400,
+          letterSpacing: 0.15,
+        ),
+        overlayColor: WidgetStateProperty.all(Colors.transparent),
+        splashFactory: NoSplash.splashFactory,
+        tabs: items.map((item) => Tab(height: 38, text: item.label)).toList(),
       ),
     );
-    if (fixedWidth != null) {
-      return SizedBox(width: fixedWidth, child: child);
-    }
-    return child;
   }
 }
 
