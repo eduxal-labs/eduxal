@@ -4,7 +4,7 @@ import 'dart:math' as math;
 
 import 'package:drift/drift.dart' hide Column;
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Action;
 import 'package:flutter/services.dart';
 import 'package:cunning_document_scanner/cunning_document_scanner.dart';
 import 'package:image_picker/image_picker.dart';
@@ -22,6 +22,7 @@ import '../../../../database/tables/enums.dart';
 
 import '../../../../models/result.dart';
 import '../../../../models/membership.dart';
+import '../../../../models/permissions.dart';
 import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/animated_save_button.dart';
@@ -143,12 +144,35 @@ class _PaperDetailPageState extends State<PaperDetailPage>
     }
   }
 
-  bool get _canManage {
+  /// Whether the current user can progress the paper's status, delete, edit invigilator, or manage scheme.
+  /// This is an exam-level management action — not subject-specific.
+  bool get _canProgressStatus {
     final entry = widget.schoolContext.currentEntry.value;
     if (entry is OwnerEntry || entry is StaffEntry) return true;
     if (entry is TeacherEntry) {
-      // Teacher can only manage papers for subjects they teach to this
-      // paper's grade/stream.
+      final userId = entry.teacher.user;
+      // Teacher can progress status if they created the exam, are the invigilator,
+      // have exams.update permission, or teach this subject to this class.
+      if (_exam.teacher == userId) return true;
+      if (_paper.invigilator == userId) return true;
+      if (widget.schoolContext.permissions.can(Resource.exams, Action.update))
+        return true;
+      return _teacherSubjects.any(
+        (st) =>
+            st.grade == _paper.grade &&
+            st.subject == _paper.subject &&
+            (_paper.stream == null || st.stream == _paper.stream),
+      );
+    }
+    return false;
+  }
+
+  /// Whether the current user can enter grades, submit answer sheets, or trigger AI marking.
+  /// This IS subject-specific for teachers.
+  bool get _canGradeContent {
+    final entry = widget.schoolContext.currentEntry.value;
+    if (entry is OwnerEntry || entry is StaffEntry) return true;
+    if (entry is TeacherEntry) {
       return _teacherSubjects.any(
         (st) =>
             st.grade == _paper.grade &&
@@ -393,8 +417,8 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                         schoolId: widget.schoolId,
                         subjectNames: widget.subjectNames,
                         cs: cs,
-                        canEdit: _canManage,
-                        canManage: _canManage,
+                        canEdit: _canProgressStatus,
+                        canManage: _canProgressStatus,
                         dao: _dao,
                         gradeRows: gradeRows,
                         totalStudents: _students.length,
@@ -430,7 +454,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                           exam: _exam,
                           schoolId: widget.schoolId,
                           dao: _dao,
-                          canGrade: _canManage,
+                          canGrade: _canGradeContent,
                           cs: cs,
                           schemeFiles: _schemeFiles,
                           initialDirtySubmissions: _childDirtySubmissions,
@@ -486,7 +510,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                           exam: _exam,
                           schoolId: widget.schoolId,
                           dao: _dao,
-                          canGrade: _canManage,
+                          canGrade: _canGradeContent,
                           cs: cs,
                           schemeFiles: _schemeFiles,
                           initialDirtySubmissions: _childDirtySubmissions,
