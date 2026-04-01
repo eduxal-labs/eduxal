@@ -469,7 +469,7 @@ No changes to `initializeClient()` needed — the `late final` lazy-initializes 
 
 ## Track 4: System Dashboard — Question Management UI
 
-### Task 07: Add "Questions" tab/panel to topic expanded content in SubjectsSection
+### Task 07: Add "Questions" tab/panel to topic expanded content in SubjectsSection ✅
 **Files to modify:** `lib/ui/screens/system/settings/subjects_section.dart`
 **Context files to read (if needed):** `lib/ui/screens/system/CONTEXT.md`, `lib/ui/widgets/CONTEXT.md`
 **Depends on:** Task 06

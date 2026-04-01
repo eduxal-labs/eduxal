@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' hide Action;
 
 import '../../../../client.dart';
+import '../../../../models/result.dart';
 import '../../../../database/database.dart';
 import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../models/school_config.dart';
@@ -979,6 +980,7 @@ class _TopicList extends StatelessWidget {
                     _TopicTile(
                       topic: topics[i],
                       subjectName: subjectName,
+                      canCreate: canCreate,
                       canEdit: canEdit,
                       canDelete: canDelete,
                       cs: cs,
@@ -1086,6 +1088,7 @@ class _TopicTile extends StatefulWidget {
   const _TopicTile({
     required this.topic,
     required this.subjectName,
+    required this.canCreate,
     required this.canEdit,
     required this.canDelete,
     required this.cs,
@@ -1094,6 +1097,7 @@ class _TopicTile extends StatefulWidget {
 
   final Topic topic;
   final String subjectName;
+  final bool canCreate;
   final bool canEdit;
   final bool canDelete;
   final ColorScheme cs;
@@ -1246,13 +1250,14 @@ class _TopicTileState extends State<_TopicTile>
             ),
           ),
         ),
-        // ── Expanded content (future: learning materials) ────────────────
+        // ── Expanded content — learning materials + questions ────────────
         SizeTransition(
           sizeFactor: _expandAnim,
           axisAlignment: -1,
           child: _TopicExpandedContent(
             topic: topic,
             subjectName: widget.subjectName,
+            canCreate: widget.canCreate,
             cs: cs,
             isDark: isDark,
           ),
@@ -1303,24 +1308,62 @@ class _TopicTileState extends State<_TopicTile>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Topic expanded content — placeholder for future learning materials
+// Topic expanded content — learning materials + question management panel
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _TopicExpandedContent extends StatelessWidget {
+class _TopicExpandedContent extends StatefulWidget {
   const _TopicExpandedContent({
     required this.topic,
     required this.subjectName,
+    required this.canCreate,
     required this.cs,
     required this.isDark,
   });
 
   final Topic topic;
   final String subjectName;
+  final bool canCreate;
   final ColorScheme cs;
   final bool isDark;
 
   @override
+  State<_TopicExpandedContent> createState() => _TopicExpandedContentState();
+}
+
+class _TopicExpandedContentState extends State<_TopicExpandedContent> {
+  late Future<int?> _questionCountFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _questionCountFuture = _fetchQuestionCount();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TopicExpandedContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.topic.id != widget.topic.id) {
+      _questionCountFuture = _fetchQuestionCount();
+    }
+  }
+
+  Future<int?> _fetchQuestionCount() async {
+    final result = await questionBankService.listQuestions(
+      topicId: widget.topic.id,
+      limit: 1,
+      accessToken: accessToken,
+    );
+    return switch (result) {
+      Ok(value: final v) => v.$2,
+      Err() => null,
+    };
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final isDark = widget.isDark;
+
     return Container(
       margin: const EdgeInsets.only(left: 28, right: 4, bottom: 6, top: 2),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
@@ -1338,6 +1381,7 @@ class _TopicExpandedContent extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
+          // ── Learning materials section ──────────────────────────────
           Row(
             children: [
               Icon(
@@ -1371,7 +1415,7 @@ class _TopicExpandedContent extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Notes & questions coming soon',
+                  'Notes coming soon',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w300,
@@ -1379,6 +1423,158 @@ class _TopicExpandedContent extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // ── Divider ────────────────────────────────────────────────
+          Container(
+            height: 0.5,
+            color: cs.outlineVariant.withValues(alpha: isDark ? 0.10 : 0.15),
+          ),
+          const SizedBox(height: 10),
+
+          // ── Questions section header ───────────────────────────────
+          Row(
+            children: [
+              Icon(
+                Icons.quiz_outlined,
+                size: 14,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.40),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Questions',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurface.withValues(alpha: 0.75),
+                ),
+              ),
+              const SizedBox(width: 6),
+              // Question count badge
+              FutureBuilder<int?>(
+                future: _questionCountFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.5,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.25),
+                      ),
+                    );
+                  }
+                  final count = snapshot.data;
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 1,
+                    ),
+                    decoration: BoxDecoration(
+                      color: cs.primaryContainer.withValues(
+                        alpha: isDark ? 0.30 : 0.60,
+                      ),
+                      borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+                    ),
+                    child: Text(
+                      count != null ? '$count' : '—',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: cs.onPrimaryContainer.withValues(alpha: 0.80),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const Spacer(),
+              // Add question button (permission-gated)
+              if (widget.canCreate)
+                _TinyAction(
+                  icon: Icons.add_rounded,
+                  tooltip: 'Add question',
+                  // TODO: Task 08 — open CreateQuestionSheet
+                  onTap: () {},
+                  cs: cs,
+                ),
+              if (widget.canCreate) const SizedBox(width: 2),
+              // Import button
+              _TinyAction(
+                icon: Icons.file_upload_outlined,
+                tooltip: 'Import questions',
+                // TODO: Task 10 — open BulkImportSheet
+                onTap: () {},
+                cs: cs,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // ── View all questions row ─────────────────────────────────
+          GestureDetector(
+            // TODO: Task 09 — navigate to QuestionsListPage
+            onTap: () {},
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.list_alt_rounded,
+                      size: 13,
+                      color: cs.primary.withValues(alpha: 0.50),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'View all questions',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w400,
+                        color: cs.primary.withValues(alpha: 0.70),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: 14,
+                      color: cs.primary.withValues(alpha: 0.40),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // ── Bulk import row ────────────────────────────────────────
+          GestureDetector(
+            // TODO: Task 10 — open BulkImportSheet
+            onTap: () {},
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.drive_folder_upload_outlined,
+                      size: 13,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.40),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Bulk import',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 4),

@@ -30,6 +30,7 @@ import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_sheet.dart';
 import '../../../widgets/student_avatar.dart';
 import '../../../widgets/user_avatar.dart';
+import 'paper_pdf_viewer.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Paper Detail Page
@@ -628,6 +629,7 @@ class _PaperHeader extends StatefulWidget {
 class _PaperHeaderState extends State<_PaperHeader>
     with TickerProviderStateMixin {
   bool _busy = false;
+  bool _printBusy = false;
   late AnimationController _arcCtrl;
   late AnimationController _scaleCtrl;
   late AnimationController _flashCtrl;
@@ -898,6 +900,7 @@ class _PaperHeaderState extends State<_PaperHeader>
     final status = paper.status;
     final isPending = status == PaperStatus.pending;
     final isMarked = status == PaperStatus.marked;
+    final isDoneOrMarked = status == PaperStatus.done || isMarked;
     final color = _statusColor(status);
     final next = _nextStatus(status);
     final nextColor = next != null ? _statusColor(next) : color;
@@ -1147,6 +1150,79 @@ class _PaperHeaderState extends State<_PaperHeader>
                         size: 18,
                         color: cs.error.withValues(alpha: 0.6),
                       ),
+                    ),
+                  ),
+                ),
+              ],
+              // ── Generate Paper (pending only) ─────────────────────────
+              if (widget.canManage && isPending) ...[
+                const SizedBox(width: 4),
+                Tooltip(
+                  message: 'Generate Paper',
+                  child: InkWell(
+                    onTap: () {
+                      // TODO: Task 12 — navigate to PaperGenerationPage
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Paper generation coming soon'),
+                        ),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.all(5),
+                      child: Icon(
+                        Icons.auto_awesome_rounded,
+                        size: 18,
+                        color: cs.primary.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+              // ── Print Paper (done or marked) ──────────────────────────
+              if (isDoneOrMarked) ...[
+                const SizedBox(width: 4),
+                Tooltip(
+                  message: 'Print Paper',
+                  child: InkWell(
+                    onTap: _printBusy
+                        ? null
+                        : () async {
+                            setState(() => _printBusy = true);
+                            try {
+                              await downloadAndOpenPdf(
+                                school: widget.schoolId,
+                                exam: widget.exam.exam.id,
+                                subject: widget.paper.subject,
+                                paper: widget.paper.paper,
+                                grade: widget.paper.grade,
+                                stream: widget.paper.stream,
+                                accessToken: accessToken,
+                                context: context,
+                              );
+                            } finally {
+                              if (mounted) {
+                                setState(() => _printBusy = false);
+                              }
+                            }
+                          },
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.all(5),
+                      child: _printBusy
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                              ),
+                            )
+                          : Icon(
+                              Icons.print_rounded,
+                              size: 18,
+                              color: cs.primary.withValues(alpha: 0.7),
+                            ),
                     ),
                   ),
                 ),

@@ -105,8 +105,9 @@ This directory contains **1 shell screen file** and **8 subdirectories**, each r
 | File | Widget | Status | Description |
 |---|---|---|---|
 | `system_settings_screen.dart` | `SystemSettingsScreen` | ✅ Complete | System-wide settings management. Currently a minimal screen — placeholder for future system configuration options. |
+| `subjects_section.dart` | `SubjectsSection` | ✅ Complete | Global subject & topic catalog management. Each topic's expanded content (`_TopicExpandedContent`) now includes a **Questions panel** with: FutureBuilder-driven question count badge (via `questionBankService.listQuestions`), permission-gated "Add question" button (`Subjects.create`), "Import questions" button, "View all questions →" navigation row, and "Bulk import" row. Action callbacks are placeholder `() {}` pending Tasks 08/09/10 (CreateQuestionSheet, QuestionsListPage, BulkImportSheet). `_TopicExpandedContent` converted from StatelessWidget to StatefulWidget to cache the count future. `_TopicTile` and `_TopicList` now pass `canCreate` down the widget tree. |
 
-**Dependencies:** Minimal — mostly static UI with potential future DAO connections.
+**Dependencies:** `client.dart` (`questionBankService`, `accessToken`), `models/result.dart` (`Ok`/`Err`), `models/permissions.dart`, `models/system_permissions.dart`, `database/daos/catalog_dao.dart`, `ui/theme/app_theme.dart`, `ui/widgets/edu_sheet.dart`, `ui/widgets/edu_confirm_dialog.dart`, `ui/widgets/edu_form_field.dart`.
 
 ---
 
@@ -150,4 +151,4 @@ For `UserLevel.super_` and `UserLevel.system` users, all permissions are granted
 - Permission gating uses `SystemPermissions.can(action)` — never raw `UserLevel` checks in UI code (except `canSeeDeleted` which is level-specific by design).
 
 ## Last Updated
-Task A9 — Audited `_MemberRolesSheet` (no changes needed) and fixed `_AssignRoleSheet` keyboard handling: added `MediaQuery.viewInsetsOf(context).bottom` to `ListView.separated` bottom padding so role list scrolls correctly when search keyboard is open. Previous: Task A6.
+Task 07 — Added questions management panel to `_TopicExpandedContent` in `subjects_section.dart`. Converted widget to StatefulWidget, added FutureBuilder for question count via `questionBankService`, permission-gated action buttons, and navigation rows for future Tasks 08/09/10. Previous: Task A9.
