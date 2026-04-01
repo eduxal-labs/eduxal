@@ -501,7 +501,7 @@ Currently, each `_TopicTile` expands to show `_TopicExpandedContent` (lines 1309
 
 ---
 
-### Task 08: Single question creation form (CreateQuestionSheet)
+### Task 08: Single question creation form (CreateQuestionSheet) ✅
 **Files to create:** `lib/ui/screens/system/settings/create_question_sheet.dart`
 **Context files to read (if needed):** `lib/ui/widgets/edu_sheet.dart`, `lib/ui/widgets/animated_save_button.dart`, `lib/ui/screens/system/settings/subjects_section.dart` (for `_CreateTopicSheet` pattern)
 **Depends on:** Task 06
@@ -554,9 +554,9 @@ const CreateQuestionSheet({
 - Submit button: green checkmark icon button (28×28) when form is valid + dirty.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md`
-- [ ] Mark this task `[x]`
-- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
+- [x] Update `lib/ui/screens/system/CONTEXT.md`
+- [x] Mark this task `[x]`
+- [x] Commit: `git add -A && git commit -m "ui: create CreateQuestionSheet for single question creation"`
 
 ---
 

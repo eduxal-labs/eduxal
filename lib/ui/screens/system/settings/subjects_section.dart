@@ -11,6 +11,7 @@ import '../../../theme/app_theme.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_form_field.dart';
 import '../../../widgets/edu_sheet.dart';
+import 'create_question_sheet.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SubjectsSection — global subject catalog management
@@ -1495,8 +1496,23 @@ class _TopicExpandedContentState extends State<_TopicExpandedContent> {
                 _TinyAction(
                   icon: Icons.add_rounded,
                   tooltip: 'Add question',
-                  // TODO: Task 08 — open CreateQuestionSheet
-                  onTap: () {},
+                  onTap: () {
+                    showEduSheet(
+                      context: context,
+                      maxWidth: 520,
+                      builder: (_) => CreateQuestionSheet(
+                        topicId: widget.topic.id,
+                        topicName: widget.topic.name,
+                        subjectName: widget.subjectName,
+                        grade: widget.topic.grade,
+                        onCreated: () {
+                          setState(() {
+                            _questionCountFuture = _fetchQuestionCount();
+                          });
+                        },
+                      ),
+                    );
+                  },
                   cs: cs,
                 ),
               if (widget.canCreate) const SizedBox(width: 2),
