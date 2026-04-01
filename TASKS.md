@@ -3,6 +3,32 @@
 > **Feature:** Question bank system with AI-powered paper generation, marking status feedback, and per-question results.
 >
 > **Key constraint:** Question bank tables are **server-only** — the client does NOT have these tables in Drift. All question data comes via unary gRPC calls to the `QuestionBank` service, not via the sync/Drift stream pipeline. UI uses `Future<Result<T, GrpcError>>` from services, not `Stream<T>` from DAOs.
+>
+> **Commit rule:** Every executor agent MUST run `git add -A && git commit -m "<type>: <description>"` 
+> immediately after completing its task. Do NOT defer commits. Types: `feat`, `fix`, `refactor`, `ui`, `docs`, `chore`.
+
+---
+
+## Track 0: Commit Uncommitted Changes
+
+### Task 00: Commit any uncommitted changes before starting work
+**Files to modify:** None (git operation only)
+**Depends on:** None
+**Parallel group:** P0
+
+**Specification:**
+Before starting any work, check for uncommitted changes:
+```
+git status --short
+```
+If there are uncommitted changes, commit them:
+```
+git add -A && git commit -m "chore: commit pending changes before question bank overhaul"
+```
+
+**Expected outcome:** Clean working tree. All previous work preserved.
+
+**Commit:** This task IS the commit.
 
 ---
 
@@ -91,6 +117,7 @@ If the `.proto` file is not yet available from the server, the executor should c
 **Update after completion:**
 - [ ] Update `lib/proto/CONTEXT.md` — add QuestionBank service section with all message types
 - [ ] Mark this task `[x]`
+- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
 
 ---
 
@@ -258,6 +285,7 @@ All `fromProto` factories should map proto enum values (ints) to the Dart enums.
 **Update after completion:**
 - [ ] Update `lib/models/CONTEXT.md` — add entries for all four new model files
 - [ ] Mark this task `[x]`
+- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
 
 ---
 
@@ -314,6 +342,7 @@ class QuestionBankService {
 **Update after completion:**
 - [ ] Update `lib/services/CONTEXT.md` — add QuestionBankService section
 - [ ] Mark this task `[x]`
+- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
 
 ---
 
@@ -340,6 +369,7 @@ Each method maps domain models → proto request, calls gRPC, maps proto respons
 **Update after completion:**
 - [ ] Update `lib/services/CONTEXT.md`
 - [ ] Mark this task `[x]`
+- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
 
 ---
 
@@ -398,6 +428,7 @@ Stream<MarkingStatus> watchMarkingStatus({
 **Update after completion:**
 - [ ] Update `lib/services/CONTEXT.md`
 - [ ] Mark this task `[x]`
+- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
 
 ---
 
@@ -430,6 +461,7 @@ No changes to `initializeClient()` needed — the `late final` lazy-initializes 
 
 **Update after completion:**
 - [ ] Mark this task `[x]`
+- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
 
 ---
 
@@ -463,6 +495,7 @@ Currently, each `_TopicTile` expands to show `_TopicExpandedContent` (lines 1309
 **Update after completion:**
 - [ ] Update `lib/ui/screens/system/CONTEXT.md`
 - [ ] Mark this task `[x]`
+- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
 
 ---
 
@@ -521,6 +554,7 @@ const CreateQuestionSheet({
 **Update after completion:**
 - [ ] Update `lib/ui/screens/system/CONTEXT.md`
 - [ ] Mark this task `[x]`
+- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
 
 ---
 
@@ -579,6 +613,7 @@ const QuestionsListPage({
 **Update after completion:**
 - [ ] Update `lib/ui/screens/system/CONTEXT.md`
 - [ ] Mark this task `[x]`
+- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
 
 ---
 
@@ -632,6 +667,7 @@ const BulkImportSheet({
 **Update after completion:**
 - [ ] Update `lib/ui/screens/system/CONTEXT.md`
 - [ ] Mark this task `[x]`
+- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
 
 ---
 
@@ -670,6 +706,7 @@ Add a "Generate Paper" action to the paper detail page header (`_PaperHeader`).
 **Update after completion:**
 - [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
 - [ ] Mark this task `[x]`
+- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
 
 ---
 
@@ -739,6 +776,7 @@ const PaperGenerationPage({
 **Update after completion:**
 - [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
 - [ ] Mark this task `[x]`
+- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
 
 ---
 
@@ -784,6 +822,7 @@ Step 2 of the paper generation wizard: reviewing and editing generated questions
 
 **Update after completion:**
 - [ ] Mark this task `[x]`
+- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
 
 ---
 
@@ -825,6 +864,7 @@ Step 3 of the paper generation wizard: finalization and PDF.
 **Update after completion:**
 - [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
 - [ ] Mark this task `[x]`
+- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
 
 ---
 
@@ -884,6 +924,7 @@ printing: ^5.13.0
 **Update after completion:**
 - [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
 - [ ] Mark this task `[x]`
+- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
 
 ---
 
@@ -952,6 +993,7 @@ const MarkingStatusIndicator({
 - [ ] Update `lib/ui/widgets/CONTEXT.md`
 - [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
 - [ ] Mark this task `[x]`
+- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
 
 ---
 
@@ -1020,6 +1062,7 @@ const QuestionGradesSheet({
 **Update after completion:**
 - [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
 - [ ] Mark this task `[x]`
+- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
 
 ---
 
@@ -1065,6 +1108,7 @@ Add a "View Breakdown" action to each student row in both `_GradeSpreadsheet` an
 **Update after completion:**
 - [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
 - [ ] Mark this task `[x]`
+- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
 
 ---
 
@@ -1092,6 +1136,7 @@ Enhance the `_TopicTile` widget (~line 1085) to show a question count badge next
 
 **Update after completion:**
 - [ ] Mark this task `[x]`
+- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
 
 ---
 
@@ -1121,6 +1166,7 @@ Final pass to ensure all CONTEXT.md files accurately reflect the new files, expo
 
 **Update after completion:**
 - [ ] Mark this task `[x]`
+- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
 
 ---
 
