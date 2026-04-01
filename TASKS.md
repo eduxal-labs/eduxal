@@ -560,7 +560,7 @@ const CreateQuestionSheet({
 
 ---
 
-### Task 09: Questions list page (full-page question browser)
+### Task 09: Questions list page (full-page question browser) ✅
 **Files to create:** `lib/ui/screens/system/settings/questions_list_page.dart`
 **Context files to read (if needed):** `lib/ui/screens/system/settings/subjects_section.dart` (for navigation/style patterns)
 **Depends on:** Task 06, Task 08

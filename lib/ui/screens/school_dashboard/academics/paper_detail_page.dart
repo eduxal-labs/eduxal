@@ -443,6 +443,32 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                       ),
                       const SizedBox(height: 16),
 
+                      // ── Marking Status Indicator ────────────────────────
+                      if (_aiPhase != _AiPhase.idle ||
+                          currentPaper.status == PaperStatus.progress)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: MarkingStatusIndicator(
+                            school: widget.schoolId,
+                            exam: _exam.id,
+                            subject: _paper.subject,
+                            paper: _paper.paper,
+                            grade: _paper.grade,
+                            stream: _paper.stream,
+                            onComplete: () {
+                              if (mounted) {
+                                setState(() {
+                                  _aiMarking = false;
+                                  _aiPhase = _AiPhase.idle;
+                                  _aiProgress = 0.0;
+                                  _aiMarkedCount = 0;
+                                });
+                              }
+                            },
+                            onRetry: _runAiMarking,
+                          ),
+                        ),
+
                       // ── Grade Entry Section ─────────────────────────────
                       _SectionLabel(label: 'Grades', cs: cs),
                       const SizedBox(height: 8),
@@ -2478,6 +2504,7 @@ class _SpreadsheetRow extends StatefulWidget {
     required this.onSave,
     required this.onSubmitted,
     required this.onSubmitTap,
+    this.onBreakdownTap,
   });
 
   final StudentsData student;
@@ -2498,6 +2525,7 @@ class _SpreadsheetRow extends StatefulWidget {
   final VoidCallback onSave;
   final ValueChanged<String> onSubmitted;
   final VoidCallback? onSubmitTap;
+  final VoidCallback? onBreakdownTap;
 
   double? get _pct {
     if (existingGrade == null) return null;
@@ -2636,6 +2664,27 @@ class _SpreadsheetRowState extends State<_SpreadsheetRow> {
                     )
                   : const SizedBox.shrink(),
             ),
+            // View marking breakdown button (visible when graded + marked)
+            if (widget.onBreakdownTap != null) ...[
+              GestureDetector(
+                onTap: widget.onBreakdownTap,
+                child: const Tooltip(
+                  message: 'View marking breakdown',
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: Center(
+                      child: Icon(
+                        Icons.analytics_outlined,
+                        size: 16,
+                        color: Color(0xFF6366F1),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+            ],
             // Submit answers button
             if (showSubmit)
               GestureDetector(
