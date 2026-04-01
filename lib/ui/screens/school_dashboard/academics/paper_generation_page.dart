@@ -46,10 +46,11 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
   int _currentStep = 0; // 0=allocate, 1=review, 2=finalize
   int _totalMarks = 80;
   List<TopicAllocation> _allocations = [];
-  // ignore: unused_field — used by Task 13 (review step)
-  List<PaperQuestion> _generatedQuestions = []; // ignore: unused_field
-  // ignore: unused_field — used by Task 14 (finalize step)
-  PaperPdf? _paperPdf; // ignore: unused_field
+  // ignore: unused_field
+  List<PaperQuestion> _generatedQuestions =
+      []; // filled by Step 1 → used by Task 13
+  // ignore: unused_field
+  PaperPdf? _paperPdf; // filled by Step 2 → used by Task 14
   bool _isGenerating = false;
 
   late final TextEditingController _totalMarksController;

@@ -619,7 +619,7 @@ const QuestionsListPage({
 
 ---
 
-### Task 10: Bulk import sheet
+### Task 10: Bulk import sheet ✅
 **Files to create:** `lib/ui/screens/system/settings/bulk_import_sheet.dart`
 **Context files to read (if needed):** `lib/ui/widgets/edu_sheet.dart`, `eduxal/topic.json` (for expected format), `eduxal/question_generation_instructions.md`
 **Depends on:** Task 06
@@ -675,7 +675,7 @@ const BulkImportSheet({
 
 ## Track 5: Teacher Paper Generation UI
 
-### Task 11: Paper generation entry point — "Generate Paper" button on PaperDetailPage
+### Task 11: Paper generation entry point — "Generate Paper" button on PaperDetailPage ✅
 **Files to modify:** `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** Task 06
@@ -706,9 +706,9 @@ Add a "Generate Paper" action to the paper detail page header (`_PaperHeader`).
 - `schoolId`, `exam` (ExamWithPapers), `paper` (Paper), `grade`, `stream`, `subjectNames`, `accessToken`
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
-- [ ] Mark this task `[x]`
-- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
+- [x] Mark this task `[x]`
+- [x] Commit: `git add -A && git commit -m "ui: add generate paper and print/download PDF buttons to paper detail page"`
 
 ---
 
@@ -872,7 +872,7 @@ Step 3 of the paper generation wizard: finalization and PDF.
 
 ## Track 6: Print Paper
 
-### Task 15: Print/download paper PDF functionality
+### Task 15: Print/download paper PDF functionality ✅
 **Files to create:** `lib/ui/screens/school_dashboard/academics/paper_pdf_viewer.dart`
 **Files to modify:** `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart` (wire print button)
 **Context files to read (if needed):** `eduxal/pubspec.yaml`
@@ -924,9 +924,9 @@ printing: ^5.13.0
 ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
-- [ ] Mark this task `[x]`
-- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
+- [x] Mark this task `[x]`
+- [x] Commit: `git add -A && git commit -m "ui: add generate paper and print/download PDF buttons to paper detail page"`
 
 ---
 
