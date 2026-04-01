@@ -1115,6 +1115,8 @@ class _TopicTileState extends State<_TopicTile>
   late final AnimationController _expandCtrl;
   late final Animation<double> _expandAnim;
   late final Animation<double> _rotateAnim;
+  int? _questionCount;
+  bool _countLoading = true;
 
   @override
   void initState() {
@@ -1128,6 +1130,7 @@ class _TopicTileState extends State<_TopicTile>
       curve: Curves.easeOutCubic,
     );
     _rotateAnim = Tween<double>(begin: 0, end: 0.25).animate(_expandAnim);
+    _refreshQuestionCount();
   }
 
   @override
@@ -1144,6 +1147,26 @@ class _TopicTileState extends State<_TopicTile>
       } else {
         _expandCtrl.reverse();
       }
+    });
+  }
+
+  void _refreshQuestionCount() {
+    setState(() => _countLoading = true);
+    questionBankService
+        .listQuestions(
+          topicId: widget.topic.id,
+          limit: 1,
+          accessToken: accessToken,
+        )
+        .then((result) {
+      if (!mounted) return;
+      setState(() {
+        _countLoading = false;
+        _questionCount = switch (result) {
+          Ok(value: final v) => v.$2,
+          Err() => null,
+        };
+      });
     });
   }
 
@@ -1219,6 +1242,43 @@ class _TopicTileState extends State<_TopicTile>
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  // Question count badge
+                  if (_countLoading) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      width: 30,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.06),
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.kChipRadius),
+                      ),
+                    ),
+                  ] else if (_questionCount != null) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: cs.primaryContainer.withValues(
+                          alpha: isDark ? 0.30 : 0.60,
+                        ),
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.kChipRadius),
+                      ),
+                      child: Text(
+                        '$_questionCount Qs',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: cs.onPrimaryContainer
+                              .withValues(alpha: 0.80),
+                        ),
+                      ),
+                    ),
+                  ],
                   // Actions — visible on hover or expanded
                   AnimatedOpacity(
                     opacity: _hovered || _expanded ? 1.0 : 0.0,
@@ -1261,6 +1321,7 @@ class _TopicTileState extends State<_TopicTile>
             canCreate: widget.canCreate,
             cs: cs,
             isDark: isDark,
+            onQuestionCountChanged: _refreshQuestionCount,
           ),
         ),
       ],
@@ -1319,6 +1380,7 @@ class _TopicExpandedContent extends StatefulWidget {
     required this.canCreate,
     required this.cs,
     required this.isDark,
+    this.onQuestionCountChanged,
   });
 
   final Topic topic;
@@ -1326,6 +1388,7 @@ class _TopicExpandedContent extends StatefulWidget {
   final bool canCreate;
   final ColorScheme cs;
   final bool isDark;
+  final VoidCallback? onQuestionCountChanged;
 
   @override
   State<_TopicExpandedContent> createState() => _TopicExpandedContentState();
@@ -1509,6 +1572,7 @@ class _TopicExpandedContentState extends State<_TopicExpandedContent> {
                           setState(() {
                             _questionCountFuture = _fetchQuestionCount();
                           });
+                          widget.onQuestionCountChanged?.call();
                         },
                       ),
                     );

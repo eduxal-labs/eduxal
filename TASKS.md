@@ -1116,7 +1116,7 @@ Add a "View Breakdown" action to each student row in both `_GradeSpreadsheet` an
 
 ## Track 9: Cleanup & Polish
 
-### Task 19: Add question count badge to topic tiles in system settings
+### Task 19: Add question count badge to topic tiles in system settings ✅
 **Files to modify:** `lib/ui/screens/system/settings/subjects_section.dart`
 **Context files to read (if needed):** None
 **Depends on:** Task 07
@@ -1137,8 +1137,8 @@ Enhance the `_TopicTile` widget (~line 1085) to show a question count badge next
 4. Refresh the count when the expanded panel's create/import actions complete (pass a callback that re-fetches the count).
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
+- [x] Mark this task `[x]`
+- [x] Commit: `git add -A && git commit -m "ui: add question count badge to topic tiles in system settings"`
 
 ---
 
