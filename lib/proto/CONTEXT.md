@@ -220,5 +220,65 @@ All gRPC calls attach the access token via metadata when needed (e.g. `refresh` 
 - Proto enums map to Dart enums by index (e.g. `proto.Level.NORMAL.value` → `UserLevel.values[0]`).
 - The proto `Authenticated.profile` field (write URL) is **always discarded** after immediate use — never stored in DB or cache.
 
+### `services/question_bank.pbgrpc.dart`
+
+**Service:** `QuestionBankClient` — 14 unary RPCs for question bank management, paper generation, AI marking status, and per-question grade breakdowns.
+
+| RPC | Request | Response |
+|---|---|---|
+| `CreateQuestion` | `CreateQuestionRequest` | `CreateQuestionResponse` |
+| `UpdateQuestion` | `UpdateQuestionRequest` | `UpdateQuestionResponse` |
+| `DeleteQuestion` | `DeleteQuestionRequest` | `DeleteQuestionResponse` |
+| `BulkImportQuestions` | `BulkImportRequest` | `BulkImportResponse` |
+| `RequestImageUploadUrls` | `ImageUploadUrlsRequest` | `ImageUploadUrlsResponse` |
+| `GeneratePaper` | `GeneratePaperRequest` | `GeneratePaperResponse` |
+| `RegenerateQuestion` | `RegenerateQuestionRequest` | `RegenerateQuestionResponse` |
+| `EditPaperQuestion` | `EditPaperQuestionRequest` | `EditPaperQuestionResponse` |
+| `FinalizePaper` | `FinalizePaperRequest` | `FinalizePaperResponse` |
+| `GetPaperPdf` | `GetPaperPdfRequest` | `GetPaperPdfResponse` |
+| `ListQuestions` | `ListQuestionsRequest` | `ListQuestionsResponse` |
+| `GetQuestion` | `GetQuestionRequest` | `GetQuestionResponse` |
+| `GetQuestionGrades` | `GetQuestionGradesRequest` | `GetQuestionGradesResponse` |
+| `GetMarkingStatus` | `MarkingStatusRequest` | `MarkingStatusResponse` |
+
+**Server base class:** `QuestionBankServiceBase` (for server-side implementation).
+
+### `services/question_bank.pb.dart`
+
+**Key message types (37 total):**
+
+- `RubricCriterion` — criterion (string), marks (int)
+- `QuestionImage` — context (ImageContext enum), filename (string), caption (string?), description (string), getUrl (string?)
+- `Question` — id (int), topicId (int), text (string), marks (int), rubric (repeated RubricCriterion), exampleAnswer (string?), images (repeated QuestionImage), created (Int64), updated (Int64)
+- `CreateQuestionRequest/Response`, `UpdateQuestionRequest/Response`, `DeleteQuestionRequest/Response` — standard CRUD wrappers
+- `BulkImportRequest` — jsonContent (string); `BulkImportResponse` — createdCount (int), errors (repeated ImportError)
+- `ImportError` — index (int), message (string)
+- `ImageUploadUrlsRequest` — questionId (int), filenames (repeated string); `ImageUploadUrlsResponse` — urls (repeated SignedImageUrl)
+- `SignedImageUrl` — filename (string), putUrl (string), getUrl (string), expiry (Int64)
+- `TopicAllocation` — topicId (int), marks (int)
+- `GeneratePaperRequest` — school, exam, subject, paper?, grade, stream?, totalMarks, topicAllocations; `GeneratePaperResponse` — paperQuestions (repeated PaperQuestion)
+- `PaperQuestion` — id (string), questionId (int), text, marks, rubric, images, order
+- `RegenerateQuestionRequest/Response`, `EditPaperQuestionRequest/Response` — single-question mutation wrappers
+- `FinalizePaperRequest` — school, exam, subject, paper?, grade, stream?, paperQuestionIds; `FinalizePaperResponse` — pdfUrl, pdfExpiry
+- `GetPaperPdfRequest/Response` — same fields as FinalizePaper request/response
+- `ListQuestionsRequest` — topicId, offset, limit; `ListQuestionsResponse` — questions, total
+- `GetQuestionRequest/Response` — single question by ID
+- `GetQuestionGradesRequest` — school, exam, student, subject, paper?; `GetQuestionGradesResponse` — questionGrades (repeated QuestionGrade)
+- `QuestionGrade` — questionText, marksAwarded (double), totalMarks (int), feedback, rubricResults (repeated RubricResult)
+- `RubricResult` — criterion, satisfied (bool), marksAwarded (double), marksAvailable (int)
+- `MarkingStatusRequest` — school, exam, subject, paper?, grade, stream?; `MarkingStatusResponse` — status (MarkingStatusEnum), progressCurrent, progressTotal, errorMessage?
+
+### `services/question_bank.pbenum.dart`
+
+**Enums:**
+- `ImageContext` — QUESTION (0), RUBRIC (1), EXAMPLE_ANSWER (2)
+- `MarkingStatusEnum` — QUEUED (0), DOWNLOADING (1), MARKING (2), COMPUTING (3), COMPLETE (4), FAILED (5)
+
+### `services/question_bank.pbjson.dart`
+
+Minimal stub — JSON descriptors placeholder. Not required for runtime operation.
+
+**Note:** All four files are hand-written Dart stubs (no `.proto` source file). They follow the same `$pb.GeneratedMessage` / `$grpc.Client` patterns as `ai_marking.*`. If the server provides a `.proto` file in the future, regenerate with `protoc` to replace these stubs.
+
 ## Last Updated
-Task 1001 — No proto changes during UI overhaul tracks. All generated stubs remain current.
+Task 01 — Added QuestionBank service proto stubs (4 files, 14 RPCs, 37 message types, 2 enums).
