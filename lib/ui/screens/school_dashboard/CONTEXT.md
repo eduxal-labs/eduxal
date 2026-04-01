@@ -113,7 +113,7 @@ This directory contains **1 shell screen file** and **8 subdirectories**, each r
 ### `finance/`
 | File | Widget | Status | Description |
 |---|---|---|---|
-| `finance_screen.dart` | `FinanceScreen` | ✅ Complete | Financial management: fee structures, invoicing, payments, discounts. Overview cards with totals. Owner/Staff can define fees, generate invoices, record payments. Guardian gets read-only view of invoices/payments/balances per ward. "New Fee" FAB simplified to icon-only `FloatingActionButton.small` matching Roles page pattern; `_ElevatedFab` class removed. |
+| `finance_screen.dart` | `FinanceScreen` | ✅ Complete | Financial management: fee structures, invoicing, payments, discounts. Overview cards with totals. Owner/Staff can define fees, generate invoices, record payments. Guardian gets read-only view of invoices/payments/balances per ward. "New Fee" FAB simplified to icon-only `FloatingActionButton.small` matching Roles page pattern; `_ElevatedFab` class removed. Fee creation modal (`_CreateFeeSheet`) uses inline error text (`_gradeError` state variable) for grade selection validation instead of `SnackBar` — error clears on grade chip tap; catch block uses `clearSnackBars()` before showing error to prevent stacking. |
 
 **Data source:** `FinanceDao.watchFees(...)`, `FinanceDao.watchInvoices(...)`, `FinanceDao.watchPayments(...)`, `FinanceDao.watchDiscounts(...)`
 **Dependencies:** `database/daos/finance_dao.dart`, `models/active_term_context.dart`, `models/school_context.dart`
