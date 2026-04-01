@@ -5,7 +5,7 @@
 
 ## Overview
 
-This directory contains **6 service files**. Services sit between the UI and the data layer (DAOs + gRPC). They:
+This directory contains **7 service files**. Services sit between the UI and the data layer (DAOs + gRPC). They:
 - Combine multiple DAO calls into transactional operations.
 - Map between proto types and domain models.
 - Write to the `logs` table alongside every synced-table mutation.
@@ -20,6 +20,7 @@ This directory contains **6 service files**. Services sit between the UI and the
 | `members.dart` | `MemberCreationService` | Phone-first member creation (owners, teachers, staff, students, guardians) + profile image saving | ✅ Complete |
 | `member_management.dart` | `MemberManagementService` | Post-creation lifecycle: edit fields, change status, remove members (all types) | ✅ Complete |
 | `ai_marking.dart` | `AiMarkingService` | AI-powered paper marking: request presigned S3 PUT URLs, upload files, trigger server-side AI marking. Wraps `AiMarking` gRPC service. | ✅ Complete |
+| `question_bank.dart` | `QuestionBankService` | Question bank operations: CRUD for questions within topics, bulk import from JSON, presigned S3 upload URLs for question images. Wraps `QuestionBank` gRPC service. | ✅ Complete |
 | `timetable_generator.dart` | `TimetableGenerator`, `TimetableSlot`, `GeneratorResult`, `GeneratorSuccess`, `GeneratorFailure`, `GeneratorInput`, `runTimetableGenerator` | Pure-Dart CSP backtracking solver for timetable generation. No Flutter dependencies. Run via `compute(runTimetableGenerator, input)`. | ✅ Complete |
 
 ## Key Methods by Service
@@ -156,6 +157,31 @@ Wraps the `AiMarking` gRPC service for AI-powered paper marking. Handles request
 
 ---
 
+### `QuestionBankService` — `question_bank.dart`
+
+Wraps the `QuestionBank` gRPC service for question bank operations. Handles CRUD for questions within topics, bulk import from JSON, and requesting presigned S3 upload URLs for question images.
+
+**Constructor:** `QuestionBankService({required ClientChannel channel, required String host, required int port})`
+
+| Method | Signature | Description |
+|---|---|---|
+| `listQuestions` | `Future<Result<(List<Question>, int), GrpcError>> listQuestions({required int topicId, int offset = 0, int limit = 50, required String accessToken})` | Paginated question list for a topic. Returns `(questions, totalCount)`. |
+| `getQuestion` | `Future<Result<Question, GrpcError>> getQuestion({required int id, required String accessToken})` | Single question by ID. |
+| `createQuestion` | `Future<Result<Question, GrpcError>> createQuestion({required int topicId, required String text, required int marks, required List<RubricCriterion> rubric, String? exampleAnswer, List<QuestionImage> images = const [], required String accessToken})` | Create one question in a topic. Maps domain models to proto types for rubric criteria and images. |
+| `updateQuestion` | `Future<Result<Question, GrpcError>> updateQuestion({required int id, required String text, required int marks, required List<RubricCriterion> rubric, String? exampleAnswer, List<QuestionImage> images = const [], required String accessToken})` | Update an existing question. |
+| `deleteQuestion` | `Future<Result<void, GrpcError>> deleteQuestion({required int id, required String accessToken})` | Delete a question. Returns `Ok(null)` on success. |
+| `bulkImport` | `Future<Result<BulkImportResult, GrpcError>> bulkImport({required String jsonContent, required String accessToken})` | Bulk import questions from JSON content. Uses 60s timeout. |
+| `requestImageUploadUrls` | `Future<Result<List<SignedImageUrl>, GrpcError>> requestImageUploadUrls({required int questionId, required List<String> filenames, required String accessToken})` | Get presigned PUT URLs for question images. Returns proto `SignedImageUrl` directly (no domain model — transient upload flow only). |
+
+**Internal helpers:**
+- `_toProtoImageContext(ImageContext) → pbenum.ImageContext` — Maps domain `ImageContext` enum to proto enum.
+- `_toProtoCriterion(RubricCriterion) → pb.RubricCriterion` — Maps domain rubric criterion to proto message.
+- `_toProtoImage(QuestionImage) → pb.QuestionImage` — Maps domain question image to proto message (including context, filename, caption, description).
+
+**Dependencies:** `grpc` package (ClientChannel, CallOptions, GrpcError), `models/question.dart` (domain models: `Question`, `RubricCriterion`, `QuestionImage`, `ImageContext`, `BulkImportResult`), `models/result.dart`, `proto/services/question_bank.pb.dart` (proto message types), `proto/services/question_bank.pbgrpc.dart` (`QuestionBankClient`), `proto/services/question_bank.pbenum.dart` (`ImageContext` proto enum).
+
+---
+
 ## Planned Services (Not Yet Created)
 
 | Future file | Domain | Blocked by |
@@ -178,4 +204,4 @@ Wraps the `AiMarking` gRPC service for AI-powered paper marking. Handles request
 - `client.dart` is the only file that holds the gRPC `ClientChannel`. Services receive the channel (or a service client) via constructor injection.
 
 ## Last Updated
-Task 02 — Updated `createStudent()` in `members.dart`: added optional `int? adm` parameter. If provided and > 0, validates uniqueness at the school before use; if null/0, falls back to `nextAdmissionNumber()` auto-increment. Returns `Err(alreadyExists)` on ADM conflict.
+Task 03 — Added `QuestionBankService` (`question_bank.dart`): stateless gRPC wrapper for question CRUD, bulk import, and image upload URL requests. Follows same constructor/error-handling pattern as `AiMarkingService`.

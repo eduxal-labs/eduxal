@@ -293,7 +293,7 @@ All `fromProto` factories should map proto enum values (ints) to the Dart enums.
 
 ## Track 3: Service Layer
 
-### Task 03: Create QuestionBankService — question CRUD + bulk import
+### Task 03: Create QuestionBankService — question CRUD + bulk import ✅
 **Files to create:** `lib/services/question_bank.dart`
 **Context files to read (if needed):** `lib/services/CONTEXT.md`, `lib/services/ai_marking.dart` (reference pattern), `lib/client.dart`
 **Depends on:** Task 01, Task 02
