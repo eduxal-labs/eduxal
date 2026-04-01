@@ -12,6 +12,7 @@ import '../../../../models/active_term_context.dart';
 import '../../../../models/membership.dart';
 import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
+import '../../../../core/extensions.dart';
 
 import '../../../widgets/active_term_provider.dart';
 import '../academics/grade_detail_page.dart';
@@ -1367,22 +1368,19 @@ const _monthsFull = [
 ];
 
 String _gradeLabel(int grade, SchoolConfig? config) {
-  if (config == null) return 'Grade $grade';
-  for (final c in config.curricula) {
-    final labels = gradeLabelsFor(c.type);
-    if (labels.containsKey(grade)) return labels[grade]!;
-  }
-  return 'Grade $grade';
+  return gradeLabel(grade, config: config);
 }
 
 String _streamLabel(int grade, int streamCode, SchoolConfig? config) {
-  if (config == null) return 'Stream $streamCode';
-  for (final c in config.curricula) {
-    final gc = c.grades.where((g) => g.grade == grade).firstOrNull;
-    if (gc != null) {
-      final s = gc.streams.where((s) => s.code == streamCode).firstOrNull;
-      if (s != null) return s.name;
+  if (config != null) {
+    for (final c in config.curricula) {
+      final gc = c.grades.where((g) => g.grade == grade).firstOrNull;
+      if (gc != null) {
+        final s = gc.streams.where((s) => s.code == streamCode).firstOrNull;
+        if (s != null) return s.name;
+      }
     }
   }
-  return 'Stream $streamCode';
+  // Never show raw stream code — return the grade label alone
+  return gradeLabel(grade, config: config);
 }
