@@ -1474,7 +1474,7 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
       // Group exams by (type, start, end) key
       final groups = <String, List<Exam>>{};
       for (final exam in examList) {
-        final key = '${exam.type.index}|${exam.start}|${exam.end}';
+        final key = exam.name;
         (groups[key] ??= []).add(exam);
       }
 
@@ -1538,6 +1538,7 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
 
         result.add(
           ExamGroup(
+            name: firstExam.name,
             school: schoolId,
             year: year,
             term: term,

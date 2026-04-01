@@ -11,6 +11,7 @@ import '../database/tables/enums.dart';
 /// The grouping key exists to handle legacy data or edge cases where
 /// multiple exam rows were created with identical metadata.
 class ExamGroup {
+  final String name; // exam display name — the grouping key
   final String school;
   final int year;
   final int term;
@@ -22,6 +23,7 @@ class ExamGroup {
   final List<ExamGradeEntry> grades; // one per participating grade
 
   ExamGroup({
+    required this.name,
     required this.school,
     required this.year,
     required this.term,
@@ -34,7 +36,7 @@ class ExamGroup {
   });
 
   /// Unique grouping key for identification.
-  String get groupKey => '$school|$year|$term|${type.index}|$start|$end';
+  String get groupKey => '$school|$year|$term|$name';
 
   /// All exam row IDs in this group.
   List<String> get examIds => grades.expand((g) => g.examIds).toList();

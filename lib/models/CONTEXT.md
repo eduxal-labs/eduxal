@@ -191,9 +191,9 @@ Generation constraints for the timetable solver — **slot-based model (v2)**.
 - **Removed** (v1 model): `TeacherBlockRule`, `SubjectBlockRule`, `dayStartSeconds`, `dayEndSeconds`, `lessonDurationMinutes`, `breakDurationMinutes`, `lunchStartSeconds`, `lunchDurationMinutes`, `buildSlots()`.
 
 ### Exam Group models — `exam_group.dart`
-Grouping model for the exams UI. Multiple exam rows sharing the same `(school, year, term, type, start, end)` are presented as one logical exam.
+Grouping model for the exams UI. Multiple exam rows sharing the same name are presented as one logical exam.
 
-- **`ExamGroup`** — Top-level grouping. Fields: `school` (String), `year` (int), `term` (int), `type` (ExamType), `start` (int, days since epoch), `end` (int, days since epoch), `personalized` (bool), `teacher` (UsersData), `grades` (List<ExamGradeEntry>). Computed: `groupKey` (unique string key), `examIds` (all exam row IDs), `uniqueSubjectCount` (from papers), `participatingGrades` (sorted grade indices).
+- **`ExamGroup`** — Top-level grouping. Fields: `name` (String — exam display name, used as the grouping key), `school` (String), `year` (int), `term` (int), `type` (ExamType), `start` (int, days since epoch), `end` (int, days since epoch), `personalized` (bool), `teacher` (UsersData), `grades` (List<ExamGradeEntry>). Computed: `groupKey` (`'$school|$year|$term|$name'`), `examIds` (all exam row IDs), `uniqueSubjectCount` (from papers), `participatingGrades` (sorted grade indices).
 - **`ExamGradeEntry`** — One grade within a group. Fields: `grade` (int), `streams` (List<ExamStreamEntry>). Computed: `examIds`, `papers` (flattened).
 - **`ExamStreamEntry`** — One exam row + its papers for a specific stream. Fields: `exam` (Exam), `streamCode` (int?), `papers` (List<Paper>).
 

@@ -962,7 +962,7 @@ class _PodiumSection extends StatelessWidget {
     ColorScheme cs,
     bool isDark,
   ) {
-    final displayScore = stats.lastExamAverage ?? stats.averageScore;
+    final displayScore = stats.averageScore;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -1112,12 +1112,10 @@ class _RankingTableState extends State<_RankingTable>
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
 
-    // Sort by lastExamAverage descending; null values go last.
+    // Sort by averageScore descending.
     final ranked = List<StreamStats>.from(widget.stats)
       ..sort((a, b) {
-        final aVal = a.lastExamAverage ?? -1;
-        final bVal = b.lastExamAverage ?? -1;
-        return bVal.compareTo(aVal);
+        return b.averageScore.compareTo(a.averageScore);
       });
 
     return Column(
