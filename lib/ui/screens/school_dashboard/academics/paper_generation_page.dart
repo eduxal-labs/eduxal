@@ -358,7 +358,7 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
               return ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 itemCount: _allocations.length,
-                separatorBuilder: (_, _i) =>
+                separatorBuilder: (_, i) =>
                     AppTheme.tableRowDivider(isDark, cs),
                 itemBuilder: (context, index) {
                   if (index >= _allocations.length ||

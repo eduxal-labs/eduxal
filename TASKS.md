@@ -712,7 +712,7 @@ Add a "Generate Paper" action to the paper detail page header (`_PaperHeader`).
 
 ---
 
-### Task 12: Paper generation page — topic allocation step
+### Task 12: Paper generation page — topic allocation step ✅
 **Files to create:** `lib/ui/screens/school_dashboard/academics/paper_generation_page.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`, `lib/database/daos/catalog_dao.dart` (for topic queries), `lib/database/tables/topics.dart`
 **Depends on:** Task 06, Task 11
@@ -776,9 +776,9 @@ const PaperGenerationPage({
 **Data source for topics:** The `topics` table IS in the local Drift database (it's a synced table). Use `catalogDao.watchTopicsBySubjectAndGrade(paper.subject, grade)` to get the list reactively.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
-- [ ] Mark this task `[x]`
-- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
+- [x] Mark this task `[x]`
+- [x] Commit: `git add -A && git commit -m "ui: create PaperGenerationPage with topic allocation step"`
 
 ---
 
@@ -1001,7 +1001,7 @@ const MarkingStatusIndicator({
 
 ## Track 8: Per-Question Results View
 
-### Task 17: Question grade breakdown sheet
+### Task 17: Question grade breakdown sheet ✅
 **Files to create:** `lib/ui/screens/school_dashboard/academics/question_grades_sheet.dart`
 **Context files to read (if needed):** `lib/models/question_grade.dart`, `lib/ui/widgets/edu_sheet.dart`
 **Depends on:** Task 05, Task 06
