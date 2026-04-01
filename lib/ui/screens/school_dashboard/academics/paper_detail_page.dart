@@ -419,6 +419,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                         cs: cs,
                         canEdit: _canProgressStatus,
                         canManage: _canProgressStatus,
+                        canGrade: _canGradeContent,
                         dao: _dao,
                         gradeRows: gradeRows,
                         totalStudents: _students.length,
@@ -584,6 +585,7 @@ class _PaperHeader extends StatefulWidget {
     required this.cs,
     required this.canEdit,
     required this.canManage,
+    required this.canGrade,
     required this.dao,
     required this.gradeRows,
     required this.totalStudents,
@@ -605,6 +607,7 @@ class _PaperHeader extends StatefulWidget {
   final ColorScheme cs;
   final bool canEdit;
   final bool canManage;
+  final bool canGrade;
   final ExamsGradesDao dao;
   final List<GradeRow> gradeRows;
   final int totalStudents;
@@ -1032,7 +1035,7 @@ class _PaperHeaderState extends State<_PaperHeader>
           ),
 
           // ── Scheme button (full-width, below invigilator) ─────────────
-          if (widget.canManage) ...[
+          if (widget.canGrade) ...[
             const SizedBox(height: 8),
             GestureDetector(
               onTap: () {
