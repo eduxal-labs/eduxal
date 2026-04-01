@@ -159,9 +159,11 @@ Wraps the `AiMarking` gRPC service for AI-powered paper marking. Handles request
 
 ### `QuestionBankService` — `question_bank.dart`
 
-Wraps the `QuestionBank` gRPC service for question bank operations. Handles CRUD for questions within topics, bulk import from JSON, and requesting presigned S3 upload URLs for question images.
+Wraps the `QuestionBank` gRPC service for question bank operations. Handles CRUD for questions within topics, bulk import from JSON, requesting presigned S3 upload URLs for question images, AI paper generation & review, paper finalization & PDF retrieval, marking status polling, and per-question grade breakdowns.
 
 **Constructor:** `QuestionBankService({required ClientChannel channel, required String host, required int port})`
+
+#### Question CRUD & Import (Task 03)
 
 | Method | Signature | Description |
 |---|---|---|
@@ -173,12 +175,30 @@ Wraps the `QuestionBank` gRPC service for question bank operations. Handles CRUD
 | `bulkImport` | `Future<Result<BulkImportResult, GrpcError>> bulkImport({required String jsonContent, required String accessToken})` | Bulk import questions from JSON content. Uses 60s timeout. |
 | `requestImageUploadUrls` | `Future<Result<List<SignedImageUrl>, GrpcError>> requestImageUploadUrls({required int questionId, required List<String> filenames, required String accessToken})` | Get presigned PUT URLs for question images. Returns proto `SignedImageUrl` directly (no domain model — transient upload flow only). |
 
+#### Paper Generation (Task 04)
+
+| Method | Signature | Description |
+|---|---|---|
+| `generatePaper` | `Future<Result<List<PaperQuestion>, GrpcError>> generatePaper({required String school, required String exam, required int subject, int? paper, required int grade, int? stream, required int totalMarks, required List<TopicAllocation> allocations, required String accessToken})` | Generate paper questions from topic allocations using AI. Uses 60s timeout. Builds `pb.TopicAllocation` for each allocation. |
+| `regenerateQuestion` | `Future<Result<PaperQuestion, GrpcError>> regenerateQuestion({required String school, required String exam, required int subject, int? paper, required int grade, required String paperQuestionId, required int topicId, required int marks, required String accessToken})` | Regenerate a single question on the paper. Uses 60s timeout. |
+| `editPaperQuestion` | `Future<Result<PaperQuestion, GrpcError>> editPaperQuestion({required String school, required String exam, required int subject, int? paper, required String paperQuestionId, required String text, required int marks, required List<RubricCriterion> rubric, required String accessToken})` | Edit a question on the generated paper. Uses existing `_toProtoCriterion` helper for rubric conversion. |
+| `finalizePaper` | `Future<Result<PaperPdf, GrpcError>> finalizePaper({required String school, required String exam, required int subject, int? paper, required int grade, int? stream, required List<String> paperQuestionIds, required String accessToken})` | Finalize the paper and generate PDF. Uses 60s timeout. Returns `PaperPdf` via `PaperPdf.fromProto(resp)`. |
+| `getPaperPdf` | `Future<Result<PaperPdf, GrpcError>> getPaperPdf({required String school, required String exam, required int subject, int? paper, required int grade, int? stream, required String accessToken})` | Get the PDF URL for a finalized paper. Returns `PaperPdf` via `PaperPdf.fromGetPdfProto(resp)`. |
+
+#### Marking Status & Question Grades (Task 05)
+
+| Method | Signature | Description |
+|---|---|---|
+| `getMarkingStatus` | `Future<Result<MarkingStatus, GrpcError>> getMarkingStatus({required String school, required String exam, required int subject, int? paper, required int grade, int? stream, required String accessToken})` | Get current marking job status. Maps `MarkingStatusResponse` → `MarkingStatus.fromProto`. |
+| `getQuestionGrades` | `Future<Result<List<QuestionGradeDetail>, GrpcError>> getQuestionGrades({required String school, required String exam, required int student, required int subject, int? paper, required String accessToken})` | Get per-question grade breakdown for a student. Maps `QuestionGrade` protos → `QuestionGradeDetail.fromProto`. |
+| `watchMarkingStatus` | `Stream<MarkingStatus> watchMarkingStatus({required String school, required String exam, required int subject, int? paper, required int grade, int? stream, required String accessToken, Duration interval = const Duration(seconds: 3)})` | Convenience polling stream. Yields `MarkingStatus` every `interval` until `MarkingPhase.complete` or `MarkingPhase.failed`. On gRPC error, yields a failed status and terminates. |
+
 **Internal helpers:**
 - `_toProtoImageContext(ImageContext) → pbenum.ImageContext` — Maps domain `ImageContext` enum to proto enum.
-- `_toProtoCriterion(RubricCriterion) → pb.RubricCriterion` — Maps domain rubric criterion to proto message.
+- `_toProtoCriterion(RubricCriterion) → pb.RubricCriterion` — Maps domain rubric criterion to proto message. Also used by `editPaperQuestion`.
 - `_toProtoImage(QuestionImage) → pb.QuestionImage` — Maps domain question image to proto message (including context, filename, caption, description).
 
-**Dependencies:** `grpc` package (ClientChannel, CallOptions, GrpcError), `models/question.dart` (domain models: `Question`, `RubricCriterion`, `QuestionImage`, `ImageContext`, `BulkImportResult`), `models/result.dart`, `proto/services/question_bank.pb.dart` (proto message types), `proto/services/question_bank.pbgrpc.dart` (`QuestionBankClient`), `proto/services/question_bank.pbenum.dart` (`ImageContext` proto enum).
+**Dependencies:** `grpc` package (ClientChannel, CallOptions, GrpcError), `models/question.dart` (domain models: `Question`, `RubricCriterion`, `QuestionImage`, `ImageContext`, `BulkImportResult`), `models/paper_generation.dart` (`PaperQuestion`, `PaperPdf`, `TopicAllocation`), `models/marking_status.dart` (`MarkingStatus`, `MarkingPhase`), `models/question_grade.dart` (`QuestionGradeDetail`, `RubricResult`), `models/result.dart`, `proto/services/question_bank.pb.dart` (proto message types), `proto/services/question_bank.pbgrpc.dart` (`QuestionBankClient`), `proto/services/question_bank.pbenum.dart` (`ImageContext`, `MarkingStatusEnum` proto enums).
 
 ---
 
@@ -204,4 +224,4 @@ Wraps the `QuestionBank` gRPC service for question bank operations. Handles CRUD
 - `client.dart` is the only file that holds the gRPC `ClientChannel`. Services receive the channel (or a service client) via constructor injection.
 
 ## Last Updated
-Task 03 — Added `QuestionBankService` (`question_bank.dart`): stateless gRPC wrapper for question CRUD, bulk import, and image upload URL requests. Follows same constructor/error-handling pattern as `AiMarkingService`.
+Tasks 04 & 05 — Extended `QuestionBankService` (`question_bank.dart`) with paper generation methods (`generatePaper`, `regenerateQuestion`, `editPaperQuestion`, `finalizePaper`, `getPaperPdf`), marking status methods (`getMarkingStatus`, `getQuestionGrades`), and a convenience polling stream (`watchMarkingStatus`). New model imports: `paper_generation.dart`, `marking_status.dart`, `question_grade.dart` (all under `models` prefix).

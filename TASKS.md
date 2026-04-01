@@ -348,7 +348,7 @@ class QuestionBankService {
 
 ---
 
-### Task 04: Create PaperGenerationService — generate, review, finalize papers
+### Task 04: Create PaperGenerationService — generate, review, finalize papers ✅
 **Files to create/modify:** `lib/services/question_bank.dart` (extend with paper generation methods)
 **Context files to read (if needed):** `lib/services/CONTEXT.md`
 **Depends on:** Task 03
@@ -369,13 +369,13 @@ Add paper generation methods to `QuestionBankService`:
 Each method maps domain models → proto request, calls gRPC, maps proto response → domain model.
 
 **Update after completion:**
-- [ ] Update `lib/services/CONTEXT.md`
-- [ ] Mark this task `[x]`
-- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
+- [x] Update `lib/services/CONTEXT.md`
+- [x] Mark this task `[x]`
+- [x] Commit: `git add -A && git commit -m "<type>: <description>"`
 
 ---
 
-### Task 05: Create MarkingStatusService — poll marking status + per-question grades
+### Task 05: Create MarkingStatusService — poll marking status + per-question grades ✅
 **Files to create/modify:** `lib/services/question_bank.dart` (extend with marking status methods)
 **Context files to read (if needed):** `lib/services/CONTEXT.md`
 **Depends on:** Task 03
@@ -428,9 +428,9 @@ Stream<MarkingStatus> watchMarkingStatus({
 ```
 
 **Update after completion:**
-- [ ] Update `lib/services/CONTEXT.md`
-- [ ] Mark this task `[x]`
-- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
+- [x] Update `lib/services/CONTEXT.md`
+- [x] Mark this task `[x]`
+- [x] Commit: `git add -A && git commit -m "<type>: <description>"`
 
 ---
 

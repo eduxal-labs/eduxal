@@ -1,6 +1,9 @@
 import 'package:grpc/grpc.dart';
 
+import '../models/marking_status.dart' as models;
+import '../models/paper_generation.dart' as models;
 import '../models/question.dart' as models;
+import '../models/question_grade.dart' as models;
 import '../models/result.dart';
 import '../proto/services/question_bank.pb.dart' as pb;
 import '../proto/services/question_bank.pbgrpc.dart' as pbgrpc;
@@ -274,6 +277,361 @@ class QuestionBankService {
         '[QB] requestImageUploadUrls ← UNEXPECTED ${e.runtimeType}: $e\n$st',
       );
       return Err(GrpcError.internal('requestImageUploadUrls failed: $e'));
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Paper Generation (Task 04)
+  // ---------------------------------------------------------------------------
+
+  /// Generate paper questions from topic allocations using AI.
+  Future<Result<List<models.PaperQuestion>, GrpcError>> generatePaper({
+    required String school,
+    required String exam,
+    required int subject,
+    int? paper,
+    required int grade,
+    int? stream,
+    required int totalMarks,
+    required List<models.TopicAllocation> allocations,
+    required String accessToken,
+  }) async {
+    print(
+      '[QB] generatePaper → school=$school exam=$exam subject=$subject '
+      'grade=$grade totalMarks=$totalMarks allocations=${allocations.length}',
+    );
+    try {
+      final req = pb.GeneratePaperRequest()
+        ..school = school
+        ..exam = exam
+        ..subject = subject
+        ..grade = grade
+        ..totalMarks = totalMarks;
+      if (paper != null) req.paper = paper;
+      if (stream != null) req.stream = stream;
+      req.topicAllocations.addAll(
+        allocations.map(
+          (a) => pb.TopicAllocation()
+            ..topicId = a.topicId
+            ..marks = a.marks,
+        ),
+      );
+      final options = CallOptions(
+        metadata: {'authorization': 'Bearer $accessToken'},
+        timeout: const Duration(seconds: 60),
+      );
+      final client = pbgrpc.QuestionBankClient(_mainChannel);
+      final resp = await client.generatePaper(req, options: options);
+      final questions = resp.paperQuestions
+          .map(models.PaperQuestion.fromProto)
+          .toList();
+      print('[QB] generatePaper ← OK (questions=${questions.length})');
+      return Ok(questions);
+    } on GrpcError catch (e) {
+      print('[QB] generatePaper ← GrpcError: ${e.code} ${e.message}');
+      return Err(e);
+    } catch (e, st) {
+      print('[QB] generatePaper ← UNEXPECTED ${e.runtimeType}: $e\n$st');
+      return Err(GrpcError.internal('generatePaper failed: $e'));
+    }
+  }
+
+  /// Regenerate a single question on the paper.
+  Future<Result<models.PaperQuestion, GrpcError>> regenerateQuestion({
+    required String school,
+    required String exam,
+    required int subject,
+    int? paper,
+    required int grade,
+    required String paperQuestionId,
+    required int topicId,
+    required int marks,
+    required String accessToken,
+  }) async {
+    print(
+      '[QB] regenerateQuestion → school=$school exam=$exam '
+      'paperQuestionId=$paperQuestionId topicId=$topicId marks=$marks',
+    );
+    try {
+      final req = pb.RegenerateQuestionRequest()
+        ..school = school
+        ..exam = exam
+        ..subject = subject
+        ..grade = grade
+        ..paperQuestionId = paperQuestionId
+        ..topicId = topicId
+        ..marks = marks;
+      if (paper != null) req.paper = paper;
+      final options = CallOptions(
+        metadata: {'authorization': 'Bearer $accessToken'},
+        timeout: const Duration(seconds: 60),
+      );
+      final client = pbgrpc.QuestionBankClient(_mainChannel);
+      final resp = await client.regenerateQuestion(req, options: options);
+      final question = models.PaperQuestion.fromProto(resp.paperQuestion);
+      print('[QB] regenerateQuestion ← OK (id=${question.id})');
+      return Ok(question);
+    } on GrpcError catch (e) {
+      print('[QB] regenerateQuestion ← GrpcError: ${e.code} ${e.message}');
+      return Err(e);
+    } catch (e, st) {
+      print('[QB] regenerateQuestion ← UNEXPECTED ${e.runtimeType}: $e\n$st');
+      return Err(GrpcError.internal('regenerateQuestion failed: $e'));
+    }
+  }
+
+  /// Edit a question on the generated paper.
+  Future<Result<models.PaperQuestion, GrpcError>> editPaperQuestion({
+    required String school,
+    required String exam,
+    required int subject,
+    int? paper,
+    required String paperQuestionId,
+    required String text,
+    required int marks,
+    required List<models.RubricCriterion> rubric,
+    required String accessToken,
+  }) async {
+    print(
+      '[QB] editPaperQuestion → school=$school exam=$exam '
+      'paperQuestionId=$paperQuestionId marks=$marks rubric=${rubric.length}',
+    );
+    try {
+      final req = pb.EditPaperQuestionRequest()
+        ..school = school
+        ..exam = exam
+        ..subject = subject
+        ..paperQuestionId = paperQuestionId
+        ..text = text
+        ..marks = marks;
+      if (paper != null) req.paper = paper;
+      req.rubric.addAll(rubric.map(_toProtoCriterion));
+      final options = CallOptions(
+        metadata: {'authorization': 'Bearer $accessToken'},
+        timeout: const Duration(seconds: 30),
+      );
+      final client = pbgrpc.QuestionBankClient(_mainChannel);
+      final resp = await client.editPaperQuestion(req, options: options);
+      final question = models.PaperQuestion.fromProto(resp.paperQuestion);
+      print('[QB] editPaperQuestion ← OK (id=${question.id})');
+      return Ok(question);
+    } on GrpcError catch (e) {
+      print('[QB] editPaperQuestion ← GrpcError: ${e.code} ${e.message}');
+      return Err(e);
+    } catch (e, st) {
+      print('[QB] editPaperQuestion ← UNEXPECTED ${e.runtimeType}: $e\n$st');
+      return Err(GrpcError.internal('editPaperQuestion failed: $e'));
+    }
+  }
+
+  /// Finalize the paper and generate PDF.
+  Future<Result<models.PaperPdf, GrpcError>> finalizePaper({
+    required String school,
+    required String exam,
+    required int subject,
+    int? paper,
+    required int grade,
+    int? stream,
+    required List<String> paperQuestionIds,
+    required String accessToken,
+  }) async {
+    print(
+      '[QB] finalizePaper → school=$school exam=$exam subject=$subject '
+      'grade=$grade questions=${paperQuestionIds.length}',
+    );
+    try {
+      final req = pb.FinalizePaperRequest()
+        ..school = school
+        ..exam = exam
+        ..subject = subject
+        ..grade = grade;
+      if (paper != null) req.paper = paper;
+      if (stream != null) req.stream = stream;
+      req.paperQuestionIds.addAll(paperQuestionIds);
+      final options = CallOptions(
+        metadata: {'authorization': 'Bearer $accessToken'},
+        timeout: const Duration(seconds: 60),
+      );
+      final client = pbgrpc.QuestionBankClient(_mainChannel);
+      final resp = await client.finalizePaper(req, options: options);
+      final pdf = models.PaperPdf.fromProto(resp);
+      print(
+        '[QB] finalizePaper ← OK (pdfUrl=${pdf.pdfUrl.substring(0, 40)}...)',
+      );
+      return Ok(pdf);
+    } on GrpcError catch (e) {
+      print('[QB] finalizePaper ← GrpcError: ${e.code} ${e.message}');
+      return Err(e);
+    } catch (e, st) {
+      print('[QB] finalizePaper ← UNEXPECTED ${e.runtimeType}: $e\n$st');
+      return Err(GrpcError.internal('finalizePaper failed: $e'));
+    }
+  }
+
+  /// Get the PDF URL for a finalized paper.
+  Future<Result<models.PaperPdf, GrpcError>> getPaperPdf({
+    required String school,
+    required String exam,
+    required int subject,
+    int? paper,
+    required int grade,
+    int? stream,
+    required String accessToken,
+  }) async {
+    print(
+      '[QB] getPaperPdf → school=$school exam=$exam '
+      'subject=$subject grade=$grade',
+    );
+    try {
+      final req = pb.GetPaperPdfRequest()
+        ..school = school
+        ..exam = exam
+        ..subject = subject
+        ..grade = grade;
+      if (paper != null) req.paper = paper;
+      if (stream != null) req.stream = stream;
+      final options = CallOptions(
+        metadata: {'authorization': 'Bearer $accessToken'},
+        timeout: const Duration(seconds: 30),
+      );
+      final client = pbgrpc.QuestionBankClient(_mainChannel);
+      final resp = await client.getPaperPdf(req, options: options);
+      final pdf = models.PaperPdf.fromGetPdfProto(resp);
+      print('[QB] getPaperPdf ← OK (pdfUrl=${pdf.pdfUrl.substring(0, 40)}...)');
+      return Ok(pdf);
+    } on GrpcError catch (e) {
+      print('[QB] getPaperPdf ← GrpcError: ${e.code} ${e.message}');
+      return Err(e);
+    } catch (e, st) {
+      print('[QB] getPaperPdf ← UNEXPECTED ${e.runtimeType}: $e\n$st');
+      return Err(GrpcError.internal('getPaperPdf failed: $e'));
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Marking Status & Question Grades (Task 05)
+  // ---------------------------------------------------------------------------
+
+  /// Get current marking job status.
+  Future<Result<models.MarkingStatus, GrpcError>> getMarkingStatus({
+    required String school,
+    required String exam,
+    required int subject,
+    int? paper,
+    required int grade,
+    int? stream,
+    required String accessToken,
+  }) async {
+    print(
+      '[QB] getMarkingStatus → school=$school exam=$exam '
+      'subject=$subject grade=$grade',
+    );
+    try {
+      final req = pb.MarkingStatusRequest()
+        ..school = school
+        ..exam = exam
+        ..subject = subject
+        ..grade = grade;
+      if (paper != null) req.paper = paper;
+      if (stream != null) req.stream = stream;
+      final options = CallOptions(
+        metadata: {'authorization': 'Bearer $accessToken'},
+        timeout: const Duration(seconds: 30),
+      );
+      final client = pbgrpc.QuestionBankClient(_mainChannel);
+      final resp = await client.getMarkingStatus(req, options: options);
+      final status = models.MarkingStatus.fromProto(resp);
+      print('[QB] getMarkingStatus ← OK (phase=${status.phase})');
+      return Ok(status);
+    } on GrpcError catch (e) {
+      print('[QB] getMarkingStatus ← GrpcError: ${e.code} ${e.message}');
+      return Err(e);
+    } catch (e, st) {
+      print('[QB] getMarkingStatus ← UNEXPECTED ${e.runtimeType}: $e\n$st');
+      return Err(GrpcError.internal('getMarkingStatus failed: $e'));
+    }
+  }
+
+  /// Get per-question grade breakdown for a student.
+  Future<Result<List<models.QuestionGradeDetail>, GrpcError>>
+  getQuestionGrades({
+    required String school,
+    required String exam,
+    required int student,
+    required int subject,
+    int? paper,
+    required String accessToken,
+  }) async {
+    print(
+      '[QB] getQuestionGrades → school=$school exam=$exam '
+      'student=$student subject=$subject',
+    );
+    try {
+      final req = pb.GetQuestionGradesRequest()
+        ..school = school
+        ..exam = exam
+        ..student = student
+        ..subject = subject;
+      if (paper != null) req.paper = paper;
+      final options = CallOptions(
+        metadata: {'authorization': 'Bearer $accessToken'},
+        timeout: const Duration(seconds: 30),
+      );
+      final client = pbgrpc.QuestionBankClient(_mainChannel);
+      final resp = await client.getQuestionGrades(req, options: options);
+      final grades = resp.questionGrades
+          .map(models.QuestionGradeDetail.fromProto)
+          .toList();
+      print('[QB] getQuestionGrades ← OK (count=${grades.length})');
+      return Ok(grades);
+    } on GrpcError catch (e) {
+      print('[QB] getQuestionGrades ← GrpcError: ${e.code} ${e.message}');
+      return Err(e);
+    } catch (e, st) {
+      print('[QB] getQuestionGrades ← UNEXPECTED ${e.runtimeType}: $e\n$st');
+      return Err(GrpcError.internal('getQuestionGrades failed: $e'));
+    }
+  }
+
+  /// Polls marking status every [interval] until complete or failed.
+  /// Yields each status update to the caller.
+  Stream<models.MarkingStatus> watchMarkingStatus({
+    required String school,
+    required String exam,
+    required int subject,
+    int? paper,
+    required int grade,
+    int? stream,
+    required String accessToken,
+    Duration interval = const Duration(seconds: 3),
+  }) async* {
+    while (true) {
+      final result = await getMarkingStatus(
+        school: school,
+        exam: exam,
+        subject: subject,
+        paper: paper,
+        grade: grade,
+        stream: stream,
+        accessToken: accessToken,
+      );
+      switch (result) {
+        case Ok(:final value):
+          yield value;
+          if (value.phase == models.MarkingPhase.complete ||
+              value.phase == models.MarkingPhase.failed) {
+            return;
+          }
+        case Err(:final error):
+          yield models.MarkingStatus(
+            phase: models.MarkingPhase.failed,
+            progressCurrent: 0,
+            progressTotal: 0,
+            errorMessage: error.message,
+          );
+          return;
+      }
+      await Future.delayed(interval);
     }
   }
 
