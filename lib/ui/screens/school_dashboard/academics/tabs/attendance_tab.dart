@@ -200,21 +200,34 @@ class _AttendanceTabState extends State<AttendanceTab>
         );
         result = true;
       case TeacherEntry():
-        // Teachers can only mark attendance for classes where they are
-        // the active class teacher.
-        final userId = cache.currentUser!.user.id;
-        result = await _membersDao.isClassTeacherFor(
-          schoolId: widget.schoolId,
-          year: widget.year,
-          term: widget.term,
-          grade: widget.grade,
-          stream: widget.streamCode,
-          teacherUserId: userId,
+        // First check if the teacher has the attendance.mark permission
+        // via an assigned role — if so, they can mark ANY class.
+        final hasPermission = widget.schoolContext.permissions.can(
+          perms.Resource.attendance,
+          perms.Action.mark,
         );
-        debugPrint(
-          '[AttendanceTab] _resolveCanMark: TeacherEntry, userId=$userId, '
-          'grade=${widget.grade}, stream=${widget.streamCode} → canMark=$result',
-        );
+        if (hasPermission) {
+          debugPrint(
+            '[AttendanceTab] _resolveCanMark: TeacherEntry has attendance.mark permission → canMark=true',
+          );
+          result = true;
+        } else {
+          // Fall back: teachers without explicit permission can only mark
+          // attendance for classes where they are the active class teacher.
+          final userId = cache.currentUser!.user.id;
+          result = await _membersDao.isClassTeacherFor(
+            schoolId: widget.schoolId,
+            year: widget.year,
+            term: widget.term,
+            grade: widget.grade,
+            stream: widget.streamCode,
+            teacherUserId: userId,
+          );
+          debugPrint(
+            '[AttendanceTab] _resolveCanMark: TeacherEntry, userId=$userId, '
+            'grade=${widget.grade}, stream=${widget.streamCode} → canMark=$result',
+          );
+        }
       case StaffEntry():
         // Staff with the attendance mark permission can mark any class.
         result = widget.schoolContext.permissions.can(

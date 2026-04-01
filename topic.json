@@ -1,0 +1,137 @@
+{
+  "subject": "Biology",
+  "curriculum": "844",
+  "grade": 4,
+  "topic": "Introduction to Biology",
+  "questions": [
+    {
+      "text": "State the meaning of the following branches of biology:\n(a) Ecology\n(b) Entomology\n(c) Cytology",
+      "marks": 3,
+      "rubric": [
+        {
+          "criterion": "Ecology: Study of living things in their surroundings/environment",
+          "marks": 1
+        },
+        { "criterion": "Entomology: Study of insects", "marks": 1 },
+        { "criterion": "Cytology: Study of cells", "marks": 1 }
+      ],
+      "example_answer": "(a) Ecology is the study of living things in their surroundings.\n(b) Entomology is the study of insects.\n(c) Cytology is the study of cells.",
+      "images": []
+    },
+    {
+      "text": "Explain four reasons why the study of Biology is important to a secondary school student.",
+      "marks": 4,
+      "rubric": [
+        {
+          "criterion": "Helps in solving environmental problems such as pollution and food shortage",
+          "marks": 1
+        },
+        {
+          "criterion": "Guides in the choice of careers like Medicine, Agriculture, and Veterinary",
+          "marks": 1
+        },
+        {
+          "criterion": "Helps in acquiring scientific skills like observing, identifying, and measuring",
+          "marks": 1
+        },
+        {
+          "criterion": "Provides knowledge about diseases, their causes, and treatments (e.g., HIV/AIDS)",
+          "marks": 1
+        }
+      ],
+      "example_answer": "1. It helps in solving environmental problems like pollution and food shortage.\n2. It guides the student in choosing careers such as Medicine, Agriculture, and Veterinary.\n3. It equips the student with scientific skills like observation and classification.\n4. It provides knowledge about the causes, spread, and treatment of diseases such as HIV/AIDS.",
+      "images": []
+    },
+    {
+      "text": "Distinguish between growth and development as characteristics of living organisms.",
+      "marks": 2,
+      "rubric": [
+        {
+          "criterion": "Growth: Irreversible increase in size and mass",
+          "marks": 1
+        },
+        {
+          "criterion": "Development: Irreversible change in the complexity of the structure of living things",
+          "marks": 1
+        }
+      ],
+      "example_answer": "Growth is the irreversible increase in size and mass of an organism, whereas development is the irreversible change in the complexity of the structure of the living thing.",
+      "images": []
+    },
+    {
+      "text": "Name the appropriate apparatus used to collect the following specimens:\n(a) Flying insects\n(b) Small crawling animals\n(c) Small animals from rock surfaces and tree barks",
+      "marks": 3,
+      "rubric": [
+        { "criterion": "Flying insects: Sweep net", "marks": 1 },
+        { "criterion": "Small crawling animals: Pit fall trap", "marks": 1 },
+        {
+          "criterion": "Small animals from rock surfaces and tree barks: Pooter",
+          "marks": 1
+        }
+      ],
+      "example_answer": "(a) Sweep net\n(b) Pit fall trap\n(c) Pooter",
+      "images": []
+    },
+    {
+      "text": "Study the diagram below and answer the questions that follow.\n(a) Identify the cell organelles labelled A, B and C.\n(b) State the function of the organelle labelled D.\n(c) Give a reason why this cell is classified as an animal cell.",
+      "marks": 6,
+      "rubric": [
+        { "criterion": "A: Cell membrane / Plasma membrane", "marks": 1 },
+        { "criterion": "B: Nucleus", "marks": 1 },
+        { "criterion": "C: Mitochondrion / Mitochondria", "marks": 1 },
+        {
+          "criterion": "D function: Controls all cell activities / contains genetic material / stores hereditary information / controls cell division",
+          "marks": 1
+        },
+        {
+          "criterion": "Reason: Lacks a cell wall / Has no cell wall / Has centrioles / Has no large central vacuole / Has no chloroplasts",
+          "marks": 2
+        }
+      ],
+      "example_answer": "(a) A - Cell membrane, B - Nucleus, C - Mitochondrion\n(b) The nucleus controls all cell activities and contains genetic/hereditary information.\n(c) The cell lacks a cell wall and chloroplasts, which are characteristics of plant cells.",
+      "images": [
+        {
+          "context": "question",
+          "filename": "animal_cell_diagram.png",
+          "caption": "Figure 1: Diagram of an animal cell",
+          "description": "A labelled diagram of an animal cell. Part A points to the outer boundary (cell membrane). Part B points to the large central oval structure (nucleus). Part C points to a small rod-shaped organelle (mitochondrion). Part D points to the nucleus."
+        }
+      ]
+    },
+    {
+      "text": "Describe the process of gaseous exchange in a mammal.",
+      "marks": 20,
+      "rubric": [
+        {
+          "criterion": "Correct description of inhalation mechanism: diaphragm contracts/flattens, intercostal muscles contract, ribcage moves up and outward, thoracic cavity volume increases, pressure decreases, air rushes in",
+          "marks": 5
+        },
+        {
+          "criterion": "Correct description of exhalation mechanism: diaphragm relaxes/domes, intercostal muscles relax, ribcage moves down and inward, thoracic cavity volume decreases, pressure increases, air is pushed out",
+          "marks": 5
+        },
+        {
+          "criterion": "Gaseous exchange at the alveoli: oxygen diffuses from alveoli into blood capillaries, carbon dioxide diffuses from blood into alveoli, occurs due to concentration gradient, large surface area of alveoli, thin alveolar walls (one cell thick), moist surface for dissolving gases, rich blood capillary network",
+          "marks": 6
+        },
+        {
+          "criterion": "Gaseous exchange at tissue level: oxygen diffuses from blood into body cells, carbon dioxide diffuses from body cells into blood, driven by concentration gradient",
+          "marks": 2
+        },
+        {
+          "criterion": "Use of correct biological terminology throughout, logical flow, coherent presentation",
+          "marks": 2
+        }
+      ],
+      "example_answer": null,
+      "images": [
+        {
+          "context": "rubric",
+          "filename": "alveoli_gaseous_exchange.png",
+          "caption": null,
+          "description": "A diagram showing gaseous exchange at the alveolus. Oxygen (O2) arrows point from the alveolar air space across the thin alveolar wall into the blood capillary. Carbon dioxide (CO2) arrows point from the blood capillary across the alveolar wall into the alveolar air space. The capillary is shown wrapping around the alveolus."
+        }
+      ]
+    }
+  ]
+}

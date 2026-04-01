@@ -382,6 +382,7 @@ class _RoleDetailScreenState extends State<RoleDetailScreen>
                       controller: _tabController,
                       children: [
                         _PermissionsTab(
+                          key: ValueKey('perms_${role.id}_${role.updated}'),
                           role: role,
                           permissions: widget.permissions,
                           cs: cs,
@@ -729,6 +730,7 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
 
 class _PermissionsTab extends StatefulWidget {
   const _PermissionsTab({
+    super.key,
     required this.role,
     required this.permissions,
     required this.cs,
@@ -887,39 +889,64 @@ class _PermissionsTabState extends State<_PermissionsTab> {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;
 
+    final messenger = ScaffoldMessenger.of(context);
+
     setState(() {
       _saving = true;
       _saveError = null;
     });
 
     try {
-      final nowSeconds = BigInt.from(
-        DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      );
+      final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
       await rolesDao.updateRole(
         widget.role.id,
         RolesCompanion(
           permissions: Value(_serialisePermissions(_editPermissions)),
-          updated: Value(nowSeconds),
+          updated: Value(nowMs),
         ),
         accountId: accountId,
       );
+
+      // ── Post-save verification ──────────────────────────────────────────
+      final verifyRows = await (rolesDao.select(
+        rolesDao.roles,
+      )..where((t) => t.id.equals(widget.role.id))).get();
+      if (verifyRows.isNotEmpty) {
+        final saved = verifyRows.first;
+        debugPrint(
+          '[PermTab._save] VERIFY permissions in DB: ${saved.permissions}',
+        );
+        debugPrint('[PermTab._save] VERIFY updated in DB: ${saved.updated}');
+      } else {
+        debugPrint('[PermTab._save] ⚠️ Role not found in DB after save!');
+      }
 
       if (mounted) {
         setState(() {
           _originalPermissions = Map.of(_editPermissions);
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Permissions saved.'),
+      }
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Permissions saved.'),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      debugPrint('[PermTab._save] ERROR: $e');
+      if (mounted) {
+        setState(() => _saveError = 'Failed to save: $e');
+      } else {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Failed to save: $e'),
             behavior: SnackBarBehavior.floating,
-            duration: Duration(seconds: 2),
+            duration: const Duration(seconds: 4),
           ),
         );
       }
-    } catch (e) {
-      if (mounted) setState(() => _saveError = 'Failed to save: $e');
     } finally {
       if (mounted) setState(() => _saving = false);
     }

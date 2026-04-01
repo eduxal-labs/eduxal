@@ -484,3 +484,88 @@ After BUG-010, `showEduSheet` on mobile no longer wraps builder content in an `E
 
 **Prevention:**
 When `showEduSheet`'s wrapping behaviour changes (as in BUG-010), ALL existing sheets launched through it must be audited. Search for all `showEduSheet` call sites and verify each builder returns a self-contained widget.
+
+---
+
+## BUG-017: Teacher with attendance.mark role permission cannot mark attendance for non-assigned classes
+
+**Severity:** High (RBAC-granted attendance permission silently ignored for teachers)
+**Discovered:** User-reported
+**Related:** §17a Resource & Action Design — Attendance resource has `Read` and `Mark` actions
+
+**Root Cause:**
+In `attendance_tab.dart`, the `_resolveCanMark()` method handled `TeacherEntry` by **only** checking `_membersDao.isClassTeacherFor()` — whether the teacher is the active class teacher for the specific class. It never consulted `SchoolPermissions` at all. In contrast, the `StaffEntry` case correctly checked `permissions.can(Resource.attendance, Action.mark)`.
+
+This meant a teacher who had been assigned a role granting `Attendance.Mark` permission (via the `scopes` + `roles` tables) was still denied marking ability for any class they didn't personally teach. The class picker already showed all classes school-wide (`EnrollmentsDao.watchPopulatedClasses()` has no teacher filter), so the teacher could navigate to any class but was incorrectly denied marking permission once there.
+
+**Files changed:**
+- `lib/ui/screens/school_dashboard/academics/tabs/attendance_tab.dart` — `_resolveCanMark()` `TeacherEntry` case rewritten to a two-step check: (1) check `permissions.can(Resource.attendance, Action.mark)` first — if granted, `canMark = true` for any class; (2) only if the permission is not granted, fall back to `isClassTeacherFor()` check.
+
+**Fix applied:**
+The `TeacherEntry` case now mirrors the `StaffEntry` logic as a first check, with the original class-teacher assignment check as a fallback. Teachers with the attendance.mark permission via an assigned role can now mark attendance for ALL classes. Teachers without the explicit permission can still mark attendance for classes they are the active class teacher for (preserving the original default behavior).
+
+**Prevention:**
+- When implementing RBAC-gated features, always check `SchoolPermissions` first for ALL member entry types (not just Staff). The class-teacher / assignment check is a default fallback, not the primary gate.
+- Cross-reference §17a: the three-tier permission model applies to Teachers the same as Staff. Only the fallback behavior differs (teachers get implicit access to their assigned classes).
+
+---
+
+## BUG-018: Role permission save on school dashboard — success SnackBar never shown, errors silently swallowed
+
+**Severity:** Medium (permissions ARE saved to DB, but user receives no confirmation — leads to perception that save failed)
+**Discovered:** User-reported ("nothing gets saved" on school dashboard role edit)
+**Related:** BUG-011 (ValueKey fix), BUG-015 (timestamp precision fix)
+
+**Root Cause:**
+The `ValueKey('perms_${role.id}_${role.updated}')` mechanism on `_PermissionsTab` (introduced by BUG-011) works correctly for state freshness — after a save, the `updated` timestamp changes, the `ValueKey` changes, and Flutter creates a fresh `_PermissionsTabState` that reads the saved data from the DB. However, this same mechanism has a side effect: the OLD `_PermissionsTabState` (where `_save()` is running) gets **disposed** when the Drift stream fires with the new role data — often BEFORE `_save()` reaches its post-`await` code.
+
+When the old state is disposed:
+- `mounted` returns `false`
+- `setState(() { _originalPermissions = ... })` is skipped (correct — new state handles this)
+- `ScaffoldMessenger.of(context).showSnackBar(...)` is SKIPPED — **user sees no success feedback**
+- In the `catch` block, `setState(() => _saveError = ...)` is SKIPPED — **errors are silently lost**
+
+The save actually succeeds (DB is updated, the new state shows correct permissions), but the user has no confirmation. Combined with the state recreation collapsing all expanded resource sections, the experience feels like "nothing happened."
+
+**Files changed:**
+- `lib/ui/screens/school_dashboard/roles/school_role_detail_screen.dart` — `_PermissionsTabState._save()`: (1) Capture `ScaffoldMessengerState` via `ScaffoldMessenger.of(context)` BEFORE the `await` gap, while `context` is still valid. (2) Show success SnackBar via the captured messenger unconditionally (outside the `if (mounted)` block). (3) In the `catch` block, always `debugPrint` the error, and when `!mounted`, show an error SnackBar via the captured messenger instead of silently dropping it.
+
+**Fix applied:**
+1. `final messenger = ScaffoldMessenger.of(context);` captured at the top of `_save()`, before any async gap.
+2. Success SnackBar (`'Permissions saved.'`) shown via `messenger.showSnackBar(...)` regardless of mount state.
+3. Error SnackBar shown via `messenger.showSnackBar(...)` when `!mounted`, with `debugPrint` for all errors.
+4. `setState` calls remain guarded by `if (mounted)` — only the SnackBar feedback bypasses the mount check.
+
+**Prevention:**
+- When a `StatefulWidget` uses a `ValueKey` tied to mutable data (e.g., a timestamp that changes on save), always capture `ScaffoldMessengerState` (and any other context-dependent references) BEFORE `await` calls that might trigger the key change.
+- Never assume `mounted` will be `true` after an `await` that writes to a watched Drift table — the stream emission can dispose the state before the `await` resumes.
+
+---
+
+## BUG-019: System role detail screen missing BUG-011/BUG-015 fixes — permissions don't persist on update
+
+**Severity:** High (system-scoped role permission edits silently fail to reflect in UI after save)
+**Discovered:** User-reported, code audit
+**Related:** BUG-011 (ValueKey fix), BUG-015 (timestamp precision), BUG-018 (SnackBar feedback)
+
+**Root Cause:**
+The system role detail screen (`lib/ui/screens/system/roles/role_detail_screen.dart`) was never updated with the fixes applied to the school dashboard role detail screen in BUG-011 and BUG-015. Three issues combined:
+
+1. **No `ValueKey` on `_PermissionsTab`** — after `_save()` writes to the DB, the Drift stream fires and `didUpdateWidget` is called. Due to the race condition described in BUG-011, `_resetFromRole` is often skipped: `permsDiffer` is `true` but `_hasChanges` is also `true` (because `_originalPermissions` hasn't been updated yet), so the condition `permsDiffer && !_hasChanges` evaluates to `false`. The widget keeps stale state. Without a `ValueKey`, Flutter reuses the same `State` object and never forces a fresh `initState`.
+
+2. **Seconds-precision timestamp** — `_save()` used `DateTime.now().millisecondsSinceEpoch ~/ 1000` (seconds). Even if a `ValueKey` were added, two saves within the same second would produce the same key, causing Flutter to reuse the old state (BUG-015 scenario).
+
+3. **No save feedback when unmounted** — same issue as BUG-018; `ScaffoldMessenger.of(context)` not captured before `await`.
+
+**Files changed:**
+- `lib/ui/screens/system/roles/role_detail_screen.dart` — (1) Added `super.key` to `_PermissionsTab` constructor. (2) Added `key: ValueKey('perms_${role.id}_${role.updated}')` at the `_PermissionsTab` instantiation site in `_RoleDetailScreenState.build()`. (3) Changed `nowSeconds` (seconds since epoch) to `nowMs` (milliseconds since epoch) in `_save()`. (4) Added `final messenger = ScaffoldMessenger.of(context)` before the `await` gap. (5) Added post-save verification `debugPrint` statements. (6) Changed SnackBar to use captured messenger; added error logging and error SnackBar for unmounted state.
+
+**Fix applied:**
+1. `ValueKey` forces Flutter to destroy the old `_PermissionsTabState` and create a fresh one after every save, eliminating the `didUpdateWidget` timing race.
+2. Millisecond-precision timestamps make `ValueKey` collisions virtually impossible.
+3. Captured `ScaffoldMessengerState` ensures success/error SnackBars always display.
+4. Post-save verification confirms the DB write succeeded.
+
+**Prevention:**
+- When a bug fix is applied to one variant of a screen (e.g., school dashboard roles), always audit whether the same fix is needed on other variants (e.g., system roles). Search for parallel implementations.
+- The system roles screen still uses a string-based permission model (`Map<String, bool>`) with local `_parsePermissions`/`_serialisePermissions` instead of the typed `Resource`/`Action` enum model. A future task should fully convert it to the typed system used by the school dashboard, using the shared `parsePermissions`/`serialisePermissions` from `core/permission_parser.dart`.

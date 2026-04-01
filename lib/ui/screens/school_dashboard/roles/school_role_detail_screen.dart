@@ -793,6 +793,11 @@ class _PermissionsTabState extends State<_PermissionsTab> {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;
 
+    // Capture messenger before the await — the ValueKey mechanism may dispose
+    // this state when the stream fires after the DB update, making
+    // ScaffoldMessenger.of(context) unavailable.
+    final messenger = ScaffoldMessenger.of(context);
+
     setState(() {
       _saving = true;
       _saveError = null;
@@ -844,16 +849,31 @@ class _PermissionsTabState extends State<_PermissionsTab> {
         setState(() {
           _originalPermissions = Map.of(_editPermissions);
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Permissions saved.'),
+      }
+      // Show SnackBar via captured messenger — works even after state disposal
+      // (the ValueKey mechanism may dispose this state during the await above).
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Permissions saved.'),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      debugPrint('[PermTab._save] ERROR: $e');
+      if (mounted) {
+        setState(() => _saveError = 'Failed to save: $e');
+      } else {
+        // State disposed during save — show error via captured messenger
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Failed to save: $e'),
             behavior: SnackBarBehavior.floating,
-            duration: Duration(seconds: 2),
+            backgroundColor: Theme.of(messenger.context).colorScheme.error,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
-    } catch (e) {
-      if (mounted) setState(() => _saveError = 'Failed to save: $e');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
