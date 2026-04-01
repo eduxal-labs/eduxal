@@ -782,7 +782,7 @@ const PaperGenerationPage({
 
 ---
 
-### Task 13: Paper generation page — question review step
+### Task 13: Paper generation page — question review step ✅
 **Files to modify:** `lib/ui/screens/school_dashboard/academics/paper_generation_page.dart`
 **Context files to read (if needed):** `lib/models/paper_generation.dart`
 **Depends on:** Task 12
@@ -823,8 +823,8 @@ Step 2 of the paper generation wizard: reviewing and editing generated questions
 **State management:** The `List<PaperQuestion>` is held in `_PaperGenerationPageState`. Edits/regenerations mutate this list in place and call `setState`.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
+- [x] Mark this task `[x]`
+- [x] Commit: `git add -A && git commit -m "ui: implement paper generation review step with regenerate and inline edit"`
 
 ---
 

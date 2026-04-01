@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../models/paper_generation.dart';
+import '../../../../models/question.dart';
 import '../../../../models/result.dart';
 import '../../../theme/app_theme.dart';
 
@@ -46,12 +47,27 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
   int _currentStep = 0; // 0=allocate, 1=review, 2=finalize
   int _totalMarks = 80;
   List<TopicAllocation> _allocations = [];
-  // ignore: unused_field
-  List<PaperQuestion> _generatedQuestions =
-      []; // filled by Step 1 → used by Task 13
+  List<PaperQuestion> _generatedQuestions = [];
   // ignore: unused_field
   PaperPdf? _paperPdf; // filled by Step 2 → used by Task 14
   bool _isGenerating = false;
+
+  /// Track paperQuestionId → topicId for regeneration.
+  /// Built when generating paper from allocations.
+  final Map<String, int> _questionTopics = {};
+
+  /// Index of the question currently in inline-edit mode, or -1 if none.
+  int _editingIndex = -1;
+
+  /// Index of the question currently being regenerated, or -1 if none.
+  int _regeneratingIndex = -1;
+
+  // ── Edit mode controllers ──
+  final TextEditingController _editTextCtrl = TextEditingController();
+  final TextEditingController _editMarksCtrl = TextEditingController();
+  final List<_InlineRubricEntry> _editRubric = [];
+
+  bool _isSavingEdit = false;
 
   late final TextEditingController _totalMarksController;
   final List<TextEditingController> _markControllers = [];
@@ -68,7 +84,18 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
     for (final c in _markControllers) {
       c.dispose();
     }
+    _editTextCtrl.dispose();
+    _editMarksCtrl.dispose();
+    _disposeEditRubric();
     super.dispose();
+  }
+
+  void _disposeEditRubric() {
+    for (final r in _editRubric) {
+      r.criterionCtrl.dispose();
+      r.marksCtrl.dispose();
+    }
+    _editRubric.clear();
   }
 
   // ───────────────────────── Computed ─────────────────────────
@@ -117,6 +144,12 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
 
     switch (result) {
       case Ok(value: final questions):
+        // Build the question → topic map.
+        // Heuristic: distribute questions across allocations proportionally.
+        // Each allocation specifies marks for a topic — questions are ordered
+        // and we assign them to topics based on cumulative marks.
+        _questionTopics.clear();
+        _buildQuestionTopicMap(questions, nonZero);
         setState(() {
           _generatedQuestions = questions;
           _currentStep = 1;
@@ -132,6 +165,197 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
               behavior: SnackBarBehavior.floating,
             ),
           );
+    }
+  }
+
+  /// Build a mapping from paperQuestionId → topicId.
+  /// Uses cumulative marks to assign questions to topics.
+  void _buildQuestionTopicMap(
+    List<PaperQuestion> questions,
+    List<TopicAllocation> allocations,
+  ) {
+    if (allocations.isEmpty || questions.isEmpty) return;
+
+    // Build cumulative mark boundaries per topic
+    final boundaries = <({int topicId, int cumulativeMarks})>[];
+    int cumulative = 0;
+    for (final a in allocations) {
+      cumulative += a.marks;
+      boundaries.add((topicId: a.topicId, cumulativeMarks: cumulative));
+    }
+
+    // Sort questions by order
+    final sorted = List<PaperQuestion>.from(questions)
+      ..sort((a, b) => a.order.compareTo(b.order));
+
+    int runningMarks = 0;
+    int boundaryIndex = 0;
+    for (final q in sorted) {
+      runningMarks += q.marks;
+      // Advance boundary when we've exceeded the current topic's cumulative
+      while (boundaryIndex < boundaries.length - 1 &&
+          runningMarks > boundaries[boundaryIndex].cumulativeMarks) {
+        boundaryIndex++;
+      }
+      _questionTopics[q.id] = boundaries[boundaryIndex].topicId;
+    }
+  }
+
+  int _findTopicForQuestion(PaperQuestion question) {
+    return _questionTopics[question.id] ?? 0;
+  }
+
+  // ─────────────────── Regenerate ────────────────────────────
+
+  Future<void> _regenerateQuestion(int index) async {
+    if (_regeneratingIndex != -1) return;
+    final question = _generatedQuestions[index];
+
+    setState(() => _regeneratingIndex = index);
+
+    final result = await questionBankService.regenerateQuestion(
+      school: widget.schoolId,
+      exam: widget.examId,
+      subject: widget.subjectId,
+      paper: widget.paperId,
+      grade: widget.grade,
+      paperQuestionId: question.id,
+      topicId: _findTopicForQuestion(question),
+      marks: question.marks,
+      accessToken: accessToken,
+    );
+
+    if (!mounted) return;
+
+    switch (result) {
+      case Ok(value: final newQuestion):
+        setState(() {
+          // Preserve the topic mapping for the new question
+          final topicId = _questionTopics.remove(question.id);
+          if (topicId != null) {
+            _questionTopics[newQuestion.id] = topicId;
+          }
+          _generatedQuestions[index] = newQuestion;
+          _regeneratingIndex = -1;
+        });
+      case Err(error: final e):
+        setState(() => _regeneratingIndex = -1);
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+            ..clearSnackBars()
+            ..showSnackBar(
+              SnackBar(
+                content: Text(e.message ?? 'Failed to regenerate question'),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+        }
+    }
+  }
+
+  // ─────────────────── Inline Edit ───────────────────────────
+
+  void _startEditing(int index) {
+    final question = _generatedQuestions[index];
+    _disposeEditRubric();
+
+    _editTextCtrl.text = question.text;
+    _editMarksCtrl.text = '${question.marks}';
+
+    for (final c in question.rubric) {
+      _editRubric.add(
+        _InlineRubricEntry()
+          ..criterionCtrl.text = c.criterion
+          ..marksCtrl.text = '${c.marks}',
+      );
+    }
+
+    setState(() {
+      _editingIndex = index;
+      _isSavingEdit = false;
+    });
+  }
+
+  void _cancelEditing() {
+    _disposeEditRubric();
+    setState(() {
+      _editingIndex = -1;
+      _isSavingEdit = false;
+    });
+  }
+
+  void _addEditRubricRow() {
+    setState(() {
+      _editRubric.add(_InlineRubricEntry());
+    });
+  }
+
+  void _removeEditRubricRow(int index) {
+    final entry = _editRubric.removeAt(index);
+    entry.criterionCtrl.dispose();
+    entry.marksCtrl.dispose();
+    setState(() {});
+  }
+
+  Future<void> _saveEdit(int index) async {
+    if (_isSavingEdit) return;
+    final question = _generatedQuestions[index];
+
+    final text = _editTextCtrl.text.trim();
+    if (text.isEmpty) return;
+
+    final marks = int.tryParse(_editMarksCtrl.text.trim()) ?? question.marks;
+
+    final rubric = <RubricCriterion>[];
+    for (final r in _editRubric) {
+      final criterion = r.criterionCtrl.text.trim();
+      final rMarks = int.tryParse(r.marksCtrl.text.trim()) ?? 0;
+      if (criterion.isNotEmpty) {
+        rubric.add(RubricCriterion(criterion: criterion, marks: rMarks));
+      }
+    }
+
+    setState(() => _isSavingEdit = true);
+
+    final result = await questionBankService.editPaperQuestion(
+      school: widget.schoolId,
+      exam: widget.examId,
+      subject: widget.subjectId,
+      paper: widget.paperId,
+      paperQuestionId: question.id,
+      text: text,
+      marks: marks,
+      rubric: rubric,
+      accessToken: accessToken,
+    );
+
+    if (!mounted) return;
+
+    switch (result) {
+      case Ok(value: final updated):
+        // Preserve topic mapping
+        final topicId = _questionTopics.remove(question.id);
+        if (topicId != null) {
+          _questionTopics[updated.id] = topicId;
+        }
+        _disposeEditRubric();
+        setState(() {
+          _generatedQuestions[index] = updated;
+          _editingIndex = -1;
+          _isSavingEdit = false;
+        });
+      case Err(error: final e):
+        setState(() => _isSavingEdit = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+            ..clearSnackBars()
+            ..showSnackBar(
+              SnackBar(
+                content: Text(e.message ?? 'Failed to save changes'),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+        }
     }
   }
 
@@ -181,16 +405,36 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    final String title;
+    switch (_currentStep) {
+      case 0:
+        title = 'Generate Paper';
+      case 1:
+        title = 'Review Questions';
+      case 2:
+        title = 'Finalize';
+      default:
+        title = 'Generate Paper';
+    }
+
     return Scaffold(
       backgroundColor: cs.surface,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.chevron_left_rounded, size: 24),
-          onPressed: () => Navigator.of(context).pop(),
-          tooltip: 'Back',
+          onPressed: () {
+            if (_currentStep == 1) {
+              setState(() => _currentStep = 0);
+            } else if (_currentStep == 2) {
+              setState(() => _currentStep = 1);
+            } else {
+              Navigator.of(context).pop();
+            }
+          },
+          tooltip: _currentStep > 0 ? 'Previous step' : 'Back',
         ),
         title: Text(
-          'Generate Paper',
+          title,
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w400,
@@ -209,7 +453,7 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
       ),
       body: switch (_currentStep) {
         0 => _buildAllocationStep(cs, isDark),
-        1 => _buildReviewStep(cs),
+        1 => _buildReviewStep(cs, isDark),
         2 => _buildFinalizeStep(cs),
         _ => const SizedBox.shrink(),
       },
@@ -444,17 +688,554 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
     );
   }
 
-  // ───────────────── Step 1: Review (placeholder) ─────────────────
+  // ───────────────── Step 1: Review Questions ─────────────────
 
-  Widget _buildReviewStep(ColorScheme cs) {
-    return Center(
-      child: Text(
-        'Step 2 — Review & Edit (coming soon)',
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w400,
-          color: cs.onSurfaceVariant,
+  Widget _buildReviewStep(ColorScheme cs, bool isDark) {
+    if (_generatedQuestions.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.quiz_outlined,
+                size: 48,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'No questions generated',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurface.withValues(alpha: 0.7),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Go back and generate questions first',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w300,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+              ),
+            ],
+          ),
         ),
+      );
+    }
+
+    return Column(
+      children: [
+        // ── Context header ──
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${widget.subjectName} · ${widget.examName} · ${_generatedQuestions.length} question${_generatedQuestions.length == 1 ? '' : 's'}',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 4),
+
+        // ── Question list ──
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+            itemCount: _generatedQuestions.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              final question = _generatedQuestions[index];
+              final isEditing = _editingIndex == index;
+              final isRegenerating = _regeneratingIndex == index;
+
+              if (isRegenerating) {
+                return _buildRegeneratingCard(cs, isDark);
+              }
+
+              if (isEditing) {
+                return _buildEditCard(index, question, cs, isDark);
+              }
+
+              return _buildQuestionCard(index, question, cs, isDark);
+            },
+          ),
+        ),
+
+        // ── Finalize footer ──
+        _ReviewFooter(
+          questionCount: _generatedQuestions.length,
+          cs: cs,
+          isDark: isDark,
+          onFinalize: _generatedQuestions.isNotEmpty
+              ? () => setState(() => _currentStep = 2)
+              : null,
+        ),
+      ],
+    );
+  }
+
+  // ── Question card (display mode) ──
+
+  Widget _buildQuestionCard(
+    int index,
+    PaperQuestion question,
+    ColorScheme cs,
+    bool isDark,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1A2536) : cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        border: Border.all(color: AppTheme.borderColor(isDark, cs), width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Header: order + marks + actions ──
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 8, 0),
+            child: Row(
+              children: [
+                // Question number
+                Text(
+                  'Q${question.order}.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Marks pill
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: cs.primary.withValues(alpha: isDark ? 0.15 : 0.10),
+                    borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+                  ),
+                  child: Text(
+                    '${question.marks} mk${question.marks == 1 ? '' : 's'}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: cs.primary,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                // Edit button
+                _MiniIconButton(
+                  icon: Icons.edit_outlined,
+                  tooltip: 'Edit',
+                  onTap: () => _startEditing(index),
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                ),
+                // Regenerate button
+                _MiniIconButton(
+                  icon: Icons.refresh_rounded,
+                  tooltip: 'Regenerate',
+                  onTap: () => _regenerateQuestion(index),
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                ),
+              ],
+            ),
+          ),
+
+          // ── Question text ──
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: Text(
+              question.text,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w300,
+                color: cs.onSurface,
+                height: 1.45,
+              ),
+            ),
+          ),
+
+          // ── Rubric (collapsible) ──
+          if (question.rubric.isNotEmpty)
+            _CollapsibleRubric(rubric: question.rubric, cs: cs, isDark: isDark),
+
+          // ── Images ──
+          if (question.images.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: question.images.map((img) {
+                  return _ImageBadge(
+                    filename: img.filename,
+                    context: img.context,
+                    cs: cs,
+                    isDark: isDark,
+                  );
+                }).toList(),
+              ),
+            ),
+
+          const SizedBox(height: 10),
+        ],
+      ),
+    );
+  }
+
+  // ── Regenerating shimmer card ──
+
+  Widget _buildRegeneratingCard(ColorScheme cs, bool isDark) {
+    return Container(
+      height: 100,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1A2536) : cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        border: Border.all(color: AppTheme.borderColor(isDark, cs), width: 0.5),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                color: cs.primary.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Regenerating…',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Edit card (inline edit mode) ──
+
+  Widget _buildEditCard(
+    int index,
+    PaperQuestion question,
+    ColorScheme cs,
+    bool isDark,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1A2536) : cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.4), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Header: order label + save/cancel ──
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 8, 0),
+            child: Row(
+              children: [
+                Text(
+                  'Q${question.order}. — Editing',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: cs.primary,
+                  ),
+                ),
+                const Spacer(),
+                // Save
+                _MiniIconButton(
+                  icon: Icons.check_rounded,
+                  tooltip: 'Save',
+                  onTap: _isSavingEdit ? null : () => _saveEdit(index),
+                  color: const Color(0xFF4CAF50),
+                ),
+                // Cancel
+                _MiniIconButton(
+                  icon: Icons.close_rounded,
+                  tooltip: 'Cancel',
+                  onTap: _isSavingEdit ? null : _cancelEditing,
+                  color: cs.error.withValues(alpha: 0.7),
+                ),
+              ],
+            ),
+          ),
+
+          // ── Saving indicator ──
+          if (_isSavingEdit)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: LinearProgressIndicator(
+                minHeight: 2,
+                color: cs.primary,
+                backgroundColor: cs.primary.withValues(alpha: 0.1),
+              ),
+            ),
+
+          // ── Question text field ──
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+            child: TextField(
+              controller: _editTextCtrl,
+              maxLines: null,
+              minLines: 2,
+              enabled: !_isSavingEdit,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurface,
+                height: 1.45,
+              ),
+              decoration: _editFieldDecoration(
+                hint: 'Question text',
+                cs: cs,
+                isDark: isDark,
+              ),
+            ),
+          ),
+
+          // ── Marks field ──
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: Row(
+              children: [
+                Text(
+                  'Marks',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 60,
+                  height: 34,
+                  child: TextField(
+                    controller: _editMarksCtrl,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(3),
+                    ],
+                    textAlign: TextAlign.center,
+                    enabled: !_isSavingEdit,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: cs.onSurface,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                    decoration: _editFieldDecoration(
+                      hint: '0',
+                      cs: cs,
+                      isDark: isDark,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // ── Rubric criteria ──
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'RUBRIC CRITERIA',
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.9,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                  ),
+                ),
+                const SizedBox(height: 6),
+
+                for (int i = 0; i < _editRubric.length; i++) ...[
+                  if (i > 0) AppTheme.tableRowDivider(isDark, cs),
+                  _buildEditRubricRow(i, cs, isDark),
+                ],
+
+                const SizedBox(height: 6),
+
+                // Add criterion
+                GestureDetector(
+                  onTap: _isSavingEdit ? null : _addEditRubricRow,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: cs.outlineVariant.withValues(
+                          alpha: isDark ? 0.2 : 0.15,
+                        ),
+                        width: 0.5,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.add_rounded,
+                          size: 14,
+                          color: cs.primary.withValues(alpha: 0.7),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Add criterion',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            color: cs.primary.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 12),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEditRubricRow(int index, ColorScheme cs, bool isDark) {
+    final entry = _editRubric[index];
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Criterion text
+          Expanded(
+            child: TextField(
+              controller: entry.criterionCtrl,
+              enabled: !_isSavingEdit,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurface,
+              ),
+              decoration: _editFieldDecoration(
+                hint: 'Criterion description',
+                cs: cs,
+                isDark: isDark,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Marks
+          SizedBox(
+            width: 60,
+            child: TextField(
+              controller: entry.marksCtrl,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              textAlign: TextAlign.center,
+              enabled: !_isSavingEdit,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurface,
+              ),
+              decoration: _editFieldDecoration(
+                hint: 'Mks',
+                cs: cs,
+                isDark: isDark,
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          // Remove button
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: _MiniIconButton(
+              icon: Icons.delete_outline_rounded,
+              tooltip: 'Remove',
+              onTap: _isSavingEdit ? null : () => _removeEditRubricRow(index),
+              color: cs.error.withValues(alpha: 0.60),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _editFieldDecoration({
+    required String hint,
+    required ColorScheme cs,
+    required bool isDark,
+  }) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        color: cs.onSurfaceVariant.withValues(alpha: 0.40),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      isDense: true,
+      filled: true,
+      fillColor: isDark ? const Color(0xFF1E2A3A) : cs.surfaceContainerLowest,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(6),
+        borderSide: isDark
+            ? BorderSide(
+                color: cs.outlineVariant.withValues(alpha: 0.3),
+                width: 0.5,
+              )
+            : BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(6),
+        borderSide: isDark
+            ? BorderSide(
+                color: cs.outlineVariant.withValues(alpha: 0.3),
+                width: 0.5,
+              )
+            : BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(6),
+        borderSide: BorderSide(color: cs.primary, width: 1),
       ),
     );
   }
@@ -469,6 +1250,397 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
           fontSize: 14,
           fontWeight: FontWeight.w400,
           color: cs.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Inline rubric entry (edit mode)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _InlineRubricEntry {
+  final criterionCtrl = TextEditingController();
+  final marksCtrl = TextEditingController();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Mini icon button (28×28)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MiniIconButton extends StatelessWidget {
+  const _MiniIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onTap;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: Icon(
+        icon,
+        size: 16,
+        color: onTap != null ? color : color.withValues(alpha: 0.3),
+      ),
+      onPressed: onTap,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+      tooltip: tooltip,
+      splashRadius: 14,
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Collapsible rubric section
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CollapsibleRubric extends StatefulWidget {
+  const _CollapsibleRubric({
+    required this.rubric,
+    required this.cs,
+    required this.isDark,
+  });
+
+  final List<RubricCriterion> rubric;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  State<_CollapsibleRubric> createState() => _CollapsibleRubricState();
+}
+
+class _CollapsibleRubricState extends State<_CollapsibleRubric> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final isDark = widget.isDark;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Toggle header
+          GestureDetector(
+            onTap: () => setState(() => _expanded = !_expanded),
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              children: [
+                Icon(
+                  _expanded
+                      ? Icons.expand_less_rounded
+                      : Icons.expand_more_rounded,
+                  size: 16,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'Rubric (${widget.rubric.length})',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Criteria list
+          if (_expanded) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? const Color(0xFF151E2B)
+                    : cs.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: cs.outlineVariant.withValues(
+                    alpha: isDark ? 0.15 : 0.1,
+                  ),
+                  width: 0.5,
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (int i = 0; i < widget.rubric.length; i++) ...[
+                    if (i > 0)
+                      Divider(
+                        height: 1,
+                        thickness: 0.5,
+                        color: cs.outlineVariant.withValues(
+                          alpha: isDark ? 0.12 : 0.08,
+                        ),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              widget.rubric[i].criterion,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w300,
+                                color: cs.onSurface.withValues(alpha: 0.85),
+                                height: 1.35,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: cs.primary.withValues(
+                                alpha: isDark ? 0.10 : 0.07,
+                              ),
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.kChipRadius,
+                              ),
+                            ),
+                            child: Text(
+                              '${widget.rubric[i].marks}',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w500,
+                                color: cs.primary.withValues(alpha: 0.8),
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Image badge
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ImageBadge extends StatelessWidget {
+  const _ImageBadge({
+    required this.filename,
+    required this.context,
+    required this.cs,
+    required this.isDark,
+  });
+
+  final String filename;
+  final ImageContext context;
+  final ColorScheme cs;
+  final bool isDark;
+
+  String get _contextLabel => switch (context) {
+    ImageContext.question => 'Question',
+    ImageContext.rubric => 'Rubric',
+    ImageContext.exampleAnswer => 'Answer',
+  };
+
+  @override
+  Widget build(BuildContext context_) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLowest.withValues(alpha: isDark ? 0.4 : 0.8),
+        borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.2 : 0.15),
+          width: 0.5,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.image_outlined,
+            size: 12,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            filename,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurface.withValues(alpha: 0.7),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            decoration: BoxDecoration(
+              color: cs.primary.withValues(alpha: isDark ? 0.12 : 0.08),
+              borderRadius: BorderRadius.circular(2),
+            ),
+            child: Text(
+              _contextLabel,
+              style: TextStyle(
+                fontSize: 8,
+                fontWeight: FontWeight.w500,
+                color: cs.primary.withValues(alpha: 0.7),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Review footer with Finalize button
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ReviewFooter extends StatefulWidget {
+  const _ReviewFooter({
+    required this.questionCount,
+    required this.cs,
+    required this.isDark,
+    required this.onFinalize,
+  });
+
+  final int questionCount;
+  final ColorScheme cs;
+  final bool isDark;
+  final VoidCallback? onFinalize;
+
+  @override
+  State<_ReviewFooter> createState() => _ReviewFooterState();
+}
+
+class _ReviewFooterState extends State<_ReviewFooter>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _scaleCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _scaleCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+      lowerBound: 0.95,
+      upperBound: 1.0,
+      value: 1.0,
+    );
+  }
+
+  @override
+  void dispose() {
+    _scaleCtrl.dispose();
+    super.dispose();
+  }
+
+  void _handleTapDown(TapDownDetails _) => _scaleCtrl.reverse();
+  void _handleTapUp(TapUpDetails _) => _scaleCtrl.forward();
+  void _handleTapCancel() => _scaleCtrl.forward();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final isDark = widget.isDark;
+    final enabled = widget.onFinalize != null;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF18222E) : cs.surface,
+        border: Border(
+          top: BorderSide(color: AppTheme.borderColor(isDark, cs), width: 0.5),
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                '${widget.questionCount} question${widget.questionCount == 1 ? '' : 's'} ready',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            ),
+            GestureDetector(
+              onTapDown: enabled ? _handleTapDown : null,
+              onTapUp: enabled ? _handleTapUp : null,
+              onTapCancel: enabled ? _handleTapCancel : null,
+              onTap: widget.onFinalize,
+              child: AnimatedBuilder(
+                animation: _scaleCtrl,
+                builder: (context, child) {
+                  return Transform.scale(scale: _scaleCtrl.value, child: child);
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: enabled
+                        ? cs.primary
+                        : cs.onSurface.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.check_circle_outline_rounded,
+                        size: 16,
+                        color: enabled
+                            ? cs.onPrimary
+                            : cs.onSurfaceVariant.withValues(alpha: 0.4),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Finalize',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: enabled
+                              ? cs.onPrimary
+                              : cs.onSurfaceVariant.withValues(alpha: 0.4),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

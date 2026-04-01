@@ -12,6 +12,7 @@ import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_form_field.dart';
 import '../../../widgets/edu_sheet.dart';
 import 'create_question_sheet.dart';
+import 'questions_list_page.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SubjectsSection — global subject catalog management
@@ -1159,15 +1160,15 @@ class _TopicTileState extends State<_TopicTile>
           accessToken: accessToken,
         )
         .then((result) {
-      if (!mounted) return;
-      setState(() {
-        _countLoading = false;
-        _questionCount = switch (result) {
-          Ok(value: final v) => v.$2,
-          Err() => null,
-        };
-      });
-    });
+          if (!mounted) return;
+          setState(() {
+            _countLoading = false;
+            _questionCount = switch (result) {
+              Ok(value: final v) => v.$2,
+              Err() => null,
+            };
+          });
+        });
   }
 
   @override
@@ -1250,8 +1251,9 @@ class _TopicTileState extends State<_TopicTile>
                       height: 14,
                       decoration: BoxDecoration(
                         color: cs.onSurfaceVariant.withValues(alpha: 0.06),
-                        borderRadius:
-                            BorderRadius.circular(AppTheme.kChipRadius),
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.kChipRadius,
+                        ),
                       ),
                     ),
                   ] else if (_questionCount != null) ...[
@@ -1265,16 +1267,16 @@ class _TopicTileState extends State<_TopicTile>
                         color: cs.primaryContainer.withValues(
                           alpha: isDark ? 0.30 : 0.60,
                         ),
-                        borderRadius:
-                            BorderRadius.circular(AppTheme.kChipRadius),
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.kChipRadius,
+                        ),
                       ),
                       child: Text(
                         '$_questionCount Qs',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
-                          color: cs.onPrimaryContainer
-                              .withValues(alpha: 0.80),
+                          color: cs.onPrimaryContainer.withValues(alpha: 0.80),
                         ),
                       ),
                     ),
@@ -1319,6 +1321,8 @@ class _TopicTileState extends State<_TopicTile>
             topic: topic,
             subjectName: widget.subjectName,
             canCreate: widget.canCreate,
+            canEdit: widget.canEdit,
+            canDelete: widget.canDelete,
             cs: cs,
             isDark: isDark,
             onQuestionCountChanged: _refreshQuestionCount,
@@ -1378,6 +1382,8 @@ class _TopicExpandedContent extends StatefulWidget {
     required this.topic,
     required this.subjectName,
     required this.canCreate,
+    required this.canEdit,
+    required this.canDelete,
     required this.cs,
     required this.isDark,
     this.onQuestionCountChanged,
@@ -1386,6 +1392,8 @@ class _TopicExpandedContent extends StatefulWidget {
   final Topic topic;
   final String subjectName;
   final bool canCreate;
+  final bool canEdit;
+  final bool canDelete;
   final ColorScheme cs;
   final bool isDark;
   final VoidCallback? onQuestionCountChanged;
@@ -1594,8 +1602,22 @@ class _TopicExpandedContentState extends State<_TopicExpandedContent> {
 
           // ── View all questions row ─────────────────────────────────
           GestureDetector(
-            // TODO: Task 09 — navigate to QuestionsListPage
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => QuestionsListPage(
+                    topicId: widget.topic.id,
+                    topicName: widget.topic.name,
+                    subjectName: widget.subjectName,
+                    grade: widget.topic.grade,
+                    canEdit: widget.canEdit,
+                    canDelete: widget.canDelete,
+                    canCreate: widget.canCreate,
+                  ),
+                ),
+              );
+            },
             child: MouseRegion(
               cursor: SystemMouseCursors.click,
               child: Padding(
