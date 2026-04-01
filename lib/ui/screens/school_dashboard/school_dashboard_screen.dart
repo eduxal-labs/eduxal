@@ -292,8 +292,6 @@ class _DashboardShellState extends State<_DashboardShell>
         ),
 
         // ── Permission-gated (visible only with proper role/scope) ──
-        if (perms.canAny(Resource.attendance, [Action.read, Action.mark]))
-          const _NavItem(label: 'Attendance', icon: Icons.fact_check_outlined),
         if (perms.canAny(Resource.students, [Action.read]) ||
             perms.canAny(Resource.teachers, [Action.read]) ||
             perms.canAny(Resource.staff, [Action.read]) ||
