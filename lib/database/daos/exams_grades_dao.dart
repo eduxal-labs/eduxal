@@ -1560,29 +1560,25 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
 
   /// Updates the date range for ALL exam rows in a group atomically.
   /// Used when extending an exam's date range — all rows sharing the
-  /// same (type, oldStart, oldEnd) must stay in sync.
+  /// same name within (school, year, term) must stay in sync.
   Future<void> updateExamGroupDateRange({
     required String schoolId,
     required int year,
     required int term,
-    required ExamType type,
-    required int oldStart,
-    required int oldEnd,
+    required String examName,
     required int newStart,
     required int newEnd,
     required String accountId,
   }) async {
     await transaction(() async {
-      // Find all exam IDs matching the group
+      // Find all exam IDs matching the group by name
       final matching =
           await (select(exams)..where(
                 (e) =>
                     e.school.equals(schoolId) &
                     e.year.equals(year) &
                     e.term.equals(term) &
-                    e.type.equals(type.index) &
-                    e.start.equals(oldStart) &
-                    e.end.equals(oldEnd),
+                    e.name.equals(examName),
               ))
               .get();
 

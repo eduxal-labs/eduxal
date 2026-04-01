@@ -266,6 +266,9 @@ class _ExamsShellState extends State<_ExamsShell> {
             onBack: _popToList,
             onPaperTap: _openPaper,
             onDeleted: _popToList,
+            onGroupKeyChanged: (newKey) {
+              setState(() => _selectedGroupKey = newKey);
+            },
             initialGradeIndex: () {
               if (_selectedExamGrade == null) return 0;
               final idx = group.grades.indexWhere(
@@ -364,13 +367,7 @@ class _ExamsListViewState extends State<_ExamsListView> {
   }
 
   /// Extract a display name from an [ExamGroup].
-  /// Uses the name from the first exam row in the group.
-  String _examGroupName(ExamGroup group) {
-    if (group.grades.isNotEmpty && group.grades.first.streams.isNotEmpty) {
-      return group.grades.first.streams.first.exam.name;
-    }
-    return _typeLabel(group.type);
-  }
+  String _examGroupName(ExamGroup group) => group.name;
 
   /// Filter [items] by the current search query and active type filters.
   List<ExamGroup> _applyFilters(List<ExamGroup> items) {
@@ -604,11 +601,7 @@ class _ExamGroupRowState extends State<_ExamGroupRow>
       0,
       (sum, g) => sum + g.streams.length,
     );
-    final examName =
-        widget.group.grades.isNotEmpty &&
-            widget.group.grades.first.streams.isNotEmpty
-        ? widget.group.grades.first.streams.first.exam.name
-        : typeLabel;
+    final examName = widget.group.name;
 
     final idleBg = isDark
         ? cs.primary.withValues(alpha: 0.06)
@@ -837,6 +830,7 @@ class _ExamGroupDetailView extends StatefulWidget {
     this.initialStreamIndex = 0,
     this.initialDayIndex = 0,
     this.onDayChanged,
+    this.onGroupKeyChanged,
   });
   final ExamGroup group;
   final String schoolId;
@@ -854,6 +848,7 @@ class _ExamGroupDetailView extends StatefulWidget {
   final int initialStreamIndex;
   final int initialDayIndex;
   final ValueChanged<int>? onDayChanged;
+  final ValueChanged<String>? onGroupKeyChanged;
 
   @override
   State<_ExamGroupDetailView> createState() => _ExamGroupDetailViewState();
@@ -1168,10 +1163,7 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
 
   Future<void> _showEditExamName(BuildContext context) async {
     final group = widget.group;
-    final currentName =
-        group.grades.isNotEmpty && group.grades.first.streams.isNotEmpty
-        ? group.grades.first.streams.first.exam.name
-        : '';
+    final currentName = group.name;
     final ctrl = TextEditingController(text: currentName);
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -1299,6 +1291,11 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
                               name: name,
                               accountId: accountId,
                             );
+                            // Group key is now name-based — notify parent so
+                            // the stream matcher picks up the renamed group.
+                            final newKey =
+                                '${widget.schoolId}|${widget.year}|${widget.term}|$name';
+                            widget.onGroupKeyChanged?.call(newKey);
                           },
                           icon: const Icon(Icons.check_rounded, size: 16),
                           label: const Text(
@@ -7679,9 +7676,7 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
         schoolId: widget.schoolId,
         year: widget.year,
         term: widget.term,
-        type: group.type,
-        oldStart: group.start,
-        oldEnd: group.end,
+        examName: group.name,
         newStart: newStartDays,
         newEnd: newEndDays,
         accountId: accountId,

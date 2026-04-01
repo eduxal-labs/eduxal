@@ -66,7 +66,7 @@
 
 ---
 
-### Task 2: Update ExamGroup consumers to use the new `name` field
+### Task 2: Update ExamGroup consumers to use the new `name` field ✅
 
 **Files to create/modify:** `lib/ui/screens/school_dashboard/exams/exams_grades_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -111,8 +111,8 @@ After Task 1 adds `name` to `ExamGroup`, update the consumers:
    Add a `required String examName` parameter and remove the old `type`/`start`/`end` parameters if they were only used for group identification. Check all call sites of `updateExamGroupDateRange` and update them to pass `examName` (available from `group.name`).
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note exam group consumers updated
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note exam group consumers updated
+- [x] Mark this task `[x]`
 
 ---
 
