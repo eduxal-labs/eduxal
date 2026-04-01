@@ -125,7 +125,7 @@ If the `.proto` file is not yet available from the server, the executor should c
 
 ## Track 2: Domain Models
 
-### Task 02: Create client-side domain models for question bank data
+### Task 02: Create client-side domain models for question bank data ✅
 **Files to create:** `lib/models/question.dart`, `lib/models/paper_generation.dart`, `lib/models/marking_status.dart`, `lib/models/question_grade.dart`
 **Context files to read (if needed):** `lib/models/CONTEXT.md`, `lib/models/result.dart`
 **Depends on:** Task 01
@@ -285,9 +285,9 @@ class QuestionGradeDetail {
 All `fromProto` factories should map proto enum values (ints) to the Dart enums. Follow the existing pattern in the codebase where proto types are used only as deserialization targets and domain models are what the UI sees.
 
 **Update after completion:**
-- [ ] Update `lib/models/CONTEXT.md` — add entries for all four new model files
-- [ ] Mark this task `[x]`
-- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
+- [x] Update `lib/models/CONTEXT.md` — add entries for all four new model files
+- [x] Mark this task `[x]`
+- [x] Commit: `git add -A && git commit -m "feat: create domain models for question bank (question, paper_generation, marking_status, question_grade)"`
 
 ---
 

@@ -5,7 +5,7 @@
 
 ## Overview
 
-This directory contains **18 files** — each defining one or more pure Dart classes, sealed types, or enums used across the app. Models here never import `package:drift` directly (though some reference Drift-generated data classes like `UsersData`, `AccountsData`, `SchoolsData` from `database/database.dart`).
+This directory contains **22 files** — each defining one or more pure Dart classes, sealed types, or enums used across the app. Models here never import `package:drift` directly (though some reference Drift-generated data classes like `UsersData`, `AccountsData`, `SchoolsData` from `database/database.dart`).
 
 ## Files
 
@@ -14,13 +14,17 @@ This directory contains **18 files** — each defining one or more pure Dart cla
 | `active_term_context.dart` | `ActiveTermContext` | ✅ Complete |
 | `app_notification.dart` | `AppNotification` | ✅ Complete |
 | `authenticated.dart` | `Authenticated` | ✅ Complete |
-| `permissions.dart` | `Resource`, `Action`, `Permissions` | ✅ Complete |
 | `curriculum_levels.dart` | `CurriculumLevel`, `kCbcLevels`, `k844Levels`, `levelsFor()`, `subjectLabel()` | ✅ Complete |
 | `exam_group.dart` | `ExamGroup`, `ExamGradeEntry`, `ExamStreamEntry` | ✅ Complete |
 | `grade_analytics.dart` | `StreamStats`, `Trajectory`, `SubjectTeacherEntry`, `GradeStudentRow`, `ClassTeacherHistoryEntry` | ✅ Complete |
+| `marking_status.dart` | `MarkingPhase`, `MarkingStatus` | ✅ Complete |
 | `membership.dart` | `MembershipRole`, `MembershipEntry` (sealed), `SchoolMembership` | ✅ Complete |
 | `mpesa_config.dart` | `MpesaConfig`, `MpesaEnvironment` | ✅ Complete |
+| `paper_generation.dart` | `TopicAllocation`, `PaperQuestion`, `PaperPdf` | ✅ Complete |
+| `permissions.dart` | `Resource`, `Action`, `Permissions` | ✅ Complete |
 | `plan_features.dart` | `PlanFeature`, `kPlanFeatures`, `GradeLevel`, `GradeLevelGroup`, `gradeLabel()`, `kCbcGroups` | ✅ Complete |
+| `question.dart` | `ImageContext`, `RubricCriterion`, `QuestionImage`, `Question`, `BulkImportResult`, `ImportError` | ✅ Complete |
+| `question_grade.dart` | `RubricResult`, `QuestionGradeDetail` | ✅ Complete |
 | `result.dart` | `Result<T, E>` (sealed), `Ok<T, E>`, `Err<T, E>` | ✅ Complete |
 | `school_config.dart` | `GradeStream`, `GradeConfig`, `CurriculumConfig`, `SchoolConfig`, `kCbcGradeLabels`, `kEightFourFourGradeLabels`, `gradeLabelsFor()` | ✅ Complete |
 | `school_context.dart` | `SchoolContext` | ✅ Complete |
@@ -166,9 +170,38 @@ System dashboard aggregate statistics. All have `static const empty` for initial
 - `GradeLevel` enum — 16 values with `bit`, `label`, `description`, `mask` for bitmask encoding.
 - `GradeLevelGroup`, `kCbcGroups` — groupings for UI display.
 
+### Question Bank models — `question.dart`
+Domain models for the AI question bank. All have `fromProto` factories mapping from proto-generated types in `question_bank.pb.dart`. Imports: `proto/services/question_bank.pb.dart`, `question_bank.pbenum.dart`.
+
+- **`ImageContext`** — Enum: `question`, `rubric`, `exampleAnswer`. Maps from proto `ImageContext` (QUESTION=0, RUBRIC=1, EXAMPLE_ANSWER=2).
+- **`RubricCriterion`** — One rubric criterion with mark allocation. Fields: `criterion` (String), `marks` (int). Factory: `fromProto(pb.RubricCriterion)`.
+- **`QuestionImage`** — Image attached to a question. Fields: `context` (ImageContext), `filename` (String), `caption` (String?), `description` (String), `getUrl` (String? — populated after upload or from server). Factory: `fromProto(pb.QuestionImage)`.
+- **`Question`** — A question in the question bank. Fields: `id` (int), `topicId` (int), `text` (String), `marks` (int), `rubric` (List\<RubricCriterion\>), `exampleAnswer` (String?), `images` (List\<QuestionImage\>), `created` (DateTime), `updated` (DateTime). Factory: `fromProto(pb.Question)` — proto `created`/`updated` are Int64 seconds since epoch, converted via `DateTime.fromMillisecondsSinceEpoch(proto.field.toInt() * 1000)`.
+- **`BulkImportResult`** — Result of bulk import. Fields: `createdCount` (int), `errors` (List\<ImportError\>). Factory: `fromProto(pb.BulkImportResponse)`.
+- **`ImportError`** — Single error from bulk import. Fields: `index` (int), `message` (String). Factory: `fromProto(pb.ImportError)`.
+
+### Paper Generation models — `paper_generation.dart`
+Domain models for AI paper generation flow. Imports `question.dart` for `RubricCriterion` and `QuestionImage`, plus `proto/services/question_bank.pb.dart`.
+
+- **`TopicAllocation`** — Topic with mark allocation for paper generation. Fields: `topicId` (int), `topicName` (String — display only, not sent to server), `marks` (int, mutable, default 0). No `fromProto` — constructed locally by the UI.
+- **`PaperQuestion`** — Generated question for a paper before finalization. Fields: `id` (String — server-assigned temp ID), `questionId` (int), `text` (String), `marks` (int), `rubric` (List\<RubricCriterion\>), `images` (List\<QuestionImage\>), `order` (int). Factory: `fromProto(pb.PaperQuestion)`.
+- **`PaperPdf`** — Result of paper finalization with PDF URL. Fields: `pdfUrl` (String), `pdfExpiry` (DateTime). Factories: `fromProto(pb.FinalizePaperResponse)`, `fromGetPdfProto(pb.GetPaperPdfResponse)` — both convert Int64 seconds to DateTime.
+
+### Marking Status models — `marking_status.dart`
+Domain models for AI marking job status polling. Imports: `proto/services/question_bank.pb.dart`, `question_bank.pbenum.dart`.
+
+- **`MarkingPhase`** — Enum: `queued`, `downloading`, `marking`, `computing`, `complete`, `failed`. Mapped from proto `MarkingStatusEnum` (0–5).
+- **`MarkingStatus`** — Status of an AI marking job. Fields: `phase` (MarkingPhase), `progressCurrent` (int), `progressTotal` (int), `errorMessage` (String?). Computed: `progressFraction` (double, 0.0–1.0), `displayLabel` (String — human-readable status text). Factory: `fromProto(pb.MarkingStatusResponse)`.
+
+### Question Grade models — `question_grade.dart`
+Domain models for per-question AI marking results. Import: `proto/services/question_bank.pb.dart`.
+
+- **`RubricResult`** — Per-rubric-criterion result from AI marking. Fields: `criterion` (String), `satisfied` (bool), `marksAwarded` (double), `marksAvailable` (int). Factory: `fromProto(pb.RubricResult)`.
+- **`QuestionGradeDetail`** — Per-question grade breakdown. Fields: `questionText` (String), `marksAwarded` (double), `totalMarks` (int), `feedback` (String), `rubricResults` (List\<RubricResult\>). Factory: `fromProto(pb.QuestionGrade)`.
+
 ## Dependencies
 
-- **Depends on:** `database/database.dart` (for Drift-generated data classes like `UsersData`, `AccountsData`, `SchoolsData`, etc.), `database/tables/enums.dart` (for `AppThemeMode`, `UserLevel`, `SyncAction`, `LogStatus`, etc.), `database/tables/curriculum_subjects.dart` (for `CurriculumType`, `CbcSubject`, `EightFourFourSubject`), `package:flutter/foundation.dart` (only `school_context.dart` and `active_term_context.dart` for `ValueNotifier`/`ChangeNotifier`).
+- **Depends on:** `database/database.dart` (for Drift-generated data classes like `UsersData`, `AccountsData`, `SchoolsData`, etc.), `database/tables/enums.dart` (for `AppThemeMode`, `UserLevel`, `SyncAction`, `LogStatus`, etc.), `database/tables/curriculum_subjects.dart` (for `CurriculumType`, `CbcSubject`, `EightFourFourSubject`), `package:flutter/foundation.dart` (only `school_context.dart` and `active_term_context.dart` for `ValueNotifier`/`ChangeNotifier`), `proto/services/question_bank.pb.dart` and `question_bank.pbenum.dart` (for question bank model `fromProto` factories).
 - **Depended on by:** `services/`, `ui/`, `client.dart`, `database/daos/memberships_dao.dart`.
 
 ## Conventions
@@ -177,6 +210,7 @@ System dashboard aggregate statistics. All have `static const empty` for initial
 - Sealed classes are used for discriminated unions (`Result`, `MembershipEntry`, `VerifyResult`).
 - Serializable models provide `fromJson` factory + `toJson` method.
 - Models that wrap DB rows provide `fromRows` factory + `toCompanion` converter.
+- Models that wrap proto messages provide `fromProto` factory (used in question bank models).
 - No business logic in models — they are data holders with computed getters only.
 
 ### `TimetableRules` / `TimetableSlot` / `TeacherConstraintEntry` / `SubjectConstraintEntry` — `timetable_rules.dart`
@@ -198,4 +232,4 @@ Grouping model for the exams UI. Multiple exam rows sharing the same name are pr
 - **`ExamStreamEntry`** — One exam row + its papers for a specific stream. Fields: `exam` (Exam), `streamCode` (int?), `papers` (List<Paper>).
 
 ## Last Updated
-Task TW-08 — Model changes for remainder-based lesson scheduling. **Removed from `TimetableRules`:** `defaultLessonsPerWeek` (int field, constructor param, `copyWith` param, `default_lessons_per_week` JSON key), `lessonsPerWeekBySubject` (Map\<int,int\> field, constructor param, `copyWith` param, `lessons_per_week_by_subject` JSON key), `lessonsPerWeekForSubject(id)` helper method. **Added to `TimetableRules`:** `remainderPriority` (Map\<String, List\<int\>\> field) — key `"{grade}_{stream ?? 'null'}"`, value = ordered subject ID list; constructor param `Map<String, List<int>>? remainderPriority` defaulting to `{}`; `copyWith` param; serialised as `remainder_priority` in `toJson`; parsed in `fromJson` v2 path via `raw.map((k, v) => MapEntry(k, (v as List<dynamic>).cast<int>()))`. Previous: Task TW-05 — No structural changes to `timetable_rules.dart`. Verified: `TimetableRules.defaults()` calls `TimetableRules()` which already uses `slots: []` (empty list) as its default — no pre-filled slots.
+Task 02 — Created 4 new question bank domain model files: `question.dart`, `paper_generation.dart`, `marking_status.dart`, `question_grade.dart`. All have `fromProto` factories mapping from proto-generated types. Previous: Task TW-08 — Model changes for remainder-based lesson scheduling.
