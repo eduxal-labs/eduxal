@@ -20,6 +20,7 @@ import 'models/authenticated.dart';
 import 'models/result.dart';
 import 'services/authentication.dart';
 import 'services/ai_marking.dart';
+import 'services/question_bank.dart';
 import 'sync/sync_engine.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -61,6 +62,9 @@ late final CatalogDao catalogDao;
 /// If sync is not running (offline or no active account), the call is a no-op
 /// and mutations remain queued for the next push cycle (5-second safety timer).
 SyncEngine get sync => client.syncEngine;
+
+/// Global convenience accessor for the [QuestionBankService].
+QuestionBankService get questionBankService => client.questionBank;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Bootstrap
@@ -132,6 +136,14 @@ class Client {
   /// Uses the main [_channel] (kept alive by the sync engine) for reliability,
   /// with a fresh-channel fallback if the main channel fails.
   late final aiMarking = AiMarkingService(
+    channel: _channel,
+    host: kDomain,
+    port: kPort,
+  );
+
+  /// Question bank service — CRUD, paper generation, marking status, question grades.
+  /// Uses the main [_channel] kept alive by the sync engine.
+  late final questionBank = QuestionBankService(
     channel: _channel,
     host: kDomain,
     port: kPort,

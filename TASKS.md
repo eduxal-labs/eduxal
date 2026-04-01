@@ -434,7 +434,7 @@ Stream<MarkingStatus> watchMarkingStatus({
 
 ---
 
-### Task 06: Register QuestionBankService on Client
+### Task 06: Register QuestionBankService on Client ✅
 **Files to modify:** `lib/client.dart`
 **Context files to read (if needed):** `lib/client.dart` (lines 111–145 for existing pattern)
 **Depends on:** Task 03
@@ -462,8 +462,8 @@ Wire `QuestionBankService` into `Client` following the same pattern as `aiMarkin
 No changes to `initializeClient()` needed — the `late final` lazy-initializes on first access.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
+- [x] Mark this task `[x]`
+- [ ] Commit: `git add -A && git commit -m "feat: register QuestionBankService on Client"`
 
 ---
 
