@@ -2329,6 +2329,7 @@ class _CreateFeeSheetState extends State<_CreateFeeSheet> {
   final Set<int> _selectedGrades = {};
   DateTime _dueDate = DateTime.now().add(const Duration(days: 30));
   bool _saving = false;
+  String? _gradeError;
 
   late final CatalogDao _catalogDao;
   List<MapEntry<int, String>> _gradeOptions = [];
@@ -2371,14 +2372,10 @@ class _CreateFeeSheetState extends State<_CreateFeeSheet> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedGrades.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select at least one grade'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      setState(() => _gradeError = 'Please select at least one grade');
       return;
     }
+    setState(() => _gradeError = null);
 
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;
@@ -2417,12 +2414,14 @@ class _CreateFeeSheetState extends State<_CreateFeeSheet> {
     } catch (e) {
       if (mounted) {
         setState(() => _saving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              content: Text('Error: $e'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
       }
     }
   }
@@ -2573,6 +2572,7 @@ class _CreateFeeSheetState extends State<_CreateFeeSheet> {
                                 } else {
                                   _selectedGrades.add(entry.key);
                                 }
+                                if (_gradeError != null) _gradeError = null;
                               });
                             },
                             child: AnimatedContainer(
@@ -2635,6 +2635,18 @@ class _CreateFeeSheetState extends State<_CreateFeeSheet> {
                             fontSize: 11,
                             fontWeight: FontWeight.w400,
                             color: cs.primary.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ),
+                    if (_gradeError != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                          _gradeError!,
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w400,
+                            color: cs.error,
                           ),
                         ),
                       ),

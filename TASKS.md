@@ -60,9 +60,9 @@
    ```
 
 **Update after completion:**
-- [ ] Update `lib/database/daos/CONTEXT.md` — note `watchExamGroups` now groups by name
-- [ ] Update `lib/models/CONTEXT.md` — note `ExamGroup` now has a `name` field
-- [ ] Mark this task `[x]`
+- [x] Update `lib/database/daos/CONTEXT.md` — note `watchExamGroups` now groups by name
+- [x] Update `lib/models/CONTEXT.md` — note `ExamGroup` now has a `name` field
+- [x] Mark this task `[x]`
 
 ---
 
@@ -165,8 +165,8 @@ final displayScore = stats.averageScore;
 This ensures the podium items show the same metric used for ranking — the overall average score.
 
 **Update after completion:**
-- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note ranking now uses `averageScore`
-- [x] Mark this task `[x]`
+- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note ranking now uses `averageScore`
+- [ ] Mark this task `[x]`
 
 ---
 

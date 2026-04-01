@@ -639,12 +639,25 @@ class _ExamRowState extends State<_ExamRow>
 
                               const SizedBox(width: 10),
 
-                              // ── Date range + teacher ────────────────────
+                              // ── Exam name + date range ──────────────────
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
+                                    // ── Exam name (primary) ───────────────
+                                    Text(
+                                      exam.name,
+                                      style: TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w500,
+                                        color: cs.onSurface,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 3),
+                                    // ── Date range (secondary) ────────────
                                     Row(
                                       children: [
                                         Icon(
@@ -658,9 +671,10 @@ class _ExamRowState extends State<_ExamRow>
                                         Text(
                                           '${_fmtDate(startDate)} – ${_fmtDate(endDate)}',
                                           style: TextStyle(
-                                            fontSize: 13,
+                                            fontSize: 11,
                                             fontWeight: FontWeight.w400,
-                                            color: cs.onSurface,
+                                            color: cs.onSurfaceVariant
+                                                .withValues(alpha: 0.6),
                                           ),
                                         ),
                                       ],
