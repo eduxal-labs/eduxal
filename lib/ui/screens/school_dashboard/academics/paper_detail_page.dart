@@ -3270,11 +3270,8 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
               final flashCtrl = _flashControllers[adm];
 
               Widget cardContent = InkWell(
-                onTap:
-                    (widget.canGrade &&
-                        !_aiMarking &&
-                        widget.paper.status.index >= PaperStatus.done.index)
-                    ? () => _openGradeEntry(context, student)
+                onTap: !_aiMarking
+                    ? () => _openStudentActionSheet(context, student)
                     : null,
                 child: SizedBox(
                   height: 48,
@@ -3372,22 +3369,6 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
                             ),
                           ),
                         ],
-                        // Three-dot action menu
-                        const SizedBox(width: 4),
-                        InkWell(
-                          onTap: _aiMarking
-                              ? null
-                              : () => _openStudentActionSheet(context, student),
-                          borderRadius: BorderRadius.circular(4),
-                          child: Padding(
-                            padding: const EdgeInsets.all(6),
-                            child: Icon(
-                              Icons.more_vert,
-                              size: 18,
-                              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                            ),
-                          ),
-                        ),
                       ],
                     ),
                   ),

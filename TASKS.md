@@ -326,7 +326,7 @@ The percentage is now on top, at fontSize 13 with w500 weight (primary). The sco
 
 ## Bug 3b: Paper Detail Mobile — Remove 3-Dot Button, Move Action Sheet to Row Tap
 
-### Task 6: Replace grade entry on row tap with action sheet; remove 3-dot button
+### Task 6: Replace grade entry on row tap with action sheet; remove 3-dot button ✅
 
 **Files to create/modify:** `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -382,7 +382,7 @@ InkWell(
 ```
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
