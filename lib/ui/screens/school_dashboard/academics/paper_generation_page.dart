@@ -7,6 +7,7 @@ import '../../../../models/paper_generation.dart';
 import '../../../../models/question.dart';
 import '../../../../models/result.dart';
 import '../../../theme/app_theme.dart';
+import 'paper_pdf_viewer.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Paper Generation Page
@@ -48,9 +49,9 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
   int _totalMarks = 80;
   List<TopicAllocation> _allocations = [];
   List<PaperQuestion> _generatedQuestions = [];
-  // ignore: unused_field
-  PaperPdf? _paperPdf; // filled by Step 2 → used by Task 14
+  PaperPdf? _paperPdf;
   bool _isGenerating = false;
+  bool _isFinalizing = false;
 
   /// Track paperQuestionId → topicId for regeneration.
   /// Built when generating paper from allocations.
@@ -454,7 +455,7 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
       body: switch (_currentStep) {
         0 => _buildAllocationStep(cs, isDark),
         1 => _buildReviewStep(cs, isDark),
-        2 => _buildFinalizeStep(cs),
+        2 => _buildFinalizeStep(cs, isDark),
         _ => const SizedBox.shrink(),
       },
     );
@@ -1240,17 +1241,294 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
     );
   }
 
-  // ───────────────── Step 2: Finalize (placeholder) ─────────────────
+  // ───────────────── Step 2: Finalize ─────────────────
 
-  Widget _buildFinalizeStep(ColorScheme cs) {
-    return Center(
-      child: Text(
-        'Step 3 — Finalize (coming soon)',
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w400,
-          color: cs.onSurfaceVariant,
+  Future<void> _finalize() async {
+    if (_isFinalizing) return;
+    setState(() => _isFinalizing = true);
+
+    final result = await questionBankService.finalizePaper(
+      school: widget.schoolId,
+      exam: widget.examId,
+      subject: widget.subjectId,
+      paper: widget.paperId,
+      grade: widget.grade,
+      stream: widget.stream,
+      paperQuestionIds: _generatedQuestions.map((q) => q.id).toList(),
+      accessToken: accessToken,
+    );
+
+    if (!mounted) return;
+
+    switch (result) {
+      case Ok(:final value):
+        setState(() {
+          _paperPdf = value;
+          _isFinalizing = false;
+        });
+      case Err(:final error):
+        setState(() => _isFinalizing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to finalize paper: ${error.message}')),
+        );
+    }
+  }
+
+  Widget _buildFinalizeStep(ColorScheme cs, bool isDark) {
+    final totalMarks = _generatedQuestions.fold<int>(
+      0,
+      (sum, q) => sum + q.marks,
+    );
+
+    return Column(
+      children: [
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            children: [
+              // ── Subject & Exam context ──
+              Text(
+                '${widget.subjectName} · ${widget.examName}',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // ── Stats row ──
+              Row(
+                children: [
+                  _summaryChip(
+                    label: 'Questions',
+                    value: '${_generatedQuestions.length}',
+                    cs: cs,
+                    isDark: isDark,
+                  ),
+                  const SizedBox(width: 8),
+                  _summaryChip(
+                    label: 'Total Marks',
+                    value: '$totalMarks',
+                    cs: cs,
+                    isDark: isDark,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // ── Question list header ──
+              Text(
+                'Questions',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurface.withValues(alpha: 0.8),
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // ── Compact question list (data-table style) ──
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: AppTheme.borderColor(isDark, cs),
+                    width: 0.5,
+                  ),
+                  borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                ),
+                child: Column(
+                  children: [
+                    for (int i = 0; i < _generatedQuestions.length; i++) ...[
+                      if (i > 0) AppTheme.tableRowDivider(isDark, cs),
+                      _buildQuestionRow(i, _generatedQuestions[i], cs, isDark),
+                    ],
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // ── PDF result area (visible after finalization) ──
+              if (_paperPdf != null)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withValues(alpha: isDark ? 0.08 : 0.05),
+                    border: Border.all(
+                      color: Colors.green.withValues(
+                        alpha: isDark ? 0.25 : 0.2,
+                      ),
+                      width: 0.5,
+                    ),
+                    borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.check_circle_rounded,
+                            size: 20,
+                            color: Colors.green.shade400,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Paper generated successfully!',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.green.shade400,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Download / Print PDF button
+                      SizedBox(
+                        width: double.infinity,
+                        child: _FinalizeActionButton(
+                          icon: Icons.picture_as_pdf_outlined,
+                          label: 'Download / Print PDF',
+                          color: cs.primary,
+                          textColor: cs.onPrimary,
+                          onTap: () => downloadAndOpenPdf(
+                            school: widget.schoolId,
+                            exam: widget.examId,
+                            subject: widget.subjectId,
+                            paper: widget.paperId,
+                            grade: widget.grade,
+                            stream: widget.stream,
+                            accessToken: accessToken,
+                            context: context,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Done button
+                      SizedBox(
+                        width: double.infinity,
+                        child: _FinalizeActionButton(
+                          icon: Icons.done_all_rounded,
+                          label: 'Done',
+                          color: isDark
+                              ? cs.surfaceContainerHighest
+                              : cs.surfaceContainerHigh,
+                          textColor: cs.onSurface,
+                          onTap: () => Navigator.of(context).pop(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
         ),
+
+        // ── Finalize button footer (hidden once PDF is generated) ──
+        if (_paperPdf == null)
+          _FinalizeFooter(
+            cs: cs,
+            isDark: isDark,
+            isFinalizing: _isFinalizing,
+            onFinalize: _generatedQuestions.isNotEmpty ? _finalize : null,
+          ),
+      ],
+    );
+  }
+
+  Widget _summaryChip({
+    required String label,
+    required String value,
+    required ColorScheme cs,
+    required bool isDark,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.nestedBg(isDark, cs),
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        border: Border.all(color: AppTheme.borderColor(isDark, cs), width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurface,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuestionRow(
+    int index,
+    PaperQuestion question,
+    ColorScheme cs,
+    bool isDark,
+  ) {
+    final truncated = question.text.length > 60
+        ? '${question.text.substring(0, 60)}…'
+        : question.text;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 28,
+            child: Text(
+              'Q${question.order}',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: cs.primary,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              truncated,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w300,
+                color: cs.onSurface.withValues(alpha: 0.85),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '${question.marks}m',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1263,6 +1541,215 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
 class _InlineRubricEntry {
   final criterionCtrl = TextEditingController();
   final marksCtrl = TextEditingController();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Finalize footer (animated button)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _FinalizeFooter extends StatefulWidget {
+  const _FinalizeFooter({
+    required this.cs,
+    required this.isDark,
+    required this.isFinalizing,
+    required this.onFinalize,
+  });
+
+  final ColorScheme cs;
+  final bool isDark;
+  final bool isFinalizing;
+  final VoidCallback? onFinalize;
+
+  @override
+  State<_FinalizeFooter> createState() => _FinalizeFooterState();
+}
+
+class _FinalizeFooterState extends State<_FinalizeFooter>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _scaleCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _scaleCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+      lowerBound: 0.95,
+      upperBound: 1.0,
+      value: 1.0,
+    );
+  }
+
+  @override
+  void dispose() {
+    _scaleCtrl.dispose();
+    super.dispose();
+  }
+
+  void _handleTapDown(TapDownDetails _) => _scaleCtrl.reverse();
+  void _handleTapUp(TapUpDetails _) => _scaleCtrl.forward();
+  void _handleTapCancel() => _scaleCtrl.forward();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final isDark = widget.isDark;
+    final enabled = widget.onFinalize != null && !widget.isFinalizing;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF18222E) : cs.surface,
+        border: Border(
+          top: BorderSide(color: AppTheme.borderColor(isDark, cs), width: 0.5),
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      child: SafeArea(
+        top: false,
+        child: GestureDetector(
+          onTapDown: enabled ? _handleTapDown : null,
+          onTapUp: enabled ? _handleTapUp : null,
+          onTapCancel: enabled ? _handleTapCancel : null,
+          onTap: enabled ? widget.onFinalize : null,
+          child: AnimatedBuilder(
+            animation: _scaleCtrl,
+            builder: (context, child) {
+              return Transform.scale(scale: _scaleCtrl.value, child: child);
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: enabled
+                    ? cs.primary
+                    : cs.onSurface.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              ),
+              alignment: Alignment.center,
+              child: widget.isFinalizing
+                  ? SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.5,
+                        color: cs.onPrimary,
+                      ),
+                    )
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.check_circle_outline_rounded,
+                          size: 16,
+                          color: enabled
+                              ? cs.onPrimary
+                              : cs.onSurfaceVariant.withValues(alpha: 0.4),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Finalize & Generate PDF',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: enabled
+                                ? cs.onPrimary
+                                : cs.onSurfaceVariant.withValues(alpha: 0.4),
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Finalize action button (download / done)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _FinalizeActionButton extends StatefulWidget {
+  const _FinalizeActionButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.textColor,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final Color textColor;
+  final VoidCallback onTap;
+
+  @override
+  State<_FinalizeActionButton> createState() => _FinalizeActionButtonState();
+}
+
+class _FinalizeActionButtonState extends State<_FinalizeActionButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _scaleCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _scaleCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+      lowerBound: 0.95,
+      upperBound: 1.0,
+      value: 1.0,
+    );
+  }
+
+  @override
+  void dispose() {
+    _scaleCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => _scaleCtrl.reverse(),
+      onTapUp: (_) => _scaleCtrl.forward(),
+      onTapCancel: () => _scaleCtrl.forward(),
+      onTap: widget.onTap,
+      child: AnimatedBuilder(
+        animation: _scaleCtrl,
+        builder: (context, child) {
+          return Transform.scale(scale: _scaleCtrl.value, child: child);
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: widget.color,
+            borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+          ),
+          alignment: Alignment.center,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(widget.icon, size: 16, color: widget.textColor),
+              const SizedBox(width: 6),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: widget.textColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

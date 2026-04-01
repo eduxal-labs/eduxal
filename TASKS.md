@@ -828,7 +828,7 @@ Step 2 of the paper generation wizard: reviewing and editing generated questions
 
 ---
 
-### Task 14: Paper generation page — finalize step
+### Task 14: Paper generation page — finalize step ✅
 **Files to modify:** `lib/ui/screens/school_dashboard/academics/paper_generation_page.dart`
 **Context files to read (if needed):** `lib/models/paper_generation.dart`
 **Depends on:** Task 13
@@ -865,8 +865,8 @@ Step 3 of the paper generation wizard: finalization and PDF.
 
 **Update after completion:**
 - [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
-- [ ] Mark this task `[x]`
-- [ ] Commit: `git add -A && git commit -m "<type>: <description>"`
+- [x] Mark this task `[x]`
+- [ ] Commit: `git add -A && git commit -m "ui: implement paper generation finalize step with PDF download"`
 
 ---
 
