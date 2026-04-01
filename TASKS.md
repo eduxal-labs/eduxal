@@ -237,8 +237,8 @@ Expanded(
 The type badge should remain to the left of this column as it currently is. The date range font size is reduced from 13 to 11 and color is dimmed since the name is now the primary identifier. This matches the pattern already used by `_ExamGroupRow` in `exams_grades_screen.dart` (~L700-730).
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note `_ExamRow` now shows exam name
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note `_ExamRow` now shows exam name
+- [x] Mark this task `[x]`
 
 ---
 
@@ -320,7 +320,7 @@ Column(
 The percentage is now on top, at fontSize 13 with w500 weight (primary). The score is below, at fontSize 10 with w400 weight and slightly more transparent (secondary).
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -446,7 +446,7 @@ Key points:
 - The `PaperStatus` enum values are ordered: `pending` (0), `inProgress` (1), `done` (2), `published` (3). The check `status.index < PaperStatus.done.index` catches both pending and in-progress.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -550,8 +550,8 @@ Key points:
    ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note fee creation uses inline validation
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note fee creation uses inline validation
+- [x] Mark this task `[x]`
 
 ---
 

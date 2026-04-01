@@ -3177,6 +3177,25 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
     final cs = widget.cs;
     final isDark = cs.brightness == Brightness.dark;
 
+    // If paper is not yet done, show informative message instead of action sheet
+    if (widget.paper.status.index < PaperStatus.done.index) {
+      final statusLabel = widget.paper.status == PaperStatus.pending
+          ? 'pending'
+          : 'in progress';
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              'This paper is still $statusLabel. Answer sheets and grading will be available once the paper is marked as done.',
+            ),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      return;
+    }
+
     showEduSheet(
       context: context,
       builder: (ctx) => EduSheet(
@@ -3321,25 +3340,25 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
                               crossAxisAlignment: CrossAxisAlignment.end,
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text(
-                                  '${_fmtScore(grade.score)}/${grade.total}',
-                                  style: TextStyle(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppTheme.brandGreen,
-                                  ),
-                                ),
                                 if (pct != null)
                                   Text(
                                     '${pct.toStringAsFixed(1)}%',
                                     style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w400,
-                                      color: AppTheme.brandGreen.withValues(
-                                        alpha: 0.8,
-                                      ),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppTheme.brandGreen,
                                     ),
                                   ),
+                                Text(
+                                  '${_fmtScore(grade.score)}/${grade.total}',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w400,
+                                    color: AppTheme.brandGreen.withValues(
+                                      alpha: 0.7,
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
