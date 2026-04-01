@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../database/database.dart';
 import '../../../../database/daos/attendance_dao.dart';
+import '../../../../database/daos/catalog_dao.dart';
 import '../../../../database/daos/enrollments_dao.dart';
 import '../../../../database/tables/enums.dart';
 import '../../../../database/tables/curriculum_subjects.dart';
@@ -90,9 +93,11 @@ class _ClassPickerShell extends StatefulWidget {
 class _ClassPickerShellState extends State<_ClassPickerShell> {
   late final AttendanceDao _attendanceDao;
   late final EnrollmentsDao _enrollmentsDao;
+  late final CatalogDao _catalogDao;
 
   SchoolConfig? _config;
   bool _loadingConfig = true;
+  StreamSubscription? _configSub;
 
   /// Available classes from enrollments.
   List<({int grade, int stream})> _availableClasses = [];
@@ -105,12 +110,84 @@ class _ClassPickerShellState extends State<_ClassPickerShell> {
     super.initState();
     _attendanceDao = AttendanceDao(db);
     _enrollmentsDao = EnrollmentsDao(db);
+    _catalogDao = CatalogDao(db);
     _loadConfig();
     _loadClasses();
   }
 
   Future<void> _loadConfig() async {
-    if (mounted) setState(() => _loadingConfig = false);
+    _configSub = _catalogDao.watchAllStreamsForSchool(_schoolId).listen((
+      allStreams,
+    ) {
+      if (!mounted) return;
+      setState(() {
+        _config = _buildConfigFromStreams(allStreams);
+        _loadingConfig = false;
+      });
+    });
+  }
+
+  /// Builds a [SchoolConfig] from raw [SchoolStream] rows using the same
+  /// curriculum-detection logic as the Exams screen.
+  SchoolConfig _buildConfigFromStreams(List<SchoolStream> allStreams) {
+    if (allStreams.isEmpty) return SchoolConfig.defaults();
+
+    final allGrades = allStreams.map((s) => s.grade).toSet();
+
+    // Group streams by grade.
+    final byGrade = <int, List<SchoolStream>>{};
+    for (final s in allStreams) {
+      byGrade.putIfAbsent(s.grade, () => []).add(s);
+    }
+
+    CurriculumType curriculumForGrade(int grade) {
+      if (grade >= 41) return CurriculumType.eightFourFour;
+      if (grade >= 9) return CurriculumType.cbc;
+      if (allGrades.any((g) => g >= 41)) return CurriculumType.eightFourFour;
+      return CurriculumType.cbc;
+    }
+
+    final cbcGrades = <GradeConfig>[];
+    final eftGrades = <GradeConfig>[];
+
+    for (final entry in byGrade.entries) {
+      final gradeNum = entry.key;
+      final streamRows = entry.value
+        ..sort((a, b) => a.stream.compareTo(b.stream));
+      final gradeStreams = streamRows
+          .map((s) => GradeStream(name: s.name, code: s.stream))
+          .toList();
+      final gc = GradeConfig(grade: gradeNum, streams: gradeStreams);
+
+      if (curriculumForGrade(gradeNum) == CurriculumType.cbc) {
+        cbcGrades.add(gc);
+      } else {
+        eftGrades.add(gc);
+      }
+    }
+
+    cbcGrades.sort((a, b) => a.grade.compareTo(b.grade));
+    eftGrades.sort((a, b) => a.grade.compareTo(b.grade));
+
+    final curricula = <CurriculumConfig>[];
+    if (cbcGrades.isNotEmpty) {
+      curricula.add(
+        CurriculumConfig(type: CurriculumType.cbc, grades: cbcGrades),
+      );
+    }
+    if (eftGrades.isNotEmpty) {
+      curricula.add(
+        CurriculumConfig(type: CurriculumType.eightFourFour, grades: eftGrades),
+      );
+    }
+
+    return SchoolConfig(curricula: curricula);
+  }
+
+  @override
+  void dispose() {
+    _configSub?.cancel();
+    super.dispose();
   }
 
   void _loadClasses() {

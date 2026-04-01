@@ -168,6 +168,25 @@ class _AttendanceTabState extends State<AttendanceTab>
     _resolveCanMark();
   }
 
+  @override
+  void didUpdateWidget(covariant AttendanceTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.streamCode != widget.streamCode ||
+        oldWidget.grade != widget.grade ||
+        oldWidget.year != widget.year ||
+        oldWidget.term != widget.term) {
+      debugPrint(
+        '[AttendanceTab] didUpdateWidget: stream ${oldWidget.streamCode}→${widget.streamCode}, '
+        'grade ${oldWidget.grade}→${widget.grade}',
+      );
+      setState(() {
+        _loadingCanMark = true;
+        _canMark = false;
+      });
+      _resolveCanMark();
+    }
+  }
+
   /// Determines whether the current user may mark attendance.
   Future<void> _resolveCanMark() async {
     final entry = widget.schoolContext.currentEntry.value;
@@ -176,6 +195,9 @@ class _AttendanceTabState extends State<AttendanceTab>
     switch (entry) {
       case OwnerEntry():
         // Owners bypass all permission checks.
+        debugPrint(
+          '[AttendanceTab] _resolveCanMark: OwnerEntry → canMark=true',
+        );
         result = true;
       case TeacherEntry():
         // Teachers can only mark attendance for classes where they are
@@ -188,6 +210,10 @@ class _AttendanceTabState extends State<AttendanceTab>
           grade: widget.grade,
           stream: widget.streamCode,
           teacherUserId: userId,
+        );
+        debugPrint(
+          '[AttendanceTab] _resolveCanMark: TeacherEntry, userId=$userId, '
+          'grade=${widget.grade}, stream=${widget.streamCode} → canMark=$result',
         );
       case StaffEntry():
         // Staff with the attendance mark permission can mark any class.

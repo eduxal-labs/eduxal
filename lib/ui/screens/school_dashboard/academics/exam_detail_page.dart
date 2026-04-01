@@ -3006,8 +3006,7 @@ class _PapersCrossTable extends StatelessWidget {
                                   ),
                                   child: Text(
                                     key.stream != null
-                                        ? (streamNames[key.stream] ??
-                                              'Stream ${key.stream}')
+                                        ? (streamNames[key.stream] ?? '')
                                         : 'All Streams',
                                     style: TextStyle(
                                       fontSize: 10.5,

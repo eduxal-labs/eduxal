@@ -267,7 +267,7 @@ class _MyClassesBodyState extends State<_MyClassesBody> {
         map[key] = _ClassAssignment(
           grade: ct.grade,
           stream: ct.stream,
-          streamName: streamNames[key] ?? 'Stream ${ct.stream}',
+          streamName: streamNames[key] ?? '',
           gradeLabel: _gradeLabel(ct.grade, curriculum),
           curriculum: curriculum,
           isClassTeacher: true,
@@ -298,7 +298,7 @@ class _MyClassesBodyState extends State<_MyClassesBody> {
         map[key] = _ClassAssignment(
           grade: grade,
           stream: stream,
-          streamName: streamNames[key] ?? 'Stream $stream',
+          streamName: streamNames[key] ?? '',
           gradeLabel: _gradeLabel(grade, curriculum),
           curriculum: curriculum,
           isClassTeacher: false,
