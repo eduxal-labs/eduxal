@@ -30,8 +30,8 @@ if (perms.canAny(Resource.attendance, [Action.read, Action.mark]))
 The `MembershipRole.staff` branch also has a similar attendance nav item (~L339–340). **Keep it** — staff with attendance permissions should still see the attendance screen. But also keep the student and guardian attendance tabs unchanged.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note Attendance nav item removed for teachers
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note Attendance nav item removed for teachers
+- [x] Mark this task `[x]`
 
 ---
 
@@ -163,8 +163,8 @@ Follow the same pattern used by `_ExamsShellState._loadConfig()` in `exams_grade
    - The `SchoolConfig`, `CurriculumConfig`, `GradeConfig`, `GradeStream`, `CurriculumType` types should already be imported from `school_config.dart`.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note AttendanceScreen now loads SchoolConfig
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note AttendanceScreen now loads SchoolConfig
+- [x] Mark this task `[x]`
 
 ---
 
@@ -242,7 +242,7 @@ String _streamLabel(int grade, int streamCode, SchoolConfig? config) {
 The key change: when stream name cannot be resolved, return just the grade label (e.g. "Form 4") instead of "Stream 2". Raw stream codes are internal integers that are meaningless to users.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -293,7 +293,7 @@ Read the file to understand how `streamName` is displayed downstream. If the dis
 Same rationale — never show raw stream code. The surrounding code should handle empty strings gracefully (it's just a label).
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -374,8 +374,8 @@ case TeacherEntry():
 ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note `_AttendanceTabState` now re-resolves `_canMark` on stream change
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note `_AttendanceTabState` now re-resolves `_canMark` on stream change
+- [x] Mark this task `[x]`
 
 ---
 
@@ -490,8 +490,8 @@ Then use `perms.Resource.exams` and `perms.Action.update`. Check the existing im
 4. **Delete the old `_canManage` getter** — it's fully replaced by the two new getters.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note `_canManage` split into `_canProgressStatus` and `_canGradeContent`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note `_canManage` split into `_canProgressStatus` and `_canGradeContent`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -568,25 +568,25 @@ Then use `perms.Resource.exams` and `perms.Action.update`. Check the existing im
    Already correct — no change.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
 ## Summary
 
-| Task | Bug Group | Description | Parallel Group | Depends On |
-|------|-----------|-------------|---------------|------------|
-| 1 | 1 | Remove Attendance nav item from teacher role | P1 | — |
-| 2 | 1 | Fix `_loadConfig()` stub to load SchoolConfig from streams | P1 | — |
-| 3 | 1 | Replace raw-integer fallbacks with `gradeLabel()` in attendance_screen | — | Task 2 |
-| 4 | 1 | Audit & fix raw-integer fallbacks in my_classes + exam_detail | P1 | — |
-| 5 | 2 | Add `didUpdateWidget` to re-resolve `_canMark` on stream change | P2 | — |
-| 6 | 3 | Split `_canManage` into `_canProgressStatus` + `_canGradeContent` | P2 | — |
-| 7 | 3 | Add `canGrade` prop to `_PaperHeader` for scheme visibility | — | Task 6 |
+| Task | Bug Group | Description | Parallel Group | Depends On | Status |
+|------|-----------|-------------|---------------|------------|--------|
+| 1 | 1 | Remove Attendance nav item from teacher role | P1 | — | ✅ Done |
+| 2 | 1 | Fix `_loadConfig()` stub to load SchoolConfig from streams | P1 | — | ✅ Done |
+| 3 | 1 | Replace raw-integer fallbacks with `gradeLabel()` in attendance_screen | — | Task 2 | ✅ Done |
+| 4 | 1 | Audit & fix raw-integer fallbacks in my_classes + exam_detail | P1 | — | ✅ Done |
+| 5 | 2 | Add `didUpdateWidget` to re-resolve `_canMark` on stream change | P2 | — | ✅ Done |
+| 6 | 3 | Split `_canManage` into `_canProgressStatus` + `_canGradeContent` | P2 | — | ✅ Done |
+| 7 | 3 | Add `canGrade` prop to `_PaperHeader` for scheme visibility | — | Task 6 | ✅ Done |
 
 **Execution order:**
-- **Batch 1 (parallel):** Tasks 1, 2, 4, 5, 6 (all independent, touch different files)
-- **Batch 2 (sequential):** Task 3 (depends on Task 2 — same file)
-- **Batch 3 (sequential):** Task 7 (depends on Task 6 — same file)
+- **Batch 1 (parallel):** Tasks 1, 2, 4, 5, 6 (all independent, touch different files) ✅
+- **Batch 2 (sequential):** Task 3 (depends on Task 2 — same file) ✅
+- **Batch 3 (sequential):** Task 7 (depends on Task 6 — same file) ✅
 
-> **Note on Task 5 + owner debugging:** The examiner could not reproduce the owner's attendance marking failure from code alone — the `_resolveCanMark` logic for `OwnerEntry` unconditionally returns `true`. The `didUpdateWidget` fix and diagnostic logging added in Task 5 will help the project owner identify the root cause if the issue persists after deployment. Possible causes include: no enrolled students in the selected stream, or the owner accessing attendance from the "All" stream tab where `_selectedStreamCode` falls back to the first stream.
+> **Note on Task 5 + owner debugging:** The examiner could not reproduce the owner's attendance marking failure from code alone — the `_resolveCanMark` logic for `OwnerEntry` unconditionally returns `true`. The `didUpdateWidget` fix and diagnostic logging added in Task 5 will help the project owner identify the root cause if the issue persists after deployment. Possible causes include: no enrolled students in the selected stream, or the owner accessing attendance from the "All" stream tab where `_selectedStreamCode` falls back to the first stream which might have no enrollments.
