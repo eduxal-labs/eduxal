@@ -932,7 +932,7 @@ printing: ^5.13.0
 
 ## Track 7: Marking Status Feedback UI
 
-### Task 16: Marking status widget for paper detail page
+### Task 16: Marking status widget for paper detail page ✅
 **Files to create:** `lib/ui/widgets/marking_status_indicator.dart`
 **Files to modify:** `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`
 **Context files to read (if needed):** `lib/models/marking_status.dart`, `lib/ui/widgets/thin_progress_bar.dart`
@@ -1068,7 +1068,7 @@ const QuestionGradesSheet({
 
 ---
 
-### Task 18: Wire "View Breakdown" button into grade spreadsheet/list rows
+### Task 18: Wire "View Breakdown" button into grade spreadsheet/list rows ✅
 **Files to modify:** `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/academics/question_grades_sheet.dart`
 **Depends on:** Task 17

@@ -2469,6 +2469,23 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
                         widget.paper.status.index < PaperStatus.done.index)
                     ? null
                     : () => _openSubmissionSheet(context, student),
+                onBreakdownTap:
+                    (existingGrade != null &&
+                        widget.paper.status == PaperStatus.marked)
+                    ? () => showEduSheet(
+                        context: context,
+                        builder: (_) => QuestionGradesSheet(
+                          school: widget.schoolId,
+                          exam: widget.exam.id,
+                          student: student.adm,
+                          subject: widget.paper.subject,
+                          paper: widget.paper.paper,
+                          studentName: student.name,
+                          overallScore: existingGrade.score,
+                          totalMarks: existingGrade.total,
+                        ),
+                      )
+                    : null,
               );
             },
           ),
@@ -3387,6 +3404,32 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
                       }
                     : null,
               ),
+              // Action: Marking Breakdown (gated by grade + marked status)
+              if (widget.gradeMap[student.adm] != null &&
+                  widget.paper.status == PaperStatus.marked)
+                _ActionSheetRow(
+                  icon: Icons.analytics_outlined,
+                  label: 'Marking breakdown',
+                  cs: cs,
+                  isDark: isDark,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    final grade = widget.gradeMap[student.adm]!;
+                    showEduSheet(
+                      context: context,
+                      builder: (_) => QuestionGradesSheet(
+                        school: widget.schoolId,
+                        exam: widget.exam.id,
+                        student: student.adm,
+                        subject: widget.paper.subject,
+                        paper: widget.paper.paper,
+                        studentName: student.name,
+                        overallScore: grade.score,
+                        totalMarks: grade.total,
+                      ),
+                    );
+                  },
+                ),
               const SizedBox(height: 8),
             ],
           ),
