@@ -28,7 +28,7 @@ This directory contains **1 shell screen file** and **8 subdirectories**, each r
 - **Navigation items by role:**
   - **Owner:** Overview | Academics | Exams | Members | Finance | Announcements | Timetable | Roles
   - **Teacher:** Overview | Academics | Exams | Timetable | (permission-gated: Members, Finance, Announcements, Roles)
-  - **Staff:** Overview | (permission-gated: Students, Academics, Exams, Members, Finance) | Announcements | (permission-gated: Timetable, Attendance, Roles)
+  - **Staff:** Overview | (permission-gated: Students, Academics, Exams, Members [checks all 5 member resources: departments, owners, teachers, staff, students — expanded in Task A1], Finance) | Announcements | (permission-gated: Timetable, Attendance, Roles)
   - **Student:** Overview | Grades | Timetable | Attendance | Announcements
   - **Guardian:** Overview | Progress | Timetable | Finance | Attendance | Announcements
 - **Dependencies:** `models/school_context.dart`, `models/school_permissions.dart`, `models/membership.dart`, `models/active_term_context.dart`, `client.dart` (DAOs, `logsDao`), `database/daos/terms_dao.dart`, `database/daos/school_scopes_dao.dart`, `ui/widgets/term_selector_chip.dart`, `ui/widgets/active_term_provider.dart`, `ui/screens/notifications/notifications_page.dart` (note: `ui/widgets/looping_tab_strip.dart` import removed — `LoopingTabStrip` no longer used here)
@@ -231,7 +231,13 @@ When `ActiveTermContext.hasTerms` is `false`, the dashboard shows a blank state 
 
 
 ## Last Updated
+Task D1 — CONTEXT.md update for Staff Dashboard RBAC-Gating feature (Tasks A1, B1, C1).
+
+Task A1 — Staff Members nav item condition expanded from checking only `Resource.teachers` and `Resource.students` to checking all 5 member resources: `departments`, `owners`, `teachers`, `staff`, `students`. This ensures a staff member with read permission on *any* member resource sees the Members nav item.
+
 Task B1 — Permission-gated `_StaffOverview` and `_StaffQuickStats`. `_StaffQuickStats` now accepts `SchoolPermissions` and dynamically builds stat cards based on role permissions (students.read, teachers.read, staff.read, fees/payments.read, exams.read, classes.read). Added `_hasAnyStatPermission()` top-level helper. Entire Quick Stats section hidden when no stat permissions exist; "limited access" italic hint shown instead. New imports: `models/permissions.dart`, `models/school_permissions.dart`. `material.dart` import updated with `hide Action`.
+
+Task C1 — Members page empty-tabs fallback removed and replaced with an empty state widget. `_tabController` (`TabController?`) and `_currentTab` (`_MemberTab?`) are now nullable to support the zero-tabs case. Empty state shows lock icon + "No member access" heading + explanation text. `_onTabChanged`, `_canCreateForCurrentTab`, and `dispose()` all guard against null.
 
 Task 20 — Final CONTEXT.md sweep for question bank feature. Added `paper_pdf_viewer.dart` (`downloadAndOpenPdf`) entry. Updated `paper_generation_page.dart` from "Step 1 Complete" to ✅ Complete — all 3 steps (allocate, review & edit, finalize) now documented with `_ReviewQuestionCard`, `_EditPaperQuestionSheet`, regeneration support, and finalize flow. Updated `paper_detail_page.dart` description to document new **Generate Paper** button (pending status, `_PaperHeader`, navigates to `PaperGenerationPage`), **Print Paper** button (done/marked status, calls `downloadAndOpenPdf`, `_printBusy` loading state), `MarkingStatusIndicator` widget integration (shown above grades section, wired with `onComplete` callback to reload grades), and **View Breakdown** button in grade rows (`_GradeSpreadsheet` desktop + `_GradeList` mobile — opens `QuestionGradesSheet` via `showEduSheet` for AI-graded students). New imports: `marking_status_indicator.dart`, `paper_pdf_viewer.dart`, `question_grades_sheet.dart`.
 
