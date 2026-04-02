@@ -2098,6 +2098,69 @@ class _AddStreamFormState extends State<_AddStreamForm> {
       return;
     }
 
+    // ── Validate start < end for every slot ──────────────────────────────
+    for (final streamCode in _currentMissingStreams) {
+      for (final slot in _slotsFor(streamCode)) {
+        if (slot.subjectCode == null) continue;
+        final startMin = slot.startTime.hour * 60 + slot.startTime.minute;
+        final endMin = slot.endTime.hour * 60 + slot.endTime.minute;
+        if (startMin >= endMin) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Paper start time must be before end time. Please fix the highlighted slot.',
+                ),
+              ),
+            );
+          }
+          return;
+        }
+      }
+    }
+
+    // ── Validate no duplicate time slots within the batch ────────────────
+    {
+      final allSlots =
+          <({int? streamCode, int dateKey, int startMin, int endMin})>[];
+      for (final streamCode in _currentMissingStreams) {
+        for (final slot in _slotsFor(streamCode)) {
+          if (slot.subjectCode == null) continue;
+          final dateKey =
+              slot.date.year * 10000 + slot.date.month * 100 + slot.date.day;
+          final startMin = slot.startTime.hour * 60 + slot.startTime.minute;
+          final endMin = slot.endTime.hour * 60 + slot.endTime.minute;
+          allSlots.add((
+            streamCode: streamCode,
+            dateKey: dateKey,
+            startMin: startMin,
+            endMin: endMin,
+          ));
+        }
+      }
+      for (int i = 0; i < allSlots.length; i++) {
+        for (int j = i + 1; j < allSlots.length; j++) {
+          final a = allSlots[i];
+          final b = allSlots[j];
+          if (a.streamCode == b.streamCode &&
+              a.dateKey == b.dateKey &&
+              a.startMin < b.endMin &&
+              b.startMin < a.endMin) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Two papers in the same stream have overlapping time slots on the same day. Please adjust the times.',
+                  ),
+                ),
+              );
+            }
+            return;
+          }
+        }
+      }
+    }
+
     // Find the existing exam row for this grade (use first stream's exam as
     // the template for school/year/term/type/dates/teacher fields).
     final gradeEntry = widget.group.grades
@@ -3192,6 +3255,69 @@ class _AddGradeToExamFormState extends State<_AddGradeToExamForm>
         setState(() {});
       }
       return;
+    }
+
+    // ── Validate start < end for every slot ──────────────────────────────
+    for (final streamCode in _selectedStreams) {
+      for (final slot in _slotsFor(streamCode)) {
+        if (slot.subjectCode == null) continue;
+        final startMin = slot.startTime.hour * 60 + slot.startTime.minute;
+        final endMin = slot.endTime.hour * 60 + slot.endTime.minute;
+        if (startMin >= endMin) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Paper start time must be before end time. Please fix the highlighted slot.',
+                ),
+              ),
+            );
+          }
+          return;
+        }
+      }
+    }
+
+    // ── Validate no duplicate time slots within the batch ────────────────
+    {
+      final allSlots =
+          <({int? streamCode, int dateKey, int startMin, int endMin})>[];
+      for (final streamCode in _selectedStreams) {
+        for (final slot in _slotsFor(streamCode)) {
+          if (slot.subjectCode == null) continue;
+          final dateKey =
+              slot.date.year * 10000 + slot.date.month * 100 + slot.date.day;
+          final startMin = slot.startTime.hour * 60 + slot.startTime.minute;
+          final endMin = slot.endTime.hour * 60 + slot.endTime.minute;
+          allSlots.add((
+            streamCode: streamCode,
+            dateKey: dateKey,
+            startMin: startMin,
+            endMin: endMin,
+          ));
+        }
+      }
+      for (int i = 0; i < allSlots.length; i++) {
+        for (int j = i + 1; j < allSlots.length; j++) {
+          final a = allSlots[i];
+          final b = allSlots[j];
+          if (a.streamCode == b.streamCode &&
+              a.dateKey == b.dateKey &&
+              a.startMin < b.endMin &&
+              b.startMin < a.endMin) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Two papers in the same stream have overlapping time slots on the same day. Please adjust the times.',
+                  ),
+                ),
+              );
+            }
+            return;
+          }
+        }
+      }
     }
 
     setState(() => _saving = true);
@@ -6033,18 +6159,17 @@ List<({String start, String end})> _uniquePaperStartTimes(List<Paper> papers) {
   return result;
 }
 
-Paper? _paperAt(
+List<Paper> _papersAt(
   Map<DateTime, List<Paper>> grouped,
   DateTime date,
   String startTime,
 ) {
   final day = DateTime(date.year, date.month, date.day);
   final papers = grouped[day] ?? [];
-  for (final p in papers) {
+  return papers.where((p) {
     final dt = DateTime.fromMillisecondsSinceEpoch(p.start.toInt() * 1000);
-    if (_fmtTime(dt) == startTime) return p;
-  }
-  return null;
+    return _fmtTime(dt) == startTime;
+  }).toList();
 }
 
 String _fmtDayHeader(DateTime d) {
@@ -6177,15 +6302,12 @@ class _ExamGroupCrossTable extends StatelessWidget {
         (timeCols.length > 1 ? (timeCols.length - 1) * colGap : 0);
 
     // ── Helper: find paper for a specific stream's papers at date+time ──
-    Paper? paperAt(List<Paper> papers, DateTime date, int startMins) {
-      for (final p in papers) {
+    List<Paper> papersAt(List<Paper> papers, DateTime date, int startMins) {
+      return papers.where((p) {
         final dt = DateTime.fromMillisecondsSinceEpoch(p.start.toInt() * 1000);
         final day = DateTime(dt.year, dt.month, dt.day);
-        if (day == date && (dt.hour * 60 + dt.minute) == startMins) {
-          return p;
-        }
-      }
-      return null;
+        return day == date && (dt.hour * 60 + dt.minute) == startMins;
+      }).toList();
     }
 
     return Column(
@@ -6355,32 +6477,45 @@ class _ExamGroupCrossTable extends StatelessWidget {
                                   width: timeColW,
                                   child: Builder(
                                     builder: (_) {
-                                      final paper = paperAt(
+                                      final matches = papersAt(
                                         streamEntry.papers,
                                         dates[di],
                                         timeCols[ci].startMins,
                                       );
-                                      if (paper == null) {
+                                      if (matches.isEmpty) {
                                         return _PaperEmptyCell(cs: cs);
                                       }
-                                      final statusColor = _paperStatusColor(
-                                        paper.status,
-                                        cs,
-                                      );
-                                      return _PaperSlotBox(
-                                        paper: paper,
-                                        exam: streamEntry.exam,
-                                        subjectNames: subjectNames,
-                                        statusColor: statusColor,
-                                        invigilatorName:
-                                            teacherNames[paper.invigilator] ??
-                                            '',
-                                        cs: cs,
-                                        onTap: () => onPaperTap(
-                                          paper,
-                                          streamEntry.exam,
-                                          gradeEntry.grade,
-                                        ),
+                                      return Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          for (
+                                            int mi = 0;
+                                            mi < matches.length;
+                                            mi++
+                                          ) ...[
+                                            if (mi > 0)
+                                              const SizedBox(height: 3),
+                                            _PaperSlotBox(
+                                              paper: matches[mi],
+                                              exam: streamEntry.exam,
+                                              subjectNames: subjectNames,
+                                              statusColor: _paperStatusColor(
+                                                matches[mi].status,
+                                                cs,
+                                              ),
+                                              invigilatorName:
+                                                  teacherNames[matches[mi]
+                                                      .invigilator] ??
+                                                  '',
+                                              cs: cs,
+                                              onTap: () => onPaperTap(
+                                                matches[mi],
+                                                streamEntry.exam,
+                                                gradeEntry.grade,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
                                       );
                                     },
                                   ),
@@ -6650,21 +6785,28 @@ class _PaperGridRow extends StatelessWidget {
             ),
             // ── Day cells ──────────────────────────────────────────────────
             ...dates.map((d) {
-              final paper = _paperAt(grouped, d, startTime);
-              if (paper == null) {
+              final matches = _papersAt(grouped, d, startTime);
+              if (matches.isEmpty) {
                 return Expanded(child: _PaperEmptyCell(cs: cs));
               }
-              final statusColor = _paperStatusColor(paper.status, cs);
-              final invName = teacherNames[paper.invigilator] ?? '';
               return Expanded(
-                child: _PaperSlotBox(
-                  paper: paper,
-                  exam: exam,
-                  subjectNames: subjectNames,
-                  statusColor: statusColor,
-                  invigilatorName: invName,
-                  cs: cs,
-                  onTap: () => onPaperTap(paper, exam, grade),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (int i = 0; i < matches.length; i++) ...[
+                      if (i > 0) const SizedBox(height: 3),
+                      _PaperSlotBox(
+                        paper: matches[i],
+                        exam: exam,
+                        subjectNames: subjectNames,
+                        statusColor: _paperStatusColor(matches[i].status, cs),
+                        invigilatorName:
+                            teacherNames[matches[i].invigilator] ?? '',
+                        cs: cs,
+                        onTap: () => onPaperTap(matches[i], exam, grade),
+                      ),
+                    ],
+                  ],
                 ),
               );
             }),
@@ -7693,6 +7835,51 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
     if (_durationMinutes <= 0) return;
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;
+
+    // ── Validate start < end ─────────────────────────────────────────────
+    if (!_endDateTime.isAfter(_startDateTime)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Paper start time must be before end time.'),
+          ),
+        );
+      }
+      return;
+    }
+
+    // ── Check for overlapping time slots in the same grade+stream ────────
+    try {
+      final existingPapers = await widget.dao
+          .watchPapersForExamGradeStream(
+            schoolId: widget.schoolId,
+            examIds: widget.examGroup.examIds,
+            grade: widget.grade,
+            stream: widget.stream,
+          )
+          .first;
+      final newStartEpoch = _startDateTime.millisecondsSinceEpoch ~/ 1000;
+      final newEndEpoch = _endDateTime.millisecondsSinceEpoch ~/ 1000;
+      for (final existing in existingPapers) {
+        final exStart = existing.start.toInt();
+        final exEnd = existing.end.toInt();
+        if (newStartEpoch < exEnd && exStart < newEndEpoch) {
+          // Overlapping time slot found
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Another paper already occupies this time slot. Please choose a different time.',
+                ),
+              ),
+            );
+          }
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error checking for time slot conflicts: $e');
+    }
 
     final subjectRow = _subjects
         .where((s) => s.subject == _selectedSubject)

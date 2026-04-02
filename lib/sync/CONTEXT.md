@@ -56,6 +56,7 @@ Every lifecycle transition has a `debugPrint('[SyncEngine] ...')` call:
 
 | File | Status | Purpose |
 |---|---|---|
+| `connectivity.dart` | ✅ Implemented | Monitors device connectivity via `connectivity_plus`. Detects offline→online transitions and fires a callback (wired to `SyncEngine.revive()` in `client.dart`). Debounces rapid flaps (500 ms). |
 | `delta_writer.dart` | ✅ Implemented | Receives `SyncDelta` proto messages and writes them directly to the local Drift database, bypassing DAOs to avoid log generation. |
 | `log_processor.dart` | ❌ Deleted (Task C8) | Was: batch-based mutation coalescing, FK ordering, invitation pairing. All replaced by action-based model — sync engine now sends actions one-at-a-time directly from `logs` table. |
 | `sync_engine.dart` | ✅ Implemented | Top-level orchestrator — coordinates inbound deltas + outbound action replay via bidirectional gRPC streams. Exposes `ValueNotifier<SyncStatus> status` for UI binding. Push side rewritten for action-based model (Task C7). |
@@ -263,11 +264,17 @@ The push flow was rewritten from a batch-based model (via `LogProcessor`) to a o
 
 ## Dependencies
 
-- **Depends on:** `dart:async` (runZonedGuarded, StreamController, Timer), `dart:developer` (dev.log), `package:fixnum` (Int64 — used by log_processor and sync_engine, NOT by delta_writer), `package:flutter/foundation.dart` (debugPrint, ValueNotifier), `package:grpc` (ClientChannel, CallOptions, StatusCode, GrpcError, ResponseStream), `database/database.dart` (AppDatabase, global `db`), `database/tables/enums.dart` (all enum types + converters), `database/daos/logs_dao.dart` (LogsDao), `database/daos/accounts_dao.dart` (AccountsDao), `proto/services/sync.pb.dart` (SyncDelta, InsertData, UpdateData, MutationBatch, Mutation, PushAck, MutationResult, WatchRequest, FileUrl, all *Insert and *Update messages), `proto/services/sync.pbgrpc.dart` (SyncClient), `sync/sync_status.dart` (SyncStatus enum)
-- **Depended on by:** `client.dart` (✅ integrated — `Client.syncEngine` field, `SyncEngine get sync` global getter, start/stop wired into `active()`, `saveAccount()`, `switchAccount()`, `logOut()`), `ui/widgets/sync_indicator.dart` (binds to `sync.status` ValueNotifier), `main.dart` (global `runZonedGuarded` zone catches unhandled http2 transport errors)
+- **Depends on:** `dart:async` (runZonedGuarded, StreamController, Timer), `dart:developer` (dev.log), `package:fixnum` (Int64 — used by log_processor and sync_engine, NOT by delta_writer), `package:flutter/foundation.dart` (debugPrint, ValueNotifier), `package:grpc` (ClientChannel, CallOptions, StatusCode, GrpcError, ResponseStream), `package:connectivity_plus` (Connectivity, ConnectivityResult — used by connectivity.dart), `database/database.dart` (AppDatabase, global `db`), `database/tables/enums.dart` (all enum types + converters), `database/daos/logs_dao.dart` (LogsDao), `database/daos/accounts_dao.dart` (AccountsDao), `proto/services/sync.pb.dart` (SyncDelta, InsertData, UpdateData, MutationBatch, Mutation, PushAck, MutationResult, WatchRequest, FileUrl, all *Insert and *Update messages), `proto/services/sync.pbgrpc.dart` (SyncClient), `sync/sync_status.dart` (SyncStatus enum)
+- **Depended on by:** `client.dart` (✅ integrated — `Client.syncEngine` field, `Client._connectivityMonitor` field, `SyncEngine get sync` global getter, start/stop wired into `active()`, `saveAccount()`, `switchAccount()`, `logOut()`; connectivity monitor started in `_startSync()`, stopped in `switchAccount()` and `logOut()`), `ui/widgets/sync_indicator.dart` (binds to `sync.status` ValueNotifier), `main.dart` (global `runZonedGuarded` zone catches unhandled http2 transport errors, `_SyncLifecycleObserver` calls `sync.revive()` on app resume)
 
 ## Last Updated
-Task 03 (BUG-012 — Permissions data corruption fix):
+Connectivity monitoring fix (BUG-020 — Sync engine does not react to connectivity changes):
+- **New file:** `connectivity.dart` — `ConnectivityMonitor` class using `connectivity_plus: ^6.1.4`. Listens to `Connectivity().onConnectivityChanged` (returns `List<ConnectivityResult>` in v6 API). Tracks `_wasOnline` state to detect offline→online transitions. Debounces rapid flaps with a 500 ms `Timer`. Fires `onOnline` callback on confirmed transition. `start()` does an initial `checkConnectivity()` call (fire-and-forget) to set accurate baseline. `stop()` cancels subscription and debounce timer.
+- **Modified:** `client.dart` — Added `import 'sync/connectivity.dart'`. Added `late final ConnectivityMonitor _connectivityMonitor` field to `Client`, initialized in constructor with `onOnline: () => syncEngine.revive()`. `_startSync()` now calls `_connectivityMonitor.start()` after `syncEngine.start()`. `switchAccount()` and `logOut()` call `_connectivityMonitor.stop()` before `syncEngine.stop()`.
+- **Modified:** `pubspec.yaml` — Added `connectivity_plus: ^6.1.4` to dependencies.
+- **Not modified:** `sync_engine.dart` (already has `revive()` method), `main.dart` (lifecycle observer kept as-is for app-resume case).
+
+Previous: Task 03 (BUG-012 — Permissions data corruption fix):
 - `delta_writer.dart`: Added `_decodePermissions(List<int> bytes)` helper method — tries `utf8.decode` first (with `jsonDecode` validation), falls back to `base64Encode`. Changed `_applyRoles` from `permissions: Value(base64Encode(row.permissions))` to `permissions: Value(_decodePermissions(row.permissions))`. This fixes the root cause where base64-encoded permissions were unparseable by `parsePermissions()`.
 
 Previous: Tasks C3–C8 (File Sync — Marking Schemes & Answer Sheets):

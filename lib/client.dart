@@ -21,6 +21,7 @@ import 'models/result.dart';
 import 'services/authentication.dart';
 import 'services/ai_marking.dart';
 import 'services/question_bank.dart';
+import 'sync/connectivity.dart';
 import 'sync/sync_engine.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -116,6 +117,9 @@ class Client {
   Client._(this._channel, this._accountsDao, this._usersDao, this._logsDao) {
     authentication = Authentication(_channel, _usersDao);
     syncEngine = SyncEngine(_channel, _accountsDao, _logsDao);
+    _connectivityMonitor = ConnectivityMonitor(
+      onOnline: () => syncEngine.revive(),
+    );
   }
 
   final ClientChannel _channel;
@@ -131,6 +135,11 @@ class Client {
   /// receives inbound deltas. Started/stopped automatically with the active
   /// account lifecycle.
   late final SyncEngine syncEngine;
+
+  /// Monitors network connectivity and calls [SyncEngine.revive] when the
+  /// device transitions from offline → online. Started/stopped in lock-step
+  /// with the sync engine via [_startSync] / [stop] / [logOut].
+  late final ConnectivityMonitor _connectivityMonitor;
 
   /// AI marking service — handles upload URLs, file uploads, and AI grading.
   /// Uses the main [_channel] (kept alive by the sync engine) for reliability,
@@ -342,7 +351,8 @@ class Client {
   /// The [SyncEngine] is stopped for the previous account and restarted for
   /// the new one.
   Future<Authenticated?> switchAccount(String id) async {
-    // Stop sync for the current account before switching.
+    // Stop sync and connectivity monitoring for the current account before switching.
+    _connectivityMonitor.stop();
     await syncEngine.stop();
 
     final all = await _accountsDao.getAllAccounts();
@@ -389,7 +399,8 @@ class Client {
   ///   row whose phone was reassigned server-side) from causing unique
   ///   constraint violations on the next login.
   Future<void> logOut() async {
-    // Stop sync before deleting the account.
+    // Stop sync and connectivity monitoring before deleting the account.
+    _connectivityMonitor.stop();
     await syncEngine.stop();
 
     final authenticated = await _accountsDao.getActiveAccount();
@@ -464,5 +475,9 @@ class Client {
       accessToken: authenticated.accessToken,
       lastSeq: authenticated.lastSeq,
     );
+
+    // Start (or restart) connectivity monitoring so that offline→online
+    // transitions call syncEngine.revive() automatically.
+    _connectivityMonitor.start();
   }
 }

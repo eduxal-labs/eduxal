@@ -2885,18 +2885,17 @@ class _PapersCrossTable extends StatelessWidget {
     );
 
     // Helper: find paper for row+date+time
-    Paper? paperAt(
+    List<Paper> papersAt(
       ({int grade, int? stream}) key,
       DateTime date,
       int startMins,
     ) {
       final rowPapers = papersByRow[key] ?? [];
-      for (final p in rowPapers) {
+      return rowPapers.where((p) {
         final dt = DateTime.fromMillisecondsSinceEpoch(p.start.toInt() * 1000);
         final day = DateTime(dt.year, dt.month, dt.day);
-        if (day == date && (dt.hour * 60 + dt.minute) == startMins) return p;
-      }
-      return null;
+        return day == date && (dt.hour * 60 + dt.minute) == startMins;
+      }).toList();
     }
 
     return Column(
@@ -3030,12 +3029,12 @@ class _PapersCrossTable extends StatelessWidget {
                                 width: timeColW,
                                 child: Builder(
                                   builder: (_) {
-                                    final paper = paperAt(
+                                    final matches = papersAt(
                                       key,
                                       dates[di],
                                       timeCols[ci].startMins,
                                     );
-                                    if (paper == null) {
+                                    if (matches.isEmpty) {
                                       return Container(
                                         constraints: const BoxConstraints(
                                           minHeight: 52,
@@ -3053,11 +3052,31 @@ class _PapersCrossTable extends StatelessWidget {
                                         ),
                                       );
                                     }
-                                    return _buildCell(
-                                      paper,
-                                      cs,
-                                      isDark,
-                                      borderColor,
+                                    if (matches.length == 1) {
+                                      return _buildCell(
+                                        matches.first,
+                                        cs,
+                                        isDark,
+                                        borderColor,
+                                      );
+                                    }
+                                    return Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        for (
+                                          int mi = 0;
+                                          mi < matches.length;
+                                          mi++
+                                        ) ...[
+                                          if (mi > 0) const SizedBox(height: 3),
+                                          _buildCell(
+                                            matches[mi],
+                                            cs,
+                                            isDark,
+                                            borderColor,
+                                          ),
+                                        ],
+                                      ],
                                     );
                                   },
                                 ),
