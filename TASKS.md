@@ -71,7 +71,7 @@ This matches the member resources that the Members page uses for tab visibility 
 
 ## Track B: Staff Overview Permission-Gating
 
-### Task B1: Permission-gate `_StaffOverview` and make `_StaffQuickStats` dynamic
+### Task B1: Permission-gate `_StaffOverview` and make `_StaffQuickStats` dynamic ✅
 **Files to modify:** `lib/ui/screens/school_dashboard/overview/overview_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`, `lib/models/permissions.dart` (for `Resource` and `Action` enums), `lib/models/school_context.dart`
 **Depends on:** Task 00
@@ -230,7 +230,7 @@ This is a subtle, non-alarming message that helps staff members understand why t
 
 ## Track C: Members Page Hardening
 
-### Task C1: Replace empty-tabs fallback with empty state in members_page.dart
+### Task C1: Replace empty-tabs fallback with empty state in members_page.dart ✅
 **Files to modify:** `lib/ui/screens/school_dashboard/members/members_page.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** Task 00

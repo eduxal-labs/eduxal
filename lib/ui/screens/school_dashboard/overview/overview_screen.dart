@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Action;
 
 import '../../../../core/extensions.dart';
 import '../../../../client.dart';
@@ -19,6 +19,8 @@ import '../../../../models/active_term_context.dart';
 import '../../../../models/membership.dart';
 import '../../../../models/school_context.dart';
 import '../../../../models/grade_analytics.dart';
+import '../../../../models/permissions.dart';
+import '../../../../models/school_permissions.dart';
 import '../../../widgets/active_term_provider.dart';
 import '../../../widgets/student_avatar.dart';
 import '../../../theme/app_theme.dart';
@@ -1067,6 +1069,16 @@ class _TeacherUpcomingExamsState extends State<_TeacherUpcomingExams> {
 // STAFF OVERVIEW
 // ═════════════════════════════════════════════════════════════════════════════
 
+bool _hasAnyStatPermission(SchoolPermissions perms) {
+  return perms.can(Resource.students, Action.read) ||
+      perms.can(Resource.teachers, Action.read) ||
+      perms.can(Resource.staff, Action.read) ||
+      perms.can(Resource.fees, Action.read) ||
+      perms.can(Resource.payments, Action.read) ||
+      perms.can(Resource.exams, Action.read) ||
+      perms.can(Resource.classes, Action.read);
+}
+
 class _StaffOverview extends StatelessWidget {
   const _StaffOverview({
     required this.schoolContext,
@@ -1092,12 +1104,33 @@ class _StaffOverview extends StatelessWidget {
 
         const SizedBox(height: 20),
 
-        // ── Quick stats ──────────────────────────────────────────────────
-        if (term != null) ...[
+        // ── Quick stats (permission-gated) ───────────────────────────────
+        if (term != null &&
+            _hasAnyStatPermission(schoolContext.permissions)) ...[
           _SectionTitle(label: 'Quick Stats', cs: cs),
           const SizedBox(height: 8),
-          _StaffQuickStats(schoolId: schoolId, term: term),
+          _StaffQuickStats(
+            schoolId: schoolId,
+            term: term,
+            permissions: schoolContext.permissions,
+          ),
           const SizedBox(height: 20),
+        ],
+
+        // ── Limited access hint ──────────────────────────────────────────
+        if (term == null ||
+            !_hasAnyStatPermission(schoolContext.permissions)) ...[
+          const SizedBox(height: 12),
+          Text(
+            'Your dashboard shows features based on your assigned role.',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+          const SizedBox(height: 12),
         ],
 
         // ── Recent announcements ─────────────────────────────────────────
@@ -1115,102 +1148,222 @@ class _StaffOverview extends StatelessWidget {
 }
 
 class _StaffQuickStats extends StatelessWidget {
-  const _StaffQuickStats({required this.schoolId, required this.term});
+  const _StaffQuickStats({
+    required this.schoolId,
+    required this.term,
+    required this.permissions,
+  });
 
   final String schoolId;
   final Term term;
+  final SchoolPermissions permissions;
 
   @override
   Widget build(BuildContext context) {
     final membersDao = MembersDao(db);
     final financeDao = FinanceDao(db);
+    final canFinance =
+        permissions.can(Resource.fees, Action.read) ||
+        permissions.can(Resource.payments, Action.read);
 
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: StreamBuilder<List<StudentsData>>(
-                stream: membersDao.watchStudents(schoolId),
-                builder: (context, snap) {
-                  final count = snap.data?.length ?? 0;
-                  return _StatCard(
-                    icon: Icons.groups_outlined,
-                    label: 'Students',
-                    value: '$count',
-                    tint: const Color(0xFF3F51B5),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: StreamBuilder<TermFinanceSummary>(
-                stream: financeDao.watchTermFinanceSummary(
-                  schoolId: schoolId,
-                  year: term.year,
-                  term: term.term,
-                ),
-                builder: (context, snap) {
-                  final summary = snap.data;
-                  final count = summary?.invoiceCount ?? 0;
-                  return _StatCard(
-                    icon: Icons.receipt_long_outlined,
-                    label: 'Invoices',
-                    value: '$count',
-                    tint: const Color(0xFFFF9800),
-                  );
-                },
-              ),
-            ),
-          ],
+    final cards = <Widget>[];
+
+    // ── Students count ─────────────────────────────────────────────────
+    if (permissions.can(Resource.students, Action.read)) {
+      cards.add(
+        StreamBuilder<List<StudentsData>>(
+          stream: membersDao.watchStudents(schoolId),
+          builder: (context, snap) {
+            final count = snap.data?.length ?? 0;
+            return _StatCard(
+              icon: Icons.groups_outlined,
+              label: 'Students',
+              value: '$count',
+              tint: const Color(0xFF3F51B5),
+            );
+          },
         ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: StreamBuilder<TermFinanceSummary>(
-                stream: financeDao.watchTermFinanceSummary(
-                  schoolId: schoolId,
-                  year: term.year,
-                  term: term.term,
-                ),
-                builder: (context, snap) {
-                  final summary = snap.data;
-                  final rate = summary?.collectionRate ?? 0.0;
-                  return _StatCard(
-                    icon: Icons.account_balance_outlined,
-                    label: 'Collection',
-                    value: '${rate.toStringAsFixed(0)}%',
-                    tint: const Color(0xFF4CAF50),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: StreamBuilder<TermFinanceSummary>(
-                stream: financeDao.watchTermFinanceSummary(
-                  schoolId: schoolId,
-                  year: term.year,
-                  term: term.term,
-                ),
-                builder: (context, snap) {
-                  final summary = snap.data;
-                  final pending = summary?.pendingCount ?? 0;
-                  return _StatCard(
-                    icon: Icons.pending_actions_outlined,
-                    label: 'Pending',
-                    value: '$pending',
-                    tint: const Color(0xFFF44336),
-                  );
-                },
-              ),
-            ),
-          ],
+      );
+    }
+
+    // ── Teachers count ─────────────────────────────────────────────────
+    if (permissions.can(Resource.teachers, Action.read)) {
+      cards.add(
+        StreamBuilder<List<TeachersData>>(
+          stream: membersDao.watchTeachers(schoolId),
+          builder: (context, snap) {
+            final count = snap.data?.length ?? 0;
+            return _StatCard(
+              icon: Icons.school_outlined,
+              label: 'Teachers',
+              value: '$count',
+              tint: const Color(0xFF009688),
+            );
+          },
         ),
-      ],
-    );
+      );
+    }
+
+    // ── Staff count ────────────────────────────────────────────────────
+    if (permissions.can(Resource.staff, Action.read)) {
+      cards.add(
+        StreamBuilder<List<StaffData>>(
+          stream: membersDao.watchStaff(schoolId),
+          builder: (context, snap) {
+            final count = snap.data?.length ?? 0;
+            return _StatCard(
+              icon: Icons.badge_outlined,
+              label: 'Staff',
+              value: '$count',
+              tint: const Color(0xFFFF9800),
+            );
+          },
+        ),
+      );
+    }
+
+    // ── Finance: Invoices ──────────────────────────────────────────────
+    if (canFinance) {
+      cards.add(
+        StreamBuilder<TermFinanceSummary>(
+          stream: financeDao.watchTermFinanceSummary(
+            schoolId: schoolId,
+            year: term.year,
+            term: term.term,
+          ),
+          builder: (context, snap) {
+            final summary = snap.data;
+            final count = summary?.invoiceCount ?? 0;
+            return _StatCard(
+              icon: Icons.receipt_long_outlined,
+              label: 'Invoices',
+              value: '$count',
+              tint: const Color(0xFFFF9800),
+            );
+          },
+        ),
+      );
+    }
+
+    // ── Finance: Collection rate ───────────────────────────────────────
+    if (canFinance) {
+      cards.add(
+        StreamBuilder<TermFinanceSummary>(
+          stream: financeDao.watchTermFinanceSummary(
+            schoolId: schoolId,
+            year: term.year,
+            term: term.term,
+          ),
+          builder: (context, snap) {
+            final summary = snap.data;
+            final rate = summary?.collectionRate ?? 0.0;
+            return _StatCard(
+              icon: Icons.account_balance_outlined,
+              label: 'Collection',
+              value: '${rate.toStringAsFixed(0)}%',
+              tint: const Color(0xFF4CAF50),
+            );
+          },
+        ),
+      );
+    }
+
+    // ── Finance: Pending payments ──────────────────────────────────────
+    if (canFinance) {
+      cards.add(
+        StreamBuilder<TermFinanceSummary>(
+          stream: financeDao.watchTermFinanceSummary(
+            schoolId: schoolId,
+            year: term.year,
+            term: term.term,
+          ),
+          builder: (context, snap) {
+            final summary = snap.data;
+            final pending = summary?.pendingCount ?? 0;
+            return _StatCard(
+              icon: Icons.pending_actions_outlined,
+              label: 'Pending',
+              value: '$pending',
+              tint: const Color(0xFFF44336),
+            );
+          },
+        ),
+      );
+    }
+
+    // ── Active exams ───────────────────────────────────────────────────
+    if (permissions.can(Resource.exams, Action.read)) {
+      cards.add(
+        StreamBuilder<List<ExamWithPapers>>(
+          stream: ExamsGradesDao(db).watchExamsForTerm(
+            schoolId: schoolId,
+            year: term.year,
+            term: term.term,
+          ),
+          builder: (context, snap) {
+            final count = snap.data?.length ?? 0;
+            return _StatCard(
+              icon: Icons.assignment_outlined,
+              label: 'Exams',
+              value: '$count',
+              tint: const Color(0xFF7C4DFF),
+            );
+          },
+        ),
+      );
+    }
+
+    // ── Classes count ──────────────────────────────────────────────────
+    if (permissions.can(Resource.classes, Action.read)) {
+      cards.add(
+        StreamBuilder<List<({int grade, int stream})>>(
+          stream: EnrollmentsDao(db).watchPopulatedClasses(
+            schoolId: schoolId,
+            year: term.year,
+            term: term.term,
+          ),
+          builder: (context, snap) {
+            final count = snap.data?.length ?? 0;
+            return _StatCard(
+              icon: Icons.class_outlined,
+              label: 'Classes',
+              value: '$count',
+              tint: const Color(0xFF7C4DFF),
+            );
+          },
+        ),
+      );
+    }
+
+    if (cards.isEmpty) return const SizedBox.shrink();
+
+    // ── Arrange in 2-column grid ───────────────────────────────────────
+    final rows = <Widget>[];
+    for (var i = 0; i < cards.length; i += 2) {
+      if (i + 1 < cards.length) {
+        rows.add(
+          Row(
+            children: [
+              Expanded(child: cards[i]),
+              const SizedBox(width: 10),
+              Expanded(child: cards[i + 1]),
+            ],
+          ),
+        );
+      } else {
+        rows.add(
+          Row(
+            children: [
+              Expanded(child: cards[i]),
+              const SizedBox(width: 10),
+              const Expanded(child: SizedBox.shrink()),
+            ],
+          ),
+        );
+      }
+      if (i + 2 < cards.length) rows.add(const SizedBox(height: 10));
+    }
+    return Column(children: rows);
   }
 }
 

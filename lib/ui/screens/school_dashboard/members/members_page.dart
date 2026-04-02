@@ -71,10 +71,10 @@ class _MembersPageBody extends StatefulWidget {
 
 class _MembersPageBodyState extends State<_MembersPageBody>
     with TickerProviderStateMixin {
-  late TabController _tabController;
+  TabController? _tabController;
   late MembersDao _dao;
   late List<_MemberTab> _visibleTabs;
-  late _MemberTab _currentTab;
+  _MemberTab? _currentTab;
 
   String get _schoolId => widget.schoolContext.membership.school.id;
 
@@ -100,36 +100,43 @@ class _MembersPageBodyState extends State<_MembersPageBody>
         _MemberTab.guardians,
     ];
 
-    // Fallback: if somehow no tabs are visible, show all.
-    if (_visibleTabs.isEmpty) _visibleTabs = _MemberTab.values;
+    // If no tabs are visible, the page shows an empty state.
+    // This shouldn't happen because the Members nav item is
+    // hidden when no member-read permissions exist.
 
-    _currentTab = _visibleTabs.first;
-    _tabController = TabController(length: _visibleTabs.length, vsync: this)
-      ..addListener(_onTabChanged);
+    if (_visibleTabs.isNotEmpty) {
+      _currentTab = _visibleTabs.first;
+      _tabController = TabController(length: _visibleTabs.length, vsync: this)
+        ..addListener(_onTabChanged);
+    }
   }
 
   @override
   void dispose() {
     _tabController
-      ..removeListener(_onTabChanged)
+      ?..removeListener(_onTabChanged)
       ..dispose();
     super.dispose();
   }
 
   void _onTabChanged() {
-    if (_tabController.indexIsChanging) return;
-    final newTab = _visibleTabs[_tabController.index];
+    final tc = _tabController;
+    if (tc == null || tc.indexIsChanging) return;
+    final newTab = _visibleTabs[tc.index];
     if (newTab != _currentTab) {
       setState(() => _currentTab = newTab);
     }
   }
 
   bool _canCreateForCurrentTab() {
+    final ct = _currentTab;
+    if (ct == null) return false;
+
     final entry = widget.schoolContext.currentEntry.value;
     final perms = widget.schoolContext.permissions;
     final isOwner = entry is OwnerEntry;
 
-    return switch (_currentTab) {
+    return switch (ct) {
       _MemberTab.departments =>
         isOwner || perms.can(Resource.departments, Action.create),
       _MemberTab.owners => isOwner || perms.can(Resource.owners, Action.create),
@@ -187,7 +194,9 @@ class _MembersPageBodyState extends State<_MembersPageBody>
   // ── FAB action per tab ──────────────────────────────────────────────────
 
   Future<void> _onFabPressed() async {
-    switch (_currentTab) {
+    final ct = _currentTab;
+    if (ct == null) return;
+    switch (ct) {
       case _MemberTab.departments:
         _showCreateDepartment();
       case _MemberTab.owners:
@@ -234,16 +243,55 @@ class _MembersPageBodyState extends State<_MembersPageBody>
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    if (_visibleTabs.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.lock_outlined,
+                size: 48,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'No member access',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Your role does not include permissions to view members.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       floatingActionButton: _canCreateForCurrentTab()
-          ? _MembersFab(tab: _currentTab, onPressed: _onFabPressed)
+          ? _MembersFab(tab: _currentTab!, onPressed: _onFabPressed)
           : null,
       body: Column(
         children: [
           // ── Tab bar ────────────────────────────────────────────────────
           EduTabBar(
-            controller: _tabController,
+            controller: _tabController!,
             isScrollable: true,
             padding: const EdgeInsets.only(left: 16, top: 8, bottom: 8),
             tabs: [
@@ -254,7 +302,7 @@ class _MembersPageBodyState extends State<_MembersPageBody>
           // ── Tab content ────────────────────────────────────────────────
           Expanded(
             child: TabBarView(
-              controller: _tabController,
+              controller: _tabController!,
               children: [for (final tab in _visibleTabs) _buildTabContent(tab)],
             ),
           ),
