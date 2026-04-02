@@ -1142,7 +1142,7 @@ Enhance the `_TopicTile` widget (~line 1085) to show a question count badge next
 
 ---
 
-### Task 20: Update CONTEXT.md files for all tracks
+### Task 20: Update CONTEXT.md files for all tracks ✅
 **Files to modify:** `lib/proto/CONTEXT.md`, `lib/services/CONTEXT.md`, `lib/models/CONTEXT.md`, `lib/ui/screens/system/CONTEXT.md`, `lib/ui/screens/school_dashboard/CONTEXT.md`, `lib/ui/widgets/CONTEXT.md`
 **Context files to read (if needed):** All CONTEXT.md files
 **Depends on:** Tasks 01–19

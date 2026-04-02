@@ -281,4 +281,4 @@ Minimal stub — JSON descriptors placeholder. Not required for runtime operatio
 **Note:** All four files are hand-written Dart stubs (no `.proto` source file). They follow the same `$pb.GeneratedMessage` / `$grpc.Client` patterns as `ai_marking.*`. If the server provides a `.proto` file in the future, regenerate with `protoc` to replace these stubs.
 
 ## Last Updated
-Task 01 — Added QuestionBank service proto stubs (4 files, 14 RPCs, 37 message types, 2 enums).
+Task 20 — Final CONTEXT.md sweep for question bank feature.

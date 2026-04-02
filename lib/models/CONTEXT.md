@@ -232,4 +232,4 @@ Grouping model for the exams UI. Multiple exam rows sharing the same name are pr
 - **`ExamStreamEntry`** — One exam row + its papers for a specific stream. Fields: `exam` (Exam), `streamCode` (int?), `papers` (List<Paper>).
 
 ## Last Updated
-Task 02 — Created 4 new question bank domain model files: `question.dart`, `paper_generation.dart`, `marking_status.dart`, `question_grade.dart`. All have `fromProto` factories mapping from proto-generated types. Previous: Task TW-08 — Model changes for remainder-based lesson scheduling.
+Task 20 — Final CONTEXT.md sweep for question bank feature. Verified all 4 question bank model files (`question.dart`, `paper_generation.dart`, `marking_status.dart`, `question_grade.dart`) are documented with full type details and `fromProto` factories. No content changes needed — all entries were already accurate from Task 02.
