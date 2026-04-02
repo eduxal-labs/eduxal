@@ -10,7 +10,7 @@
 
 ## Track 0: Commit Uncommitted Changes
 
-### Task 00: Commit any uncommitted changes before starting work
+### Task 00: Commit any uncommitted changes before starting work ✅
 **Files to modify:** None (git operation only)
 **Depends on:** None
 **Parallel group:** P0
@@ -29,7 +29,7 @@ git add -A && git commit -m "chore: commit pending changes before staff dashboar
 
 ## Track A: Staff Navigation Refinement
 
-### Task A1: Fix Members nav item condition for staff to include all member resources
+### Task A1: Fix Members nav item condition for staff to include all member resources ✅
 **Files to modify:** `lib/ui/screens/school_dashboard/school_dashboard_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** Task 00

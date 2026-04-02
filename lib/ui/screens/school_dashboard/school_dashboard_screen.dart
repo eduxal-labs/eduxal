@@ -319,7 +319,10 @@ class _DashboardShellState extends State<_DashboardShell>
           const _NavItem(label: 'Academics', icon: Icons.menu_book_outlined),
         if (perms.canAny(Resource.exams, [Action.read]))
           const _NavItem(label: 'Exams', icon: Icons.assignment_outlined),
-        if (perms.canAny(Resource.teachers, [Action.read]) ||
+        if (perms.canAny(Resource.departments, [Action.read]) ||
+            perms.canAny(Resource.owners, [Action.read]) ||
+            perms.canAny(Resource.teachers, [Action.read]) ||
+            perms.canAny(Resource.staff, [Action.read]) ||
             perms.canAny(Resource.students, [Action.read]))
           const _NavItem(label: 'Members', icon: Icons.people_alt_outlined),
         if (perms.canAny(Resource.fees, [Action.read]) ||
