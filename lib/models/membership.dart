@@ -57,6 +57,16 @@ final class OwnerEntry extends MembershipEntry {
 
   @override
   MembershipRole get role => MembershipRole.owner;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is OwnerEntry &&
+          owner.school == other.owner.school &&
+          owner.user == other.owner.user;
+
+  @override
+  int get hashCode => Object.hash(owner.school, owner.user);
 }
 
 /// Entry for a teacher.
@@ -75,6 +85,16 @@ final class TeacherEntry extends MembershipEntry {
 
   @override
   MembershipRole get role => MembershipRole.teacher;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TeacherEntry &&
+          teacher.school == other.teacher.school &&
+          teacher.user == other.teacher.user;
+
+  @override
+  int get hashCode => Object.hash(teacher.school, teacher.user);
 }
 
 /// Entry for a staff member.
@@ -86,6 +106,16 @@ final class StaffEntry extends MembershipEntry {
 
   @override
   MembershipRole get role => MembershipRole.staff;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is StaffEntry &&
+          staff.school == other.staff.school &&
+          staff.user == other.staff.user;
+
+  @override
+  int get hashCode => Object.hash(staff.school, staff.user);
 }
 
 /// Entry for a student.
@@ -100,6 +130,16 @@ final class StudentEntry extends MembershipEntry {
 
   @override
   MembershipRole get role => MembershipRole.student;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is StudentEntry &&
+          student.school == other.student.school &&
+          student.adm == other.student.adm;
+
+  @override
+  int get hashCode => Object.hash(student.school, student.adm);
 }
 
 /// Entry for a guardian, expanded once per ward.
@@ -121,6 +161,18 @@ final class GuardianEntry extends MembershipEntry {
 
   @override
   MembershipRole get role => MembershipRole.guardian;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is GuardianEntry &&
+          guardian.school == other.guardian.school &&
+          guardian.user == other.guardian.user &&
+          guardian.student == other.guardian.student;
+
+  @override
+  int get hashCode =>
+      Object.hash(guardian.school, guardian.user, guardian.student);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -1345,7 +1345,7 @@ Customize the message per role:
 
 ---
 
-### Task I3: MembershipEntry subtypes missing operator== and hashCode
+### Task I3: MembershipEntry subtypes missing operator== and hashCode ✅
 
 **Files to modify:** `lib/models/membership.dart`
 **Context files to read:** `lib/models/school_context.dart`
@@ -1364,12 +1364,12 @@ Implement `operator ==` and `hashCode` for each subtype based on their data fiel
 - `GuardianEntry`: compare by `guardian.id` + `ward.adm`
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `git add -A && git commit -m "fix: implement operator== and hashCode for MembershipEntry subtypes"`
+- [x] Mark this task `[x]`
+- [x] Git commit: `git add -A && git commit -m "fix: implement operator== and hashCode for MembershipEntry subtypes"`
 
 ---
 
-### Task I4: Role-switcher sheet — staff shows empty subtitle, guardian shows no ward image
+### Task I4: Role-switcher sheet — staff shows empty subtitle, guardian shows no ward image ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/school_dashboard_screen.dart`
 **Context files to read:** `lib/ui/widgets/student_avatar.dart`
@@ -1386,7 +1386,7 @@ In `_RoleSwitcherSheet._entryMeta`:
 2. For `GuardianEntry`, use `StudentAvatar` for the ward's image.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Git commit: `git add -A && git commit -m "ui: fix staff subtitle and guardian ward image in role-switcher sheet"`
 
 ---
@@ -1429,7 +1429,7 @@ Filter subjects and topics by the school's curriculum type (CBC or 8-4-4) and op
 
 ---
 
-### Task I7: Orphaned guardian row silently dropped in memberships DAO
+### Task I7: Orphaned guardian row silently dropped in memberships DAO ✅
 
 **Files to modify:** `lib/database/daos/memberships_dao.dart`
 **Context files to read:** None
@@ -1443,12 +1443,12 @@ When a guardian row references a student that doesn't exist in the `students` ta
 Add `debugPrint('MembershipsDao: Guardian ${guardian.id} references missing student ${guardian.student} — skipping')` for debuggability.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `git add -A && git commit -m "fix: add debug logging for orphaned guardian rows in memberships DAO"`
+- [x] Mark this task `[x]`
+- [x] Git commit: `git add -A && git commit -m "fix: add debug logging for orphaned guardian rows in memberships DAO"`
 
 ---
 
-### Task I8: Dead tab index constants in system dashboard
+### Task I8: Dead tab index constants in system dashboard ✅
 
 **Files to modify:** `lib/ui/screens/system/system_dashboard_screen.dart`
 **Context files to read:** None
@@ -1462,8 +1462,8 @@ Several tab index constants (~L31–47) are annotated with `// ignore: unused_el
 Either use these constants in the tab logic (preferred — makes code more readable) or remove them entirely to reduce dead code.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `git add -A && git commit -m "chore: remove or use dead tab index constants in system dashboard"`
+- [x] Mark this task `[x]`
+- [x] Git commit: `git add -A && git commit -m "chore: remove or use dead tab index constants in system dashboard"`
 
 ---
 

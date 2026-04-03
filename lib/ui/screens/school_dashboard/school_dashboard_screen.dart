@@ -2172,7 +2172,14 @@ class _RoleSwitcherSheet extends StatelessWidget {
             ? '$subjectCount subject${subjectCount == 1 ? '' : 's'}'
             : 'No subjects this term',
       ),
-      StaffEntry() => (Icons.badge_outlined, 'Staff', ''),
+      StaffEntry(:final staff) => (
+        Icons.badge_outlined,
+        'Staff',
+        [
+          if (staff.role case final r?) r,
+          if (staff.department case final d?) d,
+        ].join(' · '),
+      ),
       StudentEntry() => (Icons.person_outline, 'Student', ''),
       GuardianEntry(:final ward) => (
         Icons.family_restroom_outlined,

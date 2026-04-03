@@ -218,7 +218,12 @@ class MembershipsDao extends DatabaseAccessor<AppDatabase>
               ))
               .getSingleOrNull();
 
-      if (ward == null) continue; // orphaned guardian row — skip
+      if (ward == null) {
+        debugPrint(
+          'MembershipsDao: Guardian ${guardian.user} references missing student ${guardian.student} at school ${guardian.school} — skipping',
+        );
+        continue;
+      }
 
       addEntry(guardian.school, GuardianEntry(guardian: guardian, ward: ward));
     }

@@ -30,13 +30,7 @@ import 'members/members_section.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const int _kMobileTabHome = 0;
-// ignore: unused_element
-const int _kMobileTabUsers = 1;
 const int _kMobileTabMembers = 2;
-// ignore: unused_element
-const int _kMobileTabSchools = 3;
-// ignore: unused_element
-const int _kMobileTabRoles = 4;
 const int _kMobileTabSettings = 5;
 const int _kMobileTabNotifications = 6;
 
@@ -45,10 +39,6 @@ const int _kDesktopTabUsers = 0;
 const int _kDesktopTabMembers = 1;
 const int _kDesktopTabSchools = 2;
 const int _kDesktopTabRoles = 3;
-// ignore: unused_element
-const int _kDesktopTabSettings = 4;
-// ignore: unused_element
-const int _kDesktopTabNotifications = 5;
 
 /// The fully-functional system dashboard screen.
 ///
