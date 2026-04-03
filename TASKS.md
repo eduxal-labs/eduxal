@@ -657,7 +657,7 @@ Gate the Students tab behind `permissions.can(Resource.students, Action.read)` o
 
 ---
 
-### Task D6: Teacher overview shows ALL exams, not teacher-scoped; upcoming exams filter is inconsistent ✅
+### Task D6: Teacher overview shows ALL exams, not teacher-scoped; upcoming exams filter is inconsistent
 
 **Files to modify:** `lib/ui/screens/school_dashboard/overview/overview_screen.dart`
 **Context files to read:** `lib/database/daos/exams_grades_dao.dart`
@@ -673,7 +673,7 @@ Gate the Students tab behind `permissions.can(Resource.students, Action.read)` o
 2. Align the upcoming exams filter to include papers where the teacher teaches the subject (not just invigilator).
 
 **Update after completion:**
-- [x] Mark this task `[x]`
+- [ ] Mark this task `[x]`
 - [ ] Git commit: `git add -A && git commit -m "fix: scope teacher overview exams to assigned subjects"`
 
 ---
@@ -697,7 +697,7 @@ Pass the current user's ID to the announcement list. For each announcement, only
 
 ---
 
-### Task D8: Members page tabs computed once in initState, not reactive to entry changes ✅
+### Task D8: Members page tabs computed once in initState, not reactive to entry changes
 
 **Files to modify:** `lib/ui/screens/school_dashboard/members/members_page.dart`
 **Context files to read:** None
@@ -715,7 +715,7 @@ Listen to `schoolContext.currentEntry` and rebuild `_visibleTabs` when it change
 Option 1 is cleaner.
 
 **Update after completion:**
-- [x] Mark this task `[x]`
+- [ ] Mark this task `[x]`
 - [ ] Git commit: `git add -A && git commit -m "fix: recompute members page tabs reactively on entry change"`
 
 ---
