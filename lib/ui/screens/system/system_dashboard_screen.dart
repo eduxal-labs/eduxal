@@ -176,7 +176,7 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
       return false;
     }
     return _permissions.can(Resource.users, Action.create) ||
-        _permissions.can(Resource.users, Action.update) ||
+        _permissions.can(Resource.users, Action.assign) ||
         _permissions.can(Resource.schools, Action.create) ||
         _permissions.can(Resource.roles, Action.create);
   }

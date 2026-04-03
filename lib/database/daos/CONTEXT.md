@@ -230,8 +230,20 @@ Each DAO extends `DatabaseAccessor<AppDatabase>` and is annotated with `@DriftAc
 
 ### `SchoolScopesDao`
 - `watchSchoolRoles(String schoolId) → Stream<List<RolesData>>` — Roles scoped to a school.
-- `watchSchoolScopes(schoolId, userId) → Stream<List<ScopesData>>`
-- `assignScope(...)`, `removeScope(...)`
+- `watchEligibleRolesForUser(schoolId, userId) → Stream<List<RolesData>>` — Roles the user does NOT already have.
+- `watchScopesForUser(schoolId, userId) → Stream<List<ScopesData>>`
+- `watchUsersForRole(schoolId, roleId) → Stream<List<UsersData>>` — Users assigned to a specific role.
+- `watchAllScopes(schoolId) → Stream<List<...>>` — All scopes with joined user data.
+- `watchEligibleSchoolUsers(schoolId, roleId) → Stream<List<UsersData>>` — Users eligible to be assigned a role.
+- `getSchoolRoles(schoolId) → Future<List<RolesData>>`
+- `getRole(roleId) → Future<RolesData?>`
+- `getScopesForUser(schoolId, userId) → Future<List<ScopesData>>`
+- `createRole(RolesCompanion, {accountId}) → Future<void>` — Creates role + log entry. Permissions passed as `Uint8List` blob directly (post-A01/A02).
+- `updateRole(roleId, RolesCompanion, {accountId}) → Future<void>` — Updates role + log entry. Permissions passed as `Uint8List` blob directly (post-A01/A02).
+- `deleteRole(roleId, schoolId, {accountId}) → Future<void>`
+- `assignRole(ScopesCompanion, {accountId}) → Future<void>`
+- `unassignRole(schoolId, userId, roleId, {accountId}) → Future<void>`
+- **Permission encoding fix (Task A02):** `createRole` and `updateRole` now pass `companion.permissions.value` (already `Uint8List`) directly to the proto payload instead of `utf8.encode(...)`. Removed `dart:convert` import — no longer needed.
 
 ### `PlansDao`
 - `watchAllPlans() → Stream<List<PlansData>>`
@@ -319,4 +331,4 @@ Other DAOs are created locally where needed (e.g. inside service classes or scre
 - **`exams_grades_dao.dart`** — Import changed from `../tables/subjects.dart` to `../tables/subject_teachers.dart`. `@DriftAccessor` tables list changed `Subjects` → `SubjectTeachers`. In `watchMasteryForStudent`: removed `OrderingTerm.asc(m.grade)` from orderBy (mastery no longer has a `grade` column). In `watchMasteryForSubject`: removed `mastery.grade.equals(grade)` from the WHERE clause. In `upsertMastery`: removed `final grade = entry.grade.value`; removed `m.grade.equals(grade)` from both the lookup and update WHERE clauses; removed `grade: grade,` from both `UpdateMasteryPayload` constructions. In `createExam`: replaced `grade: exam.grade.value` with `name: exam.name.value` in `CreateExamPayload`; removed `stream` conditional assignment block. In `createExamBatch`: replaced `grade: e.grade.value` with `name: e.name.value` in `CreateExamPayload`; removed `stream` conditional assignment block. In `updateExam`: replaced `changes.stream` handling block with `changes.name` handling (`payload.name = changes.name.value`). In `addGradeToExamGroup`: removed `grade: Value(grade)` and `stream: Value(streamCode)` from `ExamsCompanion`; removed `grade:` and stream conditional from `CreateExamPayload`; loop variable renamed to `_` to suppress unused-variable warning. **Note:** `ExamsCompanion.name` errors are expected until `build_runner` regenerates `.g.dart` files.
 
 ## Last Updated
-Task F5 — Added `removeStudent(schoolId, adm, accountId)` to `MembersDao`: hard-deletes student row and enqueues `SyncAction.deleteStudent` log with `DeleteStudentPayload`. Previous: Task A3 — Updated `RolesDao` sync payload encoding.
+Task A02 — Fixed `SchoolScopesDao` permission encoding: `createRole` and `updateRole` now pass `Uint8List` blob directly to proto payload instead of `utf8.encode(...)`. Removed `dart:convert` import. Previous: Task F5 — Added `removeStudent(schoolId, adm, accountId)` to `MembersDao`.

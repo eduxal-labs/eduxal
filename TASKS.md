@@ -140,7 +140,7 @@ Per AGENT.md §17a, `roles.permissions` must be a `blob` column storing binary `
 
 ---
 
-### Task A02: Fix permission encoding in SchoolScopesDao (createRole / updateRole)
+### Task A02: Fix permission encoding in SchoolScopesDao (createRole / updateRole) ✅
 **Files to create/modify:** `lib/database/daos/school_scopes_dao.dart`
 **Context files to read (if needed):** `lib/database/daos/CONTEXT.md`
 **Depends on:** Task A01
@@ -262,7 +262,7 @@ Multiple privilege escalation vectors exist in the System dashboard. Fix all of 
 
 ---
 
-### Task A04: Fix System FAB visibility — wrong permission check
+### Task A04: Fix System FAB visibility — wrong permission check ✅
 **Files to create/modify:** `lib/ui/screens/system/system_dashboard_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/system/CONTEXT.md`
 **Depends on:** None
@@ -289,8 +289,8 @@ return _permissions.can(Resource.users, Action.create) ||
 ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note FAB permission fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — note FAB permission fix
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---

@@ -168,4 +168,4 @@ For `UserLevel.super_` users, all permissions are granted unconditionally via `S
 - Permission gating uses `SystemPermissions.can(action)` — never raw `UserLevel` checks in UI code (except `canSeeDeleted` which is level-specific by design).
 
 ## Last Updated
-Tasks G1 + G6 — Added permission checks (`users.update`, `users.delete`, `schools.update`, `schools.delete`) to all action buttons in `users_section.dart`, `members_section.dart`, and `schools_section.dart`. `roles_section.dart` and `plans_section.dart` already had proper checks. Added target-user active-status guard in `_promoteMember` (G6). Previous: Task A1.
+Task A04 — Fixed `_showFab` permission check: changed `Action.update` → `Action.assign` for the "Add Member" FAB visibility gate (per AGENT.md §17a, adding a relationship is `Action.assign`). Previous: Tasks G1 + G6.
