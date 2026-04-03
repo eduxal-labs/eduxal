@@ -935,6 +935,21 @@ class _MembershipCard extends StatelessWidget {
                   return _RoleChip(role: role);
                 }).toList(),
               ),
+
+              // ── Guardian ward info ────────────────────────────────
+              for (final entry in membership.entries)
+                if (entry case GuardianEntry(:final ward))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Guardian of ${ward.name}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w300,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
             ],
           ),
         ),

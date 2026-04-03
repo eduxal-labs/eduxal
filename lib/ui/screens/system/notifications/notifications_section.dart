@@ -4,6 +4,7 @@ import '../../../../client.dart';
 import '../../../../database/tables/enums.dart';
 import '../../../../models/app_notification.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/edu_confirm_dialog.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NotificationsSection — standalone notifications tab content widget
@@ -95,7 +96,7 @@ class NotificationsSection extends StatelessWidget {
               return ListView.separated(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 itemCount: notifications.length,
-                separatorBuilder: (_, _) => Divider(
+                separatorBuilder: (_, __) => Divider(
                   height: 1,
                   thickness: 0.5,
                   indent: 52,
@@ -194,14 +195,98 @@ class _EmptyState extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Notification tile
+// Notification tile — with retry/delete action buttons
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _NotificationTile extends StatelessWidget {
+class _NotificationTile extends StatefulWidget {
   const _NotificationTile({required this.notification, required this.cs});
 
   final AppNotification notification;
   final ColorScheme cs;
+
+  @override
+  State<_NotificationTile> createState() => _NotificationTileState();
+}
+
+class _NotificationTileState extends State<_NotificationTile> {
+  bool _retrying = false;
+  bool _deleting = false;
+
+  AppNotification get notification => widget.notification;
+  ColorScheme get cs => widget.cs;
+
+  // ── Retry: reset status to pending and trigger a push ──────────────────
+
+  Future<void> _retryLog() async {
+    if (_retrying || _deleting) return;
+    setState(() => _retrying = true);
+    try {
+      await logsDao.retryLog(notification.logId);
+      // Trigger a push cycle so the sync engine picks up the retried log.
+      sync.schedulePush();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Queued for retry'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Retry failed: $e'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _retrying = false);
+    }
+  }
+
+  // ── Delete: confirm then permanently remove the log entry ──────────────
+
+  Future<void> _deleteLog() async {
+    if (_retrying || _deleting) return;
+
+    final confirmed = await showEduConfirmDialog(
+      context: context,
+      title: 'Delete notification?',
+      message:
+          'This will permanently remove this failed sync action. '
+          'For create actions, the local data will also be reverted.',
+      confirmLabel: 'Delete',
+      isDestructive: true,
+    );
+
+    if (!confirmed || !mounted) return;
+
+    setState(() => _deleting = true);
+    try {
+      await logsDao.deleteLogAndRevert(notification.logId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Notification deleted'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Delete failed: $e'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _deleting = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -284,16 +369,85 @@ class _NotificationTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
-                const SizedBox(height: 4),
-                // Timestamp.
-                Text(
-                  _relativeTime(notification.occurred),
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w400,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.65),
-                    letterSpacing: 0.1,
-                  ),
+                const SizedBox(height: 6),
+                // Bottom row — timestamp + action buttons.
+                Row(
+                  children: [
+                    // Timestamp.
+                    Expanded(
+                      child: Text(
+                        _relativeTime(notification.occurred),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w400,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                          letterSpacing: 0.1,
+                        ),
+                      ),
+                    ),
+                    // Retry / Delete action buttons.
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Retry button.
+                        SizedBox(
+                          width: 28,
+                          height: 28,
+                          child: _retrying
+                              ? const Padding(
+                                  padding: EdgeInsets.all(6),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 1.5,
+                                  ),
+                                )
+                              : IconButton(
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 28,
+                                    minHeight: 28,
+                                  ),
+                                  icon: Icon(
+                                    Icons.refresh,
+                                    size: 18,
+                                    color: cs.primary,
+                                  ),
+                                  iconSize: 28,
+                                  tooltip: 'Retry',
+                                  onPressed: _deleting ? null : _retryLog,
+                                ),
+                        ),
+                        const SizedBox(width: 4),
+                        // Delete button.
+                        SizedBox(
+                          width: 28,
+                          height: 28,
+                          child: _deleting
+                              ? Padding(
+                                  padding: const EdgeInsets.all(6),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 1.5,
+                                    color: cs.error,
+                                  ),
+                                )
+                              : IconButton(
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 28,
+                                    minHeight: 28,
+                                  ),
+                                  icon: Icon(
+                                    Icons.delete_outline_rounded,
+                                    size: 18,
+                                    color: cs.error,
+                                  ),
+                                  iconSize: 28,
+                                  tooltip: 'Delete',
+                                  onPressed: _retrying ? null : _deleteLog,
+                                ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -501,6 +655,7 @@ class _ActionBadge extends StatelessWidget {
     if (name.startsWith('approve')) {
       return ('Approve', const Color(0xFF66BB6A));
     }
+    if (name.startsWith('upload')) return ('Upload', const Color(0xFF42A5F5));
     return ('Action', const Color(0xFF90A4AE));
   }
 }

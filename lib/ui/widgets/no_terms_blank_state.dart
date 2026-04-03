@@ -68,11 +68,11 @@ class NoTermsBlankState extends StatelessWidget {
 
                   // ── Headline ───────────────────────────────────────────
                   Text(
-                    isOwner ? 'Set up your first term' : 'No terms yet',
+                    isOwner ? 'No terms yet' : 'No active term',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: isWide ? 21 : 19,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       color: cs.onSurface,
                       height: 1.25,
                       letterSpacing: -0.3,
@@ -122,25 +122,9 @@ class NoTermsBlankState extends StatelessWidget {
 /// Returns role-specific body copy for the no-terms blank state.
 String _bodyCopyForRole(MembershipRole role, bool canCreateTerm) {
   if (canCreateTerm) {
-    return 'Academic records — classes, subjects, grades, '
-        'fees and attendance — are all scoped to a term. '
-        'Create your first term to unlock the full dashboard.';
+    return 'Create a term to get started with academics.';
   }
-  return switch (role) {
-    MembershipRole.owner =>
-      'Academic records — classes, subjects, grades, '
-          'fees and attendance — are all scoped to a term. '
-          'Create your first term to unlock the full dashboard.',
-    MembershipRole.teacher =>
-      'No terms have been created yet. '
-          'Contact the school administrator to get started.',
-    MembershipRole.student =>
-      'The school hasn\'t set up terms yet. Check back later.',
-    MembershipRole.guardian =>
-      'The school hasn\'t set up the academic calendar yet.',
-    MembershipRole.staff =>
-      'No academic terms configured. Contact the school owner.',
-  };
+  return 'Your school hasn\'t set up a term yet. Please check back later.';
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

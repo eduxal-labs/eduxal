@@ -30,7 +30,7 @@ This directory contains the **Progress Screen** — a four-tab academic progress
 | `_LatestExamAvgStat` | Single stat card for latest exam average |
 | `_SubjectsCountStat` | Single stat card for number of graded subjects |
 | `_ClassRankStat` | Single stat card showing class rank |
-| `_RecentExamResults` | List of recent exam result rows |
+| `_RecentExamResults` | List of recent exam result rows — resolves exam names via `ExamsGradesDao` and displays exam name, subject count, score/total, and percentage per tile |
 | `_ExamsTab` | Exam list grouped by exam with per-paper scores |
 | `_ExamCard` | Individual exam card showing papers and scores |
 | `_MasteryTab` | Subject-by-subject mastery progress with topic breakdown |
@@ -67,7 +67,8 @@ Both resolve to a `StudentsData` object passed as `student` to all child widgets
 ## History
 
 - **Task B2:** Renamed from `GuardianProgressScreen` → `ProgressScreen`. Added `StudentEntry` support alongside existing `GuardianEntry`. Renamed internal `ward` parameters to `student` for clarity. File renamed from `guardian_progress_screen.dart` → `progress_screen.dart`.
+- **Task F09:** Converted `_RecentExamResults` from `StatelessWidget` to `StatefulWidget`. Added `ExamsGradesDao` with an in-memory `_examCache` to resolve exam names. Each result tile now shows: exam name (primary text), subject count + score/total (subtitle), and percentage badge. Uses `FutureBuilder<Map<String, Exam?>>` to resolve names asynchronously, following the same pattern as `_ExamsTab`.
 
 ## Last Updated
 
-Task B2
+Task F09

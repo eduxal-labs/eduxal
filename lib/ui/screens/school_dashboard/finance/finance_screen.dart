@@ -1626,7 +1626,7 @@ class _FeesTab extends StatelessWidget {
               backgroundColor: Colors.green.shade600,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
               ),
               child: const Icon(Icons.add, size: 20),
             ),
@@ -2531,6 +2531,7 @@ class _GuardianPaymentSheetState extends State<_GuardianPaymentSheet> {
         method: _method,
         reference: ref.isEmpty ? null : ref,
         recorderId: accountId,
+        date: DateTime.now().millisecondsSinceEpoch ~/ 86400000,
         accountId: accountId,
       );
 
@@ -2688,9 +2689,12 @@ class _GuardianPaymentSheetState extends State<_GuardianPaymentSheet> {
                         FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
                       ],
                       validator: (v) {
-                        if (v == null || v.trim().isEmpty) return 'Required';
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Amount is required';
+                        }
                         final n = double.tryParse(v.trim());
-                        if (n == null || n <= 0) return 'Must be > 0';
+                        if (n == null) return 'Enter a valid number';
+                        if (n <= 0) return 'Amount must be greater than zero';
                         return null;
                       },
                     ),
@@ -3013,9 +3017,12 @@ class _CreateFeeSheetState extends State<_CreateFeeSheet> {
                         FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
                       ],
                       validator: (v) {
-                        if (v == null || v.trim().isEmpty) return 'Required';
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Amount is required';
+                        }
                         final n = double.tryParse(v.trim());
-                        if (n == null || n <= 0) return 'Must be > 0';
+                        if (n == null) return 'Enter a valid number';
+                        if (n <= 0) return 'Amount must be greater than zero';
                         return null;
                       },
                     ),
@@ -3411,9 +3418,12 @@ class _RecordPaymentSheetState extends State<_RecordPaymentSheet> {
                         FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
                       ],
                       validator: (v) {
-                        if (v == null || v.trim().isEmpty) return 'Required';
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Amount is required';
+                        }
                         final n = double.tryParse(v.trim());
-                        if (n == null || n <= 0) return 'Must be > 0';
+                        if (n == null) return 'Enter a valid number';
+                        if (n <= 0) return 'Amount must be greater than zero';
                         return null;
                       },
                     ),

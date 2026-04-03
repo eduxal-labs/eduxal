@@ -1639,7 +1639,7 @@ Apply the same validation to `_RecordPaymentSheet` and `_GuardianPaymentSheet` a
 
 ---
 
-### Task F09: Fix guardian/student overview `_RecentExamResults` — show exam names
+### Task F09: Fix guardian/student overview `_RecentExamResults` — show exam names ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/progress/progress_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/progress/CONTEXT.md`
 **Depends on:** None (Phase 4)
@@ -1663,13 +1663,13 @@ Fix: When building each result row, join with the `exams` table to get the exam 
 If the data model already includes the exam name, just ensure it's displayed in the tile widget. If not, modify the DAO query to join with exams.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/progress/CONTEXT.md` — note exam names in results
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/progress/CONTEXT.md` — note exam names in results
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
 
-### Task F10: Fix home screen guardian card — show ward info
+### Task F10: Fix home screen guardian card — show ward info ✅
 **Files to create/modify:** `lib/ui/screens/home/home_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/CONTEXT.md`
 **Depends on:** None (Phase 4)
@@ -1697,7 +1697,7 @@ Text(
 If the ward has a cached image at `{appDir}/schools/{schoolId}/students/{adm}/image`, show a small avatar.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/CONTEXT.md` — note guardian card ward info
+- [x] Update `lib/ui/screens/CONTEXT.md` — note guardian card ward info
 - [ ] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 

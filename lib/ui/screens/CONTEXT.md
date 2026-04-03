@@ -68,6 +68,7 @@ This directory contains **7 subdirectories**, each representing a major area of 
   - System admin users may also see a route to `SystemDashboardScreen`
   - Account icon → `AccountScreen`
 - **Dependencies:** `client.dart` (`membershipsDao`, `cache.currentUser`), `models/membership.dart` (`SchoolMembership`, `MembershipEntry`, `MembershipRole`), `models/school_context.dart`, `models/school_permissions.dart`
+- **Guardian ward info (Task F10):** `_MembershipCard` now iterates `membership.entries` and for each `GuardianEntry` displays a "Guardian of {ward.name}" subtitle below the role chips, using `fontSize: 12`, `fontWeight: w300`, `color: cs.onSurfaceVariant`. This matches the ward name display already present in the entry picker sheet.
 
 ---
 
@@ -148,4 +149,4 @@ main.dart → SplashScreen
 - Screen-specific helper widgets (that are only used by one screen) live in the same directory as the screen.
 
 ## Last Updated
-Task 02 — Generate Lessons UI: `school_dashboard/timetable/timetable_screen.dart` FAB behaviour changed — when a timetable exists the owner tab now shows `_GenerateLessonsFab` (green `auto_awesome_rounded` FAB → opens `showGenerateLessonsDialog` two-step scope picker + preview dialog) + delete FAB; when no timetable exists the original `_GenerateFab` wizard FAB is shown unchanged. Previous: Task 1001 — Reflects completion of all UI overhaul tracks (Tracks 1–10). All screens now use design system widgets. Data tables throughout system and school dashboards migrated to flat rows with `AppTheme.tableRowDivider`. Profile photos displayed in all member-facing views. Detail screens have consistent entrance animations. Notifications page fully wired from both dashboards.
+Task F10 — Guardian card ward info: `_MembershipCard` in `home/home_screen.dart` now shows "Guardian of {ward.name}" subtitle for each `GuardianEntry` in the membership. Previous: Task 02 — Generate Lessons UI.

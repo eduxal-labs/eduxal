@@ -718,17 +718,46 @@ class _ClassRankStat extends StatelessWidget {
 
 // ── Recent Exam Results ──────────────────────────────────────────────────────
 
-class _RecentExamResults extends StatelessWidget {
+class _RecentExamResults extends StatefulWidget {
   const _RecentExamResults({required this.grades});
 
   final List<Grade> grades;
+
+  @override
+  State<_RecentExamResults> createState() => _RecentExamResultsState();
+}
+
+class _RecentExamResultsState extends State<_RecentExamResults> {
+  late final ExamsGradesDao _examsDao;
+  final Map<String, Exam?> _examCache = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _examsDao = ExamsGradesDao(db);
+  }
+
+  Future<Exam?> _getExam(String examId) async {
+    if (_examCache.containsKey(examId)) return _examCache[examId];
+    final exam = await _examsDao.getExam(examId);
+    _examCache[examId] = exam;
+    return exam;
+  }
+
+  Future<Map<String, Exam?>> _resolveExams(List<String> examIds) async {
+    final result = <String, Exam?>{};
+    for (final id in examIds) {
+      result[id] = await _getExam(id);
+    }
+    return result;
+  }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
 
-    if (grades.isEmpty) {
+    if (widget.grades.isEmpty) {
       return const EduEmptyState(
         icon: Icons.assignment_outlined,
         title: 'No exam results yet',
@@ -737,13 +766,13 @@ class _RecentExamResults extends StatelessWidget {
 
     // Subject-level totals (paper == null), grouped by exam
     final byExam = <String, List<Grade>>{};
-    for (final g in grades) {
+    for (final g in widget.grades) {
       if (g.paper != null) continue;
       (byExam[g.exam] ??= []).add(g);
     }
 
     if (byExam.isEmpty) {
-      for (final g in grades) {
+      for (final g in widget.grades) {
         (byExam[g.exam] ??= []).add(g);
       }
     }
@@ -768,56 +797,74 @@ class _RecentExamResults extends StatelessWidget {
 
     final recentExamIds = examIds.take(3).toList();
 
-    return Column(
-      children: recentExamIds.map((examId) {
-        final examGrades = byExam[examId]!;
-        final totalScore = examGrades.fold<double>(
-          0,
-          (sum, g) => sum + g.score,
-        );
-        final totalMax = examGrades.fold<double>(0, (sum, g) => sum + g.total);
-        final pct = totalMax > 0 ? (totalScore / totalMax * 100) : 0.0;
+    return FutureBuilder<Map<String, Exam?>>(
+      future: _resolveExams(recentExamIds),
+      builder: (context, examSnap) {
+        final examMap = examSnap.data ?? {};
 
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 6),
-          child: Material(
-            color: AppTheme.nestedBg(isDark, cs),
-            borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${examGrades.length} subject${examGrades.length == 1 ? '' : 's'}',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: cs.onSurface,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${totalScore.toStringAsFixed(0)} / ${totalMax.toStringAsFixed(0)}',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w400,
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-                          ),
-                        ),
-                      ],
-                    ),
+        return Column(
+          children: recentExamIds.map((examId) {
+            final examGrades = byExam[examId]!;
+            final totalScore = examGrades.fold<double>(
+              0,
+              (sum, g) => sum + g.score,
+            );
+            final totalMax = examGrades.fold<double>(
+              0,
+              (sum, g) => sum + g.total,
+            );
+            final pct = totalMax > 0 ? (totalScore / totalMax * 100) : 0.0;
+            final examName = examMap[examId]?.name ?? 'Exam';
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Material(
+                color: AppTheme.nestedBg(isDark, cs),
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
                   ),
-                  _PercentBadge(percent: pct, cs: cs),
-                ],
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              examName,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: cs.onSurface,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${examGrades.length} subject${examGrades.length == 1 ? '' : 's'} · ${totalScore.toStringAsFixed(0)} / ${totalMax.toStringAsFixed(0)}',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w400,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.55,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      _PercentBadge(percent: pct, cs: cs),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ),
+            );
+          }).toList(),
         );
-      }).toList(),
+      },
     );
   }
 }
