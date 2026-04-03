@@ -107,7 +107,7 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
       return RolePermissions(
         roleId: role.id,
         roleName: role.name,
-        permissionsJson: role.permissions,
+        permissionsData: role.permissions,
       );
     }).toList();
   }
@@ -136,10 +136,11 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
     // insertOnConflictUpdate only handles PK (id) conflicts — a phone
     // collision with a different id would throw SqliteException(2067).
     if (user.phone.present) {
-      final existing = await (select(users)
-            ..where((t) => t.phone.equals(user.phone.value))
-            ..where((t) => t.id.equals(user.id.value).not()))
-          .getSingleOrNull();
+      final existing =
+          await (select(users)
+                ..where((t) => t.phone.equals(user.phone.value))
+                ..where((t) => t.id.equals(user.id.value).not()))
+              .getSingleOrNull();
       if (existing != null) {
         debugPrint(
           '[UsersDao] upsertUser: phone ${user.phone.value} conflict — '

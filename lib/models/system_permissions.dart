@@ -1,5 +1,6 @@
-import 'dart:convert';
+import 'package:flutter/foundation.dart';
 
+import '../core/permission_parser.dart';
 import '../database/tables/enums.dart';
 import 'permissions.dart';
 
@@ -16,11 +17,15 @@ import 'permissions.dart';
 /// [canAll] API regardless of user level, keeping the call sites uniform.
 ///
 /// ### Permission storage format
-/// The `roles.permissions` column stores either:
-/// - A **binary blob** (production): 3 bytes per non-empty resource
-///   `[resource_id: u8, actions_lo: u8, actions_hi: u8]` (little-endian u16).
-/// - A **JSON string** (legacy/transition): list of `{resource, actions}` objects
-///   or flat map of `"resource.action"` keys.
+/// The `roles.permissions` column currently stores data as `text()` in Drift,
+/// but the data may be in **multiple formats** due to the transition period:
+/// 1. Standard JSON objects: `[{"resource": "users", "actions": ["read"]}]`
+/// 2. JSON integer arrays (old seeder): `[5,2,0,7,2,0,...]` — raw binary blob
+///    bytes serialised as a JSON array of ints.
+/// 3. Base64-encoded strings (old delta writer bug).
+///
+/// This class uses [parsePermissions] from `lib/core/permission_parser.dart`
+/// which handles all three formats resilently. See BUG-012 in BUG.md.
 ///
 /// ### Internal representation
 /// This class delegates to [Permissions] which holds a `Map<Resource, int>`
@@ -46,8 +51,10 @@ class SystemPermissions {
   /// level shortcut in [can] handles them.
   ///
   /// For [UserLevel.system] and [UserLevel.normal] users, each role's
-  /// `permissions` column is parsed (JSON or binary blob) and all permissions
-  /// across all roles are unioned into a single [Permissions] instance.
+  /// `permissions` column is parsed using [parsePermissions] which handles
+  /// all known storage formats (standard JSON, seeder int-array JSON,
+  /// base64-encoded strings). All permissions across all roles are unioned
+  /// into a single [Permissions] instance.
   ///
   /// [roles] should be the list of [RolePermissions] objects obtained by
   /// querying all `scopes` rows where `school IS NULL` for this user and
@@ -68,12 +75,22 @@ class SystemPermissions {
 
     for (final role in roles) {
       try {
-        final decoded = jsonDecode(role.permissionsJson);
-        final parsed = Permissions.fromJson(decoded);
-        merged = merged.union(parsed);
-      } catch (_) {
-        // Malformed JSON in a role row — skip silently.
-        // A corrupted permissions column should not crash the app.
+        final map = parsePermissions(role.permissionsData);
+        if (map.isNotEmpty) {
+          final parsed = Permissions(map);
+          merged = merged.union(parsed);
+        } else {
+          debugPrint(
+            '[SystemPermissions] Role "${role.roleName}" (${role.roleId}) '
+            'has empty/unparseable permissions data',
+          );
+        }
+      } catch (e, st) {
+        // parsePermissions is designed to never throw, but guard defensively.
+        debugPrint(
+          '[SystemPermissions] Unexpected error parsing permissions for '
+          'role "${role.roleName}" (${role.roleId}): $e\n$st',
+        );
       }
     }
 
@@ -159,15 +176,19 @@ class SystemPermissions {
 // Supporting value type
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// A lightweight container carrying the raw JSON permissions string from a
+/// A lightweight container carrying the raw permissions data string from a
 /// single `roles` row, used when building a [SystemPermissions] instance.
+///
+/// The [permissionsData] field is format-agnostic — it may contain standard
+/// JSON, a JSON integer array (seeder format), or a base64-encoded string.
+/// [SystemPermissions.forUser] uses [parsePermissions] to handle all formats.
 ///
 /// Callers construct these from a joined `scopes + roles` query.
 class RolePermissions {
   const RolePermissions({
     required this.roleId,
     required this.roleName,
-    required this.permissionsJson,
+    required this.permissionsData,
   });
 
   /// The `roles.id` value.
@@ -176,8 +197,9 @@ class RolePermissions {
   /// The `roles.name` value — useful for debugging / display.
   final String roleName;
 
-  /// The raw JSON string from `roles.permissions`.
-  /// Expected to be a JSON list of `{"resource": "...", "actions": [...]}` objects,
-  /// or a flat map of `"resource.action"` keys.
-  final String permissionsJson;
+  /// The raw data from `roles.permissions` (currently a `text()` column).
+  ///
+  /// May be in any of the known storage formats — standard JSON, seeder
+  /// int-array JSON, or base64-encoded string. See BUG-012.
+  final String permissionsData;
 }

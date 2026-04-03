@@ -107,12 +107,13 @@ Bitmask-based permission model. See AGENT.md §17a.
 System-level permissions with level-based shortcuts. Now wraps [Permissions] bitmask model.
 - `super_` users → all permissions granted unconditionally (bypass).
 - `system` users → roles parsed and permissions enforced, same as normal users but with system-scoped roles (where `scopes.school IS NULL`). **Not** treated as super users.
-- `normal` users → [Permissions] bitmask parsed from `roles.permissions` JSON via `Permissions.fromJson`.
+- `normal` users → [Permissions] bitmask parsed from `roles.permissions` via resilient multi-format `parsePermissions()` from `lib/core/permission_parser.dart`.
 - **API:** `can(Resource, Action)`, `canAny(Resource, List<Action>)`, `canAll(Resource, List<Action>)` — typed Resource/Action parameters (no more string keys).
 - **Factory:** `SystemPermissions.forUser(UserLevel level, List<RolePermissions> roles)`.
-- **Helper type:** `RolePermissions` — `{roleId, roleName, permissionsJson}`.
+- **Helper type:** `RolePermissions` — `{roleId, roleName, permissionsData}` (renamed from `permissionsJson` in Task A2 to be format-agnostic).
 - **Fix (Task P1):** Removed `|| level == UserLevel.system` shortcut. Only `UserLevel.super_` bypasses.
 - **Fix (Task P2):** Replaced `Set<String>` with `Permissions` bitmask model. `can()` signature changed from `can(String)` to `can(Resource, Action)`.
+- **Fix (Task A2):** `forUser()` now uses `parsePermissions()` (from `lib/core/permission_parser.dart`) instead of raw `jsonDecode` + `Permissions.fromJson`. Handles all three permission storage formats (standard JSON, seeder int-array JSON, base64-encoded strings). Logs warnings via `debugPrint` instead of silently swallowing parse failures.
 
 ### `ActiveTermContext` — `active_term_context.dart`
 In-memory session object tracking which academic term the user is viewing.
@@ -232,4 +233,4 @@ Grouping model for the exams UI. Multiple exam rows sharing the same name are pr
 - **`ExamStreamEntry`** — One exam row + its papers for a specific stream. Fields: `exam` (Exam), `streamCode` (int?), `papers` (List<Paper>).
 
 ## Last Updated
-Task 20 — Final CONTEXT.md sweep for question bank feature. Verified all 4 question bank model files (`question.dart`, `paper_generation.dart`, `marking_status.dart`, `question_grade.dart`) are documented with full type details and `fromProto` factories. No content changes needed — all entries were already accurate from Task 02.
+Task A2 — Updated `SystemPermissions` / `RolePermissions` documentation: `permissionsJson` renamed to `permissionsData`, `forUser()` now uses resilient multi-format `parsePermissions()` from `lib/core/permission_parser.dart` (see BUG-012).

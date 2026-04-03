@@ -42,7 +42,7 @@ This treats System users (level 1) identically to Super users (level 2), grantin
 
 ---
 
-### Task A2: SystemPermissions.forUser() parses JSON but roles.permissions is a binary blob
+### ~~Task A2: SystemPermissions.forUser() parses JSON but roles.permissions is a binary blob~~ ✅
 
 **Files to modify:** `lib/models/system_permissions.dart`
 **Context files to read:** `lib/models/permissions.dart` (especially `fromBlob` / `toBlob`), `lib/database/daos/roles_dao.dart`
@@ -61,8 +61,8 @@ The `RolePermissions` class (~L59–62) carries a `permissionsJson` field typed 
 4. Remove the `try/catch` that silently swallows parse failures — if a blob is malformed, log it visibly.
 
 **Update after completion:**
-- [ ] Update `lib/models/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/models/CONTEXT.md`
+- [x] Mark this task `[x]`
 - [ ] Git commit: `git add -A && git commit -m "fix: parse system permissions from binary blob instead of JSON"`
 
 ---
