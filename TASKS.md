@@ -1175,7 +1175,7 @@ Add a Notifications panel/section to the system dashboard. On desktop, this coul
 2. Change the sync action from `SyncAction.updateUser` to the appropriate create action.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Git commit: `git add -A && git commit -m "fix: add level picker and correct SyncAction in invite user flow"`
 
 ---
