@@ -330,7 +330,7 @@ Also, `_StudentRecentGrades` (~L1677–1793) groups by `examId` but never querie
 
 ---
 
-### Task B8: _ClassTimetableView treats null stream as "not enrolled"
+### Task B8: _ClassTimetableView treats null stream as "not enrolled" ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/timetable/timetable_screen.dart`
 **Context files to read:** None
@@ -344,8 +344,8 @@ Also, `_StudentRecentGrades` (~L1677–1793) groups by `examId` but never querie
 Only show `_NotEnrolledState` when there is no enrollment at all (`enrollment == null`), not when `enrollment.stream == null`. When stream is null, load the timetable for the grade without stream filtering.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `git add -A && git commit -m "fix: allow null stream in timetable enrollment check"`
+- [x] Mark this task `[x]`
+- [x] Git commit: `git add -A && git commit -m "fix: allow null stream in timetable enrollment check"`
 
 ---
 
@@ -752,7 +752,7 @@ Option 1 is cleaner.
 
 ---
 
-### Task E2: Staff timetable — routed to _OwnerTimetableShell unconditionally
+### Task E2: Staff timetable — routed to _OwnerTimetableShell unconditionally ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/timetable/timetable_screen.dart`
 **Context files to read:** None
@@ -768,12 +768,12 @@ For `StaffEntry`, check `permissions.can(Resource.classes, Action.update)`:
 - If only `Action.read` → read-only school-wide timetable view (no generation/deletion buttons)
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `git add -A && git commit -m "fix: permission-gate staff timetable admin controls"`
+- [x] Mark this task `[x]`
+- [x] Git commit: `git add -A && git commit -m "fix: permission-gate staff timetable admin controls"`
 
 ---
 
-### Task E3: Staff attendance — falls through to teacher's marking UI
+### Task E3: Staff attendance — falls through to teacher's marking UI ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/attendance/attendance_screen.dart`
 **Context files to read:** None
@@ -790,7 +790,7 @@ Add explicit `StaffEntry` handling:
 - Remove the wildcard `_ =>` fallback or make it show an error state
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Git commit: `git add -A && git commit -m "fix: add explicit staff attendance routing with permission checks"`
 
 ---

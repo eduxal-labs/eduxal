@@ -345,8 +345,6 @@ class _DashboardShellState extends State<_DashboardShell>
       ],
       MembershipRole.staff => [
         const _NavItem(label: 'Overview', icon: Icons.space_dashboard_outlined),
-        if (perms.canAny(Resource.students, [Action.read]))
-          const _NavItem(label: 'Students', icon: Icons.groups_outlined),
         if (perms.canAny(Resource.classes, [Action.read]))
           const _NavItem(label: 'Academics', icon: Icons.menu_book_outlined),
         if (perms.canAny(Resource.exams, [Action.read]))
