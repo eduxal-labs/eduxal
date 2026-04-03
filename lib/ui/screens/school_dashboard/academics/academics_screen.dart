@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart' hide Action;
 
 import '../../../../client.dart';
@@ -526,75 +527,177 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
     final canDelete =
         entry is OwnerEntry || perms.can(Resource.classes, Action.delete);
 
+    // ── Teacher scoping (B01) ──────────────────────────────────────────────
+    // When the current entry is a TeacherEntry, filter the grade/stream tree
+    // to only those where the teacher has assignments (class_teachers or
+    // subject_teachers) for the active term.
+    final teacherId = entry is TeacherEntry ? entry.teacher.user : null;
+
     return StreamBuilder<List<SchoolStream>>(
       stream: catalogDao.watchAllStreamsForSchool(_schoolId),
       builder: (context, snapshot) {
         final allStreams = snapshot.data ?? [];
-        final tree = _buildGradeTree(allStreams);
 
-        return Stack(
-          children: [
-            CustomScrollView(
-              slivers: [
-                // ── Header bar ──────────────────────────────────────────
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 14, 12, 2),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Academics',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: cs.onSurface,
-                              letterSpacing: 0.1,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+        if (teacherId != null) {
+          final termCtx = ActiveTermProvider.of(context);
+          final term = termCtx.currentTerm;
+          if (term == null) {
+            // No active term — no assignments to scope by; show empty.
+            return _buildTreeBody(
+              [],
+              allStreams,
+              cs,
+              isDark,
+              canCreate: canCreate,
+              canEdit: canEdit,
+              canDelete: canDelete,
+            );
+          }
+          // Nest reactive streams for the teacher's class & subject
+          // assignments so the tree updates when assignments change.
+          return StreamBuilder<List<ClassTeacher>>(
+            stream:
+                (db.select(db.classTeachers)..where(
+                      (t) =>
+                          t.school.equals(_schoolId) &
+                          t.year.equals(term.year) &
+                          t.term.equals(term.term) &
+                          t.teacher.equals(teacherId),
+                    ))
+                    .watch(),
+            builder: (context, ctSnap) {
+              return StreamBuilder<List<SubjectTeacher>>(
+                stream:
+                    (db.select(db.subjectTeachers)..where(
+                          (t) =>
+                              t.school.equals(_schoolId) &
+                              t.year.equals(term.year) &
+                              t.term.equals(term.term) &
+                              t.teacher.equals(teacherId),
+                        ))
+                        .watch(),
+                builder: (context, stSnap) {
+                  final ctRows = ctSnap.data ?? [];
+                  final stRows = stSnap.data ?? [];
 
-                // ── Content ─────────────────────────────────────────────
-                if (tree.isEmpty)
-                  SliverFillRemaining(
-                    child: _EmptyConfigState(
-                      onAdd: canCreate
-                          ? () => _showAddGradeSheet(allStreams)
-                          : null,
-                    ),
-                  )
-                else
-                  ..._buildCurriculaSlivers(
-                    tree.curricula,
+                  // Collect distinct (grade, stream) keys the teacher is
+                  // assigned to via either class_teachers or subject_teachers.
+                  final assigned = <String>{};
+                  for (final ct in ctRows) {
+                    assigned.add('${ct.grade}|${ct.stream}');
+                  }
+                  for (final st in stRows) {
+                    assigned.add('${st.grade}|${st.stream}');
+                  }
+
+                  final visible = allStreams
+                      .where((s) => assigned.contains('${s.grade}|${s.stream}'))
+                      .toList();
+
+                  return _buildTreeBody(
+                    visible,
+                    allStreams,
                     cs,
                     isDark,
-                    allStreams,
                     canCreate: canCreate,
                     canEdit: canEdit,
                     canDelete: canDelete,
-                  ),
+                  );
+                },
+              );
+            },
+          );
+        }
 
-                // Bottom padding for FAB
-                const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
-              ],
-            ),
-
-            // ── FAB — only visible when user can create ─────────────────
-            if (canCreate)
-              Positioned(
-                right: 16,
-                bottom: 16,
-                child: _AddGradeFab(
-                  onTap: () => _showAddGradeSheet(allStreams),
-                ),
-              ),
-          ],
+        // Non-teacher: show all grades/streams unfiltered.
+        return _buildTreeBody(
+          allStreams,
+          allStreams,
+          cs,
+          isDark,
+          canCreate: canCreate,
+          canEdit: canEdit,
+          canDelete: canDelete,
         );
       },
+    );
+  }
+
+  /// Builds the grade tree body widget.
+  ///
+  /// [visibleStreams] is the list displayed in the tree (may be filtered for
+  /// teachers). [allStreams] is the full school-wide list, used by the
+  /// add-grade sheet to determine which grades already exist.
+  Widget _buildTreeBody(
+    List<SchoolStream> visibleStreams,
+    List<SchoolStream> allStreams,
+    ColorScheme cs,
+    bool isDark, {
+    required bool canCreate,
+    required bool canEdit,
+    required bool canDelete,
+  }) {
+    final tree = _buildGradeTree(visibleStreams);
+
+    return Stack(
+      children: [
+        CustomScrollView(
+          slivers: [
+            // ── Header bar ──────────────────────────────────────────
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 12, 2),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Academics',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: cs.onSurface,
+                          letterSpacing: 0.1,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // ── Content ─────────────────────────────────────────────
+            if (tree.isEmpty)
+              SliverFillRemaining(
+                child: _EmptyConfigState(
+                  onAdd: canCreate
+                      ? () => _showAddGradeSheet(allStreams)
+                      : null,
+                ),
+              )
+            else
+              ..._buildCurriculaSlivers(
+                tree.curricula,
+                cs,
+                isDark,
+                allStreams,
+                canCreate: canCreate,
+                canEdit: canEdit,
+                canDelete: canDelete,
+              ),
+
+            // Bottom padding for FAB
+            const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
+          ],
+        ),
+
+        // ── FAB — only visible when user can create ─────────────────
+        if (canCreate)
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: _AddGradeFab(onTap: () => _showAddGradeSheet(allStreams)),
+          ),
+      ],
     );
   }
 

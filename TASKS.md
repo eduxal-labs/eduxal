@@ -553,7 +553,7 @@ And replace with the appropriate permission check:
 
 ## Track B: Data Scoping & Access Control
 
-### Task B01: Scope teacher Academics to assigned classes/subjects only
+### Task B01: Scope teacher Academics to assigned classes/subjects only ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/academics/academics_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** None (Phase 2)
