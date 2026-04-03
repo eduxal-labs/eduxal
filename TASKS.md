@@ -380,7 +380,7 @@ The timetable screen **correctly** implements `didUpdateWidget` with `oldWidget.
 
 ---
 
-### Task C2: Guardian nav tabs are hardcoded — not permission-gated
+### Task C2: Guardian nav tabs are hardcoded — not permission-gated ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/school_dashboard_screen.dart`
 **Context files to read:** None
@@ -406,8 +406,8 @@ MembershipRole.guardian => [
 ```
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `git add -A && git commit -m "fix: permission-gate guardian navigation tabs"`
+- [x] Mark this task `[x]`
+- [x] Git commit: `git add -A && git commit -m "fix: permission-gate guardian navigation tabs"`
 
 ---
 
@@ -496,7 +496,7 @@ Add a prominent banner/alert at the top of `_GuardianOverview` when `enrollment 
 
 ---
 
-### Task C7: Entry switching resets guardian to Overview tab
+### Task C7: Entry switching resets guardian to Overview tab ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/school_dashboard_screen.dart`
 **Context files to read:** None
@@ -526,8 +526,8 @@ void _onEntryChanged() {
 ```
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `git add -A && git commit -m "fix: preserve tab index when guardian switches wards"`
+- [x] Mark this task `[x]`
+- [x] Git commit: `git add -A && git commit -m "fix: preserve tab index when guardian switches wards"`
 
 ---
 
@@ -888,7 +888,7 @@ Per Task B5, remove `'Members'`, `'Finance'`, and `'Announcements'` from `_kAcad
 
 ---
 
-### Task F2: Owner nav — missing Attendance tab
+### Task F2: Owner nav — missing Attendance tab ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/school_dashboard_screen.dart`, `lib/ui/screens/school_dashboard/attendance/attendance_screen.dart`
 **Context files to read:** None
@@ -908,8 +908,8 @@ Additionally, `AttendanceScreen.build()` has no `OwnerEntry` handler — even if
 2. In `AttendanceScreen.build()`, add an `OwnerEntry` case that shows a school-wide attendance dashboard (all classes, all dates).
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `git add -A && git commit -m "feat: add attendance tab to owner navigation"`
+- [x] Mark this task `[x]`
+- [x] Git commit: `git add -A && git commit -m "feat: add attendance tab to owner navigation"`
 
 ---
 
