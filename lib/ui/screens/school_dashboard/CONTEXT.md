@@ -241,6 +241,13 @@ When `ActiveTermContext.hasTerms` is `false`, the dashboard shows a blank state 
 
 
 ## Last Updated
+Task E02 — Defense-in-depth permission guards for AcademicsScreen and ExamsGradesScreen.
+
+**(E02 — AcademicsScreen guard)** `academics_screen.dart`: Added defense-in-depth entry-type guard at the top of `AcademicsScreen.build()`. `StudentEntry` and `GuardianEntry` are now blocked with an `EduEmptyState` widget (lock icon + "Access restricted" + "This section is for school administrators."). Nav routing should already prevent these roles from reaching the screen, but the guard provides a safety net. New import: `ui/widgets/edu_empty_state.dart`.
+
+**(E02 — ExamsGradesScreen staff guard)** `exams_grades_screen.dart`: Added staff permission guard after the existing student/guardian guard in `ExamsGradesScreen.build()`. Staff without `Resource.exams` / `Action.read` permission now see `_RestrictedAccessState` instead of the exam shell. The existing write-action gating within `_ExamsShell` was already properly implemented via `_canCreateExam` (checks `exams.create`), `_canEditExam` (checks `exams.update`), `_canDeleteExam` (checks `exams.delete`), and `_canMarkGrades` (checks `grades.mark`) — all enforce permission checks for staff and teachers before allowing mutations. No additional write-action gating needed.
+
+Previous:
 Tasks D01, E06 — Reactive permissions and DAO-based permission loading in school dashboard.
 
 **(E06 — DAO-based permission loading)** `school_dashboard_screen.dart`: `_initializeSession()` no longer uses raw `db.select(db.scopes)` and `db.select(db.roles)` queries. Replaced with `SchoolScopesDao(db).getAggregatedPermissions(schoolId, userId, userLevel)` which encapsulates the full permission computation: loading school-scoped scopes, loading system-scoped scopes for elevated users (`UserLevel.system`/`super_`), parsing all role permission blobs via `parsePermissionsBlob`, and unioning them into a `SchoolPermissions` object. Removed imports: `package:drift/drift.dart`, `core/permission_parser.dart`, `database/tables/enums.dart`. Added import: `database/daos/school_scopes_dao.dart`.
