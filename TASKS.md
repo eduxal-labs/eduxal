@@ -803,7 +803,7 @@ Partially covered by A09 but specifically for grade/paper detail pages:
 
 ## Track C: Navigation & Routing Fixes
 
-### Task C01: Fix logout not navigating away from System Dashboard
+### Task C01: Fix logout not navigating away from System Dashboard ✅
 **Files to create/modify:** `lib/ui/screens/system/system_dashboard_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/system/CONTEXT.md`
 **Depends on:** None (Phase 2)
@@ -829,8 +829,8 @@ case _UserMenuAction.logout:
 Verify the app's navigation pattern by checking `main.dart` or the router setup. The important thing is that ALL routes are cleared and the user returns to the initial screen (login or home).
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note logout navigation fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — note logout navigation fix
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---

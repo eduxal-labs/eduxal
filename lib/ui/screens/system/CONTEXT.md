@@ -174,4 +174,4 @@ For `UserLevel.super_` users, all permissions are granted unconditionally via `S
 - Permission gating uses `SystemPermissions.can(action)` — never raw `UserLevel` checks in UI code (except `canSeeDeleted` which is level-specific by design).
 
 ## Last Updated
-Task A03 — Added privilege escalation guards: self-promotion block, Super-only promote-to-Super, `users.assign` for "Promote to System", `_canCreateSystemUser` requires `users.create`, hard guards in invite flow against Super-level and unauthorized System-level invites. Previous: Task A04.
+Task C01 — Fixed logout not navigating away from System Dashboard. The `_handleAction` logout case now `await`s `client.logOut()`, then uses `Navigator.pushAndRemoveUntil` to clear the entire route stack and navigate to `LoginScreen` (matching the established pattern in `account_screen.dart`). Added `import '../auth/login_screen.dart'`. Previous: Task A03.
