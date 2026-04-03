@@ -170,11 +170,7 @@ class TimetableScreen extends StatelessWidget {
         termContext: termCtx,
       ),
       TeacherEntry() =>
-        schoolContext.permissions.canAny(Resource.classes, [
-              Action.create,
-              Action.update,
-              Action.delete,
-            ])
+        schoolContext.permissions.can(Resource.classes, Action.update)
             ? _OwnerTimetableShell(
                 schoolContext: schoolContext,
                 termContext: termCtx,
@@ -580,7 +576,7 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
     final entry = widget.schoolContext.currentEntry.value;
     final canManage =
         entry is OwnerEntry ||
-        widget.schoolContext.permissions.can(Resource.classes, Action.create);
+        widget.schoolContext.permissions.can(Resource.classes, Action.update);
     final canDelete =
         entry is OwnerEntry ||
         widget.schoolContext.permissions.can(Resource.classes, Action.delete);

@@ -642,7 +642,7 @@ Two issues in `attendance_screen.dart`:
 
 ---
 
-### Task B04: Permission-gate teacher Timetable tab
+### Task B04: Permission-gate teacher Timetable tab ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/school_dashboard_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** None (Phase 2)
@@ -666,8 +666,8 @@ Two issues in `attendance_screen.dart`:
    ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note timetable admin/teacher view split
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note timetable admin/teacher view split
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
