@@ -144,9 +144,9 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
     final user = cache.currentUser;
     if (user == null) return;
 
-    // super_ and system users get full access immediately — no DB query needed.
-    if (user.user.level == UserLevel.super_ ||
-        user.user.level == UserLevel.system) {
+    // Only super_ users get full access immediately — no DB query needed.
+    // System users fall through to role-based permission loading below.
+    if (user.user.level == UserLevel.super_) {
       setState(() {
         _permissions = SystemPermissions.superUser();
       });

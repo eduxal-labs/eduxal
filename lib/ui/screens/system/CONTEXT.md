@@ -139,7 +139,7 @@ System sections check `SystemPermissions` before rendering sensitive actions:
 | Manage roles | `roles.create`, `roles.update`, `roles.delete` |
 | See deleted records | Only `UserLevel.super_` (`SystemPermissions.canSeeDeleted`) |
 
-For `UserLevel.super_` and `UserLevel.system` users, all permissions are granted unconditionally via the level shortcut in `SystemPermissions.can()`.
+For `UserLevel.super_` users, all permissions are granted unconditionally via `SystemPermissions.superUser()`. `UserLevel.system` users now go through role-based permission loading: `_loadPermissions()` calls `usersDao.getSystemPermissions()` and passes the result to `SystemPermissions.forUser()`, which merges level-based defaults with the user's actual system-scoped role permissions.
 
 ## Dependencies
 
@@ -154,4 +154,4 @@ For `UserLevel.super_` and `UserLevel.system` users, all permissions are granted
 - Permission gating uses `SystemPermissions.can(action)` — never raw `UserLevel` checks in UI code (except `canSeeDeleted` which is level-specific by design).
 
 ## Last Updated
-Task 20 — Final CONTEXT.md sweep for question bank feature. Added `bulk_import_sheet.dart` (`BulkImportSheet`) entry to `settings/` table. Updated `subjects_section.dart` description to reflect completed bulk import wiring and question count badge on topic tiles (Task 10 & 19). Previous: Task 09.
+Task A1 — Fixed `_loadPermissions()` to only shortcut `superUser()` for `UserLevel.super_`; system users now fall through to role-based permission loading via `getSystemPermissions()` + `SystemPermissions.forUser()`. Previous: Task 20.

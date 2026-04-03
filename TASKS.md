@@ -12,7 +12,7 @@ These are the highest-priority issues. Most other tracks depend on the permissio
 
 ---
 
-### Task A1: System users are granted superUser() permissions — bypasses all RBAC
+### Task A1: System users are granted superUser() permissions — bypasses all RBAC ✅
 
 **Files to modify:** `lib/ui/screens/system/system_dashboard_screen.dart`
 **Context files to read:** `lib/models/system_permissions.dart`, `lib/models/permissions.dart`
@@ -36,9 +36,9 @@ This treats System users (level 1) identically to Super users (level 2), grantin
 - **Warning:** This will immediately surface issues A2 and A3 (the permission parsing pipeline for system users is broken). Those must be fixed in the same batch.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md`
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `git add -A && git commit -m "fix: add permission checks to all system dashboard action buttons"`
+- [x] Update `lib/ui/screens/system/CONTEXT.md`
+- [x] Mark this task `[x]`
+- [x] Git commit: `git add -A && git commit -m "fix: restrict superUser() shortcut to super_ level only in system dashboard"`
 
 ---
 
