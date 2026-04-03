@@ -100,10 +100,11 @@ class _SchoolRolesBodyState extends State<_SchoolRolesBody> {
     );
   }
 
-  void _showCreateSheet(BuildContext context) {
+  void _showCreateSheet(BuildContext context, {Role? existing}) {
     showEduSheet<void>(
       context: context,
-      builder: (_) => _RoleFormSheet(schoolId: _schoolId, dao: _dao),
+      builder: (_) =>
+          _RoleFormSheet(schoolId: _schoolId, dao: _dao, existing: existing),
     );
   }
 
@@ -132,36 +133,6 @@ class _SchoolRolesBodyState extends State<_SchoolRolesBody> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Failed to delete role: $e')));
-      }
-    }
-  }
-
-  Future<void> _purgeRole(BuildContext context, Role role) async {
-    final confirmed = await showEduConfirmDialog(
-      context: context,
-      title: 'Permanently delete role',
-      message:
-          'Permanently delete "${role.name}"?\n\n'
-          'This action is irreversible and will permanently remove '
-          'this record from the local database.',
-      confirmLabel: 'Purge',
-      isDestructive: true,
-    );
-    if (!confirmed || !mounted) return;
-    try {
-      final accountId = cache.currentUser?.user.id;
-      if (accountId == null) return;
-      await _dao.deleteRole(role.id, accountId: accountId);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('"${role.name}" permanently deleted')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to purge role: $e')));
       }
     }
   }
@@ -226,7 +197,8 @@ class _SchoolRolesBodyState extends State<_SchoolRolesBody> {
                                 EduDataTableAction<Role>(
                                   icon: Icons.edit_outlined,
                                   label: 'Edit',
-                                  onTap: (_) => _showCreateSheet(context),
+                                  onTap: (r) =>
+                                      _showCreateSheet(context, existing: r),
                                 ),
                               if (canDelete)
                                 EduDataTableAction<Role>(
@@ -240,7 +212,7 @@ class _SchoolRolesBodyState extends State<_SchoolRolesBody> {
                                   icon: Icons.delete_forever_rounded,
                                   label: 'Purge',
                                   isDestructive: true,
-                                  onTap: (r) => _purgeRole(context, r),
+                                  onTap: (r) => _deleteRole(context, r),
                                 ),
                             ],
                             columns: const [
@@ -502,13 +474,18 @@ class _RolePermissionsBadge extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Role create sheet (create-only — editing is now done in the detail screen)
+// Role create / edit sheet
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _RoleFormSheet extends StatefulWidget {
-  const _RoleFormSheet({required this.schoolId, required this.dao});
+  const _RoleFormSheet({
+    required this.schoolId,
+    required this.dao,
+    this.existing,
+  });
   final String schoolId;
   final SchoolScopesDao dao;
+  final Role? existing;
 
   @override
   State<_RoleFormSheet> createState() => _RoleFormSheetState();
@@ -525,11 +502,17 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
   final Map<Resource, int> _permissions = {};
   final Set<Resource> _expandedResources = {};
 
+  bool get _isEditing => widget.existing != null;
+
   @override
   void initState() {
     super.initState();
-    _nameCtrl = TextEditingController();
-    _descCtrl = TextEditingController();
+    final e = widget.existing;
+    _nameCtrl = TextEditingController(text: e?.name ?? '');
+    _descCtrl = TextEditingController(text: e?.description ?? '');
+    if (e != null) {
+      _permissions.addAll(parsePermissions(e.permissions));
+    }
   }
 
   @override
@@ -596,27 +579,40 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
 
     setState(() => _saving = true);
     try {
-      final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch);
-      final id = ObjectId().oid;
+      final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
       final json = serialisePermissions(_permissions);
       debugPrint('[_RoleFormSheet._save] serialised: $json');
       debugPrint('[_RoleFormSheet._save] roundtrip: ${parsePermissions(json)}');
 
-      await widget.dao.createRole(
-        RolesCompanion(
-          id: Value(id),
-          school: Value(widget.schoolId),
-          name: Value(_nameCtrl.text.trim()),
-          description: Value(
-            _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
+      final desc = _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim();
+
+      if (_isEditing) {
+        await widget.dao.updateRole(
+          widget.existing!.id,
+          RolesCompanion(
+            name: Value(_nameCtrl.text.trim()),
+            description: Value(desc),
+            permissions: Value(json),
+            updated: Value(nowMs),
           ),
-          permissions: Value(json),
-          created: Value(nowSec),
-          updated: Value(nowSec),
-        ),
-        accountId: user.id,
-      );
+          accountId: user.id,
+        );
+      } else {
+        final id = ObjectId().oid;
+        await widget.dao.createRole(
+          RolesCompanion(
+            id: Value(id),
+            school: Value(widget.schoolId),
+            name: Value(_nameCtrl.text.trim()),
+            description: Value(desc),
+            permissions: Value(json),
+            created: Value(nowMs),
+            updated: Value(nowMs),
+          ),
+          accountId: user.id,
+        );
+      }
       if (mounted) Navigator.pop(context);
     } catch (e) {
       if (mounted) {
@@ -666,7 +662,7 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 10, 8, 0),
             child: Text(
-              'New Role',
+              _isEditing ? 'Edit Role' : 'New Role',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,

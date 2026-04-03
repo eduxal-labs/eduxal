@@ -966,7 +966,7 @@ Add a `'Settings'` nav item to the owner nav in `school_dashboard_screen.dart`.
 
 ---
 
-### Task F5: No student deletion — missing DAO and service methods
+### Task F5: No student deletion — missing DAO and service methods ✅
 
 **Files to modify:** `lib/database/daos/members_dao.dart`, `lib/services/member_management.dart`
 **Context files to read:** `lib/database/tables/students.dart`, `lib/database/tables/logs.dart`
@@ -984,9 +984,9 @@ No `deleteStudent` / `removeStudent` method exists in `MembersDao` despite `Sync
 3. Verify the UI's `_confirmDelete` callback in `_StudentRow` correctly calls the new method.
 
 **Update after completion:**
-- [ ] Update `lib/database/daos/CONTEXT.md`
-- [ ] Update `lib/services/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/database/daos/CONTEXT.md`
+- [x] Update `lib/services/CONTEXT.md`
+- [x] Mark this task `[x]`
 - [ ] Git commit: `git add -A && git commit -m "feat: add deleteStudent method to DAO and service layer"`
 
 ---
