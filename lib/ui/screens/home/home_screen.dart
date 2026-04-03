@@ -6,6 +6,7 @@ import '../../../models/membership.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/edu_sheet.dart';
 import '../../widgets/sync_indicator.dart';
+import '../../widgets/student_avatar.dart';
 import '../../widgets/user_avatar.dart';
 import '../account/account_screen.dart';
 import '../school_dashboard/school_dashboard_screen.dart';
@@ -112,6 +113,7 @@ class _HomeScreenState extends State<HomeScreen>
                 IconData icon = Icons.help_outline;
                 String title = '';
                 String? subtitle;
+                Widget? leadingWidget;
 
                 switch (entry) {
                   case OwnerEntry():
@@ -132,10 +134,17 @@ class _HomeScreenState extends State<HomeScreen>
                     icon = Icons.family_restroom_outlined;
                     title = 'Guardian';
                     subtitle = ward.name;
+                    leadingWidget = StudentAvatar(
+                      schoolId: membership.school.id,
+                      adm: ward.adm,
+                      name: ward.name,
+                      radius: 20,
+                    );
                 }
 
                 return _EntryOptionCard(
                   icon: icon,
+                  leadingWidget: leadingWidget,
                   title: title,
                   subtitle: subtitle,
                   roleColor: roleColor,
@@ -520,6 +529,7 @@ class _HomeScreenState extends State<HomeScreen>
 class _EntryOptionCard extends StatefulWidget {
   const _EntryOptionCard({
     required this.icon,
+    this.leadingWidget,
     required this.title,
     required this.subtitle,
     required this.roleColor,
@@ -529,6 +539,7 @@ class _EntryOptionCard extends StatefulWidget {
   });
 
   final IconData icon;
+  final Widget? leadingWidget;
   final String title;
   final String? subtitle;
   final Color roleColor;
@@ -637,26 +648,28 @@ class _EntryOptionCardState extends State<_EntryOptionCard>
                       color: widget.roleColor.withValues(alpha: _accentAlpha),
                     ),
                     const SizedBox(width: 12),
-                    // ── Role icon
+                    // ── Role icon / custom leading widget
                     Align(
                       alignment: Alignment.center,
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: widget.roleColor.withValues(
-                            alpha: widget.isDark ? 0.16 : 0.10,
+                      child:
+                          widget.leadingWidget ??
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: widget.roleColor.withValues(
+                                alpha: widget.isDark ? 0.16 : 0.10,
+                              ),
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.kCardRadius,
+                              ),
+                            ),
+                            child: Icon(
+                              widget.icon,
+                              size: 20,
+                              color: widget.roleColor.withValues(alpha: 0.9),
+                            ),
                           ),
-                          borderRadius: BorderRadius.circular(
-                            AppTheme.kCardRadius,
-                          ),
-                        ),
-                        child: Icon(
-                          widget.icon,
-                          size: 20,
-                          color: widget.roleColor.withValues(alpha: 0.9),
-                        ),
-                      ),
                     ),
                     const SizedBox(width: 12),
                     // ── Label + subtitle

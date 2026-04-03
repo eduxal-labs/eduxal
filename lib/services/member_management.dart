@@ -462,6 +462,39 @@ class MemberManagementService {
     }
   }
 
+  /// Removes a student from a school.
+  ///
+  /// When [permissions] is provided, verifies the caller has
+  /// `Resource.students` / `Action.delete` before proceeding.
+  Future<Result<void, MemberActionError>> removeStudent({
+    required String schoolId,
+    required int adm,
+    SchoolPermissions? permissions,
+  }) async {
+    final accountId = cache.currentUser?.user.id;
+    if (accountId == null) {
+      return const Err(MemberActionError.noActiveAccount);
+    }
+
+    // Permission guard (defense-in-depth)
+    if (permissions != null &&
+        !permissions.can(Resource.students, Action.delete)) {
+      return const Err(MemberActionError.permissionDenied);
+    }
+
+    try {
+      await _dao.removeStudent(
+        schoolId: schoolId,
+        adm: adm,
+        accountId: accountId,
+      );
+
+      return const Ok(null);
+    } on Exception {
+      return const Err(MemberActionError.databaseError);
+    }
+  }
+
   // ── Guardian actions ─────────────────────────────────────────────────────
 
   /// Updates mutable fields on a guardian row.

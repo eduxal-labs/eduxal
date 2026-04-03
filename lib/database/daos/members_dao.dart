@@ -895,6 +895,42 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     );
   }
 
+  /// Removes a student row from the local database and enqueues a
+  /// [SyncAction.deleteStudent] log with [DeleteStudentPayload].
+  ///
+  /// Follows the same hard-delete pattern as [removeTeacher], [removeStaff],
+  /// etc. — the row is deleted locally and the sync engine replays the
+  /// deletion to the server when online.
+  Future<void> removeStudent({
+    required String schoolId,
+    required int adm,
+    required String accountId,
+  }) async {
+    await transaction(() async {
+      final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+
+      // Get student name for resource display before deletion.
+      final student = await getStudent(schoolId, adm);
+      final resourceName = student?.name ?? 'Student #$adm';
+
+      final payload = sync_pb.DeleteStudentPayload(school: schoolId, adm: adm);
+
+      await into(logs).insert(
+        LogsCompanion(
+          account: Value(accountId),
+          action: Value(SyncAction.deleteStudent),
+          resource: Value(resourceName),
+          payload: Value(payload.writeToBuffer()),
+          created: Value(nowMs),
+        ),
+      );
+      await (delete(
+        students,
+      )..where((t) => t.school.equals(schoolId) & t.adm.equals(adm))).go();
+    });
+    sync.schedulePush();
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Guardian mutations
   // ─────────────────────────────────────────────────────────────────────────

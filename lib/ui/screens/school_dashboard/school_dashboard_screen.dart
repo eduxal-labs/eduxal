@@ -19,6 +19,7 @@ import '../../widgets/active_term_provider.dart';
 import '../../widgets/edu_sheet.dart';
 import '../../widgets/no_terms_blank_state.dart';
 import '../../widgets/term_selector_chip.dart';
+import '../../widgets/student_avatar.dart';
 import '../../widgets/user_avatar.dart';
 import '../account/account_screen.dart';
 import '../notifications/notifications_page.dart';
@@ -2053,23 +2054,31 @@ class _RoleSwitcherSheet extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: isCurrent
-                              ? accent.withValues(alpha: 0.12)
-                              : cs.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(8),
+                      if (entry is GuardianEntry)
+                        StudentAvatar(
+                          schoolId: schoolContext.membership.school.id,
+                          adm: entry.ward.adm,
+                          name: entry.ward.name,
+                          radius: 18,
+                        )
+                      else
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: isCurrent
+                                ? accent.withValues(alpha: 0.12)
+                                : cs.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            icon,
+                            size: 17,
+                            color: isCurrent
+                                ? accent
+                                : cs.onSurfaceVariant.withValues(alpha: 0.7),
+                          ),
                         ),
-                        child: Icon(
-                          icon,
-                          size: 17,
-                          color: isCurrent
-                              ? accent
-                              : cs.onSurfaceVariant.withValues(alpha: 0.7),
-                        ),
-                      ),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Column(

@@ -411,7 +411,7 @@ MembershipRole.guardian => [
 
 ---
 
-### Task C3: Guardian entry picker does not show ward's cached image
+### Task C3: Guardian entry picker does not show ward's cached image ✅
 
 **Files to modify:** `lib/ui/screens/home/home_screen.dart`
 **Context files to read:** `lib/ui/widgets/student_avatar.dart`
@@ -428,8 +428,8 @@ Also, the role-switcher sheet (`_RoleSwitcherSheet` ~L1952–2112) shows a gener
 2. In `_RoleSwitcherSheet._entryMeta`, for `GuardianEntry`, return the ward's avatar widget instead of the generic icon.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `git add -A && git commit -m "ui: show ward cached image in guardian entry picker"`
+- [x] Mark this task `[x]`
+- [x] Git commit: `git add -A && git commit -m "ui: show ward cached image in guardian entry picker"`
 
 ---
 
@@ -867,7 +867,7 @@ Also, `_StaffQuickStats` creates three separate `StreamBuilder` widgets subscrib
 
 ---
 
-### Task F1: Members/Finance/Announcements gated behind term existence — blocks school setup
+### Task F1: Members/Finance/Announcements gated behind term existence — blocks school setup ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/school_dashboard_screen.dart`
 **Context files to read:** None
@@ -883,8 +883,8 @@ Per Task B5, remove `'Members'`, `'Finance'`, and `'Announcements'` from `_kAcad
 **Note:** If B5 is completed first, this task may already be done. Verify and mark complete.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `git add -A && git commit -m "fix: unblock Members/Finance/Announcements from term requirement"`
+- [x] Mark this task `[x]`
+- [x] Git commit: Already done by Task B5 (removed non-academic items from `_kAcademicNavLabels`)
 
 ---
 
