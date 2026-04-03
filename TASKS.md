@@ -991,7 +991,7 @@ No `deleteStudent` / `removeStudent` method exists in `MembersDao` despite `Sync
 
 ---
 
-### Task F6: No enrollment management UI (enroll/unenroll students)
+### Task F6: No enrollment management UI (enroll/unenroll students) ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/members/student_detail_page.dart`
 **Context files to read:** `lib/database/daos/enrollments_dao.dart`, `lib/database/tables/enrollments.dart`
@@ -1008,7 +1008,7 @@ No `deleteStudent` / `removeStudent` method exists in `MembersDao` despite `Sync
 4. Both actions should write to local DB and create log entries.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Git commit: `git add -A && git commit -m "feat: add enrollment management UI to student detail page"`
 
 ---

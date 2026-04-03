@@ -7,10 +7,14 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../cache/file_cache.dart';
 import '../../../../client.dart';
+import '../../../../core/extensions.dart';
 import '../../../../database/database.dart';
+import '../../../../database/daos/catalog_dao.dart';
+import '../../../../database/daos/enrollments_dao.dart';
 import '../../../../database/daos/exams_grades_dao.dart';
 import '../../../../database/daos/members_dao.dart';
 import '../../../../database/daos/plans_dao.dart';
+import '../../../../database/daos/terms_dao.dart';
 
 import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../database/tables/enums.dart';
@@ -123,16 +127,22 @@ class _StudentDetailSheetState extends State<StudentDetailSheet>
   late final MembersDao _membersDao;
   late final ExamsGradesDao _gradesDao;
   late final PlansDao _plansDao;
+  late final EnrollmentsDao _enrollmentsDao;
+  late final TermsDao _termsDao;
+  late final CatalogDao _catalogDao;
 
   late final MemberManagementService _service;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _membersDao = MembersDao(db);
     _gradesDao = ExamsGradesDao(db);
     _plansDao = PlansDao(db);
+    _enrollmentsDao = EnrollmentsDao(db);
+    _termsDao = TermsDao(db);
+    _catalogDao = CatalogDao(db);
 
     _service = MemberManagementService(_membersDao);
   }
@@ -266,6 +276,7 @@ class _StudentDetailSheetState extends State<StudentDetailSheet>
               padding: const EdgeInsets.only(left: 16, top: 8, bottom: 8),
               tabs: const [
                 EduTab(label: 'Info'),
+                EduTab(label: 'Enrollments'),
                 EduTab(label: 'Performance'),
                 EduTab(label: 'Guardians'),
                 EduTab(label: 'Subscriptions'),
@@ -281,6 +292,14 @@ class _StudentDetailSheetState extends State<StudentDetailSheet>
                     student: student,
                     membersDao: _membersDao,
                     formatDate: _formatDaysSinceEpoch,
+                  ),
+                  _EnrollmentsTab(
+                    schoolId: widget.schoolId,
+                    studentAdm: student.adm,
+                    studentName: student.name,
+                    enrollmentsDao: _enrollmentsDao,
+                    termsDao: _termsDao,
+                    catalogDao: _catalogDao,
                   ),
                   _PerformanceTab(
                     schoolId: widget.schoolId,
@@ -969,7 +988,579 @@ class _InfoTab extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Tab 2: Performance
+// Tab 2: Enrollments
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _EnrollmentsTab extends StatelessWidget {
+  const _EnrollmentsTab({
+    required this.schoolId,
+    required this.studentAdm,
+    required this.studentName,
+    required this.enrollmentsDao,
+    required this.termsDao,
+    required this.catalogDao,
+  });
+
+  final String schoolId;
+  final int studentAdm;
+  final String studentName;
+  final EnrollmentsDao enrollmentsDao;
+  final TermsDao termsDao;
+  final CatalogDao catalogDao;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    return Column(
+      children: [
+        Expanded(
+          child: StreamBuilder<List<Enrollment>>(
+            stream: enrollmentsDao.watchAllEnrollmentsForStudent(
+              schoolId: schoolId,
+              studentAdm: studentAdm,
+            ),
+            builder: (context, snap) {
+              final enrollments = snap.data ?? [];
+
+              if (enrollments.isEmpty &&
+                  snap.connectionState != ConnectionState.waiting) {
+                return Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.school_outlined,
+                        size: 40,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.25),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Not enrolled in any class',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return StreamBuilder<List<SchoolStream>>(
+                stream: catalogDao.watchAllStreamsForSchool(schoolId),
+                builder: (context, streamSnap) {
+                  final allStreams = streamSnap.data ?? [];
+                  final streamNames = <String, String>{};
+                  for (final s in allStreams) {
+                    streamNames['${s.grade}|${s.stream}'] = s.name;
+                  }
+
+                  return ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+                    itemCount: enrollments.length,
+                    separatorBuilder: (_, __) => Divider(
+                      height: 0.5,
+                      thickness: 0.5,
+                      color: isDark
+                          ? const Color(0xFF2A3848)
+                          : cs.outlineVariant.withValues(alpha: 0.3),
+                    ),
+                    itemBuilder: (context, index) {
+                      final e = enrollments[index];
+                      final gLabel = gradeLabel(e.grade);
+                      final sName = streamNames['${e.grade}|${e.stream}'];
+                      final display = sName != null && sName.isNotEmpty
+                          ? '$gLabel · $sName'
+                          : gLabel;
+
+                      return _EnrollmentRow(
+                        enrollment: e,
+                        displayLabel: display,
+                        termLabel: '${e.year} Term ${e.term}',
+                        cs: cs,
+                        isDark: isDark,
+                        onUnenroll: () => _confirmUnenroll(context, e, display),
+                      );
+                    },
+                  );
+                },
+              );
+            },
+          ),
+        ),
+
+        // Enroll button
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+          child: SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _showEnrollSheet(context),
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text(
+                'Enroll in Class',
+                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500),
+              ),
+              style: OutlinedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                side: BorderSide(color: cs.primary.withValues(alpha: 0.4)),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _confirmUnenroll(
+    BuildContext context,
+    Enrollment enrollment,
+    String displayLabel,
+  ) async {
+    final confirmed = await showEduConfirmDialog(
+      context: context,
+      title: 'Unenroll Student',
+      message:
+          'Remove $studentName from $displayLabel '
+          '(${enrollment.year} Term ${enrollment.term})?',
+      confirmLabel: 'Unenroll',
+      isDestructive: true,
+    );
+    if (!confirmed) return;
+
+    final accountId = cache.currentUser?.user.id;
+    if (accountId == null) return;
+
+    await enrollmentsDao.unenrollStudent(
+      schoolId: schoolId,
+      year: enrollment.year,
+      term: enrollment.term,
+      studentAdm: studentAdm,
+      accountId: accountId,
+    );
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$studentName unenrolled from $displayLabel'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  void _showEnrollSheet(BuildContext context) {
+    showEduSheet(
+      context: context,
+      builder: (ctx) => _EnrollStudentSheet(
+        schoolId: schoolId,
+        studentAdm: studentAdm,
+        studentName: studentName,
+        enrollmentsDao: enrollmentsDao,
+        termsDao: termsDao,
+        catalogDao: catalogDao,
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _EnrollmentRow extends StatelessWidget {
+  const _EnrollmentRow({
+    required this.enrollment,
+    required this.displayLabel,
+    required this.termLabel,
+    required this.cs,
+    required this.isDark,
+    required this.onUnenroll,
+  });
+
+  final Enrollment enrollment;
+  final String displayLabel;
+  final String termLabel;
+  final ColorScheme cs;
+  final bool isDark;
+  final VoidCallback onUnenroll;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 56,
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: cs.primaryContainer.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Icon(Icons.class_outlined, size: 16, color: cs.primary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  displayLabel,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  termLabel,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w300,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.remove_circle_outline_rounded,
+              size: 18,
+              color: cs.error.withValues(alpha: 0.7),
+            ),
+            tooltip: 'Unenroll',
+            onPressed: onUnenroll,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _EnrollStudentSheet extends StatefulWidget {
+  const _EnrollStudentSheet({
+    required this.schoolId,
+    required this.studentAdm,
+    required this.studentName,
+    required this.enrollmentsDao,
+    required this.termsDao,
+    required this.catalogDao,
+  });
+
+  final String schoolId;
+  final int studentAdm;
+  final String studentName;
+  final EnrollmentsDao enrollmentsDao;
+  final TermsDao termsDao;
+  final CatalogDao catalogDao;
+
+  @override
+  State<_EnrollStudentSheet> createState() => _EnrollStudentSheetState();
+}
+
+class _EnrollStudentSheetState extends State<_EnrollStudentSheet> {
+  List<Term> _terms = [];
+  List<SchoolStream> _allStreams = [];
+  Term? _selectedTerm;
+  int? _selectedGrade;
+  int? _selectedStreamCode;
+  bool _saving = false;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final terms = await widget.termsDao.watchTerms(widget.schoolId).first;
+    final streams = await widget.catalogDao
+        .watchAllStreamsForSchool(widget.schoolId)
+        .first;
+    if (!mounted) return;
+    setState(() {
+      _terms = terms;
+      _allStreams = streams;
+      _loading = false;
+    });
+  }
+
+  List<int> get _availableGrades {
+    final grades = _allStreams.map((s) => s.grade).toSet().toList()..sort();
+    return grades;
+  }
+
+  List<SchoolStream> get _streamsForGrade {
+    if (_selectedGrade == null) return [];
+    return _allStreams.where((s) => s.grade == _selectedGrade).toList();
+  }
+
+  Future<void> _enroll() async {
+    final accountId = cache.currentUser?.user.id;
+    if (accountId == null) return;
+    if (_selectedTerm == null ||
+        _selectedGrade == null ||
+        _selectedStreamCode == null)
+      return;
+
+    setState(() => _saving = true);
+
+    await widget.enrollmentsDao.enrollStudent(
+      schoolId: widget.schoolId,
+      year: _selectedTerm!.year,
+      term: _selectedTerm!.term,
+      grade: _selectedGrade!,
+      stream: _selectedStreamCode!,
+      studentAdm: widget.studentAdm,
+      accountId: accountId,
+    );
+
+    if (!mounted) return;
+
+    final gLabel = gradeLabel(_selectedGrade!);
+    final sName = _streamsForGrade
+        .where((s) => s.stream == _selectedStreamCode)
+        .map((s) => s.name)
+        .firstOrNull;
+    final display = sName != null ? '$gLabel · $sName' : gLabel;
+
+    Navigator.of(context).pop();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${widget.studentName} enrolled in $display'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.65,
+      ),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF18222E) : cs.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Drag handle
+          Center(
+            child: Container(
+              width: 36,
+              height: 3.5,
+              margin: const EdgeInsets.only(top: 10, bottom: 8),
+              decoration: BoxDecoration(
+                color: cs.onSurfaceVariant.withValues(alpha: 0.20),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+
+          // Title
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+            child: Text(
+              'Enroll ${widget.studentName}',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: cs.onSurface,
+              ),
+            ),
+          ),
+
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.all(32),
+              child: Center(child: CircularProgressIndicator(strokeWidth: 1.5)),
+            )
+          else ...[
+            // Term
+            _buildDropdown<Term>(
+              label: 'TERM',
+              hint: 'Select term',
+              value: _selectedTerm,
+              items: _terms,
+              itemLabel: (t) => '${t.year} Term ${t.term}',
+              onChanged: (t) => setState(() => _selectedTerm = t),
+              cs: cs,
+              isDark: isDark,
+            ),
+
+            // Grade
+            _buildDropdown<int>(
+              label: 'GRADE',
+              hint: 'Select grade',
+              value: _selectedGrade,
+              items: _availableGrades,
+              itemLabel: (g) => gradeLabel(g),
+              onChanged: (g) => setState(() {
+                _selectedGrade = g;
+                _selectedStreamCode = null;
+              }),
+              cs: cs,
+              isDark: isDark,
+            ),
+
+            // Stream (conditional on grade selection)
+            if (_selectedGrade != null)
+              _buildDropdown<SchoolStream>(
+                label: 'STREAM',
+                hint: 'Select stream',
+                value: _streamsForGrade
+                    .where((s) => s.stream == _selectedStreamCode)
+                    .firstOrNull,
+                items: _streamsForGrade,
+                itemLabel: (s) => s.name,
+                onChanged: (s) =>
+                    setState(() => _selectedStreamCode = s?.stream),
+                cs: cs,
+                isDark: isDark,
+              ),
+
+            // Enroll button
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed:
+                      (_selectedTerm != null &&
+                          _selectedGrade != null &&
+                          _selectedStreamCode != null &&
+                          !_saving)
+                      ? _enroll
+                      : null,
+                  style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: _saving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Enroll',
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDropdown<T>({
+    required String label,
+    required String hint,
+    required T? value,
+    required List<T> items,
+    required String Function(T) itemLabel,
+    required ValueChanged<T?> onChanged,
+    required ColorScheme cs,
+    required bool isDark,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+              letterSpacing: 0.6,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            decoration: BoxDecoration(
+              color: isDark
+                  ? const Color(0xFF1A2536)
+                  : cs.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppTheme.borderColor(isDark, cs),
+                width: 0.5,
+              ),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: DropdownButton<T>(
+              value: value,
+              hint: Text(
+                hint,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w300,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+              ),
+              isExpanded: true,
+              underline: const SizedBox.shrink(),
+              icon: Icon(
+                Icons.expand_more_rounded,
+                size: 18,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+              ),
+              dropdownColor: isDark ? const Color(0xFF1E2A3A) : cs.surface,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurface,
+              ),
+              items: items
+                  .map(
+                    (item) => DropdownMenuItem<T>(
+                      value: item,
+                      child: Text(itemLabel(item)),
+                    ),
+                  )
+                  .toList(),
+              onChanged: onChanged,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Tab 3: Performance
 // ═══════════════════════════════════════════════════════════════════════════════
 
 class _PerformanceTab extends StatefulWidget {
