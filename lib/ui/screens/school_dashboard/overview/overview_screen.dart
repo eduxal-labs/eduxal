@@ -1133,13 +1133,18 @@ class _StaffOverview extends StatelessWidget {
           const SizedBox(height: 12),
         ],
 
-        // ── Recent announcements ─────────────────────────────────────────
-        _SectionTitle(label: 'Recent Announcements', cs: cs),
-        const SizedBox(height: 8),
-        _RecentAnnouncements(
-          schoolId: schoolId,
-          audienceBit: AudienceBits.staff,
-        ),
+        // ── Recent announcements (permission-gated) ──────────────────────
+        if (schoolContext.permissions.can(
+          Resource.announcements,
+          Action.read,
+        )) ...[
+          _SectionTitle(label: 'Recent Announcements', cs: cs),
+          const SizedBox(height: 8),
+          _RecentAnnouncements(
+            schoolId: schoolId,
+            audienceBit: AudienceBits.staff,
+          ),
+        ],
 
         const SizedBox(height: 80),
       ],
@@ -1147,7 +1152,7 @@ class _StaffOverview extends StatelessWidget {
   }
 }
 
-class _StaffQuickStats extends StatelessWidget {
+class _StaffQuickStats extends StatefulWidget {
   const _StaffQuickStats({
     required this.schoolId,
     required this.term,
@@ -1159,20 +1164,67 @@ class _StaffQuickStats extends StatelessWidget {
   final SchoolPermissions permissions;
 
   @override
+  State<_StaffQuickStats> createState() => _StaffQuickStatsState();
+}
+
+class _StaffQuickStatsState extends State<_StaffQuickStats> {
+  StreamSubscription<TermFinanceSummary>? _financeSub;
+  TermFinanceSummary? _financeSummary;
+
+  bool get _canFinance =>
+      widget.permissions.can(Resource.fees, Action.read) ||
+      widget.permissions.can(Resource.payments, Action.read);
+
+  @override
+  void initState() {
+    super.initState();
+    _subscribeFinance();
+  }
+
+  void _subscribeFinance() {
+    _financeSub?.cancel();
+    _financeSummary = null;
+    if (!_canFinance) return;
+    _financeSub = FinanceDao(db)
+        .watchTermFinanceSummary(
+          schoolId: widget.schoolId,
+          year: widget.term.year,
+          term: widget.term.term,
+        )
+        .listen((summary) {
+          if (mounted) setState(() => _financeSummary = summary);
+        });
+  }
+
+  @override
+  void didUpdateWidget(covariant _StaffQuickStats oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.schoolId != widget.schoolId ||
+        oldWidget.term.year != widget.term.year ||
+        oldWidget.term.term != widget.term.term ||
+        oldWidget.permissions != widget.permissions) {
+      _subscribeFinance();
+    }
+  }
+
+  @override
+  void dispose() {
+    _financeSub?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final membersDao = MembersDao(db);
-    final financeDao = FinanceDao(db);
-    final canFinance =
-        permissions.can(Resource.fees, Action.read) ||
-        permissions.can(Resource.payments, Action.read);
+    final canFinance = _canFinance;
 
     final cards = <Widget>[];
 
     // ── Students count ─────────────────────────────────────────────────
-    if (permissions.can(Resource.students, Action.read)) {
+    if (widget.permissions.can(Resource.students, Action.read)) {
       cards.add(
         StreamBuilder<List<StudentsData>>(
-          stream: membersDao.watchStudents(schoolId),
+          stream: membersDao.watchStudents(widget.schoolId),
           builder: (context, snap) {
             final count = snap.data?.length ?? 0;
             return _StatCard(
@@ -1187,10 +1239,10 @@ class _StaffQuickStats extends StatelessWidget {
     }
 
     // ── Teachers count ─────────────────────────────────────────────────
-    if (permissions.can(Resource.teachers, Action.read)) {
+    if (widget.permissions.can(Resource.teachers, Action.read)) {
       cards.add(
         StreamBuilder<List<TeachersData>>(
-          stream: membersDao.watchTeachers(schoolId),
+          stream: membersDao.watchTeachers(widget.schoolId),
           builder: (context, snap) {
             final count = snap.data?.length ?? 0;
             return _StatCard(
@@ -1205,10 +1257,10 @@ class _StaffQuickStats extends StatelessWidget {
     }
 
     // ── Staff count ────────────────────────────────────────────────────
-    if (permissions.can(Resource.staff, Action.read)) {
+    if (widget.permissions.can(Resource.staff, Action.read)) {
       cards.add(
         StreamBuilder<List<StaffData>>(
-          stream: membersDao.watchStaff(schoolId),
+          stream: membersDao.watchStaff(widget.schoolId),
           builder: (context, snap) {
             final count = snap.data?.length ?? 0;
             return _StatCard(
@@ -1222,83 +1274,43 @@ class _StaffQuickStats extends StatelessWidget {
       );
     }
 
-    // ── Finance: Invoices ──────────────────────────────────────────────
+    // ── Finance (single subscription) ──────────────────────────────────
     if (canFinance) {
+      final summary = _financeSummary;
       cards.add(
-        StreamBuilder<TermFinanceSummary>(
-          stream: financeDao.watchTermFinanceSummary(
-            schoolId: schoolId,
-            year: term.year,
-            term: term.term,
-          ),
-          builder: (context, snap) {
-            final summary = snap.data;
-            final count = summary?.invoiceCount ?? 0;
-            return _StatCard(
-              icon: Icons.receipt_long_outlined,
-              label: 'Invoices',
-              value: '$count',
-              tint: const Color(0xFFFF9800),
-            );
-          },
+        _StatCard(
+          icon: Icons.receipt_long_outlined,
+          label: 'Invoices',
+          value: '${summary?.invoiceCount ?? 0}',
+          tint: const Color(0xFFFF9800),
         ),
       );
-    }
-
-    // ── Finance: Collection rate ───────────────────────────────────────
-    if (canFinance) {
       cards.add(
-        StreamBuilder<TermFinanceSummary>(
-          stream: financeDao.watchTermFinanceSummary(
-            schoolId: schoolId,
-            year: term.year,
-            term: term.term,
-          ),
-          builder: (context, snap) {
-            final summary = snap.data;
-            final rate = summary?.collectionRate ?? 0.0;
-            return _StatCard(
-              icon: Icons.account_balance_outlined,
-              label: 'Collection',
-              value: '${rate.toStringAsFixed(0)}%',
-              tint: const Color(0xFF4CAF50),
-            );
-          },
+        _StatCard(
+          icon: Icons.account_balance_outlined,
+          label: 'Collection',
+          value: '${(summary?.collectionRate ?? 0.0).toStringAsFixed(0)}%',
+          tint: const Color(0xFF4CAF50),
         ),
       );
-    }
-
-    // ── Finance: Pending payments ──────────────────────────────────────
-    if (canFinance) {
       cards.add(
-        StreamBuilder<TermFinanceSummary>(
-          stream: financeDao.watchTermFinanceSummary(
-            schoolId: schoolId,
-            year: term.year,
-            term: term.term,
-          ),
-          builder: (context, snap) {
-            final summary = snap.data;
-            final pending = summary?.pendingCount ?? 0;
-            return _StatCard(
-              icon: Icons.pending_actions_outlined,
-              label: 'Pending',
-              value: '$pending',
-              tint: const Color(0xFFF44336),
-            );
-          },
+        _StatCard(
+          icon: Icons.pending_actions_outlined,
+          label: 'Pending',
+          value: '${summary?.pendingCount ?? 0}',
+          tint: const Color(0xFFF44336),
         ),
       );
     }
 
     // ── Active exams ───────────────────────────────────────────────────
-    if (permissions.can(Resource.exams, Action.read)) {
+    if (widget.permissions.can(Resource.exams, Action.read)) {
       cards.add(
         StreamBuilder<List<ExamWithPapers>>(
           stream: ExamsGradesDao(db).watchExamsForTerm(
-            schoolId: schoolId,
-            year: term.year,
-            term: term.term,
+            schoolId: widget.schoolId,
+            year: widget.term.year,
+            term: widget.term.term,
           ),
           builder: (context, snap) {
             final count = snap.data?.length ?? 0;
@@ -1314,13 +1326,13 @@ class _StaffQuickStats extends StatelessWidget {
     }
 
     // ── Classes count ──────────────────────────────────────────────────
-    if (permissions.can(Resource.classes, Action.read)) {
+    if (widget.permissions.can(Resource.classes, Action.read)) {
       cards.add(
         StreamBuilder<List<({int grade, int stream})>>(
           stream: EnrollmentsDao(db).watchPopulatedClasses(
-            schoolId: schoolId,
-            year: term.year,
-            term: term.term,
+            schoolId: widget.schoolId,
+            year: widget.term.year,
+            term: widget.term.term,
           ),
           builder: (context, snap) {
             final count = snap.data?.length ?? 0;
@@ -1457,7 +1469,7 @@ class _StudentOverview extends StatelessWidget {
   }
 }
 
-class _StudentEnrollmentInfo extends StatelessWidget {
+class _StudentEnrollmentInfo extends StatefulWidget {
   const _StudentEnrollmentInfo({
     required this.schoolId,
     required this.year,
@@ -1471,16 +1483,39 @@ class _StudentEnrollmentInfo extends StatelessWidget {
   final int studentAdm;
 
   @override
+  State<_StudentEnrollmentInfo> createState() => _StudentEnrollmentInfoState();
+}
+
+class _StudentEnrollmentInfoState extends State<_StudentEnrollmentInfo> {
+  late Future<List<SchoolStream>> _streamsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _streamsFuture = CatalogDao(db).getStreamsForSchool(widget.schoolId);
+  }
+
+  @override
+  void didUpdateWidget(covariant _StudentEnrollmentInfo oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.schoolId != widget.schoolId) {
+      setState(() {
+        _streamsFuture = CatalogDao(db).getStreamsForSchool(widget.schoolId);
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final enrollmentsDao = EnrollmentsDao(db);
 
     return StreamBuilder<Enrollment?>(
       stream: enrollmentsDao.watchStudentEnrollment(
-        schoolId: schoolId,
-        year: year,
-        term: term,
-        studentAdm: studentAdm,
+        schoolId: widget.schoolId,
+        year: widget.year,
+        term: widget.term,
+        studentAdm: widget.studentAdm,
       ),
       builder: (context, snap) {
         final enrollment = snap.data;
@@ -1491,40 +1526,55 @@ class _StudentEnrollmentInfo extends StatelessWidget {
           );
         }
 
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: cs.primary.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: cs.primary.withValues(alpha: 0.12)),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                Icons.class_outlined,
-                size: 18,
-                color: cs.primary.withValues(alpha: 0.7),
+        return FutureBuilder<List<SchoolStream>>(
+          future: _streamsFuture,
+          builder: (context, strSnap) {
+            final streamMap = <(int, int), String>{};
+            for (final s in strSnap.data ?? []) {
+              streamMap[(s.grade, s.stream)] = s.name;
+            }
+            final streamName = streamMap[(enrollment.grade, enrollment.stream)];
+            final label = gradeStreamLabel(
+              enrollment.grade,
+              streamName: streamName,
+            );
+
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: cs.primary.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: cs.primary.withValues(alpha: 0.12)),
               ),
-              const SizedBox(width: 10),
-              Text(
-                gradeLabel(enrollment.grade),
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: cs.primary,
-                ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.class_outlined,
+                    size: 18,
+                    color: cs.primary.withValues(alpha: 0.7),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: cs.primary,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    'ADM: ${widget.studentAdm}',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w400,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                    ),
+                  ),
+                ],
               ),
-              const Spacer(),
-              Text(
-                'ADM: $studentAdm',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -1674,7 +1724,7 @@ class _StudentTimetableSlotCard extends StatelessWidget {
   }
 }
 
-class _StudentRecentGrades extends StatelessWidget {
+class _StudentRecentGrades extends StatefulWidget {
   const _StudentRecentGrades({
     required this.schoolId,
     required this.studentAdm,
@@ -1684,12 +1734,35 @@ class _StudentRecentGrades extends StatelessWidget {
   final int studentAdm;
 
   @override
+  State<_StudentRecentGrades> createState() => _StudentRecentGradesState();
+}
+
+class _StudentRecentGradesState extends State<_StudentRecentGrades> {
+  final Map<String, Future<Exam?>> _examCache = {};
+
+  Future<Exam?> _getExam(String examId) {
+    return _examCache.putIfAbsent(
+      examId,
+      () => ExamsGradesDao(db).getExam(examId),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _StudentRecentGrades oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.schoolId != widget.schoolId ||
+        oldWidget.studentAdm != widget.studentAdm) {
+      _examCache.clear();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final examsDao = ExamsGradesDao(db);
 
     return StreamBuilder<List<Grade>>(
-      stream: examsDao.watchStudentGrades(schoolId, studentAdm),
+      stream: examsDao.watchStudentGrades(widget.schoolId, widget.studentAdm),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const _LoadingShimmer();
@@ -1741,49 +1814,55 @@ class _StudentRecentGrades extends StatelessWidget {
             final totalMax = grades.fold<double>(0, (sum, g) => sum + g.total);
             final pct = totalMax > 0 ? (totalScore / totalMax * 100) : 0.0;
 
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Material(
-                color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(6),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${grades.length} subject${grades.length == 1 ? '' : 's'}',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: cs.onSurface,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '${totalScore.toStringAsFixed(0)} / ${totalMax.toStringAsFixed(0)}',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w400,
-                                color: cs.onSurfaceVariant.withValues(
-                                  alpha: 0.55,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+            return FutureBuilder<Exam?>(
+              future: _getExam(examId),
+              builder: (context, examSnap) {
+                final examName = examSnap.data?.name ?? 'Exam';
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Material(
+                    color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(6),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
                       ),
-                      _PercentBadge(percent: pct, cs: cs),
-                    ],
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  examName,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: cs.onSurface,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${grades.length} subject${grades.length == 1 ? '' : 's'} · ${totalScore.toStringAsFixed(0)} / ${totalMax.toStringAsFixed(0)}',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w400,
+                                    color: cs.onSurfaceVariant.withValues(
+                                      alpha: 0.55,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          _PercentBadge(percent: pct, cs: cs),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             );
           }).toList(),
         );

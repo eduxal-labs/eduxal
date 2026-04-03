@@ -231,7 +231,19 @@ When `ActiveTermContext.hasTerms` is `false`, the dashboard shows a blank state 
 
 
 ## Last Updated
-Task A4 — `_initializeSession()` now merges system-scoped permissions (scopes where `school IS NULL`) with school-scoped permissions for `UserLevel.system` and `UserLevel.super_` users. This ensures System users who also hold school memberships get the union of both permission sets, per AGENT.md §17.
+Tasks B1, B4, B5, E4, E5 — Five fixes to `school_dashboard_screen.dart` nav items and content panel routing:
+
+**(B1)** Added `'Grades'` handler in `_buildContentPanel()` — routes to `ProgressScreen` (which already handles `StudentEntry` via `student.adm`). Students now see their grades instead of the "Coming soon" placeholder.
+
+**(B4)** Added `'Finance'` nav item (`Icons.receipt_long_outlined`) to `MembershipRole.student` nav items. The existing `'Finance'` handler in `_buildContentPanel()` already routes to `FinanceScreen` for all roles. Note: `FinanceScreen` itself still falls through to `_OwnerFinanceShell` for `StudentEntry` via its wildcard `_ =>` case — a separate task should add a student-specific finance view there.
+
+**(B5)** Removed `'Announcements'`, `'Finance'`, `'Members'`, and `'Students'` from `_kAcademicNavLabels`. The set now contains only truly academic items: `Academics`, `My Classes`, `Exams & Grades`, `Exams`, `Timetable`, `Attendance`, `Grades`, `Progress`. Non-academic sections (Announcements, Finance, Members) are no longer gated behind `NoTermsBlankState` when no terms exist.
+
+**(E4)** Removed the redundant `'Students'` nav item from `MembershipRole.staff` nav items. The `'Members'` tab (which is already in the staff nav, permission-gated) includes a Students sub-tab, making a separate Students entry unnecessary and confusing.
+
+**(E5)** Staff `'Announcements'` nav item changed from `const` (always visible) to permission-gated: `if (perms.canAny(Resource.announcements, [Action.read]))`. Matches the pattern used for teacher Announcements nav item.
+
+Previous: Task A4 — `_initializeSession()` now merges system-scoped permissions (scopes where `school IS NULL`) with school-scoped permissions for `UserLevel.system` and `UserLevel.super_` users. This ensures System users who also hold school memberships get the union of both permission sets, per AGENT.md §17.
 
 Previous: Task D1 — CONTEXT.md update for Staff Dashboard RBAC-Gating feature (Tasks A1, B1, C1).
 

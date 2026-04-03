@@ -152,7 +152,7 @@ The student persona is essentially non-functional. This is the second-highest pr
 
 ---
 
-### Task B1: Student "Grades" tab falls through to "Coming soon" placeholder
+### Task B1: Student "Grades" tab falls through to "Coming soon" placeholder ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/school_dashboard_screen.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -232,7 +232,7 @@ Option 1 is recommended for code reuse. The key change:
 
 ---
 
-### Task B4: Students have no Finance tab — cannot see their own fee balance
+### Task B4: Students have no Finance tab — cannot see their own fee balance ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/school_dashboard_screen.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/finance/finance_screen.dart`
@@ -256,7 +256,7 @@ Additionally, `FinanceScreen`'s wildcard `_ =>` case falls through to `_OwnerFin
 
 ---
 
-### Task B5: _kAcademicNavLabels blocks Announcements when no terms exist (affects students)
+### Task B5: _kAcademicNavLabels blocks Announcements when no terms exist (affects students) ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/school_dashboard_screen.dart`
 **Context files to read:** None
@@ -308,7 +308,7 @@ static const _kAcademicNavLabels = {
 
 ---
 
-### Task B7: Student overview shows no stream name in enrollment info
+### Task B7: Student overview shows no stream name in enrollment info ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/overview/overview_screen.dart`
 **Context files to read:** `lib/database/daos/catalog_dao.dart`
@@ -325,8 +325,8 @@ Also, `_StudentRecentGrades` (~L1677–1793) groups by `examId` but never querie
 2. In `_StudentRecentGrades`, fetch exam names via `ExamsGradesDao` and display them as card titles.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `git add -A && git commit -m "fix: show stream name and exam names in student overview"`
+- [x] Mark this task `[x]`
+- [x] Git commit: `git add -A && git commit -m "fix: show stream name and exam names in student overview"`
 
 ---
 
@@ -795,7 +795,7 @@ Add explicit `StaffEntry` handling:
 
 ---
 
-### Task E4: Staff "Students" nav item has no handler in _buildContentPanel
+### Task E4: Staff "Students" nav item has no handler in _buildContentPanel ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/school_dashboard_screen.dart`
 **Context files to read:** None
@@ -818,7 +818,7 @@ Option 2 is simpler and avoids the confusing redundancy (staff nav having both "
 
 ---
 
-### Task E5: Staff Announcements always visible — not permission-gated
+### Task E5: Staff Announcements always visible — not permission-gated ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/school_dashboard_screen.dart`
 **Context files to read:** None
@@ -841,7 +841,7 @@ if (perms.canAny(Resource.announcements, [Action.read]))
 
 ---
 
-### Task E6: Staff overview shows announcement content without permission check
+### Task E6: Staff overview shows announcement content without permission check ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/overview/overview_screen.dart`
 **Context files to read:** None
@@ -858,8 +858,8 @@ Also, `_StaffQuickStats` creates three separate `StreamBuilder` widgets subscrib
 2. Combine the three identical `StreamBuilder` widgets into a single stream subscription.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `git add -A && git commit -m "fix: gate staff overview announcements behind permission check"`
+- [x] Mark this task `[x]`
+- [x] Git commit: `git add -A && git commit -m "fix: gate staff overview announcements behind permission check"`
 
 ---
 

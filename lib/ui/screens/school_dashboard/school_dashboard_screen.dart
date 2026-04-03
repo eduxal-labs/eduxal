@@ -380,6 +380,7 @@ class _DashboardShellState extends State<_DashboardShell>
         _NavItem(label: 'Overview', icon: Icons.space_dashboard_outlined),
         _NavItem(label: 'Grades', icon: Icons.bar_chart_outlined),
         _NavItem(label: 'Timetable', icon: Icons.calendar_view_week_outlined),
+        _NavItem(label: 'Finance', icon: Icons.receipt_long_outlined),
         _NavItem(label: 'Attendance', icon: Icons.fact_check_outlined),
         _NavItem(label: 'Announcements', icon: Icons.campaign_outlined),
       ],
@@ -524,16 +525,12 @@ class _DashboardShellState extends State<_DashboardShell>
   static const _kAcademicNavLabels = {
     'Academics',
     'My Classes',
-    'Students',
     'Exams & Grades',
     'Exams',
     'Timetable',
     'Attendance',
-    'Members',
-    'Finance',
     'Grades',
     'Progress',
-    'Announcements',
   };
 
   bool _isAcademicSection(_NavItem item) =>
@@ -582,6 +579,11 @@ class _DashboardShellState extends State<_DashboardShell>
 
     // ── Progress — student / guardian ward academic progress ──────────────
     if (item.label == 'Progress') {
+      return ProgressScreen(schoolContext: widget.schoolContext);
+    }
+
+    // ── Grades — student's own academic grades (reuses ProgressScreen) ────
+    if (item.label == 'Grades') {
       return ProgressScreen(schoolContext: widget.schoolContext);
     }
 
