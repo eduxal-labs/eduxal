@@ -913,7 +913,7 @@ Additionally, `AttendanceScreen.build()` has no `OwnerEntry` handler — even if
 
 ---
 
-### Task F3: Role edit from list is broken — opens blank creation form
+### Task F3: Role edit from list is broken — opens blank creation form ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/roles/school_roles_screen.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/roles/school_role_detail_screen.dart`
@@ -932,7 +932,7 @@ The table-row "Edit" action (~L266) calls `_showCreateSheet(context)` while disc
 Also fix: `_purgeRole` and `_deleteRole` both call the identical `_dao.deleteRole(...)`. Add a distinct purge operation or remove the purge button if purge isn't supported for school roles.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Git commit: `git add -A && git commit -m "fix: wire role edit action to pre-populated form"`
 
 ---
