@@ -168,13 +168,13 @@ Shared permission parsing and serialisation utilities, extracted from the roles 
 | Function | Signature | Description |
 |---|---|---|
 | `parsePermissions` | `Map<Resource, int> parsePermissions(String? jsonStr)` | Resilient multi-format parser that handles: (1) standard JSON objects via `Permissions.fromJson`, (2) seeder binary-int JSON arrays via `Permissions.fromBlob`, (3) base64-encoded strings via base64 decode → UTF-8 JSON or raw binary blob. Each attempt is logged via `debugPrint`. Falls through gracefully — never throws. Returns empty map for null/empty input. |
-| `serialisePermissions` | `String serialisePermissions(Map<Resource, int> perms)` | Serialises a `Map<Resource, int>` to the canonical JSON list-of-objects format: `[{"resource": "students", "actions": ["read", "update"]}]`. |
+| `serialisePermissions` | `@Deprecated` `String serialisePermissions(Map<Resource, int> perms)` | **Deprecated.** Serialises a `Map<Resource, int>` to the canonical JSON list-of-objects format: `[{"resource": "students", "actions": ["read", "update"]}]`. Retained only for writing to the local DB `roles.permissions` text column. For sync payloads, use `Permissions(map).toBlob()` instead. |
 | `countPermissions` | `int countPermissions(Map<Resource, int> perms)` | Returns the total number of granted individual permission bits across all resources (Hamming weight sum). |
 | `popcount` | `int popcount(int v)` | Hamming weight helper — counts the number of set bits in an integer. |
 
 **Dependencies:** `dart:convert`, `dart:typed_data`, `package:flutter/foundation.dart` (debugPrint), `models/permissions.dart` (Resource, Permissions).
 
-**Depended on by:** `ui/screens/school_dashboard/roles/_role_helpers.dart` (re-export), `ui/screens/school_dashboard/school_dashboard_screen.dart` (session init), `ui/screens/school_dashboard/roles/school_role_detail_screen.dart` (save verification).
+**Depended on by:** `ui/screens/school_dashboard/roles/_role_helpers.dart` (re-export), `ui/screens/school_dashboard/school_dashboard_screen.dart` (session init), `ui/screens/school_dashboard/roles/school_role_detail_screen.dart` (save verification), `database/daos/roles_dao.dart` (`parsePermissions` used to convert JSON text → `Permissions` → binary blob for sync payloads).
 
 ### Seeder — `seeder.dart`
 
@@ -275,4 +275,4 @@ Populates the local Drift database with a realistic Kenyan secondary school for 
 - `applicationId = "com.eduxal.app"`, `android:label = "EduXal"` (set in Task 12)
 
 ## Last Updated
-Added `permission_parser.dart` — shared permission parsing and serialisation utilities. All 7 files current.
+Task A3 — Deprecated `serialisePermissions()` (retained for local DB text column compat). Sync payloads now use `parsePermissions()` + `Permissions.toBlob()` via `roles_dao.dart`. All 7 files current.

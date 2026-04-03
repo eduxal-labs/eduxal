@@ -67,7 +67,7 @@ The `RolePermissions` class (~L59–62) carries a `permissionsJson` field typed 
 
 ---
 
-### Task A3: Permission format mismatch — JSON text vs binary blob throughout codebase
+### Task A3: Permission format mismatch — JSON text vs binary blob throughout codebase ✅
 
 **Files to modify:** `lib/core/permission_parser.dart`, `lib/database/daos/roles_dao.dart`
 **Context files to read:** `lib/models/permissions.dart` (`toBlob`, `fromBlob`), `lib/database/tables/roles.dart`
@@ -89,10 +89,10 @@ The `roles_dao.dart` `createRole()` builds a `CreateRolePayload` and sets `paylo
 5. Verify `school_role_detail_screen.dart` and `school_roles_screen.dart` also use the blob format when saving.
 
 **Update after completion:**
-- [ ] Update `lib/core/CONTEXT.md`
-- [ ] Update `lib/database/daos/CONTEXT.md`
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `git add -A && git commit -m "fix: standardize permission serialization on binary blob format"`
+- [x] Update `lib/core/CONTEXT.md`
+- [x] Update `lib/database/daos/CONTEXT.md`
+- [x] Mark this task `[x]`
+- [x] Git commit: `git add -A && git commit -m "fix: standardize permission serialization on binary blob format"`
 
 ---
 

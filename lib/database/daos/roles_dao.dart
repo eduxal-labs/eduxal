@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:drift/drift.dart';
 
 import '../database.dart';
@@ -9,6 +7,8 @@ import '../tables/roles.dart';
 import '../tables/scopes.dart';
 import '../tables/users.dart';
 import '../../client.dart';
+import '../../core/permission_parser.dart';
+import '../../models/permissions.dart';
 import '../../proto/services/sync.pb.dart' as sync_pb;
 
 part 'roles_dao.g.dart';
@@ -175,7 +175,8 @@ class RolesDao extends DatabaseAccessor<AppDatabase> with _$RolesDaoMixin {
         payload.description = role.description.value!;
       }
       if (role.permissions.present) {
-        payload.permissions = utf8.encode(role.permissions.value);
+        final parsed = parsePermissions(role.permissions.value);
+        payload.permissions = Permissions(parsed).toBlob();
       }
 
       await into(logs).insert(
@@ -219,7 +220,8 @@ class RolesDao extends DatabaseAccessor<AppDatabase> with _$RolesDaoMixin {
         hasChanges = true;
       }
       if (changes.permissions.present) {
-        payload.permissions = utf8.encode(changes.permissions.value);
+        final parsed = parsePermissions(changes.permissions.value);
+        payload.permissions = Permissions(parsed).toBlob();
         hasChanges = true;
       }
 

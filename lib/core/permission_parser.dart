@@ -113,6 +113,11 @@ Map<Resource, int> parsePermissions(String? jsonStr) {
 /// format stored in `roles.permissions`.
 ///
 /// Output shape: `[{"resource": "users", "actions": ["read", "create"]}, …]`
+@Deprecated(
+  'Use Permissions(map).toBlob() for sync payloads. '
+  'This function is retained only for writing to the local DB '
+  'roles.permissions text column.',
+)
 String serialisePermissions(Map<Resource, int> perms) {
   final list = <Map<String, dynamic>>[];
   for (final entry in perms.entries) {
