@@ -262,7 +262,7 @@ Multiple privilege escalation vectors exist in the System dashboard. Fix all of 
 
 ---
 
-### Task A04: Fix System FAB visibility — wrong permission check
+### Task A04: Fix System FAB visibility — wrong permission check ✅
 **Files to create/modify:** `lib/ui/screens/system/system_dashboard_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/system/CONTEXT.md`
 **Depends on:** None
@@ -502,7 +502,7 @@ Two related issues:
 
 ---
 
-### Task A09: Stop using `entry is OwnerEntry` as blanket RBAC bypass
+### Task A09: Stop using `entry is OwnerEntry` as blanket RBAC bypass ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/members/members_page.dart`, `lib/ui/screens/school_dashboard/roles/school_roles_screen.dart`, `lib/ui/screens/school_dashboard/finance/finance_screen.dart`, `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`, `lib/ui/screens/school_dashboard/academics/grade_detail_page.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** None
@@ -545,8 +545,8 @@ And replace with the appropriate permission check:
 **Important:** Do NOT remove the `OwnerEntry` case from switch statements that dispatch to different UIs based on entry type (layout differences are fine). Only remove it from permission/authorization checks.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note OwnerEntry RBAC bypass removed
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note OwnerEntry RBAC bypass removed
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---

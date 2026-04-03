@@ -17,7 +17,7 @@ import '../../../../database/tables/enums.dart';
 import '../../../../models/curriculum_levels.dart';
 import '../../../../models/result.dart';
 import '../../../../models/school_config.dart';
-import '../../../../models/membership.dart';
+
 import '../../../../models/permissions.dart';
 import '../../../../models/school_context.dart';
 import '../../../widgets/animated_action_button.dart';
@@ -88,20 +88,14 @@ class _MembersPageBodyState extends State<_MembersPageBody>
   }
 
   List<_MemberTab> _computeVisibleTabs() {
-    final entry = widget.schoolContext.currentEntry.value;
     final perms = widget.schoolContext.permissions;
-    final isOwner = entry is OwnerEntry;
     return [
-      if (isOwner || perms.can(Resource.departments, Action.read))
-        _MemberTab.departments,
-      if (isOwner || perms.can(Resource.owners, Action.read)) _MemberTab.owners,
-      if (isOwner || perms.can(Resource.teachers, Action.read))
-        _MemberTab.teachers,
-      if (isOwner || perms.can(Resource.staff, Action.read)) _MemberTab.staff,
-      if (isOwner || perms.can(Resource.students, Action.read))
-        _MemberTab.students,
-      if (isOwner || perms.can(Resource.students, Action.read))
-        _MemberTab.guardians,
+      if (perms.can(Resource.departments, Action.read)) _MemberTab.departments,
+      if (perms.can(Resource.owners, Action.read)) _MemberTab.owners,
+      if (perms.can(Resource.teachers, Action.read)) _MemberTab.teachers,
+      if (perms.can(Resource.staff, Action.read)) _MemberTab.staff,
+      if (perms.can(Resource.students, Action.read)) _MemberTab.students,
+      if (perms.can(Resource.students, Action.read)) _MemberTab.guardians,
     ];
   }
 
@@ -170,21 +164,15 @@ class _MembersPageBodyState extends State<_MembersPageBody>
     final ct = _currentTab;
     if (ct == null) return false;
 
-    final entry = widget.schoolContext.currentEntry.value;
     final perms = widget.schoolContext.permissions;
-    final isOwner = entry is OwnerEntry;
 
     return switch (ct) {
-      _MemberTab.departments =>
-        isOwner || perms.can(Resource.departments, Action.create),
-      _MemberTab.owners => isOwner || perms.can(Resource.owners, Action.create),
-      _MemberTab.teachers =>
-        isOwner || perms.can(Resource.teachers, Action.create),
-      _MemberTab.staff => isOwner || perms.can(Resource.staff, Action.create),
-      _MemberTab.students =>
-        isOwner || perms.can(Resource.students, Action.create),
-      _MemberTab.guardians =>
-        isOwner || perms.can(Resource.students, Action.assign),
+      _MemberTab.departments => perms.can(Resource.departments, Action.create),
+      _MemberTab.owners => perms.can(Resource.owners, Action.create),
+      _MemberTab.teachers => perms.can(Resource.teachers, Action.create),
+      _MemberTab.staff => perms.can(Resource.staff, Action.create),
+      _MemberTab.students => perms.can(Resource.students, Action.create),
+      _MemberTab.guardians => perms.can(Resource.students, Action.assign),
     };
   }
 
@@ -577,10 +565,8 @@ class _DepartmentsTabState extends State<_DepartmentsTab> {
   }
 
   bool get _canDelete {
-    final entry = widget.schoolContext.currentEntry.value;
     final perms = widget.schoolContext.permissions;
-    return entry is OwnerEntry ||
-        perms.can(Resource.departments, Action.delete);
+    return perms.can(Resource.departments, Action.delete);
   }
 
   Future<void> _confirmDeleteDepartment(
@@ -1032,9 +1018,8 @@ class _OwnersTabState extends State<_OwnersTab> {
   }
 
   bool get _canDelete {
-    final entry = widget.schoolContext.currentEntry.value;
     final perms = widget.schoolContext.permissions;
-    return entry is OwnerEntry || perms.can(Resource.owners, Action.delete);
+    return perms.can(Resource.owners, Action.delete);
   }
 }
 
@@ -1244,15 +1229,13 @@ class _TeachersTabState extends State<_TeachersTab> {
   }
 
   bool get _canDelete {
-    final entry = widget.schoolContext.currentEntry.value;
     final perms = widget.schoolContext.permissions;
-    return entry is OwnerEntry || perms.can(Resource.teachers, Action.delete);
+    return perms.can(Resource.teachers, Action.delete);
   }
 
   bool get _canEdit {
-    final entry = widget.schoolContext.currentEntry.value;
     final perms = widget.schoolContext.permissions;
-    return entry is OwnerEntry || perms.can(Resource.teachers, Action.update);
+    return perms.can(Resource.teachers, Action.update);
   }
 }
 
@@ -1479,15 +1462,13 @@ class _StaffTabState extends State<_StaffTab> {
   }
 
   bool get _canDelete {
-    final entry = widget.schoolContext.currentEntry.value;
     final perms = widget.schoolContext.permissions;
-    return entry is OwnerEntry || perms.can(Resource.staff, Action.delete);
+    return perms.can(Resource.staff, Action.delete);
   }
 
   bool get _canEdit {
-    final entry = widget.schoolContext.currentEntry.value;
     final perms = widget.schoolContext.permissions;
-    return entry is OwnerEntry || perms.can(Resource.staff, Action.update);
+    return perms.can(Resource.staff, Action.update);
   }
 }
 
@@ -1690,9 +1671,8 @@ class _StudentsTabState extends State<_StudentsTab> {
   }
 
   bool get _canDelete {
-    final entry = widget.schoolContext.currentEntry.value;
     final perms = widget.schoolContext.permissions;
-    return entry is OwnerEntry || perms.can(Resource.students, Action.delete);
+    return perms.can(Resource.students, Action.delete);
   }
 }
 
@@ -1843,15 +1823,13 @@ class _GuardiansTabState extends State<_GuardiansTab> {
   }
 
   bool get _canEditGuardian {
-    final entry = widget.schoolContext.currentEntry.value;
     final perms = widget.schoolContext.permissions;
-    return entry is OwnerEntry || perms.can(Resource.students, Action.update);
+    return perms.can(Resource.students, Action.update);
   }
 
   bool get _canUnlinkGuardian {
-    final entry = widget.schoolContext.currentEntry.value;
     final perms = widget.schoolContext.permissions;
-    return entry is OwnerEntry || perms.can(Resource.students, Action.unassign);
+    return perms.can(Resource.students, Action.unassign);
   }
 
   @override
@@ -5378,17 +5356,13 @@ class _DepartmentDetailScreenState extends State<_DepartmentDetailScreen>
   late TabController _tab;
 
   bool get _canDeleteDept {
-    final entry = widget.schoolContext.currentEntry.value;
     final perms = widget.schoolContext.permissions;
-    return entry is OwnerEntry ||
-        perms.can(Resource.departments, Action.delete);
+    return perms.can(Resource.departments, Action.delete);
   }
 
   bool get _canUpdateDept {
-    final entry = widget.schoolContext.currentEntry.value;
     final perms = widget.schoolContext.permissions;
-    return entry is OwnerEntry ||
-        perms.can(Resource.departments, Action.update);
+    return perms.can(Resource.departments, Action.update);
   }
 
   @override

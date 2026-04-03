@@ -241,7 +241,19 @@ When `ActiveTermContext.hasTerms` is `false`, the dashboard shows a blank state 
 
 
 ## Last Updated
-Tasks A06, A07, A08 — Three fixes to `_itemsForRole()` in `school_dashboard_screen.dart` and one fix in `exams/exams_grades_screen.dart`:
+Task A09 — Removed `entry is OwnerEntry` blanket RBAC bypass from 5 files across the school dashboard:
+
+**(members_page.dart)** Removed `entry is OwnerEntry ||` from 13 permission checks: `_computeVisibleTabs()` (6 tab visibility checks), `_canCreateForCurrentTab()` (6 create-action checks), `_DepartmentsTabState._canDelete`, `_OwnersTabState._canDelete`, `_TeachersTabState._canDelete`, `_TeachersTabState._canEdit`, `_StaffTabState._canDelete`, `_StaffTabState._canEdit`, `_StudentsTabState._canDelete`, `_GuardiansTabState._canEditGuardian`, `_GuardiansTabState._canUnlinkGuardian`, `_DepartmentDetailScreenState._canDeleteDept`, `_DepartmentDetailScreenState._canUpdateDept`. All now use only `perms.can(Resource.X, Action.Y)`. Removed unused `membership.dart` import.
+
+**(school_roles_screen.dart)** Removed `|| entry is OwnerEntry` from `canCreate`, `canEdit`, `canDelete` in `_SchoolRolesBodyState.build()`. All now use only `perms.can(Resource.roles, Action.Y)`. Removed unused `membership.dart` import.
+
+**(finance_screen.dart)** Removed `entry is OwnerEntry ||` from 7 permission checks: `_InvoiceListView.build()` (`canRecord`, `canEditInvoice`, `canDeleteInvoice`), `_PaymentsTab.build()` (`canApprove`, `canEdit`, `canDelete`), `_FeesTab.build()` (`canCreateFee`). All now use only `schoolContext.permissions.can(Resource.X, Action.Y)`. The `OwnerEntry()` case in the top-level `FinanceScreen.build()` switch statement is preserved — that's layout dispatch, not RBAC.
+
+**(paper_detail_page.dart)** `_canProgressStatus`: removed `if (entry is OwnerEntry) return true` blanket bypass. Now uses `perms.can(Resource.exams, Action.update)` as the general check (covers any role including owners with proper permissions), plus teacher-specific logic (exam creator, invigilator, teaches subject) remains intact. `_canGradeContent`: simplified to `perms.can(Resource.grades, Action.read) || perms.can(Resource.grades, Action.mark)` — removed both `OwnerEntry` and `StaffEntry` blanket bypasses and teacher subject-matching (deeper data-scoping deferred to B08).
+
+**(grade_detail_page.dart)** `_can()` helper: removed `entry is OwnerEntry ||` bypass. Now delegates directly to `widget.schoolContext.permissions.can(resource, action)`. Updated doc comment to reflect RBAC-only behavior.
+
+Previous: Tasks A06, A07, A08 — Three fixes to `_itemsForRole()` in `school_dashboard_screen.dart` and one fix in `exams/exams_grades_screen.dart`:
 
 **(A06)** Guardian Finance tab is now **always visible**. Previously gated by `perms.canAny(Resource.fees, [Action.read]) || perms.canAny(Resource.payments, [Action.read])`, which never passed because guardians typically have no roles/scopes and thus empty permissions. The entire guardian nav list is now `const` (no conditional items): `Overview | Progress | Timetable | Finance | Attendance | Announcements`.
 

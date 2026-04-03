@@ -883,16 +883,18 @@ class _InvoiceListView extends StatelessWidget {
           return AppTheme.tableRowDivider(isDark, cs);
         }
         final item = items[index ~/ 2];
-        final entry = schoolContext.currentEntry.value;
-        final canRecord =
-            entry is OwnerEntry ||
-            schoolContext.permissions.can(Resource.payments, Action.create);
-        final canEditInvoice =
-            entry is OwnerEntry ||
-            schoolContext.permissions.can(Resource.fees, Action.update);
-        final canDeleteInvoice =
-            entry is OwnerEntry ||
-            schoolContext.permissions.can(Resource.fees, Action.delete);
+        final canRecord = schoolContext.permissions.can(
+          Resource.payments,
+          Action.create,
+        );
+        final canEditInvoice = schoolContext.permissions.can(
+          Resource.fees,
+          Action.update,
+        );
+        final canDeleteInvoice = schoolContext.permissions.can(
+          Resource.fees,
+          Action.delete,
+        );
         return _InvoiceRow(
           item: item,
           dao: dao,
@@ -1212,30 +1214,23 @@ class _PaymentsTab extends StatelessWidget {
             if (index.isOdd) {
               return AppTheme.tableRowDivider(isDark, cs);
             }
-            final entry = schoolContext.currentEntry.value;
             final item = items[index ~/ 2];
             return _PaymentRow(
               item: item,
               cs: cs,
               isDark: isDark,
-              canApprove:
-                  entry is OwnerEntry ||
-                  schoolContext.permissions.can(
-                    Resource.payments,
-                    Action.approve,
-                  ),
-              canEdit:
-                  entry is OwnerEntry ||
-                  schoolContext.permissions.can(
-                    Resource.payments,
-                    Action.update,
-                  ),
-              canDelete:
-                  entry is OwnerEntry ||
-                  schoolContext.permissions.can(
-                    Resource.payments,
-                    Action.delete,
-                  ),
+              canApprove: schoolContext.permissions.can(
+                Resource.payments,
+                Action.approve,
+              ),
+              canEdit: schoolContext.permissions.can(
+                Resource.payments,
+                Action.update,
+              ),
+              canDelete: schoolContext.permissions.can(
+                Resource.payments,
+                Action.delete,
+              ),
             );
           },
         );
@@ -1452,10 +1447,10 @@ class _FeesTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = cs.brightness == Brightness.dark;
-    final entry = schoolContext.currentEntry.value;
-    final canCreateFee =
-        entry is OwnerEntry ||
-        schoolContext.permissions.can(Resource.fees, Action.create);
+    final canCreateFee = schoolContext.permissions.can(
+      Resource.fees,
+      Action.create,
+    );
 
     return Stack(
       children: [

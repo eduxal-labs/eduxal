@@ -152,17 +152,14 @@ class _PaperDetailPageState extends State<PaperDetailPage>
   bool get _canProgressStatus {
     final entry = widget.schoolContext.currentEntry.value;
     final perms = widget.schoolContext.permissions;
-    if (entry is OwnerEntry) return true;
-    if (entry is StaffEntry) {
-      return perms.can(Resource.exams, Action.update);
-    }
+    // General permission check — any role with exams.update can progress status.
+    if (perms.can(Resource.exams, Action.update)) return true;
+    // Teacher-specific: can also progress if they created the exam, are the
+    // invigilator, or teach this subject to this class.
     if (entry is TeacherEntry) {
       final userId = entry.teacher.user;
-      // Teacher can progress status if they created the exam, are the invigilator,
-      // have exams.update permission, or teach this subject to this class.
       if (_exam.teacher == userId) return true;
       if (_paper.invigilator == userId) return true;
-      if (perms.can(Resource.exams, Action.update)) return true;
       return _teacherSubjects.any(
         (st) =>
             st.grade == _paper.grade &&
@@ -176,20 +173,9 @@ class _PaperDetailPageState extends State<PaperDetailPage>
   /// Whether the current user can enter grades, submit answer sheets, or trigger AI marking.
   /// This IS subject-specific for teachers.
   bool get _canGradeContent {
-    final entry = widget.schoolContext.currentEntry.value;
-    if (entry is OwnerEntry || entry is StaffEntry) return true;
-    if (entry is TeacherEntry) {
-      if (widget.schoolContext.permissions.can(Resource.grades, Action.mark)) {
-        return true;
-      }
-      return _teacherSubjects.any(
-        (st) =>
-            st.grade == _paper.grade &&
-            st.subject == _paper.subject &&
-            (_paper.stream == null || st.stream == _paper.stream),
-      );
-    }
-    return false;
+    final perms = widget.schoolContext.permissions;
+    return perms.can(Resource.grades, Action.read) ||
+        perms.can(Resource.grades, Action.mark);
   }
 
   Future<void> _loadSchemeFiles() async {

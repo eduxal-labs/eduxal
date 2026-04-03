@@ -274,11 +274,9 @@ class _GradeDetailPageState extends State<GradeDetailPage>
     return _actionsForContentTab(index).isNotEmpty;
   }
 
-  /// Permission helper — owners bypass all checks; others use RBAC.
+  /// Permission helper — checks RBAC via SchoolPermissions.
   bool _can(Resource resource, Action action) {
-    final entry = widget.schoolContext.currentEntry.value;
-    return entry is OwnerEntry ||
-        widget.schoolContext.permissions.can(resource, action);
+    return widget.schoolContext.permissions.can(resource, action);
   }
 
   /// Maps a visible content tab index → logical index (0=Students, 1=Exams,

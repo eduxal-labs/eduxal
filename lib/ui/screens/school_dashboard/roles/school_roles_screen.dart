@@ -9,7 +9,7 @@ import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/school_scopes_dao.dart';
 import '../../../../database/tables/enums.dart';
-import '../../../../models/membership.dart';
+
 import '../../../../models/permissions.dart';
 import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
@@ -143,13 +143,9 @@ class _SchoolRolesBodyState extends State<_SchoolRolesBody> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final perms = widget.schoolContext.permissions;
-    final entry = widget.schoolContext.currentEntry.value;
-    final canCreate =
-        perms.can(Resource.roles, Action.create) || entry is OwnerEntry;
-    final canEdit =
-        perms.can(Resource.roles, Action.update) || entry is OwnerEntry;
-    final canDelete =
-        perms.can(Resource.roles, Action.delete) || entry is OwnerEntry;
+    final canCreate = perms.can(Resource.roles, Action.create);
+    final canEdit = perms.can(Resource.roles, Action.update);
+    final canDelete = perms.can(Resource.roles, Action.delete);
 
     return StreamBuilder<List<Role>>(
       stream: _dao.watchSchoolRoles(_schoolId),
