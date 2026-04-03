@@ -353,7 +353,7 @@ Only show `_NotEnrolledState` when there is no enrollment at all (`enrollment ==
 
 ---
 
-### Task C1: Guardian attendance/finance screens not reactive on ward switch
+### Task C1: Guardian attendance/finance screens not reactive on ward switch ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/attendance/attendance_screen.dart`, `lib/ui/screens/school_dashboard/finance/finance_screen.dart`
 **Context files to read:** `lib/models/school_context.dart`
@@ -456,7 +456,7 @@ Also, the role-switcher sheet (`_RoleSwitcherSheet` ~L1952–2112) shows a gener
 
 ---
 
-### Task C5: Guardian cannot make payments from Finance screen
+### Task C5: Guardian cannot make payments from Finance screen ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/finance/finance_screen.dart`
 **Context files to read:** `lib/database/tables/mpesa.dart`, `lib/models/mpesa_config.dart`
