@@ -86,10 +86,10 @@ This directory contains **1 shell screen file** and **8 subdirectories**, each r
 ### `announcements/`
 | File | Widget | Status | Description |
 |---|---|---|---|
-| `announcements_screen.dart` | `AnnouncementsScreen` | ✅ Complete | Chronological feed of school announcements. Owners/Staff can create announcements targeted by role or class. Feed filters by `SchoolContext.currentEntry` role for relevance. Compose FAB simplified to icon-only `FloatingActionButton.small` matching Roles page pattern; `_ElevatedFab` class removed. |
+| `announcements_screen.dart` | `AnnouncementsScreen` | ✅ Complete | Chronological feed of school announcements. Owners/Staff can create announcements targeted by role or class. Feed filters by `SchoolContext.currentEntry` role for relevance. Compose FAB simplified to icon-only `FloatingActionButton.small` matching Roles page pattern; `_ElevatedFab` class removed. `_RoleFeed` and `_AdminFeed` now load real `SchoolConfig` reactively from `CatalogDao.watchAllStreamsForSchool` via shared `_buildConfigFromStreams()` helper (same pattern as attendance/exams/timetable screens) instead of using `SchoolConfig.defaults()`. |
 
-**Data source:** `AnnouncementsDao.watchAnnouncements(schoolId, ...)`
-**Dependencies:** `database/daos/announcements_dao.dart`, `models/school_context.dart`
+**Data source:** `AnnouncementsDao.watchAnnouncements(schoolId, ...)`, `CatalogDao.watchAllStreamsForSchool(schoolId)`
+**Dependencies:** `database/daos/announcements_dao.dart`, `database/daos/catalog_dao.dart`, `database/daos/enrollments_dao.dart`, `database/tables/curriculum_subjects.dart`, `models/school_config.dart`, `models/school_context.dart`
 
 ---
 
@@ -241,6 +241,11 @@ When `ActiveTermContext.hasTerms` is `false`, the dashboard shows a blank state 
 
 
 ## Last Updated
+Task F03 — Fix `_RoleFeed` and `_AdminFeed` using `SchoolConfig.defaults()` instead of actual school config.
+
+**(F03 — SchoolConfig fix in announcements)** `announcements_screen.dart`: Both `_AdminFeedState` and `_RoleFeedState` previously used `SchoolConfig.defaults()` (empty config) for grade/stream labels in announcement rows and detail sheets. Fixed by adding a shared top-level `_buildConfigFromStreams(List<SchoolStream>)` helper (same curriculum-detection heuristic used in attendance, exams, and timetable screens: grades ≥41 → 8-4-4, grades ≥9 → CBC, ambiguous 1–8 resolved by checking for 8-4-4-only grades). Both states now hold a `CatalogDao`, a `SchoolConfig _config` field, and a `StreamSubscription<List<SchoolStream>>? _configSub`. Config is loaded reactively in `initState` via `_catalogDao.watchAllStreamsForSchool(_schoolId).listen(...)` and disposed in `dispose()`. `_AdminFeedState._loadConfig()` changed from empty async stub to real reactive subscription. `_RoleFeedState._buildAnnouncementsFeed()` now passes `_config` instead of `SchoolConfig.defaults()`. New imports: `dart:async`, `database/daos/catalog_dao.dart`, `database/tables/curriculum_subjects.dart`.
+
+Previous:
 Task E02 — Defense-in-depth permission guards for AcademicsScreen and ExamsGradesScreen.
 
 **(E02 — AcademicsScreen guard)** `academics_screen.dart`: Added defense-in-depth entry-type guard at the top of `AcademicsScreen.build()`. `StudentEntry` and `GuardianEntry` are now blocked with an `EduEmptyState` widget (lock icon + "Access restricted" + "This section is for school administrators."). Nav routing should already prevent these roles from reaching the screen, but the guard provides a safety net. New import: `ui/widgets/edu_empty_state.dart`.

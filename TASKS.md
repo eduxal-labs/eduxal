@@ -1453,7 +1453,7 @@ Each `_StatCard` shows a loading indicator while pending, the value on success, 
 
 ---
 
-### Task F03: Fix `_RoleFeed` using `SchoolConfig.defaults()` instead of actual school config
+### Task F03: Fix `_RoleFeed` using `SchoolConfig.defaults()` instead of actual school config ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/announcements/announcements_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** None (Phase 4)
@@ -1473,8 +1473,8 @@ final schoolConfig = SchoolConfig.fromSchool(schoolContext.membership.school);
 Pass the real config to `_RoleFeed` instead of `SchoolConfig.defaults()`.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note SchoolConfig fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note SchoolConfig fix
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---

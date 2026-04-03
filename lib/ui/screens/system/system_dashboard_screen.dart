@@ -88,7 +88,10 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
   /// Mobile tab controller (6 tabs: Home, Users, Members, Schools, Roles, Settings).
   late final TabController _mobileTabController;
 
-  /// Desktop tab controller (Users=0, Members=1, Schools=2, Roles=3, Settings=4).
+  /// Desktop tab controller (Users=0, Members=1, Schools=2, Roles=3, Settings=4, Notifications=5).
+  /// No explicit listener needed — desktop uses [AnimatedBuilder] on the
+  /// controller directly (see [_DesktopBody] + button builder) so rebuilds
+  /// are driven by the animation, not a manual [setState] callback.
   late final TabController _desktopTabController;
 
   /// Entrance animation.
@@ -261,8 +264,6 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
           builder: (_) => CreateRoleSheet(permissions: _permissions),
           maxWidth: 480,
         );
-      case _FabAction.createPlan:
-        openCreatePlan(context, _permissions);
     }
   }
 
@@ -916,7 +917,7 @@ class _DesktopBody extends StatelessWidget {
 // FAB sub-button
 // ─────────────────────────────────────────────────────────────────────────────
 
-enum _FabAction { inviteUser, addMember, createSchool, createRole, createPlan }
+enum _FabAction { inviteUser, addMember, createSchool, createRole }
 
 class _FabSubButton extends StatelessWidget {
   const _FabSubButton({
