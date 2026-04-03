@@ -295,7 +295,7 @@ return _permissions.can(Resource.users, Action.create) ||
 
 ---
 
-### Task A05: Fix StudentEntry falling through to `_OwnerFinanceShell`
+### Task A05: Fix StudentEntry falling through to `_OwnerFinanceShell` ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/finance/finance_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** None
@@ -372,8 +372,8 @@ Also create a minimal `_StudentFinanceView` widget (similar to `_GuardianFinance
 **Remove the `_ =>` wildcard entirely** so the compiler enforces exhaustiveness — if a new `MembershipEntry` subclass is added, it will be a compile error instead of a silent fallthrough.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note StudentEntry finance fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note StudentEntry finance fix
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---

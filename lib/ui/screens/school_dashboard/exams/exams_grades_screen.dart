@@ -1115,10 +1115,11 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
       widget.schoolContext.permissions.can(Resource.exams, Action.delete) ||
       _entry is OwnerEntry;
 
-  bool get _canMarkGrades =>
-      widget.schoolContext.permissions.can(Resource.grades, Action.mark) ||
-      _entry is OwnerEntry ||
-      _entry is TeacherEntry;
+  bool get _canMarkGrades {
+    if (_entry is OwnerEntry) return true;
+    final perms = widget.schoolContext.permissions;
+    return perms.can(Resource.grades, Action.mark);
+  }
 
   Future<void> _showAddPaper(BuildContext context) async {
     if (!_hasStreamSelection) return;

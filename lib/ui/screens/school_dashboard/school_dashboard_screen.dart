@@ -370,16 +370,18 @@ class _DashboardShellState extends State<_DashboardShell>
         _NavItem(label: 'Settings', icon: Icons.settings_outlined),
       ],
       MembershipRole.teacher => [
-        // ── Always visible (core 4) ──────────────────────────────
+        // ── Always visible (core) ────────────────────────────────
         const _NavItem(label: 'Overview', icon: Icons.space_dashboard_outlined),
         const _NavItem(label: 'My Classes', icon: Icons.class_outlined),
-        const _NavItem(label: 'Exams', icon: Icons.assignment_outlined),
         const _NavItem(
           label: 'Timetable',
           icon: Icons.calendar_view_week_outlined,
         ),
+        const _NavItem(label: 'Attendance', icon: Icons.fact_check_outlined),
 
         // ── Permission-gated (visible only with proper role/scope) ──
+        if (perms.canAny(Resource.exams, [Action.read]))
+          const _NavItem(label: 'Exams', icon: Icons.assignment_outlined),
         if (perms.canAny(Resource.classes, [Action.read]))
           const _NavItem(label: 'Academics', icon: Icons.menu_book_outlined),
         if (perms.canAny(Resource.students, [Action.read]) ||
@@ -442,18 +444,13 @@ class _DashboardShellState extends State<_DashboardShell>
         _NavItem(label: 'Attendance', icon: Icons.fact_check_outlined),
         _NavItem(label: 'Announcements', icon: Icons.campaign_outlined),
       ],
-      MembershipRole.guardian => [
-        const _NavItem(label: 'Overview', icon: Icons.space_dashboard_outlined),
-        const _NavItem(label: 'Progress', icon: Icons.bar_chart_outlined),
-        const _NavItem(
-          label: 'Timetable',
-          icon: Icons.calendar_view_week_outlined,
-        ),
-        if (perms.canAny(Resource.fees, [Action.read]) ||
-            perms.canAny(Resource.payments, [Action.read]))
-          const _NavItem(label: 'Finance', icon: Icons.receipt_long_outlined),
-        const _NavItem(label: 'Attendance', icon: Icons.fact_check_outlined),
-        const _NavItem(label: 'Announcements', icon: Icons.campaign_outlined),
+      MembershipRole.guardian => const [
+        _NavItem(label: 'Overview', icon: Icons.space_dashboard_outlined),
+        _NavItem(label: 'Progress', icon: Icons.bar_chart_outlined),
+        _NavItem(label: 'Timetable', icon: Icons.calendar_view_week_outlined),
+        _NavItem(label: 'Finance', icon: Icons.receipt_long_outlined),
+        _NavItem(label: 'Attendance', icon: Icons.fact_check_outlined),
+        _NavItem(label: 'Announcements', icon: Icons.campaign_outlined),
       ],
     };
   }

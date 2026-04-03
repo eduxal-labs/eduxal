@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:bson/bson.dart';
 import 'package:drift/drift.dart' hide Column;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Action;
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../cache/file_cache.dart';
