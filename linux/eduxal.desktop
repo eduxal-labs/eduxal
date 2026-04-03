@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=EduXal
+GenericName=School Management
+Comment=School management, simplified.
+Exec=eduxal
+Icon=eduxal
+Categories=Education;Office;ProjectManagement;
+Keywords=school;education;management;students;teachers;exams;
+Terminal=false
+StartupWMClass=eduxal
+StartupNotify=true
+MimeType=
