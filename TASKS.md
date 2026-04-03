@@ -979,7 +979,7 @@ Both dashboards load permissions once in `initState` and never update them when 
 
 ---
 
-### Task D02: Fix non-reactive entry reads in AnnouncementsScreen
+### Task D02: Fix non-reactive entry reads in AnnouncementsScreen ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/announcements/announcements_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** None (Phase 3)
@@ -1011,7 +1011,7 @@ Widget build(BuildContext context) {
 
 ---
 
-### Task D03: Fix non-reactive entry reads in TimetableScreen
+### Task D03: Fix non-reactive entry reads in TimetableScreen ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/timetable/timetable_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** None (Phase 3)
@@ -1032,7 +1032,7 @@ Wrap entry-dependent logic in `ValueListenableBuilder<MembershipEntry>`.
 
 ---
 
-### Task D04: Fix `_AttendanceTab` not resetting on ward switch
+### Task D04: Fix `_AttendanceTab` not resetting on ward switch ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/progress/progress_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/progress/CONTEXT.md`
 **Depends on:** None (Phase 3)
