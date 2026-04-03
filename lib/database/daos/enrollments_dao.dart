@@ -118,6 +118,26 @@ class EnrollmentsDao extends DatabaseAccessor<AppDatabase>
         .watchSingleOrNull();
   }
 
+  /// Emits all enrollment rows for a specific student at a school, across
+  /// every year and term.  Ordered by year descending then term descending
+  /// so the most recent enrollment appears first.
+  ///
+  /// Used by the student detail page to show the full enrollment history.
+  Stream<List<Enrollment>> watchAllEnrollmentsForStudent({
+    required String schoolId,
+    required int studentAdm,
+  }) {
+    return (select(enrollments)
+          ..where(
+            (t) => t.school.equals(schoolId) & t.student.equals(studentAdm),
+          )
+          ..orderBy([
+            (t) => OrderingTerm.desc(t.year),
+            (t) => OrderingTerm.desc(t.term),
+          ]))
+        .watch();
+  }
+
   /// Emits the set of distinct (grade, stream) pairs that have at least one
   /// enrolled student for the given term.
   ///

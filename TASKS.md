@@ -433,7 +433,7 @@ Also, the role-switcher sheet (`_RoleSwitcherSheet` ~L1952–2112) shows a gener
 
 ---
 
-### Task C4: Guardian progress screen — exam cards have no exam name and are not tappable
+### Task C4: Guardian progress screen — exam cards have no exam name and are not tappable ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/progress/guardian_progress_screen.dart`
 **Context files to read:** `lib/database/daos/exams_grades_dao.dart`
@@ -451,8 +451,8 @@ Also, the role-switcher sheet (`_RoleSwitcherSheet` ~L1952–2112) shows a gener
 3. Resolve and display stream name in the ward identity header using `CatalogDao.getStreamsForSchool`.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `git add -A && git commit -m "fix: add exam names and tap navigation to guardian progress cards"`
+- [x] Mark this task `[x]`
+- [x] Git commit: `git add -A && git commit -m "fix: add exam names and tap navigation to guardian progress cards"`
 
 ---
 

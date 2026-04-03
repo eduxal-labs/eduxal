@@ -31,6 +31,7 @@ import '../../widgets/sync_indicator.dart';
 import 'announcements/announcements_screen.dart';
 import 'finance/finance_screen.dart';
 import 'roles/school_roles_screen.dart';
+import 'settings/school_settings_screen.dart';
 import 'my_classes/my_classes_screen.dart';
 import 'overview/overview_screen.dart';
 import 'progress/progress_screen.dart';
@@ -313,6 +314,7 @@ class _DashboardShellState extends State<_DashboardShell>
         _NavItem(label: 'Announcements', icon: Icons.campaign_outlined),
         _NavItem(label: 'Timetable', icon: Icons.calendar_view_week_outlined),
         _NavItem(label: 'Roles', icon: Icons.admin_panel_settings_outlined),
+        _NavItem(label: 'Settings', icon: Icons.settings_outlined),
       ],
       MembershipRole.teacher => [
         // ── Always visible (core 4) ──────────────────────────────
@@ -644,6 +646,12 @@ class _DashboardShellState extends State<_DashboardShell>
     // Students/Guardians see the class timetable for their enrolled class.
     if (item.label == 'Timetable') {
       return TimetableScreen(schoolContext: widget.schoolContext);
+    }
+
+    // ── Settings — owner school profile & details editor ──────────────────
+    // Owners can edit school name, motto, contact details, county, logo, etc.
+    if (item.label == 'Settings') {
+      return SchoolSettingsScreen(schoolContext: widget.schoolContext);
     }
 
     // ── Default placeholder ────────────────────────────────────────────────

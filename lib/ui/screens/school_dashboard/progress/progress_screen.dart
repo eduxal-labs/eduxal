@@ -360,23 +360,40 @@ class _StudentIdentityHeader extends StatelessWidget {
               builder: (context, snap) {
                 final enrollment = snap.data;
                 if (enrollment == null) return const SizedBox.shrink();
-                return Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
+                return StreamBuilder<List<SchoolStream>>(
+                  stream: CatalogDao(db).watchStreamsBySchoolAndGrade(
+                    schoolId: schoolId,
+                    grade: enrollment.grade,
                   ),
-                  decoration: BoxDecoration(
-                    color: cs.primary.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
-                  ),
-                  child: Text(
-                    gradeLabel(enrollment.grade),
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: cs.primary.withValues(alpha: 0.8),
-                    ),
-                  ),
+                  builder: (context, streamSnap) {
+                    final streamName = streamSnap.data
+                        ?.where((s) => s.stream == enrollment.stream)
+                        .map((s) => s.name)
+                        .firstOrNull;
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.kChipRadius,
+                        ),
+                      ),
+                      child: Text(
+                        gradeStreamLabel(
+                          enrollment.grade,
+                          streamName: streamName,
+                        ),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: cs.primary.withValues(alpha: 0.8),
+                        ),
+                      ),
+                    );
+                  },
                 );
               },
             ),
@@ -807,7 +824,7 @@ class _RecentExamResults extends StatelessWidget {
 // TAB 2 — EXAMS
 // ═════════════════════════════════════════════════════════════════════════════
 
-class _ExamsTab extends StatelessWidget {
+class _ExamsTab extends StatefulWidget {
   const _ExamsTab({
     required this.schoolId,
     required this.student,
@@ -819,9 +836,46 @@ class _ExamsTab extends StatelessWidget {
   final ActiveTermContext termContext;
 
   @override
+  State<_ExamsTab> createState() => _ExamsTabState();
+}
+
+class _ExamsTabState extends State<_ExamsTab> {
+  late final ExamsGradesDao _examsDao;
+  final Map<String, Exam?> _examCache = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _examsDao = ExamsGradesDao(db);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ExamsTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.schoolId != widget.schoolId ||
+        oldWidget.student.adm != widget.student.adm) {
+      _examCache.clear();
+    }
+  }
+
+  Future<Exam?> _getExam(String examId) async {
+    if (_examCache.containsKey(examId)) return _examCache[examId];
+    final exam = await _examsDao.getExam(examId);
+    _examCache[examId] = exam;
+    return exam;
+  }
+
+  Future<Map<String, Exam?>> _resolveExams(List<String> examIds) async {
+    final result = <String, Exam?>{};
+    for (final id in examIds) {
+      result[id] = await _getExam(id);
+    }
+    return result;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final term = termContext.currentTerm;
+    final term = widget.termContext.currentTerm;
 
     if (term == null) {
       return const EduEmptyState(
@@ -831,11 +885,9 @@ class _ExamsTab extends StatelessWidget {
       );
     }
 
-    final examsDao = ExamsGradesDao(db);
-
-    // Watch exams for the term, then filter to ones the ward has grades in
+    // Watch grades for the student, then group by exam
     return StreamBuilder<List<Grade>>(
-      stream: examsDao.watchStudentGrades(schoolId, student.adm),
+      stream: _examsDao.watchStudentGrades(widget.schoolId, widget.student.adm),
       builder: (context, gradesSnap) {
         if (gradesSnap.connectionState == ConnectionState.waiting) {
           return const Center(
@@ -883,30 +935,37 @@ class _ExamsTab extends StatelessWidget {
               for (final s in subSnap.data ?? []) s.id: s.name,
             };
 
-            return Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 680),
-                child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  itemCount: examIds.length,
-                  itemBuilder: (context, index) {
-                    final examId = examIds[index];
-                    final grades = byExam[examId]!;
+            // Resolve exam metadata (names, types) using cache
+            return FutureBuilder<Map<String, Exam?>>(
+              future: _resolveExams(examIds),
+              builder: (context, examSnap) {
+                final examMap = examSnap.data ?? {};
 
-                    return _ExamCard(
-                      examId: examId,
-                      schoolId: schoolId,
-                      grades: grades,
-                      cs: cs,
-                      examsDao: examsDao,
-                      subjectNames: subjectNames,
-                    );
-                  },
-                ),
-              ),
+                return Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 680),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      itemCount: examIds.length,
+                      itemBuilder: (context, index) {
+                        final examId = examIds[index];
+                        final grades = byExam[examId]!;
+
+                        return _ExamCard(
+                          examId: examId,
+                          schoolId: widget.schoolId,
+                          exam: examMap[examId],
+                          grades: grades,
+                          subjectNames: subjectNames,
+                        );
+                      },
+                    ),
+                  ),
+                );
+              },
             );
           },
         );
@@ -915,30 +974,36 @@ class _ExamsTab extends StatelessWidget {
   }
 }
 
-class _ExamCard extends StatelessWidget {
+class _ExamCard extends StatefulWidget {
   const _ExamCard({
     required this.examId,
     required this.schoolId,
     required this.grades,
-    required this.cs,
-    required this.examsDao,
+    this.exam,
     required this.subjectNames,
   });
 
   final String examId;
   final String schoolId;
+  final Exam? exam;
   final List<Grade> grades;
-  final ColorScheme cs;
-  final ExamsGradesDao examsDao;
   final Map<int, String> subjectNames;
 
   @override
+  State<_ExamCard> createState() => _ExamCardState();
+}
+
+class _ExamCardState extends State<_ExamCard> {
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
 
     // Separate subject-level totals vs per-paper grades
-    final subjectTotals = grades.where((g) => g.paper == null).toList();
-    final paperGrades = grades.where((g) => g.paper != null).toList();
+    final subjectTotals = widget.grades.where((g) => g.paper == null).toList();
+    final paperGrades = widget.grades.where((g) => g.paper != null).toList();
 
     // Use subject totals for display if available, otherwise paper grades
     final displayGrades = subjectTotals.isNotEmpty
@@ -950,98 +1015,164 @@ class _ExamCard extends StatelessWidget {
     final totalMax = displayGrades.fold<double>(0, (s, g) => s + g.total);
     final overallPct = totalMax > 0 ? (totalScore / totalMax * 100) : 0.0;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppTheme.nestedBg(isDark, cs),
-        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-        border: Border.all(color: AppTheme.borderColor(isDark, cs)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Exam header ────────────────────────────────────────────────
-          Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: cs.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                ),
-                alignment: Alignment.center,
-                child: Icon(
-                  Icons.quiz_outlined,
-                  size: 16,
-                  color: cs.primary.withValues(alpha: 0.7),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Exam',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurface,
+    final examName = widget.exam?.name ?? 'Exam';
+    final examType = widget.exam?.type;
+    final subjectCount = displayGrades.length;
+
+    return GestureDetector(
+      onTap: displayGrades.isNotEmpty
+          ? () => setState(() => _expanded = !_expanded)
+          : null,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppTheme.nestedBg(isDark, cs),
+          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+          border: Border.all(color: AppTheme.borderColor(isDark, cs)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Exam header ──────────────────────────────────────────────
+            Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: cs.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    Icons.quiz_outlined,
+                    size: 16,
+                    color: cs.primary.withValues(alpha: 0.7),
                   ),
                 ),
-              ),
-              _PercentBadge(percent: overallPct, cs: cs),
-            ],
-          ),
-
-          if (displayGrades.isNotEmpty) ...[
-            const SizedBox(height: 12),
-
-            // ── Subject/paper rows ─────────────────────────────────────────
-            ...displayGrades.asMap().entries.map((entry) {
-              final idx = entry.key;
-              final g = entry.value;
-              final pct = g.total > 0 ? (g.score / g.total * 100) : 0.0;
-              final name = subjectNames[g.subject] ?? 'Subject ${g.subject}';
-
-              return Column(
-                children: [
-                  if (idx > 0) AppTheme.tableRowDivider(isDark, cs),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            g.paper != null ? '$name (P${g.paper})' : name,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        examName,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          if (examType != null) ...[
+                            Text(
+                              examType.name[0].toUpperCase() +
+                                  examType.name.substring(1),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w400,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.55,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              '  ·  ',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.3,
+                                ),
+                              ),
+                            ),
+                          ],
+                          Text(
+                            '$subjectCount subject${subjectCount == 1 ? '' : 's'}',
                             style: TextStyle(
-                              fontSize: 12.5,
+                              fontSize: 11,
                               fontWeight: FontWeight.w400,
-                              color: cs.onSurface,
+                              color: cs.onSurfaceVariant.withValues(
+                                alpha: 0.55,
+                              ),
                             ),
                           ),
-                        ),
-                        Text(
-                          '${g.score.toStringAsFixed(0)} / ${g.total.toStringAsFixed(0)}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        SizedBox(
-                          width: 44,
-                          child: _PercentBadge(percent: pct, cs: cs),
-                        ),
-                      ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                _PercentBadge(percent: overallPct, cs: cs),
+                if (displayGrades.isNotEmpty) ...[
+                  const SizedBox(width: 4),
+                  AnimatedRotation(
+                    turns: _expanded ? 0.5 : 0.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      Icons.expand_more_rounded,
+                      size: 18,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.4),
                     ),
                   ),
                 ],
-              );
-            }),
+              ],
+            ),
+
+            // ── Expandable subject/paper rows ────────────────────────────
+            if (_expanded && displayGrades.isNotEmpty) ...[
+              const SizedBox(height: 12),
+
+              ...displayGrades.asMap().entries.map((entry) {
+                final idx = entry.key;
+                final g = entry.value;
+                final pct = g.total > 0 ? (g.score / g.total * 100) : 0.0;
+                final name =
+                    widget.subjectNames[g.subject] ?? 'Subject ${g.subject}';
+
+                return Column(
+                  children: [
+                    if (idx > 0) AppTheme.tableRowDivider(isDark, cs),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              g.paper != null ? '$name (P${g.paper})' : name,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w400,
+                                color: cs.onSurface,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '${g.score.toStringAsFixed(0)} / ${g.total.toStringAsFixed(0)}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            width: 44,
+                            child: _PercentBadge(percent: pct, cs: cs),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              }),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
