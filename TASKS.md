@@ -638,7 +638,7 @@ Also, `_loadClasses()` calls `.listen()` on a stream but never stores the `Strea
 
 ---
 
-### Task D5: Teacher can see student personal details without students.read permission
+### Task D5: Teacher can see student personal details without students.read permission ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/academics/grade_detail_page.dart`
 **Context files to read:** None
@@ -652,7 +652,7 @@ The grade detail page's Students tab (index 0, ~L485) is always visible in the c
 Gate the Students tab behind `permissions.can(Resource.students, Action.read)` or `entry is OwnerEntry`. If the teacher doesn't have permission, hide the Students tab entirely (shift tab indices).
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Git commit: `git add -A && git commit -m "fix: gate student details tab behind students.read permission"`
 
 ---

@@ -6,6 +6,7 @@ import '../../../../database/database.dart';
 import '../../../../database/daos/attendance_dao.dart';
 import '../../../../database/daos/catalog_dao.dart';
 import '../../../../database/daos/enrollments_dao.dart';
+import '../../../../database/daos/members_dao.dart';
 import '../../../../database/tables/enums.dart';
 import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../models/active_term_context.dart';
@@ -105,14 +106,34 @@ class _ClassPickerShellState extends State<_ClassPickerShell> {
   late final AttendanceDao _attendanceDao;
   late final EnrollmentsDao _enrollmentsDao;
   late final CatalogDao _catalogDao;
+  late final MembersDao _membersDao;
 
   SchoolConfig? _config;
   bool _loadingConfig = true;
   StreamSubscription? _configSub;
 
-  /// Available classes from enrollments.
+  /// Filtered classes shown to the user.
   List<({int grade, int stream})> _availableClasses = [];
   bool _loadingClasses = true;
+
+  // ── Populated-classes subscription (was previously leaked) ──
+  StreamSubscription? _classesSub;
+
+  // ── Teacher-filter state ──
+  /// All populated classes from enrollments (pre-filter).
+  List<({int grade, int stream})> _allPopulatedClasses = [];
+  bool _populatedClassesReceived = false;
+
+  /// Whether the current entry requires teacher-based class filtering.
+  bool _needsTeacherFilter = false;
+
+  /// (grade, stream) pairs from subject_teachers for the current term.
+  Set<(int, int)>? _teacherSubjectPairs;
+  StreamSubscription? _teacherSubjectsSub;
+
+  /// (grade, stream) pairs from class_teachers (active, current term).
+  Set<(int, int)>? _teacherClassTeacherPairs;
+  StreamSubscription? _teacherClassesSub;
 
   String get _schoolId => widget.schoolContext.membership.school.id;
 
@@ -122,6 +143,7 @@ class _ClassPickerShellState extends State<_ClassPickerShell> {
     _attendanceDao = AttendanceDao(db);
     _enrollmentsDao = EnrollmentsDao(db);
     _catalogDao = CatalogDao(db);
+    _membersDao = MembersDao(db);
     _loadConfig();
     _loadClasses();
   }
@@ -198,6 +220,9 @@ class _ClassPickerShellState extends State<_ClassPickerShell> {
   @override
   void dispose() {
     _configSub?.cancel();
+    _classesSub?.cancel();
+    _teacherSubjectsSub?.cancel();
+    _teacherClassesSub?.cancel();
     super.dispose();
   }
 
@@ -205,7 +230,19 @@ class _ClassPickerShellState extends State<_ClassPickerShell> {
     final term = widget.termContext.currentTerm;
     if (term == null) return;
 
-    _enrollmentsDao
+    final entry = widget.schoolContext.currentEntry.value;
+    final permissions = widget.schoolContext.permissions;
+
+    // Teachers without the admin-level attendance.mark permission only see
+    // classes they are assigned to (via subject_teachers or class_teachers).
+    // Owners, staff with the permission, and teachers with admin mark
+    // permission see ALL populated classes.
+    _needsTeacherFilter =
+        entry is TeacherEntry &&
+        !permissions.can(Resource.attendance, Action.mark);
+
+    // 1. Watch all populated classes (classes with at least one enrollment).
+    _classesSub = _enrollmentsDao
         .watchPopulatedClasses(
           schoolId: _schoolId,
           year: term.year,
@@ -213,11 +250,73 @@ class _ClassPickerShellState extends State<_ClassPickerShell> {
         )
         .listen((classes) {
           if (!mounted) return;
-          setState(() {
-            _availableClasses = classes;
-            _loadingClasses = false;
-          });
+          _allPopulatedClasses = classes;
+          _populatedClassesReceived = true;
+          _recomputeAvailable();
         });
+
+    // 2. If teacher filtering is needed, watch both assignment sources.
+    if (_needsTeacherFilter) {
+      final teacherId = (entry as TeacherEntry).teacher.user;
+
+      // Subject-teacher assignments for the current term.
+      _teacherSubjectsSub = _membersDao
+          .watchTeacherSubjectsForTerm(
+            _schoolId,
+            teacherId,
+            year: term.year,
+            term: term.term,
+          )
+          .listen((subjects) {
+            if (!mounted) return;
+            _teacherSubjectPairs = {
+              for (final s in subjects) (s.grade, s.stream),
+            };
+            _recomputeAvailable();
+          });
+
+      // Class-teacher assignments (all terms — filtered in Dart to current
+      // term + active only).
+      _teacherClassesSub = _membersDao
+          .watchClassTeacherAssignments(_schoolId, teacherId)
+          .listen((cts) {
+            if (!mounted) return;
+            _teacherClassTeacherPairs = {
+              for (final ct in cts)
+                if (ct.year == term.year &&
+                    ct.term == term.term &&
+                    ct.end == null)
+                  (ct.grade, ct.stream),
+            };
+            _recomputeAvailable();
+          });
+    }
+  }
+
+  /// Recomputes [_availableClasses] from the populated-classes stream and
+  /// (optionally) the teacher-assignment streams. Only updates state once all
+  /// required streams have emitted at least once.
+  void _recomputeAvailable() {
+    if (!_populatedClassesReceived) return;
+
+    if (_needsTeacherFilter) {
+      // Wait until both teacher-assignment streams have fired.
+      if (_teacherSubjectPairs == null || _teacherClassTeacherPairs == null) {
+        return;
+      }
+      final allowed = {..._teacherSubjectPairs!, ..._teacherClassTeacherPairs!};
+      setState(() {
+        _availableClasses = _allPopulatedClasses
+            .where((c) => allowed.contains((c.grade, c.stream)))
+            .toList();
+        _loadingClasses = false;
+      });
+    } else {
+      setState(() {
+        _availableClasses = _allPopulatedClasses;
+        _loadingClasses = false;
+      });
+    }
   }
 
   /// Resolves the [GradeConfig] and [CurriculumType] for a given grade integer,

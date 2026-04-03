@@ -1453,10 +1453,17 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
 
   /// Emits all exams for a term, grouped by (type, start, end) into
   /// [ExamGroup] objects. Sorted by start date descending (most recent first).
+  ///
+  /// When [teacherId] is non-null, the result is filtered to only include
+  /// groups where the teacher participates as:
+  /// - the exam creator (`exams.teacher`),
+  /// - an invigilator on any paper (`papers.invigilator`), or
+  /// - a subject teacher for any paper's subject (`subject_teachers`).
   Stream<List<ExamGroup>> watchExamGroups({
     required String schoolId,
     required int year,
     required int term,
+    String? teacherId,
   }) {
     // Watch all exams for the term
     final examStream =
@@ -1550,6 +1557,40 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
             grades: gradeEntries,
           ),
         );
+      }
+
+      // ── Teacher-scoped filter ────────────────────────────────────────
+      if (teacherId != null) {
+        // Fetch the set of subject IDs this teacher is assigned to for
+        // the current (school, year, term). Used to match papers whose
+        // subject the teacher teaches even if they are not the creator
+        // or invigilator.
+        final stRows =
+            await (select(subjectTeachers)..where(
+                  (st) =>
+                      st.school.equals(schoolId) &
+                      st.year.equals(year) &
+                      st.term.equals(term) &
+                      st.teacher.equals(teacherId),
+                ))
+                .get();
+        final teacherSubjectIds = stRows.map((r) => r.subject).toSet();
+
+        result.removeWhere((group) {
+          // Keep if teacher created any exam in the group.
+          if (group.teacher.id == teacherId) return false;
+          // Check papers across all grades/streams.
+          for (final ge in group.grades) {
+            for (final se in ge.streams) {
+              for (final p in se.papers) {
+                if (p.invigilator == teacherId) return false;
+                if (teacherSubjectIds.contains(p.subject)) return false;
+              }
+            }
+          }
+          // No match — remove from results.
+          return true;
+        });
       }
 
       // Sort by start descending (most recent first)
