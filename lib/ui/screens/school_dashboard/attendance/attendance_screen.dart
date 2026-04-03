@@ -12,6 +12,7 @@ import '../../../../models/active_term_context.dart';
 import '../../../../models/membership.dart';
 import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
+import '../../../../models/permissions.dart';
 import '../../../../core/extensions.dart';
 
 import '../../../widgets/active_term_provider.dart';
@@ -46,11 +47,24 @@ class AttendanceScreen extends StatelessWidget {
 
     final entry = schoolContext.currentEntry.value;
 
+    final permissions = schoolContext.permissions;
+
     return switch (entry) {
       TeacherEntry() => _ClassPickerShell(
         schoolContext: schoolContext,
         termContext: termCtx,
       ),
+      OwnerEntry() => _ClassPickerShell(
+        schoolContext: schoolContext,
+        termContext: termCtx,
+      ),
+      StaffEntry() =>
+        permissions.canAny(Resource.attendance, [Action.mark, Action.read])
+            ? _ClassPickerShell(
+                schoolContext: schoolContext,
+                termContext: termCtx,
+              )
+            : const _AccessDeniedState(),
       GuardianEntry(:final ward) => _GuardianAttendanceView(
         schoolContext: schoolContext,
         termContext: termCtx,
@@ -62,10 +76,6 @@ class AttendanceScreen extends StatelessWidget {
         termContext: termCtx,
         studentAdm: student.adm,
         studentName: student.name,
-      ),
-      _ => _ClassPickerShell(
-        schoolContext: schoolContext,
-        termContext: termCtx,
       ),
     };
   }
@@ -1319,6 +1329,53 @@ class _EmptyClassesState extends StatelessWidget {
           const SizedBox(height: 5),
           Text(
             'Enroll students into classes to mark attendance',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccessDeniedState extends StatelessWidget {
+  const _AccessDeniedState();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: cs.errorContainer.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.lock_outline_rounded,
+              size: 22,
+              color: cs.onErrorContainer.withValues(alpha: 0.5),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'Access denied',
+            style: TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurface,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            'You don\'t have permission to view attendance',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w400,

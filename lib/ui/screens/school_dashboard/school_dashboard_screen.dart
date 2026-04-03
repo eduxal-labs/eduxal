@@ -32,7 +32,7 @@ import 'finance/finance_screen.dart';
 import 'roles/school_roles_screen.dart';
 import 'my_classes/my_classes_screen.dart';
 import 'overview/overview_screen.dart';
-import 'progress/guardian_progress_screen.dart';
+import 'progress/progress_screen.dart';
 import 'timetable/timetable_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -581,9 +581,9 @@ class _DashboardShellState extends State<_DashboardShell>
       return MyClassesScreen(schoolContext: widget.schoolContext);
     }
 
-    // ── Progress — guardian's ward academic progress ──────────────────────
+    // ── Progress — student / guardian ward academic progress ──────────────
     if (item.label == 'Progress') {
-      return GuardianProgressScreen(schoolContext: widget.schoolContext);
+      return ProgressScreen(schoolContext: widget.schoolContext);
     }
 
     // ── Academics (Departments, Subjects, Classes, Exams) ─────────────────

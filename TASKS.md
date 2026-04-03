@@ -747,7 +747,7 @@ Option 1 is cleaner.
    - Fee/Invoice delete: `perms.can(Resource.fees, Action.delete)`
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Git commit: `git add -A && git commit -m "fix: permission-gate staff finance routing and actions"`
 
 ---
