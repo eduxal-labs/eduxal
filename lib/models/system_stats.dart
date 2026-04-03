@@ -374,60 +374,41 @@ class SubscriptionStats {
 // Revenue stats
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Aggregate payment/revenue statistics.
+/// Aggregate subscription revenue statistics.
 ///
-/// Revenue is derived from the `payments` table — sum of `amount` grouped
-/// by [PaymentMethod]. If no payments exist, all values are zero.
+/// Revenue is derived from `subscriptions` joined with `plans` — computed as
+/// `plans.amount * (1 - subscriptions.discount / 100)` for each non-cancelled
+/// subscription in the current term. Grouped by plan name.
 class RevenueStats {
   const RevenueStats({
     required this.totalAmount,
     required this.totalCount,
-    required this.cash,
-    required this.cheque,
-    required this.mpesa,
-    required this.bank,
+    required this.perPlan,
     this.currentTerm,
   });
 
-  /// Sum of all payment amounts.
+  /// Total subscription revenue across all plans.
   final double totalAmount;
 
-  /// Total number of payment records.
+  /// Total number of subscription records counted.
   final int totalCount;
 
-  /// Sum of cash payments.
-  final double cash;
-
-  /// Sum of cheque payments.
-  final double cheque;
-
-  /// Sum of M-Pesa payments.
-  final double mpesa;
-
-  /// Sum of bank payments.
-  final double bank;
+  /// Revenue breakdown per plan.
+  final List<PlanRevenue> perPlan;
 
   /// The term these totals are scoped to. Null means lifetime totals.
   final CurrentTerm? currentTerm;
 
-  static const empty = RevenueStats(
-    totalAmount: 0,
-    totalCount: 0,
-    cash: 0,
-    cheque: 0,
-    mpesa: 0,
-    bank: 0,
-  );
+  static const empty = RevenueStats(totalAmount: 0, totalCount: 0, perPlan: []);
 
   /// Returns a brief human-readable summary string for the subtitle.
   String get subtitle {
-    if (totalCount == 0) return 'No payments';
+    if (totalCount == 0) return 'No subscriptions';
     final parts = <String>[];
-    if (cash > 0) parts.add('cash ${_fmt(cash)}');
-    if (mpesa > 0) parts.add('mpesa ${_fmt(mpesa)}');
-    if (bank > 0) parts.add('bank ${_fmt(bank)}');
-    if (cheque > 0) parts.add('cheque ${_fmt(cheque)}');
-    return parts.isEmpty ? '$totalCount payments' : parts.join(', ');
+    for (final p in perPlan) {
+      if (p.amount > 0) parts.add('${p.planName} ${_fmt(p.amount)}');
+    }
+    return parts.isEmpty ? '$totalCount subscriptions' : parts.join(', ');
   }
 
   static String _fmt(double v) {
@@ -439,4 +420,19 @@ class RevenueStats {
     }
     return v.toStringAsFixed(0);
   }
+}
+
+/// Revenue from a single plan.
+class PlanRevenue {
+  const PlanRevenue({
+    required this.planId,
+    required this.planName,
+    required this.amount,
+    required this.count,
+  });
+
+  final String planId;
+  final String planName;
+  final double amount;
+  final int count;
 }

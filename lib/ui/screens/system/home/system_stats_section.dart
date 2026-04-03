@@ -218,11 +218,22 @@ class _StatsCardGrid extends StatelessWidget {
   }
 
   static _StatCardData _buildRevenueCard(RevenueStats stats) {
+    // Cycle through available colors for dynamic plan segments.
+    const planColors = [
+      _kColorActive,
+      _kColorTrial,
+      _kColorInvited,
+      _kColorSuspended,
+      _kColorCancelled,
+      _kColorDeleted,
+    ];
     final segments = <_BarSegment>[
-      _BarSegment('Cash', stats.cash.round(), _kColorActive),
-      _BarSegment('M-Pesa', stats.mpesa.round(), _kColorTrial),
-      _BarSegment('Bank', stats.bank.round(), _kColorInvited),
-      _BarSegment('Cheque', stats.cheque.round(), _kColorSuspended),
+      for (var i = 0; i < stats.perPlan.length; i++)
+        _BarSegment(
+          stats.perPlan[i].planName,
+          stats.perPlan[i].amount.round(),
+          planColors[i % planColors.length],
+        ),
     ];
 
     return _StatCardData(

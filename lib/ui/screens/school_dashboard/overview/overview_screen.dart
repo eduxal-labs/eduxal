@@ -1346,7 +1346,7 @@ class _StaffQuickStatsState extends State<_StaffQuickStats> {
         _StatCard(
           icon: Icons.receipt_long_outlined,
           label: 'Invoices',
-          value: '${summary?.invoiceCount ?? 0}',
+          value: summary != null ? '${summary.invoiceCount}' : '—',
           tint: const Color(0xFFFF9800),
         ),
       );
@@ -1354,7 +1354,9 @@ class _StaffQuickStatsState extends State<_StaffQuickStats> {
         _StatCard(
           icon: Icons.account_balance_outlined,
           label: 'Collection',
-          value: '${(summary?.collectionRate ?? 0.0).toStringAsFixed(0)}%',
+          value: summary != null
+              ? '${summary.collectionRate.toStringAsFixed(0)}%'
+              : '—',
           tint: const Color(0xFF4CAF50),
         ),
       );
@@ -1362,7 +1364,7 @@ class _StaffQuickStatsState extends State<_StaffQuickStats> {
         _StatCard(
           icon: Icons.pending_actions_outlined,
           label: 'Pending',
-          value: '${summary?.pendingCount ?? 0}',
+          value: summary != null ? '${summary.pendingCount}' : '—',
           tint: const Color(0xFFF44336),
         ),
       );

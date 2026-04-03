@@ -1,3 +1,4 @@
+import 'package:async/async.dart';
 import 'package:drift/drift.dart';
 import 'package:fixnum/fixnum.dart' as fixnum;
 
@@ -535,17 +536,26 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
     required int year,
     required int term,
   }) {
-    // Watch invoices for the term.
-    final invStream =
-        (select(invoices)..where(
-              (i) =>
-                  i.school.equals(schoolId) &
-                  i.year.equals(year) &
-                  i.term.equals(term),
-            ))
-            .watch();
+    // Watch both invoices AND payments so that recording a payment
+    // (even when invoice status doesn't change) triggers a re-compute.
+    final invQuery = select(invoices)
+      ..where(
+        (i) =>
+            i.school.equals(schoolId) &
+            i.year.equals(year) &
+            i.term.equals(term),
+      );
 
-    return invStream.asyncMap((invList) async {
+    // Merge invoice and payment table-update triggers.
+    final trigger = StreamGroup.merge([
+      invQuery.watch(),
+      tableUpdates(TableUpdateQuery.onTable(payments)).map((_) => <Invoice>[]),
+    ]);
+
+    return trigger.asyncMap((_) async {
+      // Always re-fetch fresh invoice list.
+      final invList = await invQuery.get();
+
       // Load all payments for these invoices.
       final invoiceIds = invList.map((i) => i.id).toList();
       final payList = invoiceIds.isEmpty

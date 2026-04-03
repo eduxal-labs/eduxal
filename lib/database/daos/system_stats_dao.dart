@@ -129,14 +129,14 @@ class SystemStatsDao extends DatabaseAccessor<AppDatabase>
     }
   }
 
-  /// Emits [RevenueStats] (payment sums grouped by method scoped to the
-  /// current term) whenever `payments`, `invoices`, or `terms` changes.
+  /// Emits [RevenueStats] (subscription revenue grouped by plan, scoped to the
+  /// current term) whenever `subscriptions`, `plans`, or `terms` changes.
   Stream<RevenueStats> watchRevenueStats() async* {
     yield await _fetchRevenueStats();
 
     final merged = StreamGroup.merge([
-      db.tableUpdates(TableUpdateQuery.onTable(db.payments)),
-      db.tableUpdates(TableUpdateQuery.onTable(db.invoices)),
+      db.tableUpdates(TableUpdateQuery.onTable(db.subscriptions)),
+      db.tableUpdates(TableUpdateQuery.onTable(db.plans)),
       db.tableUpdates(TableUpdateQuery.onTable(db.terms)),
     ]);
     await for (final _ in merged) {
@@ -304,10 +304,7 @@ class SystemStatsDao extends DatabaseAccessor<AppDatabase>
         WHERE e.year = ? AND e.term = ?
         GROUP BY s.status
         ''',
-        variables: [
-          Variable.withInt(ct.year),
-          Variable.withInt(ct.term),
-        ],
+        variables: [Variable.withInt(ct.year), Variable.withInt(ct.term)],
         readsFrom: {db.enrollments, db.students},
       ).get();
     } else {
@@ -453,10 +450,7 @@ class SystemStatsDao extends DatabaseAccessor<AppDatabase>
         WHERE year = ? AND term = ?
         GROUP BY status
         ''',
-        variables: [
-          Variable.withInt(ct.year),
-          Variable.withInt(ct.term),
-        ],
+        variables: [Variable.withInt(ct.year), Variable.withInt(ct.term)],
         readsFrom: {db.subscriptions},
       ).get();
     } else {
@@ -493,13 +487,11 @@ class SystemStatsDao extends DatabaseAccessor<AppDatabase>
     );
   }
 
-  /// Fetches revenue aggregates grouped by payment method, scoped to the
+  /// Fetches subscription revenue aggregates grouped by plan, scoped to the
   /// current term.
   ///
-  /// A payment is "in term" if:
-  ///   • It has an invoice whose `year` and `term` match the current term, OR
-  ///   • It is a direct payment (invoice IS NULL) whose `date` (days since
-  ///     epoch) falls within the term's [startDays, endDays] window.
+  /// Revenue per subscription = `plans.amount * (1 - subscriptions.discount / 100)`.
+  /// Only non-cancelled subscriptions (status IN (0=pending, 1=active)) are counted.
   Future<RevenueStats> _fetchRevenueStats() async {
     final ct = await _fetchCurrentTerm();
 
@@ -508,63 +500,62 @@ class SystemStatsDao extends DatabaseAccessor<AppDatabase>
     if (ct != null) {
       rows = await customSelect(
         '''
-        SELECT p.method,
-               COUNT(*)            AS cnt,
-               COALESCE(SUM(p.amount), 0.0) AS total
-        FROM payments p
-        LEFT JOIN invoices i ON i.id = p.invoice
-        WHERE (
-          -- invoice-linked payment: belongs to the current term's invoices
-          (p.invoice IS NOT NULL AND i.year = ? AND i.term = ?)
-          OR
-          -- direct payment: date falls within the term window
-          (p.invoice IS NULL AND p.date >= ? AND p.date <= ?)
-        )
-        GROUP BY p.method
+        SELECT p.id   AS plan_id,
+               p.name AS plan_name,
+               COUNT(*)                                    AS cnt,
+               COALESCE(SUM(p.amount * (1.0 - s.discount / 100.0)), 0.0) AS total
+        FROM subscriptions s
+        JOIN plans p ON p.id = s.plan
+        WHERE s.year = ? AND s.term = ?
+          AND s.status IN (0, 1)
+        GROUP BY p.id, p.name
+        ORDER BY total DESC
         ''',
-        variables: [
-          Variable.withInt(ct.year),
-          Variable.withInt(ct.term),
-          Variable.withInt(ct.startDays),
-          Variable.withInt(ct.endDays),
-        ],
-        readsFrom: {db.payments, db.invoices},
+        variables: [Variable.withInt(ct.year), Variable.withInt(ct.term)],
+        readsFrom: {db.subscriptions, db.plans},
       ).get();
     } else {
       rows = await customSelect(
-        'SELECT method, COUNT(*) AS cnt, COALESCE(SUM(amount), 0.0) AS total'
-        ' FROM payments GROUP BY method',
-        readsFrom: {db.payments},
+        '''
+        SELECT p.id   AS plan_id,
+               p.name AS plan_name,
+               COUNT(*)                                    AS cnt,
+               COALESCE(SUM(p.amount * (1.0 - s.discount / 100.0)), 0.0) AS total
+        FROM subscriptions s
+        JOIN plans p ON p.id = s.plan
+        WHERE s.status IN (0, 1)
+        GROUP BY p.id, p.name
+        ORDER BY total DESC
+        ''',
+        readsFrom: {db.subscriptions, db.plans},
       ).get();
     }
 
-    double cash = 0, cheque = 0, mpesa = 0, bank = 0;
+    double totalAmount = 0;
     int totalCount = 0;
+    final perPlan = <PlanRevenue>[];
 
     for (final row in rows) {
-      final methodInt = row.read<int>('method');
+      final planId = row.read<String>('plan_id');
+      final planName = row.read<String>('plan_name');
       final count = row.read<int>('cnt');
       final amount = row.read<double>('total');
+      totalAmount += amount;
       totalCount += count;
-      switch (methodInt) {
-        case 0:
-          cash = amount;
-        case 1:
-          cheque = amount;
-        case 2:
-          mpesa = amount;
-        case 3:
-          bank = amount;
-      }
+      perPlan.add(
+        PlanRevenue(
+          planId: planId,
+          planName: planName,
+          amount: amount,
+          count: count,
+        ),
+      );
     }
 
     return RevenueStats(
-      totalAmount: cash + cheque + mpesa + bank,
+      totalAmount: totalAmount,
       totalCount: totalCount,
-      cash: cash,
-      cheque: cheque,
-      mpesa: mpesa,
-      bank: bank,
+      perPlan: perPlan,
       currentTerm: ct,
     );
   }
