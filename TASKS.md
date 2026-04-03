@@ -1119,7 +1119,7 @@ if (widget.permissions.can(Resource.users, Action.update))
 
 ---
 
-### Task G2: Plans tab unreachable on both mobile and desktop
+### Task G2: Plans tab unreachable on both mobile and desktop ✅
 
 **Files to modify:** `lib/ui/screens/system/system_dashboard_screen.dart`
 **Context files to read:** `lib/ui/screens/system/plans/plans_section.dart`
@@ -1135,12 +1135,12 @@ The Plans section exists as a widget (`PlansSection`) and a FAB action (`_FabAct
 Add a "Plans" tab to both mobile and desktop layouts. Alternatively, merge Plans into the Settings tab as a sub-section (alongside Subjects).
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `git add -A && git commit -m "fix: add Plans tab to system dashboard navigation"`
+- [x] Mark this task `[x]`
+- [x] Git commit: `git add -A && git commit -m "fix: add Plans tab to system dashboard navigation"`
 
 ---
 
-### Task G3: Notifications tab missing — failed sync logs invisible to system users
+### Task G3: Notifications tab missing — failed sync logs invisible to system users ✅
 
 **Files to modify:** `lib/ui/screens/system/system_dashboard_screen.dart`
 **Context files to read:** `lib/ui/screens/system/notifications/notifications_panel.dart`, `lib/ui/screens/system/notifications/notifications_section.dart`
@@ -1154,8 +1154,8 @@ Add a "Plans" tab to both mobile and desktop layouts. Alternatively, merge Plans
 Add a Notifications panel/section to the system dashboard. On desktop, this could be a sidebar panel. On mobile, add a Notifications tab or a bell icon in the app bar that opens the notifications section.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `git add -A && git commit -m "feat: wire notifications panel into system dashboard"`
+- [x] Mark this task `[x]`
+- [x] Git commit: `git add -A && git commit -m "feat: wire notifications panel into system dashboard"`
 
 ---
 
