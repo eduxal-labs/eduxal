@@ -215,6 +215,15 @@ class _PlansSectionState extends State<PlansSection> {
   // ── Actions ────────────────────────────────────────────────────────────────
 
   Future<void> _deletePlan(BuildContext context, Plan plan) async {
+    final confirmed = await showEduConfirmDialog(
+      context: context,
+      title: 'Delete Plan',
+      message: 'Are you sure you want to delete "${plan.name}"?',
+      confirmLabel: 'Delete',
+      isDestructive: true,
+    );
+    if (!confirmed || !context.mounted) return;
+
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;
     try {
@@ -223,6 +232,14 @@ class _PlansSectionState extends State<PlansSection> {
         PlanStatus.deleted,
         accountId: accountId,
       );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('"${plan.name}" moved to trash'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

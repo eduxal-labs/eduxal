@@ -98,6 +98,7 @@ class _SchoolsSectionState extends State<SchoolsSection> {
           'Set ${school.name} to Deleted status? '
           'This is a soft delete — the record can be restored later.',
       confirmLabel: 'Trash',
+      isDestructive: true,
     );
     if (!confirmed || !mounted) return;
 

@@ -241,7 +241,15 @@ When `ActiveTermContext.hasTerms` is `false`, the dashboard shows a blank state 
 
 
 ## Last Updated
-Tasks B05, B06, B07, C02, C05 — Term-gating removal, teacher announcement scoping, finance tab permission gating, grade/stream filtering, View All links.
+Tasks D02, D03, D04 — Reactivity fixes for entry-dependent screens.
+
+**(D02 — AnnouncementsScreen reactive entry)** `announcements_screen.dart`: `AnnouncementsScreen.build()` now wraps its role-dispatch switch in `ValueListenableBuilder<MembershipEntry>` listening to `schoolContext.currentEntry`. Previously read `schoolContext.currentEntry.value` directly, meaning the screen did not rebuild when the user switched roles via the role switcher. The `entry` variable is now provided by the builder callback instead of a one-shot `.value` read.
+
+**(D03 — TimetableScreen reactive entry)** `timetable_screen.dart`: `TimetableScreen.build()` now wraps its role-dispatch switch in `ValueListenableBuilder<MembershipEntry>` listening to `schoolContext.currentEntry`. Same fix as D02 — previously read `.value` directly, causing the timetable view to not update on role switch. The no-term early return (`_NoTermState`) remains outside the builder since it doesn't depend on the entry.
+
+**(D04 — AttendanceTab ward-switch calendar reset)** `progress_screen.dart`: `_AttendanceTab` now accepts `super.key` in its constructor. The call site in `_ProgressScreenState.build()` passes `key: ValueKey('attendance_${student.adm}')`, forcing a full State rebuild (including `_calendarMonth` reset to current month) when the guardian switches wards. This is necessary because `_AttendanceTabState` stores `_calendarMonth` in local state and had no `didUpdateWidget` override to reset it.
+
+Previous: Tasks B05, B06, B07, C02, C05 — Term-gating removal, teacher announcement scoping, finance tab permission gating, grade/stream filtering, View All links.
 
 **(C02 — Remove term-gating for non-academic sections)** `announcements_screen.dart`: Removed the `termCtx.currentTerm == null` early return in `AnnouncementsScreen.build()`. Announcements are non-academic and do not require a term to display. The `termCtx` is still passed to child widgets for grade/stream enrollment resolution. Removed the now-unused `_NoTermState` class. `finance_screen.dart`: Removed the top-level `termCtx.currentTerm == null` early return in `FinanceScreen.build()`. In `_OwnerFinanceShellState.build()`, replaced the hard `_NoTermState` blocker with a friendly `_EmptyState` message: "No term selected / Select a term to view financial data" (when terms exist) or "No terms configured / Create a term to start managing finances" (when no terms exist). Uses `widget.termContext.hasTerms` to differentiate. In `_GuardianFinanceViewState.build()`, replaced the `_NoTermState` return with a softer `_EmptyState` message: "No term selected / Financial data will appear once a term is active". Removed the now-unused `_NoTermState` class from finance_screen.dart. `school_dashboard_screen.dart`: Verified that `_kAcademicNavLabels` does NOT contain `'Finance'` or `'Announcements'` — no change needed (already correct from previous task B5).
 

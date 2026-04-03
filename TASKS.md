@@ -1005,8 +1005,8 @@ Widget build(BuildContext context) {
 ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note announcements reactivity fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note announcements reactivity fix
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
@@ -1026,8 +1026,8 @@ Widget build(BuildContext context) {
 Wrap entry-dependent logic in `ValueListenableBuilder<MembershipEntry>`.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note timetable reactivity fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note timetable reactivity fix
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
@@ -1066,8 +1066,8 @@ void didUpdateWidget(covariant _AttendanceTab oldWidget) {
 ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/progress/CONTEXT.md` — note ward switch calendar fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note ward switch calendar fix
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---

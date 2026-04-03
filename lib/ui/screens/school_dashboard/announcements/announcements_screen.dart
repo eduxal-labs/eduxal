@@ -39,50 +39,55 @@ class AnnouncementsScreen extends StatelessWidget {
     // C02: Announcements are non-academic — no term-gating.
     // termCtx is still passed to child widgets for grade/stream filtering.
 
-    final entry = schoolContext.currentEntry.value;
-
-    return switch (entry) {
-      OwnerEntry() => _AdminFeed(
-        schoolContext: schoolContext,
-        termContext: termCtx,
-      ),
-      StaffEntry() =>
-        schoolContext.permissions.canAny(Resource.announcements, [
-              Action.create,
-              Action.update,
-              Action.delete,
-            ])
-            ? _AdminFeed(schoolContext: schoolContext, termContext: termCtx)
-            : _RoleFeed(
-                schoolContext: schoolContext,
-                termContext: termCtx,
-                audienceBit: AudienceBits.staff,
-              ),
-      TeacherEntry() =>
-        schoolContext.permissions.canAny(Resource.announcements, [
-              Action.create,
-              Action.update,
-              Action.delete,
-            ])
-            ? _AdminFeed(schoolContext: schoolContext, termContext: termCtx)
-            : _RoleFeed(
-                schoolContext: schoolContext,
-                termContext: termCtx,
-                audienceBit: AudienceBits.teachers,
-              ),
-      StudentEntry(:final student) => _RoleFeed(
-        schoolContext: schoolContext,
-        termContext: termCtx,
-        audienceBit: AudienceBits.students,
-        studentAdm: student.adm,
-      ),
-      GuardianEntry(:final ward) => _RoleFeed(
-        schoolContext: schoolContext,
-        termContext: termCtx,
-        audienceBit: AudienceBits.guardians,
-        studentAdm: ward.adm,
-      ),
-    };
+    // D02: Use ValueListenableBuilder so the screen rebuilds when the user
+    // switches roles via the role switcher.
+    return ValueListenableBuilder<MembershipEntry>(
+      valueListenable: schoolContext.currentEntry,
+      builder: (context, entry, _) {
+        return switch (entry) {
+          OwnerEntry() => _AdminFeed(
+            schoolContext: schoolContext,
+            termContext: termCtx,
+          ),
+          StaffEntry() =>
+            schoolContext.permissions.canAny(Resource.announcements, [
+                  Action.create,
+                  Action.update,
+                  Action.delete,
+                ])
+                ? _AdminFeed(schoolContext: schoolContext, termContext: termCtx)
+                : _RoleFeed(
+                    schoolContext: schoolContext,
+                    termContext: termCtx,
+                    audienceBit: AudienceBits.staff,
+                  ),
+          TeacherEntry() =>
+            schoolContext.permissions.canAny(Resource.announcements, [
+                  Action.create,
+                  Action.update,
+                  Action.delete,
+                ])
+                ? _AdminFeed(schoolContext: schoolContext, termContext: termCtx)
+                : _RoleFeed(
+                    schoolContext: schoolContext,
+                    termContext: termCtx,
+                    audienceBit: AudienceBits.teachers,
+                  ),
+          StudentEntry(:final student) => _RoleFeed(
+            schoolContext: schoolContext,
+            termContext: termCtx,
+            audienceBit: AudienceBits.students,
+            studentAdm: student.adm,
+          ),
+          GuardianEntry(:final ward) => _RoleFeed(
+            schoolContext: schoolContext,
+            termContext: termCtx,
+            audienceBit: AudienceBits.guardians,
+            studentAdm: ward.adm,
+          ),
+        };
+      },
+    );
   }
 }
 

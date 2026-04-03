@@ -53,6 +53,14 @@ class ExamsGradesScreen extends StatelessWidget {
       return const _RestrictedAccessState();
     }
 
+    // Defense-in-depth: staff without exams.read permission cannot access
+    // exam management. Nav routing should already hide the tab, but guard
+    // here as well.
+    if (entry is StaffEntry &&
+        !schoolContext.permissions.can(Resource.exams, Action.read)) {
+      return const _RestrictedAccessState();
+    }
+
     final termCtx = ActiveTermProvider.of(context);
     if (termCtx.currentTerm == null) {
       return const _NoTermState();

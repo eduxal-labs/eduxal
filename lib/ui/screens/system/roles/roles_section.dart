@@ -94,8 +94,9 @@ class _RolesSectionState extends State<RolesSection> {
       context: context,
       title: 'Delete role',
       message:
-          'Delete "${role.name}"?\n\n'
-          'Users assigned this role will lose its permissions.',
+          'Permanently delete "${role.name}"?\n\n'
+          'This cannot be undone. Users assigned this role will '
+          'lose its permissions immediately.',
       confirmLabel: 'Delete',
       isDestructive: true,
     );

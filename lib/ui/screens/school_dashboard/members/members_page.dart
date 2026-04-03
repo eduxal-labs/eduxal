@@ -953,13 +953,12 @@ class _OwnersTabState extends State<_OwnersTab> {
   Future<Map<String, UsersData>> _batchLoadUsers(
     List<OwnersData> owners,
   ) async {
-    final map = <String, UsersData>{};
-    final ids = owners.map((o) => o.user).toSet();
-    for (final id in ids) {
-      final u = await widget.dao.findUserById(id);
-      if (u != null) map[id] = u;
-    }
-    return map;
+    final userIds = owners.map((o) => o.user).toSet().toList();
+    if (userIds.isEmpty) return {};
+    final users = await (db.select(
+      db.users,
+    )..where((t) => t.id.isIn(userIds))).get();
+    return {for (final u in users) u.id: u};
   }
 
   @override
@@ -1162,13 +1161,12 @@ class _TeachersTabState extends State<_TeachersTab> {
   Future<Map<String, UsersData>> _batchLoadUsers(
     List<TeachersData> teachers,
   ) async {
-    final map = <String, UsersData>{};
-    final ids = teachers.map((t) => t.user).toSet();
-    for (final id in ids) {
-      final u = await widget.dao.findUserById(id);
-      if (u != null) map[id] = u;
-    }
-    return map;
+    final userIds = teachers.map((t) => t.user).toSet().toList();
+    if (userIds.isEmpty) return {};
+    final users = await (db.select(
+      db.users,
+    )..where((t) => t.id.isIn(userIds))).get();
+    return {for (final u in users) u.id: u};
   }
 
   @override
@@ -1395,13 +1393,12 @@ class _StaffTabState extends State<_StaffTab> {
   Future<Map<String, UsersData>> _batchLoadUsers(
     List<StaffData> staffList,
   ) async {
-    final map = <String, UsersData>{};
-    final ids = staffList.map((s) => s.user).toSet();
-    for (final id in ids) {
-      final u = await widget.dao.findUserById(id);
-      if (u != null) map[id] = u;
-    }
-    return map;
+    final userIds = staffList.map((s) => s.user).toSet().toList();
+    if (userIds.isEmpty) return {};
+    final users = await (db.select(
+      db.users,
+    )..where((t) => t.id.isIn(userIds))).get();
+    return {for (final u in users) u.id: u};
   }
 
   @override

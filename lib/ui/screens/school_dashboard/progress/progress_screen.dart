@@ -104,6 +104,7 @@ class _ProgressScreenState extends State<ProgressScreen>
                   ),
                   _MasteryTab(schoolId: schoolId, student: student),
                   _AttendanceTab(
+                    key: ValueKey('attendance_${student.adm}'),
                     schoolId: schoolId,
                     student: student,
                     termContext: termCtx,
@@ -1514,6 +1515,7 @@ class _MasteryTopicRow extends StatelessWidget {
 
 class _AttendanceTab extends StatefulWidget {
   const _AttendanceTab({
+    super.key,
     required this.schoolId,
     required this.student,
     required this.termContext,

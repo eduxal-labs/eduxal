@@ -12,6 +12,7 @@ import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/active_term_provider.dart';
 import '../../../widgets/edu_form_field.dart';
+import '../../../widgets/edu_empty_state.dart';
 import '../../../widgets/edu_sheet.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
 
@@ -27,6 +28,18 @@ class AcademicsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Defense-in-depth: students and guardians should never reach this
+    // admin-oriented academics screen. Nav routing should prevent it, but
+    // guard here as well.
+    final entry = schoolContext.currentEntry.value;
+    if (entry is StudentEntry || entry is GuardianEntry) {
+      return const EduEmptyState(
+        icon: Icons.lock_outline_rounded,
+        title: 'Access restricted',
+        subtitle: 'This section is for school administrators.',
+      );
+    }
+
     return _AcademicsGradeTree(schoolContext: schoolContext);
   }
 }

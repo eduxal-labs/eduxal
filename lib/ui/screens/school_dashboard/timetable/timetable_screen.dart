@@ -162,44 +162,47 @@ class TimetableScreen extends StatelessWidget {
       return const _NoTermState();
     }
 
-    final entry = schoolContext.currentEntry.value;
-
-    return switch (entry) {
-      OwnerEntry() => _OwnerTimetableShell(
-        schoolContext: schoolContext,
-        termContext: termCtx,
-      ),
-      TeacherEntry() =>
-        schoolContext.permissions.can(Resource.classes, Action.update)
-            ? _OwnerTimetableShell(
-                schoolContext: schoolContext,
-                termContext: termCtx,
-              )
-            : _TeacherTimetableView(
-                schoolContext: schoolContext,
-                termContext: termCtx,
-              ),
-      StudentEntry(:final student) => _ClassTimetableView(
-        schoolContext: schoolContext,
-        termContext: termCtx,
-        studentAdm: student.adm,
-      ),
-      GuardianEntry(:final ward) => _ClassTimetableView(
-        schoolContext: schoolContext,
-        termContext: termCtx,
-        studentAdm: ward.adm,
-      ),
-      StaffEntry() =>
-        schoolContext.permissions.can(Resource.classes, Action.update)
-            ? _OwnerTimetableShell(
-                schoolContext: schoolContext,
-                termContext: termCtx,
-              )
-            : _StaffReadOnlyTimetableView(
-                schoolContext: schoolContext,
-                termContext: termCtx,
-              ),
-    };
+    return ValueListenableBuilder<MembershipEntry>(
+      valueListenable: schoolContext.currentEntry,
+      builder: (context, entry, _) {
+        return switch (entry) {
+          OwnerEntry() => _OwnerTimetableShell(
+            schoolContext: schoolContext,
+            termContext: termCtx,
+          ),
+          TeacherEntry() =>
+            schoolContext.permissions.can(Resource.classes, Action.update)
+                ? _OwnerTimetableShell(
+                    schoolContext: schoolContext,
+                    termContext: termCtx,
+                  )
+                : _TeacherTimetableView(
+                    schoolContext: schoolContext,
+                    termContext: termCtx,
+                  ),
+          StudentEntry(:final student) => _ClassTimetableView(
+            schoolContext: schoolContext,
+            termContext: termCtx,
+            studentAdm: student.adm,
+          ),
+          GuardianEntry(:final ward) => _ClassTimetableView(
+            schoolContext: schoolContext,
+            termContext: termCtx,
+            studentAdm: ward.adm,
+          ),
+          StaffEntry() =>
+            schoolContext.permissions.can(Resource.classes, Action.update)
+                ? _OwnerTimetableShell(
+                    schoolContext: schoolContext,
+                    termContext: termCtx,
+                  )
+                : _StaffReadOnlyTimetableView(
+                    schoolContext: schoolContext,
+                    termContext: termCtx,
+                  ),
+        };
+      },
+    );
   }
 }
 
