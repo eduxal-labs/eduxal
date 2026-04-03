@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 
 import '../database.dart';
 import '../tables/enums.dart';
@@ -10,6 +11,9 @@ import '../tables/owners.dart';
 import '../tables/roles.dart';
 import '../tables/scopes.dart';
 import '../../client.dart';
+import '../../core/permission_parser.dart';
+import '../../models/permissions.dart';
+import '../../models/school_permissions.dart';
 import '../../proto/services/sync.pb.dart' as sync_pb;
 import '../tables/staff.dart';
 import '../tables/teachers.dart';
@@ -304,6 +308,104 @@ class SchoolScopesDao extends DatabaseAccessor<AppDatabase>
     return (select(
       scopes,
     )..where((t) => t.school.equals(schoolId) & t.user.equals(userId))).get();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Aggregated permissions — one-shot + reactive
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Computes the aggregated [SchoolPermissions] for [userId] at [schoolId].
+  ///
+  /// 1. Loads school-scoped scopes for `(schoolId, userId)`.
+  /// 2. If [userLevel] is `system` or `super_`, also loads system-scoped
+  ///    scopes (where `school IS NULL`) per AGENT.md §17.
+  /// 3. Parses all linked role permission blobs and unions them.
+  /// 4. Returns the assembled [SchoolPermissions].
+  Future<SchoolPermissions> getAggregatedPermissions(
+    String schoolId,
+    String userId,
+    UserLevel userLevel,
+  ) async {
+    // Build scopes query — include system-scoped scopes for elevated users.
+    final query = select(
+      scopes,
+    ).join([innerJoin(roles, roles.id.equalsExp(scopes.role))]);
+
+    if (userLevel == UserLevel.system || userLevel == UserLevel.super_) {
+      query.where(
+        scopes.user.equals(userId) &
+            (scopes.school.equals(schoolId) | scopes.school.isNull()),
+      );
+    } else {
+      query.where(scopes.school.equals(schoolId) & scopes.user.equals(userId));
+    }
+
+    final rows = await query.get();
+    var aggregated = const Permissions.empty();
+
+    for (final row in rows) {
+      final role = row.readTable(roles);
+      final parsed = parsePermissionsBlob(role.permissions);
+      if (parsed.isNotEmpty) {
+        aggregated = aggregated.union(Permissions(parsed));
+      }
+    }
+
+    debugPrint(
+      '[SchoolScopesDao] getAggregatedPermissions: '
+      '${rows.length} scope-role pairs for user $userId at school $schoolId '
+      '(level: ${userLevel.name}) → $aggregated',
+    );
+
+    return SchoolPermissions(
+      schoolId: schoolId,
+      userId: userId,
+      permissions: aggregated,
+    );
+  }
+
+  /// Reactively watches the aggregated [SchoolPermissions] for [userId] at
+  /// [schoolId].
+  ///
+  /// Re-emits whenever any `scopes` or `roles` row changes that could affect
+  /// the computed permission set. For elevated users (`system` / `super_`),
+  /// also includes system-scoped scopes (where `school IS NULL`).
+  ///
+  /// The stream never closes on its own — callers must cancel the
+  /// subscription when no longer needed.
+  Stream<SchoolPermissions> watchAggregatedPermissions(
+    String schoolId,
+    String userId,
+    UserLevel userLevel,
+  ) {
+    final query = select(
+      scopes,
+    ).join([innerJoin(roles, roles.id.equalsExp(scopes.role))]);
+
+    if (userLevel == UserLevel.system || userLevel == UserLevel.super_) {
+      query.where(
+        scopes.user.equals(userId) &
+            (scopes.school.equals(schoolId) | scopes.school.isNull()),
+      );
+    } else {
+      query.where(scopes.school.equals(schoolId) & scopes.user.equals(userId));
+    }
+
+    return query.watch().map((rows) {
+      var aggregated = const Permissions.empty();
+      for (final row in rows) {
+        final role = row.readTable(roles);
+        final parsed = parsePermissionsBlob(role.permissions);
+        if (parsed.isNotEmpty) {
+          aggregated = aggregated.union(Permissions(parsed));
+        }
+      }
+      return SchoolPermissions(
+        schoolId: schoolId,
+        userId: userId,
+        permissions: aggregated,
+      );
+    });
   }
 
   // ─────────────────────────────────────────────────────────────────────────

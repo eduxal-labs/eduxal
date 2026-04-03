@@ -112,6 +112,30 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
     }).toList();
   }
 
+  /// Reactively watches system-level [RolePermissions] for [userId].
+  ///
+  /// Re-emits whenever any `scopes` or `roles` row changes that could affect
+  /// the user's system-scoped permission set (scopes where `school IS NULL`).
+  ///
+  /// Used by the system dashboard to keep [SystemPermissions] up-to-date when
+  /// sync deltas modify roles or scopes.
+  Stream<List<RolePermissions>> watchSystemPermissions(String userId) {
+    final query = select(scopes).join([
+      innerJoin(roles, roles.id.equalsExp(scopes.role)),
+    ])..where(scopes.user.equals(userId) & scopes.school.isNull());
+
+    return query.watch().map((rows) {
+      return rows.map((row) {
+        final role = row.readTable(roles);
+        return RolePermissions(
+          roleId: role.id,
+          roleName: role.name,
+          permissionsData: role.permissions,
+        );
+      }).toList();
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // Writes
   // ---------------------------------------------------------------------------

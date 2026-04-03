@@ -1072,7 +1072,7 @@ void didUpdateWidget(covariant _AttendanceTab oldWidget) {
 
 ---
 
-### Task D05: Fix N+1 queries in `_batchLoadUsers` and DAO creation in `build()`
+### Task D05: Fix N+1 queries in `_batchLoadUsers` and DAO creation in `build()` ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/members/members_page.dart`, `lib/ui/screens/school_dashboard/overview/overview_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** None (Phase 3)
@@ -1103,15 +1103,15 @@ void didUpdateWidget(covariant _AttendanceTab oldWidget) {
    - Or use the existing DAO count methods if available
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note N+1 and build-DAO fixes
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note N+1 and build-DAO fixes
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
 
 ## Track E: Defense-in-Depth Guards
 
-### Task E01: Add permission guard to SchoolSettingsScreen
+### Task E01: Add permission guard to SchoolSettingsScreen ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/settings/school_settings_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/settings/CONTEXT.md`
 **Depends on:** None (Phase 3)
@@ -1146,8 +1146,8 @@ Widget build(BuildContext context) {
 Also make the settings data reactive to sync changes (OWN-024): if the screen currently reads school data once, convert to a `StreamBuilder` watching the school row.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/settings/CONTEXT.md` — note permission guard added
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/settings/CONTEXT.md` — note permission guard added
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
