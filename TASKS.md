@@ -770,7 +770,7 @@ Fix:
 
 ---
 
-### Task B08: Fix `_canGradeContent` — StaffEntry/OwnerEntry RBAC bypass for grade access
+### Task B08: Fix `_canGradeContent` — StaffEntry/OwnerEntry RBAC bypass for grade access ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`, `lib/ui/screens/school_dashboard/academics/grade_detail_page.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** Task A09
@@ -793,9 +793,11 @@ Partially covered by A09 but specifically for grade/paper detail pages:
 2. **`grade_detail_page.dart` ~L278-282**: `_can` helper bypasses RBAC for `OwnerEntry`. Fix the same way — use permissions, not entry type.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note grade access RBAC fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note grade access RBAC fix
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
+
+**Resolution:** Already fully fixed by Task A09. Verified: `_canGradeContent` in `paper_detail_page.dart` uses only `perms.can(Resource.grades, Action.read) || perms.can(Resource.grades, Action.mark)`. `_can()` in `grade_detail_page.dart` delegates directly to `widget.schoolContext.permissions.can(resource, action)`. Zero `StaffEntry`/`OwnerEntry` type checks remain in either file.
 
 ---
 

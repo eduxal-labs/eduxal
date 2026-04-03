@@ -11,6 +11,7 @@ import '../../widgets/edu_tab_bar.dart';
 import '../../widgets/sync_indicator.dart';
 import '../../widgets/user_avatar.dart';
 import '../account/account_screen.dart';
+import '../auth/login_screen.dart';
 import '../notifications/notifications_page.dart';
 import 'home/system_stats_section.dart';
 import 'roles/roles_section.dart';
@@ -965,7 +966,7 @@ class _UserMenuAnchorState extends State<_UserMenuAnchor> {
     _entry = null;
   }
 
-  void _handleAction(_UserMenuAction action) {
+  Future<void> _handleAction(_UserMenuAction action) async {
     _close();
     if (!mounted) return;
     switch (action) {
@@ -983,7 +984,17 @@ class _UserMenuAnchorState extends State<_UserMenuAnchor> {
           );
         }
       case _UserMenuAction.logout:
-        client.logOut();
+        await client.logOut();
+        if (!mounted) return;
+        Navigator.of(context).pushAndRemoveUntil(
+          PageRouteBuilder(
+            pageBuilder: (_, _, _) => const LoginScreen(),
+            transitionsBuilder: (_, animation, _, child) =>
+                FadeTransition(opacity: animation, child: child),
+            transitionDuration: const Duration(milliseconds: 250),
+          ),
+          (r) => false,
+        );
     }
   }
 

@@ -241,6 +241,8 @@ When `ActiveTermContext.hasTerms` is `false`, the dashboard shows a blank state 
 
 
 ## Last Updated
+Task B08 (verification only) — Confirmed grade access RBAC is fully permission-based with no `StaffEntry`/`OwnerEntry` bypass. `_canGradeContent` in `paper_detail_page.dart` uses `perms.can(Resource.grades, Action.read) || perms.can(Resource.grades, Action.mark)`. `_can()` in `grade_detail_page.dart` delegates to `widget.schoolContext.permissions.can(resource, action)`. Both were already fixed by A09; no code changes needed.
+
 Task A09 — Removed `entry is OwnerEntry` blanket RBAC bypass from 5 files across the school dashboard:
 
 **(members_page.dart)** Removed `entry is OwnerEntry ||` from 13 permission checks: `_computeVisibleTabs()` (6 tab visibility checks), `_canCreateForCurrentTab()` (6 create-action checks), `_DepartmentsTabState._canDelete`, `_OwnersTabState._canDelete`, `_TeachersTabState._canDelete`, `_TeachersTabState._canEdit`, `_StaffTabState._canDelete`, `_StaffTabState._canEdit`, `_StudentsTabState._canDelete`, `_GuardiansTabState._canEditGuardian`, `_GuardiansTabState._canUnlinkGuardian`, `_DepartmentDetailScreenState._canDeleteDept`, `_DepartmentDetailScreenState._canUpdateDept`. All now use only `perms.can(Resource.X, Action.Y)`. Removed unused `membership.dart` import.
