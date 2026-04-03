@@ -1,11 +1,13 @@
 import 'dart:async';
-import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
 import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/tables/enums.dart';
+import '../../../../core/permission_parser.dart'
+    show parsePermissionsBlob, countPermissions;
 import '../../../../models/permissions.dart' as models;
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
@@ -779,21 +781,8 @@ class _RolePermissionsBadge extends StatelessWidget {
 
   final Role role;
 
-  static int _permissionCount(String permissionsJson) {
-    try {
-      final decoded = jsonDecode(permissionsJson);
-      if (decoded is! List) return 0;
-      var count = 0;
-      for (final entry in decoded) {
-        if (entry is Map<String, dynamic>) {
-          final actions = entry['actions'];
-          if (actions is List) count += actions.length;
-        }
-      }
-      return count;
-    } catch (_) {
-      return 0;
-    }
+  static int _permissionCount(Uint8List permissions) {
+    return countPermissions(parsePermissionsBlob(permissions));
   }
 
   @override

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart' hide Action;
@@ -425,21 +424,8 @@ class _RolePermissionsBadge extends StatelessWidget {
   const _RolePermissionsBadge({required this.role});
   final Role role;
 
-  static int _permissionCount(String permissionsJson) {
-    try {
-      final decoded = jsonDecode(permissionsJson);
-      if (decoded is! List) return 0;
-      var count = 0;
-      for (final entry in decoded) {
-        if (entry is Map<String, dynamic>) {
-          final actions = entry['actions'];
-          if (actions is List) count += actions.length;
-        }
-      }
-      return count;
-    } catch (_) {
-      return 0;
-    }
+  static int _permissionCount(Uint8List blob) {
+    return countPermissions(parsePermissionsBlob(blob));
   }
 
   @override
@@ -507,7 +493,7 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
     _nameCtrl = TextEditingController(text: e?.name ?? '');
     _descCtrl = TextEditingController(text: e?.description ?? '');
     if (e != null) {
-      _permissions.addAll(parsePermissions(e.permissions));
+      _permissions.addAll(parsePermissionsBlob(e.permissions));
     }
   }
 

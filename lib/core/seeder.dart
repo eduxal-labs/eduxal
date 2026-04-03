@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:math';
 
 import 'package:bson/bson.dart';
@@ -10,7 +9,7 @@ import 'package:protobuf/protobuf.dart' show GeneratedMessage;
 import '../database/database.dart';
 import '../database/tables/enums.dart';
 import '../database/tables/curriculum_subjects.dart';
-import '../models/permissions.dart' show Resource, Action;
+import '../models/permissions.dart' show Resource, Action, Permissions;
 
 import '../proto/services/sync.pb.dart' as sync_pb;
 
