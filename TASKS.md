@@ -615,7 +615,7 @@ Also, `_canProgressStatus` (~L152–157) returns `true` for ALL `StaffEntry` use
 
 ---
 
-### Task D4: Attendance class picker shows ALL classes for teachers — not their assigned ones
+### Task D4: Attendance class picker shows ALL classes for teachers — not their assigned ones ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/attendance/attendance_screen.dart`
 **Context files to read:** `lib/database/daos/enrollments_dao.dart`, `lib/database/daos/subjects_dao.dart`
@@ -657,7 +657,7 @@ Gate the Students tab behind `permissions.can(Resource.students, Action.read)` o
 
 ---
 
-### Task D6: Teacher overview shows ALL exams, not teacher-scoped; upcoming exams filter is inconsistent
+### Task D6: Teacher overview shows ALL exams, not teacher-scoped; upcoming exams filter is inconsistent ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/overview/overview_screen.dart`
 **Context files to read:** `lib/database/daos/exams_grades_dao.dart`
@@ -678,7 +678,7 @@ Gate the Students tab behind `permissions.can(Resource.students, Action.read)` o
 
 ---
 
-### Task D7: Announcements — admin feed doesn't scope edit/delete by announcement ownership
+### Task D7: Announcements — admin feed doesn't scope edit/delete by announcement ownership ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/announcements/announcements_screen.dart`
 **Context files to read:** None
@@ -1034,7 +1034,7 @@ Owners can create the first term via `NoTermsBlankState` and `create_term_modal.
 
 ---
 
-### Task F8: No M-Pesa configuration UI
+### Task F8: No M-Pesa configuration UI ✅
 
 **Files to modify:** Create `lib/ui/screens/school_dashboard/settings/mpesa_config_screen.dart`
 **Context files to read:** `lib/database/tables/mpesa.dart`, `lib/models/mpesa_config.dart`, `lib/database/daos/finance_dao.dart`
@@ -1159,7 +1159,7 @@ Add a Notifications panel/section to the system dashboard. On desktop, this coul
 
 ---
 
-### Task G4: Invite user flow — no level picker, wrong SyncAction
+### Task G4: Invite user flow — no level picker, wrong SyncAction ✅
 
 **Files to modify:** `lib/ui/screens/system/users/invite_user_sheet.dart`
 **Context files to read:** `lib/database/tables/enums.dart` (SyncAction enum)
@@ -1180,7 +1180,7 @@ Add a Notifications panel/section to the system dashboard. On desktop, this coul
 
 ---
 
-### Task G5: System dashboard — home screen access for system users is too subtle
+### Task G5: System dashboard — home screen access for system users is too subtle ✅
 
 **Files to modify:** `lib/ui/screens/home/home_screen.dart`
 **Context files to read:** None
@@ -1410,7 +1410,7 @@ Add `onTap` handlers to summary cards that programmatically switch to the approp
 
 ---
 
-### Task I6: Guardian mastery tab watches global subject catalog without school scoping
+### Task I6: Guardian mastery tab watches global subject catalog without school scoping ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/progress/guardian_progress_screen.dart`
 **Context files to read:** `lib/database/daos/catalog_dao.dart`
