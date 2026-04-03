@@ -8,10 +8,13 @@ import '../../../../cache/file_cache.dart';
 import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/tables/curriculum_subjects.dart';
+import '../../../../database/tables/enums.dart';
+
 import '../../../theme/app_theme.dart';
 import '../../../widgets/animated_save_button.dart';
 import '../../../widgets/edu_sheet.dart';
 import '../../../../models/school_context.dart';
+import 'mpesa_config_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SchoolSettingsScreen — owner-facing school profile & settings editor
@@ -403,6 +406,44 @@ class _SchoolSettingsScreenState extends State<SchoolSettingsScreen> {
               keyboardType: TextInputType.number,
             ),
           ],
+        ),
+
+        const SizedBox(height: 28),
+
+        // ── Section: Integrations ─────────────────────────────────────
+        _SectionHeader(title: 'Integrations', cs: cs),
+        const SizedBox(height: 4),
+        _SectionContainer(
+          cs: cs,
+          isDark: isDark,
+          isDesktop: isDesktop,
+          children: [
+            _NavigationRow(
+              icon: Icons.phone_android_rounded,
+              label: 'M-Pesa Configuration',
+              subtitle: 'Daraja API payment integration',
+              cs: cs,
+              isDark: isDark,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      MpesaConfigScreen(schoolContext: widget.schoolContext),
+                ),
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 20),
+
+        // ── Section: Subscription ─────────────────────────────────────
+        _SectionHeader(title: 'Subscription', cs: cs),
+        const SizedBox(height: 4),
+        _SubscriptionSection(
+          schoolId: widget.schoolContext.membership.school.id,
+          cs: cs,
+          isDark: isDark,
+          isDesktop: isDesktop,
         ),
 
         const SizedBox(height: 32),
@@ -847,6 +888,323 @@ class _LogoSection extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════════════════════════
 // County Picker Sheet
 // ═══════════════════════════════════════════════════════════════════════════════
+
+// ── Navigation row — tappable link to a sub-screen ──────────────────────────
+
+class _NavigationRow extends StatelessWidget {
+  const _NavigationRow({
+    required this.icon,
+    required this.label,
+    required this.subtitle,
+    required this.cs,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final String subtitle;
+  final ColorScheme cs;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: isDark
+                    ? cs.primaryContainer.withValues(alpha: 0.15)
+                    : cs.primaryContainer.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              ),
+              child: Icon(icon, size: 16, color: cs.primary),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w400,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w300,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 18,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Subscription section — read-only plan & usage display ───────────────────
+
+class _SubscriptionSection extends StatelessWidget {
+  const _SubscriptionSection({
+    required this.schoolId,
+    required this.cs,
+    required this.isDark,
+    required this.isDesktop,
+  });
+
+  final String schoolId;
+  final ColorScheme cs;
+  final bool isDark;
+  final bool isDesktop;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<Plan>>(
+      stream: plansDao.watchAllPlans(),
+      builder: (context, plansSnap) {
+        final plans = plansSnap.data ?? [];
+        final activePlans = plans
+            .where((p) => p.status == PlanStatus.active)
+            .toList();
+
+        if (activePlans.isEmpty && !plansSnap.hasData) {
+          // Still loading.
+          return _buildContainer(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 20,
+                ),
+                child: Center(
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      color: cs.primary.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+
+        if (activePlans.isEmpty) {
+          return _buildContainer(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 20,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline_rounded,
+                      size: 16,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'No subscription plans available. Contact your system administrator.',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w300,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        }
+
+        // Show each active plan as a read-only card.
+        final children = <Widget>[];
+        for (var i = 0; i < activePlans.length; i++) {
+          if (i > 0) {
+            children.add(
+              Divider(
+                height: 1,
+                thickness: 0.5,
+                indent: 16,
+                color: cs.outlineVariant.withValues(alpha: 0.5),
+              ),
+            );
+          }
+          children.add(_PlanRow(plan: activePlans[i], cs: cs, isDark: isDark));
+        }
+
+        return _buildContainer(children: children);
+      },
+    );
+  }
+
+  Widget _buildContainer({required List<Widget> children}) {
+    final borderColor = isDark
+        ? cs.outline.withValues(alpha: 0.5)
+        : cs.outlineVariant;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surfaceContainer,
+        borderRadius: BorderRadius.circular(AppTheme.kRadius),
+        border: Border.all(color: borderColor),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(mainAxisSize: MainAxisSize.min, children: children),
+    );
+  }
+}
+
+class _PlanRow extends StatelessWidget {
+  const _PlanRow({required this.plan, required this.cs, required this.isDark});
+
+  final Plan plan;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    // Parse features JSON if available.
+    final featuresText = plan.features;
+    final hasDescription =
+        plan.description != null && plan.description!.isNotEmpty;
+    final hasFeatures = featuresText != null && featuresText.isNotEmpty;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? cs.tertiaryContainer.withValues(alpha: 0.15)
+                      : cs.tertiaryContainer.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(
+                  Icons.workspace_premium_outlined,
+                  size: 14,
+                  color: cs.tertiary,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      plan.name,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w500,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                    if (hasDescription)
+                      Text(
+                        plan.description!,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w300,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? cs.primaryContainer.withValues(alpha: 0.15)
+                      : cs.primaryContainer.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+                ),
+                child: Text(
+                  'KES ${plan.amount.toStringAsFixed(0)}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: cs.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (hasFeatures) ...[
+            const SizedBox(height: 8),
+            Text(
+              featuresText,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w300,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                height: 1.4,
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Icon(
+                Icons.lock_outline_rounded,
+                size: 12,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.35),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Managed by system administrators',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w300,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _CountyPickerSheet extends StatefulWidget {
   const _CountyPickerSheet({required this.selected, required this.cs});

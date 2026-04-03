@@ -1060,7 +1060,7 @@ Save creates a log entry with `SyncAction.createMpesa`. Update uses `SyncAction.
 
 ---
 
-### Task F9: No Plans/Subscriptions UI for school owners
+### Task F9: No Plans/Subscriptions UI for school owners ✅
 
 **Files to modify:** Create new screen or add to settings
 **Context files to read:** `lib/database/daos/plans_dao.dart`, `lib/models/plan_features.dart`
@@ -1080,7 +1080,7 @@ Add a "Subscription" section to the school settings screen showing:
 This is read-only for most owners (subscriptions are managed by system/super users), but they should at least be able to see their current plan.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Git commit: `git add -A && git commit -m "feat: add read-only subscription/plans view for school owners"`
 
 ---

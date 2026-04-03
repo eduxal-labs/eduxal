@@ -46,39 +46,44 @@ class AttendanceScreen extends StatelessWidget {
       return const _NoTermState();
     }
 
-    final entry = schoolContext.currentEntry.value;
-
     final permissions = schoolContext.permissions;
 
-    return switch (entry) {
-      TeacherEntry() => _ClassPickerShell(
-        schoolContext: schoolContext,
-        termContext: termCtx,
-      ),
-      OwnerEntry() => _ClassPickerShell(
-        schoolContext: schoolContext,
-        termContext: termCtx,
-      ),
-      StaffEntry() =>
-        permissions.canAny(Resource.attendance, [Action.mark, Action.read])
-            ? _ClassPickerShell(
-                schoolContext: schoolContext,
-                termContext: termCtx,
-              )
-            : const _AccessDeniedState(),
-      GuardianEntry(:final ward) => _GuardianAttendanceView(
-        schoolContext: schoolContext,
-        termContext: termCtx,
-        studentAdm: ward.adm,
-        studentName: ward.name,
-      ),
-      StudentEntry(:final student) => _GuardianAttendanceView(
-        schoolContext: schoolContext,
-        termContext: termCtx,
-        studentAdm: student.adm,
-        studentName: student.name,
-      ),
-    };
+    return ValueListenableBuilder<MembershipEntry>(
+      valueListenable: schoolContext.currentEntry,
+      builder: (context, entry, _) {
+        return switch (entry) {
+          TeacherEntry() => _ClassPickerShell(
+            schoolContext: schoolContext,
+            termContext: termCtx,
+          ),
+          OwnerEntry() => _ClassPickerShell(
+            schoolContext: schoolContext,
+            termContext: termCtx,
+          ),
+          StaffEntry() =>
+            permissions.canAny(Resource.attendance, [Action.mark, Action.read])
+                ? _ClassPickerShell(
+                    schoolContext: schoolContext,
+                    termContext: termCtx,
+                  )
+                : const _AccessDeniedState(),
+          GuardianEntry(:final ward) => _GuardianAttendanceView(
+            key: ValueKey('guardian_attendance_${ward.adm}'),
+            schoolContext: schoolContext,
+            termContext: termCtx,
+            studentAdm: ward.adm,
+            studentName: ward.name,
+          ),
+          StudentEntry(:final student) => _GuardianAttendanceView(
+            key: ValueKey('student_attendance_${student.adm}'),
+            schoolContext: schoolContext,
+            termContext: termCtx,
+            studentAdm: student.adm,
+            studentName: student.name,
+          ),
+        };
+      },
+    );
   }
 }
 
@@ -731,6 +736,7 @@ class _TodayStatusBadge extends StatelessWidget {
 
 class _GuardianAttendanceView extends StatefulWidget {
   const _GuardianAttendanceView({
+    super.key,
     required this.schoolContext,
     required this.termContext,
     required this.studentAdm,
