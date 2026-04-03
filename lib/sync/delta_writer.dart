@@ -74,7 +74,7 @@ class DeltaWriter {
     21: 'payments',
     22: 'announcements',
     23: 'mastery',
-    24: 'ai_usage',
+    24: 'aiusage',
     26: 'roles',
     27: 'scopes',
     28: 'plans',
@@ -88,10 +88,74 @@ class DeltaWriter {
     37: 'answer_pages',
   };
 
+  /// Dependency-ordered table indices for flushing.
+  ///
+  /// Parent tables (e.g. `schools`) are listed before child tables that
+  /// reference them (e.g. `teachers`, `owners`). This mirrors the server's
+  /// `SNAPSHOT_TABLE_ORDER` and ensures that within a single flush batch,
+  /// parent rows are always written before child rows — preventing a window
+  /// where a child row exists in SQLite but its parent does not, which would
+  /// cause reactive queries (like `MembershipsDao.watchMemberships`) to skip
+  /// valid entries.
+  static const _flushOrder = <int>[
+    1,
+    2,
+    28,
+    26,
+    31,
+    32,
+    3,
+    7,
+    8,
+    4,
+    5,
+    6,
+    27,
+    25,
+    9,
+    33,
+    11,
+    10,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    36,
+    18,
+    37,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    29,
+    30,
+    34,
+  ];
+
+  /// Lookup from table index → position in [_flushOrder].
+  /// Tables not in the list get [_flushOrder.length] (sorted last).
+  static final _flushPriority = <int, int>{
+    for (var i = 0; i < _flushOrder.length; i++) _flushOrder[i]: i,
+  };
+
   Future<void> flush() async {
     if (_buffer.isEmpty) return;
     final batch = List<SyncDelta>.from(_buffer);
     _buffer.clear();
+
+    // Sort by dependency order so parent tables (e.g. schools) are written
+    // before child tables (e.g. teachers, owners) within the same batch.
+    final fallback = _flushOrder.length;
+    batch.sort(
+      (a, b) => (_flushPriority[a.table] ?? fallback).compareTo(
+        _flushPriority[b.table] ?? fallback,
+      ),
+    );
+
     final touchedTables = <int>{};
     await _db.customStatement('PRAGMA foreign_keys = OFF');
     try {
@@ -123,9 +187,22 @@ class DeltaWriter {
       final updates = <TableUpdate>{};
       for (final idx in touchedTables) {
         final name = _tableNames[idx];
-        if (name != null) updates.add(TableUpdate(name));
+        if (name != null) {
+          updates.add(TableUpdate(name));
+        } else {
+          debugPrint(
+            '[DeltaWriter] ⚠ Table index $idx has no entry in _tableNames — '
+            'notifyUpdates will NOT fire for this table',
+          );
+        }
       }
-      if (updates.isNotEmpty) _db.notifyUpdates(updates);
+      if (updates.isNotEmpty) {
+        debugPrint(
+          '[DeltaWriter] 🔔 notifyUpdates: '
+          '${updates.map((u) => u.table).toList()}',
+        );
+        _db.notifyUpdates(updates);
+      }
     }
   }
 
@@ -299,11 +376,16 @@ class DeltaWriter {
 
   Future<void> _applySchools(SyncDelta delta) async {
     if (delta.operation == 2) {
+      debugPrint('[DeltaWriter] 🏫 DELETE school: id=${delta.rowKey}');
       await (_db.delete(
         _db.schools,
       )..where((t) => t.id.equals(delta.rowKey))).go();
       return;
     }
+    debugPrint(
+      '[DeltaWriter] 🏫 UPSERT school: id=${delta.rowKey}, '
+      'name=${delta.data.school.name}, op=${delta.operation}',
+    );
     final row = delta.data.school;
     final now = _now();
     await _db

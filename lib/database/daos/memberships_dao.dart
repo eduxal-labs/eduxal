@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:async/async.dart';
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 
 import '../database.dart';
 import '../tables/guardians.dart';
@@ -136,6 +137,9 @@ class MembershipsDao extends DatabaseAccessor<AppDatabase>
 
     // ── 4 & 5. Build per-school entry lists ──────────────────────────────────
 
+    // Track skipped entries for diagnostic logging.
+    var skippedCount = 0;
+
     // Map from schoolId → mutable entry list assembled below.
     final entriesMap = <String, List<MembershipEntry>>{};
 
@@ -145,13 +149,25 @@ class MembershipsDao extends DatabaseAccessor<AppDatabase>
 
     // Owners — no extra data needed.
     for (final owner in ownerRows) {
-      if (!schoolMap.containsKey(owner.school)) continue;
+      if (!schoolMap.containsKey(owner.school)) {
+        debugPrint(
+          '[MembershipsDao] SKIPPED owner ${owner.user} — school ${owner.school} not in local DB yet',
+        );
+        skippedCount++;
+        continue;
+      }
       addEntry(owner.school, OwnerEntry(owner: owner));
     }
 
     // Teachers — requires subject count for the current active term.
     for (final teacher in teacherRows) {
-      if (!schoolMap.containsKey(teacher.school)) continue;
+      if (!schoolMap.containsKey(teacher.school)) {
+        debugPrint(
+          '[MembershipsDao] SKIPPED teacher ${teacher.user} — school ${teacher.school} not in local DB yet',
+        );
+        skippedCount++;
+        continue;
+      }
       final count = await _subjectCount(teacher.school, userId);
       addEntry(
         teacher.school,
@@ -161,20 +177,38 @@ class MembershipsDao extends DatabaseAccessor<AppDatabase>
 
     // Staff — no extra data needed.
     for (final member in staffRows) {
-      if (!schoolMap.containsKey(member.school)) continue;
+      if (!schoolMap.containsKey(member.school)) {
+        debugPrint(
+          '[MembershipsDao] SKIPPED staff ${member.user} — school ${member.school} not in local DB yet',
+        );
+        skippedCount++;
+        continue;
+      }
       addEntry(member.school, StaffEntry(staff: member));
     }
 
     // Students — no extra data needed (the row itself carries all display info).
     for (final student in studentRows) {
-      if (!schoolMap.containsKey(student.school)) continue;
+      if (!schoolMap.containsKey(student.school)) {
+        debugPrint(
+          '[MembershipsDao] SKIPPED student ${student.user ?? student.adm} — school ${student.school} not in local DB yet',
+        );
+        skippedCount++;
+        continue;
+      }
       addEntry(student.school, StudentEntry(student: student));
     }
 
     // Guardians — each guardian entry is expanded per ward (one entry per
     // student the guardian is responsible for at that school).
     for (final guardian in guardianRows) {
-      if (!schoolMap.containsKey(guardian.school)) continue;
+      if (!schoolMap.containsKey(guardian.school)) {
+        debugPrint(
+          '[MembershipsDao] SKIPPED guardian ${guardian.user} — school ${guardian.school} not in local DB yet',
+        );
+        skippedCount++;
+        continue;
+      }
 
       final ward =
           await (select(students)..where(
@@ -218,6 +252,13 @@ class MembershipsDao extends DatabaseAccessor<AppDatabase>
 
     // Sort the final list by school name for consistent ordering.
     memberships.sort((a, b) => a.school.name.compareTo(b.school.name));
+
+    if (skippedCount > 0) {
+      debugPrint(
+        '[MembershipsDao] WARNING: $skippedCount membership entries skipped due to missing school rows. '
+        'This is expected during delta sync batching — the stream will re-emit when the school row arrives.',
+      );
+    }
 
     return memberships;
   }

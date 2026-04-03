@@ -121,6 +121,17 @@ class SyncEngine {
   Timer? _reconnectTimer;
   static const _maxReconnectDelay = Duration(seconds: 30);
 
+  /// Tracks when the last delta was received from the watch stream.
+  /// Used by [revive] to detect silently dead streams on Android: the OS
+  /// kills the TCP socket when the app is backgrounded but no stream error
+  /// is delivered, so [_watchDead] stays `false`. A staleness check against
+  /// this timestamp lets us detect and force-reconnect in that situation.
+  DateTime _lastDeltaReceivedAt = DateTime.now();
+
+  /// How long the watch stream can go without a delta before [revive]
+  /// considers it silently dead (Android background socket kill).
+  static const _watchStalenessThreshold = Duration(seconds: 45);
+
   /// Guard flag to prevent [_onWatchDone] from scheduling a redundant
   /// reconnect when [_onWatchError] has already handled the failure.
   /// Set to `true` by [_onWatchError] before it cancels the subscription
@@ -310,12 +321,31 @@ class SyncEngine {
   void revive() {
     if (!_running) return;
 
-    // If the watch stream is still alive, just trigger a push in case
-    // mutations accumulated while the app was backgrounded.
+    // If the watch stream appears alive, check for staleness. On Android,
+    // the OS silently kills the TCP socket when the app is backgrounded but
+    // no gRPC stream error is delivered — _watchDead stays false. We use
+    // _lastDeltaReceivedAt to detect this: if no delta has arrived for
+    // longer than _watchStalenessThreshold, the stream is assumed dead.
     if (!_watchDead) {
-      debugPrint('[SyncEngine] revive() — watch alive, triggering push only');
-      pushNow();
-      return;
+      final staleDuration = DateTime.now().difference(_lastDeltaReceivedAt);
+      if (staleDuration > _watchStalenessThreshold) {
+        debugPrint(
+          '[SyncEngine] revive() — watch appears alive but stale '
+          '(${staleDuration.inSeconds}s since last delta), forcing reconnect',
+        );
+        // Force-kill the existing stream and fall through to reconnect.
+        _watchSubscription?.cancel();
+        _watchSubscription = null;
+        // _watchDead is now true (subscription is null), so the reconnect
+        // logic below will execute.
+      } else {
+        debugPrint(
+          '[SyncEngine] revive() — watch alive and fresh '
+          '(${staleDuration.inSeconds}s since last delta), triggering push only',
+        );
+        pushNow();
+        return;
+      }
     }
 
     debugPrint(
@@ -707,10 +737,14 @@ class SyncEngine {
   void _startWatch() {
     if (!_running) return;
 
+    // Mark the stream as "just opened" so that revive() doesn't immediately
+    // consider it stale before the server has had a chance to send a delta.
+    _lastDeltaReceivedAt = DateTime.now();
+
     try {
       _log('Opening watch stream from seq=$_lastSeq');
       debugPrint(
-        '[SyncEngine] _startWatch() — opening stream from seq=$_lastSeq',
+        '[SyncEngine] _startWatch() — opening watch stream, lastSeq=$_lastSeq',
       );
 
       // Use a raw-bytes streaming call so we can intercept deserialization
@@ -779,6 +813,10 @@ class SyncEngine {
 
   Future<void> _onDelta(SyncDelta delta) async {
     try {
+      // Record when we last received a delta — used by revive() to detect
+      // silently dead streams on Android (see _watchStalenessThreshold).
+      _lastDeltaReceivedAt = DateTime.now();
+
       // First delta confirms the connection is truly alive — reset backoff
       // for both watch reconnect and push timer.
       if (_reconnectAttempts > 0) {
@@ -812,6 +850,11 @@ class SyncEngine {
       // end of the historical backfill to communicate the current head seq.
       // Don't buffer it — just flush any pending deltas and record the seq.
       if (delta.table == 0) {
+        // IMPORTANT: _lastSeq is ONLY advanced on sentinel deltas (table=0).
+        // This prevents permanent data loss when a connection drops mid-backfill.
+        // Regular deltas and flushes must NOT advance or persist the cursor.
+        // Worst case: on reconnect, the server resends some already-processed
+        // deltas — the client handles duplicates via insertOnConflictUpdate.
         debugPrint('[SyncEngine] Received end-of-backfill sentinel (seq=$seq)');
         if (seq > _lastSeq) _lastSeq = seq;
         _flushTimer?.cancel();
@@ -821,6 +864,7 @@ class SyncEngine {
           await _deltaWriter.flush();
         }
         await _accountsDao.updateLastSeq(_accountId, _lastSeq);
+        debugPrint('[SyncEngine] Persisted lastSeq=$_lastSeq after sentinel');
         if (_running) status.value = SyncStatus.idle;
         return;
       }
@@ -853,14 +897,15 @@ class SyncEngine {
         }
       }
 
-      if (seq > _lastSeq) {
-        _lastSeq = seq;
-      }
+      // NOTE: _lastSeq is NOT advanced here — only sentinel deltas (table=0)
+      // advance and persist the cursor. This prevents data loss if the
+      // connection drops mid-backfill. Duplicates on reconnect are harmless
+      // (insertOnConflictUpdate).
 
       // When the DeltaWriter just flushed its buffer (bufferIsEmpty == true
-      // after apply()), persist the lastSeq so a restart resumes correctly.
+      // after apply()), transition to idle. Cursor is NOT persisted here —
+      // only sentinels persist the cursor.
       if (_deltaWriter.bufferIsEmpty) {
-        await _accountsDao.updateLastSeq(_accountId, _lastSeq);
         if (_running) status.value = SyncStatus.idle;
         _flushTimer?.cancel();
         _flushTimer = null;
@@ -878,7 +923,7 @@ class SyncEngine {
               '${_deltaWriter.bufferIsEmpty ? 0 : "remaining"} buffered deltas',
             );
             await _deltaWriter.flush();
-            await _accountsDao.updateLastSeq(_accountId, _lastSeq);
+            // Cursor is NOT persisted here — only sentinels persist the cursor.
             if (_running) status.value = SyncStatus.idle;
           } catch (e, st) {
             _log('Flush timer error: $e', stackTrace: st);
@@ -1135,7 +1180,13 @@ class SyncEngine {
     if (!_deltaWriter.bufferIsEmpty) {
       debugPrint('[SyncEngine] onDone: flushing remaining buffered deltas');
       await _deltaWriter.flush();
-      await _accountsDao.updateLastSeq(_accountId, _lastSeq);
+      // Cursor is NOT persisted here — only sentinels persist the cursor.
+      // On reconnect, the server resends from the last sentinel seq, and
+      // duplicates are harmless (insertOnConflictUpdate).
+      debugPrint(
+        '[SyncEngine] onDone: buffer flushed but cursor NOT persisted '
+        '(lastSeq=$_lastSeq) — only sentinels persist the cursor',
+      );
     }
 
     // If _onWatchError already scheduled a reconnect for this stream failure,
