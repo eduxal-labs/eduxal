@@ -287,7 +287,7 @@ static const _kAcademicNavLabels = {
 
 ---
 
-### Task B6: Student announcements not filtered by grade/class
+### Task B6: Student announcements not filtered by grade/class ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/announcements/announcements_screen.dart`
 **Context files to read:** `lib/database/daos/announcements_dao.dart`
@@ -303,7 +303,7 @@ static const _kAcademicNavLabels = {
 3. Pass these to the DAO's watch method to filter announcements relevant to the student's class.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Git commit: `git add -A && git commit -m "fix: filter student announcements by grade and class"`
 
 ---

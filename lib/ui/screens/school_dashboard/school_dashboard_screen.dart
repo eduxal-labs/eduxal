@@ -361,7 +361,8 @@ class _DashboardShellState extends State<_DashboardShell>
             label: 'Finance',
             icon: Icons.account_balance_outlined,
           ),
-        const _NavItem(label: 'Announcements', icon: Icons.campaign_outlined),
+        if (perms.canAny(Resource.announcements, [Action.read]))
+          const _NavItem(label: 'Announcements', icon: Icons.campaign_outlined),
         if (perms.canAny(Resource.classes, [Action.read]))
           const _NavItem(
             label: 'Timetable',
