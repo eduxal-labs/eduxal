@@ -186,7 +186,7 @@ After A01, `RolesCompanion.permissions` is `Value<Uint8List>` (blob). The DAO me
 
 ---
 
-### Task A03: Fix System privilege escalation — promote to Super / promote to System guards
+### Task A03: Fix System privilege escalation — promote to Super / promote to System guards ✅
 **Files to create/modify:** `lib/ui/screens/system/members/members_section.dart`, `lib/ui/screens/system/users/users_section.dart`, `lib/ui/screens/system/users/invite_user_sheet.dart`
 **Context files to read (if needed):** `lib/ui/screens/system/CONTEXT.md`
 **Depends on:** None
@@ -378,7 +378,7 @@ Also create a minimal `_StudentFinanceView` widget (similar to `_GuardianFinance
 
 ---
 
-### Task A06: Fix Guardian finance tab visibility — permission-gated but guardians have no roles
+### Task A06: Fix Guardian finance tab visibility — permission-gated but guardians have no roles ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/school_dashboard_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** None
@@ -413,7 +413,7 @@ Remove the `if (perms.canAny(...))` guard around Finance for guardians. The `con
 
 ---
 
-### Task A07: Add Attendance tab to teacher nav items
+### Task A07: Add Attendance tab to teacher nav items ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/school_dashboard_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** None
@@ -451,7 +451,7 @@ MembershipRole.teacher => [
 
 ---
 
-### Task A08: Permission-gate teacher Exams tab and fix `_canMarkGrades` bypass
+### Task A08: Permission-gate teacher Exams tab and fix `_canMarkGrades` bypass ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/school_dashboard_screen.dart`, `lib/ui/screens/school_dashboard/exams/exams_grades_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`, `lib/ui/screens/school_dashboard/exams/CONTEXT.md`
 **Depends on:** None

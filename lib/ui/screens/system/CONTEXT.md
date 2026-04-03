@@ -132,12 +132,14 @@ System sections check `SystemPermissions` before rendering sensitive actions:
 | Action | Required permission |
 |---|---|
 | View users | `users.read` (auto-granted for system/super_ levels) |
-| Promote/demote/suspend/restore user | `users.update` |
+| Promote user to System | `users.assign` + target must not be deleted/suspended |
+| Promote user to Super | Only `UserLevel.super_` + target must not be deleted/suspended |
+| Demote/suspend/restore user | `users.update` |
 | Delete user (soft) | `users.delete` |
 | Purge user | Only `UserLevel.super_` (`canSeeDeleted`) |
 | Suspend/restore/demote member | `users.update` |
 | Delete member (soft) | `users.delete` |
-| Promote member to Super | Only `UserLevel.super_` + target must be `UserStatus.active` |
+| Promote member to Super | Only `UserLevel.super_` + target must be `UserStatus.active` + cannot self-promote |
 | Purge member | Only `UserLevel.super_` |
 | Activate/suspend/restore school | `schools.update` |
 | Delete school (soft) | `schools.delete` |
@@ -151,7 +153,11 @@ System sections check `SystemPermissions` before rendering sensitive actions:
 
 All action buttons in `users_section.dart`, `members_section.dart`, `schools_section.dart`, `roles_section.dart`, and `plans_section.dart` are now permission-gated. Each section computes `canUpdate` / `canDelete` from `widget.permissions.can(Resource.xxx, Action.yyy)` and conditionally includes row actions. Super-only actions (purge, promote-to-super) additionally check `widget.permissions.level == UserLevel.super_` or `canSeeDeleted`.
 
-`_promoteMember` in `members_section.dart` also guards against promoting non-active users: if `user.status != UserStatus.active`, a SnackBar error is shown and the promotion is aborted.
+**Privilege escalation guards (A03):**
+- `_promoteMember` in `members_section.dart`: blocks self-promotion, requires `UserLevel.super_` to promote to Super, requires target `UserStatus.active`.
+- `_promoteUser` in `users_section.dart`: blocks self-promotion, requires `UserLevel.super_` to promote to Super, blocks promoting deleted/suspended users. "Promote to System" row action now gated by `users.assign` (was `users.update`).
+- `_canCreateSystemUser` in `invite_user_sheet.dart`: now requires both `isElevated` AND `users.create` permission (was `isElevated` alone).
+- `_submit` in `invite_user_sheet.dart`: hard guard blocks Super-level invites unconditionally; blocks System-level invites without `users.create` permission.
 
 For `UserLevel.super_` users, all permissions are granted unconditionally via `SystemPermissions.superUser()`. `UserLevel.system` users now go through role-based permission loading: `_loadPermissions()` calls `usersDao.getSystemPermissions()` and passes the result to `SystemPermissions.forUser()`, which merges level-based defaults with the user's actual system-scoped role permissions.
 
@@ -168,4 +174,4 @@ For `UserLevel.super_` users, all permissions are granted unconditionally via `S
 - Permission gating uses `SystemPermissions.can(action)` — never raw `UserLevel` checks in UI code (except `canSeeDeleted` which is level-specific by design).
 
 ## Last Updated
-Task A04 — Fixed `_showFab` permission check: changed `Action.update` → `Action.assign` for the "Add Member" FAB visibility gate (per AGENT.md §17a, adding a relationship is `Action.assign`). Previous: Tasks G1 + G6.
+Task A03 — Added privilege escalation guards: self-promotion block, Super-only promote-to-Super, `users.assign` for "Promote to System", `_canCreateSystemUser` requires `users.create`, hard guards in invite flow against Super-level and unauthorized System-level invites. Previous: Task A04.

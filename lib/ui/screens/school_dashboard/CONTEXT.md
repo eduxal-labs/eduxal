@@ -241,6 +241,16 @@ When `ActiveTermContext.hasTerms` is `false`, the dashboard shows a blank state 
 
 
 ## Last Updated
+Tasks A06, A07, A08 — Three fixes to `_itemsForRole()` in `school_dashboard_screen.dart` and one fix in `exams/exams_grades_screen.dart`:
+
+**(A06)** Guardian Finance tab is now **always visible**. Previously gated by `perms.canAny(Resource.fees, [Action.read]) || perms.canAny(Resource.payments, [Action.read])`, which never passed because guardians typically have no roles/scopes and thus empty permissions. The entire guardian nav list is now `const` (no conditional items): `Overview | Progress | Timetable | Finance | Attendance | Announcements`.
+
+**(A07)** Added `Attendance` tab (`Icons.fact_check_outlined`) to teacher always-visible core nav items. Teachers now see: `Overview | My Classes | Timetable | Attendance` as core items. Previously Attendance was missing entirely from the teacher nav.
+
+**(A08 Part 1)** Teacher `Exams` tab moved from always-visible core to **permission-gated** section. Now requires `perms.canAny(Resource.exams, [Action.read])`. Teacher permission-gated items are now: `Exams | Academics | Members | Finance | Announcements | Roles`.
+
+**(A08 Part 2)** `_canMarkGrades` getter in `_ExamGroupDetailViewState` (exams_grades_screen.dart) fixed. Previously: `entry is TeacherEntry || entry is OwnerEntry` — any teacher could mark grades regardless of permissions. Now: `OwnerEntry` still returns `true` (bypass), but all other roles check `permissions.can(Resource.grades, Action.mark)`. This ensures teachers without the `grades.mark` permission cannot edit grade data.
+
 Task A05 — Fixed `StudentEntry` falling through to `_OwnerFinanceShell` in `finance_screen.dart`. The `FinanceScreen.build()` switch on `MembershipEntry` previously used a `_ =>` wildcard that routed unmatched entries (including `StudentEntry`) to the full admin finance shell. Replaced with an explicit `StudentEntry(:final student)` case that reuses `_GuardianFinanceView` with the student's own ADM and name, giving students a read-only view of their invoices and payments. The wildcard is removed entirely — the switch is now exhaustive over all 5 sealed subtypes (`OwnerEntry`, `StaffEntry`, `TeacherEntry`, `GuardianEntry`, `StudentEntry`), so adding a new subtype in the future will produce a compile error instead of a silent fallthrough.
 
 Task D1 — Teacher "Academics" tab replaced with "My Classes" in core nav items. In `_itemsForRole()`, the teacher's always-visible "core 4" nav items changed from `Overview | Academics | Exams | Timetable` to `Overview | My Classes | Exams | Timetable`. `Academics` moved to the permission-gated section, visible only when `perms.canAny(Resource.classes, [Action.read])`. Icon changed from `Icons.menu_book_outlined` to `Icons.class_outlined` for the `My Classes` item. The `_buildContentPanel` method already handles both `'My Classes'` (routes to `MyClassesScreen`) and `'Academics'` (routes to `AcademicsScreen`), so no content routing changes were needed.
