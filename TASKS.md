@@ -1514,7 +1514,7 @@ ActiveTermContext({
 
 ---
 
-### Task F05: Fix UI guideline violations (font weight, border radius)
+### Task F05: Fix UI guideline violations (font weight, border radius) ✅
 **Files to create/modify:** `lib/ui/widgets/no_terms_blank_state.dart`, `lib/ui/screens/school_dashboard/finance/finance_screen.dart`
 **Context files to read (if needed):** `lib/ui/widgets/CONTEXT.md`
 **Depends on:** None (Phase 4)
@@ -1529,13 +1529,13 @@ ActiveTermContext({
 2. **`finance_screen.dart`** — OWN-022: Fees tab FAB uses `borderRadius: 12` instead of `AppTheme.kCardRadius` (8). Change to `BorderRadius.circular(AppTheme.kCardRadius)`.
 
 **Update after completion:**
-- [ ] Update `lib/ui/widgets/CONTEXT.md` — note typography fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/widgets/CONTEXT.md` — note typography fix
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
 
-### Task F06: Fix `NoTermsBlankState` messaging for students and guardians
+### Task F06: Fix `NoTermsBlankState` messaging for students and guardians ✅
 **Files to create/modify:** `lib/ui/widgets/no_terms_blank_state.dart`
 **Context files to read (if needed):** `lib/ui/widgets/CONTEXT.md`
 **Depends on:** None (Phase 4)
@@ -1570,13 +1570,13 @@ class NoTermsBlankState extends StatelessWidget {
 ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/widgets/CONTEXT.md` — note role-aware blank state messaging
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/widgets/CONTEXT.md` — note role-aware blank state messaging
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
 
-### Task F07: Fix `_GuardianPaymentSheet` missing payment date
+### Task F07: Fix `_GuardianPaymentSheet` missing payment date ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/finance/finance_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** None (Phase 4)
@@ -1598,13 +1598,13 @@ PaymentsCompanion(
 ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note guardian payment date fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note guardian payment date fix
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
 
-### Task F08: Fix finance validation — zero/negative amounts
+### Task F08: Fix finance validation — zero/negative amounts ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/finance/finance_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** None (Phase 4)
@@ -1633,8 +1633,8 @@ TextFormField(
 Apply the same validation to `_RecordPaymentSheet` and `_GuardianPaymentSheet` amount fields.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note finance validation
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note finance validation
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---

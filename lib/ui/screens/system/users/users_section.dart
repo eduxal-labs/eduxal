@@ -336,7 +336,11 @@ class _UsersSectionState extends State<UsersSection> {
       stream: usersDao.watchAllUsers(),
       builder: (context, snapshot) {
         final allUsers = snapshot.data ?? [];
-        final filtered = _applyFilters(allUsers);
+        // Per AGENT.md §17a: only Super users see deleted records.
+        final visibleUsers = widget.permissions.canSeeDeleted
+            ? allUsers
+            : allUsers.where((u) => u.status != UserStatus.deleted).toList();
+        final filtered = _applyFilters(visibleUsers);
 
         return Column(
           children: [

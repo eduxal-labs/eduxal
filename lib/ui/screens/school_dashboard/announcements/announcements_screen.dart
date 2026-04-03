@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:drift/drift.dart' hide Column;
@@ -8,7 +9,9 @@ import '../../../../core/extensions.dart';
 import '../../../theme/app_theme.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/announcements_dao.dart';
+import '../../../../database/daos/catalog_dao.dart';
 import '../../../../database/daos/enrollments_dao.dart';
+import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../models/active_term_context.dart';
 import '../../../../models/membership.dart';
 import '../../../../models/school_config.dart';
@@ -17,6 +20,64 @@ import '../../../../models/school_context.dart';
 import '../../../widgets/active_term_provider.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_sheet.dart';
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Shared config builder
+// ═════════════════════════════════════════════════════════════════════════════
+
+/// Builds a [SchoolConfig] from raw [SchoolStream] rows using the same
+/// curriculum-detection heuristic used across the dashboard screens.
+SchoolConfig _buildConfigFromStreams(List<SchoolStream> allStreams) {
+  if (allStreams.isEmpty) return SchoolConfig.defaults();
+
+  final allGrades = allStreams.map((s) => s.grade).toSet();
+  final byGrade = <int, List<SchoolStream>>{};
+  for (final s in allStreams) {
+    byGrade.putIfAbsent(s.grade, () => []).add(s);
+  }
+
+  CurriculumType curriculumForGrade(int grade) {
+    if (grade >= 41) return CurriculumType.eightFourFour;
+    if (grade >= 9) return CurriculumType.cbc;
+    if (allGrades.any((g) => g >= 41)) return CurriculumType.eightFourFour;
+    return CurriculumType.cbc;
+  }
+
+  final cbcGrades = <GradeConfig>[];
+  final eftGrades = <GradeConfig>[];
+
+  for (final entry in byGrade.entries) {
+    final gradeNum = entry.key;
+    final streamRows = entry.value
+      ..sort((a, b) => a.stream.compareTo(b.stream));
+    final gradeStreams = streamRows
+        .map((s) => GradeStream(name: s.name, code: s.stream))
+        .toList();
+    final gc = GradeConfig(grade: gradeNum, streams: gradeStreams);
+    if (curriculumForGrade(gradeNum) == CurriculumType.cbc) {
+      cbcGrades.add(gc);
+    } else {
+      eftGrades.add(gc);
+    }
+  }
+
+  cbcGrades.sort((a, b) => a.grade.compareTo(b.grade));
+  eftGrades.sort((a, b) => a.grade.compareTo(b.grade));
+
+  final curricula = <CurriculumConfig>[];
+  if (cbcGrades.isNotEmpty) {
+    curricula.add(
+      CurriculumConfig(type: CurriculumType.cbc, grades: cbcGrades),
+    );
+  }
+  if (eftGrades.isNotEmpty) {
+    curricula.add(
+      CurriculumConfig(type: CurriculumType.eightFourFour, grades: eftGrades),
+    );
+  }
+
+  return SchoolConfig(curricula: curricula);
+}
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Entry point
@@ -107,7 +168,9 @@ class _AdminFeed extends StatefulWidget {
 
 class _AdminFeedState extends State<_AdminFeed> {
   late final AnnouncementsDao _dao;
-  final SchoolConfig _config = SchoolConfig.defaults();
+  late final CatalogDao _catalogDao;
+  SchoolConfig _config = SchoolConfig.defaults();
+  StreamSubscription<List<SchoolStream>>? _configSub;
 
   String get _schoolId => widget.schoolContext.membership.school.id;
 
@@ -115,11 +178,25 @@ class _AdminFeedState extends State<_AdminFeed> {
   void initState() {
     super.initState();
     _dao = AnnouncementsDao(db);
+    _catalogDao = CatalogDao(db);
     _loadConfig();
   }
 
-  Future<void> _loadConfig() async {
-    // settings table removed in schema v2 — config no longer persisted here
+  void _loadConfig() {
+    _configSub = _catalogDao.watchAllStreamsForSchool(_schoolId).listen((
+      allStreams,
+    ) {
+      if (!mounted) return;
+      setState(() {
+        _config = _buildConfigFromStreams(allStreams);
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _configSub?.cancel();
+    super.dispose();
   }
 
   @override
@@ -257,7 +334,10 @@ class _RoleFeed extends StatefulWidget {
 
 class _RoleFeedState extends State<_RoleFeed> {
   late final AnnouncementsDao _dao;
+  late final CatalogDao _catalogDao;
   EnrollmentsDao? _enrollmentsDao;
+  SchoolConfig _config = SchoolConfig.defaults();
+  StreamSubscription<List<SchoolStream>>? _configSub;
 
   String get _schoolId => widget.schoolContext.membership.school.id;
 
@@ -265,9 +345,24 @@ class _RoleFeedState extends State<_RoleFeed> {
   void initState() {
     super.initState();
     _dao = AnnouncementsDao(db);
+    _catalogDao = CatalogDao(db);
+    _configSub = _catalogDao.watchAllStreamsForSchool(_schoolId).listen((
+      allStreams,
+    ) {
+      if (!mounted) return;
+      setState(() {
+        _config = _buildConfigFromStreams(allStreams);
+      });
+    });
     if (widget.studentAdm != null) {
       _enrollmentsDao = EnrollmentsDao(db);
     }
+  }
+
+  @override
+  void dispose() {
+    _configSub?.cancel();
+    super.dispose();
   }
 
   @override
@@ -354,7 +449,7 @@ class _RoleFeedState extends State<_RoleFeed> {
           canEdit: false,
           canDelete: false,
           dao: _dao,
-          config: SchoolConfig.defaults(),
+          config: _config,
           schoolContext: widget.schoolContext,
         );
       },

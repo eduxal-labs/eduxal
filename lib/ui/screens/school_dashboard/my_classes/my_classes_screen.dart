@@ -131,6 +131,10 @@ class _MyClassesBodyState extends State<_MyClassesBody> {
     return ValueListenableBuilder<MembershipEntry>(
       valueListenable: widget.schoolContext.currentEntry,
       builder: (context, entry, _) {
+        assert(
+          entry is TeacherEntry,
+          'My Classes should only be shown to teachers',
+        );
         final userId = entry is TeacherEntry ? entry.teacher.user : '';
         if (userId.isEmpty) {
           return const EduEmptyState(

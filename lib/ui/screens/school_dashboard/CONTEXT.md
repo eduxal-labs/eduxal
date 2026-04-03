@@ -370,3 +370,11 @@ Task 01 (paper-layout) — Four targeted layout fixes in `exams_grades_screen.da
 **Changes in TW-09:** Desktop wizard height cap added (`ConstrainedBox maxHeight: screenHeight - 80` wrapping root `Column`). Close icon in wizard header fixed (`Icons.close` → `Icons.close_rounded`). Border radius audit confirmed clean — all dialog containers use `BorderRadius.circular(8)`, mobile sheet top-corners use `AppTheme.kModalRadius` (12). All three `ToggleButtons` groups confirmed wrapped in `SingleChildScrollView(scrollDirection: Axis.horizontal)`. Stage 3 `ReorderableListView.builder` confirmed `shrinkWrap: true` + `NeverScrollableScrollPhysics`. Full integration checklist passed.
 
 **Changes in TW-08:** Added Stage 3 "Remainder Slots" (`_Stage3RemainderSlots`/`_Stage3RemainderSlotsState`) — collapsible grade → stream → subject priority reordering with `ReorderableListView`, `_RemainderSubjectTile` (drag handle + name + `+1` badge), `_computeRemainder` helper. Stage count changed from 4 → 5; old Stage 3 Generate is now Stage 4; step dots `totalSteps` updated to 5. `_buildStage` switch updated; `_goNext` triggers `_computeConflicts` at stage 3 (was 2). Stage labels updated to include `'Remainder Slots'`.
+
+Tasks F05, F06, F07, F08 — UI polish and finance fixes in `finance_screen.dart`:
+
+**(F05 — FAB border radius)** `finance_screen.dart`: Fees tab FAB `BorderRadius.circular(12)` changed to `BorderRadius.circular(AppTheme.kCardRadius)` (8.0) per UI guidelines §21.
+
+**(F07 — Guardian payment date)** `finance_screen.dart`: `_GuardianPaymentSheetState._save()` now passes `date: DateTime.now().millisecondsSinceEpoch ~/ 86400000` (days since epoch) to `dao.recordPayment()`. Previously the date was omitted entirely.
+
+**(F08 — Finance amount validation)** `finance_screen.dart`: Amount field validators in `_GuardianPaymentSheet`, `_CreateFeeSheet`, and `_RecordPaymentSheet` updated with more descriptive error messages: "Amount is required" (was "Required"), "Enter a valid number" (new — parse failure now separated from range check), "Amount must be greater than zero" (was "Must be > 0"). All three sheets already had basic validation; messages are now user-friendly and the invalid-number / non-positive cases are distinguished.

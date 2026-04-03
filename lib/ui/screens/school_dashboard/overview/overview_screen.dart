@@ -255,7 +255,7 @@ class _TeacherOverview extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final schoolId = schoolContext.membership.school.id;
     final term = termContext.currentTerm;
-    final userId = cache.currentUser?.user.id ?? '';
+    final userId = entry.teacher.user;
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),

@@ -268,7 +268,13 @@ class _SchoolsSectionState extends State<SchoolsSection> {
     return StreamBuilder<List<SchoolsData>>(
       stream: schoolsDao.watchAllSchools(),
       builder: (context, snapshot) {
-        final allSchools = snapshot.data ?? [];
+        final rawSchools = snapshot.data ?? [];
+        // Per AGENT.md §17a: only Super users see deleted records.
+        final allSchools = widget.permissions.canSeeDeleted
+            ? rawSchools
+            : rawSchools
+                  .where((s) => s.status != SchoolStatus.deleted)
+                  .toList();
         final filtered = _applyFilters(allSchools);
 
         return Column(

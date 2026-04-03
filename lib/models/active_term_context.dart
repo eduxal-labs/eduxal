@@ -51,7 +51,9 @@ class ActiveTermContext extends ChangeNotifier {
     required List<Term> allTerms,
     Term? initialTerm,
   }) : _allTerms = List.unmodifiable(allTerms),
-       _termNotifier = ValueNotifier<Term?>(initialTerm);
+       _termNotifier = ValueNotifier<Term?>(
+         initialTerm ?? (allTerms.isNotEmpty ? allTerms.first : null),
+       );
 
   // ── Identity ───────────────────────────────────────────────────────────────
 

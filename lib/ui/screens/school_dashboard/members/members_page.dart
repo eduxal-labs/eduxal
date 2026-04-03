@@ -6496,12 +6496,31 @@ class _CreateDepartmentSheetState extends State<_CreateDepartmentSheet> {
       return;
     }
 
+    // Check for duplicate department name before creating.
+    final trimmedName = _nameCtrl.text.trim();
+    final existing = await widget.dao.getDepartment(
+      widget.schoolId,
+      trimmedName,
+    );
+    if (existing != null) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('A department named "$trimmedName" already exists.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
     try {
       final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
       await widget.dao.createDepartment(
         DepartmentsCompanion(
           school: Value(widget.schoolId),
-          name: Value(_nameCtrl.text.trim()),
+          name: Value(trimmedName),
           description: Value(
             _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
           ),

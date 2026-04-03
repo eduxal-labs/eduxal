@@ -637,7 +637,6 @@ class _DashboardShellState extends State<_DashboardShell>
   static const _kAcademicNavLabels = {
     'Academics',
     'My Classes',
-    'Exams & Grades',
     'Exams',
     'Timetable',
     'Attendance',
@@ -709,7 +708,7 @@ class _DashboardShellState extends State<_DashboardShell>
     // ── Exams & Grades (Teacher view) ─────────────────────────────────────
     // Teachers reach the full grading hierarchy directly via the
     // 'Exams & Grades' nav item — no Academics wrapper needed.
-    if (item.label == 'Exams & Grades' || item.label == 'Exams') {
+    if (item.label == 'Exams') {
       return ExamsGradesScreen(schoolContext: widget.schoolContext);
     }
 
