@@ -152,19 +152,28 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
     await into(users).insertOnConflictUpdate(user);
   }
 
-  /// Creates a new invited user and enqueues a log insert entry, both in a
-  /// single transaction.
+  /// Creates a new invited user and enqueues a log entry, both in a single
+  /// transaction.
   ///
   /// The [user] companion must have all required fields populated:
-  /// - [UsersCompanion.id] — caller generates via [Uuid().v4()]
+  /// - [UsersCompanion.id] — caller generates via [ObjectId().oid]
   /// - [UsersCompanion.phone]
   /// - [UsersCompanion.name]
   /// - [UsersCompanion.status] — should be [UserStatus.invited]
-  /// - [UsersCompanion.level]  — should be [UserLevel.normal]
+  /// - [UsersCompanion.level]  — [UserLevel.normal] or [UserLevel.system]
+  ///   (per §16a: System users with `Users.Create` and Super users may invite
+  ///   system-level users; Super-level users are never created from the client)
   /// - [UsersCompanion.created] and [UsersCompanion.updated] — seconds since epoch
   ///
   /// The [accountId] is the currently active account's user id, used to
   /// associate the log entry with the correct account.
+  ///
+  /// ### Why `SyncAction.updateUser` instead of a create action?
+  /// The `SyncAction` enum has no `createUser` value — by design, users are
+  /// created as side-effects of member creation (see AGENT.md §16a). This
+  /// method handles **standalone** user creation (system-level management)
+  /// using `SyncAction.updateUser` + `UpdateUserPayload` as an upsert. The
+  /// server detects that the user does not yet exist and creates the row.
   Future<void> inviteUser(
     UsersCompanion user, {
     required String accountId,
@@ -172,10 +181,10 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
     await transaction(() async {
       await into(users).insert(user);
 
-      // Note: inviteUser creates a user row directly. The invitation pattern
-      // for member creation is handled in the member DAOs (CreateTeacherPayload
-      // etc. carry the user info). This method is for standalone user creation
-      // (e.g. system-level user management).
+      // Uses SyncAction.updateUser because there is no createUser action in
+      // the enum (users are normally created as side-effects of member
+      // creation). The server treats this as an upsert for standalone user
+      // creation (system-level management). See AGENT.md §16a.
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final payload = sync_pb.UpdateUserPayload(
         id: user.id.value,

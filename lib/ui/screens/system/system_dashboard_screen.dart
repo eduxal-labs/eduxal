@@ -47,6 +47,7 @@ const int _kDesktopTabSchools = 2;
 const int _kDesktopTabRoles = 3;
 // ignore: unused_element
 const int _kDesktopTabSettings = 4;
+// ignore: unused_element
 const int _kDesktopTabNotifications = 5;
 
 /// The fully-functional system dashboard screen.

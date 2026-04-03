@@ -1196,7 +1196,7 @@ The "SYSTEM" badge (~L253–310) is a tiny 9px text chip in the top bar. A Syste
 3. Optionally, if the user has no school memberships, auto-navigate to the system dashboard.
 
 **Update after completion:**
-- [x] Mark this task `[x]`
+- [ ] Mark this task `[x]`
 - [ ] Git commit: `git add -A && git commit -m "ui: add prominent system dashboard card on home screen"`
 
 ---
