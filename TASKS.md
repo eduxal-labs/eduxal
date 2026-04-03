@@ -96,7 +96,7 @@ The `roles_dao.dart` `createRole()` builds a `CreateRolePayload` and sets `paylo
 
 ---
 
-### Task A4: System-scoped permissions never merged with school-scoped permissions
+### Task A4: System-scoped permissions never merged with school-scoped permissions ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/school_dashboard_screen.dart`
 **Context files to read:** `lib/database/daos/school_scopes_dao.dart`, `lib/models/school_permissions.dart`, `lib/models/permissions.dart`
@@ -113,9 +113,9 @@ In `_initializeSession()` (~L92–130), when a System user enters a school dashb
 4. This ensures a System user with `Users.Read` at system level can also see users within school dashboards.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `git add -A && git commit -m "fix: replace teacher Academics with My Classes in core nav"`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
+- [x] Mark this task `[x]`
+- [x] Git commit: `git add -A && git commit -m "fix: merge system-scoped permissions with school-scoped in dashboard"`
 
 ---
 
