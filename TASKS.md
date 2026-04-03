@@ -615,7 +615,7 @@ Also, `_canProgressStatus` (~L152–157) returns `true` for ALL `StaffEntry` use
 
 ---
 
-### Task D4: Attendance class picker shows ALL classes for teachers — not their assigned ones ✅
+### Task D4: Attendance class picker shows ALL classes for teachers — not their assigned ones
 
 **Files to modify:** `lib/ui/screens/school_dashboard/attendance/attendance_screen.dart`
 **Context files to read:** `lib/database/daos/enrollments_dao.dart`, `lib/database/daos/subjects_dao.dart`
@@ -633,7 +633,7 @@ Also, `_loadClasses()` calls `.listen()` on a stream but never stores the `Strea
 3. Store the `StreamSubscription` from `.listen()` and cancel it in `dispose()`.
 
 **Update after completion:**
-- [x] Mark this task `[x]`
+- [ ] Mark this task `[x]`
 - [ ] Git commit: `git add -A && git commit -m "fix: filter attendance class picker to teacher-assigned classes"`
 
 ---
@@ -692,7 +692,7 @@ When a teacher gets `_AdminFeed` (via `announcements.create/update/delete` permi
 Pass the current user's ID to the announcement list. For each announcement, only show edit/delete if `announcement.createdBy == currentUserId` OR `permissions.can(Resource.announcements, Action.delete)` (admin override).
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Git commit: `git add -A && git commit -m "fix: scope announcement edit/delete by ownership"`
 
 ---
