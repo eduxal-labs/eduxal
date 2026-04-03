@@ -760,6 +760,19 @@ class _GuardianAttendanceViewState extends State<_GuardianAttendanceView> {
     _calendarMonth = DateTime(DateTime.now().year, DateTime.now().month);
   }
 
+  @override
+  void didUpdateWidget(covariant _GuardianAttendanceView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.studentAdm != widget.studentAdm) {
+      // Ward switched — reset calendar to current month so the new ward's
+      // data loads from a sensible default instead of the previous ward's
+      // browsed month.
+      setState(() {
+        _calendarMonth = DateTime(DateTime.now().year, DateTime.now().month);
+      });
+    }
+  }
+
   void _previousMonth() {
     setState(() {
       _calendarMonth = DateTime(_calendarMonth.year, _calendarMonth.month - 1);

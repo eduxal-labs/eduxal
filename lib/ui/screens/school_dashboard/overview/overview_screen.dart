@@ -1987,6 +1987,75 @@ class _GuardianOverview extends StatelessWidget {
 
         const SizedBox(height: 16),
 
+        // ── Unenrolled ward banner ───────────────────────────────────────
+        if (term != null)
+          StreamBuilder<Enrollment?>(
+            stream: EnrollmentsDao(db).watchStudentEnrollment(
+              schoolId: schoolId,
+              year: term.year,
+              term: term.term,
+              studentAdm: ward.adm,
+            ),
+            builder: (context, snap) {
+              // Don't show banner while loading or if enrollment exists.
+              if (snap.connectionState == ConnectionState.waiting ||
+                  snap.data != null) {
+                return const SizedBox.shrink();
+              }
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withValues(alpha: 0.10),
+                    borderRadius:
+                        BorderRadius.circular(AppTheme.kCardRadius),
+                    border: Border.all(
+                      color: Colors.amber.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        size: 20,
+                        color: Colors.amber.shade700,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${ward.name} is not enrolled this term',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: cs.onSurface,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Please contact the school for enrollment details.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w300,
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+
         // ── 3. Quick stats (2×2 grid) ────────────────────────────────────
         if (term != null) ...[
           _SectionTitle(label: 'Quick Stats', cs: cs),

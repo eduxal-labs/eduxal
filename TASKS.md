@@ -477,7 +477,7 @@ This may require a new `_GuardianPaymentSheet` widget.
 
 ---
 
-### Task C6: No notification when ward is unenrolled
+### Task C6: No notification when ward is unenrolled ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/overview/overview_screen.dart`
 **Context files to read:** None
@@ -491,7 +491,7 @@ If a ward has been unenrolled from the current term, the guardian overview still
 Add a prominent banner/alert at the top of `_GuardianOverview` when `enrollment == null`, clearly stating the ward is not enrolled and suggesting they contact the school.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Git commit: `git add -A && git commit -m "ui: add unenrolled ward banner to guardian overview"`
 
 ---

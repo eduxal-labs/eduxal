@@ -248,14 +248,16 @@ class _DashboardShellState extends State<_DashboardShell>
   late TabController _tabController;
   List<_NavItem> _currentItems = [];
   int _selectedIndex = 0;
+  late MembershipRole _currentRole;
 
   // ── lifecycle ──────────────────────────────────────────────────────────────
 
   @override
   void initState() {
     super.initState();
+    _currentRole = widget.schoolContext.currentEntry.value.role;
     _currentItems = _itemsForRole(
-      widget.schoolContext.currentEntry.value.role,
+      _currentRole,
       widget.schoolContext.permissions,
     );
     _tabController = TabController(length: _currentItems.length, vsync: this)
@@ -280,18 +282,30 @@ class _DashboardShellState extends State<_DashboardShell>
   }
 
   void _onEntryChanged() {
-    final newItems = _itemsForRole(
-      widget.schoolContext.currentEntry.value.role,
-      widget.schoolContext.permissions,
-    );
+    final newRole = widget.schoolContext.currentEntry.value.role;
+    final newItems = _itemsForRole(newRole, widget.schoolContext.permissions);
+
+    // Preserve tab index when switching entries within the same role
+    // (e.g. guardian Ward A → Ward B). Only reset to 0 on role change.
+    final int newIndex;
+    if (newRole == _currentRole) {
+      newIndex = _selectedIndex.clamp(0, newItems.length - 1);
+    } else {
+      newIndex = 0;
+    }
+
     _tabController
       ..removeListener(_onTabChanged)
       ..dispose();
-    _tabController = TabController(length: newItems.length, vsync: this)
-      ..addListener(_onTabChanged);
+    _tabController = TabController(
+      length: newItems.length,
+      initialIndex: newIndex,
+      vsync: this,
+    )..addListener(_onTabChanged);
     setState(() {
+      _currentRole = newRole;
       _currentItems = newItems;
-      _selectedIndex = 0;
+      _selectedIndex = newIndex;
     });
   }
 
@@ -313,6 +327,7 @@ class _DashboardShellState extends State<_DashboardShell>
         _NavItem(label: 'Finance', icon: Icons.account_balance_outlined),
         _NavItem(label: 'Announcements', icon: Icons.campaign_outlined),
         _NavItem(label: 'Timetable', icon: Icons.calendar_view_week_outlined),
+        _NavItem(label: 'Attendance', icon: Icons.fact_check_outlined),
         _NavItem(label: 'Roles', icon: Icons.admin_panel_settings_outlined),
         _NavItem(label: 'Settings', icon: Icons.settings_outlined),
       ],
@@ -389,13 +404,18 @@ class _DashboardShellState extends State<_DashboardShell>
         _NavItem(label: 'Attendance', icon: Icons.fact_check_outlined),
         _NavItem(label: 'Announcements', icon: Icons.campaign_outlined),
       ],
-      MembershipRole.guardian => const [
-        _NavItem(label: 'Overview', icon: Icons.space_dashboard_outlined),
-        _NavItem(label: 'Progress', icon: Icons.bar_chart_outlined),
-        _NavItem(label: 'Timetable', icon: Icons.calendar_view_week_outlined),
-        _NavItem(label: 'Finance', icon: Icons.receipt_long_outlined),
-        _NavItem(label: 'Attendance', icon: Icons.fact_check_outlined),
-        _NavItem(label: 'Announcements', icon: Icons.campaign_outlined),
+      MembershipRole.guardian => [
+        const _NavItem(label: 'Overview', icon: Icons.space_dashboard_outlined),
+        const _NavItem(label: 'Progress', icon: Icons.bar_chart_outlined),
+        const _NavItem(
+          label: 'Timetable',
+          icon: Icons.calendar_view_week_outlined,
+        ),
+        if (perms.canAny(Resource.fees, [Action.read]) ||
+            perms.canAny(Resource.payments, [Action.read]))
+          const _NavItem(label: 'Finance', icon: Icons.receipt_long_outlined),
+        const _NavItem(label: 'Attendance', icon: Icons.fact_check_outlined),
+        const _NavItem(label: 'Announcements', icon: Icons.campaign_outlined),
       ],
     };
   }
