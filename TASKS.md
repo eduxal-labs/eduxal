@@ -1013,7 +1013,7 @@ No `deleteStudent` / `removeStudent` method exists in `MembersDao` despite `Sync
 
 ---
 
-### Task F7: No term editing or deletion UI
+### Task F7: No term editing or deletion UI ✅
 
 **Files to modify:** `lib/ui/widgets/create_term_modal.dart` (or create new edit modal)
 **Context files to read:** `lib/database/daos/terms_dao.dart`
@@ -1029,7 +1029,7 @@ Owners can create the first term via `NoTermsBlankState` and `create_term_modal.
 3. Both actions should create appropriate log entries.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Git commit: `git add -A && git commit -m "feat: add term editing and deletion UI"`
 
 ---

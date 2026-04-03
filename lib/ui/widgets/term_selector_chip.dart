@@ -80,6 +80,18 @@ class _TermSelectorChipState extends State<TermSelectorChip> {
           // The Drift stream feeding ActiveTermContext.updateTerms will
           // automatically pick up the new term — no manual refresh needed.
         },
+        onEditTap: widget.canCreateTerm
+            ? (term) async {
+                _close();
+                if (!mounted) return;
+                await showEditTermModal(
+                  context: context,
+                  schoolId: widget.termContext.schoolId,
+                  term: term,
+                );
+                // Drift stream picks up changes automatically.
+              }
+            : null,
       ),
     );
     overlay.insert(_entry!);
@@ -190,6 +202,7 @@ class _TermDropdown extends StatefulWidget {
     required this.onDismiss,
     required this.onTermSelected,
     required this.onCreateTap,
+    this.onEditTap,
   });
 
   final LayerLink link;
@@ -199,6 +212,7 @@ class _TermDropdown extends StatefulWidget {
   final VoidCallback onDismiss;
   final ValueChanged<Term> onTermSelected;
   final VoidCallback onCreateTap;
+  final ValueChanged<Term>? onEditTap;
 
   @override
   State<_TermDropdown> createState() => _TermDropdownState();
@@ -269,6 +283,7 @@ class _TermDropdownState extends State<_TermDropdown>
                 canCreateTerm: widget.canCreateTerm,
                 onTermSelected: widget.onTermSelected,
                 onCreateTap: widget.onCreateTap,
+                onEditTap: widget.onEditTap,
               ),
             ),
           ),
@@ -288,12 +303,14 @@ class _TermDropdownCard extends StatelessWidget {
     required this.onTermSelected,
     required this.onCreateTap,
     required this.canCreateTerm,
+    this.onEditTap,
   });
 
   final ActiveTermContext termContext;
   final ValueChanged<Term> onTermSelected;
   final VoidCallback onCreateTap;
   final bool canCreateTerm;
+  final ValueChanged<Term>? onEditTap;
 
   @override
   Widget build(BuildContext context) {
@@ -372,6 +389,9 @@ class _TermDropdownCard extends StatelessWidget {
                               cs: cs,
                               isDark: isDark,
                               onTap: () => onTermSelected(term),
+                              onEditTap: onEditTap != null
+                                  ? () => onEditTap!(term)
+                                  : null,
                             ),
                         ],
                       ],
@@ -433,6 +453,7 @@ class _TermRow extends StatelessWidget {
     required this.cs,
     required this.isDark,
     required this.onTap,
+    this.onEditTap,
   });
 
   final Term term;
@@ -441,6 +462,7 @@ class _TermRow extends StatelessWidget {
   final ColorScheme cs;
   final bool isDark;
   final VoidCallback onTap;
+  final VoidCallback? onEditTap;
 
   @override
   Widget build(BuildContext context) {
@@ -504,6 +526,22 @@ class _TermRow extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (onEditTap != null)
+                  GestureDetector(
+                    onTap: onEditTap,
+                    behavior: HitTestBehavior.opaque,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 2,
+                      ),
+                      child: Icon(
+                        Icons.edit_outlined,
+                        size: 13,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.35),
+                      ),
+                    ),
+                  ),
                 if (isSelected) Icon(Icons.check, size: 13, color: accent),
               ],
             ),

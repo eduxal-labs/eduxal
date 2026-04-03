@@ -31,12 +31,38 @@ Future<Term?> showCreateTermModal({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Public entry-point — edit existing term
+// ─────────────────────────────────────────────────────────────────────────────
+
+Future<Term?> showEditTermModal({
+  required BuildContext context,
+  required String schoolId,
+  required Term term,
+}) {
+  final w = MediaQuery.sizeOf(context).width;
+  if (w >= AppTheme.kMobileBreakpoint) {
+    return showDialog<Term>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.35),
+      builder: (_) => _CreateTermDialog(schoolId: schoolId, existingTerm: term),
+    );
+  }
+  return showModalBottomSheet<Term>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => _CreateTermSheet(schoolId: schoolId, existingTerm: term),
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Desktop dialog wrapper
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _CreateTermDialog extends StatelessWidget {
-  const _CreateTermDialog({required this.schoolId});
+  const _CreateTermDialog({required this.schoolId, this.existingTerm});
   final String schoolId;
+  final Term? existingTerm;
 
   @override
   Widget build(BuildContext context) {
@@ -76,8 +102,10 @@ class _CreateTermDialog extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             child: _CreateTermForm(
               schoolId: schoolId,
+              existingTerm: existingTerm,
               onCreated: (term) => Navigator.of(context).pop(term),
               onCancel: () => Navigator.of(context).pop(),
+              onDeleted: () => Navigator.of(context).pop(),
             ),
           ),
         ),
@@ -91,8 +119,9 @@ class _CreateTermDialog extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _CreateTermSheet extends StatelessWidget {
-  const _CreateTermSheet({required this.schoolId});
+  const _CreateTermSheet({required this.schoolId, this.existingTerm});
   final String schoolId;
+  final Term? existingTerm;
 
   @override
   Widget build(BuildContext context) {
@@ -120,8 +149,10 @@ class _CreateTermSheet extends StatelessWidget {
         ),
         child: _CreateTermForm(
           schoolId: schoolId,
+          existingTerm: existingTerm,
           onCreated: (term) => Navigator.of(context).pop(term),
           onCancel: () => Navigator.of(context).pop(),
+          onDeleted: () => Navigator.of(context).pop(),
           isSheet: true,
         ),
       ),
@@ -138,12 +169,16 @@ class _CreateTermForm extends StatefulWidget {
     required this.schoolId,
     required this.onCreated,
     required this.onCancel,
+    this.existingTerm,
+    this.onDeleted,
     this.isSheet = false,
   });
 
   final String schoolId;
+  final Term? existingTerm;
   final ValueChanged<Term> onCreated;
   final VoidCallback onCancel;
+  final VoidCallback? onDeleted;
   final bool isSheet;
 
   @override
@@ -151,6 +186,10 @@ class _CreateTermForm extends StatefulWidget {
 }
 
 class _CreateTermFormState extends State<_CreateTermForm> {
+  // ── Mode ─────────────────────────────────────────────────────────────────
+  bool get _isEditMode => widget.existingTerm != null;
+  bool get _busy => _saving || _deleting;
+
   // ── Academic year drum ───────────────────────────────────────────────────
   static const int _yearSpread = 10;
   late final int _baseYear;
@@ -169,14 +208,33 @@ class _CreateTermFormState extends State<_CreateTermForm> {
 
   // ── Submission ───────────────────────────────────────────────────────────
   bool _saving = false;
+  bool _deleting = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _baseYear = DateTime.now().year;
-    _selectedYear = _baseYear;
-    _yearScrollCtrl = FixedExtentScrollController(initialItem: _yearSpread);
+    final existing = widget.existingTerm;
+    if (existing != null) {
+      // Edit mode — prefill from existing term.
+      _baseYear = existing.year;
+      _selectedYear = existing.year;
+      _selectedTerm = existing.term;
+      _startDate = DateTime.fromMillisecondsSinceEpoch(
+        existing.start.toInt() * 1000,
+      );
+      _endDate = DateTime.fromMillisecondsSinceEpoch(
+        existing.end.toInt() * 1000,
+      );
+      final idx = _years.indexOf(existing.year);
+      _yearScrollCtrl = FixedExtentScrollController(
+        initialItem: idx >= 0 ? idx : _yearSpread,
+      );
+    } else {
+      _baseYear = DateTime.now().year;
+      _selectedYear = _baseYear;
+      _yearScrollCtrl = FixedExtentScrollController(initialItem: _yearSpread);
+    }
   }
 
   @override
@@ -247,6 +305,15 @@ class _CreateTermFormState extends State<_CreateTermForm> {
     }
 
     final dao = TermsDao(db);
+
+    if (_isEditMode) {
+      await _performUpdate(dao, accountId);
+    } else {
+      await _performCreate(dao, accountId);
+    }
+  }
+
+  Future<void> _performCreate(TermsDao dao, String accountId) async {
     final exists = await dao.termExists(
       schoolId: widget.schoolId,
       year: _selectedYear,
@@ -297,6 +364,205 @@ class _CreateTermFormState extends State<_CreateTermForm> {
     }
   }
 
+  Future<void> _performUpdate(TermsDao dao, String accountId) async {
+    final existing = widget.existingTerm!;
+    final startSec = BigInt.from(_startDate!.millisecondsSinceEpoch ~/ 1000);
+    final endSec = BigInt.from(
+      (_endDate!.millisecondsSinceEpoch ~/ 1000) + 86399,
+    );
+    final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
+
+    try {
+      await dao.updateTerm(
+        schoolId: widget.schoolId,
+        year: existing.year,
+        termNumber: existing.term,
+        changes: TermsCompanion(
+          start: Value(startSec),
+          end: Value(endSec),
+          updated: Value(nowSec),
+        ),
+        accountId: accountId,
+      );
+
+      final updated = await dao.getTerm(
+        schoolId: widget.schoolId,
+        year: existing.year,
+        termNumber: existing.term,
+      );
+      if (updated != null && mounted) widget.onCreated(updated);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = 'Failed to update term. Please try again.';
+        });
+      }
+    }
+  }
+
+  // ── Delete ────────────────────────────────────────────────────────────────
+
+  Future<void> _confirmDelete() async {
+    final existing = widget.existingTerm;
+    if (existing == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.4),
+      builder: (ctx) {
+        final dCs = Theme.of(ctx).colorScheme;
+        final dIsDark = dCs.brightness == Brightness.dark;
+
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 340),
+            decoration: BoxDecoration(
+              color: dIsDark ? const Color(0xFF18222E) : dCs.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: dIsDark
+                    ? const Color(0xFF2A3848)
+                    : dCs.outlineVariant.withValues(alpha: 0.6),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: dIsDark ? 0.50 : 0.14),
+                  blurRadius: dIsDark ? 40 : 24,
+                  offset: const Offset(0, 10),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: dIsDark ? 0.22 : 0.05),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: dCs.error.withValues(
+                            alpha: dIsDark ? 0.18 : 0.10,
+                          ),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Icon(
+                          Icons.delete_outline_rounded,
+                          size: 15,
+                          color: dCs.error.withValues(alpha: 0.85),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Delete Term ${existing.term} of ${existing.year}?',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: dCs.onSurface,
+                            height: 1.25,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'This will permanently remove this term and all '
+                    'associated data — enrollments, subjects, attendance, '
+                    'exams, fees, and grades. This cannot be undone.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      color: dCs.onSurfaceVariant.withValues(alpha: 0.7),
+                      height: 1.45,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.of(ctx).pop(false),
+                        behavior: HitTestBehavior.opaque,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          child: Text(
+                            'Cancel',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w400,
+                              color: dCs.onSurfaceVariant.withValues(
+                                alpha: 0.65,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      _DeleteConfirmButton(
+                        onTap: () => Navigator.of(ctx).pop(true),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      _deleting = true;
+      _error = null;
+    });
+
+    final accountId = cache.currentUser?.user.id;
+    if (accountId == null) {
+      setState(() {
+        _deleting = false;
+        _error = 'No active account. Please log in again.';
+      });
+      return;
+    }
+
+    try {
+      final dao = TermsDao(db);
+      await dao.deleteTerm(
+        schoolId: widget.schoolId,
+        year: existing.year,
+        termNumber: existing.term,
+        accountId: accountId,
+      );
+      if (mounted) widget.onDeleted?.call();
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _deleting = false;
+          _error = 'Failed to delete term. Please try again.';
+        });
+      }
+    }
+  }
+
   // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
@@ -337,7 +603,9 @@ class _CreateTermFormState extends State<_CreateTermForm> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'New Academic Term',
+                        _isEditMode
+                            ? 'Edit Term ${widget.existingTerm!.term} · ${widget.existingTerm!.year}'
+                            : 'New Academic Term',
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
@@ -347,7 +615,9 @@ class _CreateTermFormState extends State<_CreateTermForm> {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        'Select the year, term, and date range.',
+                        _isEditMode
+                            ? 'Update the term date range.'
+                            : 'Select the year, term, and date range.',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w400,
@@ -399,7 +669,7 @@ class _CreateTermFormState extends State<_CreateTermForm> {
                         isDark: isDark,
                         cs: cs,
                         indigo: indigo,
-                        enabled: !_saving,
+                        enabled: !_busy && !_isEditMode,
                         onChanged: (y) => setState(() {
                           _selectedYear = y;
                           _error = null;
@@ -414,7 +684,7 @@ class _CreateTermFormState extends State<_CreateTermForm> {
                         isDark: isDark,
                         cs: cs,
                         indigo: indigo,
-                        enabled: !_saving,
+                        enabled: !_busy && !_isEditMode,
                         onChanged: (v) => setState(() {
                           _selectedTerm = v;
                           _error = null;
@@ -436,11 +706,11 @@ class _CreateTermFormState extends State<_CreateTermForm> {
                   hasError:
                       _error != null &&
                       (_startDate == null || _endDate == null),
-                  enabled: !_saving,
+                  enabled: !_busy,
                   isDark: isDark,
                   cs: cs,
                   indigo: indigo,
-                  onTap: _saving ? null : _toggleCalendar,
+                  onTap: _busy ? null : _toggleCalendar,
                 ),
 
                 // ── Collapsible calendar ─────────────────────────────────
@@ -451,7 +721,7 @@ class _CreateTermFormState extends State<_CreateTermForm> {
                     child: _RangeCalendar(
                       startDate: _startDate,
                       endDate: _endDate,
-                      onDayTapped: _saving ? null : _onDayTapped,
+                      onDayTapped: _busy ? null : _onDayTapped,
                       isDark: isDark,
                       cs: cs,
                       indigo: indigo,
@@ -494,10 +764,16 @@ class _CreateTermFormState extends State<_CreateTermForm> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
               children: [
+                // Delete button — only shown in edit mode
+                if (_isEditMode)
+                  _DeleteIconButton(
+                    deleting: _deleting,
+                    onTap: _busy ? null : _confirmDelete,
+                  ),
+                const Spacer(),
                 GestureDetector(
-                  onTap: _saving ? null : widget.onCancel,
+                  onTap: _busy ? null : widget.onCancel,
                   behavior: HitTestBehavior.opaque,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
@@ -509,7 +785,7 @@ class _CreateTermFormState extends State<_CreateTermForm> {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w400,
-                        color: _saving
+                        color: _busy
                             ? cs.onSurfaceVariant.withValues(alpha: 0.3)
                             : cs.onSurfaceVariant.withValues(alpha: 0.65),
                       ),
@@ -517,10 +793,7 @@ class _CreateTermFormState extends State<_CreateTermForm> {
                   ),
                 ),
                 const SizedBox(width: 6),
-                _ConfirmButton(
-                  saving: _saving,
-                  onTap: _saving ? null : _submit,
-                ),
+                _ConfirmButton(saving: _saving, onTap: _busy ? null : _submit),
               ],
             ),
           ),
@@ -1523,6 +1796,128 @@ class _ConfirmButton extends StatelessWidget {
                       size: 17,
                       color: Colors.white,
                     ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  DELETE ICON BUTTON — red trash icon shown in footer during edit mode
+// ═════════════════════════════════════════════════════════════════════════════
+
+class _DeleteIconButton extends StatelessWidget {
+  const _DeleteIconButton({required this.deleting, required this.onTap});
+
+  final bool deleting;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+    final errorColor = cs.error;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: errorColor.withValues(alpha: isDark ? 0.14 : 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: errorColor.withValues(alpha: isDark ? 0.30 : 0.20),
+          width: 1,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          splashFactory: NoSplash.splashFactory,
+          overlayColor: WidgetStateProperty.all(
+            errorColor.withValues(alpha: 0.08),
+          ),
+          child: Center(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 150),
+              child: deleting
+                  ? SizedBox(
+                      key: const ValueKey('del-spin'),
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.5,
+                        valueColor: AlwaysStoppedAnimation(
+                          errorColor.withValues(alpha: 0.75),
+                        ),
+                      ),
+                    )
+                  : Icon(
+                      key: const ValueKey('del-icon'),
+                      Icons.delete_outline_rounded,
+                      size: 16,
+                      color: errorColor.withValues(alpha: 0.80),
+                    ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  DELETE CONFIRM BUTTON — used inside the delete confirmation dialog
+// ═════════════════════════════════════════════════════════════════════════════
+
+class _DeleteConfirmButton extends StatelessWidget {
+  const _DeleteConfirmButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      height: 34,
+      decoration: BoxDecoration(
+        color: cs.error,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: cs.error.withValues(alpha: 0.25),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          splashFactory: NoSplash.splashFactory,
+          overlayColor: WidgetStateProperty.all(
+            Colors.white.withValues(alpha: 0.08),
+          ),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Center(
+              child: Text(
+                'Delete',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                ),
+              ),
             ),
           ),
         ),
