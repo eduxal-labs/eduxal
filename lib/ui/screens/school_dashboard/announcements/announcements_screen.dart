@@ -181,6 +181,7 @@ class _AdminFeedState extends State<_AdminFeed> {
               dao: _dao,
               config: _config,
               schoolContext: widget.schoolContext,
+              currentUserId: cache.currentUser?.user.id,
             );
           },
         ),
@@ -363,6 +364,7 @@ class _AnnouncementList extends StatelessWidget {
     required this.dao,
     required this.config,
     required this.schoolContext,
+    this.currentUserId,
   });
 
   final List<AnnouncementWithAuthor> items;
@@ -373,6 +375,7 @@ class _AnnouncementList extends StatelessWidget {
   final AnnouncementsDao dao;
   final SchoolConfig config;
   final SchoolContext schoolContext;
+  final String? currentUserId;
 
   @override
   Widget build(BuildContext context) {
@@ -393,6 +396,7 @@ class _AnnouncementList extends StatelessWidget {
           dao: dao,
           config: config,
           schoolContext: schoolContext,
+          currentUserId: currentUserId,
         );
       },
     );
@@ -413,6 +417,7 @@ class _AnnouncementRow extends StatefulWidget {
     required this.dao,
     required this.config,
     required this.schoolContext,
+    this.currentUserId,
   });
 
   final AnnouncementWithAuthor item;
@@ -423,6 +428,7 @@ class _AnnouncementRow extends StatefulWidget {
   final AnnouncementsDao dao;
   final SchoolConfig config;
   final SchoolContext schoolContext;
+  final String? currentUserId;
 
   @override
   State<_AnnouncementRow> createState() => _AnnouncementRowState();
@@ -477,6 +483,15 @@ class _AnnouncementRowState extends State<_AnnouncementRow>
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.sizeOf(context).width >= 600;
+
+    // Per-row ownership check: allow edit/delete if the user authored this
+    // announcement, even without the admin-level permission override.
+    final isAuthor =
+        widget.currentUserId != null &&
+        widget.item.authorId == widget.currentUserId;
+    final canEdit = widget.canEdit || isAuthor;
+    final canDelete = widget.canDelete || isAuthor;
+
     final audienceTags = _buildAudienceTags();
     final gradeTags = _buildGradeTags();
     final allTags = [...audienceTags, ...gradeTags];
@@ -607,14 +622,12 @@ class _AnnouncementRowState extends State<_AnnouncementRow>
                     ),
 
                     // ── Desktop actions ──────────────────────────────────
-                    if ((widget.canEdit || widget.canDelete) && isDesktop) ...[
+                    if ((canEdit || canDelete) && isDesktop) ...[
                       const SizedBox(width: 4),
                       _RowActions(
                         isHovered: _isHovered,
-                        onEdit: widget.canEdit
-                            ? () => _showEditSheet(context)
-                            : null,
-                        onDelete: widget.canDelete
+                        onEdit: canEdit ? () => _showEditSheet(context) : null,
+                        onDelete: canDelete
                             ? () => _confirmDelete(context)
                             : null,
                         cs: cs,
@@ -622,14 +635,12 @@ class _AnnouncementRowState extends State<_AnnouncementRow>
                     ],
 
                     // ── Mobile three-dot ─────────────────────────────────
-                    if ((widget.canEdit || widget.canDelete) && !isDesktop)
+                    if ((canEdit || canDelete) && !isDesktop)
                       _MobileRowMenu(
                         cs: cs,
                         isDark: isDark,
-                        onEdit: widget.canEdit
-                            ? () => _showEditSheet(context)
-                            : null,
-                        onDelete: widget.canDelete
+                        onEdit: canEdit ? () => _showEditSheet(context) : null,
+                        onDelete: canDelete
                             ? () => _confirmDelete(context)
                             : null,
                       ),
