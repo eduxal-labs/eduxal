@@ -1391,7 +1391,7 @@ In `_RoleSwitcherSheet._entryMeta`:
 
 ---
 
-### Task I5: Guardian overview — no "View All" navigation links from summary cards
+### Task I5: Guardian overview — no "View All" navigation links from summary cards ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/overview/overview_screen.dart`
 **Context files to read:** None
@@ -1405,7 +1405,7 @@ Multiple summary cards on the guardian overview (finance summary, today's schedu
 Add `onTap` handlers to summary cards that programmatically switch to the appropriate tab index (e.g., tapping the finance summary switches to the Finance tab).
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Git commit: `git add -A && git commit -m "ui: add View All navigation links to guardian overview cards"`
 
 ---
