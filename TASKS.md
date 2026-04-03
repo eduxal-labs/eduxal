@@ -1424,7 +1424,7 @@ The mastery tab (~L1078–1082) calls `CatalogDao.watchSubjects()` and `db.selec
 Filter subjects and topics by the school's curriculum type (CBC or 8-4-4) and optionally by the ward's enrolled grade level.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Git commit: `git add -A && git commit -m "fix: filter guardian mastery subjects by school curriculum"`
 
 ---

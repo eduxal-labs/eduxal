@@ -6,6 +6,7 @@ import '../../../../database/daos/attendance_dao.dart';
 import '../../../../database/daos/catalog_dao.dart';
 import '../../../../database/daos/enrollments_dao.dart';
 import '../../../../database/daos/exams_grades_dao.dart';
+import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../database/tables/enums.dart';
 import '../../../../models/active_term_context.dart';
 import '../../../../models/membership.dart';
@@ -1188,94 +1189,128 @@ class _MasteryTab extends StatelessWidget {
   final String schoolId;
   final StudentsData student;
 
+  /// Determines the curriculum type from a grade number.
+  /// Grades ≥ 41 (Form 1–4) are unambiguously 8-4-4.
+  /// Grades ≥ 9 (Grade 9–12) are unambiguously CBC.
+  /// Grades 1–8 are ambiguous — default to CBC (the newer curriculum).
+  static CurriculumType _curriculumForGrade(int grade) {
+    if (grade >= 41) return CurriculumType.eightFourFour;
+    if (grade >= 9) return CurriculumType.cbc;
+    return CurriculumType.cbc;
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final examsDao = ExamsGradesDao(db);
+    final catalogDao = CatalogDao(db);
+    final enrollDao = EnrollmentsDao(db);
 
-    return StreamBuilder<List<MasteryData>>(
-      stream: examsDao.watchMasteryForStudent(
+    // Step 1: Watch the student's enrollments to derive the curriculum type
+    // from their most recent enrolled grade.
+    return StreamBuilder<List<Enrollment>>(
+      stream: enrollDao.watchAllEnrollmentsForStudent(
         schoolId: schoolId,
         studentAdm: student.adm,
       ),
-      builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 1.5),
-            ),
-          );
-        }
+      builder: (context, enrollSnap) {
+        final enrollments = enrollSnap.data ?? [];
+        final curriculum = enrollments.isNotEmpty
+            ? _curriculumForGrade(enrollments.first.grade)
+            : CurriculumType.cbc;
 
-        final allMastery = snap.data ?? [];
-        if (allMastery.isEmpty) {
-          return const Center(
-            child: EduEmptyState(
-              icon: Icons.psychology_outlined,
-              title: 'No mastery data available yet',
-            ),
-          );
-        }
+        // Step 2: Watch mastery data (already school + student scoped)
+        return StreamBuilder<List<MasteryData>>(
+          stream: examsDao.watchMasteryForStudent(
+            schoolId: schoolId,
+            studentAdm: student.adm,
+          ),
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting &&
+                !snap.hasData) {
+              return const Center(
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 1.5),
+                ),
+              );
+            }
 
-        // Group by subject, then compute average score per subject
-        final bySubject = <int, List<MasteryData>>{};
-        for (final m in allMastery) {
-          (bySubject[m.subject] ??= []).add(m);
-        }
+            final allMastery = snap.data ?? [];
+            if (allMastery.isEmpty) {
+              return const Center(
+                child: EduEmptyState(
+                  icon: Icons.psychology_outlined,
+                  title: 'No mastery data available yet',
+                ),
+              );
+            }
 
-        final subjectIds = bySubject.keys.toList()..sort();
+            // Group by subject, then compute average score per subject
+            final bySubject = <int, List<MasteryData>>{};
+            for (final m in allMastery) {
+              (bySubject[m.subject] ??= []).add(m);
+            }
 
-        return StreamBuilder<List<Subject>>(
-          stream: CatalogDao(db).watchSubjects(),
-          builder: (context, subSnap) {
-            final subjects = subSnap.data ?? [];
+            final subjectIds = bySubject.keys.toList()..sort();
 
-            // Load all topics once to resolve names without per-row streams
-            return StreamBuilder<List<Topic>>(
-              stream: (db.select(db.topics)).watch(),
-              builder: (context, topicSnap) {
-                final Map<int, String> topicNames = {
-                  for (final t in topicSnap.data ?? []) t.id: t.name,
-                };
+            // Step 3: Watch subjects filtered by the school's curriculum
+            return StreamBuilder<List<Subject>>(
+              stream: catalogDao.watchSubjectsByCurriculum(curriculum),
+              builder: (context, subSnap) {
+                final subjects = subSnap.data ?? [];
 
-                return Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 680),
-                    child: ListView.builder(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
+                // Step 4: Watch topics filtered by curriculum (joined with
+                // subjects) instead of loading the entire global catalog.
+                return StreamBuilder<List<Topic>>(
+                  stream: catalogDao.watchTopicsByCurriculum(curriculum),
+                  builder: (context, topicSnap) {
+                    final Map<int, String> topicNames = {
+                      for (final t in topicSnap.data ?? []) t.id: t.name,
+                    };
+
+                    return Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 680),
+                        child: ListView.builder(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          itemCount: subjectIds.length,
+                          itemBuilder: (context, index) {
+                            final subjectId = subjectIds[index];
+                            final entries = bySubject[subjectId]!;
+                            final subjectMatch = subjects
+                                .where((s) => s.id == subjectId)
+                                .firstOrNull;
+                            final subjectName =
+                                subjectMatch?.name ?? 'Subject $subjectId';
+
+                            // Average mastery across all topics for this subject
+                            final avgScore = entries.isEmpty
+                                ? 0.0
+                                : entries.fold<double>(
+                                        0,
+                                        (s, m) => s + m.score,
+                                      ) /
+                                      entries.length;
+                            final pct = (avgScore * 100).clamp(0.0, 100.0);
+
+                            return _MasterySubjectCard(
+                              subjectName: subjectName,
+                              pct: pct,
+                              topicEntries: entries,
+                              cs: cs,
+                              subjectIndex: index,
+                              topicNames: topicNames,
+                            );
+                          },
+                        ),
                       ),
-                      itemCount: subjectIds.length,
-                      itemBuilder: (context, index) {
-                        final subjectId = subjectIds[index];
-                        final entries = bySubject[subjectId]!;
-                        final subjectMatch = subjects
-                            .where((s) => s.id == subjectId)
-                            .firstOrNull;
-                        final subjectName =
-                            subjectMatch?.name ?? 'Subject $subjectId';
-
-                        // Average mastery across all topics for this subject
-                        final avgScore = entries.isEmpty
-                            ? 0.0
-                            : entries.fold<double>(0, (s, m) => s + m.score) /
-                                  entries.length;
-                        final pct = (avgScore * 100).clamp(0.0, 100.0);
-
-                        return _MasterySubjectCard(
-                          subjectName: subjectName,
-                          pct: pct,
-                          topicEntries: entries,
-                          cs: cs,
-                          subjectIndex: index,
-                          topicNames: topicNames,
-                        );
-                      },
-                    ),
-                  ),
+                    );
+                  },
                 );
               },
             );

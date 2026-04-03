@@ -176,6 +176,18 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
   // Topics
   // ─────────────────────────────────────────────────────────────────────────
 
+  /// Reactively watches all topics belonging to subjects of the given
+  /// [curriculum], ordered by name.  Uses an inner join on [Subjects] so that
+  /// only topics whose parent subject matches the curriculum are returned.
+  Stream<List<Topic>> watchTopicsByCurriculum(CurriculumType curriculum) {
+    final q = select(topics).join([
+      innerJoin(subjects, subjects.id.equalsExp(topics.subject)),
+    ])..where(subjects.curriculum.equals(curriculum.index_));
+    return q.watch().map(
+      (rows) => rows.map((row) => row.readTable(topics)).toList(),
+    );
+  }
+
   /// Reactively watches all topics for [subjectId] and [grade], ordered by
   /// name.
   Stream<List<Topic>> watchTopicsBySubjectAndGrade({
