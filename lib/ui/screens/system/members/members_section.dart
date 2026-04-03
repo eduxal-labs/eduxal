@@ -134,6 +134,19 @@ class _MembersSectionState extends State<MembersSection> {
   }
 
   Future<void> _promoteMember(UsersData user) async {
+    // G6: Guard — only active users may be elevated to Super.
+    if (user.status != UserStatus.active) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Cannot promote "${user.name}" — only active users can be elevated to Super.',
+          ),
+        ),
+      );
+      return;
+    }
+
     final confirmed = await _showConfirmDialog(
       title: 'Promote to Super',
       message:
@@ -290,6 +303,15 @@ class _MembersSectionState extends State<MembersSection> {
                         final isSuper =
                             widget.permissions.level == UserLevel.super_;
 
+                        final canUpdate = widget.permissions.can(
+                          Resource.users,
+                          Action.update,
+                        );
+                        final canDelete = widget.permissions.can(
+                          Resource.users,
+                          Action.delete,
+                        );
+
                         final actions = <_RowAction>[
                           _RowAction(
                             icon: Icons.assignment_ind_outlined,
@@ -310,8 +332,9 @@ class _MembersSectionState extends State<MembersSection> {
                             );
                           }
 
-                          if (user.status == UserStatus.active ||
-                              user.status == UserStatus.invited) {
+                          if (canUpdate &&
+                              (user.status == UserStatus.active ||
+                                  user.status == UserStatus.invited)) {
                             actions.add(
                               _RowAction(
                                 icon: Icons.block_rounded,
@@ -330,8 +353,9 @@ class _MembersSectionState extends State<MembersSection> {
                             );
                           }
 
-                          if (user.status == UserStatus.suspended ||
-                              user.status == UserStatus.deleted) {
+                          if (canUpdate &&
+                              (user.status == UserStatus.suspended ||
+                                  user.status == UserStatus.deleted)) {
                             actions.add(
                               _RowAction(
                                 icon: Icons.check_circle_outline_rounded,
@@ -346,8 +370,9 @@ class _MembersSectionState extends State<MembersSection> {
                             );
                           }
 
-                          if (user.status == UserStatus.active ||
-                              user.status == UserStatus.invited) {
+                          if (canDelete &&
+                              (user.status == UserStatus.active ||
+                                  user.status == UserStatus.invited)) {
                             actions.add(
                               _RowAction(
                                 icon: Icons.delete_outline_rounded,
@@ -366,13 +391,15 @@ class _MembersSectionState extends State<MembersSection> {
                             );
                           }
 
-                          actions.add(
-                            _RowAction(
-                              icon: Icons.arrow_downward_rounded,
-                              label: 'Demote',
-                              onTap: () => _removeMember(user),
-                            ),
-                          );
+                          if (canUpdate) {
+                            actions.add(
+                              _RowAction(
+                                icon: Icons.arrow_downward_rounded,
+                                label: 'Demote',
+                                onTap: () => _removeMember(user),
+                              ),
+                            );
+                          }
 
                           if (isSuper) {
                             actions.add(

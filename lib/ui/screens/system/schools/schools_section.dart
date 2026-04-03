@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Action;
 
 import '../../../../cache/file_cache.dart';
 import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/tables/enums.dart';
+import '../../../../models/permissions.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
@@ -192,9 +193,12 @@ class _SchoolsSectionState extends State<SchoolsSection> {
 
   List<_RowAction> _buildActions(SchoolsData school) {
     final actions = <_RowAction>[];
+    final canUpdate = widget.permissions.can(Resource.schools, Action.update);
+    final canDelete = widget.permissions.can(Resource.schools, Action.delete);
 
-    if (school.status == SchoolStatus.trial ||
-        school.status == SchoolStatus.suspended) {
+    if (canUpdate &&
+        (school.status == SchoolStatus.trial ||
+            school.status == SchoolStatus.suspended)) {
       actions.add(
         _RowAction(
           icon: Icons.check_circle_outline_rounded,
@@ -204,8 +208,9 @@ class _SchoolsSectionState extends State<SchoolsSection> {
       );
     }
 
-    if (school.status == SchoolStatus.active ||
-        school.status == SchoolStatus.trial) {
+    if (canUpdate &&
+        (school.status == SchoolStatus.active ||
+            school.status == SchoolStatus.trial)) {
       actions.add(
         _RowAction(
           icon: Icons.block_rounded,
@@ -215,8 +220,9 @@ class _SchoolsSectionState extends State<SchoolsSection> {
       );
     }
 
-    if (school.status == SchoolStatus.suspended ||
-        school.status == SchoolStatus.deleted) {
+    if (canUpdate &&
+        (school.status == SchoolStatus.suspended ||
+            school.status == SchoolStatus.deleted)) {
       actions.add(
         _RowAction(
           icon: Icons.restore_rounded,
@@ -226,7 +232,7 @@ class _SchoolsSectionState extends State<SchoolsSection> {
       );
     }
 
-    if (school.status != SchoolStatus.deleted) {
+    if (canDelete && school.status != SchoolStatus.deleted) {
       actions.add(
         _RowAction(
           icon: Icons.delete_outline_rounded,

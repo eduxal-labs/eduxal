@@ -204,6 +204,11 @@ class _HomeScreenState extends State<HomeScreen>
                 // ── Top bar ──────────────────────────────────────────────
                 _buildTopBar(theme, cs, user.user.id),
 
+                // ── System dashboard card (privileged users only) ────────
+                if (user.user.level == UserLevel.system ||
+                    user.user.level == UserLevel.super_)
+                  _buildSystemCard(cs, user.user.level),
+
                 // ── Section header ──────────────────────────────────────
                 Padding(
                   padding: const EdgeInsets.only(left: 16, bottom: 10),
@@ -347,6 +352,108 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // System dashboard card — prominent entry point for system / super users
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Widget _buildSystemCard(ColorScheme cs, UserLevel level) {
+    final isDark = cs.brightness == Brightness.dark;
+    final isSuper = level == UserLevel.super_;
+    final accentColor = isSuper
+        ? const Color(0xFFAB47BC)
+        : AppTheme.brandIndigo;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            Navigator.of(context).push(
+              PageRouteBuilder(
+                pageBuilder: (_, _, _) => const SystemDashboardScreen(),
+                transitionsBuilder: (_, animation, _, child) =>
+                    FadeTransition(opacity: animation, child: child),
+                transitionDuration: const Duration(milliseconds: 250),
+              ),
+            );
+          },
+          borderRadius: BorderRadius.circular(AppTheme.kRadius),
+          child: Ink(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  accentColor.withValues(alpha: isDark ? 0.15 : 0.08),
+                  accentColor.withValues(alpha: isDark ? 0.06 : 0.02),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(AppTheme.kRadius),
+              border: Border.all(
+                color: accentColor.withValues(alpha: isDark ? 0.4 : 0.25),
+                width: 1,
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: isDark ? 0.2 : 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    Icons.shield_outlined,
+                    size: 20,
+                    color: isDark
+                        ? accentColor.withValues(alpha: 0.9)
+                        : accentColor,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'System Dashboard',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: cs.onSurface,
+                          letterSpacing: -0.1,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        isSuper
+                            ? 'Full platform access'
+                            : 'Manage schools, users & roles',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w300,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.75),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 20,
+                  color: accentColor.withValues(alpha: isDark ? 0.7 : 0.5),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Loading state — delegates to _LoadingShimmer widget with sweep animation
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -359,6 +466,9 @@ class _HomeScreenState extends State<HomeScreen>
   // ─────────────────────────────────────────────────────────────────────────
 
   Widget _buildEmptyState(ThemeData theme, ColorScheme cs) {
+    final level = cache.currentUser?.user.level;
+    final isPrivileged = level == UserLevel.system || level == UserLevel.super_;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -372,7 +482,7 @@ class _HomeScreenState extends State<HomeScreen>
             ),
             const SizedBox(height: 16),
             Text(
-              'No schools yet',
+              isPrivileged ? 'No school memberships' : 'No schools yet',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w400,
@@ -382,7 +492,9 @@ class _HomeScreenState extends State<HomeScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              'Schools will appear here once you\'re added by an administrator.',
+              isPrivileged
+                  ? 'You can manage all schools from the System Dashboard above.'
+                  : 'Schools will appear here once you\'re added by an administrator.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,

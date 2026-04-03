@@ -1220,7 +1220,7 @@ Add a guard: `if (targetUser.status != UserStatus.active) { show error "Cannot p
 
 ---
 
-### Task G7: System stats StreamBuilders don't handle error state
+### Task G7: System stats StreamBuilders don't handle error state ✅
 
 **Files to modify:** `lib/ui/screens/system/home/system_stats_section.dart`
 **Context files to read:** None
@@ -1239,7 +1239,7 @@ if (snapshot.hasError) {
 ```
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Git commit: `git add -A && git commit -m "fix: add error state handling to system stats StreamBuilders"`
 
 ---

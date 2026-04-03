@@ -1,10 +1,11 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Action;
 
 import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/tables/enums.dart';
+import '../../../../models/permissions.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
@@ -384,8 +385,16 @@ class _UsersSectionState extends State<UsersSection> {
                         if (!isMe) {
                           final canSeeDeleted =
                               widget.permissions.canSeeDeleted;
+                          final canUpdate = widget.permissions.can(
+                            Resource.users,
+                            Action.update,
+                          );
+                          final canDelete = widget.permissions.can(
+                            Resource.users,
+                            Action.delete,
+                          );
 
-                          if (user.level == UserLevel.normal) {
+                          if (canUpdate && user.level == UserLevel.normal) {
                             actions.add(
                               _RowAction(
                                 icon: Icons.shield_outlined,
@@ -396,7 +405,9 @@ class _UsersSectionState extends State<UsersSection> {
                               ),
                             );
                           }
-                          if (user.level == UserLevel.system && canSeeDeleted) {
+                          if (canUpdate &&
+                              user.level == UserLevel.system &&
+                              canSeeDeleted) {
                             actions.add(
                               _RowAction(
                                 icon: Icons.star_outline_rounded,
@@ -407,7 +418,7 @@ class _UsersSectionState extends State<UsersSection> {
                               ),
                             );
                           }
-                          if (user.level == UserLevel.system) {
+                          if (canUpdate && user.level == UserLevel.system) {
                             actions.add(
                               _RowAction(
                                 icon: Icons.arrow_downward_rounded,
@@ -418,7 +429,9 @@ class _UsersSectionState extends State<UsersSection> {
                               ),
                             );
                           }
-                          if (user.level == UserLevel.super_ && canSeeDeleted) {
+                          if (canUpdate &&
+                              user.level == UserLevel.super_ &&
+                              canSeeDeleted) {
                             actions.add(
                               _RowAction(
                                 icon: Icons.arrow_downward_rounded,
@@ -429,8 +442,9 @@ class _UsersSectionState extends State<UsersSection> {
                               ),
                             );
                           }
-                          if (user.status == UserStatus.active ||
-                              user.status == UserStatus.invited) {
+                          if (canUpdate &&
+                              (user.status == UserStatus.active ||
+                                  user.status == UserStatus.invited)) {
                             actions.add(
                               _RowAction(
                                 icon: Icons.block_rounded,
@@ -441,7 +455,8 @@ class _UsersSectionState extends State<UsersSection> {
                               ),
                             );
                           }
-                          if (user.status == UserStatus.suspended) {
+                          if (canUpdate &&
+                              user.status == UserStatus.suspended) {
                             actions.add(
                               _RowAction(
                                 icon: Icons.restore_rounded,
@@ -451,7 +466,7 @@ class _UsersSectionState extends State<UsersSection> {
                               ),
                             );
                           }
-                          if (user.status != UserStatus.deleted) {
+                          if (canDelete && user.status != UserStatus.deleted) {
                             actions.add(
                               _RowAction(
                                 icon: Icons.delete_outline_rounded,
@@ -462,7 +477,7 @@ class _UsersSectionState extends State<UsersSection> {
                               ),
                             );
                           }
-                          if (user.status == UserStatus.deleted) {
+                          if (canUpdate && user.status == UserStatus.deleted) {
                             actions.add(
                               _RowAction(
                                 icon: Icons.restore_rounded,

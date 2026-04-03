@@ -930,6 +930,59 @@ class _SegmentedBarChartState extends State<_SegmentedBarChart>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Error state — shown when any stats stream errors
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _StatsErrorCard extends StatelessWidget {
+  const _StatsErrorCard({required this.isDesktop});
+
+  final bool isDesktop;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainer,
+          borderRadius: BorderRadius.circular(AppTheme.kRadius),
+          border: Border.all(
+            color: isDark
+                ? cs.outline.withValues(alpha: 0.5)
+                : cs.outlineVariant,
+            width: 1,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.error_outline_rounded,
+              size: 28,
+              color: cs.error.withValues(alpha: 0.7),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Failed to load stats',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Skeleton placeholder while streams load
 // ─────────────────────────────────────────────────────────────────────────────
 
