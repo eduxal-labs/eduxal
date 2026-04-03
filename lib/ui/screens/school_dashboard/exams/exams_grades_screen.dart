@@ -233,6 +233,14 @@ class _ExamsShellState extends State<_ExamsShell> {
     final term = widget.termContext.currentTerm!;
     final entry = widget.schoolContext.currentEntry.value;
 
+    // Teachers without admin exams.read permission only see exams they
+    // participate in (as creator, invigilator, or subject teacher).
+    String? teacherFilter;
+    if (entry is TeacherEntry &&
+        !widget.schoolContext.permissions.can(Resource.exams, Action.read)) {
+      teacherFilter = entry.teacher.user;
+    }
+
     return switch (_view) {
       _ExamsView.list => _ExamsListView(
         schoolId: schoolId,
@@ -249,6 +257,7 @@ class _ExamsShellState extends State<_ExamsShell> {
           schoolId: schoolId,
           year: term.year,
           term: term.term,
+          teacherId: teacherFilter,
         ),
         builder: (context, snap) {
           final groups = snap.data ?? [];
@@ -367,10 +376,19 @@ class _ExamsListViewState extends State<_ExamsListView> {
   }
 
   Stream<List<ExamGroup>> _buildStream() {
+    // Teachers without admin exams.read permission only see exams they
+    // participate in (as creator, invigilator, or subject teacher).
+    String? teacherFilter;
+    final entry = widget.entry;
+    if (entry is TeacherEntry &&
+        !widget.schoolContext.permissions.can(Resource.exams, Action.read)) {
+      teacherFilter = entry.teacher.user;
+    }
     return _dao.watchExamGroups(
       schoolId: widget.schoolId,
       year: widget.year,
       term: widget.term,
+      teacherId: teacherFilter,
     );
   }
 

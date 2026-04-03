@@ -571,7 +571,7 @@ MembershipRole.teacher => [
 
 ---
 
-### Task D2: Teacher "Exams" tab shows ALL exams school-wide — no teacher filter
+### Task D2: Teacher "Exams" tab shows ALL exams school-wide — no teacher filter ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/exams/exams_grades_screen.dart`
 **Context files to read:** `lib/database/daos/exams_grades_dao.dart`
@@ -587,8 +587,8 @@ MembershipRole.teacher => [
 3. If the teacher has `perms.can(Resource.exams, Action.read)` (admin permission), show all exams (same as owner view).
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `git add -A && git commit -m "fix: scope teacher exams list to assigned subjects"`
+- [x] Mark this task `[x]`
+- [x] Git commit: `git add -A && git commit -m "fix: scope teacher exams list to assigned subjects"`
 
 ---
 
