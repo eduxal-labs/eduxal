@@ -937,7 +937,7 @@ Also fix: `_purgeRole` and `_deleteRole` both call the identical `_dao.deleteRol
 
 ---
 
-### Task F4: No school profile/settings screen for owners
+### Task F4: No school profile/settings screen for owners ✅
 
 **Files to modify:** Create `lib/ui/screens/school_dashboard/settings/school_settings_screen.dart`
 **Context files to read:** `lib/database/tables/schools.dart`, `lib/database/daos/schools_dao.dart`

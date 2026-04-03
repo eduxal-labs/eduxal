@@ -147,6 +147,16 @@ This directory contains **1 shell screen file** and **8 subdirectories**, each r
 
 ---
 
+### `settings/`
+| File | Widget | Status | Description |
+|---|---|---|---|
+| `school_settings_screen.dart` | `SchoolSettingsScreen` | ✅ Complete | Owner-facing school profile & settings editor. Full-page form (rendered inside dashboard content area, not a sheet) for editing school identity, contact details, location, and logo. **Fields:** School name (required), motto, phone, email, domain, county (required, searchable picker sheet), established year. **Logo:** `ImagePicker` → preview + pick/clear buttons, cached at `{appDir}/schools/{schoolId}/logo` via `FileCache.saveBytes`. **Save:** `AnimatedSaveButton` in header row, dirty-tracking across all fields + logo. Writes via `SchoolsDao.updateSchoolDetails()` (auto-creates `SyncAction.updateSchool` log entry) + `SchoolsDao.logLogoChange()` for logo. Shows SnackBar on success, error banner on failure. **Layout:** Responsive — constrained to 560px max-width on desktop, full-width on mobile. Three sections (Identity, Contact, Location & Details) in `_SectionContainer` cards with `_SectionHeader` labels matching account screen pattern. **County picker:** `_CountyPickerSheet` via `showEduSheet` — searchable list of 47 Kenya counties. **Private widgets:** `_ErrorBanner`, `_SectionHeader`, `_SectionContainer`, `_FormField`, `_CountyPickerRow`, `_LogoSection`, `_CountyPickerSheet`/`_CountyPickerSheetState`. |
+
+**Data source:** `SchoolsDao.updateSchoolDetails(schoolId, SchoolsCompanion, accountId)`, `SchoolsDao.logLogoChange(schoolId, accountId)`, `FileCache.saveBytes(bytes, relativePath)`, `FileCache.get(relativePath)`, `FileCache.logoPath(schoolId)`
+**Dependencies:** `cache/file_cache.dart`, `client.dart` (`cache`, `schoolsDao`), `database/database.dart` (`SchoolsData`, `SchoolsCompanion`), `database/tables/curriculum_subjects.dart` (`KenyaCounty`), `models/school_context.dart`, `ui/theme/app_theme.dart`, `ui/widgets/animated_save_button.dart`, `ui/widgets/edu_sheet.dart`
+
+---
+
 ### `timetable/`
 | File | Widget | Status | Description |
 |---|---|---|---|
