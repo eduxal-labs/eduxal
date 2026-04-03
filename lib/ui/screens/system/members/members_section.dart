@@ -134,6 +134,27 @@ class _MembersSectionState extends State<MembersSection> {
   }
 
   Future<void> _promoteMember(UsersData user) async {
+    // A03: Guard — no user may promote themselves.
+    final currentUser = cache.currentUser;
+    if (currentUser != null && currentUser.user.id == user.id) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You cannot promote yourself')),
+      );
+      return;
+    }
+
+    // A03: Guard — only Super users may promote to Super level.
+    if (currentUser?.user.level != UserLevel.super_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Only Super users can promote to Super level'),
+        ),
+      );
+      return;
+    }
+
     // G6: Guard — only active users may be elevated to Super.
     if (user.status != UserStatus.active) {
       if (!mounted) return;
@@ -157,7 +178,7 @@ class _MembersSectionState extends State<MembersSection> {
     if (!confirmed || !mounted) return;
 
     try {
-      final accountId = cache.currentUser?.user.id;
+      final accountId = currentUser?.user.id;
       if (accountId == null) return;
       await usersDao.setUserLevel(
         user.id,

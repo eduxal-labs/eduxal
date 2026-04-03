@@ -88,9 +88,13 @@ class FinanceScreen extends StatelessWidget {
             studentAdm: ward.adm,
             studentName: ward.name,
           ),
-          _ => _OwnerFinanceShell(
+          // Student gets a read-only view of their own invoices/payments
+          StudentEntry(:final student) => _GuardianFinanceView(
+            key: ValueKey('student_finance_${student.adm}'),
             schoolContext: schoolContext,
             termContext: termCtx,
+            studentAdm: student.adm,
+            studentName: student.name,
           ),
         };
       },

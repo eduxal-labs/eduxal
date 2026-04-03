@@ -160,6 +160,41 @@ class _UsersSectionState extends State<UsersSection> {
   Future<void> _promoteUser(UsersData user, UserLevel targetLevel) async {
     final label = targetLevel == UserLevel.system ? 'System' : 'Super';
 
+    // Guard: no user may promote themselves.
+    final currentUser = cache.currentUser;
+    if (currentUser != null && user.id == currentUser.user.id) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('You cannot promote yourself')),
+        );
+      }
+      return;
+    }
+
+    // Guard: only Super users may promote to Super level.
+    if (targetLevel == UserLevel.super_ &&
+        currentUser?.user.level != UserLevel.super_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Only Super users can promote to Super level'),
+          ),
+        );
+      }
+      return;
+    }
+
+    // Guard: do not allow promoting deleted or suspended users.
+    if (user.status == UserStatus.deleted ||
+        user.status == UserStatus.suspended) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Cannot promote a ${user.status.name} user')),
+        );
+      }
+      return;
+    }
+
     final confirmed = await showEduConfirmDialog(
       context: context,
       title: 'Promote to $label',
@@ -169,7 +204,7 @@ class _UsersSectionState extends State<UsersSection> {
     if (!confirmed || !mounted) return;
 
     try {
-      final accountId = cache.currentUser?.user.id;
+      final accountId = currentUser?.user.id;
       if (accountId == null) return;
       await usersDao.setUserLevel(user.id, targetLevel, accountId: accountId);
       if (mounted) {
@@ -394,7 +429,11 @@ class _UsersSectionState extends State<UsersSection> {
                             Action.delete,
                           );
 
-                          if (canUpdate && user.level == UserLevel.normal) {
+                          final canAssign = widget.permissions.can(
+                            Resource.users,
+                            Action.assign,
+                          );
+                          if (canAssign && user.level == UserLevel.normal) {
                             actions.add(
                               _RowAction(
                                 icon: Icons.shield_outlined,

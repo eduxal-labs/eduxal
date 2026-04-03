@@ -9,6 +9,7 @@ import '../../../../cache/file_cache.dart';
 import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/tables/enums.dart';
+import '../../../../models/permissions.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
 
@@ -57,9 +58,12 @@ class _InviteUserSheetState extends State<InviteUserSheet> {
   UserLevel _selectedLevel = UserLevel.normal;
 
   /// Whether the current user may create system-level users.
-  /// True for Super users (bypass all checks) and System users (who must
-  /// already have `Users.Create` to reach this sheet).
-  bool get _canCreateSystemUser => widget.permissions.isElevated;
+  /// True for Super users (bypass all checks) and System users with
+  /// `Users.Create` permission. System users without that permission
+  /// can only invite Normal-level users.
+  bool get _canCreateSystemUser =>
+      widget.permissions.isElevated &&
+      widget.permissions.can(Resource.users, Action.create);
 
   @override
   void dispose() {
@@ -149,6 +153,31 @@ class _InviteUserSheetState extends State<InviteUserSheet> {
   Future<void> _submit() async {
     if (!_validate()) return;
     if (_duplicateWarning != null) return; // hard block on duplicate
+
+    // ── Privilege escalation guards ──────────────────────────────────────────
+    // Super users can only be created by other super users AND only via a
+    // different flow. Block unconditionally in the invite sheet.
+    if (_selectedLevel == UserLevel.super_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot invite Super-level users')),
+      );
+      return;
+    }
+
+    // System users without Users.Create may not invite system-level users.
+    if (_selectedLevel == UserLevel.system &&
+        !widget.permissions.can(Resource.users, Action.create)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'You do not have permission to create System-level users',
+          ),
+        ),
+      );
+      return;
+    }
 
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;

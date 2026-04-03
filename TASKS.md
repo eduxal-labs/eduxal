@@ -262,7 +262,7 @@ Multiple privilege escalation vectors exist in the System dashboard. Fix all of 
 
 ---
 
-### Task A04: Fix System FAB visibility — wrong permission check ✅
+### Task A04: Fix System FAB visibility — wrong permission check
 **Files to create/modify:** `lib/ui/screens/system/system_dashboard_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/system/CONTEXT.md`
 **Depends on:** None
@@ -289,8 +289,8 @@ return _permissions.can(Resource.users, Action.create) ||
 ```
 
 **Update after completion:**
-- [x] Update `lib/ui/screens/system/CONTEXT.md` — note FAB permission fix
-- [x] Mark this task `[x]`
+- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note FAB permission fix
+- [ ] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
