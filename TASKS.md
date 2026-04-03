@@ -672,7 +672,7 @@ Two issues in `attendance_screen.dart`:
 
 ---
 
-### Task B05: Fix teacher announcements — full admin feed shown to teachers with mutation perms
+### Task B05: Fix teacher announcements — full admin feed shown to teachers with mutation perms ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/announcements/announcements_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** None (Phase 2)
@@ -690,13 +690,13 @@ Fix:
 - The create FAB is fine — it's gated by `announcements.create` permission
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note announcement author-scoping for teachers
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note announcement author-scoping for teachers
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
 
-### Task B06: Permission-gate staff finance tabs individually
+### Task B06: Permission-gate staff finance tabs individually ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/finance/finance_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** Task A05
@@ -735,13 +735,13 @@ Fix:
 4. **Write actions** — Ensure record-payment, create-fee, edit/delete actions within each tab are gated by `fees.create`/`payments.create`/etc. rather than just being visible to anyone who can see the tab.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note staff finance permission gating
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note staff finance permission gating
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
 
-### Task B07: Filter announcements by grade/stream for students and guardians
+### Task B07: Filter announcements by grade/stream for students and guardians ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/announcements/announcements_screen.dart`, `lib/ui/screens/school_dashboard/overview/overview_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** None (Phase 2)
@@ -764,8 +764,8 @@ Fix:
 2. **`overview_screen.dart` ~L3135-3175 (student) and ~L2142-2147 (guardian)**: The overview announcement snippets should apply the same grade/stream filter.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note announcement grade/stream filtering
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note announcement grade/stream filtering
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
@@ -835,7 +835,7 @@ Verify the app's navigation pattern by checking `main.dart` or the router setup.
 
 ---
 
-### Task C02: Remove term-gating for non-academic sections (Finance, Announcements)
+### Task C02: Remove term-gating for non-academic sections (Finance, Announcements) ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/finance/finance_screen.dart`, `lib/ui/screens/school_dashboard/announcements/announcements_screen.dart`, `lib/ui/screens/school_dashboard/school_dashboard_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** None (Phase 2)
@@ -854,8 +854,8 @@ Verify the app's navigation pattern by checking `main.dart` or the router setup.
 3. **`school_dashboard_screen.dart` ~L591-600 (`_kAcademicNavLabels`)**: Verify that 'Finance' and 'Announcements' are NOT in this set. Currently the `_isAcademicSection` check blocks these sections when no terms exist. If they ARE in the set, remove them.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note term-gating removed for non-academic
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note term-gating removed for non-academic
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
@@ -922,7 +922,7 @@ When launched from Attendance, pass `restrictToTab: 'Attendance'`.
 
 ---
 
-### Task C05: Fix "View All" dead links on guardian/student overview
+### Task C05: Fix "View All" dead links on guardian/student overview ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/overview/overview_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** Task A06
@@ -939,8 +939,8 @@ When launched from Attendance, pass `restrictToTab: 'Attendance'`.
 3. **Owner overview ~L81-130**: Missing "View All" navigation links. Add the same pattern.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note "View All" links wired
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note "View All" links wired
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---

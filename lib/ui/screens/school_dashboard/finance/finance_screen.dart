@@ -39,9 +39,8 @@ class FinanceScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final termCtx = ActiveTermProvider.of(context);
-    if (termCtx.currentTerm == null) {
-      return const _NoTermState();
-    }
+    // C02: Finance is non-academic — no top-level term-gating.
+    // Individual sub-views handle null term gracefully.
 
     return ValueListenableBuilder<MembershipEntry>(
       valueListenable: schoolContext.currentEntry,
@@ -158,6 +157,7 @@ class _OwnerFinanceShellState extends State<_OwnerFinanceShell>
     with TickerProviderStateMixin {
   late final FinanceDao _dao;
   late TabController _tabController;
+  late List<_FinanceTab> _visibleTabs;
   _FinanceTab _currentTab = _FinanceTab.overview;
 
   String get _schoolId => widget.schoolContext.membership.school.id;
@@ -166,10 +166,69 @@ class _OwnerFinanceShellState extends State<_OwnerFinanceShell>
   void initState() {
     super.initState();
     _dao = FinanceDao(db);
-    _tabController = TabController(
-      length: _FinanceTab.values.length,
-      vsync: this,
-    )..addListener(_onTabChanged);
+    _visibleTabs = _computeVisibleTabs();
+    _tabController = TabController(length: _visibleTabs.length, vsync: this)
+      ..addListener(_onTabChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant _OwnerFinanceShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final newTabs = _computeVisibleTabs();
+    if (newTabs.length != _visibleTabs.length ||
+        !_tabsEqual(newTabs, _visibleTabs)) {
+      _tabController
+        ..removeListener(_onTabChanged)
+        ..dispose();
+      _visibleTabs = newTabs;
+      _currentTab = _visibleTabs.isNotEmpty
+          ? _visibleTabs.first
+          : _FinanceTab.overview;
+      _tabController = TabController(length: _visibleTabs.length, vsync: this)
+        ..addListener(_onTabChanged);
+      setState(() {});
+    }
+  }
+
+  static bool _tabsEqual(List<_FinanceTab> a, List<_FinanceTab> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  /// B06: Compute which tabs the current user may see.
+  List<_FinanceTab> _computeVisibleTabs() {
+    final perms = widget.schoolContext.permissions;
+    final entry = widget.schoolContext.currentEntry.value;
+    final isOwner = entry is OwnerEntry;
+
+    final tabs = <_FinanceTab>[];
+
+    // Overview — visible when the user has any finance permission.
+    if (isOwner ||
+        perms.canAny(Resource.fees, [Action.read]) ||
+        perms.canAny(Resource.payments, [Action.read])) {
+      tabs.add(_FinanceTab.overview);
+    }
+
+    // Invoices — requires fees.read
+    if (isOwner || perms.can(Resource.fees, Action.read)) {
+      tabs.add(_FinanceTab.invoices);
+    }
+
+    // Payments — requires payments.read
+    if (isOwner || perms.can(Resource.payments, Action.read)) {
+      tabs.add(_FinanceTab.payments);
+    }
+
+    // Fees — requires fees.read
+    if (isOwner || perms.can(Resource.fees, Action.read)) {
+      tabs.add(_FinanceTab.fees);
+    }
+
+    return tabs;
   }
 
   @override
@@ -182,70 +241,102 @@ class _OwnerFinanceShellState extends State<_OwnerFinanceShell>
 
   void _onTabChanged() {
     if (_tabController.indexIsChanging) return;
-    final newTab = _FinanceTab.values[_tabController.index];
+    if (_tabController.index >= _visibleTabs.length) return;
+    final newTab = _visibleTabs[_tabController.index];
     if (newTab != _currentTab) {
       setState(() => _currentTab = newTab);
     }
   }
 
+  String _tabLabel(_FinanceTab tab) => switch (tab) {
+    _FinanceTab.overview => 'Overview',
+    _FinanceTab.invoices => 'Invoices',
+    _FinanceTab.payments => 'Payments',
+    _FinanceTab.fees => 'Fees',
+  };
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final term = widget.termContext.currentTerm;
-    if (term == null) return const _NoTermState();
+
+    // C02: Instead of blocking the entire section with _NoTermState, show a
+    // friendly informational message.  Finance data is term-scoped so we
+    // cannot render the tabs without a term, but we no longer hide the
+    // section entirely.
+    if (term == null) {
+      final hasTerms = widget.termContext.hasTerms;
+      return _EmptyState(
+        icon: Icons.event_note_outlined,
+        label: hasTerms ? 'No term selected' : 'No terms configured',
+        sublabel: hasTerms
+            ? 'Select a term to view financial data'
+            : 'Create a term to start managing finances',
+        cs: cs,
+      );
+    }
+
+    if (_visibleTabs.isEmpty) {
+      return const EduEmptyState(
+        icon: Icons.account_balance_outlined,
+        title: 'No finance access',
+        subtitle: 'You don\'t have permission to view financial data.',
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         EduTabBar(
           controller: _tabController,
-          tabs: const [
-            EduTab(label: 'Overview'),
-            EduTab(label: 'Invoices'),
-            EduTab(label: 'Payments'),
-            EduTab(label: 'Fees'),
-          ],
+          tabs: [for (final tab in _visibleTabs) EduTab(label: _tabLabel(tab))],
         ),
         Expanded(
           child: TabBarView(
             controller: _tabController,
             children: [
-              _OverviewTab(
-                schoolId: _schoolId,
-                year: term.year,
-                term: term.term,
-                dao: _dao,
-                cs: cs,
-              ),
-              _InvoicesTab(
-                schoolId: _schoolId,
-                year: term.year,
-                term: term.term,
-                dao: _dao,
-                cs: cs,
-                schoolContext: widget.schoolContext,
-              ),
-              _PaymentsTab(
-                schoolId: _schoolId,
-                year: term.year,
-                term: term.term,
-                dao: _dao,
-                cs: cs,
-                schoolContext: widget.schoolContext,
-              ),
-              _FeesTab(
-                schoolId: _schoolId,
-                year: term.year,
-                term: term.term,
-                dao: _dao,
-                cs: cs,
-                schoolContext: widget.schoolContext,
-              ),
+              for (final tab in _visibleTabs) _buildTabContent(tab, term, cs),
             ],
           ),
         ),
       ],
     );
+  }
+
+  Widget _buildTabContent(_FinanceTab tab, Term term, ColorScheme cs) {
+    return switch (tab) {
+      _FinanceTab.overview => _OverviewTab(
+        schoolId: _schoolId,
+        year: term.year,
+        term: term.term,
+        dao: _dao,
+        cs: cs,
+      ),
+      _FinanceTab.invoices => _InvoicesTab(
+        schoolId: _schoolId,
+        year: term.year,
+        term: term.term,
+        dao: _dao,
+        cs: cs,
+        schoolContext: widget.schoolContext,
+      ),
+      _FinanceTab.payments => _PaymentsTab(
+        schoolId: _schoolId,
+        year: term.year,
+        term: term.term,
+        dao: _dao,
+        cs: cs,
+        schoolContext: widget.schoolContext,
+      ),
+      _FinanceTab.fees => _FeesTab(
+        schoolId: _schoolId,
+        year: term.year,
+        term: term.term,
+        dao: _dao,
+        cs: cs,
+        schoolContext: widget.schoolContext,
+      ),
+    };
   }
 }
 
@@ -1912,7 +2003,15 @@ class _GuardianFinanceViewState extends State<_GuardianFinanceView> {
     final isDark = cs.brightness == Brightness.dark;
     final term = widget.termContext.currentTerm;
 
-    if (term == null) return const _NoTermState();
+    // C02: Show a friendlier message instead of the full _NoTermState blocker.
+    if (term == null) {
+      return _EmptyState(
+        icon: Icons.event_note_outlined,
+        label: 'No term selected',
+        sublabel: 'Financial data will appear once a term is active',
+        cs: cs,
+      );
+    }
 
     return StreamBuilder<StudentFinanceSummary>(
       stream: _dao.watchStudentFinanceSummary(
@@ -3577,54 +3676,6 @@ class _EmptyState extends StatelessWidget {
       );
     }
     return Center(child: content);
-  }
-}
-
-class _NoTermState extends StatelessWidget {
-  const _NoTermState();
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              Icons.event_busy_outlined,
-              size: 22,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.35),
-            ),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            'No terms configured',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: cs.onSurface,
-              letterSpacing: 0.1,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            'Create a term to manage finances',
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w400,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 

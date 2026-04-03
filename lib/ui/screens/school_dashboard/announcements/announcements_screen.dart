@@ -36,9 +36,8 @@ class AnnouncementsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final termCtx = ActiveTermProvider.of(context);
-    if (termCtx.currentTerm == null) {
-      return const _NoTermState();
-    }
+    // C02: Announcements are non-academic — no term-gating.
+    // termCtx is still passed to child widgets for grade/stream filtering.
 
     final entry = schoolContext.currentEntry.value;
 
@@ -124,24 +123,32 @@ class _AdminFeedState extends State<_AdminFeed> {
     final isDark = cs.brightness == Brightness.dark;
 
     final entry = widget.schoolContext.currentEntry.value;
+    final isTeacher = entry is TeacherEntry;
     final canCreate =
         entry is OwnerEntry ||
         widget.schoolContext.permissions.can(
           Resource.announcements,
           Action.create,
         );
+    // B05: Teachers can only edit/delete their own announcements — the
+    // per-row author check (in _AnnouncementRowState.build) handles that.
+    // The global canEdit/canDelete flag grants blanket edit/delete on ALL
+    // announcements, which is only appropriate for owners and staff with
+    // the relevant permission.
     final canEdit =
-        entry is OwnerEntry ||
-        widget.schoolContext.permissions.can(
-          Resource.announcements,
-          Action.update,
-        );
+        !isTeacher &&
+        (entry is OwnerEntry ||
+            widget.schoolContext.permissions.can(
+              Resource.announcements,
+              Action.update,
+            ));
     final canDelete =
-        entry is OwnerEntry ||
-        widget.schoolContext.permissions.can(
-          Resource.announcements,
-          Action.delete,
-        );
+        !isTeacher &&
+        (entry is OwnerEntry ||
+            widget.schoolContext.permissions.can(
+              Resource.announcements,
+              Action.delete,
+            ));
 
     return Stack(
       children: [
@@ -1943,21 +1950,6 @@ class _EmptyState extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _NoTermState extends StatelessWidget {
-  const _NoTermState();
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return _EmptyState(
-      icon: Icons.event_busy_outlined,
-      label: 'No active term',
-      sublabel: 'Create a term to get started with announcements',
-      cs: cs,
     );
   }
 }

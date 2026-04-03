@@ -119,7 +119,12 @@ class _OwnerOverview extends StatelessWidget {
         ],
 
         // ── Recent announcements ─────────────────────────────────────────
-        _SectionTitle(label: 'Recent Announcements', cs: cs),
+        _SectionTitle(
+          label: 'Recent Announcements',
+          cs: cs,
+          onViewAll: () =>
+              DashboardNavigation.goToTab(context, 'Announcements'),
+        ),
         const SizedBox(height: 8),
         _RecentAnnouncements(schoolId: schoolId, isOwner: true),
 
@@ -245,7 +250,11 @@ class _TeacherOverview extends StatelessWidget {
       children: [
         // ── Today's schedule ─────────────────────────────────────────────
         if (term != null && userId.isNotEmpty) ...[
-          _SectionTitle(label: "Today's Schedule", cs: cs),
+          _SectionTitle(
+            label: "Today's Schedule",
+            cs: cs,
+            onViewAll: () => DashboardNavigation.goToTab(context, 'Timetable'),
+          ),
           const SizedBox(height: 8),
           _TeacherTodaySchedule(
             schoolId: schoolId,
@@ -258,7 +267,11 @@ class _TeacherOverview extends StatelessWidget {
 
         // ── My Classes ───────────────────────────────────────────────────
         if (term != null && userId.isNotEmpty) ...[
-          _SectionTitle(label: 'My Classes', cs: cs),
+          _SectionTitle(
+            label: 'My Classes',
+            cs: cs,
+            onViewAll: () => DashboardNavigation.goToTab(context, 'My Classes'),
+          ),
           const SizedBox(height: 8),
           _TeacherClassChips(schoolId: schoolId, userId: userId, term: term),
           const SizedBox(height: 20),
@@ -279,14 +292,23 @@ class _TeacherOverview extends StatelessWidget {
 
         // ── Upcoming Exams ───────────────────────────────────────────────
         if (term != null && userId.isNotEmpty) ...[
-          _SectionTitle(label: 'Upcoming Exams', cs: cs),
+          _SectionTitle(
+            label: 'Upcoming Exams',
+            cs: cs,
+            onViewAll: () => DashboardNavigation.goToTab(context, 'Exams'),
+          ),
           const SizedBox(height: 8),
           _TeacherUpcomingExams(schoolId: schoolId, userId: userId, term: term),
           const SizedBox(height: 20),
         ],
 
         // ── Recent announcements ─────────────────────────────────────────
-        _SectionTitle(label: 'Recent Announcements', cs: cs),
+        _SectionTitle(
+          label: 'Recent Announcements',
+          cs: cs,
+          onViewAll: () =>
+              DashboardNavigation.goToTab(context, 'Announcements'),
+        ),
         const SizedBox(height: 8),
         _RecentAnnouncements(
           schoolId: schoolId,
@@ -1164,7 +1186,12 @@ class _StaffOverview extends StatelessWidget {
           Resource.announcements,
           Action.read,
         )) ...[
-          _SectionTitle(label: 'Recent Announcements', cs: cs),
+          _SectionTitle(
+            label: 'Recent Announcements',
+            cs: cs,
+            onViewAll: () =>
+                DashboardNavigation.goToTab(context, 'Announcements'),
+          ),
           const SizedBox(height: 8),
           _RecentAnnouncements(
             schoolId: schoolId,
@@ -1449,7 +1476,11 @@ class _StudentOverview extends StatelessWidget {
 
         // ── Today's schedule ─────────────────────────────────────────────
         if (term != null) ...[
-          _SectionTitle(label: "Today's Schedule", cs: cs),
+          _SectionTitle(
+            label: "Today's Schedule",
+            cs: cs,
+            onViewAll: () => DashboardNavigation.goToTab(context, 'Timetable'),
+          ),
           const SizedBox(height: 8),
           _StudentTodaySchedule(
             schoolId: schoolId,
@@ -1462,7 +1493,11 @@ class _StudentOverview extends StatelessWidget {
 
         // ── Recent grades ────────────────────────────────────────────────
         if (term != null) ...[
-          _SectionTitle(label: 'Recent Grades', cs: cs),
+          _SectionTitle(
+            label: 'Recent Grades',
+            cs: cs,
+            onViewAll: () => DashboardNavigation.goToTab(context, 'Grades'),
+          ),
           const SizedBox(height: 8),
           _StudentRecentGrades(schoolId: schoolId, studentAdm: studentAdm),
           const SizedBox(height: 20),
@@ -1470,7 +1505,11 @@ class _StudentOverview extends StatelessWidget {
 
         // ── Attendance summary ───────────────────────────────────────────
         if (term != null) ...[
-          _SectionTitle(label: 'Attendance', cs: cs),
+          _SectionTitle(
+            label: 'Attendance',
+            cs: cs,
+            onViewAll: () => DashboardNavigation.goToTab(context, 'Attendance'),
+          ),
           const SizedBox(height: 8),
           _StudentAttendanceSummary(
             schoolId: schoolId,
@@ -1482,11 +1521,19 @@ class _StudentOverview extends StatelessWidget {
         ],
 
         // ── Recent announcements ─────────────────────────────────────────
-        _SectionTitle(label: 'Recent Announcements', cs: cs),
+        _SectionTitle(
+          label: 'Recent Announcements',
+          cs: cs,
+          onViewAll: () =>
+              DashboardNavigation.goToTab(context, 'Announcements'),
+        ),
         const SizedBox(height: 8),
         _RecentAnnouncements(
           schoolId: schoolId,
           audienceBit: AudienceBits.students,
+          studentAdm: studentAdm,
+          termYear: term?.year,
+          termNum: term?.term,
         ),
 
         const SizedBox(height: 80),
@@ -2142,6 +2189,9 @@ class _GuardianOverview extends StatelessWidget {
         _RecentAnnouncements(
           schoolId: schoolId,
           audienceBit: AudienceBits.guardians,
+          studentAdm: ward.adm,
+          termYear: term?.year,
+          termNum: term?.term,
         ),
 
         const SizedBox(height: 80),
@@ -3137,29 +3187,71 @@ class _RecentAnnouncements extends StatelessWidget {
     required this.schoolId,
     this.isOwner = false,
     this.audienceBit,
+    this.studentAdm,
+    this.termYear,
+    this.termNum,
   });
 
   final String schoolId;
   final bool isOwner;
   final int? audienceBit;
 
+  /// B07: When set, the widget resolves the student's enrollment to filter
+  /// announcements by grade/stream so students and guardians only see
+  /// announcements targeted at their class (or school-wide).
+  final int? studentAdm;
+  final int? termYear;
+  final int? termNum;
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final announcementsDao = AnnouncementsDao(db);
 
-    final Stream<List<AnnouncementWithAuthor>> stream;
+    // For student / guardian entries, resolve enrollment first.
+    if (studentAdm != null && termYear != null && termNum != null) {
+      return StreamBuilder<Enrollment?>(
+        stream: EnrollmentsDao(db).watchStudentEnrollment(
+          schoolId: schoolId,
+          year: termYear!,
+          term: termNum!,
+          studentAdm: studentAdm!,
+        ),
+        builder: (context, enrollSnap) {
+          final enrollment = enrollSnap.data;
+          return _buildList(
+            cs: cs,
+            dao: announcementsDao,
+            grade: enrollment?.grade,
+            enrolledStream: enrollment?.stream,
+          );
+        },
+      );
+    }
+
+    return _buildList(cs: cs, dao: announcementsDao);
+  }
+
+  Widget _buildList({
+    required ColorScheme cs,
+    required AnnouncementsDao dao,
+    int? grade,
+    int? enrolledStream,
+  }) {
+    final Stream<List<AnnouncementWithAuthor>> dataStream;
     if (isOwner) {
-      stream = announcementsDao.watchAllAnnouncements(schoolId);
+      dataStream = dao.watchAllAnnouncements(schoolId);
     } else {
-      stream = announcementsDao.watchAnnouncementsForAudience(
+      dataStream = dao.watchAnnouncementsForAudience(
         schoolId,
         audienceBit: audienceBit ?? AudienceBits.all,
+        grade: grade,
+        stream: enrolledStream,
       );
     }
 
     return StreamBuilder<List<AnnouncementWithAuthor>>(
-      stream: stream,
+      stream: dataStream,
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const _LoadingShimmer();
