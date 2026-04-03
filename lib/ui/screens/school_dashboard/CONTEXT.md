@@ -19,7 +19,7 @@ This directory contains **1 shell screen file** and **8 subdirectories**, each r
   - **Mobile (<600px):** `_TabLayoutTopBar` + `_UnifiedMobileTabBar` (text-only, tinted background strip with `surfaceContainerHighest` alpha, uses `TabBar` widget with `TabController` and `BoxDecoration` indicator for a single smooth sliding animation — eliminates the dual-ripple issue from the old custom `GestureDetector` + `AnimatedContainer` approach; takes a `TabController controller` parameter instead of `selectedIndex` + `onTabSelected`; the `_buildTab` helper method was removed; ≤5 tabs use `Expanded` children, >5 tabs use scrollable `TabBar` with 80px fixed-width tabs) + content area directly (no `TabBarView` — content driven by `_selectedIndex` for persistence). The old `_SimpleTabBar` (teacher-only, solid `cs.primary` fill) and `LoopingTabStrip` (infinite-looping `ListView.builder` with icons) have been removed and replaced by this single unified widget for all roles.
 - **Key responsibilities:**
   - Receives `SchoolMembership` + initial `MembershipEntry` from the home screen.
-  - Creates `SchoolContext` with computed `SchoolPermissions`. Note: `_initializeSession()` now uses `parsePermissions` from `core/permission_parser.dart` instead of inline `jsonDecode` + `Permissions.fromJson` with a silent `catch`.
+  - Creates `SchoolContext` with computed `SchoolPermissions`. Note: `_initializeSession()` now uses `parsePermissions` from `core/permission_parser.dart` instead of inline `jsonDecode` + `Permissions.fromJson` with a silent `catch`. For System and Super users, `_initializeSession()` also queries system-scoped scopes (`scopes.school IS NULL`) and unions those permissions with school-scoped permissions (per AGENT.md §17: "system + school roles merge"). New import: `database/tables/enums.dart` (for `UserLevel`).
   - Creates `ActiveTermContext` from `TermsDao.watchTerms(schoolId)`.
   - Hosts the **Role Switcher** in the top AppBar (reads `SchoolContext.membership.entries`).
   - Hosts the **Term Selector** chip in the AppBar (reads `ActiveTermContext`).
@@ -31,7 +31,7 @@ This directory contains **1 shell screen file** and **8 subdirectories**, each r
   - **Staff:** Overview | (permission-gated: Students, Academics, Exams, Members [checks all 5 member resources: departments, owners, teachers, staff, students — expanded in Task A1], Finance) | Announcements | (permission-gated: Timetable, Attendance, Roles)
   - **Student:** Overview | Grades | Timetable | Attendance | Announcements
   - **Guardian:** Overview | Progress | Timetable | Finance | Attendance | Announcements
-- **Dependencies:** `models/school_context.dart`, `models/school_permissions.dart`, `models/membership.dart`, `models/active_term_context.dart`, `client.dart` (DAOs, `logsDao`), `database/daos/terms_dao.dart`, `database/daos/school_scopes_dao.dart`, `ui/widgets/term_selector_chip.dart`, `ui/widgets/active_term_provider.dart`, `ui/screens/notifications/notifications_page.dart` (note: `ui/widgets/looping_tab_strip.dart` import removed — `LoopingTabStrip` no longer used here)
+- **Dependencies:** `models/school_context.dart`, `models/school_permissions.dart`, `models/membership.dart`, `models/active_term_context.dart`, `client.dart` (DAOs, `logsDao`), `database/daos/terms_dao.dart`, `database/daos/school_scopes_dao.dart`, `database/tables/enums.dart` (for `UserLevel`), `ui/widgets/term_selector_chip.dart`, `ui/widgets/active_term_provider.dart`, `ui/screens/notifications/notifications_page.dart` (note: `ui/widgets/looping_tab_strip.dart` import removed — `LoopingTabStrip` no longer used here)
 
 ## Subdirectories
 
@@ -231,7 +231,9 @@ When `ActiveTermContext.hasTerms` is `false`, the dashboard shows a blank state 
 
 
 ## Last Updated
-Task D1 — CONTEXT.md update for Staff Dashboard RBAC-Gating feature (Tasks A1, B1, C1).
+Task A4 — `_initializeSession()` now merges system-scoped permissions (scopes where `school IS NULL`) with school-scoped permissions for `UserLevel.system` and `UserLevel.super_` users. This ensures System users who also hold school memberships get the union of both permission sets, per AGENT.md §17.
+
+Previous: Task D1 — CONTEXT.md update for Staff Dashboard RBAC-Gating feature (Tasks A1, B1, C1).
 
 Task A1 — Staff Members nav item condition expanded from checking only `Resource.teachers` and `Resource.students` to checking all 5 member resources: `departments`, `owners`, `teachers`, `staff`, `students`. This ensures a staff member with read permission on *any* member resource sees the Members nav item.
 

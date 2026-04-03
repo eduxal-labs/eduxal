@@ -4,7 +4,9 @@ import '../client.dart';
 import '../database/database.dart';
 import '../database/daos/members_dao.dart';
 import '../database/tables/enums.dart';
+import '../models/permissions.dart';
 import '../models/result.dart';
+import '../models/school_permissions.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Domain errors
@@ -23,6 +25,9 @@ enum MemberActionError {
 
   /// The caller attempted to remove themselves (e.g. owner removing self).
   cannotRemoveSelf,
+
+  /// The caller lacks the required permission for this operation.
+  permissionDenied,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -44,16 +49,26 @@ class MemberManagementService {
   ///
   /// Only non-null parameters are written. A log UPDATE entry is enqueued
   /// automatically by the DAO.
+  ///
+  /// When [permissions] is provided, verifies the caller has
+  /// `Resource.teachers` / `Action.update` before proceeding.
   Future<Result<void, MemberActionError>> updateTeacher({
     required String schoolId,
     required String userId,
     String? role,
     String? department,
     DateTime? hiredDate,
+    SchoolPermissions? permissions,
   }) async {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
       return const Err(MemberActionError.noActiveAccount);
+    }
+
+    // Permission guard (defense-in-depth)
+    if (permissions != null &&
+        !permissions.can(Resource.teachers, Action.update)) {
+      return const Err(MemberActionError.permissionDenied);
     }
 
     try {
@@ -84,14 +99,24 @@ class MemberManagementService {
   }
 
   /// Changes a teacher's status (e.g. active → resigned).
+  ///
+  /// When [permissions] is provided, verifies the caller has
+  /// `Resource.teachers` / `Action.update` before proceeding.
   Future<Result<void, MemberActionError>> changeTeacherStatus({
     required String schoolId,
     required String userId,
     required TeacherStatus status,
+    SchoolPermissions? permissions,
   }) async {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
       return const Err(MemberActionError.noActiveAccount);
+    }
+
+    // Permission guard (defense-in-depth)
+    if (permissions != null &&
+        !permissions.can(Resource.teachers, Action.update)) {
+      return const Err(MemberActionError.permissionDenied);
     }
 
     try {
@@ -114,13 +139,23 @@ class MemberManagementService {
   }
 
   /// Removes a teacher from a school.
+  ///
+  /// When [permissions] is provided, verifies the caller has
+  /// `Resource.teachers` / `Action.delete` before proceeding.
   Future<Result<void, MemberActionError>> removeTeacher({
     required String schoolId,
     required String userId,
+    SchoolPermissions? permissions,
   }) async {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
       return const Err(MemberActionError.noActiveAccount);
+    }
+
+    // Permission guard (defense-in-depth)
+    if (permissions != null &&
+        !permissions.can(Resource.teachers, Action.delete)) {
+      return const Err(MemberActionError.permissionDenied);
     }
 
     try {
@@ -142,16 +177,26 @@ class MemberManagementService {
   ///
   /// Only non-null parameters are written. A log UPDATE entry is enqueued
   /// automatically by the DAO.
+  ///
+  /// When [permissions] is provided, verifies the caller has
+  /// `Resource.staff` / `Action.update` before proceeding.
   Future<Result<void, MemberActionError>> updateStaff({
     required String schoolId,
     required String userId,
     String? role,
     String? department,
     String? idNumber,
+    SchoolPermissions? permissions,
   }) async {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
       return const Err(MemberActionError.noActiveAccount);
+    }
+
+    // Permission guard (defense-in-depth)
+    if (permissions != null &&
+        !permissions.can(Resource.staff, Action.update)) {
+      return const Err(MemberActionError.permissionDenied);
     }
 
     try {
@@ -180,14 +225,24 @@ class MemberManagementService {
   }
 
   /// Changes a staff member's status (e.g. active → resigned).
+  ///
+  /// When [permissions] is provided, verifies the caller has
+  /// `Resource.staff` / `Action.update` before proceeding.
   Future<Result<void, MemberActionError>> changeStaffStatus({
     required String schoolId,
     required String userId,
     required StaffStatus status,
+    SchoolPermissions? permissions,
   }) async {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
       return const Err(MemberActionError.noActiveAccount);
+    }
+
+    // Permission guard (defense-in-depth)
+    if (permissions != null &&
+        !permissions.can(Resource.staff, Action.update)) {
+      return const Err(MemberActionError.permissionDenied);
     }
 
     try {
@@ -207,13 +262,23 @@ class MemberManagementService {
   }
 
   /// Removes a staff member from a school.
+  ///
+  /// When [permissions] is provided, verifies the caller has
+  /// `Resource.staff` / `Action.delete` before proceeding.
   Future<Result<void, MemberActionError>> removeStaff({
     required String schoolId,
     required String userId,
+    SchoolPermissions? permissions,
   }) async {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
       return const Err(MemberActionError.noActiveAccount);
+    }
+
+    // Permission guard (defense-in-depth)
+    if (permissions != null &&
+        !permissions.can(Resource.staff, Action.delete)) {
+      return const Err(MemberActionError.permissionDenied);
     }
 
     try {
@@ -235,13 +300,23 @@ class MemberManagementService {
   ///
   /// Returns [MemberActionError.cannotRemoveSelf] if the caller attempts
   /// to remove their own owner row.
+  ///
+  /// When [permissions] is provided, verifies the caller has
+  /// `Resource.owners` / `Action.delete` before proceeding.
   Future<Result<void, MemberActionError>> removeOwner({
     required String schoolId,
     required String userId,
+    SchoolPermissions? permissions,
   }) async {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
       return const Err(MemberActionError.noActiveAccount);
+    }
+
+    // Permission guard (defense-in-depth)
+    if (permissions != null &&
+        !permissions.can(Resource.owners, Action.delete)) {
+      return const Err(MemberActionError.permissionDenied);
     }
 
     if (userId == accountId) {
@@ -272,6 +347,9 @@ class MemberManagementService {
   ///   • `null` → no change to user field
   ///   • empty string → unlink current user (set user to null)
   ///   • non-empty → lookup user by phone; link if found locally, server resolves
+  ///
+  /// When [permissions] is provided, verifies the caller has
+  /// `Resource.students` / `Action.update` before proceeding.
   Future<Result<void, MemberActionError>> updateStudent({
     required String schoolId,
     required int adm,
@@ -279,10 +357,17 @@ class MemberManagementService {
     DateTime? dob,
     Gender? gender,
     String? phone,
+    SchoolPermissions? permissions,
   }) async {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
       return const Err(MemberActionError.noActiveAccount);
+    }
+
+    // Permission guard (defense-in-depth)
+    if (permissions != null &&
+        !permissions.can(Resource.students, Action.update)) {
+      return const Err(MemberActionError.permissionDenied);
     }
 
     try {
@@ -338,14 +423,24 @@ class MemberManagementService {
   }
 
   /// Changes a student's status (e.g. active → expelled).
+  ///
+  /// When [permissions] is provided, verifies the caller has
+  /// `Resource.students` / `Action.update` before proceeding.
   Future<Result<void, MemberActionError>> changeStudentStatus({
     required String schoolId,
     required int adm,
     required StudentStatus status,
+    SchoolPermissions? permissions,
   }) async {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
       return const Err(MemberActionError.noActiveAccount);
+    }
+
+    // Permission guard (defense-in-depth)
+    if (permissions != null &&
+        !permissions.can(Resource.students, Action.update)) {
+      return const Err(MemberActionError.permissionDenied);
     }
 
     try {
@@ -373,16 +468,28 @@ class MemberManagementService {
   ///
   /// Only non-null parameters are written. A log UPDATE entry is enqueued
   /// automatically by the DAO.
+  ///
+  /// When [permissions] is provided, verifies the caller has
+  /// `Resource.students` / `Action.update` before proceeding (guardians are
+  /// managed under the students resource per AGENT.md §17a).
   Future<Result<void, MemberActionError>> updateGuardian({
     required String schoolId,
     required String userId,
     required int studentAdm,
     GuardianRelationship? relationship,
     GuardianRole? role,
+    SchoolPermissions? permissions,
   }) async {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
       return const Err(MemberActionError.noActiveAccount);
+    }
+
+    // Permission guard (defense-in-depth)
+    // Guardians fall under the Students resource per AGENT.md §17a.
+    if (permissions != null &&
+        !permissions.can(Resource.students, Action.update)) {
+      return const Err(MemberActionError.permissionDenied);
     }
 
     try {
@@ -411,14 +518,26 @@ class MemberManagementService {
   }
 
   /// Removes a guardian link from a student.
+  ///
+  /// When [permissions] is provided, verifies the caller has
+  /// `Resource.students` / `Action.delete` before proceeding (guardians are
+  /// managed under the students resource per AGENT.md §17a).
   Future<Result<void, MemberActionError>> removeGuardian({
     required String schoolId,
     required String userId,
     required int studentAdm,
+    SchoolPermissions? permissions,
   }) async {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
       return const Err(MemberActionError.noActiveAccount);
+    }
+
+    // Permission guard (defense-in-depth)
+    // Guardians fall under the Students resource per AGENT.md §17a.
+    if (permissions != null &&
+        !permissions.can(Resource.students, Action.delete)) {
+      return const Err(MemberActionError.permissionDenied);
     }
 
     try {

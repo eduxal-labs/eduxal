@@ -5,6 +5,7 @@ import 'package:flutter/material.dart' hide Action;
 
 import '../../../client.dart';
 import '../../../database/database.dart';
+import '../../../database/tables/enums.dart';
 import '../../../database/daos/terms_dao.dart';
 import '../../../models/active_term_context.dart';
 import '../../../models/membership.dart';
@@ -120,15 +121,46 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
       }
     }
 
+    // ── 1b. Also load system-scoped scopes for elevated users ────────────────
+    // Per AGENT.md §17: "System users can also be school members — system +
+    // school roles merge." System-scoped scopes have school IS NULL.
+    if (user.level == UserLevel.system || user.level == UserLevel.super_) {
+      final systemScopesRows = await (db.select(
+        db.scopes,
+      )..where((t) => t.user.equals(user.id) & t.school.isNull())).get();
+
+      final systemRoleIds = systemScopesRows.map((s) => s.role).toList();
+
+      if (systemRoleIds.isNotEmpty) {
+        final systemRolesRows = await (db.select(
+          db.roles,
+        )..where((t) => t.id.isIn(systemRoleIds))).get();
+
+        for (final r in systemRolesRows) {
+          final parsed = parsePermissions(r.permissions);
+          if (parsed.isNotEmpty) {
+            aggregated = aggregated.union(Permissions(parsed));
+          }
+        }
+      }
+
+      debugPrint(
+        '[SchoolDashboard] Loaded ${scopesRows.length} school scopes + '
+        '${systemScopesRows.length} system scopes, '
+        '${roleIds.length} school roles + ${systemRoleIds.length} system roles '
+        'for user ${user.id} at school $schoolId',
+      );
+    } else {
+      debugPrint(
+        '[SchoolDashboard] Loaded ${scopesRows.length} scopes, '
+        '${roleIds.length} roles for user ${user.id} at school $schoolId',
+      );
+    }
+
     final permissions = SchoolPermissions(
       schoolId: schoolId,
       userId: user.id,
       permissions: aggregated,
-    );
-
-    debugPrint(
-      '[SchoolDashboard] Loaded ${scopesRows.length} scopes, '
-      '${roleIds.length} roles for user ${user.id} at school $schoolId',
     );
     debugPrint('[SchoolDashboard] Aggregated permissions: $aggregated');
 

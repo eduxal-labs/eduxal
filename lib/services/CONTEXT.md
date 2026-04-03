@@ -86,26 +86,28 @@ Handles post-creation lifecycle actions for all member types: editing fields, ch
 **Constructor:** `MemberManagementService(MembersDao dao)`
 
 **Error type (defined in same file):**
-- `MemberActionError` — enum: `noActiveAccount`, `notFound`, `databaseError`, `cannotRemoveSelf`.
+- `MemberActionError` — enum: `noActiveAccount`, `notFound`, `databaseError`, `cannotRemoveSelf`, `permissionDenied`.
 
-| Method | Signature | Description |
-|---|---|---|
-| `updateTeacher` | `Future<Result<void, MemberActionError>> updateTeacher({required String schoolId, required String userId, String? role, String? department, DateTime? hiredDate})` | Updates mutable fields on a teacher row. Only non-null params are written. |
-| `changeTeacherStatus` | `Future<Result<void, MemberActionError>> changeTeacherStatus({required String schoolId, required String userId, required TeacherStatus status})` | Changes a teacher's status (e.g. active → resigned). |
-| `removeTeacher` | `Future<Result<void, MemberActionError>> removeTeacher({required String schoolId, required String userId})` | Removes a teacher from a school. |
-| `updateStaff` | `Future<Result<void, MemberActionError>> updateStaff({required String schoolId, required String userId, String? role, String? department, String? idNumber})` | Updates mutable fields on a staff row. |
-| `changeStaffStatus` | `Future<Result<void, MemberActionError>> changeStaffStatus({required String schoolId, required String userId, required StaffStatus status})` | Changes a staff member's status. |
-| `removeStaff` | `Future<Result<void, MemberActionError>> removeStaff({required String schoolId, required String userId})` | Removes a staff member from a school. |
-| `removeOwner` | `Future<Result<void, MemberActionError>> removeOwner({required String schoolId, required String userId})` | Removes an owner. Returns `cannotRemoveSelf` if caller tries to remove themselves. |
-| `updateStudent` | `Future<Result<void, MemberActionError>> updateStudent({required String schoolId, required int adm, String? name, DateTime? dob, Gender? gender})` | Updates mutable fields on a student row. |
-| `changeStudentStatus` | `Future<Result<void, MemberActionError>> changeStudentStatus({required String schoolId, required int adm, required StudentStatus status})` | Changes a student's status (e.g. active → expelled). |
-| `updateGuardian` | `Future<Result<void, MemberActionError>> updateGuardian({required String schoolId, required String userId, required int studentAdm, GuardianRelationship? relationship, GuardianRole? role})` | Updates mutable fields on a guardian row. |
-| `removeGuardian` | `Future<Result<void, MemberActionError>> removeGuardian({required String schoolId, required String userId, required int studentAdm})` | Removes a guardian link from a student. |
+All mutation methods accept an optional `SchoolPermissions? permissions` parameter for defense-in-depth RBAC enforcement. When provided, the method checks the caller has the required `Resource`/`Action` before proceeding; when `null`, the check is skipped (backward compatible with existing callers).
+
+| Method | Signature | Permission Guard | Description |
+|---|---|---|---|
+| `updateTeacher` | `Future<Result<void, MemberActionError>> updateTeacher({required String schoolId, required String userId, String? role, String? department, DateTime? hiredDate, SchoolPermissions? permissions})` | `Resource.teachers` / `Action.update` | Updates mutable fields on a teacher row. Only non-null params are written. |
+| `changeTeacherStatus` | `Future<Result<void, MemberActionError>> changeTeacherStatus({required String schoolId, required String userId, required TeacherStatus status, SchoolPermissions? permissions})` | `Resource.teachers` / `Action.update` | Changes a teacher's status (e.g. active → resigned). |
+| `removeTeacher` | `Future<Result<void, MemberActionError>> removeTeacher({required String schoolId, required String userId, SchoolPermissions? permissions})` | `Resource.teachers` / `Action.delete` | Removes a teacher from a school. |
+| `updateStaff` | `Future<Result<void, MemberActionError>> updateStaff({required String schoolId, required String userId, String? role, String? department, String? idNumber, SchoolPermissions? permissions})` | `Resource.staff` / `Action.update` | Updates mutable fields on a staff row. |
+| `changeStaffStatus` | `Future<Result<void, MemberActionError>> changeStaffStatus({required String schoolId, required String userId, required StaffStatus status, SchoolPermissions? permissions})` | `Resource.staff` / `Action.update` | Changes a staff member's status. |
+| `removeStaff` | `Future<Result<void, MemberActionError>> removeStaff({required String schoolId, required String userId, SchoolPermissions? permissions})` | `Resource.staff` / `Action.delete` | Removes a staff member from a school. |
+| `removeOwner` | `Future<Result<void, MemberActionError>> removeOwner({required String schoolId, required String userId, SchoolPermissions? permissions})` | `Resource.owners` / `Action.delete` | Removes an owner. Returns `cannotRemoveSelf` if caller tries to remove themselves. |
+| `updateStudent` | `Future<Result<void, MemberActionError>> updateStudent({required String schoolId, required int adm, String? name, DateTime? dob, Gender? gender, String? phone, SchoolPermissions? permissions})` | `Resource.students` / `Action.update` | Updates mutable fields on a student row. |
+| `changeStudentStatus` | `Future<Result<void, MemberActionError>> changeStudentStatus({required String schoolId, required int adm, required StudentStatus status, SchoolPermissions? permissions})` | `Resource.students` / `Action.update` | Changes a student's status (e.g. active → expelled). |
+| `updateGuardian` | `Future<Result<void, MemberActionError>> updateGuardian({required String schoolId, required String userId, required int studentAdm, GuardianRelationship? relationship, GuardianRole? role, SchoolPermissions? permissions})` | `Resource.students` / `Action.update` | Updates mutable fields on a guardian row. Guardians fall under Students resource per §17a. |
+| `removeGuardian` | `Future<Result<void, MemberActionError>> removeGuardian({required String schoolId, required String userId, required int studentAdm, SchoolPermissions? permissions})` | `Resource.students` / `Action.delete` | Removes a guardian link from a student. Guardians fall under Students resource per §17a. |
 
 **Internal helpers:**
 - `_dateToDaysSinceEpoch(DateTime date) → int` — static helper converting DateTime to days since epoch for date columns.
 
-**Dependencies:** `database/daos/members_dao.dart`, `database/database.dart` (for generated companion types), `database/tables/enums.dart`, `models/result.dart`, `client.dart` (for global `cache`).
+**Dependencies:** `database/daos/members_dao.dart`, `database/database.dart` (for generated companion types), `database/tables/enums.dart`, `models/result.dart`, `models/permissions.dart`, `models/school_permissions.dart`, `client.dart` (for global `cache`).
 
 ---
 
@@ -224,4 +226,4 @@ Wraps the `QuestionBank` gRPC service for question bank operations. Handles CRUD
 - `client.dart` is the only file that holds the gRPC `ClientChannel`. Services receive the channel (or a service client) via constructor injection.
 
 ## Last Updated
-Task 20 — Final CONTEXT.md sweep for question bank feature. No content changes needed — all 15 methods (7 CRUD + 5 paper gen + 3 marking) already documented by Tasks 03–05. Previous: Tasks 04 & 05 — Extended `QuestionBankService` (`question_bank.dart`) with paper generation methods (`generatePaper`, `regenerateQuestion`, `editPaperQuestion`, `finalizePaper`, `getPaperPdf`), marking status methods (`getMarkingStatus`, `getQuestionGrades`), and a convenience polling stream (`watchMarkingStatus`). New model imports: `paper_generation.dart`, `marking_status.dart`, `question_grade.dart` (all under `models` prefix).
+Task A5 — Added defense-in-depth permission guards to all `MemberManagementService` mutation methods. Each method now accepts an optional `SchoolPermissions? permissions` parameter; when provided, verifies the caller holds the required `Resource`/`Action` before proceeding. New `permissionDenied` variant added to `MemberActionError` enum. New imports: `models/permissions.dart`, `models/school_permissions.dart`. Previous: Task 20.

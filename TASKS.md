@@ -119,7 +119,7 @@ In `_initializeSession()` (~L92–130), when a System user enters a school dashb
 
 ---
 
-### Task A5: Service layer has zero permission checks — relies entirely on UI
+### Task A5: Service layer has zero permission checks — relies entirely on UI ✅
 
 **Files to modify:** `lib/services/member_management.dart`, `lib/services/members.dart`
 **Context files to read:** `lib/models/permissions.dart`, `lib/models/school_permissions.dart`
@@ -140,8 +140,8 @@ At minimum, add permission guards to:
 - All owner/guardian/student mutation methods similarly
 
 **Update after completion:**
-- [ ] Update `lib/services/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/services/CONTEXT.md`
+- [x] Mark this task `[x]`
 - [ ] Git commit: `git add -A && git commit -m "fix: add permission guards to service layer mutation methods"`
 
 ---
