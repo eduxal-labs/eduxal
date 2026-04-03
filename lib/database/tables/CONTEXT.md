@@ -39,7 +39,7 @@ The 36 tables break down as:
 | `scheme_pages.dart` | `SchemePages` | `SchemePagesData` | `school`, `exam`, `subject`, `paper` (nullable), `page` | ✅ Complete |
 | `payments.dart` | `Payments` | `PaymentsData` | `id` (TEXT) | ✅ Complete |
 | `plans.dart` | `Plans` | `PlansData` | `id` (TEXT) | ✅ Complete |
-| `roles.dart` | `Roles` | `RolesData` | `id` (TEXT) | ✅ Complete |
+| `roles.dart` | `Roles` | `RolesData` | `id` (TEXT) | ✅ Complete — `permissions` column migrated from `TextColumn` to `BlobColumn` (Task A01) |
 | `schools.dart` | `Schools` | `SchoolsData` | `id` (TEXT) | ✅ Complete |
 | `scopes.dart` | `Scopes` | `ScopesData` | `school`, `user`, `role` | ✅ Complete |
 | `settings.dart` | `Settings` | `SettingsData` | `school` (TEXT) | ✅ Complete |
@@ -161,8 +161,6 @@ These are referenced by `lib/models/curriculum_levels.dart` and `lib/models/scho
 - Boolean columns use `BoolColumn` (Drift maps to INTEGER 0/1 automatically).
 
 ## Last Updated
-Tasks C3–C8 (File Sync — Marking Schemes & Answer Sheets):
-- Created `scheme_pages.dart` — `SchemePages` table. Mirrors server `scheme_pages`. Composite PK `(school, exam, subject, paper, page)` with nullable `paper`; declared via `customConstraints` (Drift limitation). FK to `schools`, `exams`, `subjects`.
-- Created `answer_pages.dart` — `AnswerPages` table. Mirrors server `answer_pages`. Composite PK `(school, exam, student, subject, paper, page)` with nullable `paper`. FK to `schools`, `exams`, `students`, `subjects`.
-- Added `SyncAction` values: `uploadScheme(91)`, `deleteScheme(92)`, `uploadAnswerSheet(93)`, `deleteAnswerSheet(94)`. Enum now has **81 values**.
-- File count is now **37** (36 table definitions + 1 enums).
+Task A01 — Migrated `roles.permissions` from `TextColumn` (`String`) to `BlobColumn` (`Uint8List`). The column now stores the canonical binary blob format: `[resource_id: u8, actions_lo: u8, actions_hi: u8]` triplets per AGENT.md §17a. All callers updated to use `parsePermissionsBlob()` / `Permissions(map).toBlob()`. Schema migration in `database.dart` (v9→v10) recreates the `roles` table and converts existing text permissions to blob.
+
+Previous: Tasks C3–C8 (File Sync — Marking Schemes & Answer Sheets).

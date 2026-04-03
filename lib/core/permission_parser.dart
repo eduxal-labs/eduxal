@@ -11,7 +11,61 @@ import '../models/permissions.dart';
 // Extracted from lib/ui/screens/school_dashboard/roles/_role_helpers.dart.
 // See BUG-011 and BUG-012 in BUG.md for the history behind the resilient
 // multi-format parser.
+//
+// As of Task A01 the `roles.permissions` column is a `BlobColumn` storing the
+// canonical binary blob format `[resource_id: u8, actions_lo: u8, actions_hi:
+// u8]` triplets.  The new canonical parser is [parsePermissionsBlob].
+// [parsePermissions] is retained (deprecated) only for the schema migration
+// that converts old text data to blob.
 // ─────────────────────────────────────────────────────────────────────────────
+
+/// Parses permissions from a [Uint8List] blob — the canonical storage format
+/// as of schema version 10 (`roles.permissions` is now a `BlobColumn`).
+///
+/// The canonical encoding is `[resource_id: u8, actions_lo: u8, actions_hi:
+/// u8]` triplets (see [Permissions.fromBlob]).
+///
+/// As a **fallback** for data that may still be UTF-8-encoded JSON (e.g. rows
+/// that survived a partial migration or delta-writer edge cases), the function
+/// also tries to interpret the bytes as a UTF-8 JSON string and parse via the
+/// legacy [parsePermissions] path.
+///
+/// Never throws — returns an empty map on null/empty/bad input.
+Map<Resource, int> parsePermissionsBlob(Uint8List? blob) {
+  if (blob == null || blob.isEmpty) return {};
+
+  // ── Attempt 1: canonical binary blob ─────────────────────────────────────
+  final perms = Permissions.fromBlob(blob);
+  if (perms.isNotEmpty) {
+    final result = Map<Resource, int>.from(perms.map);
+    debugPrint(
+      '[parsePermissionsBlob] Parsed binary blob: ${result.length} resources',
+    );
+    return result;
+  }
+
+  // ── Attempt 2: bytes might be UTF-8 JSON (legacy / migration compat) ────
+  try {
+    final json = utf8.decode(blob);
+    // ignore: deprecated_member_use_from_same_package
+    final legacy = parsePermissions(json);
+    if (legacy.isNotEmpty) {
+      debugPrint(
+        '[parsePermissionsBlob] Parsed via UTF-8 JSON fallback: '
+        '${legacy.length} resources',
+      );
+      return legacy;
+    }
+  } catch (_) {
+    // Not valid UTF-8 — that's fine, just means the blob was truly empty or
+    // in an unknown format.
+  }
+
+  debugPrint(
+    '[parsePermissionsBlob] No permissions parsed from ${blob.length} bytes',
+  );
+  return {};
+}
 
 /// Parses the JSON string stored in `roles.permissions` into a mutable
 /// `Map<Resource, int>` bitmask map.
@@ -24,6 +78,14 @@ import '../models/permissions.dart';
 ///      (format 1) or as a raw binary blob (format 2).
 ///
 /// Never throws — always returns an empty map on bad input.
+///
+/// **Deprecated:** As of Task A01 the `roles.permissions` column is a
+/// `BlobColumn`.  Use [parsePermissionsBlob] for all new code.  This function
+/// is retained only for the schema migration that converts old text rows and
+/// for the delta-writer fallback path.
+@Deprecated(
+  'Use parsePermissionsBlob() — roles.permissions is now a blob column',
+)
 Map<Resource, int> parsePermissions(String? jsonStr) {
   if (jsonStr == null ||
       jsonStr.isEmpty ||
@@ -110,13 +172,15 @@ Map<Resource, int> parsePermissions(String? jsonStr) {
 }
 
 /// Serialises a `Map<Resource, int>` bitmask map back to the JSON string
-/// format stored in `roles.permissions`.
+/// format formerly stored in `roles.permissions`.
 ///
 /// Output shape: `[{"resource": "users", "actions": ["read", "create"]}, …]`
+///
+/// **Deprecated:** As of Task A01 the column is a `BlobColumn`.  Use
+/// `Permissions(map).toBlob()` instead.  This function is retained only for
+/// the schema migration and for debug logging.
 @Deprecated(
-  'Use Permissions(map).toBlob() for sync payloads. '
-  'This function is retained only for writing to the local DB '
-  'roles.permissions text column.',
+  'Use Permissions(map).toBlob() — roles.permissions is now a blob column.',
 )
 String serialisePermissions(Map<Resource, int> perms) {
   final list = <Map<String, dynamic>>[];

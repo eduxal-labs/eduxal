@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart' hide Action;
@@ -101,8 +102,26 @@ const _kActionIcons = <String, IconData>{
 // Permission helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-Map<String, bool> _parsePermissions(String json) {
+Map<String, bool> _parsePermissions(Uint8List blob) {
+  if (blob.isEmpty) return {};
+
+  // Try canonical binary blob format first
+  final perms = Permissions.fromBlob(blob);
+  if (perms.isNotEmpty) {
+    final result = <String, bool>{};
+    for (final entry in perms.map.entries) {
+      for (final action in Action.values) {
+        if (entry.value & action.mask != 0) {
+          result['${entry.key.name}.${action.name}'] = true;
+        }
+      }
+    }
+    return result;
+  }
+
+  // Fallback: try UTF-8 JSON decode (legacy / migration compat)
   try {
+    final json = utf8.decode(blob);
     final decoded = jsonDecode(json);
     if (decoded is List) {
       final result = <String, bool>{};
@@ -125,20 +144,22 @@ Map<String, bool> _parsePermissions(String json) {
   return {};
 }
 
-String _serialisePermissions(Map<String, bool> perms) {
-  final grouped = <String, List<String>>{};
-  for (final e in perms.entries) {
-    if (!e.value) continue;
-    final parts = e.key.split('.');
+Uint8List _serialisePermissions(Map<String, bool> perms) {
+  final map = <Resource, int>{};
+  for (final entry in perms.entries) {
+    if (!entry.value) continue;
+    final parts = entry.key.split('.');
     if (parts.length < 2) continue;
-    final resource = parts.first;
-    final action = parts.skip(1).join('.');
-    grouped.putIfAbsent(resource, () => []).add(action);
+    final resourceName = parts.first;
+    final actionName = parts.skip(1).join('.');
+    final resource = Resource.values
+        .where((r) => r.name == resourceName)
+        .firstOrNull;
+    final action = Action.values.where((a) => a.name == actionName).firstOrNull;
+    if (resource == null || action == null) continue;
+    map[resource] = (map[resource] ?? 0) | action.mask;
   }
-  final list = grouped.entries
-      .map((e) => {'resource': e.key, 'actions': e.value})
-      .toList();
-  return jsonEncode(list);
+  return Permissions(map).toBlob();
 }
 
 Map<String, List<String>> _groupByResource(Map<String, bool> perms) {
@@ -915,7 +936,7 @@ class _PermissionsTabState extends State<_PermissionsTab> {
       if (verifyRows.isNotEmpty) {
         final saved = verifyRows.first;
         debugPrint(
-          '[PermTab._save] VERIFY permissions in DB: ${saved.permissions}',
+          '[PermTab._save] VERIFY permissions in DB: ${saved.permissions.length} bytes',
         );
         debugPrint('[PermTab._save] VERIFY updated in DB: ${saved.updated}');
       } else {

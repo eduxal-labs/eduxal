@@ -1762,13 +1762,14 @@ class $RolesTable extends Roles with TableInfo<$RolesTable, Role> {
     'permissions',
   );
   @override
-  late final GeneratedColumn<String> permissions = GeneratedColumn<String>(
-    'permissions',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
+  late final GeneratedColumn<Uint8List> permissions =
+      GeneratedColumn<Uint8List>(
+        'permissions',
+        aliasedName,
+        false,
+        type: DriftSqlType.blob,
+        requiredDuringInsert: true,
+      );
   static const VerificationMeta _createdMeta = const VerificationMeta(
     'created',
   );
@@ -1894,7 +1895,7 @@ class $RolesTable extends Roles with TableInfo<$RolesTable, Role> {
         data['${effectivePrefix}description'],
       ),
       permissions: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
+        DriftSqlType.blob,
         data['${effectivePrefix}permissions'],
       )!,
       created: attachedDatabase.typeMapping.read(
@@ -1919,7 +1920,7 @@ class Role extends DataClass implements Insertable<Role> {
   final String? school;
   final String name;
   final String? description;
-  final String permissions;
+  final Uint8List permissions;
   final BigInt created;
   final BigInt updated;
   const Role({
@@ -1942,7 +1943,7 @@ class Role extends DataClass implements Insertable<Role> {
     if (!nullToAbsent || description != null) {
       map['description'] = Variable<String>(description);
     }
-    map['permissions'] = Variable<String>(permissions);
+    map['permissions'] = Variable<Uint8List>(permissions);
     map['created'] = Variable<BigInt>(created);
     map['updated'] = Variable<BigInt>(updated);
     return map;
@@ -1974,7 +1975,7 @@ class Role extends DataClass implements Insertable<Role> {
       school: serializer.fromJson<String?>(json['school']),
       name: serializer.fromJson<String>(json['name']),
       description: serializer.fromJson<String?>(json['description']),
-      permissions: serializer.fromJson<String>(json['permissions']),
+      permissions: serializer.fromJson<Uint8List>(json['permissions']),
       created: serializer.fromJson<BigInt>(json['created']),
       updated: serializer.fromJson<BigInt>(json['updated']),
     );
@@ -1987,7 +1988,7 @@ class Role extends DataClass implements Insertable<Role> {
       'school': serializer.toJson<String?>(school),
       'name': serializer.toJson<String>(name),
       'description': serializer.toJson<String?>(description),
-      'permissions': serializer.toJson<String>(permissions),
+      'permissions': serializer.toJson<Uint8List>(permissions),
       'created': serializer.toJson<BigInt>(created),
       'updated': serializer.toJson<BigInt>(updated),
     };
@@ -1998,7 +1999,7 @@ class Role extends DataClass implements Insertable<Role> {
     Value<String?> school = const Value.absent(),
     String? name,
     Value<String?> description = const Value.absent(),
-    String? permissions,
+    Uint8List? permissions,
     BigInt? created,
     BigInt? updated,
   }) => Role(
@@ -2041,8 +2042,15 @@ class Role extends DataClass implements Insertable<Role> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, school, name, description, permissions, created, updated);
+  int get hashCode => Object.hash(
+    id,
+    school,
+    name,
+    description,
+    $driftBlobEquality.hash(permissions),
+    created,
+    updated,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2051,7 +2059,7 @@ class Role extends DataClass implements Insertable<Role> {
           other.school == this.school &&
           other.name == this.name &&
           other.description == this.description &&
-          other.permissions == this.permissions &&
+          $driftBlobEquality.equals(other.permissions, this.permissions) &&
           other.created == this.created &&
           other.updated == this.updated);
 }
@@ -2061,7 +2069,7 @@ class RolesCompanion extends UpdateCompanion<Role> {
   final Value<String?> school;
   final Value<String> name;
   final Value<String?> description;
-  final Value<String> permissions;
+  final Value<Uint8List> permissions;
   final Value<BigInt> created;
   final Value<BigInt> updated;
   final Value<int> rowid;
@@ -2080,7 +2088,7 @@ class RolesCompanion extends UpdateCompanion<Role> {
     this.school = const Value.absent(),
     required String name,
     this.description = const Value.absent(),
-    required String permissions,
+    required Uint8List permissions,
     required BigInt created,
     required BigInt updated,
     this.rowid = const Value.absent(),
@@ -2094,7 +2102,7 @@ class RolesCompanion extends UpdateCompanion<Role> {
     Expression<String>? school,
     Expression<String>? name,
     Expression<String>? description,
-    Expression<String>? permissions,
+    Expression<Uint8List>? permissions,
     Expression<BigInt>? created,
     Expression<BigInt>? updated,
     Expression<int>? rowid,
@@ -2116,7 +2124,7 @@ class RolesCompanion extends UpdateCompanion<Role> {
     Value<String?>? school,
     Value<String>? name,
     Value<String?>? description,
-    Value<String>? permissions,
+    Value<Uint8List>? permissions,
     Value<BigInt>? created,
     Value<BigInt>? updated,
     Value<int>? rowid,
@@ -2149,7 +2157,7 @@ class RolesCompanion extends UpdateCompanion<Role> {
       map['description'] = Variable<String>(description.value);
     }
     if (permissions.present) {
-      map['permissions'] = Variable<String>(permissions.value);
+      map['permissions'] = Variable<Uint8List>(permissions.value);
     }
     if (created.present) {
       map['created'] = Variable<BigInt>(created.value);
@@ -25631,7 +25639,7 @@ typedef $$RolesTableCreateCompanionBuilder =
       Value<String?> school,
       required String name,
       Value<String?> description,
-      required String permissions,
+      required Uint8List permissions,
       required BigInt created,
       required BigInt updated,
       Value<int> rowid,
@@ -25642,7 +25650,7 @@ typedef $$RolesTableUpdateCompanionBuilder =
       Value<String?> school,
       Value<String> name,
       Value<String?> description,
-      Value<String> permissions,
+      Value<Uint8List> permissions,
       Value<BigInt> created,
       Value<BigInt> updated,
       Value<int> rowid,
@@ -25713,7 +25721,7 @@ class $$RolesTableFilterComposer extends Composer<_$AppDatabase, $RolesTable> {
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get permissions => $composableBuilder(
+  ColumnFilters<Uint8List> get permissions => $composableBuilder(
     column: $table.permissions,
     builder: (column) => ColumnFilters(column),
   );
@@ -25801,7 +25809,7 @@ class $$RolesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get permissions => $composableBuilder(
+  ColumnOrderings<Uint8List> get permissions => $composableBuilder(
     column: $table.permissions,
     builder: (column) => ColumnOrderings(column),
   );
@@ -25860,7 +25868,7 @@ class $$RolesTableAnnotationComposer
     builder: (column) => column,
   );
 
-  GeneratedColumn<String> get permissions => $composableBuilder(
+  GeneratedColumn<Uint8List> get permissions => $composableBuilder(
     column: $table.permissions,
     builder: (column) => column,
   );
@@ -25952,7 +25960,7 @@ class $$RolesTableTableManager
                 Value<String?> school = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<String?> description = const Value.absent(),
-                Value<String> permissions = const Value.absent(),
+                Value<Uint8List> permissions = const Value.absent(),
                 Value<BigInt> created = const Value.absent(),
                 Value<BigInt> updated = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -25972,7 +25980,7 @@ class $$RolesTableTableManager
                 Value<String?> school = const Value.absent(),
                 required String name,
                 Value<String?> description = const Value.absent(),
-                required String permissions,
+                required Uint8List permissions,
                 required BigInt created,
                 required BigInt updated,
                 Value<int> rowid = const Value.absent(),

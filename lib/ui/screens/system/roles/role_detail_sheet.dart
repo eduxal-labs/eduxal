@@ -1,4 +1,4 @@
-import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart' hide Action;
@@ -54,7 +54,7 @@ class _RoleDetailSheetState extends State<RoleDetailSheet> {
     super.initState();
     _nameCtrl = TextEditingController(text: widget.role.name);
     _descCtrl = TextEditingController(text: widget.role.description ?? '');
-    _editPermissions = _parsePermissions(widget.role.permissions);
+    _editPermissions = _parsePermissionsFromBlob(widget.role.permissions);
   }
 
   @override
@@ -66,52 +66,45 @@ class _RoleDetailSheetState extends State<RoleDetailSheet> {
 
   // ── Permission parsing ─────────────────────────────────────────────────────
 
-  /// Parses the raw JSON permissions string (list-of-objects format) into a
-  /// flat `Map<String, bool>` keyed by `"resource.action"`.
+  /// Parses a binary blob from `roles.permissions` into a flat
+  /// `Map<String, bool>` keyed by `"resource.action"`.
   ///
-  /// Input format: `[{"resource": "users", "actions": ["read", "create"]}]`
-  /// Output: `{"users.read": true, "users.create": true}`
-  static Map<String, bool> _parsePermissions(String json) {
-    try {
-      final decoded = jsonDecode(json);
-      if (decoded is List) {
-        final result = <String, bool>{};
-        for (final entry in decoded) {
-          if (entry is Map<String, dynamic>) {
-            final resource = entry['resource'];
-            final actions = entry['actions'];
-            if (resource is String && actions is List) {
-              for (final action in actions) {
-                if (action is String) {
-                  result['$resource.$action'] = true;
-                }
-              }
-            }
-          }
+  /// Uses [Permissions.fromBlob] to decode the canonical triplet format,
+  /// then expands each resource/action pair into the string-keyed map that
+  /// the system role UI widgets expect.
+  static Map<String, bool> _parsePermissionsFromBlob(Uint8List blob) {
+    final perms = Permissions.fromBlob(blob);
+    final result = <String, bool>{};
+    for (final entry in perms.map.entries) {
+      for (final action in Action.values) {
+        if (entry.value & action.mask != 0) {
+          result['${entry.key.name}.${action.name}'] = true;
         }
-        return result;
       }
-    } catch (_) {}
-    return {};
+    }
+    return result;
   }
 
-  /// Serialises the current [_editPermissions] to a JSON string in the
-  /// list-of-objects format: `[{"resource": "users", "actions": ["read"]}]`.
-  String _serialisePermissions() {
-    // Group truthy entries by resource.
-    final grouped = <String, List<String>>{};
+  /// Serialises the current [_editPermissions] to a [Uint8List] blob in the
+  /// canonical `[resource_id: u8, actions_lo: u8, actions_hi: u8]` format.
+  Uint8List _serialisePermissionsToBlob() {
+    final map = <Resource, int>{};
     for (final e in _editPermissions.entries) {
       if (!e.value) continue;
       final parts = e.key.split('.');
       if (parts.length < 2) continue;
-      final resource = parts.first;
-      final action = parts.skip(1).join('.');
-      grouped.putIfAbsent(resource, () => []).add(action);
+      final resourceName = parts.first;
+      final actionName = parts.skip(1).join('.');
+      final resource = Resource.values
+          .where((r) => r.name == resourceName)
+          .firstOrNull;
+      final action = Action.values
+          .where((a) => a.name == actionName)
+          .firstOrNull;
+      if (resource == null || action == null) continue;
+      map[resource] = (map[resource] ?? 0) | action.mask;
     }
-    final list = grouped.entries
-        .map((e) => {'resource': e.key, 'actions': e.value})
-        .toList();
-    return jsonEncode(list);
+    return Permissions(map).toBlob();
   }
 
   // ── Group permissions for display ─────────────────────────────────────────
@@ -139,7 +132,7 @@ class _RoleDetailSheetState extends State<RoleDetailSheet> {
     setState(() {
       _nameCtrl.text = current.name;
       _descCtrl.text = current.description ?? '';
-      _editPermissions = _parsePermissions(current.permissions);
+      _editPermissions = _parsePermissionsFromBlob(current.permissions);
       _editing = true;
       _saveError = null;
     });
@@ -171,7 +164,7 @@ class _RoleDetailSheetState extends State<RoleDetailSheet> {
         RolesCompanion(
           name: Value(name),
           description: Value(desc.isEmpty ? null : desc),
-          permissions: Value(_serialisePermissions()),
+          permissions: Value(_serialisePermissionsToBlob()),
           updated: Value(nowSeconds),
         ),
         accountId: accountId,
@@ -504,7 +497,9 @@ class _ViewBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final perms = _RoleDetailSheetState._parsePermissions(role.permissions);
+    final perms = _RoleDetailSheetState._parsePermissionsFromBlob(
+      role.permissions,
+    );
     final grouped = _RoleDetailSheetState._groupByResource(perms);
 
     if (grouped.isEmpty) {

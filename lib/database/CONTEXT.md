@@ -14,7 +14,7 @@ All tables are defined in `tables/`, all query logic lives in `daos/`, and the `
 
 | File | Status | Description |
 |---|---|---|
-| `database.dart` | ✅ Complete | `AppDatabase` class — registers all 35 tables + all DAOs. Schema version **9**. `MigrationStrategy.onUpgrade` handles: v1→v2 (add `accounts.lastSeq` column), v2→v3 (drop+recreate `logs` table for action-based model), v3→v4 (drop overly-restrictive unique indexes on exams), v4→v5 (create `paper_submissions` table), v5→v6 (add `accounts.theme` column), v6→v7 (add `papers.grade`/`stream`, drop `exam_grades`, recreate triggers), v7→v8 (rebuild `papers` and `grades` tables for new composite PK shape), v8→v9 (create `scheme_pages` and `answer_pages` tables). `onCreate` applies triggers + indexes as raw SQL. Singleton accessed via global `db` variable set in `client.dart`'s `initializeClient()`. |
+| `database.dart` | ✅ Complete | `AppDatabase` class — registers all 35 tables + all DAOs. Schema version **10**. `MigrationStrategy.onUpgrade` handles: v1→v2 (add `accounts.lastSeq` column), v2→v3 (drop+recreate `logs` table for action-based model), v3→v4 (drop overly-restrictive unique indexes on exams), v4→v5 (create `paper_submissions` table), v5→v6 (add `accounts.theme` column), v6→v7 (add `papers.grade`/`stream`, drop `exam_grades`, recreate triggers), v7→v8 (rebuild `papers` and `grades` tables for new composite PK shape), v8→v9 (create `scheme_pages` and `answer_pages` tables), v9→v10 (migrate `roles.permissions` from TEXT to BLOB — table recreation with data conversion via `parsePermissions()` → `Permissions.toBlob()`). `onCreate` applies triggers + indexes as raw SQL. Singleton accessed via global `db` variable set in `client.dart`'s `initializeClient()`. |
 | `database.g.dart` | ✅ Generated | Drift code-gen output — `part of` `database.dart`. Contains all generated data classes (`UsersData`, `SchoolsData`, `AccountsData`, etc.) and table accessors. **Never edit manually.** Regenerate with `dart run build_runner build`. |
 
 ## Subdirectories
@@ -81,13 +81,9 @@ The `logs` table was redesigned in Task C2 from a mutation-tracking model (`tbl`
 **Added enums:** `SyncAction` (81 values, explicit `int value` per entry) + `SyncActionConverter`.
 
 ## Last Updated
-Tasks C3–C8 (File Sync — Marking Schemes & Answer Sheets):
-- Created `tables/scheme_pages.dart` (`SchemePages` table — PK: school, exam, subject, paper?, page; stores S3 key per scheme page).
-- Created `tables/answer_pages.dart` (`AnswerPages` table — PK: school, exam, student, subject, paper?, page; stores S3 key per answer page).
-- Bumped `schemaVersion` 8 → **9**. Added `from < 9` migration: `m.createTable(schemePages)` + `m.createTable(answerPages)`.
-- Added `SchemePages` and `AnswerPages` to `@DriftDatabase(tables: [...])` list (after `AiUsage`, before `Scopes`).
-- Added `await delete(schemePages).go()` and `await delete(answerPages).go()` to `deleteAllData()` (before `paperSubmissions`).
-- Added `uploadScheme(91)`, `deleteScheme(92)`, `uploadAnswerSheet(93)`, `deleteAnswerSheet(94)` to `SyncAction` enum → now **81 values**.
-- Added `logUploadScheme`, `logDeleteScheme`, `logUploadAnswerSheet`, `logDeleteAnswerSheet` methods to `ExamsGradesDao`.
+Task A01 — Migrate `roles.permissions` from TEXT to BLOB:
+- Bumped `schemaVersion` 9 → **10**. Added `from < 10` migration: table-recreation pattern for `roles` — reads existing text permissions, creates `roles_new` with BLOB column, copies data converting text → binary blob via `parsePermissions()` → `Permissions(map).toBlob()`, drops old table, renames. Indexes on roles are recreated by `_createTriggersAndIndexes()` in `beforeOpen`.
+- Added imports for `permission_parser.dart` and `models/permissions.dart` in `database.dart`.
+- `database.g.dart` regenerated — `Role.permissions` type changed from `String` to `Uint8List`, `RolesCompanion.permissions` changed from `Value<String>` to `Value<Uint8List>`.
 
-Previous: Task C1 — Added `AiUsageDao` to `daos/`. No database schema changes. Schema version was 5 at that point.
+Previous: Tasks C3–C8 (File Sync) — schema version 9, added scheme_pages and answer_pages tables.

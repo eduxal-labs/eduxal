@@ -50,7 +50,7 @@ Track C (Navigation/Routing) ─┘   Track D (Reactivity) ──┘
 
 ## Track A: CRITICAL — Permission & Security
 
-### Task A01: Migrate `roles.permissions` column from TextColumn to BlobColumn
+### Task A01: Migrate `roles.permissions` column from TextColumn to BlobColumn ✅
 **Files to create/modify:** `lib/database/tables/roles.dart`, `lib/database/database.dart`, `lib/core/permission_parser.dart`, `lib/models/system_permissions.dart`
 **Context files to read (if needed):** `lib/database/tables/CONTEXT.md`, `lib/database/CONTEXT.md`, `lib/models/CONTEXT.md`
 **Depends on:** None
@@ -131,11 +131,11 @@ Per AGENT.md §17a, `roles.permissions` must be a `blob` column storing binary `
    - Any file that references `r.permissions` from a `RolesData` row
 
 **Update after completion:**
-- [ ] Update `lib/database/tables/CONTEXT.md` — change roles.permissions from text to blob
-- [ ] Update `lib/database/CONTEXT.md` — note new schema version
-- [ ] Update `lib/models/CONTEXT.md` — update RolePermissions type
-- [ ] Update `lib/core/CONTEXT.md` — note parsePermissionsBlob addition
-- [ ] Mark this task `[x]`
+- [x] Update `lib/database/tables/CONTEXT.md` — change roles.permissions from text to blob
+- [x] Update `lib/database/CONTEXT.md` — note new schema version
+- [x] Update `lib/models/CONTEXT.md` — update RolePermissions type
+- [x] Update `lib/core/CONTEXT.md` — note parsePermissionsBlob addition
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---

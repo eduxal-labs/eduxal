@@ -1,10 +1,13 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../core/permission_parser.dart';
+import '../models/permissions.dart';
 import 'tables/enums.dart';
 
 import 'daos/accounts_dao.dart';
@@ -285,7 +288,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -562,6 +565,62 @@ class AppDatabase extends _$AppDatabase {
         // Add scheme_pages and answer_pages tables for file sync.
         await m.createTable(schemePages);
         await m.createTable(answerPages);
+      }
+      if (from < 10) {
+        // Migrate roles.permissions from TEXT to BLOB (Task A01).
+        // SQLite cannot alter a column's type in-place, so we recreate the
+        // table with the correct schema and copy the data across, converting
+        // text permissions to binary blob format along the way.
+        await customStatement('PRAGMA foreign_keys = OFF');
+
+        // Drop indexes that reference the roles table — they will be
+        // recreated idempotently by _createTriggersAndIndexes() in beforeOpen.
+        await customStatement('DROP INDEX IF EXISTS roles_school_name_idx');
+        await customStatement('DROP INDEX IF EXISTS roles_system_name_idx');
+
+        // 1. Read all existing text permissions before we touch the table.
+        final existingRows = await customSelect(
+          'SELECT id, permissions FROM roles',
+        ).get();
+
+        // 2. Create new table with BLOB column.
+        await customStatement('''
+          CREATE TABLE roles_new (
+            id TEXT PRIMARY KEY NOT NULL,
+            school TEXT REFERENCES schools(id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            description TEXT,
+            permissions BLOB NOT NULL,
+            created INTEGER NOT NULL,
+            updated INTEGER NOT NULL
+          )
+        ''');
+
+        // 3. Copy all rows with empty blob placeholder.
+        await customStatement('''
+          INSERT INTO roles_new (id, school, name, description, permissions, created, updated)
+          SELECT id, school, name, description, X'', created, updated
+          FROM roles
+        ''');
+
+        // 4. Convert each row's text permissions to binary blob.
+        for (final row in existingRows) {
+          final id = row.read<String>('id');
+          final textPerms = row.read<String>('permissions');
+          // ignore: deprecated_member_use_from_same_package
+          final parsed = parsePermissions(textPerms);
+          final blob = Permissions(parsed).toBlob();
+          await customStatement(
+            'UPDATE roles_new SET permissions = ? WHERE id = ?',
+            [blob, id],
+          );
+        }
+
+        // 5. Drop old table, rename new.
+        await customStatement('DROP TABLE roles');
+        await customStatement('ALTER TABLE roles_new RENAME TO roles');
+
+        await customStatement('PRAGMA foreign_keys = ON');
       }
     },
     onCreate: (m) async {

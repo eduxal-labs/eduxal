@@ -1,12 +1,15 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 
+import '../core/permission_parser.dart';
 import '../database/database.dart';
 import '../database/tables/curriculum_subjects.dart';
 import '../database/tables/enums.dart';
 import '../database/tables/mpesa.dart';
+import '../models/permissions.dart';
 import '../proto/services/sync.pb.dart';
 
 /// Receives [SyncDelta] proto messages from the server and writes them
@@ -1316,21 +1319,34 @@ class DeltaWriter {
   /// Decodes the protobuf `bytes` field for role permissions back to a JSON
   /// string suitable for storage in the Drift `roles.permissions` text column.
   ///
-  /// The server stores and returns the same bytes the client originally sent
-  /// (UTF-8-encoded JSON). We try `utf8.decode` first. If that fails (e.g. the
-  /// server returns raw binary blob bytes), we fall back to `base64Encode` so
-  /// that [parsePermissions] in `_role_helpers.dart` can still recover it via
-  /// its base64 fallback path.
-  String _decodePermissions(List<int> bytes) {
+  /// Converts proto permission bytes into the canonical binary blob format
+  /// (`[resource_id: u8, actions_lo: u8, actions_hi: u8]` triplets) for
+  /// storage in the `roles.permissions` blob column.
+  ///
+  /// The server may send bytes in two formats:
+  /// 1. Canonical binary blob — store as-is.
+  /// 2. UTF-8-encoded JSON (legacy) — parse via [parsePermissions] then
+  ///    re-encode to blob via [Permissions.toBlob].
+  Uint8List _convertPermissionsToBlob(List<int> bytes) {
+    if (bytes.isEmpty) return Uint8List(0);
+
+    final blob = Uint8List.fromList(bytes);
+
+    // Try canonical binary blob first
+    final fromBlob = Permissions.fromBlob(blob);
+    if (fromBlob.isNotEmpty) return blob;
+
+    // Fallback: try UTF-8 JSON decode (legacy server format)
     try {
       final json = utf8.decode(bytes);
-      // Verify it's valid JSON before storing
-      jsonDecode(json);
-      return json;
+      // ignore: deprecated_member_use
+      final parsed = parsePermissions(json);
+      if (parsed.isNotEmpty) return Permissions(parsed).toBlob();
     } catch (_) {
-      // Fallback: store as base64 — parsePermissions knows how to handle it
-      return base64Encode(bytes);
+      // Not valid UTF-8 — unknown format
     }
+
+    return Uint8List(0);
   }
 
   Future<void> _applyRoles(SyncDelta delta) async {
@@ -1350,7 +1366,7 @@ class DeltaWriter {
             school: Value(row.hasSchool() ? row.school : null),
             name: Value(row.name),
             description: Value(row.hasDescription() ? row.description : null),
-            permissions: Value(_decodePermissions(row.permissions)),
+            permissions: Value(_convertPermissionsToBlob(row.permissions)),
             created: Value(now),
             updated: Value(now),
           ),

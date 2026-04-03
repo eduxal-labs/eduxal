@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart';
 
 import '../core/permission_parser.dart';
@@ -17,15 +19,13 @@ import 'permissions.dart';
 /// [canAll] API regardless of user level, keeping the call sites uniform.
 ///
 /// ### Permission storage format
-/// The `roles.permissions` column currently stores data as `text()` in Drift,
-/// but the data may be in **multiple formats** due to the transition period:
-/// 1. Standard JSON objects: `[{"resource": "users", "actions": ["read"]}]`
-/// 2. JSON integer arrays (old seeder): `[5,2,0,7,2,0,...]` — raw binary blob
-///    bytes serialised as a JSON array of ints.
-/// 3. Base64-encoded strings (old delta writer bug).
+/// The `roles.permissions` column stores data as `blob()` in Drift — a binary
+/// `Uint8List` using the canonical `[resource_id: u8, actions_lo: u8,
+/// actions_hi: u8]` triplet encoding per AGENT.md §17a.
 ///
-/// This class uses [parsePermissions] from `lib/core/permission_parser.dart`
-/// which handles all three formats resilently. See BUG-012 in BUG.md.
+/// This class uses [parsePermissionsBlob] from `lib/core/permission_parser.dart`
+/// which handles the canonical blob format and falls back to legacy text
+/// formats for migration compatibility. See BUG-012 in BUG.md.
 ///
 /// ### Internal representation
 /// This class delegates to [Permissions] which holds a `Map<Resource, int>`
@@ -51,9 +51,9 @@ class SystemPermissions {
   /// level shortcut in [can] handles them.
   ///
   /// For [UserLevel.system] and [UserLevel.normal] users, each role's
-  /// `permissions` column is parsed using [parsePermissions] which handles
-  /// all known storage formats (standard JSON, seeder int-array JSON,
-  /// base64-encoded strings). All permissions across all roles are unioned
+  /// `permissions` column is parsed using [parsePermissionsBlob] which handles
+  /// the canonical binary blob format and falls back to legacy text formats
+  /// for migration compatibility. All permissions across all roles are unioned
   /// into a single [Permissions] instance.
   ///
   /// [roles] should be the list of [RolePermissions] objects obtained by
@@ -75,7 +75,7 @@ class SystemPermissions {
 
     for (final role in roles) {
       try {
-        final map = parsePermissions(role.permissionsData);
+        final map = parsePermissionsBlob(role.permissionsData);
         if (map.isNotEmpty) {
           final parsed = Permissions(map);
           merged = merged.union(parsed);
@@ -86,7 +86,7 @@ class SystemPermissions {
           );
         }
       } catch (e, st) {
-        // parsePermissions is designed to never throw, but guard defensively.
+        // parsePermissionsBlob is designed to never throw, but guard defensively.
         debugPrint(
           '[SystemPermissions] Unexpected error parsing permissions for '
           'role "${role.roleName}" (${role.roleId}): $e\n$st',
@@ -176,12 +176,12 @@ class SystemPermissions {
 // Supporting value type
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// A lightweight container carrying the raw permissions data string from a
+/// A lightweight container carrying the raw permissions data blob from a
 /// single `roles` row, used when building a [SystemPermissions] instance.
 ///
-/// The [permissionsData] field is format-agnostic — it may contain standard
-/// JSON, a JSON integer array (seeder format), or a base64-encoded string.
-/// [SystemPermissions.forUser] uses [parsePermissions] to handle all formats.
+/// The [permissionsData] field is the binary blob from the `roles.permissions`
+/// `blob()` column — canonical format is `[resource_id, lo, hi]` triplets.
+/// [SystemPermissions.forUser] uses [parsePermissionsBlob] to decode it.
 ///
 /// Callers construct these from a joined `scopes + roles` query.
 class RolePermissions {
@@ -197,9 +197,10 @@ class RolePermissions {
   /// The `roles.name` value — useful for debugging / display.
   final String roleName;
 
-  /// The raw data from `roles.permissions` (currently a `text()` column).
+  /// The raw data from `roles.permissions` (`blob()` column).
   ///
-  /// May be in any of the known storage formats — standard JSON, seeder
-  /// int-array JSON, or base64-encoded string. See BUG-012.
-  final String permissionsData;
+  /// Canonical format: binary `[resource_id: u8, actions_lo: u8, actions_hi: u8]`
+  /// triplets per AGENT.md §17a. May contain legacy text-encoded data from
+  /// pre-migration rows (handled by [parsePermissionsBlob] fallback).
+  final Uint8List permissionsData;
 }

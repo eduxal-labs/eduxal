@@ -581,9 +581,11 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
     try {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
-      final json = serialisePermissions(_permissions);
-      debugPrint('[_RoleFormSheet._save] serialised: $json');
-      debugPrint('[_RoleFormSheet._save] roundtrip: ${parsePermissions(json)}');
+      final blob = Permissions(_permissions).toBlob();
+      debugPrint('[_RoleFormSheet._save] blob: ${blob.length} bytes');
+      debugPrint(
+        '[_RoleFormSheet._save] roundtrip: ${parsePermissionsBlob(blob)}',
+      );
 
       final desc = _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim();
 
@@ -593,7 +595,7 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
           RolesCompanion(
             name: Value(_nameCtrl.text.trim()),
             description: Value(desc),
-            permissions: Value(json),
+            permissions: Value(blob),
             updated: Value(nowMs),
           ),
           accountId: user.id,
@@ -606,7 +608,7 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
             school: Value(widget.schoolId),
             name: Value(_nameCtrl.text.trim()),
             description: Value(desc),
-            permissions: Value(json),
+            permissions: Value(blob),
             created: Value(nowMs),
             updated: Value(nowMs),
           ),

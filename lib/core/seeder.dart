@@ -2184,9 +2184,9 @@ class _SeederImpl {
     _roleId = _id();
 
     // Create a "Teacher" role with teaching-related permissions.
-    // Build a Map<Resource, int> using the typed enums, then serialise to
-    // the standard JSON format: [{"resource": "students", "actions": ["read"]}, ...]
-    // This is the same format produced by serialisePermissions() in _role_helpers.dart.
+    // Build a Map<Resource, int> using the typed enums, then encode to the
+    // canonical binary blob format: [resource_id: u8, actions_lo: u8,
+    // actions_hi: u8] triplets per AGENT.md §17a.
     final permMap = <Resource, int>{
       Resource.students: Action.read.mask,
       Resource.classes: Action.read.mask,
@@ -2200,20 +2200,8 @@ class _SeederImpl {
       Resource.announcements: Action.read.mask,
     };
 
-    // Serialise to the standard JSON list-of-objects format that
-    // Permissions.fromJson() can parse directly.
-    final permList = <Map<String, dynamic>>[];
-    for (final entry in permMap.entries) {
-      if (entry.value == 0) continue;
-      final actions = Action.values
-          .where((a) => entry.value & a.mask != 0)
-          .map((a) => a.name)
-          .toList();
-      if (actions.isNotEmpty) {
-        permList.add({'resource': entry.key.name, 'actions': actions});
-      }
-    }
-    final permJson = jsonEncode(permList);
+    // Encode to canonical binary blob format for the blob column.
+    final permBlob = Permissions(permMap).toBlob();
 
     await _db
         .into(_db.roles)
@@ -2223,7 +2211,7 @@ class _SeederImpl {
             school: Value(_schoolId),
             name: 'Teacher',
             description: const Value('Standard teaching staff permissions'),
-            permissions: permJson,
+            permissions: permBlob,
             created: _pastSec(365),
             updated: _nowSec,
           ),
@@ -2236,7 +2224,7 @@ class _SeederImpl {
         school: _schoolId,
         name: 'Teacher',
         description: 'Standard teaching staff permissions',
-        permissions: utf8.encode(permJson),
+        permissions: permBlob,
       ),
     );
 

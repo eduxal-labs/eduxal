@@ -322,7 +322,7 @@ class _HeaderSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final perms = parsePermissions(role.permissions);
+    final perms = parsePermissionsBlob(role.permissions);
     final totalPerms = countPermissions(perms);
     final totalResources = perms.entries.where((e) => e.value != 0).length;
 
@@ -688,8 +688,10 @@ class _PermissionsTabState extends State<_PermissionsTab> {
 
   void _resetFromRole(Role role) {
     debugPrint('[_resetFromRole] role.id=${role.id}, updated=${role.updated}');
-    debugPrint('[_resetFromRole] raw permissions="${role.permissions}"');
-    _originalPermissions = parsePermissions(role.permissions);
+    debugPrint(
+      '[_resetFromRole] raw permissions blob: ${role.permissions.length} bytes',
+    );
+    _originalPermissions = parsePermissionsBlob(role.permissions);
     debugPrint(
       '[_resetFromRole] parsed ${_originalPermissions.length} resources: $_originalPermissions',
     );
@@ -811,11 +813,13 @@ class _PermissionsTabState extends State<_PermissionsTab> {
         _editPermissions.entries.where((e) => e.value != 0),
       );
 
-      final serialised = serialisePermissions(cleaned);
+      final serialised = Permissions(cleaned).toBlob();
       debugPrint('[PermTab._save] roleId=${widget.role.id}');
       debugPrint('[PermTab._save] cleaned map: $cleaned');
-      debugPrint('[PermTab._save] serialised: $serialised');
-      debugPrint('[PermTab._save] roundtrip: ${parsePermissions(serialised)}');
+      debugPrint('[PermTab._save] serialised blob: ${serialised.length} bytes');
+      debugPrint(
+        '[PermTab._save] roundtrip: ${parsePermissionsBlob(serialised)}',
+      );
       debugPrint('[PermTab._save] new updated=$nowMs');
 
       await widget.dao.updateRole(
@@ -831,10 +835,10 @@ class _PermissionsTabState extends State<_PermissionsTab> {
       if (verifyRows.isNotEmpty) {
         final saved = verifyRows.first;
         debugPrint(
-          '[PermTab._save] VERIFY permissions in DB: ${saved.permissions}',
+          '[PermTab._save] VERIFY permissions in DB: ${saved.permissions.length} bytes',
         );
         debugPrint('[PermTab._save] VERIFY updated in DB: ${saved.updated}');
-        final roundtrip = parsePermissions(saved.permissions);
+        final roundtrip = parsePermissionsBlob(saved.permissions);
         debugPrint('[PermTab._save] VERIFY roundtrip parse: $roundtrip');
         if (roundtrip.isEmpty && cleaned.isNotEmpty) {
           debugPrint(

@@ -107,13 +107,14 @@ Bitmask-based permission model. See AGENT.md §17a.
 System-level permissions with level-based shortcuts. Now wraps [Permissions] bitmask model.
 - `super_` users → all permissions granted unconditionally (bypass).
 - `system` users → roles parsed and permissions enforced, same as normal users but with system-scoped roles (where `scopes.school IS NULL`). **Not** treated as super users.
-- `normal` users → [Permissions] bitmask parsed from `roles.permissions` via resilient multi-format `parsePermissions()` from `lib/core/permission_parser.dart`.
+- `normal` users → [Permissions] bitmask parsed from `roles.permissions` (now a `blob()` column storing `Uint8List`) via `parsePermissionsBlob()` from `lib/core/permission_parser.dart`.
 - **API:** `can(Resource, Action)`, `canAny(Resource, List<Action>)`, `canAll(Resource, List<Action>)` — typed Resource/Action parameters (no more string keys).
 - **Factory:** `SystemPermissions.forUser(UserLevel level, List<RolePermissions> roles)`.
-- **Helper type:** `RolePermissions` — `{roleId, roleName, permissionsData}` (renamed from `permissionsJson` in Task A2 to be format-agnostic).
+- **Helper type:** `RolePermissions` — `{roleId, roleName, permissionsData}` where `permissionsData` is `Uint8List` (changed from `String` in Task A01).
 - **Fix (Task P1):** Removed `|| level == UserLevel.system` shortcut. Only `UserLevel.super_` bypasses.
 - **Fix (Task P2):** Replaced `Set<String>` with `Permissions` bitmask model. `can()` signature changed from `can(String)` to `can(Resource, Action)`.
-- **Fix (Task A2):** `forUser()` now uses `parsePermissions()` (from `lib/core/permission_parser.dart`) instead of raw `jsonDecode` + `Permissions.fromJson`. Handles all three permission storage formats (standard JSON, seeder int-array JSON, base64-encoded strings). Logs warnings via `debugPrint` instead of silently swallowing parse failures.
+- **Fix (Task A2):** `forUser()` now uses `parsePermissionsBlob()` (from `lib/core/permission_parser.dart`) instead of raw `jsonDecode` + `Permissions.fromJson`. Handles the canonical binary blob format and falls back to legacy text formats for migration compatibility. Logs warnings via `debugPrint` instead of silently swallowing parse failures.
+- **Fix (Task A01):** `RolePermissions.permissionsData` changed from `String` to `Uint8List` to match the `roles.permissions` blob column. `forUser()` switched from `parsePermissions()` to `parsePermissionsBlob()`.
 
 ### `ActiveTermContext` — `active_term_context.dart`
 In-memory session object tracking which academic term the user is viewing.
@@ -233,4 +234,4 @@ Grouping model for the exams UI. Multiple exam rows sharing the same name are pr
 - **`ExamStreamEntry`** — One exam row + its papers for a specific stream. Fields: `exam` (Exam), `streamCode` (int?), `papers` (List<Paper>).
 
 ## Last Updated
-Task A2 — Updated `SystemPermissions` / `RolePermissions` documentation: `permissionsJson` renamed to `permissionsData`, `forUser()` now uses resilient multi-format `parsePermissions()` from `lib/core/permission_parser.dart` (see BUG-012).
+Task A01 — `RolePermissions.permissionsData` changed from `String` to `Uint8List`. `SystemPermissions.forUser()` switched from `parsePermissions()` to `parsePermissionsBlob()`. Reflects `roles.permissions` column migration from text to blob (schema v10).

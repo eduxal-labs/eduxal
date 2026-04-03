@@ -1,4 +1,4 @@
-import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:bson/bson.dart';
 import 'package:drift/drift.dart' hide Column;
@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/tables/enums.dart';
+import '../../../../models/permissions.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
 
@@ -245,22 +246,26 @@ class _CreateRoleSheetState extends State<CreateRoleSheet> {
 
   // ── Serialization ──────────────────────────────────────────────────────────
 
-  /// Serialises the current [_permissions] to a JSON string in the
-  /// list-of-objects format: `[{"resource": "users", "actions": ["read"]}]`.
-  String _serialisePermissions() {
-    final grouped = <String, List<String>>{};
+  /// Serialises the current [_permissions] to a [Uint8List] binary blob in the
+  /// canonical `[resource_id: u8, actions_lo: u8, actions_hi: u8]` format.
+  Uint8List _serialisePermissions() {
+    final map = <Resource, int>{};
     for (final e in _permissions.entries) {
       if (!e.value) continue;
       final parts = e.key.split('.');
       if (parts.length < 2) continue;
-      final resource = parts.first;
-      final action = parts.skip(1).join('.');
-      grouped.putIfAbsent(resource, () => []).add(action);
+      final resourceName = parts.first;
+      final actionName = parts.skip(1).join('.');
+      final resource = Resource.values
+          .where((r) => r.name == resourceName)
+          .firstOrNull;
+      final action = Action.values
+          .where((a) => a.name == actionName)
+          .firstOrNull;
+      if (resource == null || action == null) continue;
+      map[resource] = (map[resource] ?? 0) | action.mask;
     }
-    final list = grouped.entries
-        .map((e) => {'resource': e.key, 'actions': e.value})
-        .toList();
-    return jsonEncode(list);
+    return Permissions(map).toBlob();
   }
 
   // ── Validation ──────────────────────────────────────────────────────────────

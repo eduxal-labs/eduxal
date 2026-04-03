@@ -3,7 +3,7 @@ import 'package:flutter/material.dart' hide Action;
 import '../../../../models/permissions.dart';
 
 export '../../../../core/permission_parser.dart'
-    show parsePermissions, serialisePermissions, countPermissions, popcount;
+    show parsePermissions, parsePermissionsBlob, serialisePermissions, countPermissions, popcount;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Resource groupings — uses the typed Resource enum from models/permissions.dart

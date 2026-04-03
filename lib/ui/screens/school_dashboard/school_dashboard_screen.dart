@@ -146,7 +146,7 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
 
       // FIXED — uses resilient parsePermissions from core/permission_parser.dart
       for (final r in rolesRows) {
-        final parsed = parsePermissions(r.permissions);
+        final parsed = parsePermissionsBlob(r.permissions);
         if (parsed.isNotEmpty) {
           aggregated = aggregated.union(Permissions(parsed));
         }
@@ -169,7 +169,7 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
         )..where((t) => t.id.isIn(systemRoleIds))).get();
 
         for (final r in systemRolesRows) {
-          final parsed = parsePermissions(r.permissions);
+          final parsed = parsePermissionsBlob(r.permissions);
           if (parsed.isNotEmpty) {
             aggregated = aggregated.union(Permissions(parsed));
           }

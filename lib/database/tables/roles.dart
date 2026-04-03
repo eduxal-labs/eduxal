@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:drift/drift.dart';
 import 'schools.dart';
 
@@ -10,7 +12,7 @@ class Roles extends Table {
       text().nullable().references(Schools, #id, onDelete: KeyAction.cascade)();
   TextColumn get name => text()();
   TextColumn get description => text().nullable()();
-  TextColumn get permissions => text()(); // JSON map of permissions
+  BlobColumn get permissions => blob()();
   Int64Column get created => int64()();
   Int64Column get updated => int64()();
 

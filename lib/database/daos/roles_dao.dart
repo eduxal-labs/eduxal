@@ -175,7 +175,7 @@ class RolesDao extends DatabaseAccessor<AppDatabase> with _$RolesDaoMixin {
         payload.description = role.description.value!;
       }
       if (role.permissions.present) {
-        final parsed = parsePermissions(role.permissions.value);
+        final parsed = parsePermissionsBlob(role.permissions.value);
         payload.permissions = Permissions(parsed).toBlob();
       }
 
@@ -220,7 +220,7 @@ class RolesDao extends DatabaseAccessor<AppDatabase> with _$RolesDaoMixin {
         hasChanges = true;
       }
       if (changes.permissions.present) {
-        final parsed = parsePermissions(changes.permissions.value);
+        final parsed = parsePermissionsBlob(changes.permissions.value);
         payload.permissions = Permissions(parsed).toBlob();
         hasChanges = true;
       }

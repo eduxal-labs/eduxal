@@ -167,14 +167,15 @@ Shared permission parsing and serialisation utilities, extracted from the roles 
 
 | Function | Signature | Description |
 |---|---|---|
-| `parsePermissions` | `Map<Resource, int> parsePermissions(String? jsonStr)` | Resilient multi-format parser that handles: (1) standard JSON objects via `Permissions.fromJson`, (2) seeder binary-int JSON arrays via `Permissions.fromBlob`, (3) base64-encoded strings via base64 decode → UTF-8 JSON or raw binary blob. Each attempt is logged via `debugPrint`. Falls through gracefully — never throws. Returns empty map for null/empty input. |
-| `serialisePermissions` | `@Deprecated` `String serialisePermissions(Map<Resource, int> perms)` | **Deprecated.** Serialises a `Map<Resource, int>` to the canonical JSON list-of-objects format: `[{"resource": "students", "actions": ["read", "update"]}]`. Retained only for writing to the local DB `roles.permissions` text column. For sync payloads, use `Permissions(map).toBlob()` instead. |
+| `parsePermissionsBlob` | `Map<Resource, int> parsePermissionsBlob(Uint8List? blob)` | **Canonical parser (Task A01).** Parses the binary blob from `roles.permissions` (`BlobColumn`). Tries canonical `[resource_id, lo, hi]` triplets via `Permissions.fromBlob` first; falls back to UTF-8 JSON decode via legacy `parsePermissions` for migration compat. Never throws. Returns empty map for null/empty input. |
+| `parsePermissions` | `@Deprecated` `Map<Resource, int> parsePermissions(String? jsonStr)` | **Deprecated (Task A01).** Resilient multi-format parser that handles: (1) standard JSON objects via `Permissions.fromJson`, (2) seeder binary-int JSON arrays via `Permissions.fromBlob`, (3) base64-encoded strings via base64 decode → UTF-8 JSON or raw binary blob. Retained only for the schema migration (v9→v10) and as a fallback inside `parsePermissionsBlob`. |
+| `serialisePermissions` | `@Deprecated` `String serialisePermissions(Map<Resource, int> perms)` | **Deprecated.** Serialises a `Map<Resource, int>` to the canonical JSON list-of-objects format. Retained only for the schema migration and debug logging. Use `Permissions(map).toBlob()` instead. |
 | `countPermissions` | `int countPermissions(Map<Resource, int> perms)` | Returns the total number of granted individual permission bits across all resources (Hamming weight sum). |
 | `popcount` | `int popcount(int v)` | Hamming weight helper — counts the number of set bits in an integer. |
 
 **Dependencies:** `dart:convert`, `dart:typed_data`, `package:flutter/foundation.dart` (debugPrint), `models/permissions.dart` (Resource, Permissions).
 
-**Depended on by:** `ui/screens/school_dashboard/roles/_role_helpers.dart` (re-export), `ui/screens/school_dashboard/school_dashboard_screen.dart` (session init), `ui/screens/school_dashboard/roles/school_role_detail_screen.dart` (save verification), `database/daos/roles_dao.dart` (`parsePermissions` used to convert JSON text → `Permissions` → binary blob for sync payloads).
+**Depended on by:** `ui/screens/school_dashboard/roles/_role_helpers.dart` (re-export), `ui/screens/school_dashboard/school_dashboard_screen.dart` (session init), `ui/screens/school_dashboard/roles/school_role_detail_screen.dart` (save verification), `database/daos/roles_dao.dart` (`parsePermissionsBlob` used to convert blob → `Permissions` → binary blob for sync payloads), `models/system_permissions.dart` (`parsePermissionsBlob` in `forUser`), `sync/delta_writer.dart` (`parsePermissions` fallback in `_convertPermissionsToBlob`).
 
 ### Seeder — `seeder.dart`
 
@@ -275,4 +276,4 @@ Populates the local Drift database with a realistic Kenyan secondary school for 
 - `applicationId = "com.eduxal.app"`, `android:label = "EduXal"` (set in Task 12)
 
 ## Last Updated
-Task A3 — Deprecated `serialisePermissions()` (retained for local DB text column compat). Sync payloads now use `parsePermissions()` + `Permissions.toBlob()` via `roles_dao.dart`. All 7 files current.
+Task A01 — Added `parsePermissionsBlob(Uint8List?)` as the new canonical parser for the `roles.permissions` blob column. Deprecated `parsePermissions(String?)` (retained for schema migration v9→v10 and fallback inside `parsePermissionsBlob`). Updated `serialisePermissions` deprecation notice. Seeder now produces binary blob via `Permissions(map).toBlob()` instead of JSON string. All 7 files current.
