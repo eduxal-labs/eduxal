@@ -16,6 +16,7 @@ import 'home/system_stats_section.dart';
 import 'roles/roles_section.dart';
 import 'schools/schools_section.dart';
 import 'settings/subjects_section.dart';
+import 'notifications/notifications_section.dart';
 import 'plans/plans_section.dart';
 
 import 'users/invite_user_sheet.dart';
@@ -25,7 +26,7 @@ import 'roles/create_role_sheet.dart';
 import 'members/members_section.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tab index constants — mobile (6 tabs: Home, Users, Members, Schools, Roles, Settings)
+// Tab index constants — mobile (7 tabs: Home, Users, Members, Schools, Roles, Settings, Notifications)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const int _kMobileTabHome = 0;
@@ -37,19 +38,21 @@ const int _kMobileTabSchools = 3;
 // ignore: unused_element
 const int _kMobileTabRoles = 4;
 const int _kMobileTabSettings = 5;
+const int _kMobileTabNotifications = 6;
 
-// Desktop tab indices (5 tabs: Users, Members, Schools, Roles, Settings)
+// Desktop tab indices (6 tabs: Users, Members, Schools, Roles, Settings, Notifications)
 const int _kDesktopTabUsers = 0;
 const int _kDesktopTabMembers = 1;
 const int _kDesktopTabSchools = 2;
 const int _kDesktopTabRoles = 3;
 // ignore: unused_element
 const int _kDesktopTabSettings = 4;
+const int _kDesktopTabNotifications = 5;
 
 /// The fully-functional system dashboard screen.
 ///
 /// **Mobile** (width < [AppTheme.kMobileBreakpoint]):
-/// - Icon-only [EduTabBar] with 6 tabs: Home, Users, Members, Schools, Roles, Settings.
+/// - Icon-only [EduTabBar] with 7 tabs: Home, Users, Members, Schools, Roles, Settings, Notifications.
 /// - Inline back-button row above the tab bar.
 /// - Expandable FAB (create actions) on tabs that support creation.
 ///
@@ -101,9 +104,9 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
   @override
   void initState() {
     super.initState();
-    _mobileTabController = TabController(length: 6, vsync: this);
+    _mobileTabController = TabController(length: 7, vsync: this);
     _mobileTabController.addListener(_onMobileTabChanged);
-    _desktopTabController = TabController(length: 5, vsync: this);
+    _desktopTabController = TabController(length: 6, vsync: this);
 
     _entranceController = AnimationController(
       vsync: this,
@@ -175,8 +178,10 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
 
   bool get _showFab {
     final tab = _mobileTabController.index;
-    // FAB on: Users, Members, Schools, Roles (not Home, not Settings).
-    if (tab == _kMobileTabHome || tab == _kMobileTabSettings) {
+    // FAB on: Users, Members, Schools, Roles (not Home, Settings, or Notifications).
+    if (tab == _kMobileTabHome ||
+        tab == _kMobileTabSettings ||
+        tab == _kMobileTabNotifications) {
       return false;
     }
     return _permissions.can(Resource.users, Action.create) ||
@@ -307,6 +312,7 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
               EduTab(icon: Icons.school_outlined),
               EduTab(icon: Icons.verified_user_outlined),
               EduTab(icon: Icons.settings_outlined),
+              EduTab(icon: Icons.notifications_outlined),
             ],
           ),
           // ── Animated tab content ─────────────────────────────────────
@@ -324,6 +330,7 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
                     SchoolsSection(permissions: _permissions),
                     RolesSection(permissions: _permissions),
                     _SettingsTabBody(permissions: _permissions),
+                    NotificationsSection(accountId: cache.currentUser?.user.id),
                   ],
                 ),
               ),
@@ -793,6 +800,7 @@ class _DesktopBody extends StatelessWidget {
                             EduTab(label: 'Schools'),
                             EduTab(label: 'Roles'),
                             EduTab(label: 'Settings'),
+                            EduTab(label: 'Notifications'),
                           ],
                         ),
                       ),
@@ -852,6 +860,7 @@ class _DesktopBody extends StatelessWidget {
               SchoolsSection(permissions: permissions),
               RolesSection(permissions: permissions),
               _SettingsTabBody(permissions: permissions),
+              NotificationsSection(accountId: accountId),
             ],
           ),
         ),

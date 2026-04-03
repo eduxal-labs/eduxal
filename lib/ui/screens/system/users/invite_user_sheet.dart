@@ -51,6 +51,16 @@ class _InviteUserSheetState extends State<InviteUserSheet> {
   bool _submitting = false;
   bool _submitted = false;
 
+  /// The level to assign to the invited user. Defaults to [UserLevel.normal].
+  /// System users with `Users.Create` and Super users may select
+  /// [UserLevel.system]. Super-level cannot be assigned from this UI (§16a).
+  UserLevel _selectedLevel = UserLevel.normal;
+
+  /// Whether the current user may create system-level users.
+  /// True for Super users (bypass all checks) and System users (who must
+  /// already have `Users.Create` to reach this sheet).
+  bool get _canCreateSystemUser => widget.permissions.isElevated;
+
   @override
   void dispose() {
     _nameCtrl.dispose();
@@ -165,13 +175,18 @@ class _InviteUserSheetState extends State<InviteUserSheet> {
       );
       final email = _emailCtrl.text.trim();
 
+      // SyncAction note: There is no `SyncAction.createUser` — by design,
+      // users are created as side-effects of member creation (§16a). For
+      // standalone user creation (system-level management), inviteUser() uses
+      // `SyncAction.updateUser` + `UpdateUserPayload` as an upsert. The
+      // server handles the "user does not exist" case by creating the row.
       await usersDao.inviteUser(
         UsersCompanion(
           id: Value(id),
           phone: Value(phone),
           name: Value(_nameCtrl.text.trim()),
           email: Value(email.isEmpty ? null : email),
-          level: const Value(UserLevel.normal),
+          level: Value(_selectedLevel),
           status: const Value(UserStatus.invited),
           created: Value(nowSeconds),
           updated: Value(nowSeconds),
@@ -220,6 +235,7 @@ class _InviteUserSheetState extends State<InviteUserSheet> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       constraints: BoxConstraints(
@@ -334,6 +350,58 @@ class _InviteUserSheetState extends State<InviteUserSheet> {
                     textInputAction: TextInputAction.done,
                     onEditingComplete: _submit,
                   ),
+
+                  // ── Level picker (visible to System / Super creators) ───
+                  if (_canCreateSystemUser) ...[
+                    const SizedBox(height: 14),
+                    _FormLabel(label: 'User level', cs: cs),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        for (final level in [
+                          UserLevel.normal,
+                          UserLevel.system,
+                        ])
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ChoiceChip(
+                              label: Text(
+                                level == UserLevel.normal ? 'Normal' : 'System',
+                              ),
+                              selected: _selectedLevel == level,
+                              visualDensity: VisualDensity.compact,
+                              labelStyle: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w400,
+                                color: _selectedLevel == level
+                                    ? cs.onPrimary
+                                    : cs.onSurfaceVariant,
+                              ),
+                              selectedColor: cs.primary,
+                              backgroundColor: isDark
+                                  ? const Color(0xFF1E2A38)
+                                  : cs.surfaceContainerLow,
+                              side: BorderSide(
+                                color: _selectedLevel == level
+                                    ? cs.primary
+                                    : cs.outlineVariant.withValues(alpha: 0.3),
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
+                              onSelected: (sel) {
+                                if (sel) {
+                                  setState(() => _selectedLevel = level);
+                                }
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
 
                   const SizedBox(height: 28),
                 ],

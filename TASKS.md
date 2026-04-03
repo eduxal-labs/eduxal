@@ -1089,7 +1089,7 @@ This is read-only for most owners (subscriptions are managed by system/super use
 
 ---
 
-### Task G1: System user action buttons bypass permission checks (Users, Members, Schools, Roles, Plans)
+### Task G1: System user action buttons bypass permission checks (Users, Members, Schools, Roles, Plans) ✅
 
 **Files to modify:** `lib/ui/screens/system/users/users_section.dart`, `lib/ui/screens/system/members/members_section.dart`, `lib/ui/screens/system/schools/schools_section.dart`, `lib/ui/screens/system/roles/roles_section.dart`, `lib/ui/screens/system/plans/plans_section.dart`
 **Context files to read:** `lib/models/system_permissions.dart`, `lib/models/permissions.dart`
@@ -1196,12 +1196,12 @@ The "SYSTEM" badge (~L253–310) is a tiny 9px text chip in the top bar. A Syste
 3. Optionally, if the user has no school memberships, auto-navigate to the system dashboard.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Git commit: `git add -A && git commit -m "ui: add prominent system dashboard card on home screen"`
 
 ---
 
-### Task G6: _promoteMember doesn't check target user status before elevation
+### Task G6: _promoteMember doesn't check target user status before elevation ✅
 
 **Files to modify:** `lib/ui/screens/system/members/members_section.dart`
 **Context files to read:** None

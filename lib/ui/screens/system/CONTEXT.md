@@ -132,12 +132,26 @@ System sections check `SystemPermissions` before rendering sensitive actions:
 | Action | Required permission |
 |---|---|
 | View users | `users.read` (auto-granted for system/super_ levels) |
-| Edit user level/status | `users.update` |
+| Promote/demote/suspend/restore user | `users.update` |
+| Delete user (soft) | `users.delete` |
+| Purge user | Only `UserLevel.super_` (`canSeeDeleted`) |
+| Suspend/restore/demote member | `users.update` |
+| Delete member (soft) | `users.delete` |
+| Promote member to Super | Only `UserLevel.super_` + target must be `UserStatus.active` |
+| Purge member | Only `UserLevel.super_` |
+| Activate/suspend/restore school | `schools.update` |
+| Delete school (soft) | `schools.delete` |
+| Purge school | Only `UserLevel.super_` (`canSeeDeleted`) |
 | Create school | `schools.create` |
-| Delete school | `schools.delete` |
+| Edit role | `roles.update` |
+| Delete role | `roles.delete` |
+| Purge role | Only `UserLevel.super_` |
 | Manage plans | `plans.create`, `plans.update`, `plans.delete` |
-| Manage roles | `roles.create`, `roles.update`, `roles.delete` |
 | See deleted records | Only `UserLevel.super_` (`SystemPermissions.canSeeDeleted`) |
+
+All action buttons in `users_section.dart`, `members_section.dart`, `schools_section.dart`, `roles_section.dart`, and `plans_section.dart` are now permission-gated. Each section computes `canUpdate` / `canDelete` from `widget.permissions.can(Resource.xxx, Action.yyy)` and conditionally includes row actions. Super-only actions (purge, promote-to-super) additionally check `widget.permissions.level == UserLevel.super_` or `canSeeDeleted`.
+
+`_promoteMember` in `members_section.dart` also guards against promoting non-active users: if `user.status != UserStatus.active`, a SnackBar error is shown and the promotion is aborted.
 
 For `UserLevel.super_` users, all permissions are granted unconditionally via `SystemPermissions.superUser()`. `UserLevel.system` users now go through role-based permission loading: `_loadPermissions()` calls `usersDao.getSystemPermissions()` and passes the result to `SystemPermissions.forUser()`, which merges level-based defaults with the user's actual system-scoped role permissions.
 
@@ -154,4 +168,4 @@ For `UserLevel.super_` users, all permissions are granted unconditionally via `S
 - Permission gating uses `SystemPermissions.can(action)` — never raw `UserLevel` checks in UI code (except `canSeeDeleted` which is level-specific by design).
 
 ## Last Updated
-Task A1 — Fixed `_loadPermissions()` to only shortcut `superUser()` for `UserLevel.super_`; system users now fall through to role-based permission loading via `getSystemPermissions()` + `SystemPermissions.forUser()`. Previous: Task 20.
+Tasks G1 + G6 — Added permission checks (`users.update`, `users.delete`, `schools.update`, `schools.delete`) to all action buttons in `users_section.dart`, `members_section.dart`, and `schools_section.dart`. `roles_section.dart` and `plans_section.dart` already had proper checks. Added target-user active-status guard in `_promoteMember` (G6). Previous: Task A1.
