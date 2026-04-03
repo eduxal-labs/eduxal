@@ -12,8 +12,10 @@ import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_empty_state.dart';
 import '../../../widgets/edu_form_field.dart';
 import '../../../widgets/edu_sheet.dart';
+import 'bulk_import_sheet.dart';
 import 'create_question_sheet.dart';
 import 'questions_list_page.dart';
+import 'subject_bulk_import_sheet.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SubjectsSection — global subject catalog management
@@ -512,6 +514,29 @@ class _SubjectTileState extends State<_SubjectTile>
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        if (widget.canCreate) ...[
+                          _TinyAction(
+                            icon: Icons.upload_file_outlined,
+                            tooltip: 'Bulk import questions',
+                            onTap: () {
+                              showEduSheet(
+                                context: context,
+                                maxWidth: 560,
+                                builder: (_) => SubjectBulkImportSheet(
+                                  subjectName: subject.name,
+                                  subjectId: subject.id,
+                                  curriculum: widget.curriculum,
+                                  onImported: () {
+                                    // Trigger rebuild so topic counts refresh
+                                    setState(() {});
+                                  },
+                                ),
+                              );
+                            },
+                            cs: cs,
+                          ),
+                          const SizedBox(width: 2),
+                        ],
                         if (widget.canEdit)
                           _TinyAction(
                             icon: Icons.edit_outlined,
@@ -1602,8 +1627,23 @@ class _TopicExpandedContentState extends State<_TopicExpandedContent> {
               _TinyAction(
                 icon: Icons.file_upload_outlined,
                 tooltip: 'Import questions',
-                // TODO: Task 10 — open BulkImportSheet
-                onTap: () {},
+                onTap: () {
+                  showEduSheet(
+                    context: context,
+                    maxWidth: 520,
+                    builder: (_) => BulkImportSheet(
+                      topicId: widget.topic.id,
+                      topicName: widget.topic.name,
+                      subjectName: widget.subjectName,
+                      onImported: () {
+                        setState(() {
+                          _questionCountFuture = _fetchQuestionCount();
+                        });
+                        widget.onQuestionCountChanged?.call();
+                      },
+                    ),
+                  );
+                },
                 cs: cs,
               ),
             ],
@@ -1662,8 +1702,23 @@ class _TopicExpandedContentState extends State<_TopicExpandedContent> {
 
           // ── Bulk import row ────────────────────────────────────────
           GestureDetector(
-            // TODO: Task 10 — open BulkImportSheet
-            onTap: () {},
+            onTap: () {
+              showEduSheet(
+                context: context,
+                maxWidth: 520,
+                builder: (_) => BulkImportSheet(
+                  topicId: widget.topic.id,
+                  topicName: widget.topic.name,
+                  subjectName: widget.subjectName,
+                  onImported: () {
+                    setState(() {
+                      _questionCountFuture = _fetchQuestionCount();
+                    });
+                    widget.onQuestionCountChanged?.call();
+                  },
+                ),
+              );
+            },
             child: MouseRegion(
               cursor: SystemMouseCursors.click,
               child: Padding(

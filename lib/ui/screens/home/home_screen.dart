@@ -265,10 +265,6 @@ class _HomeScreenState extends State<HomeScreen>
   // ─────────────────────────────────────────────────────────────────────────
 
   Widget _buildTopBar(ThemeData theme, ColorScheme cs, String userId) {
-    final level = cache.currentUser?.user.level;
-    final isPrivileged = level == UserLevel.system || level == UserLevel.super_;
-    final isDark = cs.brightness == Brightness.dark;
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Row(
@@ -283,63 +279,7 @@ class _HomeScreenState extends State<HomeScreen>
               letterSpacing: -0.5,
             ),
           ),
-          // System badge — only for system / super users.
-          if (isPrivileged) ...[
-            const SizedBox(width: 12),
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(4),
-                onTap: () {
-                  Navigator.of(context).push(
-                    PageRouteBuilder(
-                      pageBuilder: (_, _, _) => const SystemDashboardScreen(),
-                      transitionsBuilder: (_, animation, _, child) =>
-                          FadeTransition(opacity: animation, child: child),
-                      transitionDuration: const Duration(milliseconds: 250),
-                    ),
-                  );
-                },
-                child: Ink(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: cs.surfaceContainer,
-                    border: Border.all(
-                      color: isDark
-                          ? cs.outline.withValues(alpha: 0.5)
-                          : cs.outlineVariant,
-                      width: 1,
-                    ),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.shield_outlined,
-                        size: 12,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.75),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        level == UserLevel.super_ ? 'SUPER' : 'SYSTEM',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w500,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.75),
-                          letterSpacing: 1.0,
-                          height: 1.2,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
+
           const Spacer(),
           // Sync status dot — tiny, unobtrusive.
           const SyncIndicator(),
