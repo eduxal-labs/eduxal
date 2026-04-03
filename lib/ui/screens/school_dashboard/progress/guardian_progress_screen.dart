@@ -16,25 +16,29 @@ import '../../../widgets/edu_empty_state.dart';
 import '../../../widgets/student_avatar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Guardian Progress Screen
+// Progress Screen
 //
-// Shows the guardian's ward's academic progress across 4 tabs:
+// Shows a student's academic progress across 4 tabs:
 //   1. Overview  — identity header, 2×2 stats grid, recent exam results
-//   2. Exams     — exam list with per-paper scores for the ward
+//   2. Exams     — exam list with per-paper scores for the student
 //   3. Mastery   — subject-by-subject mastery progress bars
 //   4. Attendance — monthly calendar with summary stats
+//
+// Supports both:
+//   • GuardianEntry — scoped by ward.adm (guardian viewing ward's progress)
+//   • StudentEntry  — scoped by student.adm (student viewing own progress)
 // ─────────────────────────────────────────────────────────────────────────────
 
-class GuardianProgressScreen extends StatefulWidget {
-  const GuardianProgressScreen({super.key, required this.schoolContext});
+class ProgressScreen extends StatefulWidget {
+  const ProgressScreen({super.key, required this.schoolContext});
 
   final SchoolContext schoolContext;
 
   @override
-  State<GuardianProgressScreen> createState() => _GuardianProgressScreenState();
+  State<ProgressScreen> createState() => _ProgressScreenState();
 }
 
-class _GuardianProgressScreenState extends State<GuardianProgressScreen>
+class _ProgressScreenState extends State<ProgressScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
 
@@ -57,13 +61,24 @@ class _GuardianProgressScreenState extends State<GuardianProgressScreen>
     return ValueListenableBuilder<MembershipEntry>(
       valueListenable: widget.schoolContext.currentEntry,
       builder: (context, entry, _) {
-        if (entry is! GuardianEntry) {
+        // Extract the student data from either a GuardianEntry or StudentEntry.
+        final StudentsData? student;
+        if (entry is GuardianEntry) {
+          student = entry.ward;
+        } else if (entry is StudentEntry) {
+          student = entry.student;
+        } else {
+          student = null;
+        }
+
+        if (student == null) {
           return const Center(
-            child: Text('This screen is only available for guardians.'),
+            child: Text(
+              'This screen is only available for students and guardians.',
+            ),
           );
         }
 
-        final ward = entry.ward;
         final schoolId = widget.schoolContext.membership.school.id;
 
         return Column(
@@ -78,18 +93,18 @@ class _GuardianProgressScreenState extends State<GuardianProgressScreen>
                 children: [
                   _OverviewTab(
                     schoolId: schoolId,
-                    ward: ward,
+                    student: student,
                     termContext: termCtx,
                   ),
                   _ExamsTab(
                     schoolId: schoolId,
-                    ward: ward,
+                    student: student,
                     termContext: termCtx,
                   ),
-                  _MasteryTab(schoolId: schoolId, ward: ward),
+                  _MasteryTab(schoolId: schoolId, student: student),
                   _AttendanceTab(
                     schoolId: schoolId,
-                    ward: ward,
+                    student: student,
                     termContext: termCtx,
                   ),
                 ],
@@ -193,12 +208,12 @@ class _ProgressTabBar extends StatelessWidget {
 class _OverviewTab extends StatelessWidget {
   const _OverviewTab({
     required this.schoolId,
-    required this.ward,
+    required this.student,
     required this.termContext,
   });
 
   final String schoolId;
-  final StudentsData ward;
+  final StudentsData student;
   final ActiveTermContext termContext;
 
   @override
@@ -213,7 +228,11 @@ class _OverviewTab extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             children: [
-              _WardIdentityHeader(ward: ward, schoolId: schoolId, term: term),
+              _StudentIdentityHeader(
+                student: student,
+                schoolId: schoolId,
+                term: term,
+              ),
               const SizedBox(height: 16),
               const EduEmptyState(
                 icon: Icons.calendar_today_outlined,
@@ -229,7 +248,7 @@ class _OverviewTab extends StatelessWidget {
 
     // Single grades stream shared by all stat widgets and recent results
     return StreamBuilder<List<Grade>>(
-      stream: ExamsGradesDao(db).watchStudentGrades(schoolId, ward.adm),
+      stream: ExamsGradesDao(db).watchStudentGrades(schoolId, student.adm),
       builder: (context, gradeSnap) {
         final grades = gradeSnap.data ?? [];
 
@@ -239,14 +258,18 @@ class _OverviewTab extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               children: [
-                // ── Ward identity header ─────────────────────────────────────
-                _WardIdentityHeader(ward: ward, schoolId: schoolId, term: term),
+                // ── Student identity header ──────────────────────────────────
+                _StudentIdentityHeader(
+                  student: student,
+                  schoolId: schoolId,
+                  term: term,
+                ),
                 const SizedBox(height: 16),
 
                 // ── 2×2 Stats grid ───────────────────────────────────────────
                 _StatsGrid(
                   schoolId: schoolId,
-                  ward: ward,
+                  student: student,
                   year: term.year,
                   term: term.term,
                   grades: grades,
@@ -268,16 +291,16 @@ class _OverviewTab extends StatelessWidget {
   }
 }
 
-// ── Ward Identity Header ─────────────────────────────────────────────────────
+// ── Student Identity Header ──────────────────────────────────────────────────
 
-class _WardIdentityHeader extends StatelessWidget {
-  const _WardIdentityHeader({
-    required this.ward,
+class _StudentIdentityHeader extends StatelessWidget {
+  const _StudentIdentityHeader({
+    required this.student,
     required this.schoolId,
     required this.term,
   });
 
-  final StudentsData ward;
+  final StudentsData student;
   final String schoolId;
   final Term? term;
 
@@ -297,8 +320,8 @@ class _WardIdentityHeader extends StatelessWidget {
         children: [
           StudentAvatar(
             schoolId: schoolId,
-            adm: ward.adm,
-            name: ward.name,
+            adm: student.adm,
+            name: student.name,
             radius: 22,
           ),
           const SizedBox(width: 12),
@@ -307,7 +330,7 @@ class _WardIdentityHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  ward.name,
+                  student.name,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -316,7 +339,7 @@ class _WardIdentityHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'ADM: ${ward.adm}',
+                  'ADM: ${student.adm}',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
@@ -332,7 +355,7 @@ class _WardIdentityHeader extends StatelessWidget {
                 schoolId: schoolId,
                 year: term!.year,
                 term: term!.term,
-                studentAdm: ward.adm,
+                studentAdm: student.adm,
               ),
               builder: (context, snap) {
                 final enrollment = snap.data;
@@ -368,14 +391,14 @@ class _WardIdentityHeader extends StatelessWidget {
 class _StatsGrid extends StatelessWidget {
   const _StatsGrid({
     required this.schoolId,
-    required this.ward,
+    required this.student,
     required this.year,
     required this.term,
     required this.grades,
   });
 
   final String schoolId;
-  final StudentsData ward;
+  final StudentsData student;
   final int year;
   final int term;
   final List<Grade> grades;
@@ -389,7 +412,7 @@ class _StatsGrid extends StatelessWidget {
             Expanded(
               child: _AttendanceStat(
                 schoolId: schoolId,
-                studentAdm: ward.adm,
+                studentAdm: student.adm,
                 year: year,
                 term: term,
               ),
@@ -406,7 +429,7 @@ class _StatsGrid extends StatelessWidget {
             Expanded(
               child: _ClassRankStat(
                 schoolId: schoolId,
-                studentAdm: ward.adm,
+                studentAdm: student.adm,
                 grades: grades,
               ),
             ),
@@ -787,12 +810,12 @@ class _RecentExamResults extends StatelessWidget {
 class _ExamsTab extends StatelessWidget {
   const _ExamsTab({
     required this.schoolId,
-    required this.ward,
+    required this.student,
     required this.termContext,
   });
 
   final String schoolId;
-  final StudentsData ward;
+  final StudentsData student;
   final ActiveTermContext termContext;
 
   @override
@@ -812,7 +835,7 @@ class _ExamsTab extends StatelessWidget {
 
     // Watch exams for the term, then filter to ones the ward has grades in
     return StreamBuilder<List<Grade>>(
-      stream: examsDao.watchStudentGrades(schoolId, ward.adm),
+      stream: examsDao.watchStudentGrades(schoolId, student.adm),
       builder: (context, gradesSnap) {
         if (gradesSnap.connectionState == ConnectionState.waiting) {
           return const Center(
@@ -1029,10 +1052,10 @@ class _ExamCard extends StatelessWidget {
 // ═════════════════════════════════════════════════════════════════════════════
 
 class _MasteryTab extends StatelessWidget {
-  const _MasteryTab({required this.schoolId, required this.ward});
+  const _MasteryTab({required this.schoolId, required this.student});
 
   final String schoolId;
-  final StudentsData ward;
+  final StudentsData student;
 
   @override
   Widget build(BuildContext context) {
@@ -1042,7 +1065,7 @@ class _MasteryTab extends StatelessWidget {
     return StreamBuilder<List<MasteryData>>(
       stream: examsDao.watchMasteryForStudent(
         schoolId: schoolId,
-        studentAdm: ward.adm,
+        studentAdm: student.adm,
       ),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
@@ -1326,12 +1349,12 @@ class _MasteryTopicRow extends StatelessWidget {
 class _AttendanceTab extends StatefulWidget {
   const _AttendanceTab({
     required this.schoolId,
-    required this.ward,
+    required this.student,
     required this.termContext,
   });
 
   final String schoolId;
-  final StudentsData ward;
+  final StudentsData student;
   final ActiveTermContext termContext;
 
   @override
@@ -1389,7 +1412,7 @@ class _AttendanceTabState extends State<_AttendanceTab> {
                 schoolId: widget.schoolId,
                 year: term.year,
                 term: term.term,
-                studentAdm: widget.ward.adm,
+                studentAdm: widget.student.adm,
                 dao: _dao,
                 cs: cs,
               ),
@@ -1401,7 +1424,7 @@ class _AttendanceTabState extends State<_AttendanceTab> {
                 schoolId: widget.schoolId,
                 year: term.year,
                 term: term.term,
-                studentAdm: widget.ward.adm,
+                studentAdm: widget.student.adm,
                 calendarMonth: _calendarMonth,
                 dao: _dao,
                 cs: cs,

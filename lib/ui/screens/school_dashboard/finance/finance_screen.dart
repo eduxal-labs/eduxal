@@ -50,10 +50,20 @@ class FinanceScreen extends StatelessWidget {
         schoolContext: schoolContext,
         termContext: termCtx,
       ),
-      StaffEntry() => _OwnerFinanceShell(
-        schoolContext: schoolContext,
-        termContext: termCtx,
-      ),
+      StaffEntry() =>
+        (schoolContext.permissions.canAny(Resource.fees, [Action.read]) ||
+                schoolContext.permissions.canAny(Resource.payments, [
+                  Action.read,
+                ]))
+            ? _OwnerFinanceShell(
+                schoolContext: schoolContext,
+                termContext: termCtx,
+              )
+            : const EduEmptyState(
+                icon: Icons.account_balance_outlined,
+                title: 'No finance access',
+                subtitle: 'You don\'t have permission to view financial data.',
+              ),
       TeacherEntry() =>
         (schoolContext.permissions.canAny(Resource.fees, [Action.read]) ||
                 schoolContext.permissions.canAny(Resource.payments, [

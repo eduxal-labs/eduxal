@@ -210,7 +210,7 @@ Option 1 is recommended for code reuse. The key change:
 
 ---
 
-### Task B3: Student sees ALL exams school-wide if ExamsGradesScreen is ever reached
+### Task B3: Student sees ALL exams school-wide if ExamsGradesScreen is ever reached ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/exams/exams_grades_screen.dart`
 **Context files to read:** `lib/database/daos/exams_grades_dao.dart`
@@ -226,9 +226,9 @@ Option 1 is recommended for code reuse. The key change:
 3. This is defense-in-depth — the nav routing should prevent students from reaching this screen, but the screen itself should also be safe.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/exams/CONTEXT.md` (create if needed)
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `git add -A && git commit -m "fix: guard ExamsGradesScreen against student and guardian access"`
+- [x] Update `lib/ui/screens/school_dashboard/exams/CONTEXT.md` (create if needed)
+- [x] Mark this task `[x]`
+- [x] Git commit: `git add -A && git commit -m "fix: guard ExamsGradesScreen against student and guardian access"`
 
 ---
 

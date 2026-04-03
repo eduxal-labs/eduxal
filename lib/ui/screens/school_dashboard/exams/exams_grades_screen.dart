@@ -45,6 +45,14 @@ class ExamsGradesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Defense-in-depth: students and guardians should never reach this
+    // admin-oriented exams screen. Nav routing should prevent it, but guard
+    // here as well.
+    final entry = schoolContext.currentEntry.value;
+    if (entry is StudentEntry || entry is GuardianEntry) {
+      return const _RestrictedAccessState();
+    }
+
     final termCtx = ActiveTermProvider.of(context);
     if (termCtx.currentTerm == null) {
       return const _NoTermState();
@@ -9621,6 +9629,58 @@ class _NoTermState extends StatelessWidget {
       child: Text(
         'Select a term to view exams and grades.',
         style: TextStyle(fontSize: 13.5, color: cs.onSurfaceVariant),
+      ),
+    );
+  }
+}
+
+class _RestrictedAccessState extends StatelessWidget {
+  const _RestrictedAccessState();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                Icons.lock_outline_rounded,
+                size: 22,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              'Not available',
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w500,
+                color: cs.onSurface,
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              'Exam management is not available for your role.\n'
+              'Your grades will appear in the Grades section.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
