@@ -8,6 +8,7 @@ import '../../../../core/extensions.dart';
 import '../../../theme/app_theme.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/announcements_dao.dart';
+import '../../../../database/daos/enrollments_dao.dart';
 import '../../../../models/active_term_context.dart';
 import '../../../../models/membership.dart';
 import '../../../../models/school_config.dart';
@@ -70,15 +71,17 @@ class AnnouncementsScreen extends StatelessWidget {
                 termContext: termCtx,
                 audienceBit: AudienceBits.teachers,
               ),
-      StudentEntry() => _RoleFeed(
+      StudentEntry(:final student) => _RoleFeed(
         schoolContext: schoolContext,
         termContext: termCtx,
         audienceBit: AudienceBits.students,
+        studentAdm: student.adm,
       ),
-      GuardianEntry() => _RoleFeed(
+      GuardianEntry(:final ward) => _RoleFeed(
         schoolContext: schoolContext,
         termContext: termCtx,
         audienceBit: AudienceBits.guardians,
+        studentAdm: ward.adm,
       ),
     };
   }
@@ -220,11 +223,20 @@ class _RoleFeed extends StatefulWidget {
     required this.schoolContext,
     required this.termContext,
     required this.audienceBit,
+    this.studentAdm,
   });
 
   final SchoolContext schoolContext;
   final ActiveTermContext termContext;
   final int audienceBit;
+
+  /// When non-null, the feed first resolves the student's enrollment for the
+  /// current term and uses `grade`/`stream` to filter announcements so that
+  /// e.g. a Grade 7 student does not see Grade 12 announcements.
+  ///
+  /// Set for [StudentEntry] (the student's own adm) and [GuardianEntry] (the
+  /// ward's adm).
+  final int? studentAdm;
 
   @override
   State<_RoleFeed> createState() => _RoleFeedState();
@@ -232,6 +244,7 @@ class _RoleFeed extends StatefulWidget {
 
 class _RoleFeedState extends State<_RoleFeed> {
   late final AnnouncementsDao _dao;
+  EnrollmentsDao? _enrollmentsDao;
 
   String get _schoolId => widget.schoolContext.membership.school.id;
 
@@ -239,6 +252,9 @@ class _RoleFeedState extends State<_RoleFeed> {
   void initState() {
     super.initState();
     _dao = AnnouncementsDao(db);
+    if (widget.studentAdm != null) {
+      _enrollmentsDao = EnrollmentsDao(db);
+    }
   }
 
   @override
@@ -246,10 +262,55 @@ class _RoleFeedState extends State<_RoleFeed> {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
 
+    // For student / guardian entries, resolve grade + stream from the
+    // student's enrollment in the current term so the DAO filters out
+    // announcements targeted at other grades.
+    if (widget.studentAdm != null) {
+      final term = widget.termContext.currentTerm;
+      if (term == null) {
+        // No term — fall back to unfiltered feed.
+        return _buildAnnouncementsFeed(cs: cs, isDark: isDark);
+      }
+      return StreamBuilder<Enrollment?>(
+        stream: _enrollmentsDao!.watchStudentEnrollment(
+          schoolId: _schoolId,
+          year: term.year,
+          term: term.term,
+          studentAdm: widget.studentAdm!,
+        ),
+        builder: (context, enrollSnap) {
+          final enrollment = enrollSnap.data;
+          return _buildAnnouncementsFeed(
+            cs: cs,
+            isDark: isDark,
+            grade: enrollment?.grade,
+            stream: enrollment?.stream,
+          );
+        },
+      );
+    }
+
+    return _buildAnnouncementsFeed(cs: cs, isDark: isDark);
+  }
+
+  /// Builds the announcements [StreamBuilder] optionally filtered by [grade]
+  /// and [stream].  When both are null the DAO returns all announcements for
+  /// the audience bit (the previous, unfiltered behaviour).
+  Widget _buildAnnouncementsFeed({
+    required ColorScheme cs,
+    required bool isDark,
+    int? grade,
+    int? stream,
+  }) {
     return StreamBuilder<List<AnnouncementWithAuthor>>(
+      // Use a key so that when grade/stream changes the StreamBuilder
+      // subscribes to the new stream instead of keeping the stale one.
+      key: ValueKey('announcements_${grade}_${stream}'),
       stream: _dao.watchAnnouncementsForAudience(
         _schoolId,
         audienceBit: widget.audienceBit,
+        grade: grade,
+        stream: stream,
       ),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {

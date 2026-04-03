@@ -184,7 +184,7 @@ Verify `StudentGradePage` exists at `lib/ui/screens/school_dashboard/academics/s
 
 ---
 
-### Task B2: No student-self progress screen — GuardianProgressScreen rejects non-guardians
+### Task B2: No student-self progress screen — GuardianProgressScreen rejects non-guardians ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/progress/guardian_progress_screen.dart`
 **Context files to read:** `lib/models/membership.dart`
@@ -204,9 +204,9 @@ Option 1 is recommended for code reuse. The key change:
 - All DAO calls that take `studentAdm` work identically for both cases.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/progress/` (add or update CONTEXT)
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `git add -A && git commit -m "feat: add student-self progress screen alongside guardian progress"`
+- [x] Update `lib/ui/screens/school_dashboard/progress/` (add or update CONTEXT)
+- [x] Mark this task `[x]`
+- [x] Git commit: `git add -A && git commit -m "feat: add student-self progress screen alongside guardian progress"`
 
 ---
 

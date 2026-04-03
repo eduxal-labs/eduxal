@@ -138,10 +138,16 @@ class TimetableScreen extends StatelessWidget {
         termContext: termCtx,
         studentAdm: ward.adm,
       ),
-      StaffEntry() => _OwnerTimetableShell(
-        schoolContext: schoolContext,
-        termContext: termCtx,
-      ),
+      StaffEntry() =>
+        schoolContext.permissions.can(Resource.classes, Action.update)
+            ? _OwnerTimetableShell(
+                schoolContext: schoolContext,
+                termContext: termCtx,
+              )
+            : _StaffReadOnlyTimetableView(
+                schoolContext: schoolContext,
+                termContext: termCtx,
+              ),
     };
   }
 }
@@ -8678,7 +8684,7 @@ class _TimetableGridView extends StatelessWidget {
   final int year;
   final int term;
   final int grade;
-  final int stream;
+  final int? stream;
   final SchoolConfig config;
   final TimetableDao dao;
 
@@ -9552,6 +9558,68 @@ class _TeacherDesktopGrid extends StatelessWidget {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+// STAFF READ-ONLY VIEW — School-wide matrix, no admin controls
+// ═════════════════════════════════════════════════════════════════════════════
+
+class _StaffReadOnlyTimetableView extends StatefulWidget {
+  const _StaffReadOnlyTimetableView({
+    required this.schoolContext,
+    required this.termContext,
+  });
+
+  final SchoolContext schoolContext;
+  final ActiveTermContext termContext;
+
+  @override
+  State<_StaffReadOnlyTimetableView> createState() =>
+      _StaffReadOnlyTimetableViewState();
+}
+
+class _StaffReadOnlyTimetableViewState
+    extends State<_StaffReadOnlyTimetableView> {
+  final _timetableDao = TimetableDao(db);
+  SchoolConfig? _config;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadConfig();
+  }
+
+  Future<void> _loadConfig() async {
+    // TODO: reload config from new settings source when available
+    if (mounted) setState(() => _config = SchoolConfig.defaults());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final term = widget.termContext.currentTerm;
+
+    if (_config == null) {
+      return Center(
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
+        ),
+      );
+    }
+
+    if (term == null) return const _NoTermState();
+    if (_config!.isEmpty) return _EmptyConfigState(cs: cs);
+
+    return _SchoolWideMatrixTab(
+      schoolId: widget.schoolContext.membership.school.id,
+      year: term.year,
+      term: term.term,
+      config: _config!,
+      timetableDao: _timetableDao,
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 // STUDENT / GUARDIAN VIEW — Class timetable (read-only)
 // ═════════════════════════════════════════════════════════════════════════════
 
@@ -9594,6 +9662,8 @@ class _ClassTimetableViewState extends State<_ClassTimetableView> {
   }
 
   Future<void> _loadData() async {
+    _grade = null;
+    _stream = null;
     setState(() => _loading = true);
 
     final schoolId = widget.schoolContext.membership.school.id;
@@ -9638,7 +9708,7 @@ class _ClassTimetableViewState extends State<_ClassTimetableView> {
       );
     }
 
-    if (_grade == null || _stream == null) {
+    if (_grade == null) {
       return _NotEnrolledState(cs: cs);
     }
 
@@ -9647,7 +9717,7 @@ class _ClassTimetableViewState extends State<_ClassTimetableView> {
       year: term.year,
       term: term.term,
       grade: _grade!,
-      stream: _stream!,
+      stream: _stream,
       config: _config!,
       dao: _timetableDao,
     );
