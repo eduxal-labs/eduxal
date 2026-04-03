@@ -692,7 +692,7 @@ When a teacher gets `_AdminFeed` (via `announcements.create/update/delete` permi
 Pass the current user's ID to the announcement list. For each announcement, only show edit/delete if `announcement.createdBy == currentUserId` OR `permissions.can(Resource.announcements, Action.delete)` (admin override).
 
 **Update after completion:**
-- [x] Mark this task `[x]`
+- [ ] Mark this task `[x]`
 - [ ] Git commit: `git add -A && git commit -m "fix: scope announcement edit/delete by ownership"`
 
 ---
