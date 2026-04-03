@@ -69,6 +69,8 @@ Each DAO extends `DatabaseAccessor<AppDatabase>` and is annotated with `@DriftAc
 - `getUserById(String id) → Future<UsersData?>` — Single user lookup.
 - `getUserByPhone(String phone) → Future<UsersData?>` — Lookup by phone number.
 - `watchAllUsers() → Stream<List<UsersData>>` — Reactive list of all users.
+- `getSystemPermissions(String userId) → Future<List<RolePermissions>>` — One-shot fetch of system-scoped role permissions (scopes where `school IS NULL`), joined with roles.
+- `watchSystemPermissions(String userId) → Stream<List<RolePermissions>>` — **(New, D01)** Reactive stream of system-scoped role permissions. Re-emits when any matching scope or role row changes. Used by the system dashboard to keep `SystemPermissions` up-to-date via sync deltas.
 
 ### `LogsDao`
 - `insertLog(LogsCompanion) → Future<void>` — Enqueue an action log entry (action, resource, payload, created).
@@ -238,12 +240,15 @@ Each DAO extends `DatabaseAccessor<AppDatabase>` and is annotated with `@DriftAc
 - `getSchoolRoles(schoolId) → Future<List<RolesData>>`
 - `getRole(roleId) → Future<RolesData?>`
 - `getScopesForUser(schoolId, userId) → Future<List<ScopesData>>`
+- `getAggregatedPermissions(schoolId, userId, userLevel) → Future<SchoolPermissions>` — **(New, E06)** One-shot aggregated permission computation. Loads school-scoped scopes joined with roles, plus system-scoped scopes for elevated users (`UserLevel.system`/`super_`), parses all role permission blobs via `parsePermissionsBlob`, unions them, and returns a `SchoolPermissions` object. Replaces the raw inline DB queries that were previously in `school_dashboard_screen.dart._initializeSession()`.
+- `watchAggregatedPermissions(schoolId, userId, userLevel) → Stream<SchoolPermissions>` — **(New, D01)** Reactive stream version of `getAggregatedPermissions`. Uses a single joined `scopes ⨝ roles` Drift `.watch()` query with an OR condition for elevated users (`school = schoolId OR school IS NULL`). Re-emits whenever any matching scope or role row changes via sync deltas. Used by the school dashboard to keep `SchoolContext` permissions up-to-date.
 - `createRole(RolesCompanion, {accountId}) → Future<void>` — Creates role + log entry. Permissions passed as `Uint8List` blob directly (post-A01/A02).
 - `updateRole(roleId, RolesCompanion, {accountId}) → Future<void>` — Updates role + log entry. Permissions passed as `Uint8List` blob directly (post-A01/A02).
 - `deleteRole(roleId, schoolId, {accountId}) → Future<void>`
 - `assignRole(ScopesCompanion, {accountId}) → Future<void>`
 - `unassignRole(schoolId, userId, roleId, {accountId}) → Future<void>`
 - **Permission encoding fix (Task A02):** `createRole` and `updateRole` now pass `companion.permissions.value` (already `Uint8List`) directly to the proto payload instead of `utf8.encode(...)`. Removed `dart:convert` import — no longer needed.
+- **New imports (D01/E06):** `package:flutter/foundation.dart`, `core/permission_parser.dart`, `models/permissions.dart`, `models/school_permissions.dart`.
 
 ### `PlansDao`
 - `watchAllPlans() → Stream<List<PlansData>>`
@@ -331,4 +336,4 @@ Other DAOs are created locally where needed (e.g. inside service classes or scre
 - **`exams_grades_dao.dart`** — Import changed from `../tables/subjects.dart` to `../tables/subject_teachers.dart`. `@DriftAccessor` tables list changed `Subjects` → `SubjectTeachers`. In `watchMasteryForStudent`: removed `OrderingTerm.asc(m.grade)` from orderBy (mastery no longer has a `grade` column). In `watchMasteryForSubject`: removed `mastery.grade.equals(grade)` from the WHERE clause. In `upsertMastery`: removed `final grade = entry.grade.value`; removed `m.grade.equals(grade)` from both the lookup and update WHERE clauses; removed `grade: grade,` from both `UpdateMasteryPayload` constructions. In `createExam`: replaced `grade: exam.grade.value` with `name: exam.name.value` in `CreateExamPayload`; removed `stream` conditional assignment block. In `createExamBatch`: replaced `grade: e.grade.value` with `name: e.name.value` in `CreateExamPayload`; removed `stream` conditional assignment block. In `updateExam`: replaced `changes.stream` handling block with `changes.name` handling (`payload.name = changes.name.value`). In `addGradeToExamGroup`: removed `grade: Value(grade)` and `stream: Value(streamCode)` from `ExamsCompanion`; removed `grade:` and stream conditional from `CreateExamPayload`; loop variable renamed to `_` to suppress unused-variable warning. **Note:** `ExamsCompanion.name` errors are expected until `build_runner` regenerates `.g.dart` files.
 
 ## Last Updated
-Task A02 — Fixed `SchoolScopesDao` permission encoding: `createRole` and `updateRole` now pass `Uint8List` blob directly to proto payload instead of `utf8.encode(...)`. Removed `dart:convert` import. Previous: Task F5 — Added `removeStudent(schoolId, adm, accountId)` to `MembersDao`.
+Tasks D01, E06 — Added `getAggregatedPermissions` and `watchAggregatedPermissions` to `SchoolScopesDao` for DAO-based permission loading and reactive permission updates. Added `watchSystemPermissions` to `UsersDao` for reactive system dashboard permissions. Previous: Task A02 — Fixed `SchoolScopesDao` permission encoding.

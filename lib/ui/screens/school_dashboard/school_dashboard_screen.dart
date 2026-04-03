@@ -1,15 +1,13 @@
 import 'dart:async';
 
-import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart' hide Action;
 
 import '../../../client.dart';
 import '../../../database/database.dart';
-import '../../../database/tables/enums.dart';
+import '../../../database/daos/school_scopes_dao.dart';
 import '../../../database/daos/terms_dao.dart';
 import '../../../models/active_term_context.dart';
 import '../../../models/membership.dart';
-import '../../../core/permission_parser.dart';
 import '../../../models/permissions.dart';
 import '../../../models/school_context.dart';
 import '../../../models/school_permissions.dart';
@@ -108,7 +106,8 @@ class SchoolDashboardScreen extends StatefulWidget {
   State<SchoolDashboardScreen> createState() => _SchoolDashboardScreenState();
 }
 
-class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
+class _SchoolDashboardScreenState extends State<SchoolDashboardScreen>
+    with WidgetsBindingObserver {
   SchoolContext? _schoolContext;
   ActiveTermContext? _activeTermContext;
   bool _isLoading = true;
@@ -116,9 +115,14 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
   // Subscription that keeps _activeTermContext in sync with the Drift stream.
   StreamSubscription<List<Term>>? _termsSub;
 
+  // Subscription that keeps permissions reactive — re-computes when
+  // scopes or roles change via sync deltas.
+  StreamSubscription<SchoolPermissions>? _permissionsSub;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initializeSession();
   }
 
@@ -131,70 +135,16 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
 
     final schoolId = widget.membership.school.id;
 
-    // ── 1. Load permissions ──────────────────────────────────────────────────
-    final scopesRows = await (db.select(
-      db.scopes,
-    )..where((t) => t.school.equals(schoolId) & t.user.equals(user.id))).get();
-
-    final roleIds = scopesRows.map((s) => s.role).toList();
-    var aggregated = const Permissions.empty();
-
-    if (roleIds.isNotEmpty) {
-      final rolesRows = await (db.select(
-        db.roles,
-      )..where((t) => t.id.isIn(roleIds))).get();
-
-      // FIXED — uses resilient parsePermissions from core/permission_parser.dart
-      for (final r in rolesRows) {
-        final parsed = parsePermissionsBlob(r.permissions);
-        if (parsed.isNotEmpty) {
-          aggregated = aggregated.union(Permissions(parsed));
-        }
-      }
-    }
-
-    // ── 1b. Also load system-scoped scopes for elevated users ────────────────
-    // Per AGENT.md §17: "System users can also be school members — system +
-    // school roles merge." System-scoped scopes have school IS NULL.
-    if (user.level == UserLevel.system || user.level == UserLevel.super_) {
-      final systemScopesRows = await (db.select(
-        db.scopes,
-      )..where((t) => t.user.equals(user.id) & t.school.isNull())).get();
-
-      final systemRoleIds = systemScopesRows.map((s) => s.role).toList();
-
-      if (systemRoleIds.isNotEmpty) {
-        final systemRolesRows = await (db.select(
-          db.roles,
-        )..where((t) => t.id.isIn(systemRoleIds))).get();
-
-        for (final r in systemRolesRows) {
-          final parsed = parsePermissionsBlob(r.permissions);
-          if (parsed.isNotEmpty) {
-            aggregated = aggregated.union(Permissions(parsed));
-          }
-        }
-      }
-
-      debugPrint(
-        '[SchoolDashboard] Loaded ${scopesRows.length} school scopes + '
-        '${systemScopesRows.length} system scopes, '
-        '${roleIds.length} school roles + ${systemRoleIds.length} system roles '
-        'for user ${user.id} at school $schoolId',
-      );
-    } else {
-      debugPrint(
-        '[SchoolDashboard] Loaded ${scopesRows.length} scopes, '
-        '${roleIds.length} roles for user ${user.id} at school $schoolId',
-      );
-    }
-
-    final permissions = SchoolPermissions(
-      schoolId: schoolId,
-      userId: user.id,
-      permissions: aggregated,
+    // ── 1. Load permissions via DAO ──────────────────────────────────────────
+    final scopesDao = SchoolScopesDao(db);
+    final permissions = await scopesDao.getAggregatedPermissions(
+      schoolId,
+      user.id,
+      user.level,
     );
-    debugPrint('[SchoolDashboard] Aggregated permissions: $aggregated');
+    debugPrint(
+      '[SchoolDashboard] Aggregated permissions: ${permissions.permissions}',
+    );
 
     // ── 2. Load terms for the initial ActiveTermContext ──────────────────────
     final termsDao = TermsDao(db);
@@ -218,11 +168,35 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
       initialTerm: initialTerm,
     );
 
-    // ── 4. Subscribe to the Drift terms stream ───────────────────────────────
+    // ── 4. Subscribe to reactive streams ─────────────────────────────────────
     // Keep ActiveTermContext up-to-date as terms are created/updated/deleted.
     _termsSub = termsDao.watchTerms(schoolId).listen((newTerms) {
       if (mounted) _activeTermContext?.updateTerms(newTerms);
     });
+
+    // Keep permissions up-to-date when scopes/roles change via sync deltas.
+    _permissionsSub = scopesDao
+        .watchAggregatedPermissions(schoolId, user.id, user.level)
+        .listen((newPermissions) {
+          if (!mounted || _schoolContext == null) return;
+          if (_schoolContext!.permissions == newPermissions) return;
+
+          debugPrint(
+            '[SchoolDashboard] Permissions changed via watch stream — '
+            'rebuilding SchoolContext',
+          );
+
+          final oldEntry = _schoolContext!.currentEntry.value;
+          _schoolContext!.dispose();
+
+          setState(() {
+            _schoolContext = SchoolContext(
+              membership: widget.membership,
+              permissions: newPermissions,
+              initialEntry: oldEntry,
+            );
+          });
+        });
 
     setState(() {
       _schoolContext = schoolContext;
@@ -232,7 +206,51 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _reloadPermissions();
+    }
+  }
+
+  /// Re-fetches permissions from the DB on app foreground resume as a
+  /// fallback in case the watch stream missed an update.
+  Future<void> _reloadPermissions() async {
+    if (_schoolContext == null) return;
+    final user = cache.currentUser?.user;
+    if (user == null) return;
+
+    final schoolId = widget.membership.school.id;
+    final scopesDao = SchoolScopesDao(db);
+    final newPermissions = await scopesDao.getAggregatedPermissions(
+      schoolId,
+      user.id,
+      user.level,
+    );
+
+    if (!mounted || _schoolContext == null) return;
+    if (_schoolContext!.permissions == newPermissions) return;
+
+    debugPrint(
+      '[SchoolDashboard] Permissions changed on resume — '
+      'rebuilding SchoolContext',
+    );
+
+    final oldEntry = _schoolContext!.currentEntry.value;
+    _schoolContext!.dispose();
+
+    setState(() {
+      _schoolContext = SchoolContext(
+        membership: widget.membership,
+        permissions: newPermissions,
+        initialEntry: oldEntry,
+      );
+    });
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _permissionsSub?.cancel();
     _termsSub?.cancel();
     _activeTermContext?.dispose();
     _schoolContext?.dispose();
@@ -302,6 +320,37 @@ class _DashboardShellState extends State<_DashboardShell>
       ..removeListener(_onTabChanged)
       ..dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant _DashboardShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.schoolContext != widget.schoolContext) {
+      // SchoolContext was replaced (e.g. permissions changed via watch stream
+      // or app foreground resume) — re-wire the currentEntry listener and
+      // recompute nav items with the new permissions.
+      oldWidget.schoolContext.currentEntry.removeListener(_onEntryChanged);
+      widget.schoolContext.currentEntry.addListener(_onEntryChanged);
+
+      final newRole = widget.schoolContext.currentEntry.value.role;
+      final newItems = _itemsForRole(newRole, widget.schoolContext.permissions);
+      final newIndex = _selectedIndex.clamp(0, newItems.length - 1);
+
+      _tabController
+        ..removeListener(_onTabChanged)
+        ..dispose();
+      _tabController = TabController(
+        length: newItems.length,
+        initialIndex: newIndex,
+        vsync: this,
+      )..addListener(_onTabChanged);
+
+      setState(() {
+        _currentRole = newRole;
+        _currentItems = newItems;
+        _selectedIndex = newIndex;
+      });
+    }
   }
 
   void _onTabChanged() {

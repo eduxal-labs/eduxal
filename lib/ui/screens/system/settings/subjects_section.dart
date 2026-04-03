@@ -9,6 +9,7 @@ import '../../../../models/permissions.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
+import '../../../widgets/edu_empty_state.dart';
 import '../../../widgets/edu_form_field.dart';
 import '../../../widgets/edu_sheet.dart';
 import 'create_question_sheet.dart';
@@ -61,6 +62,15 @@ class _SubjectsSectionState extends State<SubjectsSection> {
 
   @override
   Widget build(BuildContext context) {
+    // ── Read permission guard (E04) ──────────────────────────────────────────
+    if (!widget.permissions.can(Resource.subjects, Action.read)) {
+      return const EduEmptyState(
+        icon: Icons.lock_outline,
+        title: 'Access restricted',
+        subtitle: 'You don\'t have permission to view subjects.',
+      );
+    }
+
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
 
@@ -1749,9 +1759,17 @@ class _EmptyState extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class CreateSubjectSheet extends StatefulWidget {
-  const CreateSubjectSheet({super.key, required this.curriculum});
+  const CreateSubjectSheet({
+    super.key,
+    required this.curriculum,
+    this.permissions,
+  });
 
   final CurriculumType curriculum;
+
+  /// Optional [SystemPermissions] for defense-in-depth create guard.
+  /// When provided, `_submit()` verifies `subjects.create` before writing.
+  final SystemPermissions? permissions;
 
   @override
   State<CreateSubjectSheet> createState() => _CreateSubjectSheetState();
@@ -1792,6 +1810,15 @@ class _CreateSubjectSheetState extends State<CreateSubjectSheet> {
 
   Future<void> _submit() async {
     if (!_validate()) return;
+
+    // Defense-in-depth: verify create permission if permissions were provided.
+    if (widget.permissions != null &&
+        !widget.permissions!.can(Resource.subjects, Action.create)) {
+      setState(
+        () => _submitError = 'You don\'t have permission to create subjects.',
+      );
+      return;
+    }
 
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {

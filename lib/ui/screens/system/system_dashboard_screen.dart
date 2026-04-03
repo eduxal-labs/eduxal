@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart' hide Action;
 
 import '../../../client.dart';
@@ -63,11 +65,14 @@ class SystemDashboardScreen extends StatefulWidget {
 }
 
 class _SystemDashboardScreenState extends State<SystemDashboardScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   // ── State ──────────────────────────────────────────────────────────────────
 
-  /// Permissions loaded once when the screen mounts.
+  /// Permissions — reactively updated via watch stream + app lifecycle.
   SystemPermissions _permissions = SystemPermissions.none();
+
+  /// Subscription for reactive system permission updates from Drift.
+  StreamSubscription<List<RolePermissions>>? _permissionsSub;
 
   /// FAB expanded state (mobile only).
   bool _fabExpanded = false;
@@ -114,11 +119,14 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
         );
     _entranceController.forward();
 
+    WidgetsBinding.instance.addObserver(this);
     _loadPermissions();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _permissionsSub?.cancel();
     _mobileTabController.removeListener(_onMobileTabChanged);
     _mobileTabController.dispose();
     _entranceController.dispose();
@@ -145,15 +153,55 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
       setState(() {
         _permissions = SystemPermissions.superUser();
       });
+      // Super users bypass all checks, no need to watch.
       return;
     }
 
-    // Normal users: load their system-scoped roles.
+    // One-shot load for initial render.
     final rolePerms = await usersDao.getSystemPermissions(user.user.id);
     if (!mounted) return;
     setState(() {
       _permissions = SystemPermissions.forUser(user.user.level, rolePerms);
     });
+
+    // Subscribe to reactive watch stream so permissions update when
+    // sync deltas modify roles/scopes.
+    _permissionsSub?.cancel();
+    _permissionsSub = usersDao.watchSystemPermissions(user.user.id).listen((
+      newRolePerms,
+    ) {
+      if (!mounted) return;
+      final updated = SystemPermissions.forUser(user.user.level, newRolePerms);
+      if (updated.permissions != _permissions.permissions) {
+        debugPrint(
+          '[SystemDashboard] Permissions changed via watch stream — updating',
+        );
+        setState(() => _permissions = updated);
+      }
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _reloadPermissionsOnResume();
+    }
+  }
+
+  /// Re-fetches permissions on app foreground resume as a fallback in case
+  /// the watch stream missed an update.
+  Future<void> _reloadPermissionsOnResume() async {
+    final user = cache.currentUser;
+    if (user == null) return;
+    if (user.user.level == UserLevel.super_) return; // bypass
+
+    final rolePerms = await usersDao.getSystemPermissions(user.user.id);
+    if (!mounted) return;
+    final updated = SystemPermissions.forUser(user.user.level, rolePerms);
+    if (updated.permissions != _permissions.permissions) {
+      debugPrint('[SystemDashboard] Permissions changed on resume — updating');
+      setState(() => _permissions = updated);
+    }
   }
 
   // ── Add Member modal ──────────────────────────────────────────────────────
@@ -673,7 +721,10 @@ class _SettingsTabBodyState extends State<_SettingsTabBody>
       context: context,
       title: 'New Subject',
       maxWidth: 420,
-      builder: (_) => CreateSubjectSheet(curriculum: _curriculum.value),
+      builder: (_) => CreateSubjectSheet(
+        curriculum: _curriculum.value,
+        permissions: widget.permissions,
+      ),
     );
   }
 }

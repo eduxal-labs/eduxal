@@ -947,7 +947,7 @@ When launched from Attendance, pass `restrictToTab: 'Attendance'`.
 
 ## Track D: Reactivity & State Management
 
-### Task D01: Make permissions reactive via Drift watch stream
+### Task D01: Make permissions reactive via Drift watch stream ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/school_dashboard_screen.dart`, `lib/ui/screens/system/system_dashboard_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`, `lib/ui/screens/system/CONTEXT.md`
 **Depends on:** None (Phase 3)
@@ -972,9 +972,9 @@ Both dashboards load permissions once in `initState` and never update them when 
 **Note:** This is a significant architectural change. The minimum viable fix is to re-call the load function when the app returns to foreground (via `WidgetsBindingObserver.didChangeAppLifecycleState`). The full reactive stream approach is ideal but more complex.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note reactive permissions
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note reactive permissions
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note reactive permissions
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — note reactive permissions
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
@@ -1253,7 +1253,7 @@ Also make the settings data reactive to sync changes (OWN-024): if the screen cu
 
 ---
 
-### Task E04: Gate system Subjects sub-tab and CreateSubjectSheet by permission
+### Task E04: Gate system Subjects sub-tab and CreateSubjectSheet by permission ✅
 **Files to create/modify:** `lib/ui/screens/system/settings/subjects_section.dart`, `lib/ui/screens/system/system_dashboard_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/system/CONTEXT.md`
 **Depends on:** None (Phase 3)
@@ -1287,8 +1287,8 @@ Also make the settings data reactive to sync changes (OWN-024): if the screen cu
    Then in `CreateSubjectSheet`, use the permissions to gate create/update actions.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note subjects permission gating
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — note subjects permission gating
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
@@ -1329,7 +1329,7 @@ if (permissions.can(Resource.users, Action.update)) ...[
 
 ---
 
-### Task E06: Fix permission loading — use DAOs instead of raw DB queries
+### Task E06: Fix permission loading — use DAOs instead of raw DB queries ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/school_dashboard_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`, `lib/database/daos/CONTEXT.md`
 **Depends on:** Task A01
@@ -1363,9 +1363,9 @@ This may require adding a `getAggregatedPermissions` method to `SchoolScopesDao`
 This centralizes the permission computation logic and makes it reusable for the reactive watch stream (Task D01).
 
 **Update after completion:**
-- [ ] Update `lib/database/daos/CONTEXT.md` — note getAggregatedPermissions method
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note DAO-based permission loading
-- [ ] Mark this task `[x]`
+- [x] Update `lib/database/daos/CONTEXT.md` — note getAggregatedPermissions method
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note DAO-based permission loading
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
