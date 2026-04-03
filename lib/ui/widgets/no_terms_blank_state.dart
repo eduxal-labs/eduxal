@@ -81,14 +81,9 @@ class NoTermsBlankState extends StatelessWidget {
 
                   const SizedBox(height: 10),
 
-                  // ── Body copy ──────────────────────────────────────────
+                  // ── Body copy (role-specific) ──────────────────────────
                   Text(
-                    isOwner
-                        ? 'Academic records — classes, subjects, grades, '
-                              'fees and attendance — are all scoped to a term. '
-                              'Create your first term to unlock the full dashboard.'
-                        : 'This school hasn\'t configured any academic terms '
-                              'yet. Contact the school owner to get started.',
+                    _bodyCopyForRole(role, isOwner),
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 13.5,
@@ -122,6 +117,30 @@ class NoTermsBlankState extends StatelessWidget {
       },
     );
   }
+}
+
+/// Returns role-specific body copy for the no-terms blank state.
+String _bodyCopyForRole(MembershipRole role, bool canCreateTerm) {
+  if (canCreateTerm) {
+    return 'Academic records — classes, subjects, grades, '
+        'fees and attendance — are all scoped to a term. '
+        'Create your first term to unlock the full dashboard.';
+  }
+  return switch (role) {
+    MembershipRole.owner =>
+      'Academic records — classes, subjects, grades, '
+          'fees and attendance — are all scoped to a term. '
+          'Create your first term to unlock the full dashboard.',
+    MembershipRole.teacher =>
+      'No terms have been created yet. '
+          'Contact the school administrator to get started.',
+    MembershipRole.student =>
+      'The school hasn\'t set up terms yet. Check back later.',
+    MembershipRole.guardian =>
+      'The school hasn\'t set up the academic calendar yet.',
+    MembershipRole.staff =>
+      'No academic terms configured. Contact the school owner.',
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

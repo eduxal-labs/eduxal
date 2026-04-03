@@ -61,6 +61,36 @@ class _NavItem {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Dashboard navigation — allows child widgets (e.g. overview cards) to
+// programmatically switch the active tab by label name.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class DashboardNavigation extends InheritedWidget {
+  const DashboardNavigation({
+    super.key,
+    required this.navigateToTab,
+    required super.child,
+  });
+
+  /// Switches the dashboard to the tab matching [label].
+  final void Function(String label) navigateToTab;
+
+  /// Look up the nearest [DashboardNavigation], or `null` if none exists.
+  static DashboardNavigation? maybeOf(BuildContext context) {
+    return context.dependOnInheritedWidgetOfExactType<DashboardNavigation>();
+  }
+
+  /// Convenience — navigate to [label] if a [DashboardNavigation] is in scope.
+  static void goToTab(BuildContext context, String label) {
+    maybeOf(context)?.navigateToTab(label);
+  }
+
+  @override
+  bool updateShouldNotify(DashboardNavigation oldWidget) =>
+      navigateToTab != oldWidget.navigateToTab;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Entry-point widget
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -315,6 +345,14 @@ class _DashboardShellState extends State<_DashboardShell>
     _tabController.animateTo(index);
   }
 
+  /// Navigate to the tab whose [_NavItem.label] matches [label].
+  /// Used by child widgets (e.g. overview "View All" links) via
+  /// [DashboardNavigation.goToTab].
+  void _navigateToTab(String label) {
+    final index = _currentItems.indexWhere((item) => item.label == label);
+    if (index != -1) _selectIndex(index);
+  }
+
   // ── nav items per role ─────────────────────────────────────────────────────
 
   List<_NavItem> _itemsForRole(MembershipRole role, SchoolPermissions perms) {
@@ -433,9 +471,12 @@ class _DashboardShellState extends State<_DashboardShell>
       valueListenable: widget.schoolContext.currentEntry,
       builder: (context, currentEntry, _) {
         // Build content OUTSIDE LayoutBuilder so it's stable across resizes
-        final content = KeyedSubtree(
-          key: const ValueKey('dashboard-content'),
-          child: _buildContentArea(context, currentEntry),
+        final content = DashboardNavigation(
+          navigateToTab: _navigateToTab,
+          child: KeyedSubtree(
+            key: const ValueKey('dashboard-content'),
+            child: _buildContentArea(context, currentEntry),
+          ),
         );
         return LayoutBuilder(
           builder: (context, constraints) {

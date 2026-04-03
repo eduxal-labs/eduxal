@@ -1302,7 +1302,7 @@ All methods call `sync.schedulePush()` after the transaction.
 
 ---
 
-### Task I1: _ClassTimetableView uses SchoolConfig.defaults() instead of actual school config
+### Task I1: _ClassTimetableView uses SchoolConfig.defaults() instead of actual school config ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/timetable/timetable_screen.dart`
 **Context files to read:** `lib/models/school_config.dart`
@@ -1316,12 +1316,12 @@ Both `_TeacherTimetableView` and `_ClassTimetableView` have a TODO comment and s
 Load the school's actual config from the database (if stored) or from the school's row data. If no school config table exists yet, this may need to wait — but at minimum, document the TODO and ensure defaults are reasonable.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `git add -A && git commit -m "fix: load actual school config instead of defaults in timetable"`
+- [x] Mark this task `[x]`
+- [x] Git commit: `git add -A && git commit -m "fix: load actual school config instead of defaults in timetable"`
 
 ---
 
-### Task I2: NoTermsBlankState shows same message for all roles
+### Task I2: NoTermsBlankState shows same message for all roles ✅
 
 **Files to modify:** `lib/ui/widgets/no_terms_blank_state.dart`
 **Context files to read:** None
@@ -1340,8 +1340,8 @@ Customize the message per role:
 - Staff: "No academic terms configured. Contact the school owner."
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `git add -A && git commit -m "ui: customize NoTermsBlankState message per role"`
+- [x] Mark this task `[x]`
+- [x] Git commit: `git add -A && git commit -m "ui: customize NoTermsBlankState message per role"`
 
 ---
 

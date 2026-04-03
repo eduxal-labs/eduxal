@@ -24,6 +24,7 @@ import '../../../../models/school_permissions.dart';
 import '../../../widgets/active_term_provider.dart';
 import '../../../widgets/student_avatar.dart';
 import '../../../theme/app_theme.dart';
+import '../school_dashboard_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Overview Screen — role-dispatched school dashboard landing page
@@ -2011,8 +2012,7 @@ class _GuardianOverview extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: Colors.amber.withValues(alpha: 0.10),
-                    borderRadius:
-                        BorderRadius.circular(AppTheme.kCardRadius),
+                    borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
                     border: Border.all(
                       color: Colors.amber.withValues(alpha: 0.4),
                     ),
@@ -2070,7 +2070,11 @@ class _GuardianOverview extends StatelessWidget {
 
         // ── 4. Today's schedule ──────────────────────────────────────────
         if (term != null) ...[
-          _SectionTitle(label: "Today's Schedule", cs: cs),
+          _SectionTitle(
+            label: "Today's Schedule",
+            cs: cs,
+            onViewAll: () => DashboardNavigation.goToTab(context, 'Timetable'),
+          ),
           const SizedBox(height: 8),
           _StudentTodaySchedule(
             schoolId: schoolId,
@@ -2083,7 +2087,11 @@ class _GuardianOverview extends StatelessWidget {
 
         // ── 5. Attendance summary ────────────────────────────────────────
         if (term != null) ...[
-          _SectionTitle(label: "Attendance", cs: cs),
+          _SectionTitle(
+            label: 'Attendance',
+            cs: cs,
+            onViewAll: () => DashboardNavigation.goToTab(context, 'Attendance'),
+          ),
           const SizedBox(height: 8),
           _StudentAttendanceSummary(
             schoolId: schoolId,
@@ -2096,7 +2104,11 @@ class _GuardianOverview extends StatelessWidget {
 
         // ── 6. Recent grades ─────────────────────────────────────────────
         if (term != null) ...[
-          _SectionTitle(label: "Recent Grades", cs: cs),
+          _SectionTitle(
+            label: 'Recent Grades',
+            cs: cs,
+            onViewAll: () => DashboardNavigation.goToTab(context, 'Progress'),
+          ),
           const SizedBox(height: 8),
           _StudentRecentGrades(schoolId: schoolId, studentAdm: ward.adm),
           const SizedBox(height: 20),
@@ -2104,7 +2116,11 @@ class _GuardianOverview extends StatelessWidget {
 
         // ── 7. Finance summary ───────────────────────────────────────────
         if (term != null) ...[
-          _SectionTitle(label: 'Finance', cs: cs),
+          _SectionTitle(
+            label: 'Finance',
+            cs: cs,
+            onViewAll: () => DashboardNavigation.goToTab(context, 'Finance'),
+          ),
           const SizedBox(height: 8),
           _GuardianFinanceSummary(
             schoolId: schoolId,
@@ -2116,7 +2132,12 @@ class _GuardianOverview extends StatelessWidget {
         ],
 
         // ── 8. Recent announcements ──────────────────────────────────────
-        _SectionTitle(label: 'Recent Announcements', cs: cs),
+        _SectionTitle(
+          label: 'Recent Announcements',
+          cs: cs,
+          onViewAll: () =>
+              DashboardNavigation.goToTab(context, 'Announcements'),
+        ),
         const SizedBox(height: 8),
         _RecentAnnouncements(
           schoolId: schoolId,
@@ -2824,14 +2845,15 @@ class _TermInfoCard extends StatelessWidget {
 // ── Section Title ────────────────────────────────────────────────────────────
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.label, required this.cs});
+  const _SectionTitle({required this.label, required this.cs, this.onViewAll});
 
   final String label;
   final ColorScheme cs;
+  final VoidCallback? onViewAll;
 
   @override
   Widget build(BuildContext context) {
-    return Text(
+    final labelWidget = Text(
       label,
       style: TextStyle(
         fontSize: 13,
@@ -2839,6 +2861,24 @@ class _SectionTitle extends StatelessWidget {
         color: cs.onSurface.withValues(alpha: 0.7),
         letterSpacing: 0.1,
       ),
+    );
+    if (onViewAll == null) return labelWidget;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        labelWidget,
+        GestureDetector(
+          onTap: onViewAll,
+          child: Text(
+            'View All \u2192',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              color: cs.primary.withValues(alpha: 0.8),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

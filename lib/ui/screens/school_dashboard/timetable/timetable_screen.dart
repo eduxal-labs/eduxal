@@ -82,6 +82,61 @@ Color _colorForSubject(int subjectCode) {
   return _kSubjectColors[subjectCode.abs() % _kSubjectColors.length];
 }
 
+/// Builds a [SchoolConfig] from raw [SchoolStream] rows, grouping by
+/// curriculum type and grade. Shared by all timetable view variants
+/// (owner, teacher, staff, student/guardian).
+SchoolConfig _buildConfigFromStreams(List<SchoolStream> allStreams) {
+  if (allStreams.isEmpty) return SchoolConfig.defaults();
+
+  final allGrades = allStreams.map((s) => s.grade).toSet();
+  final byGrade = <int, List<SchoolStream>>{};
+  for (final s in allStreams) {
+    byGrade.putIfAbsent(s.grade, () => []).add(s);
+  }
+
+  CurriculumType curriculumForGrade(int grade) {
+    if (grade >= 41) return CurriculumType.eightFourFour;
+    if (grade >= 9) return CurriculumType.cbc;
+    if (allGrades.any((g) => g >= 41)) return CurriculumType.eightFourFour;
+    return CurriculumType.cbc;
+  }
+
+  final cbcGrades = <GradeConfig>[];
+  final eftGrades = <GradeConfig>[];
+
+  for (final entry in byGrade.entries) {
+    final gradeNum = entry.key;
+    final streamRows = entry.value
+      ..sort((a, b) => a.stream.compareTo(b.stream));
+    final gradeStreams = streamRows
+        .map((s) => GradeStream(name: s.name, code: s.stream))
+        .toList();
+    final gc = GradeConfig(grade: gradeNum, streams: gradeStreams);
+    if (curriculumForGrade(gradeNum) == CurriculumType.cbc) {
+      cbcGrades.add(gc);
+    } else {
+      eftGrades.add(gc);
+    }
+  }
+
+  cbcGrades.sort((a, b) => a.grade.compareTo(b.grade));
+  eftGrades.sort((a, b) => a.grade.compareTo(b.grade));
+
+  final curricula = <CurriculumConfig>[];
+  if (cbcGrades.isNotEmpty) {
+    curricula.add(
+      CurriculumConfig(type: CurriculumType.cbc, grades: cbcGrades),
+    );
+  }
+  if (eftGrades.isNotEmpty) {
+    curricula.add(
+      CurriculumConfig(type: CurriculumType.eightFourFour, grades: eftGrades),
+    );
+  }
+
+  return SchoolConfig(curricula: curricula);
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // Entry Point
 // ═════════════════════════════════════════════════════════════════════════════
@@ -232,61 +287,6 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
       if (!mounted) return;
       setState(() => _config = _buildConfigFromStreams(allStreams));
     });
-  }
-
-  /// Builds a [SchoolConfig] from raw [SchoolStream] rows, grouping by
-  /// curriculum type and grade. Mirrors the identical helper in
-  /// [_ExamsTabState] and [_ExamsShellState].
-  SchoolConfig _buildConfigFromStreams(List<SchoolStream> allStreams) {
-    if (allStreams.isEmpty) return SchoolConfig.defaults();
-
-    final allGrades = allStreams.map((s) => s.grade).toSet();
-    final byGrade = <int, List<SchoolStream>>{};
-    for (final s in allStreams) {
-      byGrade.putIfAbsent(s.grade, () => []).add(s);
-    }
-
-    CurriculumType curriculumForGrade(int grade) {
-      if (grade >= 41) return CurriculumType.eightFourFour;
-      if (grade >= 9) return CurriculumType.cbc;
-      if (allGrades.any((g) => g >= 41)) return CurriculumType.eightFourFour;
-      return CurriculumType.cbc;
-    }
-
-    final cbcGrades = <GradeConfig>[];
-    final eftGrades = <GradeConfig>[];
-
-    for (final entry in byGrade.entries) {
-      final gradeNum = entry.key;
-      final streamRows = entry.value
-        ..sort((a, b) => a.stream.compareTo(b.stream));
-      final gradeStreams = streamRows
-          .map((s) => GradeStream(name: s.name, code: s.stream))
-          .toList();
-      final gc = GradeConfig(grade: gradeNum, streams: gradeStreams);
-      if (curriculumForGrade(gradeNum) == CurriculumType.cbc) {
-        cbcGrades.add(gc);
-      } else {
-        eftGrades.add(gc);
-      }
-    }
-
-    cbcGrades.sort((a, b) => a.grade.compareTo(b.grade));
-    eftGrades.sort((a, b) => a.grade.compareTo(b.grade));
-
-    final curricula = <CurriculumConfig>[];
-    if (cbcGrades.isNotEmpty) {
-      curricula.add(
-        CurriculumConfig(type: CurriculumType.cbc, grades: cbcGrades),
-      );
-    }
-    if (eftGrades.isNotEmpty) {
-      curricula.add(
-        CurriculumConfig(type: CurriculumType.eightFourFour, grades: eftGrades),
-      );
-    }
-
-    return SchoolConfig(curricula: curricula);
   }
 
   @override
@@ -9448,7 +9448,9 @@ class _TeacherTimetableView extends StatefulWidget {
 
 class _TeacherTimetableViewState extends State<_TeacherTimetableView> {
   final _timetableDao = TimetableDao(db);
+  final _catalogDao = CatalogDao(db);
   SchoolConfig? _config;
+  StreamSubscription<List<SchoolStream>>? _configSub;
 
   @override
   void initState() {
@@ -9456,9 +9458,20 @@ class _TeacherTimetableViewState extends State<_TeacherTimetableView> {
     _loadConfig();
   }
 
-  Future<void> _loadConfig() async {
-    // TODO: reload config from new settings source when available
-    if (mounted) setState(() => _config = SchoolConfig.defaults());
+  void _loadConfig() {
+    final schoolId = widget.schoolContext.membership.school.id;
+    _configSub?.cancel();
+    _configSub = _catalogDao.watchAllStreamsForSchool(schoolId).listen((
+      streams,
+    ) {
+      if (mounted) setState(() => _config = _buildConfigFromStreams(streams));
+    });
+  }
+
+  @override
+  void dispose() {
+    _configSub?.cancel();
+    super.dispose();
   }
 
   String get _teacherUserId {
@@ -9578,7 +9591,9 @@ class _StaffReadOnlyTimetableView extends StatefulWidget {
 class _StaffReadOnlyTimetableViewState
     extends State<_StaffReadOnlyTimetableView> {
   final _timetableDao = TimetableDao(db);
+  final _catalogDao = CatalogDao(db);
   SchoolConfig? _config;
+  StreamSubscription<List<SchoolStream>>? _configSub;
 
   @override
   void initState() {
@@ -9586,9 +9601,20 @@ class _StaffReadOnlyTimetableViewState
     _loadConfig();
   }
 
-  Future<void> _loadConfig() async {
-    // TODO: reload config from new settings source when available
-    if (mounted) setState(() => _config = SchoolConfig.defaults());
+  void _loadConfig() {
+    final schoolId = widget.schoolContext.membership.school.id;
+    _configSub?.cancel();
+    _configSub = _catalogDao.watchAllStreamsForSchool(schoolId).listen((
+      streams,
+    ) {
+      if (mounted) setState(() => _config = _buildConfigFromStreams(streams));
+    });
+  }
+
+  @override
+  void dispose() {
+    _configSub?.cancel();
+    super.dispose();
   }
 
   @override
@@ -9640,7 +9666,9 @@ class _ClassTimetableView extends StatefulWidget {
 
 class _ClassTimetableViewState extends State<_ClassTimetableView> {
   final _timetableDao = TimetableDao(db);
+  final _catalogDao = CatalogDao(db);
   SchoolConfig? _config;
+  StreamSubscription<List<SchoolStream>>? _configSub;
 
   // Student enrollment info for current term
   int? _grade;
@@ -9650,7 +9678,18 @@ class _ClassTimetableViewState extends State<_ClassTimetableView> {
   @override
   void initState() {
     super.initState();
+    _subscribeConfig();
     _loadData();
+  }
+
+  void _subscribeConfig() {
+    final schoolId = widget.schoolContext.membership.school.id;
+    _configSub?.cancel();
+    _configSub = _catalogDao.watchAllStreamsForSchool(schoolId).listen((
+      streams,
+    ) {
+      if (mounted) setState(() => _config = _buildConfigFromStreams(streams));
+    });
   }
 
   @override
@@ -9668,9 +9707,6 @@ class _ClassTimetableViewState extends State<_ClassTimetableView> {
 
     final schoolId = widget.schoolContext.membership.school.id;
     final term = widget.termContext.currentTerm;
-
-    // TODO: reload config from new settings source when available
-    _config ??= SchoolConfig.defaults();
 
     // Find student enrollment for current term
     if (term != null) {
@@ -9694,11 +9730,17 @@ class _ClassTimetableViewState extends State<_ClassTimetableView> {
   }
 
   @override
+  void dispose() {
+    _configSub?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final term = widget.termContext.currentTerm;
 
-    if (_loading || term == null) {
+    if (_loading || term == null || _config == null) {
       return Center(
         child: SizedBox(
           width: 20,
