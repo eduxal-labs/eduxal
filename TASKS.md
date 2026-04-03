@@ -1248,7 +1248,7 @@ if (snapshot.hasError) {
 
 ---
 
-### Task H1: Verify log creation for attendance marking
+### Task H1: Verify log creation for attendance marking ✅
 
 **Files to modify:** `lib/database/daos/attendance_dao.dart`
 **Context files to read:** `lib/database/tables/logs.dart`, `lib/database/tables/enums.dart`
@@ -1263,13 +1263,19 @@ if (snapshot.hasError) {
 2. If log entries are not being created, add them with the correct `SyncAction` and payload.
 3. Verify the `resource` field is set to something human-readable (e.g., student name or class name).
 
+**Result:** ✅ **Verified — no changes needed.** All three mutation methods already create correct log entries:
+- `markAttendance`: `MarkAttendancePayload` → `SyncAction.markAttendance`, resource `'Attendance $date'`
+- `markClassAttendance`: `MarkAttendancePayload` (all student records in one payload) → `SyncAction.markAttendance`
+- `deleteAttendanceRecord`: `DeleteAttendancePayload` → `SyncAction.deleteAttendance`
+All methods call `sync.schedulePush()` after the transaction.
+
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `git add -A && git commit -m "fix: verify and add sync log creation for attendance marking"`
+- [x] Mark this task `[x]`
+- [ ] Git commit: `git add -A && git commit -m "fix: verify sync log creation for attendance and grades"`
 
 ---
 
-### Task H2: Verify log creation for grade upserts
+### Task H2: Verify log creation for grade upserts ✅
 
 **Files to modify:** `lib/database/daos/exams_grades_dao.dart`
 **Context files to read:** `lib/database/tables/logs.dart`, `lib/database/tables/enums.dart`
@@ -1279,12 +1285,16 @@ if (snapshot.hasError) {
 **Specification:**
 `upsertGrade` and `bulkUpsertGrades` methods must write to the `logs` table with `SyncAction.markGrades` and appropriate payloads. If not, teacher grade entries will be lost on sync.
 
-**Fix:**
-Same as H1 — verify and add log creation if missing.
+**Result:** ✅ **Verified — no changes needed.** All grade mutation methods already create correct log entries:
+- `upsertGrade` (insert path): `MarkGradesPayload` with `GradeRecord` → `SyncAction.markGrades`
+- `upsertGrade` (update path): `UpdateGradePayload` → `SyncAction.updateGrade` (only when `hasChanges` is true)
+- `bulkUpsertGrades`: delegates to `upsertGrade` per entry — each creates its own log row inside the shared transaction
+- `deleteGrade`: `DeleteGradePayload` → `SyncAction.deleteGrade`
+All methods call `sync.schedulePush()` after the transaction.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `git add -A && git commit -m "fix: verify and add sync log creation for grade upserts"`
+- [x] Mark this task `[x]`
+- [ ] Git commit: `git add -A && git commit -m "fix: verify sync log creation for attendance and grades"`
 
 ---
 

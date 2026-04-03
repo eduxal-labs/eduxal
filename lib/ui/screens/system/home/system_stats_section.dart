@@ -58,6 +58,18 @@ class _StatsCardGrid extends StatelessWidget {
                         return StreamBuilder<RevenueStats>(
                           stream: systemStatsDao.watchRevenueStats(),
                           builder: (context, revSnap) {
+                            final hasError =
+                                userSnap.hasError ||
+                                schoolSnap.hasError ||
+                                studentSnap.hasError ||
+                                teacherSnap.hasError ||
+                                subSnap.hasError ||
+                                revSnap.hasError;
+
+                            if (hasError) {
+                              return _StatsErrorCard(isDesktop: isDesktop);
+                            }
+
                             final allReady =
                                 userSnap.hasData &&
                                 schoolSnap.hasData &&
