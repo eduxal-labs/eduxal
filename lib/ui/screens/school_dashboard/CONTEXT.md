@@ -241,6 +241,19 @@ When `ActiveTermContext.hasTerms` is `false`, the dashboard shows a blank state 
 
 
 ## Last Updated
+Tasks F04, F12 — Term null safety fix, dead code cleanup, and minor consistency fixes.
+
+**(F04 — Term null safety)** `active_term_context.dart`: `ActiveTermContext` constructor now auto-selects `allTerms.first` as fallback when `initialTerm` is null but `allTerms` is non-empty. Previously, `currentTerm` could be null even when `hasTerms` was true (terms exist but none marked active and `getMostRecentTerm` returns null). This ensures academic sections always have a term to work with when terms exist.
+
+**(F12 — Dead code cleanup in school_dashboard_screen.dart)** Removed dead `'Exams & Grades'` string from `_kAcademicNavLabels` set (nav label is always `'Exams'` after Task 01 rename). Simplified `_buildContentPanel` Exams branch from `item.label == 'Exams & Grades' || item.label == 'Exams'` to just `item.label == 'Exams'`.
+
+**(F12 — my_classes_screen.dart assertion)** Added `assert(entry is TeacherEntry, 'My Classes should only be shown to teachers')` before the `userId` extraction. The screen already handles the non-teacher case gracefully (shows empty state), but the assertion documents the contract and catches routing bugs in debug mode.
+
+**(F12 — overview_screen.dart cache.currentUser fix)** `_TeacherOverview.build()`: Changed `userId` from `cache.currentUser?.user.id ?? ''` to `entry.teacher.user`. The `entry` parameter already carries the teacher's user ID — using `cache.currentUser` was fragile (could theoretically differ in multi-account scenarios) and unnecessary since the `TeacherEntry` is available.
+
+**(F12 — members_page.dart duplicate department check)** `_CreateDepartmentSheetState._save()`: Added duplicate name check via `widget.dao.getDepartment(schoolId, name)` before creating. If a department with the same name already exists, shows a SnackBar error and returns early instead of hitting a database constraint error.
+
+Previous:
 Task F03 — Fix `_RoleFeed` and `_AdminFeed` using `SchoolConfig.defaults()` instead of actual school config.
 
 **(F03 — SchoolConfig fix in announcements)** `announcements_screen.dart`: Both `_AdminFeedState` and `_RoleFeedState` previously used `SchoolConfig.defaults()` (empty config) for grade/stream labels in announcement rows and detail sheets. Fixed by adding a shared top-level `_buildConfigFromStreams(List<SchoolStream>)` helper (same curriculum-detection heuristic used in attendance, exams, and timetable screens: grades ≥41 → 8-4-4, grades ≥9 → CBC, ambiguous 1–8 resolved by checking for 8-4-4-only grades). Both states now hold a `CatalogDao`, a `SchoolConfig _config` field, and a `StreamSubscription<List<SchoolStream>>? _configSub`. Config is loaded reactively in `initState` via `_catalogDao.watchAllStreamsForSchool(_schoolId).listen(...)` and disposed in `dispose()`. `_AdminFeedState._loadConfig()` changed from empty async stub to real reactive subscription. `_RoleFeedState._buildAnnouncementsFeed()` now passes `_config` instead of `SchoolConfig.defaults()`. New imports: `dart:async`, `database/daos/catalog_dao.dart`, `database/tables/curriculum_subjects.dart`.

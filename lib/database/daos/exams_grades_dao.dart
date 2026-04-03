@@ -1459,6 +1459,13 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
   /// - the exam creator (`exams.teacher`),
   /// - an invigilator on any paper (`papers.invigilator`), or
   /// - a subject teacher for any paper's subject (`subject_teachers`).
+  // TODO(perf): When teacherId is non-null, this method loads ALL exams for
+  // the term and filters in Dart after joining papers + subject_teachers.
+  // Ideally the initial exam query would be narrowed via SQL (e.g. EXISTS
+  // subquery on papers.invigilator or subject_teachers.teacher), but Drift's
+  // query builder makes that difficult without raw SQL. Acceptable for now
+  // given typical term exam counts (< 50), but revisit if performance
+  // degrades on large schools.
   Stream<List<ExamGroup>> watchExamGroups({
     required String schoolId,
     required int year,

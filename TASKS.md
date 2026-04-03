@@ -1372,7 +1372,7 @@ This centralizes the permission computation logic and makes it reusable for the 
 
 ## Track F: UI Polish & UX
 
-### Task F01: Add retry/delete buttons to NotificationsSection for failed sync logs
+### Task F01: Add retry/delete buttons to NotificationsSection for failed sync logs ✅
 **Files to create/modify:** `lib/ui/screens/system/notifications/notifications_section.dart`
 **Context files to read (if needed):** `lib/ui/screens/system/CONTEXT.md`
 **Depends on:** None (Phase 4)
@@ -1410,13 +1410,13 @@ Row(
 ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note notifications retry/delete buttons
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — note notifications retry/delete buttons
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
 
-### Task F02: Fix system stats resilience — isolate query failures
+### Task F02: Fix system stats resilience — isolate query failures ✅
 **Files to create/modify:** `lib/ui/screens/system/home/system_stats_section.dart`
 **Context files to read (if needed):** `lib/ui/screens/system/CONTEXT.md`
 **Depends on:** None (Phase 4)
@@ -1447,8 +1447,8 @@ _StatCard(
 Each `_StatCard` shows a loading indicator while pending, the value on success, and an error icon with tooltip on failure.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note stats resilience fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — note stats resilience fix
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
@@ -1479,7 +1479,7 @@ Pass the real config to `_RoleFeed` instead of `SchoolConfig.defaults()`.
 
 ---
 
-### Task F04: Fix `currentTerm` null safety when `hasTerms` is true
+### Task F04: Fix `currentTerm` null safety when `hasTerms` is true ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/school_dashboard_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** None (Phase 4)
@@ -1703,7 +1703,7 @@ If the ward has a cached image at `{appDir}/schools/{schoolId}/students/{adm}/im
 
 ---
 
-### Task F11: Filter deleted records from default lists for non-Super system users
+### Task F11: Filter deleted records from default lists for non-Super system users ✅
 **Files to create/modify:** `lib/ui/screens/system/schools/schools_section.dart`, `lib/ui/screens/system/users/users_section.dart`
 **Context files to read (if needed):** `lib/ui/screens/system/CONTEXT.md`
 **Depends on:** None (Phase 4)
@@ -1734,7 +1734,7 @@ Optionally, add a "Show deleted" toggle visible only to Super users.
 
 ---
 
-### Task F12: Clean up dead code and minor inconsistencies
+### Task F12: Clean up dead code and minor inconsistencies ✅
 **Files to create/modify:** `lib/ui/screens/system/system_dashboard_screen.dart`, `lib/ui/screens/school_dashboard/school_dashboard_screen.dart`, `lib/ui/screens/school_dashboard/my_classes/my_classes_screen.dart`, `lib/ui/screens/school_dashboard/overview/overview_screen.dart`, `lib/database/daos/exams_grades_dao.dart`, `lib/ui/screens/school_dashboard/members/members_page.dart`
 **Context files to read (if needed):** `lib/ui/screens/system/CONTEXT.md`, `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** None (Phase 4)

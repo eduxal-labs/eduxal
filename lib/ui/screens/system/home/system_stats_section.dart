@@ -29,7 +29,8 @@ class SystemStatsSection extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Main grid widget — subscribes to all 6 streams
+// Main grid widget — each stat card subscribes to its own stream independently
+// so that a single failed query does NOT hide all other working stats.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _StatsCardGrid extends StatelessWidget {
@@ -40,143 +41,55 @@ class _StatsCardGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<UserStats>(
-      stream: systemStatsDao.watchUserStats(),
-      builder: (context, userSnap) {
-        return StreamBuilder<SchoolStats>(
-          stream: systemStatsDao.watchSchoolStats(),
-          builder: (context, schoolSnap) {
-            return StreamBuilder<StudentStats>(
-              stream: systemStatsDao.watchStudentStats(),
-              builder: (context, studentSnap) {
-                return StreamBuilder<TeacherStats>(
-                  stream: systemStatsDao.watchTeacherStats(),
-                  builder: (context, teacherSnap) {
-                    return StreamBuilder<SubscriptionStats>(
-                      stream: systemStatsDao.watchSubscriptionStats(),
-                      builder: (context, subSnap) {
-                        return StreamBuilder<RevenueStats>(
-                          stream: systemStatsDao.watchRevenueStats(),
-                          builder: (context, revSnap) {
-                            final hasError =
-                                userSnap.hasError ||
-                                schoolSnap.hasError ||
-                                studentSnap.hasError ||
-                                teacherSnap.hasError ||
-                                subSnap.hasError ||
-                                revSnap.hasError;
+    final canSeeDeleted = permissions.canSeeDeleted;
 
-                            if (hasError) {
-                              return _StatsErrorCard(isDesktop: isDesktop);
-                            }
-
-                            final allReady =
-                                userSnap.hasData &&
-                                schoolSnap.hasData &&
-                                studentSnap.hasData &&
-                                teacherSnap.hasData &&
-                                subSnap.hasData &&
-                                revSnap.hasData;
-
-                            if (!allReady) {
-                              return _CardGridSkeleton(isDesktop: isDesktop);
-                            }
-
-                            return _CardGridContent(
-                              permissions: permissions,
-                              isDesktop: isDesktop,
-                              userStats: userSnap.data!,
-                              schoolStats: schoolSnap.data!,
-                              studentStats: studentSnap.data!,
-                              teacherStats: teacherSnap.data!,
-                              subscriptionStats: subSnap.data!,
-                              revenueStats: revSnap.data!,
-                            );
-                          },
-                        );
-                      },
-                    );
-                  },
-                );
-              },
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Grid content — builds _StatCardData list and renders layout
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _CardGridContent extends StatefulWidget {
-  const _CardGridContent({
-    required this.permissions,
-    required this.isDesktop,
-    required this.userStats,
-    required this.schoolStats,
-    required this.studentStats,
-    required this.teacherStats,
-    required this.subscriptionStats,
-    required this.revenueStats,
-  });
-
-  final SystemPermissions permissions;
-  final bool isDesktop;
-  final UserStats userStats;
-  final SchoolStats schoolStats;
-  final StudentStats studentStats;
-  final TeacherStats teacherStats;
-  final SubscriptionStats subscriptionStats;
-  final RevenueStats revenueStats;
-
-  @override
-  State<_CardGridContent> createState() => _CardGridContentState();
-}
-
-class _CardGridContentState extends State<_CardGridContent> {
-  @override
-  Widget build(BuildContext context) {
-    final canSeeDeleted = widget.permissions.canSeeDeleted;
-
-    final cards = <_StatCardData>[
-      _buildUserCard(canSeeDeleted),
-      _buildSchoolCard(canSeeDeleted),
-      _buildStudentCard(),
-      _buildTeacherCard(),
-      _buildSubscriptionCard(canSeeDeleted),
-      _buildRevenueCard(),
+    // Each card is an independent StreamBuilder — errors are isolated.
+    final cardWidgets = <Widget>[
+      _IndependentStatCard<UserStats>(
+        stream: systemStatsDao.watchUserStats(),
+        isDesktop: isDesktop,
+        builder: (stats) => _buildUserCard(stats, canSeeDeleted),
+      ),
+      _IndependentStatCard<SchoolStats>(
+        stream: systemStatsDao.watchSchoolStats(),
+        isDesktop: isDesktop,
+        builder: (stats) => _buildSchoolCard(stats, canSeeDeleted),
+      ),
+      _IndependentStatCard<StudentStats>(
+        stream: systemStatsDao.watchStudentStats(),
+        isDesktop: isDesktop,
+        builder: (stats) => _buildStudentCard(stats),
+      ),
+      _IndependentStatCard<TeacherStats>(
+        stream: systemStatsDao.watchTeacherStats(),
+        isDesktop: isDesktop,
+        builder: (stats) => _buildTeacherCard(stats),
+      ),
+      _IndependentStatCard<SubscriptionStats>(
+        stream: systemStatsDao.watchSubscriptionStats(),
+        isDesktop: isDesktop,
+        builder: (stats) => _buildSubscriptionCard(stats, canSeeDeleted),
+      ),
+      _IndependentStatCard<RevenueStats>(
+        stream: systemStatsDao.watchRevenueStats(),
+        isDesktop: isDesktop,
+        builder: (stats) => _buildRevenueCard(stats),
+      ),
     ];
 
-    if (widget.isDesktop) {
-      return _buildDesktopLayout(context, cards);
-    }
-    return _buildMobileLayout(context, cards);
-  }
-
-  // ── Desktop layout: always-visible responsive Wrap ────────────────────────
-  //
-  // Cards are intrinsic-height (mainAxisSize.min) so we use a Wrap rather
-  // than a GridView — GridView would impose a fixed cell height via
-  // childAspectRatio and override the card's natural size.
-  // Wrap lets cards flow naturally; each card is given an equal fixed width
-  // computed from available space so rows fill evenly.
-
-  Widget _buildDesktopLayout(BuildContext context, List<_StatCardData> cards) {
     return LayoutBuilder(
       builder: (context, constraints) {
         const hPad = 16.0 * 2;
         const gap = 8.0;
-        // Prefer 6 per row; fall back to 3 or 2 on narrower panels.
         final avail = constraints.maxWidth - hPad;
-        final cols = avail >= 660
-            ? 6
-            : avail >= 420
-            ? 3
-            : 2;
-        final cardWidth = (avail - gap * (cols - 1)) / cols;
+        final cols = isDesktop
+            ? (avail >= 660
+                  ? 6
+                  : avail >= 420
+                  ? 3
+                  : 2)
+            : (avail >= 320 ? 2 : 1);
+        final cardWidth = cols == 1 ? avail : (avail - gap * (cols - 1)) / cols;
 
         return Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -184,40 +97,8 @@ class _CardGridContentState extends State<_CardGridContent> {
             spacing: gap,
             runSpacing: gap,
             children: [
-              for (final card in cards)
-                SizedBox(
-                  width: cardWidth,
-                  child: _StatCard(data: card, isDesktop: true),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // ── Mobile layout: 2-column card grid ─────────────────────────────────────
-
-  Widget _buildMobileLayout(BuildContext context, List<_StatCardData> cards) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        const hPad = 16.0 * 2;
-        const gap = 8.0;
-        final avail = constraints.maxWidth - hPad;
-        final cols = avail >= 320 ? 2 : 1;
-        final cardWidth = cols == 2 ? (avail - gap) / 2 : avail;
-
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-          child: Wrap(
-            spacing: gap,
-            runSpacing: gap,
-            children: [
-              for (final card in cards)
-                SizedBox(
-                  width: cardWidth,
-                  child: _StatCard(data: card, isDesktop: false),
-                ),
+              for (final card in cardWidgets)
+                SizedBox(width: cardWidth, child: card),
             ],
           ),
         );
@@ -227,146 +108,133 @@ class _CardGridContentState extends State<_CardGridContent> {
 
   // ── Card builders ──────────────────────────────────────────────────────────
 
-  _StatCardData _buildUserCard(bool canSeeDeleted) {
+  static _StatCardData _buildUserCard(UserStats stats, bool canSeeDeleted) {
     final segments = <_BarSegment>[
-      _BarSegment('Invited', userStats.invited, _kColorInvited),
-      _BarSegment('Active', userStats.active, _kColorActive),
-      _BarSegment('Suspended', userStats.suspended, _kColorSuspended),
-      if (canSeeDeleted)
-        _BarSegment('Deleted', userStats.deleted, _kColorDeleted),
+      _BarSegment('Invited', stats.invited, _kColorInvited),
+      _BarSegment('Active', stats.active, _kColorActive),
+      _BarSegment('Suspended', stats.suspended, _kColorSuspended),
+      if (canSeeDeleted) _BarSegment('Deleted', stats.deleted, _kColorDeleted),
     ];
 
     final parts = <String>[];
-    if (userStats.active > 0) parts.add('${userStats.active} active');
-    if (userStats.invited > 0) parts.add('${userStats.invited} invited');
-    if (userStats.suspended > 0) {
-      parts.add('${userStats.suspended} suspended');
-    }
+    if (stats.active > 0) parts.add('${stats.active} active');
+    if (stats.invited > 0) parts.add('${stats.invited} invited');
+    if (stats.suspended > 0) parts.add('${stats.suspended} suspended');
 
     return _StatCardData(
       icon: Icons.people_outline,
       label: 'Users',
-      total: _formatCount(userStats.total),
-      totalRaw: userStats.total,
+      total: _formatCount(stats.total),
+      totalRaw: stats.total,
       subtitle: parts.isEmpty ? 'No users' : parts.join(', '),
       segments: segments,
     );
   }
 
-  _StatCardData _buildSchoolCard(bool canSeeDeleted) {
+  static _StatCardData _buildSchoolCard(SchoolStats stats, bool canSeeDeleted) {
     final segments = <_BarSegment>[
-      _BarSegment('Trial', schoolStats.trial, _kColorTrial),
-      _BarSegment('Active', schoolStats.active, _kColorActive),
-      _BarSegment('Cancelled', schoolStats.cancelled, _kColorCancelled),
-      _BarSegment('Suspended', schoolStats.suspended, _kColorSuspended),
-      if (canSeeDeleted)
-        _BarSegment('Deleted', schoolStats.deleted, _kColorDeleted),
+      _BarSegment('Trial', stats.trial, _kColorTrial),
+      _BarSegment('Active', stats.active, _kColorActive),
+      _BarSegment('Cancelled', stats.cancelled, _kColorCancelled),
+      _BarSegment('Suspended', stats.suspended, _kColorSuspended),
+      if (canSeeDeleted) _BarSegment('Deleted', stats.deleted, _kColorDeleted),
     ];
 
     final parts = <String>[];
-    if (schoolStats.active > 0) parts.add('${schoolStats.active} active');
-    if (schoolStats.trial > 0) parts.add('${schoolStats.trial} trial');
-    if (schoolStats.suspended > 0) {
-      parts.add('${schoolStats.suspended} suspended');
-    }
+    if (stats.active > 0) parts.add('${stats.active} active');
+    if (stats.trial > 0) parts.add('${stats.trial} trial');
+    if (stats.suspended > 0) parts.add('${stats.suspended} suspended');
 
     return _StatCardData(
       icon: Icons.school_outlined,
       label: 'Schools',
-      total: _formatCount(schoolStats.total),
-      totalRaw: schoolStats.total,
+      total: _formatCount(stats.total),
+      totalRaw: stats.total,
       subtitle: parts.isEmpty ? 'No schools' : parts.join(', '),
       segments: segments,
     );
   }
 
-  _StatCardData _buildStudentCard() {
+  static _StatCardData _buildStudentCard(StudentStats stats) {
     final segments = <_BarSegment>[
-      _BarSegment('Active', studentStats.active, _kColorActive),
-      _BarSegment('Graduated', studentStats.graduated, _kColorTrial),
-      _BarSegment('Transferred', studentStats.transferred, _kColorInvited),
-      _BarSegment('Expelled', studentStats.expelled, _kColorDeleted),
-      _BarSegment('Withdrawn', studentStats.withdrawn, _kColorSuspended),
-      _BarSegment('Deleted', studentStats.deleted, _kColorCancelled),
+      _BarSegment('Active', stats.active, _kColorActive),
+      _BarSegment('Graduated', stats.graduated, _kColorTrial),
+      _BarSegment('Transferred', stats.transferred, _kColorInvited),
+      _BarSegment('Expelled', stats.expelled, _kColorDeleted),
+      _BarSegment('Withdrawn', stats.withdrawn, _kColorSuspended),
+      _BarSegment('Deleted', stats.deleted, _kColorCancelled),
     ];
 
     return _StatCardData(
       icon: Icons.badge_outlined,
       label: 'Students',
-      total: _formatCount(studentStats.total),
-      totalRaw: studentStats.total,
-      subtitle: studentStats.subtitle,
+      total: _formatCount(stats.total),
+      totalRaw: stats.total,
+      subtitle: stats.subtitle,
       segments: segments,
-      termLabel: studentStats.currentTerm?.label,
+      termLabel: stats.currentTerm?.label,
     );
   }
 
-  _StatCardData _buildTeacherCard() {
+  static _StatCardData _buildTeacherCard(TeacherStats stats) {
     final segments = <_BarSegment>[
-      _BarSegment('Active', teacherStats.active, _kColorActive),
-      _BarSegment('Resigned', teacherStats.resigned, _kColorCancelled),
-      _BarSegment('Transferred', teacherStats.transferred, _kColorInvited),
-      _BarSegment('Fired', teacherStats.fired, _kColorDeleted),
-      _BarSegment('Retired', teacherStats.retired, _kColorSuspended),
+      _BarSegment('Active', stats.active, _kColorActive),
+      _BarSegment('Resigned', stats.resigned, _kColorCancelled),
+      _BarSegment('Transferred', stats.transferred, _kColorInvited),
+      _BarSegment('Fired', stats.fired, _kColorDeleted),
+      _BarSegment('Retired', stats.retired, _kColorSuspended),
     ];
 
     return _StatCardData(
       icon: Icons.assignment_ind_outlined,
       label: 'Teachers',
-      total: _formatCount(teacherStats.total),
-      totalRaw: teacherStats.total,
-      subtitle: teacherStats.subtitle,
+      total: _formatCount(stats.total),
+      totalRaw: stats.total,
+      subtitle: stats.subtitle,
       segments: segments,
     );
   }
 
-  _StatCardData _buildSubscriptionCard(bool canSeeDeleted) {
+  static _StatCardData _buildSubscriptionCard(
+    SubscriptionStats stats,
+    bool canSeeDeleted,
+  ) {
     final segments = <_BarSegment>[
-      _BarSegment('Pending', subscriptionStats.pending, _kColorInvited),
-      _BarSegment('Active', subscriptionStats.active, _kColorActive),
-      _BarSegment('Cancelled', subscriptionStats.cancelled, _kColorCancelled),
-      if (canSeeDeleted)
-        _BarSegment('Deleted', subscriptionStats.deleted, _kColorDeleted),
+      _BarSegment('Pending', stats.pending, _kColorInvited),
+      _BarSegment('Active', stats.active, _kColorActive),
+      _BarSegment('Cancelled', stats.cancelled, _kColorCancelled),
+      if (canSeeDeleted) _BarSegment('Deleted', stats.deleted, _kColorDeleted),
     ];
 
     return _StatCardData(
       icon: Icons.card_membership_outlined,
       label: 'Subscriptions',
-      total: _formatCount(subscriptionStats.total),
-      totalRaw: subscriptionStats.total,
-      subtitle: subscriptionStats.subtitle,
+      total: _formatCount(stats.total),
+      totalRaw: stats.total,
+      subtitle: stats.subtitle,
       segments: segments,
-      termLabel: subscriptionStats.currentTerm?.label,
+      termLabel: stats.currentTerm?.label,
     );
   }
 
-  _StatCardData _buildRevenueCard() {
+  static _StatCardData _buildRevenueCard(RevenueStats stats) {
     final segments = <_BarSegment>[
-      _BarSegment('Cash', revenueStats.cash.round(), _kColorActive),
-      _BarSegment('M-Pesa', revenueStats.mpesa.round(), _kColorTrial),
-      _BarSegment('Bank', revenueStats.bank.round(), _kColorInvited),
-      _BarSegment('Cheque', revenueStats.cheque.round(), _kColorSuspended),
+      _BarSegment('Cash', stats.cash.round(), _kColorActive),
+      _BarSegment('M-Pesa', stats.mpesa.round(), _kColorTrial),
+      _BarSegment('Bank', stats.bank.round(), _kColorInvited),
+      _BarSegment('Cheque', stats.cheque.round(), _kColorSuspended),
     ];
 
     return _StatCardData(
       icon: Icons.payments_outlined,
       label: 'Revenue',
-      total: _formatAmount(revenueStats.totalAmount),
-      totalRaw: revenueStats.totalCount,
-      subtitle: revenueStats.subtitle,
+      total: _formatAmount(stats.totalAmount),
+      totalRaw: stats.totalCount,
+      subtitle: stats.subtitle,
       segments: segments,
-      termLabel: revenueStats.currentTerm?.label,
+      termLabel: stats.currentTerm?.label,
     );
   }
-
-  // ── Convenience getters ────────────────────────────────────────────────────
-
-  UserStats get userStats => widget.userStats;
-  SchoolStats get schoolStats => widget.schoolStats;
-  StudentStats get studentStats => widget.studentStats;
-  TeacherStats get teacherStats => widget.teacherStats;
-  SubscriptionStats get subscriptionStats => widget.subscriptionStats;
-  RevenueStats get revenueStats => widget.revenueStats;
 
   static String _formatCount(int value) {
     if (value >= 1000000) return '${(value / 1000000).toStringAsFixed(1)}M';
@@ -378,6 +246,46 @@ class _CardGridContentState extends State<_CardGridContent> {
     if (value >= 1000000) return '${(value / 1000000).toStringAsFixed(1)}M';
     if (value >= 1000) return '${(value / 1000).toStringAsFixed(1)}K';
     return value.toStringAsFixed(0);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Independent stat card — each subscribes to its own stream so a single
+// failed query only affects that one card, not the entire dashboard.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _IndependentStatCard<T> extends StatelessWidget {
+  const _IndependentStatCard({
+    super.key,
+    required this.stream,
+    required this.isDesktop,
+    required this.builder,
+  });
+
+  final Stream<T> stream;
+  final bool isDesktop;
+  final _StatCardData Function(T data) builder;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<T>(
+      stream: stream,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _SingleCardError(
+            isDesktop: isDesktop,
+            error: snapshot.error.toString(),
+          );
+        }
+
+        if (!snapshot.hasData) {
+          return _SingleCardSkeleton(isDesktop: isDesktop);
+        }
+
+        final data = builder(snapshot.data as T);
+        return _StatCard(data: data, isDesktop: isDesktop);
+      },
+    );
   }
 }
 
@@ -930,72 +838,76 @@ class _SegmentedBarChartState extends State<_SegmentedBarChart>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Error state — shown when any stats stream errors
+// Per-card error state — replaces the old all-or-nothing _StatsErrorCard.
+// Shows an error icon with tooltip inside a card-shaped container so the
+// grid layout is preserved even when individual queries fail.
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _StatsErrorCard extends StatelessWidget {
-  const _StatsErrorCard({required this.isDesktop});
+class _SingleCardError extends StatelessWidget {
+  const _SingleCardError({required this.isDesktop, required this.error});
 
   final bool isDesktop;
+  final String error;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        decoration: BoxDecoration(
-          color: cs.surfaceContainer,
-          borderRadius: BorderRadius.circular(AppTheme.kRadius),
-          border: Border.all(
-            color: isDark
-                ? cs.outline.withValues(alpha: 0.5)
-                : cs.outlineVariant,
-            width: 1,
-          ),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainer,
+        borderRadius: BorderRadius.circular(AppTheme.kRadius),
+        border: Border.all(
+          color: isDark ? cs.outline.withValues(alpha: 0.5) : cs.outlineVariant,
+          width: 1,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 12),
+          Tooltip(
+            message: error,
+            child: Icon(
               Icons.error_outline_rounded,
-              size: 28,
+              size: 22,
               color: cs.error.withValues(alpha: 0.7),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Failed to load stats',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurface.withValues(alpha: 0.7),
-              ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Failed to load',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurface.withValues(alpha: 0.5),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 12),
+        ],
       ),
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Skeleton placeholder while streams load
+// Per-card skeleton — shown while an individual stream is still loading.
+// Matches the card shape so the grid stays stable.
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _CardGridSkeleton extends StatefulWidget {
-  const _CardGridSkeleton({required this.isDesktop});
+class _SingleCardSkeleton extends StatefulWidget {
+  const _SingleCardSkeleton({required this.isDesktop});
 
   final bool isDesktop;
 
   @override
-  State<_CardGridSkeleton> createState() => _CardGridSkeletonState();
+  State<_SingleCardSkeleton> createState() => _SingleCardSkeletonState();
 }
 
-class _CardGridSkeletonState extends State<_CardGridSkeleton>
+class _SingleCardSkeletonState extends State<_SingleCardSkeleton>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
   late final Animation<double> _shimmer;
@@ -1030,40 +942,7 @@ class _CardGridSkeletonState extends State<_CardGridSkeleton>
           _shimmer.value,
         )!;
 
-        return LayoutBuilder(
-          builder: (context, skeletonConstraints) {
-            final isDesktop = widget.isDesktop;
-            const hPad = 16.0 * 2;
-            const gap = 8.0;
-            final avail = skeletonConstraints.maxWidth - hPad;
-            final cols = isDesktop
-                ? (avail >= 660
-                      ? 6
-                      : avail >= 420
-                      ? 3
-                      : 2)
-                : (avail >= 320 ? 2 : 1);
-            final cardWidth = (avail - gap * (cols - 1)) / cols;
-            final pad = isDesktop
-                ? const EdgeInsets.fromLTRB(16, 12, 16, 16)
-                : const EdgeInsets.fromLTRB(16, 12, 16, 16);
-
-            return Padding(
-              padding: pad,
-              child: Wrap(
-                spacing: gap,
-                runSpacing: gap,
-                children: List.generate(
-                  6,
-                  (_) => SizedBox(
-                    width: cardWidth,
-                    child: _buildSkeletonCard(cs, isDark, shimmerColor),
-                  ),
-                ),
-              ),
-            );
-          },
-        );
+        return _buildSkeletonCard(cs, isDark, shimmerColor);
       },
     );
   }
