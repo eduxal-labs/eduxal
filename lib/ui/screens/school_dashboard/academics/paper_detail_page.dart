@@ -151,15 +151,18 @@ class _PaperDetailPageState extends State<PaperDetailPage>
   /// This is an exam-level management action — not subject-specific.
   bool get _canProgressStatus {
     final entry = widget.schoolContext.currentEntry.value;
-    if (entry is OwnerEntry || entry is StaffEntry) return true;
+    final perms = widget.schoolContext.permissions;
+    if (entry is OwnerEntry) return true;
+    if (entry is StaffEntry) {
+      return perms.can(Resource.exams, Action.update);
+    }
     if (entry is TeacherEntry) {
       final userId = entry.teacher.user;
       // Teacher can progress status if they created the exam, are the invigilator,
       // have exams.update permission, or teach this subject to this class.
       if (_exam.teacher == userId) return true;
       if (_paper.invigilator == userId) return true;
-      if (widget.schoolContext.permissions.can(Resource.exams, Action.update))
-        return true;
+      if (perms.can(Resource.exams, Action.update)) return true;
       return _teacherSubjects.any(
         (st) =>
             st.grade == _paper.grade &&
@@ -176,6 +179,9 @@ class _PaperDetailPageState extends State<PaperDetailPage>
     final entry = widget.schoolContext.currentEntry.value;
     if (entry is OwnerEntry || entry is StaffEntry) return true;
     if (entry is TeacherEntry) {
+      if (widget.schoolContext.permissions.can(Resource.grades, Action.mark)) {
+        return true;
+      }
       return _teacherSubjects.any(
         (st) =>
             st.grade == _paper.grade &&

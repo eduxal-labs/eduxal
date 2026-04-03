@@ -592,7 +592,7 @@ MembershipRole.teacher => [
 
 ---
 
-### Task D3: _canGradeContent does not check permissions.can(Resource.grades, Action.mark)
+### Task D3: _canGradeContent does not check permissions.can(Resource.grades, Action.mark) ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`
 **Context files to read:** `lib/models/permissions.dart`
@@ -610,7 +610,7 @@ Also, `_canProgressStatus` (~L152–157) returns `true` for ALL `StaffEntry` use
 3. `_canProgressStatus` for `TeacherEntry`: check both subject assignment AND `permissions.can(Resource.exams, Action.update)`.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Git commit: `git add -A && git commit -m "fix: check grades.mark permission in _canGradeContent"`
 
 ---
@@ -724,7 +724,7 @@ Option 1 is cleaner.
 
 ---
 
-### Task E1: Staff finance — routed to _OwnerFinanceShell unconditionally
+### Task E1: Staff finance — routed to _OwnerFinanceShell unconditionally ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/finance/finance_screen.dart`
 **Context files to read:** `lib/models/permissions.dart`
@@ -748,7 +748,7 @@ Option 1 is cleaner.
 
 **Update after completion:**
 - [x] Mark this task `[x]`
-- [ ] Git commit: `git add -A && git commit -m "fix: permission-gate staff finance routing and actions"`
+- [x] Git commit: `git add -A && git commit -m "fix: permission-gate staff finance routing and actions"`
 
 ---
 

@@ -316,7 +316,7 @@ class _DashboardShellState extends State<_DashboardShell>
       MembershipRole.teacher => [
         // ── Always visible (core 4) ──────────────────────────────
         const _NavItem(label: 'Overview', icon: Icons.space_dashboard_outlined),
-        const _NavItem(label: 'Academics', icon: Icons.menu_book_outlined),
+        const _NavItem(label: 'My Classes', icon: Icons.class_outlined),
         const _NavItem(label: 'Exams', icon: Icons.assignment_outlined),
         const _NavItem(
           label: 'Timetable',
@@ -324,6 +324,8 @@ class _DashboardShellState extends State<_DashboardShell>
         ),
 
         // ── Permission-gated (visible only with proper role/scope) ──
+        if (perms.canAny(Resource.classes, [Action.read]))
+          const _NavItem(label: 'Academics', icon: Icons.menu_book_outlined),
         if (perms.canAny(Resource.students, [Action.read]) ||
             perms.canAny(Resource.teachers, [Action.read]) ||
             perms.canAny(Resource.staff, [Action.read]) ||
