@@ -72,6 +72,17 @@ class _MembersSectionState extends State<MembersSection> {
   // ── Actions ────────────────────────────────────────────────────────────────
 
   Future<void> _removeMember(UsersData user) async {
+    // E05: Defense-in-depth — verify Users.Update permission before demoting.
+    if (!widget.permissions.can(Resource.users, Action.update)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You don\'t have permission to change user status'),
+        ),
+      );
+      return;
+    }
+
     final confirmed = await _showConfirmDialog(
       title: 'Remove member',
       message:
@@ -104,6 +115,17 @@ class _MembersSectionState extends State<MembersSection> {
   }
 
   Future<void> _purgeMember(UsersData user) async {
+    // E05: Defense-in-depth — only Super users may purge.
+    if (widget.permissions.level != UserLevel.super_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You don\'t have permission to purge users'),
+        ),
+      );
+      return;
+    }
+
     final confirmed = await _showConfirmDialog(
       title: 'Permanently delete',
       message:
@@ -207,6 +229,22 @@ class _MembersSectionState extends State<MembersSection> {
     String? confirmTitle,
     String? confirmMessage,
   }) async {
+    // E05: Defense-in-depth — verify the appropriate permission before
+    // changing user status. Delete status requires Users.Delete; all other
+    // status changes require Users.Update.
+    final requiredAction = status == UserStatus.deleted
+        ? Action.delete
+        : Action.update;
+    if (!widget.permissions.can(Resource.users, requiredAction)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You don\'t have permission to change user status'),
+        ),
+      );
+      return;
+    }
+
     if (confirm) {
       final ok = await _showConfirmDialog(
         title: confirmTitle ?? 'Update status',

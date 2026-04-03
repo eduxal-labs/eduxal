@@ -798,7 +798,15 @@ class _AccountActionsCard extends StatelessWidget {
             label: 'Promote to member',
             sublabel: 'Grants system access',
             cs: cs,
-            onTap: () => onUpdateLevel(UserLevel.system),
+            onTap: () => onConfirmAndRun(
+              title: 'Promote to member?',
+              message:
+                  'This will grant system-level access to ${user.name}. '
+                  'They will be able to use the system dashboard.',
+              confirmLabel: 'Promote',
+              confirmColor: cs.primary,
+              onConfirm: () => onUpdateLevel(UserLevel.system),
+            ),
           ),
         );
       case UserLevel.system:
@@ -809,7 +817,15 @@ class _AccountActionsCard extends StatelessWidget {
             label: 'Elevate to super',
             sublabel: 'Grants full access',
             cs: cs,
-            onTap: () => onUpdateLevel(UserLevel.super_),
+            onTap: () => onConfirmAndRun(
+              title: 'Elevate to super?',
+              message:
+                  'This will grant full unrestricted access to ${user.name}. '
+                  'Super users bypass all permission checks.',
+              confirmLabel: 'Elevate',
+              confirmColor: cs.primary,
+              onConfirm: () => onUpdateLevel(UserLevel.super_),
+            ),
           ),
         );
         addRow(
@@ -920,7 +936,15 @@ class _AccountActionsCard extends StatelessWidget {
             label: 'Restore',
             sublabel: 'Reactivates account access',
             cs: cs,
-            onTap: () => onUpdateStatus(UserStatus.active),
+            onTap: () => onConfirmAndRun(
+              title: 'Restore ${user.name}?',
+              message:
+                  'This will reactivate the account, allowing them to '
+                  'access the system again.',
+              confirmLabel: 'Restore',
+              confirmColor: const Color(0xFF26A69A),
+              onConfirm: () => onUpdateStatus(UserStatus.active),
+            ),
           ),
         );
         addRow(
@@ -949,7 +973,15 @@ class _AccountActionsCard extends StatelessWidget {
             label: 'Restore',
             sublabel: 'Reactivates account access',
             cs: cs,
-            onTap: () => onUpdateStatus(UserStatus.active),
+            onTap: () => onConfirmAndRun(
+              title: 'Restore ${user.name}?',
+              message:
+                  'This will reactivate the account, allowing them to '
+                  'access the system again.',
+              confirmLabel: 'Restore',
+              confirmColor: const Color(0xFF26A69A),
+              onConfirm: () => onUpdateStatus(UserStatus.active),
+            ),
           ),
         );
         // Purge is only available to super_ users.

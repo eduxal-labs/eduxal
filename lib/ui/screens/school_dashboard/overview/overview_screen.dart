@@ -134,24 +134,36 @@ class _OwnerOverview extends StatelessWidget {
   }
 }
 
-class _OwnerQuickStats extends StatelessWidget {
+class _OwnerQuickStats extends StatefulWidget {
   const _OwnerQuickStats({required this.schoolId, required this.term});
 
   final String schoolId;
   final Term term;
 
   @override
-  Widget build(BuildContext context) {
-    final membersDao = MembersDao(db);
-    final enrollmentsDao = EnrollmentsDao(db);
+  State<_OwnerQuickStats> createState() => _OwnerQuickStatsState();
+}
 
+class _OwnerQuickStatsState extends State<_OwnerQuickStats> {
+  late final MembersDao _membersDao;
+  late final EnrollmentsDao _enrollmentsDao;
+
+  @override
+  void initState() {
+    super.initState();
+    _membersDao = MembersDao(db);
+    _enrollmentsDao = EnrollmentsDao(db);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       children: [
         Row(
           children: [
             Expanded(
               child: StreamBuilder<List<StudentsData>>(
-                stream: membersDao.watchStudents(schoolId),
+                stream: _membersDao.watchStudents(widget.schoolId),
                 builder: (context, snap) {
                   final count = snap.data?.length ?? 0;
                   return _StatCard(
@@ -166,7 +178,7 @@ class _OwnerQuickStats extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: StreamBuilder<List<TeachersData>>(
-                stream: membersDao.watchTeachers(schoolId),
+                stream: _membersDao.watchTeachers(widget.schoolId),
                 builder: (context, snap) {
                   final count = snap.data?.length ?? 0;
                   return _StatCard(
@@ -185,7 +197,7 @@ class _OwnerQuickStats extends StatelessWidget {
           children: [
             Expanded(
               child: StreamBuilder<List<StaffData>>(
-                stream: membersDao.watchStaff(schoolId),
+                stream: _membersDao.watchStaff(widget.schoolId),
                 builder: (context, snap) {
                   final count = snap.data?.length ?? 0;
                   return _StatCard(
@@ -200,10 +212,10 @@ class _OwnerQuickStats extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: StreamBuilder<List<({int grade, int stream})>>(
-                stream: enrollmentsDao.watchPopulatedClasses(
-                  schoolId: schoolId,
-                  year: term.year,
-                  term: term.term,
+                stream: _enrollmentsDao.watchPopulatedClasses(
+                  schoolId: widget.schoolId,
+                  year: widget.term.year,
+                  term: widget.term.term,
                 ),
                 builder: (context, snap) {
                   final count = snap.data?.length ?? 0;

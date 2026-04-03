@@ -1152,7 +1152,7 @@ Also make the settings data reactive to sync changes (OWN-024): if the screen cu
 
 ---
 
-### Task E02: Add permission guards to AcademicsScreen and ExamsGradesScreen for staff
+### Task E02: Add permission guards to AcademicsScreen and ExamsGradesScreen for staff ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/academics/academics_screen.dart`, `lib/ui/screens/school_dashboard/exams/exams_grades_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** None (Phase 3)
@@ -1188,13 +1188,13 @@ Also make the settings data reactive to sync changes (OWN-024): if the screen cu
 3. Within `_ExamsShell`, gate write actions (create/edit/delete) for staff by checking `exams.create`, `exams.update`, `exams.delete` respectively.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note defense-in-depth guards
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note defense-in-depth guards
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
 
-### Task E03: Add confirmation dialogs for destructive system actions
+### Task E03: Add confirmation dialogs for destructive system actions ✅
 **Files to create/modify:** `lib/ui/screens/system/schools/schools_section.dart`, `lib/ui/screens/system/plans/plans_section.dart`, `lib/ui/screens/system/users/user_detail_sheet.dart`, `lib/ui/screens/system/roles/roles_section.dart`
 **Context files to read (if needed):** `lib/ui/screens/system/CONTEXT.md`
 **Depends on:** None (Phase 3)
@@ -1247,8 +1247,8 @@ Also make the settings data reactive to sync changes (OWN-024): if the screen cu
    - If the schema has no soft-delete for roles, document that both are hard deletes but add a confirmation dialog with clear messaging
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note destructive action confirmations
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — note destructive action confirmations
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
@@ -1293,7 +1293,7 @@ Also make the settings data reactive to sync changes (OWN-024): if the screen cu
 
 ---
 
-### Task E05: Gate system members status-change actions by permission
+### Task E05: Gate system members status-change actions by permission ✅
 **Files to create/modify:** `lib/ui/screens/system/members/members_section.dart`
 **Context files to read (if needed):** `lib/ui/screens/system/CONTEXT.md`
 **Depends on:** None (Phase 3)
@@ -1323,8 +1323,8 @@ if (permissions.can(Resource.users, Action.update)) ...[
 ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note member status-change gating
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — note member status-change gating
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---

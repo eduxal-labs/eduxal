@@ -13,6 +13,8 @@ import '../../../../database/tables/enums.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/animated_save_button.dart';
 import '../../../widgets/edu_sheet.dart';
+import '../../../../models/membership.dart';
+import '../../../../models/permissions.dart';
 import '../../../../models/school_context.dart';
 import 'mpesa_config_screen.dart';
 
@@ -237,6 +239,33 @@ class _SchoolSettingsScreenState extends State<SchoolSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final perms = widget.schoolContext.permissions;
+    final entry = widget.schoolContext.currentEntry.value;
+
+    // Defense-in-depth: nav routing should prevent unauthorized access,
+    // but guard here as well.
+    if (entry is! OwnerEntry && !perms.can(Resource.schools, Action.update)) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.lock_outline, size: 48, color: Colors.grey),
+            SizedBox(height: 16),
+            Text('Access restricted'),
+            SizedBox(height: 4),
+            Text(
+              'You don\'t have permission to view school settings.',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w300,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
     final screenWidth = MediaQuery.sizeOf(context).width;

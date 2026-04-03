@@ -172,6 +172,11 @@ For `UserLevel.super_` users, all permissions are granted unconditionally via `S
 - Data is not school-scoped — all queries are system-wide (no `schoolId` filter).
 - The notification system reads from the `logs` table directly — it does not depend on the sync engine.
 - Permission gating uses `SystemPermissions.can(action)` — never raw `UserLevel` checks in UI code (except `canSeeDeleted` which is level-specific by design).
+- **Destructive action confirmations (E03):** All destructive or privilege-changing actions show a `showEduConfirmDialog` before executing. Specifically:
+  - `schools_section.dart` `_trashSchool`: dialog now has `isDestructive: true`.
+  - `plans_section.dart` `_deletePlan`: added confirmation dialog (`isDestructive: true`) and success snackbar on completion.
+  - `user_detail_sheet.dart` `_AccountActionsCard`: "Promote to member", "Elevate to super", and both "Restore" actions now wrapped with `onConfirmAndRun` confirmation dialogs (previously fired without confirmation).
+  - `roles_section.dart` `_deleteRole`: confirmation dialog already existed with `isDestructive: true`; messaging updated to clarify the delete is permanent (roles have no soft-delete — both Delete and Purge call the same hard-delete DAO method `deleteRole`).
 
 ## Last Updated
-Task C01 — Fixed logout not navigating away from System Dashboard. The `_handleAction` logout case now `await`s `client.logOut()`, then uses `Navigator.pushAndRemoveUntil` to clear the entire route stack and navigate to `LoginScreen` (matching the established pattern in `account_screen.dart`). Added `import '../auth/login_screen.dart'`. Previous: Task A03.
+Task E03 — Added confirmation dialogs for destructive system actions across schools, plans, users, and roles sections. Previous: Task C01.
