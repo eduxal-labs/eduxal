@@ -1107,13 +1107,38 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
       widget.schoolContext.permissions.can(Resource.exams, Action.create) ||
       _entry is OwnerEntry;
 
-  bool get _canEditExam =>
-      widget.schoolContext.permissions.can(Resource.exams, Action.update) ||
-      _entry is OwnerEntry;
+  /// Whether the current teacher created this exam group or has subject
+  /// assignments overlapping with any of its participating grades.
+  /// Always returns `true` for non-teacher entries.
+  bool get _isTeacherExamOwnerOrAssigned {
+    if (_entry is! TeacherEntry) return true;
+    final teacherId = (_entry as TeacherEntry).teacher.user;
+    // Teacher created the exam
+    if (widget.group.teacher.id == teacherId) return true;
+    // Teacher has subject assignments for any of this exam's grades
+    final examGrades = widget.group.participatingGrades.toSet();
+    return _teacherSubjects.any((st) => examGrades.contains(st.grade));
+  }
 
-  bool get _canDeleteExam =>
-      widget.schoolContext.permissions.can(Resource.exams, Action.delete) ||
-      _entry is OwnerEntry;
+  bool get _canEditExam {
+    if (_entry is OwnerEntry) return true;
+    if (!widget.schoolContext.permissions.can(Resource.exams, Action.update)) {
+      return false;
+    }
+    // Teachers can only edit exams they created or are assigned to
+    if (_entry is TeacherEntry) return _isTeacherExamOwnerOrAssigned;
+    return true; // Staff with permission
+  }
+
+  bool get _canDeleteExam {
+    if (_entry is OwnerEntry) return true;
+    if (!widget.schoolContext.permissions.can(Resource.exams, Action.delete)) {
+      return false;
+    }
+    // Teachers can only delete exams they created or are assigned to
+    if (_entry is TeacherEntry) return _isTeacherExamOwnerOrAssigned;
+    return true; // Staff with permission
+  }
 
   bool get _canMarkGrades {
     if (_entry is OwnerEntry) return true;
@@ -1151,6 +1176,10 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
   }
 
   Future<void> _showAddGradeModal(BuildContext context) async {
+    // For teachers, restrict grade picker to their assigned grades
+    final teacherGrades = _entry is TeacherEntry
+        ? _teacherSubjects.map((st) => st.grade).toSet()
+        : null;
     await showEduSheet<void>(
       context: context,
       maxWidth: 520,
@@ -1165,11 +1194,16 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
         subjectsDao: SubjectsDao(db),
         membersDao: _membersDao,
         onClose: () => Navigator.of(context).pop(),
+        teacherAssignedGrades: teacherGrades,
       ),
     );
   }
 
   Future<void> _showAddStreamModal(BuildContext context) async {
+    // For teachers, restrict grade picker to their assigned grades
+    final teacherGrades = _entry is TeacherEntry
+        ? _teacherSubjects.map((st) => st.grade).toSet()
+        : null;
     await showEduSheet<void>(
       context: context,
       maxWidth: 520,
@@ -1184,6 +1218,7 @@ class _ExamGroupDetailViewState extends State<_ExamGroupDetailView>
         subjectsDao: SubjectsDao(db),
         membersDao: _membersDao,
         onClose: () => Navigator.of(context).pop(),
+        teacherAssignedGrades: teacherGrades,
       ),
     );
   }
@@ -1657,6 +1692,7 @@ class _AddStreamForm extends StatefulWidget {
     required this.subjectsDao,
     required this.membersDao,
     required this.onClose,
+    this.teacherAssignedGrades,
   });
 
   final ExamGroup group;
@@ -1669,6 +1705,11 @@ class _AddStreamForm extends StatefulWidget {
   final SubjectsDao subjectsDao;
   final MembersDao membersDao;
   final VoidCallback onClose;
+
+  /// When non-null, only grades in this set are shown in the grade picker.
+  /// Used to restrict stream addition for [TeacherEntry] users to their
+  /// assigned grades.
+  final Set<int>? teacherAssignedGrades;
 
   @override
   State<_AddStreamForm> createState() => _AddStreamFormState();
@@ -1732,7 +1773,10 @@ class _AddStreamFormState extends State<_AddStreamForm> {
   /// least one stream missing from the group.
   List<GradeConfig> get _gradesWithMissing {
     final result = <GradeConfig>[];
+    final allowed = widget.teacherAssignedGrades;
     for (final gradeEntry in widget.group.grades) {
+      // For teachers, skip grades they are not assigned to
+      if (allowed != null && !allowed.contains(gradeEntry.grade)) continue;
       final gc = _gradeConfigFor(gradeEntry.grade);
       if (gc == null) continue;
       if (_missingStreamsForGrade(gradeEntry.grade).isNotEmpty) {
@@ -2929,6 +2973,7 @@ class _AddGradeToExamForm extends StatefulWidget {
     required this.subjectsDao,
     required this.membersDao,
     required this.onClose,
+    this.teacherAssignedGrades,
   });
 
   final ExamGroup group;
@@ -2941,6 +2986,11 @@ class _AddGradeToExamForm extends StatefulWidget {
   final SubjectsDao subjectsDao;
   final MembersDao membersDao;
   final VoidCallback onClose;
+
+  /// When non-null, only grades in this set are shown in the grade picker.
+  /// Used to restrict grade addition for [TeacherEntry] users to their
+  /// assigned grades.
+  final Set<int>? teacherAssignedGrades;
 
   @override
   State<_AddGradeToExamForm> createState() => _AddGradeToExamFormState();
@@ -2983,10 +3033,14 @@ class _AddGradeToExamFormState extends State<_AddGradeToExamForm>
   /// All grades in the school config that are NOT already in the exam group.
   List<GradeConfig> get _availableGrades {
     final existing = widget.group.participatingGrades.toSet();
+    final allowed = widget.teacherAssignedGrades;
     final result = <GradeConfig>[];
     for (final curriculum in widget.config.curricula) {
       for (final gc in curriculum.grades) {
-        if (!existing.contains(gc.grade)) result.add(gc);
+        if (existing.contains(gc.grade)) continue;
+        // For teachers, skip grades they are not assigned to
+        if (allowed != null && !allowed.contains(gc.grade)) continue;
+        result.add(gc);
       }
     }
     return result;

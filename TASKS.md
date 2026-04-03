@@ -582,7 +582,7 @@ And replace with the appropriate permission check:
 
 ---
 
-### Task B02: Fix attendance permission inversion for teachers
+### Task B02: Fix attendance permission inversion for teachers ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/attendance/attendance_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** None (Phase 2)
@@ -613,13 +613,13 @@ Two issues in `attendance_screen.dart`:
    Per BUG-017 fix, `attendance.mark` WITH the permission SHOULD allow marking for non-assigned classes. Verify the current BUG-017 fix is preserved. The real fix here is: if teacher only has `attendance.read`, show all classes read-only. If teacher has `attendance.mark`, show assigned classes with mark capability + optionally other classes read-only.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note attendance permission fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note attendance permission fix
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
 
-### Task B03: Scope teacher exam creation/editing to assigned grades/subjects
+### Task B03: Scope teacher exam creation/editing to assigned grades/subjects ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/exams/exams_grades_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/exams/CONTEXT.md`
 **Depends on:** None (Phase 2)
@@ -860,7 +860,7 @@ Verify the app's navigation pattern by checking `main.dart` or the router setup.
 
 ---
 
-### Task C03: Fix owner Attendance routing — show admin overview, not teacher-style class picker
+### Task C03: Fix owner Attendance routing — show admin overview, not teacher-style class picker ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/attendance/attendance_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** None (Phase 2)
@@ -883,13 +883,13 @@ For now, the simplest fix: ensure the `_ClassPickerShell` when rendered for an o
 A more thorough redesign (admin attendance dashboard) can be a future task.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note owner attendance UX improvement
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note owner attendance UX improvement
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
 
-### Task C04: Fix Attendance → GradeDetailPage tab leak
+### Task C04: Fix Attendance → GradeDetailPage tab leak ✅
 **Files to create/modify:** `lib/ui/screens/school_dashboard/attendance/attendance_screen.dart`
 **Context files to read (if needed):** `lib/ui/screens/school_dashboard/CONTEXT.md`
 **Depends on:** None (Phase 2)
@@ -916,8 +916,8 @@ class GradeDetailPage extends StatelessWidget {
 When launched from Attendance, pass `restrictToTab: 'Attendance'`.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note attendance tab leak fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note attendance tab leak fix
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---

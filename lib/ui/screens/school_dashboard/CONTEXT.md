@@ -241,7 +241,15 @@ When `ActiveTermContext.hasTerms` is `false`, the dashboard shows a blank state 
 
 
 ## Last Updated
-Task B08 (verification only) — Confirmed grade access RBAC is fully permission-based with no `StaffEntry`/`OwnerEntry` bypass. `_canGradeContent` in `paper_detail_page.dart` uses `perms.can(Resource.grades, Action.read) || perms.can(Resource.grades, Action.mark)`. `_can()` in `grade_detail_page.dart` delegates to `widget.schoolContext.permissions.can(resource, action)`. Both were already fixed by A09; no code changes needed.
+Tasks B02, C03, C04 — Attendance permission fix, owner routing, and GradeDetailPage tab leak fix.
+
+**(B02 — attendance permission inversion fix)** `attendance_screen.dart`: Added permission guard for `TeacherEntry` in `AttendanceScreen.build()` — teachers without `attendance.mark` or `attendance.read` now see `_AccessDeniedState` instead of `_ClassPickerShell`. Fixed `_needsTeacherFilter` in `_loadClasses()`: changed from `!permissions.can(Resource.attendance, Action.mark)` to `!permissions.canAny(Resource.attendance, [Action.mark, Action.read])`. This preserves the BUG-017 fix (teachers with `attendance.mark` see ALL classes and can mark any of them) while also allowing teachers with only `attendance.read` to see ALL classes (read-only). Teachers without either permission are blocked entirely by the guard.
+
+**(C03 — owner attendance routing)** `attendance_screen.dart`: Owners already see ALL classes (the `_needsTeacherFilter` check only applies to `TeacherEntry`). Made the header subtitle dynamic via a `Builder` widget — owners and staff see "Select a class to manage attendance" (or "…view attendance" if read-only); teachers see "Select a class to mark attendance" (or "…view attendance" if read-only). No structural changes to owner routing — `_ClassPickerShell` remains the shared component, which is functionally correct for now. A more thorough admin attendance dashboard is deferred to a future task.
+
+**(C04 — GradeDetailPage tab leak fix)** `grade_detail_page.dart`: Added `final String? restrictToTab` parameter to `GradeDetailPage`. When set, the content tab bar (`EduTabBar` for `_contentTabs`) is hidden and the content `TabBarView` uses `NeverScrollableScrollPhysics()` to prevent swiping to other tabs. `attendance_screen.dart`: `_navigateToClass()` now passes `restrictToTab: 'Attendance'` when launching `GradeDetailPage`, preventing users from accessing Students, Exams, Subjects, Timetable, Lessons, or Teachers tabs they may not have permission to see. Stream tabs remain navigable (the user can still switch between streams within the grade).
+
+Previous: Task B08 (verification only) — Confirmed grade access RBAC is fully permission-based with no `StaffEntry`/`OwnerEntry` bypass. `_canGradeContent` in `paper_detail_page.dart` uses `perms.can(Resource.grades, Action.read) || perms.can(Resource.grades, Action.mark)`. `_can()` in `grade_detail_page.dart` delegates to `widget.schoolContext.permissions.can(resource, action)`. Both were already fixed by A09; no code changes needed.
 
 Task A09 — Removed `entry is OwnerEntry` blanket RBAC bypass from 5 files across the school dashboard:
 

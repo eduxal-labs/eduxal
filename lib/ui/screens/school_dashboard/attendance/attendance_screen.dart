@@ -52,10 +52,13 @@ class AttendanceScreen extends StatelessWidget {
       valueListenable: schoolContext.currentEntry,
       builder: (context, entry, _) {
         return switch (entry) {
-          TeacherEntry() => _ClassPickerShell(
-            schoolContext: schoolContext,
-            termContext: termCtx,
-          ),
+          TeacherEntry() =>
+            permissions.canAny(Resource.attendance, [Action.mark, Action.read])
+                ? _ClassPickerShell(
+                    schoolContext: schoolContext,
+                    termContext: termCtx,
+                  )
+                : const _AccessDeniedState(),
           OwnerEntry() => _ClassPickerShell(
             schoolContext: schoolContext,
             termContext: termCtx,
@@ -238,13 +241,17 @@ class _ClassPickerShellState extends State<_ClassPickerShell> {
     final entry = widget.schoolContext.currentEntry.value;
     final permissions = widget.schoolContext.permissions;
 
-    // Teachers without the admin-level attendance.mark permission only see
-    // classes they are assigned to (via subject_teachers or class_teachers).
-    // Owners, staff with the permission, and teachers with admin mark
-    // permission see ALL populated classes.
+    // Teachers without any attendance permission (mark or read) would be
+    // blocked by the guard in AttendanceScreen.build(), so all teachers
+    // reaching here have at least one of the two permissions.
+    // - Teacher with attendance.mark → sees ALL classes, can mark any
+    //   (preserves BUG-017 fix).
+    // - Teacher with attendance.read only → sees ALL classes, read-only.
+    // Only filter to assigned classes when the teacher has neither permission
+    // (unreachable due to the guard, but kept for defense-in-depth).
     _needsTeacherFilter =
         entry is TeacherEntry &&
-        !permissions.can(Resource.attendance, Action.mark);
+        !permissions.canAny(Resource.attendance, [Action.mark, Action.read]);
 
     // 1. Watch all populated classes (classes with at least one enrollment).
     _classesSub = _enrollmentsDao
@@ -374,6 +381,7 @@ class _ClassPickerShellState extends State<_ClassPickerShell> {
             gradeLabel: label,
             initialStreamIndex: streamTabIndex,
             initialContentTabIndex: attendanceTabIndex,
+            restrictToTab: 'Attendance',
           ),
         ),
       ),
@@ -418,13 +426,32 @@ class _ClassPickerShellState extends State<_ClassPickerShell> {
                 ),
               ),
               const SizedBox(height: 4),
-              Text(
-                'Select a class to mark attendance',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w300,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-                ),
+              Builder(
+                builder: (_) {
+                  final entry = widget.schoolContext.currentEntry.value;
+                  final canMark = widget.schoolContext.permissions.can(
+                    Resource.attendance,
+                    Action.mark,
+                  );
+                  final String subtitle;
+                  if (entry is OwnerEntry || entry is StaffEntry) {
+                    subtitle = canMark
+                        ? 'Select a class to manage attendance'
+                        : 'Select a class to view attendance';
+                  } else {
+                    subtitle = canMark
+                        ? 'Select a class to mark attendance'
+                        : 'Select a class to view attendance';
+                  }
+                  return Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w300,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                    ),
+                  );
+                },
               ),
             ],
           ),

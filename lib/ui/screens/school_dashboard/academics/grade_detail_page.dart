@@ -55,6 +55,7 @@ class GradeDetailPage extends StatefulWidget {
     required this.gradeLabel,
     this.initialStreamIndex,
     this.initialContentTabIndex,
+    this.restrictToTab,
   });
 
   final SchoolContext schoolContext;
@@ -70,6 +71,13 @@ class GradeDetailPage extends StatefulWidget {
   /// Attendance=3, Timetable=4, Lessons=5, Teachers=6).
   /// When null, defaults to 0 (Students).
   final int? initialContentTabIndex;
+
+  /// When set, only the tab whose label matches this string is shown.
+  /// The content tab bar is hidden and swiping between content tabs is
+  /// disabled. Used when navigating from Attendance to prevent leaking
+  /// other tabs (Students, Exams, Subjects, etc.) that the user may not
+  /// have permission to see.
+  final String? restrictToTab;
 
   @override
   State<GradeDetailPage> createState() => _GradeDetailPageState();
@@ -406,7 +414,7 @@ class _GradeDetailPageState extends State<GradeDetailPage>
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                       ),
                     )
-                  else
+                  else if (widget.restrictToTab == null)
                     Container(
                       color: cs.surface,
                       child: EduTabBar(
@@ -436,6 +444,9 @@ class _GradeDetailPageState extends State<GradeDetailPage>
                           )
                         : TabBarView(
                             controller: _contentTabController,
+                            physics: widget.restrictToTab != null
+                                ? const NeverScrollableScrollPhysics()
+                                : null,
                             children: [
                               if (_canSeeStudents) _buildStudentsTab(cs, term),
                               _buildExamsTab(cs, term),
