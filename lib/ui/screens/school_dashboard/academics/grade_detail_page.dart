@@ -105,15 +105,12 @@ class _GradeDetailPageState extends State<GradeDetailPage>
 
   // ── Content tab definitions ────────────────────────────────────────────────
 
-  static const _contentTabs = [
-    EduTab(label: 'Students'),
-    EduTab(label: 'Exams'),
-    EduTab(label: 'Subjects'),
-    EduTab(label: 'Attendance'),
-    EduTab(label: 'Timetable'),
-    EduTab(label: 'Lessons'),
-    EduTab(label: 'Teachers'),
-  ];
+  /// Whether the user has permission to see the Students tab.
+  late final bool _canSeeStudents;
+
+  /// Visible content tabs — the Students tab is only included when the user
+  /// has `students.read` permission (or is an owner).
+  late final List<EduTab> _contentTabs;
 
   // ── "All" sub-tab definitions ──────────────────────────────────────────────
 
@@ -165,8 +162,24 @@ class _GradeDetailPageState extends State<GradeDetailPage>
     );
     _allSubTabController.addListener(_onAllSubTabChanged);
 
+    // Gate the Students tab behind students.read permission.
+    _canSeeStudents = _can(Resource.students, Action.read);
+    _contentTabs = [
+      if (_canSeeStudents) const EduTab(label: 'Students'),
+      const EduTab(label: 'Exams'),
+      const EduTab(label: 'Subjects'),
+      const EduTab(label: 'Attendance'),
+      const EduTab(label: 'Timetable'),
+      const EduTab(label: 'Lessons'),
+      const EduTab(label: 'Teachers'),
+    ];
+
     // Resolve initial content tab index — clamp to valid range.
-    final initContent = (widget.initialContentTabIndex ?? 0).clamp(
+    // `initialContentTabIndex` uses the *logical* ordering where 0=Students,
+    // 1=Exams, 2=Subjects, 3=Attendance, etc.  Convert to visible index
+    // when the Students tab is hidden.
+    final logicalInit = widget.initialContentTabIndex ?? 0;
+    final initContent = (_canSeeStudents ? logicalInit : logicalInit - 1).clamp(
       0,
       _contentTabs.length - 1,
     );
@@ -267,6 +280,13 @@ class _GradeDetailPageState extends State<GradeDetailPage>
     return entry is OwnerEntry ||
         widget.schoolContext.permissions.can(resource, action);
   }
+
+  /// Maps a visible content tab index → logical index (0=Students, 1=Exams,
+  /// 2=Subjects, 3=Attendance, 4=Timetable, 5=Lessons, 6=Teachers).
+  /// When [_canSeeStudents] is false the Students tab is absent, so visible
+  /// index 0 corresponds to logical index 1 (Exams), etc.
+  int _logicalContentIndex(int visible) =>
+      _canSeeStudents ? visible : visible + 1;
 
   /// Brief scale-down-then-up bounce for the FAB.
   Future<void> _bounceFab() async {
@@ -419,7 +439,7 @@ class _GradeDetailPageState extends State<GradeDetailPage>
                         : TabBarView(
                             controller: _contentTabController,
                             children: [
-                              _buildStudentsTab(cs, term),
+                              if (_canSeeStudents) _buildStudentsTab(cs, term),
                               _buildExamsTab(cs, term),
                               _buildSubjectsTab(cs, term),
                               _buildAttendanceTab(cs, term),
@@ -633,7 +653,8 @@ class _GradeDetailPageState extends State<GradeDetailPage>
   ///   Lessons   → Resource.lessons  / Action.create
   ///   Teachers  → Resource.classes  / Action.assign
   List<_FabAction> _actionsForContentTab(int tabIndex) {
-    return switch (tabIndex) {
+    final logical = _logicalContentIndex(tabIndex);
+    return switch (logical) {
       0 => [
         // Students tab — enroll requires assign on students.
         if (_can(Resource.students, Action.assign))

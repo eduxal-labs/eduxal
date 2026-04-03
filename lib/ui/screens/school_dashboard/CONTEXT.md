@@ -27,7 +27,7 @@ This directory contains **1 shell screen file** and **8 subdirectories**, each r
   - Disposes `SchoolContext` and `ActiveTermContext` on pop.
 - **Navigation items by role:**
   - **Owner:** Overview | Academics | Exams | Members | Finance | Announcements | Timetable | Roles
-  - **Teacher:** Overview | Academics | Exams | Timetable | (permission-gated: Members, Finance, Announcements, Roles)
+  - **Teacher:** Overview | My Classes | Exams | Timetable | (permission-gated: Academics [classes.read], Members, Finance, Announcements, Roles)
   - **Staff:** Overview | (permission-gated: Students, Academics, Exams, Members [checks all 5 member resources: departments, owners, teachers, staff, students — expanded in Task A1], Finance) | Announcements | (permission-gated: Timetable, Attendance, Roles)
   - **Student:** Overview | Grades | Timetable | Attendance | Announcements
   - **Guardian:** Overview | Progress | Timetable | Finance | Attendance | Announcements
@@ -231,6 +231,8 @@ When `ActiveTermContext.hasTerms` is `false`, the dashboard shows a blank state 
 
 
 ## Last Updated
+Task D1 — Teacher "Academics" tab replaced with "My Classes" in core nav items. In `_itemsForRole()`, the teacher's always-visible "core 4" nav items changed from `Overview | Academics | Exams | Timetable` to `Overview | My Classes | Exams | Timetable`. `Academics` moved to the permission-gated section, visible only when `perms.canAny(Resource.classes, [Action.read])`. Icon changed from `Icons.menu_book_outlined` to `Icons.class_outlined` for the `My Classes` item. The `_buildContentPanel` method already handles both `'My Classes'` (routes to `MyClassesScreen`) and `'Academics'` (routes to `AcademicsScreen`), so no content routing changes were needed.
+
 Tasks B1, B4, B5, E4, E5 — Five fixes to `school_dashboard_screen.dart` nav items and content panel routing:
 
 **(B1)** Added `'Grades'` handler in `_buildContentPanel()` — routes to `ProgressScreen` (which already handles `StudentEntry` via `student.adm`). Students now see their grades instead of the "Coming soon" placeholder.

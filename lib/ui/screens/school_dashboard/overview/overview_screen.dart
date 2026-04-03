@@ -919,80 +919,105 @@ class _TeacherUpcomingExamsState extends State<_TeacherUpcomingExams> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final examsDao = ExamsGradesDao(db);
+    final membersDao = MembersDao(db);
     final nowSeconds = BigInt.from(
       DateTime.now().millisecondsSinceEpoch ~/ 1000,
     );
 
-    return StreamBuilder<List<ExamWithPapers>>(
-      stream: examsDao.watchExamsForTerm(
-        schoolId: widget.schoolId,
+    // Outer stream: teacher's subject assignments for this term — drives
+    // the wider "teaches subject" filter (aligned with _TeacherQuickStats).
+    return StreamBuilder<List<SubjectTeacher>>(
+      stream: membersDao.watchTeacherSubjectsForTerm(
+        widget.schoolId,
+        widget.userId,
         year: widget.term.year,
         term: widget.term.term,
       ),
-      builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
-          return const _LoadingShimmer();
-        }
+      builder: (context, subjectsSnap) {
+        final teacherSubjects = subjectsSnap.data ?? [];
+        final teacherSubjectIds = teacherSubjects.map((s) => s.subject).toSet();
 
-        final allExams = snap.data ?? [];
-
-        // Collect papers where this teacher is invigilator & start is future
-        final upcoming = <({Exam exam, Paper paper})>[];
-        for (final e in allExams) {
-          for (final p in e.papers) {
-            if (p.invigilator == widget.userId && p.start > nowSeconds) {
-              upcoming.add((exam: e.exam, paper: p));
-            }
-          }
-        }
-
-        // Sort by paper start ascending (soonest first)
-        upcoming.sort((a, b) => a.paper.start.compareTo(b.paper.start));
-
-        if (upcoming.isEmpty) {
-          return _EmptyCard(
-            icon: Icons.assignment_outlined,
-            message: 'No upcoming exams',
-          );
-        }
-
-        final display = upcoming.take(3).toList();
-
-        return FutureBuilder<List<Subject>>(
-          future: _subjectsFuture,
-          builder: (context, subSnap) {
-            final subjectMap = <int, String>{};
-            for (final s in subSnap.data ?? []) {
-              subjectMap[s.id] = s.name;
+        return StreamBuilder<List<ExamWithPapers>>(
+          stream: examsDao.watchExamsForTerm(
+            schoolId: widget.schoolId,
+            year: widget.term.year,
+            term: widget.term.term,
+          ),
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting &&
+                subjectsSnap.connectionState == ConnectionState.waiting) {
+              return const _LoadingShimmer();
             }
 
-            return Container(
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                border: Border.all(color: cs.outline.withValues(alpha: 0.08)),
-              ),
-              child: Column(
-                children: [
-                  for (var i = 0; i < display.length; i++) ...[
-                    if (i > 0)
-                      Divider(
-                        height: 0.5,
-                        thickness: 0.5,
-                        color: cs.outline.withValues(alpha: 0.06),
-                      ),
-                    _buildExamRow(
-                      examName: display[i].exam.name,
-                      subjectName:
-                          subjectMap[display[i].paper.subject] ??
-                          'Subject ${display[i].paper.subject}',
-                      paperStart: display[i].paper.start,
-                      status: display[i].paper.status,
-                      cs: cs,
+            final allExams = snap.data ?? [];
+
+            // Collect future papers where this teacher is relevant:
+            //  • teacher is the invigilator, OR
+            //  • teacher teaches the paper's subject, OR
+            //  • teacher created the exam
+            final upcoming = <({Exam exam, Paper paper})>[];
+            for (final e in allExams) {
+              for (final p in e.papers) {
+                if (p.start > nowSeconds &&
+                    (p.invigilator == widget.userId ||
+                        teacherSubjectIds.contains(p.subject) ||
+                        e.teacher.id == widget.userId)) {
+                  upcoming.add((exam: e.exam, paper: p));
+                }
+              }
+            }
+
+            // Sort by paper start ascending (soonest first)
+            upcoming.sort((a, b) => a.paper.start.compareTo(b.paper.start));
+
+            if (upcoming.isEmpty) {
+              return _EmptyCard(
+                icon: Icons.assignment_outlined,
+                message: 'No upcoming exams',
+              );
+            }
+
+            final display = upcoming.take(3).toList();
+
+            return FutureBuilder<List<Subject>>(
+              future: _subjectsFuture,
+              builder: (context, subSnap) {
+                final subjectMap = <int, String>{};
+                for (final s in subSnap.data ?? []) {
+                  subjectMap[s.id] = s.name;
+                }
+
+                return Container(
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                    border: Border.all(
+                      color: cs.outline.withValues(alpha: 0.08),
                     ),
-                  ],
-                ],
-              ),
+                  ),
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < display.length; i++) ...[
+                        if (i > 0)
+                          Divider(
+                            height: 0.5,
+                            thickness: 0.5,
+                            color: cs.outline.withValues(alpha: 0.06),
+                          ),
+                        _buildExamRow(
+                          examName: display[i].exam.name,
+                          subjectName:
+                              subjectMap[display[i].paper.subject] ??
+                              'Subject ${display[i].paper.subject}',
+                          paperStart: display[i].paper.start,
+                          status: display[i].paper.status,
+                          cs: cs,
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              },
             );
           },
         );

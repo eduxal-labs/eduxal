@@ -82,12 +82,16 @@ class _MembersPageBodyState extends State<_MembersPageBody>
   void initState() {
     super.initState();
     _dao = MembersDao(db);
+    _visibleTabs = _computeVisibleTabs();
+    _setupTabController();
+    widget.schoolContext.currentEntry.addListener(_onEntryChanged);
+  }
 
+  List<_MemberTab> _computeVisibleTabs() {
     final entry = widget.schoolContext.currentEntry.value;
     final perms = widget.schoolContext.permissions;
     final isOwner = entry is OwnerEntry;
-
-    _visibleTabs = [
+    return [
       if (isOwner || perms.can(Resource.departments, Action.read))
         _MemberTab.departments,
       if (isOwner || perms.can(Resource.owners, Action.read)) _MemberTab.owners,
@@ -99,20 +103,54 @@ class _MembersPageBodyState extends State<_MembersPageBody>
       if (isOwner || perms.can(Resource.students, Action.read))
         _MemberTab.guardians,
     ];
+  }
 
-    // If no tabs are visible, the page shows an empty state.
-    // This shouldn't happen because the Members nav item is
-    // hidden when no member-read permissions exist.
-
+  void _setupTabController() {
+    _tabController?.removeListener(_onTabChanged);
+    _tabController?.dispose();
     if (_visibleTabs.isNotEmpty) {
-      _currentTab = _visibleTabs.first;
-      _tabController = TabController(length: _visibleTabs.length, vsync: this)
-        ..addListener(_onTabChanged);
+      // Try to preserve current tab selection across rebuilds.
+      final preservedIndex = _currentTab != null
+          ? _visibleTabs.indexOf(_currentTab!)
+          : -1;
+      _currentTab = preservedIndex >= 0
+          ? _visibleTabs[preservedIndex]
+          : _visibleTabs.first;
+      _tabController = TabController(
+        length: _visibleTabs.length,
+        initialIndex: preservedIndex >= 0 ? preservedIndex : 0,
+        vsync: this,
+      )..addListener(_onTabChanged);
+    } else {
+      _currentTab = null;
+      _tabController = null;
     }
+  }
+
+  void _onEntryChanged() {
+    final newTabs = _computeVisibleTabs();
+    final tabsChanged =
+        newTabs.length != _visibleTabs.length ||
+        !_tabsEqual(newTabs, _visibleTabs);
+    if (tabsChanged) {
+      _visibleTabs = newTabs;
+      _setupTabController();
+    }
+    // Always rebuild — entry change may affect FAB visibility, etc.
+    setState(() {});
+  }
+
+  static bool _tabsEqual(List<_MemberTab> a, List<_MemberTab> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   @override
   void dispose() {
+    widget.schoolContext.currentEntry.removeListener(_onEntryChanged);
     _tabController
       ?..removeListener(_onTabChanged)
       ..dispose();
