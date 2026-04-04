@@ -27,10 +27,10 @@ This directory contains **1 shell screen file** and **8 subdirectories**, each r
   - Disposes `SchoolContext` and `ActiveTermContext` on pop.
 - **Navigation items by role:**
   - **Owner:** Overview | Academics | Exams | Members | Finance | Announcements | Timetable | Roles
-  - **Teacher:** Overview | My Classes | Exams | Timetable | (permission-gated: Academics [classes.read], Members, Finance, Announcements, Roles)
-  - **Staff:** Overview | (permission-gated: Students, Academics, Exams, Members [checks all 5 member resources: departments, owners, teachers, staff, students — expanded in Task A1], Finance) | Announcements | (permission-gated: Timetable, Attendance, Roles)
-  - **Student:** Overview | Grades | Timetable | Attendance | Announcements
-  - **Guardian:** Overview | Progress | Timetable | Finance | Attendance | Announcements
+  - **Teacher:** Overview | My Classes | Timetable | (permission-gated: Exams [exams.read], Academics [classes.read], Members, Finance, Announcements, Roles)
+  - **Staff:** Overview | (permission-gated: Academics, Exams, Members [checks all 5 member resources: departments, owners, teachers, staff, students — expanded in Task A1], Finance, Announcements, Timetable, Roles)
+  - **Student:** Overview | Grades | Timetable | Finance | Announcements
+  - **Guardian:** Overview | Progress | Timetable | Finance | Announcements
 - **Dependencies:** `models/school_context.dart`, `models/school_permissions.dart`, `models/membership.dart`, `models/active_term_context.dart`, `client.dart` (DAOs, `logsDao`), `database/daos/terms_dao.dart`, `database/daos/school_scopes_dao.dart`, `database/tables/enums.dart` (for `UserLevel`), `ui/widgets/term_selector_chip.dart`, `ui/widgets/active_term_provider.dart`, `ui/screens/notifications/notifications_page.dart` (note: `ui/widgets/looping_tab_strip.dart` import removed — `LoopingTabStrip` no longer used here)
 
 ## Subdirectories
@@ -93,13 +93,8 @@ This directory contains **1 shell screen file** and **8 subdirectories**, each r
 
 ---
 
-### `attendance/`
-| File | Widget | Status | Description |
-|---|---|---|---|
-| `attendance_screen.dart` | `AttendanceScreen` | ✅ Complete | **Role dispatch:** Teacher/Owner → `_ClassPickerShell` (class picker list that navigates to `GradeDetailPage`); Guardian → `_GuardianAttendanceView` (read-only calendar history for ward); Student → `_GuardianAttendanceView` (read-only calendar history for self). **Teacher/Owner flow (Task 17b):** `_ClassPickerShell` loads `SchoolConfig` reactively via `CatalogDao.watchAllStreamsForSchool(_schoolId)` — the `_loadConfig()` stub has been replaced with a real implementation that subscribes to stream data and builds `SchoolConfig` via `_buildConfigFromStreams()` (groups `SchoolStream` rows by grade, detects curriculum type CBC vs 8-4-4, builds `CurriculumConfig`/`GradeConfig` entries). A `StreamSubscription? _configSub` field is cancelled in `dispose()`. The `_gradeLabel()` helper now delegates to the centralized `gradeLabel()` from `core/extensions.dart` (never returns raw integers). The `_streamLabel()` helper's fallback changed from `'Stream $streamCode'` to `gradeLabel(grade, config: config)` — never exposes raw stream codes. Watches populated classes via `EnrollmentsDao.watchPopulatedClasses`. Displays a header ("Attendance" + "Select a class to mark attendance") and a `_ClassList` of `_ClassCard` widgets. Each card shows: class icon (40×40 tinted square), grade label + stream name, `_TodayStatusBadge` (reactive `StreamBuilder` on `AttendanceDao.watchClassAttendance` for today — "Not marked" red / "X / Y marked" amber / "Fully marked" green / "No students" muted), chevron. On tap → resolves `GradeConfig` + `CurriculumType` + stream index from `SchoolConfig`, then navigates to `GradeDetailPage` via `MaterialPageRoute` with `initialStreamIndex = streamIndex + 1` and `initialContentTabIndex = 3` (Attendance). The old embedded marking UI (`_TeacherAttendanceShell`, `_AttendanceMarkingList`, `_AttendanceHeader`, `_ClassFilterChip`, `_SummaryStrip`, `_SummaryChip`, `_ActionBar`, `_ActionButton`, `_StudentAttendanceTile`, `_StatusToggleGroup`, `_ToggleButton`, `_EmptyStudentsState`) have been removed — attendance marking now lives exclusively in `AttendanceTab` inside the grade detail page. **Guardian/Student flow:** unchanged — `_GuardianAttendanceView` with `_GuardianSummaryCard` (rate circle + present/absent/leave stat pills) and `_AttendanceCalendar` (monthly heatmap grid with day cells color-coded by status, month navigation, legend). |
-
-**Data source:** `CatalogDao.watchAllStreamsForSchool(...)` (SchoolConfig), `EnrollmentsDao.watchPopulatedClasses(...)`, `AttendanceDao.watchClassAttendance(...)` (for today's status badges), `AttendanceDao.watchStudentAttendanceHistory(...)`, `AttendanceDao.watchStudentAttendanceSummary(...)`
-**Dependencies:** `database/daos/attendance_dao.dart`, `database/daos/catalog_dao.dart`, `database/daos/enrollments_dao.dart`, `database/daos/settings_dao.dart`, `database/tables/curriculum_subjects.dart`, `core/extensions.dart` (`gradeLabel`), `models/active_term_context.dart`, `models/school_config.dart`, `models/school_context.dart`, `models/membership.dart`, `ui/widgets/active_term_provider.dart`, `academics/grade_detail_page.dart`
+### `attendance/` — **DELETED (Task G3)**
+> The standalone Attendance page was removed in Task G3. Attendance marking for Owner/Teacher/Staff is accessed via Academics → Grade Detail Page → Attendance tab (`academics/tabs/attendance_tab.dart`). Attendance history for Guardian/Student is accessed via the Progress page → Attendance tab. The `attendance/` directory and `attendance_screen.dart` no longer exist.
 
 ---
 
@@ -242,7 +237,11 @@ When `ActiveTermContext.hasTerms` is `false`, the dashboard shows a blank state 
 
 
 ## Last Updated
-Task G5 — Show "no roles assigned" empty state for staff with no permissions.
+Task G3 — Remove standalone Attendance page from all dashboard roles.
+
+**(G3 — Remove standalone Attendance page)** `school_dashboard_screen.dart`: Removed `import 'attendance/attendance_screen.dart'`. Removed `Attendance` nav item from all 5 role branches in `_itemsForRole()`: Owner (hardcoded const), Teacher (core section), Staff (permission-gated `attendance.read`/`mark` block), Student (hardcoded const), Guardian (hardcoded const). Removed `'Attendance'` from `_kAcademicNavLabels` set. Removed the `if (item.label == 'Attendance')` content panel mapping in `_buildContentPanel()`. Deleted the entire `lib/ui/screens/school_dashboard/attendance/` directory (`attendance_screen.dart`). The `AttendanceTab` at `academics/tabs/attendance_tab.dart` is unaffected — it remains the primary attendance surface inside Grade Detail Page.
+
+Previous: Task G5 — Show "no roles assigned" empty state for staff with no permissions.
 
 **(G5 — Staff empty state)** `overview_screen.dart`: `_StaffOverview.build()` now checks `hasAnyPermission` at the top of the method — a union of `_hasAnyStatPermission(perms)` (7 read permissions on students, teachers, staff, fees, payments, exams, classes) plus `announcements.read`, `roles.read`, `attendance.read`, and `attendance.mark`. When `!hasAnyPermission`, returns a centered empty state with a shield icon (56×56, `surfaceContainerHighest` bg, `borderRadius: 14`), "No roles assigned" heading (15px w500), and explanatory body text (13px w300, `height: 1.4`) — replacing the previous minimal welcome card + italic hint. Staff WITH at least one permission see the existing overview unchanged (welcome card, permission-gated quick stats, announcements).
 

@@ -615,9 +615,9 @@ lib/ui/screens/school_dashboard/attendance/attendance_screen.dart
 **Step 6:** Verify no other files import `AttendanceScreen` from the deleted path. Search for `import.*attendance_screen` in the codebase. The `AttendanceTab` (used inside `grade_detail_page.dart`) is a separate widget at `lib/ui/screens/school_dashboard/academics/tabs/attendance_tab.dart` — this must NOT be deleted.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — remove Attendance from nav item lists for all roles, note deletion of attendance directory
-- [ ] Update `lib/ui/CONTEXT.md` — update the "Navigation items vary by role" section to remove Attendance from all role lists
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — remove Attendance from nav item lists for all roles, note deletion of attendance directory
+- [x] Update `lib/ui/CONTEXT.md` — update the "Navigation items vary by role" section to remove Attendance from all role lists
+- [x] Mark this task `[x]`
 - [ ] Git commit: `ui: remove standalone attendance page from all dashboard roles`
 
 ---
