@@ -1,15 +1,9 @@
-name: Release
+name: Deploy
 
 on:
   push:
     tags:
       - "v*"
-  workflow_dispatch:
-    inputs:
-      version:
-        description: "Version tag (e.g. v1.0.0)"
-        required: true
-        type: string
 
 permissions:
   contents: write
@@ -125,39 +119,8 @@ jobs:
           name: windows-release
           path: eduxal-windows-x64.zip
 
-  build-macos:
-    runs-on: macos-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Generate launcher icons
-        run: dart run flutter_launcher_icons
-
-      - name: Build macOS release
-        run: flutter build macos --release
-
-      - name: Package macOS build
-        run: |
-          cd build/macos/Build/Products/Release
-          zip -r -y "$GITHUB_WORKSPACE/eduxal-macos-universal.zip" eduxal.app
-
-      - name: Upload macOS artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-release
-          path: eduxal-macos-universal.zip
-
   release:
-    needs: [build-linux, build-android, build-windows, build-macos]
+    needs: [build-linux, build-android, build-windows]
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
@@ -165,12 +128,7 @@ jobs:
 
       - name: Determine version tag
         id: version
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "tag=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
-          fi
+        run: echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -184,6 +142,5 @@ jobs:
             linux-release/eduxal-linux-x64.tar.gz
             android-release/eduxal-android.apk
             windows-release/eduxal-windows-x64.zip
-            macos-release/eduxal-macos-universal.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

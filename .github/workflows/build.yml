@@ -1,0 +1,217 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Generate launcher icons
+        run: dart run flutter_launcher_icons
+
+      - name: Build Android APK
+        run: flutter build apk --release
+
+      - name: Rename APK
+        run: cp build/app/outputs/flutter-apk/app-release.apk eduxal-android.apk
+
+      - name: Upload Android artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build
+          path: eduxal-android.apk
+
+  build-linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install Linux build dependencies
+        run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Generate launcher icons
+        run: dart run flutter_launcher_icons
+
+      - name: Build Linux release
+        run: flutter build linux --release
+
+      - name: Package Linux build
+        run: |
+          mkdir -p packaging/eduxal-linux-x64
+          cp -r build/linux/x64/release/bundle/* packaging/eduxal-linux-x64/
+          cp linux/eduxal.desktop packaging/eduxal-linux-x64/
+          cp assets/icon.png packaging/eduxal-linux-x64/eduxal.png
+          cp linux/install.sh packaging/eduxal-linux-x64/
+          cp linux/uninstall.sh packaging/eduxal-linux-x64/
+          chmod +x packaging/eduxal-linux-x64/install.sh
+          chmod +x packaging/eduxal-linux-x64/uninstall.sh
+          cd packaging
+          tar -czf eduxal-linux-x64.tar.gz eduxal-linux-x64
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: packaging/eduxal-linux-x64.tar.gz
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Generate launcher icons
+        run: dart run flutter_launcher_icons
+
+      - name: Build Windows release
+        run: flutter build windows --release
+
+      - name: Package Windows build
+        shell: pwsh
+        run: |
+          Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath eduxal-windows-x64.zip
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: eduxal-windows-x64.zip
+
+  upload-r2:
+    needs: [build-android, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Install rclone
+        run: |
+          curl -fsSL https://rclone.org/install.sh | sudo bash
+
+      - name: Configure rclone for R2
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
+        run: |
+          mkdir -p ~/.config/rclone
+          cat > ~/.config/rclone/rclone.conf << EOF
+          [r2]
+          type = s3
+          provider = Cloudflare
+          access_key_id = ${R2_ACCESS_KEY_ID}
+          secret_access_key = ${R2_SECRET_ACCESS_KEY}
+          endpoint = https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com
+          acl = private
+          no_check_bucket = true
+          EOF
+
+      - name: Generate build folder name and upload
+        env:
+          R2_BUCKET: ${{ vars.R2_BUCKET }}
+        run: |
+          BUILD_FOLDER=$(date -u +"%Y%m%d-%H%M%S")
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          echo "Build folder: ${BUILD_FOLDER}"
+          echo "Commit: ${SHORT_SHA}"
+
+          # Create the upload directory structure
+          mkdir -p upload/${BUILD_FOLDER}/android
+          mkdir -p upload/${BUILD_FOLDER}/linux
+          mkdir -p upload/${BUILD_FOLDER}/windows
+
+          cp android-build/eduxal-android.apk upload/${BUILD_FOLDER}/android/eduxal-android.apk
+          cp linux-build/eduxal-linux-x64.tar.gz upload/${BUILD_FOLDER}/linux/eduxal-linux-x64.tar.gz
+          cp windows-build/eduxal-windows-x64.zip upload/${BUILD_FOLDER}/windows/eduxal-windows-x64.zip
+
+          # Generate latest.json
+          cat > upload/latest.json << EOF
+          {
+            "build": "${BUILD_FOLDER}",
+            "commit": "${SHORT_SHA}",
+            "branch": "master",
+            "timestamp": "${TIMESTAMP}",
+            "artifacts": {
+              "android": "builds/${BUILD_FOLDER}/android/eduxal-android.apk",
+              "linux": "builds/${BUILD_FOLDER}/linux/eduxal-linux-x64.tar.gz",
+              "windows": "builds/${BUILD_FOLDER}/windows/eduxal-windows-x64.zip"
+            }
+          }
+          EOF
+
+          # Download existing index.json (or start fresh)
+          echo "--- Fetching existing index.json ---"
+          rclone copyto r2:${R2_BUCKET}/builds/index.json existing_index.json 2>/dev/null || echo '[]' > existing_index.json
+
+          # Prepend new build entry to index
+          NEW_ENTRY=$(cat << ENTRY
+          {
+            "build": "${BUILD_FOLDER}",
+            "commit": "${SHORT_SHA}",
+            "branch": "master",
+            "timestamp": "${TIMESTAMP}",
+            "artifacts": {
+              "android": "builds/${BUILD_FOLDER}/android/eduxal-android.apk",
+              "linux": "builds/${BUILD_FOLDER}/linux/eduxal-linux-x64.tar.gz",
+              "windows": "builds/${BUILD_FOLDER}/windows/eduxal-windows-x64.zip"
+            }
+          }
+          ENTRY
+          )
+
+          # Use jq to prepend new entry to existing array
+          sudo apt-get install -y jq > /dev/null 2>&1
+          echo "${NEW_ENTRY}" | jq -s --argjson existing "$(cat existing_index.json)" '. + $existing' > upload/index.json
+
+          echo "--- Uploading build artifacts ---"
+          rclone copy upload/${BUILD_FOLDER}/ r2:${R2_BUCKET}/builds/${BUILD_FOLDER}/ --progress
+
+          echo "--- Uploading latest.json ---"
+          rclone copyto upload/latest.json r2:${R2_BUCKET}/builds/latest.json --progress
+
+          echo "--- Uploading index.json ---"
+          rclone copyto upload/index.json r2:${R2_BUCKET}/builds/index.json --progress
+
+          echo "✅ Upload complete: builds/${BUILD_FOLDER}/"
