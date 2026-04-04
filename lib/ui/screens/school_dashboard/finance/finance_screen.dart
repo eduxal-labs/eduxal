@@ -2090,7 +2090,7 @@ class _GuardianFinanceContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(16, 8, 16, 16 + bottomPadding),
+      padding: EdgeInsets.fromLTRB(16, 0, 16, 8 + bottomPadding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2112,11 +2112,11 @@ class _GuardianFinanceContent extends StatelessWidget {
               color: cs.onSurfaceVariant.withValues(alpha: 0.65),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
 
           // ── Balance summary card ────────────────────────────────────────
           _GuardianBalanceCard(summary: summary, cs: cs, isDark: isDark),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
 
           // ── Invoices section ────────────────────────────────────────────
           _SectionHeader(label: 'Invoices', cs: cs),
@@ -2137,7 +2137,7 @@ class _GuardianFinanceContent extends StatelessWidget {
               ),
             ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
 
           // ── Payments section ────────────────────────────────────────────
           _SectionHeader(label: 'Payments', cs: cs),
