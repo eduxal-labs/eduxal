@@ -608,7 +608,7 @@ class _DashboardShellState extends State<_DashboardShell>
   /// sidebar and rail layouts.
   Widget _wrapSidebarContent(ColorScheme cs, Widget content) {
     return Padding(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(10),
         child: Material(color: cs.surface, child: content),
