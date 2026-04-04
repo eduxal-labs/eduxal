@@ -6876,28 +6876,40 @@ class _PaperGridRow extends StatelessWidget {
             ...dates.map((d) {
               final matches = _papersAt(grouped, d, startTime);
               if (matches.isEmpty) {
-                return Expanded(child: _PaperEmptyCell(cs: cs));
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: _PaperEmptyCell(cs: cs),
+                  ),
+                );
               }
               return Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.max,
-                  children: [
-                    for (int i = 0; i < matches.length; i++) ...[
-                      if (i > 0) const SizedBox(height: 3),
-                      Expanded(
-                        child: _PaperSlotBox(
-                          paper: matches[i],
-                          exam: exam,
-                          subjectNames: subjectNames,
-                          statusColor: _paperStatusColor(matches[i].status, cs),
-                          invigilatorName:
-                              teacherNames[matches[i].invigilator] ?? '',
-                          cs: cs,
-                          onTap: () => onPaperTap(matches[i], exam, grade),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.max,
+                    children: [
+                      for (int i = 0; i < matches.length; i++) ...[
+                        if (i > 0) const SizedBox(height: 3),
+                        Expanded(
+                          child: _PaperSlotBox(
+                            paper: matches[i],
+                            exam: exam,
+                            subjectNames: subjectNames,
+                            statusColor: _paperStatusColor(
+                              matches[i].status,
+                              cs,
+                            ),
+                            invigilatorName:
+                                teacherNames[matches[i].invigilator] ?? '',
+                            cs: cs,
+                            onTap: () => onPaperTap(matches[i], exam, grade),
+                          ),
                         ),
-                      ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               );
             }),
