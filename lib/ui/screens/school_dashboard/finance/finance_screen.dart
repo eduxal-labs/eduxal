@@ -2089,76 +2089,94 @@ class _GuardianFinanceContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(16, 0, 16, 8 + bottomPadding),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Student header ──────────────────────────────────────────────
-          Text(
-            studentName,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: cs.onSurface,
+    final scaffoldBg = Theme.of(context).scaffoldBackgroundColor;
+
+    final content = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Student header ──────────────────────────────────────────────
+        Text(
+          studentName,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: cs.onSurface,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Adm #${summary.studentAdm}',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w400,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // ── Balance summary card ────────────────────────────────────────
+        _GuardianBalanceCard(summary: summary, cs: cs, isDark: isDark),
+        const SizedBox(height: 16),
+
+        // ── Invoices section ────────────────────────────────────────────
+        _SectionHeader(label: 'Invoices', cs: cs),
+        const SizedBox(height: 10),
+        if (summary.invoices.isEmpty)
+          _EmptyState(
+            icon: Icons.receipt_long_outlined,
+            label: 'No invoices',
+            sublabel: 'No fees have been invoiced yet',
+            cs: cs,
+            compact: true,
+          )
+        else
+          ...summary.invoices.map(
+            (inv) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _GuardianInvoiceTile(item: inv, cs: cs, isDark: isDark),
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            'Adm #${summary.studentAdm}',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+
+        const SizedBox(height: 12),
+
+        // ── Payments section ────────────────────────────────────────────
+        _SectionHeader(label: 'Payments', cs: cs),
+        const SizedBox(height: 10),
+        if (summary.payments.isEmpty)
+          _EmptyState(
+            icon: Icons.payments_outlined,
+            label: 'No payments',
+            sublabel: 'No payments have been recorded yet',
+            cs: cs,
+            compact: true,
+          )
+        else
+          ...summary.payments.map(
+            (pay) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _GuardianPaymentTile(item: pay, cs: cs, isDark: isDark),
             ),
           ),
-          const SizedBox(height: 8),
+      ],
+    );
 
-          // ── Balance summary card ────────────────────────────────────────
-          _GuardianBalanceCard(summary: summary, cs: cs, isDark: isDark),
-          const SizedBox(height: 16),
-
-          // ── Invoices section ────────────────────────────────────────────
-          _SectionHeader(label: 'Invoices', cs: cs),
-          const SizedBox(height: 10),
-          if (summary.invoices.isEmpty)
-            _EmptyState(
-              icon: Icons.receipt_long_outlined,
-              label: 'No invoices',
-              sublabel: 'No fees have been invoiced yet',
-              cs: cs,
-              compact: true,
-            )
-          else
-            ...summary.invoices.map(
-              (inv) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _GuardianInvoiceTile(item: inv, cs: cs, isDark: isDark),
-              ),
-            ),
-
-          const SizedBox(height: 12),
-
-          // ── Payments section ────────────────────────────────────────────
-          _SectionHeader(label: 'Payments', cs: cs),
-          const SizedBox(height: 10),
-          if (summary.payments.isEmpty)
-            _EmptyState(
-              icon: Icons.payments_outlined,
-              label: 'No payments',
-              sublabel: 'No payments have been recorded yet',
-              cs: cs,
-              compact: true,
-            )
-          else
-            ...summary.payments.map(
-              (pay) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _GuardianPaymentTile(item: pay, cs: cs, isDark: isDark),
-              ),
-            ),
-        ],
-      ),
+    // Use CustomScrollView so short content pins to the top and the
+    // remaining viewport area shows the scaffold background instead of
+    // the card's white surface.
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(16, 0, 16, 8 + bottomPadding),
+          sliver: SliverToBoxAdapter(child: content),
+        ),
+        // Fill leftover viewport space with the scaffold background so
+        // short content doesn't leave a white void at the bottom.
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: ColoredBox(color: scaffoldBg),
+        ),
+      ],
     );
   }
 }
