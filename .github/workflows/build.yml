@@ -72,7 +72,7 @@ jobs:
           mkdir -p packaging/eduxal-linux-x64
           cp -r build/linux/x64/release/bundle/* packaging/eduxal-linux-x64/
           cp linux/eduxal.desktop packaging/eduxal-linux-x64/
-          cp assets/icon.png packaging/eduxal-linux-x64/eduxal.png
+          cp assets/icon-desktop.png packaging/eduxal-linux-x64/eduxal.png
           cp linux/install.sh packaging/eduxal-linux-x64/
           cp linux/uninstall.sh packaging/eduxal-linux-x64/
           chmod +x packaging/eduxal-linux-x64/install.sh
