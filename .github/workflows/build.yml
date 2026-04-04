@@ -219,3 +219,25 @@ jobs:
           rclone copyto upload/index.json r2:${R2_BUCKET}/builds/index.json --progress
 
           echo "✅ Upload complete: builds/${BUILD_FOLDER}/"
+
+      - name: Purge Cloudflare CDN cache
+        env:
+          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          echo "--- Purging Cloudflare cache for latest.json and index.json ---"
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data '{"files":["https://files.eduxal.com/builds/latest.json","https://files.eduxal.com/builds/index.json"]}')
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          if [ "$HTTP_CODE" -eq 200 ]; then
+            echo "✅ Cloudflare cache purged successfully"
+          else
+            echo "⚠️ Cache purge failed (HTTP ${HTTP_CODE}): ${BODY}"
+            exit 1
+          fi
