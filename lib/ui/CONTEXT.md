@@ -125,7 +125,17 @@ All design tokens are codified in `AppTheme` (`lib/ui/theme/app_theme.dart`) and
 - All tab surfaces in the app use `EduTabBar`, whether icon-only or text-label mode.
 
 ## Last Updated
-Task G2-C — Fixed tie-aware stream ranking in comparisons tab.
+Task G2-A — Fixed `_ClassRankStat` tie handling and scoped ranking to student's grade.
+
+- `progress_screen.dart` (`_ClassRankStat`) — **Fixed.** Two bugs resolved:
+  1. **Tie handling:** Replaced simple iteration-based ranking with competition ranking (RANK() style). Uses `studentTotals.values.where((s) => s > targetScore).length + 1` — students with identical scores share the same rank.
+  2. **Grade scoping:** Previously used `watchClassGrades(schoolId, examId)` which returned grades across ALL grades/streams. Now looks up the student's enrollment via `EnrollmentsDao.watchStudentEnrollment()` to determine their grade level, then fetches enrolled students for that grade via `ExamsGradesDao.getEnrolledStudents()` (no stream filter — all streams in the grade). Grades are filtered to only include enrolled students in the same grade before computing rank.
+  - `_StatsGrid` now passes `year` and `term` to `_ClassRankStat`.
+  - `_ClassRankStat` constructor accepts `year` and `term` (both `int`).
+  - Nesting pattern: `StreamBuilder<Enrollment?>` → `StreamBuilder<List<Grade>>` → `FutureBuilder<List<StudentsData>>`.
+  - Label renamed from `'Class Rank'` to `'Grade Rank'`.
+
+Previous: Task G2-C — Fixed tie-aware stream ranking in comparisons tab.
 
 - `comparisons_tab.dart` (`_RankingTableState`) — **Fixed.** Stream rankings now use competition ranking (RANK() style) instead of simple index-based numbering. If two streams share the same `averageScore`, they receive the same rank. Tie-aware `ranks` list is computed after sorting and passed to both `_RankingRow` (replaces `i + 1`) and `_PodiumSection` (new `ranks` parameter replaces hardcoded 1, 2, 3). Podium medal colors and heights are now derived from the actual rank value, so tied streams get matching medals.
 
