@@ -22,7 +22,6 @@ import '../../widgets/user_avatar.dart';
 import '../account/account_screen.dart';
 import '../notifications/notifications_page.dart';
 import 'academics/academics_screen.dart';
-import 'attendance/attendance_screen.dart';
 import 'exams/exams_grades_screen.dart';
 import 'members/members_page.dart';
 import '../../widgets/sync_indicator.dart';
@@ -414,7 +413,6 @@ class _DashboardShellState extends State<_DashboardShell>
         _NavItem(label: 'Finance', icon: Icons.account_balance_outlined),
         _NavItem(label: 'Announcements', icon: Icons.campaign_outlined),
         _NavItem(label: 'Timetable', icon: Icons.calendar_view_week_outlined),
-        _NavItem(label: 'Attendance', icon: Icons.fact_check_outlined),
         _NavItem(label: 'Roles', icon: Icons.admin_panel_settings_outlined),
         _NavItem(label: 'Settings', icon: Icons.settings_outlined),
       ],
@@ -426,7 +424,6 @@ class _DashboardShellState extends State<_DashboardShell>
           label: 'Timetable',
           icon: Icons.calendar_view_week_outlined,
         ),
-        const _NavItem(label: 'Attendance', icon: Icons.fact_check_outlined),
 
         // ── Permission-gated (visible only with proper role/scope) ──
         if (perms.canAny(Resource.exams, [Action.read]))
@@ -477,8 +474,6 @@ class _DashboardShellState extends State<_DashboardShell>
             label: 'Timetable',
             icon: Icons.calendar_view_week_outlined,
           ),
-        if (perms.canAny(Resource.attendance, [Action.read, Action.mark]))
-          const _NavItem(label: 'Attendance', icon: Icons.fact_check_outlined),
         if (perms.canAny(Resource.roles, [Action.read]))
           const _NavItem(
             label: 'Roles',
@@ -490,7 +485,6 @@ class _DashboardShellState extends State<_DashboardShell>
         _NavItem(label: 'Grades', icon: Icons.bar_chart_outlined),
         _NavItem(label: 'Timetable', icon: Icons.calendar_view_week_outlined),
         _NavItem(label: 'Finance', icon: Icons.receipt_long_outlined),
-        _NavItem(label: 'Attendance', icon: Icons.fact_check_outlined),
         _NavItem(label: 'Announcements', icon: Icons.campaign_outlined),
       ],
       MembershipRole.guardian => const [
@@ -498,7 +492,6 @@ class _DashboardShellState extends State<_DashboardShell>
         _NavItem(label: 'Progress', icon: Icons.bar_chart_outlined),
         _NavItem(label: 'Timetable', icon: Icons.calendar_view_week_outlined),
         _NavItem(label: 'Finance', icon: Icons.receipt_long_outlined),
-        _NavItem(label: 'Attendance', icon: Icons.fact_check_outlined),
         _NavItem(label: 'Announcements', icon: Icons.campaign_outlined),
       ],
     };
@@ -639,7 +632,6 @@ class _DashboardShellState extends State<_DashboardShell>
     'My Classes',
     'Exams',
     'Timetable',
-    'Attendance',
     'Grades',
     'Progress',
   };
@@ -723,13 +715,6 @@ class _DashboardShellState extends State<_DashboardShell>
     // Directly replaces the old Settings nav item. Renders SchoolRolesScreen.
     if (item.label == 'Roles') {
       return SchoolRolesScreen(schoolContext: widget.schoolContext);
-    }
-
-    // ── Attendance — teacher marking / guardian+student history ────────────
-    // Teachers see a class-based marking UI with date selector and toggle
-    // buttons. Guardians and students see a calendar-based read-only history.
-    if (item.label == 'Attendance') {
-      return AttendanceScreen(schoolContext: widget.schoolContext);
     }
 
     // ── Finance — fees, invoices, payments, discounts ─────────────────────

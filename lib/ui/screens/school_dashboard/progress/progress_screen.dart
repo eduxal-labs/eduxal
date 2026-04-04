@@ -454,6 +454,16 @@ class _StatsGrid extends StatelessWidget {
                 grades: grades,
               ),
             ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _StreamRankStat(
+                schoolId: schoolId,
+                studentAdm: student.adm,
+                year: year,
+                term: term,
+                grades: grades,
+              ),
+            ),
           ],
         ),
       ],
@@ -773,6 +783,194 @@ class _ClassRankStat extends StatelessWidget {
 }
 
 // ── Recent Exam Results ──────────────────────────────────────────────────────
+
+class _StreamRankStat extends StatelessWidget {
+  const _StreamRankStat({
+    required this.schoolId,
+    required this.studentAdm,
+    required this.year,
+    required this.term,
+    required this.grades,
+  });
+
+  final String schoolId;
+  final int studentAdm;
+  final int year;
+  final int term;
+  final List<Grade> grades;
+
+  @override
+  Widget build(BuildContext context) {
+    // Stream rank: same logic as _ClassRankStat but filtered to the
+    // student's specific stream, not the whole grade.
+    if (grades.isEmpty) {
+      return const _StatCard(
+        icon: Icons.leaderboard_outlined,
+        label: 'Stream Rank',
+        value: '—',
+        tint: Color(0xFF607D8B),
+      );
+    }
+
+    // Find latest exam by created date (subject-level grades only — paper == null)
+    final byExam = <String, List<Grade>>{};
+    for (final g in grades) {
+      if (g.paper != null) continue;
+      (byExam[g.exam] ??= []).add(g);
+    }
+    if (byExam.isEmpty) {
+      for (final g in grades) {
+        (byExam[g.exam] ??= []).add(g);
+      }
+    }
+    if (byExam.isEmpty) {
+      return const _StatCard(
+        icon: Icons.leaderboard_outlined,
+        label: 'Stream Rank',
+        value: '—',
+        tint: Color(0xFF607D8B),
+      );
+    }
+
+    String? latestExam;
+    BigInt latestTime = BigInt.zero;
+    for (final entry in byExam.entries) {
+      final maxCreated = entry.value
+          .map((g) => g.created)
+          .reduce((a, b) => a > b ? a : b);
+      if (maxCreated > latestTime) {
+        latestTime = maxCreated;
+        latestExam = entry.key;
+      }
+    }
+
+    if (latestExam == null) {
+      return const _StatCard(
+        icon: Icons.leaderboard_outlined,
+        label: 'Stream Rank',
+        value: '—',
+        tint: Color(0xFF607D8B),
+      );
+    }
+
+    // 1. Look up student's enrollment to determine their grade and stream
+    return StreamBuilder<Enrollment?>(
+      stream: EnrollmentsDao(db).watchStudentEnrollment(
+        schoolId: schoolId,
+        year: year,
+        term: term,
+        studentAdm: studentAdm,
+      ),
+      builder: (context, enrollSnap) {
+        final enrollment = enrollSnap.data;
+        if (enrollment == null) {
+          // Not enrolled — can't determine stream for ranking
+          return const _StatCard(
+            icon: Icons.leaderboard_outlined,
+            label: 'Stream Rank',
+            value: '—',
+            tint: Color(0xFF607D8B),
+          );
+        }
+
+        // 2. Get all grades for the latest exam
+        return StreamBuilder<List<Grade>>(
+          stream: ExamsGradesDao(
+            db,
+          ).watchClassGrades(schoolId: schoolId, examId: latestExam!),
+          builder: (context, classSnap) {
+            final classGrades = classSnap.data ?? [];
+            if (classGrades.isEmpty) {
+              return const _StatCard(
+                icon: Icons.leaderboard_outlined,
+                label: 'Stream Rank',
+                value: '—',
+                tint: Color(0xFF607D8B),
+              );
+            }
+
+            // 3. Get enrolled students in the same stream
+            return FutureBuilder<List<StudentsData>>(
+              future: ExamsGradesDao(db).getEnrolledStudents(
+                schoolId: schoolId,
+                year: year,
+                term: term,
+                grade: enrollment.grade,
+                stream: enrollment.stream, // stream filter — unlike grade rank
+              ),
+              builder: (context, enrolledSnap) {
+                if (!enrolledSnap.hasData) {
+                  return const _StatCard(
+                    icon: Icons.leaderboard_outlined,
+                    label: 'Stream Rank',
+                    value: '…',
+                    tint: Color(0xFF607D8B),
+                  );
+                }
+
+                final enrolledAdms = {
+                  for (final s in enrolledSnap.data!) s.adm,
+                };
+
+                // Stream rank is only meaningful with multiple students
+                if (enrolledAdms.length <= 1) {
+                  return const _StatCard(
+                    icon: Icons.leaderboard_outlined,
+                    label: 'Stream Rank',
+                    value: '—',
+                    tint: Color(0xFF607D8B),
+                  );
+                }
+
+                // Sum scores per student (subject-level only — paper == null),
+                // filtered to only students enrolled in the same stream.
+                final studentTotals = <int, double>{};
+                for (final g in classGrades) {
+                  if (g.paper != null) continue;
+                  if (!enrolledAdms.contains(g.student)) continue;
+                  studentTotals[g.student] =
+                      (studentTotals[g.student] ?? 0) + g.score;
+                }
+
+                // If no subject-level totals, fall back to all grades
+                if (studentTotals.isEmpty) {
+                  for (final g in classGrades) {
+                    if (!enrolledAdms.contains(g.student)) continue;
+                    studentTotals[g.student] =
+                        (studentTotals[g.student] ?? 0) + g.score;
+                  }
+                }
+
+                if (!studentTotals.containsKey(studentAdm)) {
+                  return const _StatCard(
+                    icon: Icons.leaderboard_outlined,
+                    label: 'Stream Rank',
+                    value: '—',
+                    tint: Color(0xFF607D8B),
+                  );
+                }
+
+                // 4. Tie-aware ranking (competition ranking — RANK() style)
+                final targetScore = studentTotals[studentAdm]!;
+                final rank =
+                    studentTotals.values.where((s) => s > targetScore).length +
+                    1;
+                final total = studentTotals.length;
+
+                return _StatCard(
+                  icon: Icons.leaderboard_outlined,
+                  label: 'Stream Rank',
+                  value: '$rank / $total',
+                  tint: const Color(0xFF607D8B),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+}
 
 class _RecentExamResults extends StatefulWidget {
   const _RecentExamResults({required this.grades});

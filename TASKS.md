@@ -421,9 +421,9 @@ Widget build(BuildContext context) {
 This makes the bottom row 3 columns (Subjects | Grade Rank | Stream Rank) and the top row stays 2 columns (Attendance | Exam Average).
 
 **Update after completion:**
-- [ ] Update `lib/ui/CONTEXT.md` — note stream rank addition
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `feat: add stream rank to progress overview stats`
+- [x] Update `lib/ui/CONTEXT.md` — note stream rank addition
+- [x] Mark this task `[x]`
+- [x] Git commit: `feat: add stream rank to progress overview stats`
 
 ---
 
