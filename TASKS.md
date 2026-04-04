@@ -944,9 +944,9 @@ lib/ui/screens/school_dashboard/my_classes/my_classes_screen.dart
 **Step 6:** Verify no other files import `MyClassesScreen`. Search for `import.*my_classes` in the codebase.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — remove My Classes from teacher nav items, note deletion
-- [ ] Update `lib/ui/CONTEXT.md` — update teacher nav items list
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — remove My Classes from teacher nav items, note deletion
+- [x] Update `lib/ui/CONTEXT.md` — update teacher nav items list
+- [x] Mark this task `[x]`
 - [ ] Git commit: `ui: remove My Classes page from teacher dashboard`
 
 ---

@@ -29,7 +29,7 @@ import 'announcements/announcements_screen.dart';
 import 'finance/finance_screen.dart';
 import 'roles/school_roles_screen.dart';
 import 'settings/school_settings_screen.dart';
-import 'my_classes/my_classes_screen.dart';
+
 import 'overview/overview_screen.dart';
 import 'progress/progress_screen.dart';
 import 'timetable/timetable_screen.dart';
@@ -419,7 +419,6 @@ class _DashboardShellState extends State<_DashboardShell>
       MembershipRole.teacher => [
         // ── Always visible (core) ────────────────────────────────
         const _NavItem(label: 'Overview', icon: Icons.space_dashboard_outlined),
-        const _NavItem(label: 'My Classes', icon: Icons.class_outlined),
         const _NavItem(
           label: 'Timetable',
           icon: Icons.calendar_view_week_outlined,
@@ -629,7 +628,6 @@ class _DashboardShellState extends State<_DashboardShell>
 
   static const _kAcademicNavLabels = {
     'Academics',
-    'My Classes',
     'Exams',
     'Timetable',
     'Grades',
@@ -673,11 +671,6 @@ class _DashboardShellState extends State<_DashboardShell>
     // ── Overview — role-based landing page ─────────────────────────────────
     if (item.label == 'Overview') {
       return OverviewScreen(schoolContext: widget.schoolContext);
-    }
-
-    // ── My Classes — teacher's assigned classes ───────────────────────────
-    if (item.label == 'My Classes') {
-      return MyClassesScreen(schoolContext: widget.schoolContext);
     }
 
     // ── Progress — student / guardian ward academic progress ──────────────

@@ -27,7 +27,7 @@ This directory contains **1 shell screen file** and **8 subdirectories**, each r
   - Disposes `SchoolContext` and `ActiveTermContext` on pop.
 - **Navigation items by role:**
   - **Owner:** Overview | Academics | Exams | Members | Finance | Announcements | Timetable | Roles
-  - **Teacher:** Overview | My Classes | Timetable | (permission-gated: Exams [exams.read], Academics [classes.read], Members, Finance, Announcements, Roles)
+  - **Teacher:** Overview | Timetable | (permission-gated: Exams [exams.read], Academics [classes.read], Members, Finance, Announcements, Roles)
   - **Staff:** Overview | (permission-gated: Academics, Exams, Members [checks all 5 member resources: departments, owners, teachers, staff, students — expanded in Task A1], Finance, Announcements, Timetable, Roles)
   - **Student:** Overview | Grades | Timetable | Finance | Announcements
   - **Guardian:** Overview | Progress | Timetable | Finance | Announcements
@@ -95,6 +95,11 @@ This directory contains **1 shell screen file** and **8 subdirectories**, each r
 
 ### `attendance/` — **DELETED (Task G3)**
 > The standalone Attendance page was removed in Task G3. Attendance marking for Owner/Teacher/Staff is accessed via Academics → Grade Detail Page → Attendance tab (`academics/tabs/attendance_tab.dart`). Attendance history for Guardian/Student is accessed via the Progress page → Attendance tab. The `attendance/` directory and `attendance_screen.dart` no longer exist.
+
+---
+
+### `my_classes/` — **DELETED (Task G7)**
+> The My Classes page was removed in Task G7. It was redundant because the teacher's Overview page already displays class teacher assignments and subjects taught. The `my_classes/` directory and `my_classes_screen.dart` no longer exist. The `'My Classes'` nav item was removed from the teacher's core items in `_itemsForRole()`, from `_kAcademicNavLabels`, and from `_buildContentPanel()`. The import for `my_classes_screen.dart` was also removed.
 
 ---
 
@@ -237,7 +242,11 @@ When `ActiveTermContext.hasTerms` is `false`, the dashboard shows a blank state 
 
 
 ## Last Updated
-Task G3 — Remove standalone Attendance page from all dashboard roles.
+Task G7 — Remove My Classes page from teacher dashboard.
+
+**(G7 — Remove My Classes page)** `school_dashboard_screen.dart`: Removed `import 'my_classes/my_classes_screen.dart'`. Removed `'My Classes'` nav item from the teacher core items in `_itemsForRole()`. Teacher core items are now: Overview, Timetable (was 3 items, now 2). Removed `'My Classes'` from `_kAcademicNavLabels` set. Removed the `if (item.label == 'My Classes')` content panel mapping in `_buildContentPanel()`. Deleted the entire `lib/ui/screens/school_dashboard/my_classes/` directory (`my_classes_screen.dart`). The teacher's Overview page already displays class teacher assignments and subjects taught, making My Classes redundant.
+
+Previous: Task G3 — Remove standalone Attendance page from all dashboard roles.
 
 **(G3 — Remove standalone Attendance page)** `school_dashboard_screen.dart`: Removed `import 'attendance/attendance_screen.dart'`. Removed `Attendance` nav item from all 5 role branches in `_itemsForRole()`: Owner (hardcoded const), Teacher (core section), Staff (permission-gated `attendance.read`/`mark` block), Student (hardcoded const), Guardian (hardcoded const). Removed `'Attendance'` from `_kAcademicNavLabels` set. Removed the `if (item.label == 'Attendance')` content panel mapping in `_buildContentPanel()`. Deleted the entire `lib/ui/screens/school_dashboard/attendance/` directory (`attendance_screen.dart`). The `AttendanceTab` at `academics/tabs/attendance_tab.dart` is unaffected — it remains the primary attendance surface inside Grade Detail Page.
 
