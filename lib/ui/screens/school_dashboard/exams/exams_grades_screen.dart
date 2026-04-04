@@ -6575,6 +6575,8 @@ class _ExamGroupCrossTable extends StatelessWidget {
                                         return _PaperEmptyCell(cs: cs);
                                       }
                                       return Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           for (
