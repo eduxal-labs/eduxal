@@ -291,7 +291,7 @@ class _DashboardShell extends StatefulWidget {
 }
 
 class _DashboardShellState extends State<_DashboardShell>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late TabController _tabController;
   List<_NavItem> _currentItems = [];
   int _selectedIndex = 0;
