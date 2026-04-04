@@ -182,28 +182,32 @@ jobs:
           EOF
 
           # Download existing index.json (or start fresh)
-          echo "--- Fetching existing index.json ---"
-          rclone copyto r2:${R2_BUCKET}/builds/index.json existing_index.json 2>/dev/null || echo '[]' > existing_index.json
-
-          # Prepend new build entry to index
-          NEW_ENTRY=$(cat << ENTRY
-          {
-            "build": "${BUILD_FOLDER}",
-            "commit": "${SHORT_SHA}",
-            "branch": "master",
-            "timestamp": "${TIMESTAMP}",
-            "artifacts": {
-              "android": "builds/${BUILD_FOLDER}/android/eduxal-android.apk",
-              "linux": "builds/${BUILD_FOLDER}/linux/eduxal-linux-x64.tar.gz",
-              "windows": "builds/${BUILD_FOLDER}/windows/eduxal-windows-x64.zip"
-            }
-          }
-          ENTRY
-          )
-
-          # Use jq to prepend new entry to existing array
+          # Install jq early — needed for index.json handling
           sudo apt-get install -y jq > /dev/null 2>&1
-          echo "${NEW_ENTRY}" | jq -s --argjson existing "$(cat existing_index.json)" '. + $existing' > upload/index.json
+
+          # Download existing index.json from R2 (may not exist yet)
+          echo "--- Fetching existing index.json ---"
+          rclone copyto r2:${R2_BUCKET}/builds/index.json existing_index.json 2>/dev/null || true
+
+          # Guarantee a valid JSON array — default to [] if missing or malformed
+          if [ ! -f existing_index.json ] || ! jq empty existing_index.json 2>/dev/null; then
+            echo "No valid existing index.json found, starting fresh"
+            echo '[]' > existing_index.json
+          fi
+
+          # Build the new entry as valid JSON
+          NEW_ENTRY=$(jq -n \
+            --arg build "${BUILD_FOLDER}" \
+            --arg commit "${SHORT_SHA}" \
+            --arg branch "master" \
+            --arg timestamp "${TIMESTAMP}" \
+            --arg android "builds/${BUILD_FOLDER}/android/eduxal-android.apk" \
+            --arg linux "builds/${BUILD_FOLDER}/linux/eduxal-linux-x64.tar.gz" \
+            --arg windows "builds/${BUILD_FOLDER}/windows/eduxal-windows-x64.zip" \
+            '{build: $build, commit: $commit, branch: $branch, timestamp: $timestamp, artifacts: {android: $android, linux: $linux, windows: $windows}}')
+
+          # Prepend new entry to existing array
+          jq --argjson entry "${NEW_ENTRY}" '[$entry] + .' existing_index.json > upload/index.json
 
           echo "--- Uploading build artifacts ---"
           rclone copy upload/${BUILD_FOLDER}/ r2:${R2_BUCKET}/builds/${BUILD_FOLDER}/ --progress
