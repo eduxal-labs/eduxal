@@ -242,7 +242,11 @@ When `ActiveTermContext.hasTerms` is `false`, the dashboard shows a blank state 
 
 
 ## Last Updated
-Task G1 — Force content area rebuild on role switch.
+Task G5 — Show "no roles assigned" empty state for staff with no permissions.
+
+**(G5 — Staff empty state)** `overview_screen.dart`: `_StaffOverview.build()` now checks `hasAnyPermission` at the top of the method — a union of `_hasAnyStatPermission(perms)` (7 read permissions on students, teachers, staff, fees, payments, exams, classes) plus `announcements.read`, `roles.read`, `attendance.read`, and `attendance.mark`. When `!hasAnyPermission`, returns a centered empty state with a shield icon (56×56, `surfaceContainerHighest` bg, `borderRadius: 14`), "No roles assigned" heading (15px w500), and explanatory body text (13px w300, `height: 1.4`) — replacing the previous minimal welcome card + italic hint. Staff WITH at least one permission see the existing overview unchanged (welcome card, permission-gated quick stats, announcements).
+
+Previous: Task G1 — Force content area rebuild on role switch.
 
 **(G1 — Role-dependent KeyedSubtree)** `school_dashboard_screen.dart`: In `_DashboardShellState.build()`, the `KeyedSubtree` wrapping the content area changed from `const ValueKey('dashboard-content')` to `ValueKey('dashboard-content-${currentEntry.role}')`. The constant key preserved widget element identity across role changes, preventing Flutter from rebuilding the subtree when the user switched roles (e.g. Owner → Teacher). The role-dependent key forces a full tear-down and rebuild of the content subtree on role change, while preserving state for same-role entry switches (e.g. Guardian ward A → ward B). `_UnifiedMobileTabBar` and `_PillTabStrip` are both `StatelessWidget` — they rebuild correctly with new items/controller and require no changes.
 

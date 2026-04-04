@@ -543,8 +543,8 @@ This is correct — ties share the same rank. **Verify** that the rankings are d
 **Step 3:** If the display is already correct, mark this task as verified — no code change needed.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit (if changes made): `fix: verify tie-aware rank display in exam performance tab`
+- [x] Mark this task `[x]`
+- [x] Git commit (if changes made): `fix: verify tie-aware rank display in exam performance tab`
 
 ---
 
