@@ -506,9 +506,9 @@ if (ranked.length >= 3)
 And update `_PodiumSection` to use the passed ranks instead of assuming 1, 2, 3.
 
 **Update after completion:**
-- [ ] Update `lib/ui/CONTEXT.md` — note tie handling fix in comparisons tab
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `fix: tie-aware stream ranking in comparisons tab`
+- [x] Update `lib/ui/CONTEXT.md` — note tie handling fix in comparisons tab
+- [x] Mark this task `[x]`
+- [x] Git commit: `fix: tie-aware stream ranking in comparisons tab`
 
 ---
 
@@ -543,8 +543,8 @@ This is correct — ties share the same rank. **Verify** that the rankings are d
 **Step 3:** If the display is already correct, mark this task as verified — no code change needed.
 
 **Update after completion:**
-- [x] Mark this task `[x]`
-- [x] Git commit (if changes made): `fix: verify tie-aware rank display in exam performance tab`
+- [ ] Mark this task `[x]`
+- [ ] Git commit (if changes made): `fix: verify tie-aware rank display in exam performance tab`
 
 ---
 
@@ -665,8 +665,8 @@ Changes:
 **Step 3:** Verify the result on both mobile and desktop layouts. The guardian finance view should start with content immediately visible without an awkward empty gap at the top. The student name header should feel part of the content, not floating in empty space.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `ui: fix guardian finance top spacing`
+- [x] Mark this task `[x]`
+- [x] Git commit: `ui: fix guardian finance top spacing`
 
 ---
 

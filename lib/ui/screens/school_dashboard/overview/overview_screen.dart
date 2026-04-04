@@ -1151,10 +1151,66 @@ class _StaffOverview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final perms = schoolContext.permissions;
     final school = schoolContext.membership.school;
     final schoolId = school.id;
     final term = termContext.currentTerm;
     final userName = cache.currentUser?.user.name ?? 'Staff';
+
+    // Check if staff has ANY meaningful permission at all
+    final hasAnyPermission =
+        _hasAnyStatPermission(perms) ||
+        perms.can(Resource.announcements, Action.read) ||
+        perms.can(Resource.roles, Action.read) ||
+        perms.can(Resource.attendance, Action.read) ||
+        perms.can(Resource.attendance, Action.mark);
+
+    if (!hasAnyPermission) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  Icons.shield_outlined,
+                  size: 26,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.35),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'No roles assigned',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurface,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Your school administrator hasn\'t assigned any roles to your account yet. '
+                'Once roles are assigned, your dashboard will show the relevant features.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w300,
+                  color: cs.onSurfaceVariant,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),

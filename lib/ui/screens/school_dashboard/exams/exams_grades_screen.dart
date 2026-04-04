@@ -709,8 +709,7 @@ class _ExamGroupRowState extends State<_ExamGroupRow>
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.max,
-                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
                                     // Exam name
                                     Text(
@@ -6887,16 +6886,15 @@ class _PaperGridRow extends StatelessWidget {
                       if (i > 0) const SizedBox(height: 3),
                       Expanded(
                         child: _PaperSlotBox(
-                            paper: matches[i],
-                            exam: exam,
-                            subjectNames: subjectNames,
-                            statusColor: _paperStatusColor(matches[i].status, cs),
-                            invigilatorName:
-                                teacherNames[matches[i].invigilator] ?? '',
-                            cs: cs,
-                            onTap: () => onPaperTap(matches[i], exam, grade),
-                          ),
-                      ),
+                          paper: matches[i],
+                          exam: exam,
+                          subjectNames: subjectNames,
+                          statusColor: _paperStatusColor(matches[i].status, cs),
+                          invigilatorName:
+                              teacherNames[matches[i].invigilator] ?? '',
+                          cs: cs,
+                          onTap: () => onPaperTap(matches[i], exam, grade),
+                        ),
                       ),
                     ],
                   ],
