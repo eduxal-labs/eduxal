@@ -709,7 +709,8 @@ class _ExamGroupRowState extends State<_ExamGroupRow>
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisSize: MainAxisSize.max,
+                                  mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     // Exam name
                                     Text(
@@ -6880,19 +6881,22 @@ class _PaperGridRow extends StatelessWidget {
               }
               return Expanded(
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                  mainAxisSize: MainAxisSize.max,
                   children: [
                     for (int i = 0; i < matches.length; i++) ...[
                       if (i > 0) const SizedBox(height: 3),
-                      _PaperSlotBox(
-                        paper: matches[i],
-                        exam: exam,
-                        subjectNames: subjectNames,
-                        statusColor: _paperStatusColor(matches[i].status, cs),
-                        invigilatorName:
-                            teacherNames[matches[i].invigilator] ?? '',
-                        cs: cs,
-                        onTap: () => onPaperTap(matches[i], exam, grade),
+                      Expanded(
+                        child: _PaperSlotBox(
+                            paper: matches[i],
+                            exam: exam,
+                            subjectNames: subjectNames,
+                            statusColor: _paperStatusColor(matches[i].status, cs),
+                            invigilatorName:
+                                teacherNames[matches[i].invigilator] ?? '',
+                            cs: cs,
+                            onTap: () => onPaperTap(matches[i], exam, grade),
+                          ),
+                      ),
                       ),
                     ],
                   ],
@@ -6996,7 +7000,8 @@ class _PaperSlotBox extends StatelessWidget {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: MainAxisSize.max,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
               '$subjectName$paperLabel',

@@ -897,10 +897,13 @@ class _TrajectoryBadge extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _PodiumSection extends StatelessWidget {
-  const _PodiumSection({required this.topThree});
+  const _PodiumSection({required this.topThree, required this.ranks});
 
   /// Already sorted by rank. Max length 3.
   final List<StreamStats> topThree;
+
+  /// Tie-aware ranks corresponding to [topThree]. Same length.
+  final List<int> ranks;
 
   static const _goldColor = Color(0xFFFFD700);
   static const _silverColor = Color(0xFFC0C0C0);
@@ -912,13 +915,31 @@ class _PodiumSection extends StatelessWidget {
     final isDark = cs.brightness == Brightness.dark;
 
     // Reorder for visual podium: [2nd, 1st, 3rd]
+    // Use tie-aware ranks and medal colors based on rank value.
+    Color _medalColor(int rank) {
+      if (rank == 1) return _goldColor;
+      if (rank == 2) return _silverColor;
+      return _bronzeColor;
+    }
+
+    double _podiumHeight(int rank) {
+      if (rank == 1) return 56;
+      if (rank == 2) return 40;
+      return 28;
+    }
+
     final ordered = <(StreamStats, int, Color, double)>[];
     if (topThree.length >= 2) {
-      ordered.add((topThree[1], 2, _silverColor, 40));
+      final r = ranks[1];
+      ordered.add((topThree[1], r, _medalColor(r), _podiumHeight(r)));
     }
-    ordered.add((topThree[0], 1, _goldColor, 56));
+    {
+      final r = ranks[0];
+      ordered.add((topThree[0], r, _medalColor(r), _podiumHeight(r)));
+    }
     if (topThree.length >= 3) {
-      ordered.add((topThree[2], 3, _bronzeColor, 28));
+      final r = ranks[2];
+      ordered.add((topThree[2], r, _medalColor(r), _podiumHeight(r)));
     }
 
     return Container(
@@ -1118,6 +1139,16 @@ class _RankingTableState extends State<_RankingTable>
         return b.averageScore.compareTo(a.averageScore);
       });
 
+    // Compute tie-aware ranks (competition ranking — RANK() style)
+    final ranks = <int>[];
+    int currentRank = 1;
+    for (int i = 0; i < ranked.length; i++) {
+      if (i > 0 && ranked[i].averageScore < ranked[i - 1].averageScore) {
+        currentRank = i + 1;
+      }
+      ranks.add(currentRank);
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1147,7 +1178,10 @@ class _RankingTableState extends State<_RankingTable>
 
         // Podium section (top 3)
         if (ranked.length >= 3)
-          _PodiumSection(topThree: ranked.take(3).toList()),
+          _PodiumSection(
+            topThree: ranked.take(3).toList(),
+            ranks: ranks.take(3).toList(),
+          ),
 
         // Table container — responsive
         LayoutBuilder(
@@ -1258,7 +1292,7 @@ class _RankingTableState extends State<_RankingTable>
                                   ? _fadeAnimations[i]
                                   : const AlwaysStoppedAnimation(1.0),
                               child: _RankingRow(
-                                rank: i + 1,
+                                rank: ranks[i],
                                 stats: ranked[i],
                                 isAlternate: i.isOdd,
                                 compact: compact,
