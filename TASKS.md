@@ -873,8 +873,8 @@ Change `mainAxisSize: MainAxisSize.min` to `MainAxisSize.max` and add `mainAxisA
 - Row where one cell has a very long subject name (2 lines) and others have short names → all match the tallest
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `ui: fix exam paper grid slot sizing to uniform height per row`
+- [x] Mark this task `[x]`
+- [x] Git commit: `ui: fix exam paper grid slot sizing to uniform height per row`
 
 ---
 
