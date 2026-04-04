@@ -520,7 +520,7 @@ class _DashboardShellState extends State<_DashboardShell>
         final content = DashboardNavigation(
           navigateToTab: _navigateToTab,
           child: KeyedSubtree(
-            key: const ValueKey('dashboard-content'),
+            key: ValueKey('dashboard-content-${currentEntry.role}'),
             child: _buildContentArea(context, currentEntry),
           ),
         );

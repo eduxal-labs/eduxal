@@ -206,6 +206,7 @@ Switching entry:
 - Does NOT recompute `SchoolPermissions` (constant for session).
 - Does NOT trigger a new page — the dashboard content rebuilds in place via `ValueListenableBuilder<MembershipEntry>` on `SchoolContext.currentEntry`.
 - Entry-sensitive streams (lessons filtered by teacher, grades for a guardian's ward, etc.) re-subscribe based on the new entry.
+- The content area `KeyedSubtree` uses a **role-dependent key** (`ValueKey('dashboard-content-${currentEntry.role}')`) so that switching roles (e.g. Owner → Teacher) tears down and rebuilds the entire content subtree, eliminating stale state. Switching entries within the same role (e.g. Guardian ward A → ward B) preserves the key and thus scroll position / tab state.
 
 ## Term Selector
 
@@ -241,7 +242,11 @@ When `ActiveTermContext.hasTerms` is `false`, the dashboard shows a blank state 
 
 
 ## Last Updated
-Tasks F04, F12 — Term null safety fix, dead code cleanup, and minor consistency fixes.
+Task G1 — Force content area rebuild on role switch.
+
+**(G1 — Role-dependent KeyedSubtree)** `school_dashboard_screen.dart`: In `_DashboardShellState.build()`, the `KeyedSubtree` wrapping the content area changed from `const ValueKey('dashboard-content')` to `ValueKey('dashboard-content-${currentEntry.role}')`. The constant key preserved widget element identity across role changes, preventing Flutter from rebuilding the subtree when the user switched roles (e.g. Owner → Teacher). The role-dependent key forces a full tear-down and rebuild of the content subtree on role change, while preserving state for same-role entry switches (e.g. Guardian ward A → ward B). `_UnifiedMobileTabBar` and `_PillTabStrip` are both `StatelessWidget` — they rebuild correctly with new items/controller and require no changes.
+
+Previous: Tasks F04, F12 — Term null safety fix, dead code cleanup, and minor consistency fixes.
 
 **(F04 — Term null safety)** `active_term_context.dart`: `ActiveTermContext` constructor now auto-selects `allTerms.first` as fallback when `initialTerm` is null but `allTerms` is non-empty. Previously, `currentTerm` could be null even when `hasTerms` was true (terms exist but none marked active and `getMostRecentTerm` returns null). This ensures academic sections always have a term to work with when terms exist.
 
