@@ -125,7 +125,11 @@ All design tokens are codified in `AppTheme` (`lib/ui/theme/app_theme.dart`) and
 - All tab surfaces in the app use `EduTabBar`, whether icon-only or text-label mode.
 
 ## Last Updated
-Task C4 — Fixed "My Subjects" and "My Exams" quick stats showing 0 in teacher overview.
+Task G2-C — Fixed tie-aware stream ranking in comparisons tab.
+
+- `comparisons_tab.dart` (`_RankingTableState`) — **Fixed.** Stream rankings now use competition ranking (RANK() style) instead of simple index-based numbering. If two streams share the same `averageScore`, they receive the same rank. Tie-aware `ranks` list is computed after sorting and passed to both `_RankingRow` (replaces `i + 1`) and `_PodiumSection` (new `ranks` parameter replaces hardcoded 1, 2, 3). Podium medal colors and heights are now derived from the actual rank value, so tied streams get matching medals.
+
+Previous: Task C4 — Fixed "My Subjects" and "My Exams" quick stats showing 0 in teacher overview.
 
 - `overview_screen.dart` (`_TeacherQuickStats`) — **Fixed.** "My Subjects" now uses a reactive `StreamBuilder<List<SubjectTeacher>>` via `MembersDao.watchTeacherSubjectsForTerm(schoolId, userId, year, term)` instead of the stale `entry.subjectCount` pre-computed once at home-screen load. Distinct subject IDs are counted client-side. "My Exams" filter expanded: in addition to matching exams where the teacher is the creator or an invigilator, it now also matches exams containing papers whose subject is in the teacher's assigned subject set (`teacherSubjectIds.contains(p.subject)`). Both stats update live when the underlying tables change.
 - `members_dao.dart` — **Added two methods:** `watchTeacherSubjectsForTerm(schoolId, teacherUserId, {year, term})` returns `Stream<List<SubjectTeacher>>` filtered to a specific year/term. `watchTeacherSubjectCount(schoolId, teacherUserId, {year, term})` returns `Stream<int>` with a reactive `COUNT(DISTINCT subject)` query.

@@ -6896,9 +6896,6 @@ class _PaperGridRow extends StatelessWidget {
                           onTap: () => onPaperTap(matches[i], exam, grade),
                         ),
                       ),
-                    ],
-                  ],
-                ),
               );
             }),
           ],
@@ -6998,8 +6995,7 @@ class _PaperSlotBox extends StatelessWidget {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.max,
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               '$subjectName$paperLabel',

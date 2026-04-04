@@ -300,9 +300,9 @@ if (enrollment != null) {
 The nesting of StreamBuilders + FutureBuilder is acceptable here since the widget is a leaf node and the streams are lightweight.
 
 **Update after completion:**
-- [ ] Update `lib/ui/CONTEXT.md` — note the ranking fix in progress screen
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `fix: tie-aware grade-scoped ranking in progress screen`
+- [x] Update `lib/ui/CONTEXT.md` — note the ranking fix in progress screen
+- [x] Mark this task `[x]`
+- [x] Git commit: `fix: tie-aware grade-scoped ranking in progress screen`
 
 ---
 
@@ -772,9 +772,9 @@ Widget build(BuildContext context) {
 **Step 4:** Verify that when a staff member DOES have at least one permission, the overview still works correctly — the welcome card, permission-gated quick stats, and announcements should all display as before.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the staff empty state change
-- [ ] Mark this task `[x]`
-- [ ] Git commit: `ui: show no-roles-assigned empty state for staff overview`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the staff empty state change
+- [x] Mark this task `[x]`
+- [x] Git commit: `ui: show no-roles-assigned empty state for staff overview`
 
 ---
 
