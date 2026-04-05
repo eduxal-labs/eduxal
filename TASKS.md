@@ -759,8 +759,8 @@ Replace the existing `_StatCard` widgets in `_OwnerOverview` with `QuickStatRow`
 
 **Update after completion:**
 - [x] Update `lib/database/daos/CONTEXT.md` — add `watchSchoolAttendanceSummary` to AttendanceDao
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note owner overview improvements (UI pending)
-- [x] Mark this task `[x]` (DAO portion complete)
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note owner overview improvements
+- [x] Mark this task `[x]`
 
 ---
 
@@ -800,8 +800,8 @@ In `_OwnerOverview`, add a **Revenue Summary Card** below the attendance card:
 5. **Use `fmtCurrency()` from `formatters.dart`** for all money formatting. Format large amounts as "1.2M", "320K" when > 100,000 to keep the card compact.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note revenue card
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note revenue card
+- [x] Mark this task `[x]`
 
 ---
 
@@ -1056,8 +1056,8 @@ StreamBuilder<List<ClassAttendanceStatus>>(
 
 **Update after completion:**
 - [x] Update `lib/database/daos/CONTEXT.md` — add `watchTeacherClassAttendanceStatus` to AttendanceDao
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note teacher attendance status (UI pending)
-- [x] Mark this task `[x]` (DAO portion complete)
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note teacher attendance status
+- [x] Mark this task `[x]`
 
 ---
 
@@ -1179,8 +1179,8 @@ Widget _buildQuickActions(SchoolContext ctx, SchoolPermissions perms) {
    Data: `SELECT COUNT(*), SUM(amount), method FROM payments WHERE school = ? AND created >= todayStartMs GROUP BY method`
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note staff quick actions
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note staff quick actions
+- [x] Mark this task `[x]`
 
 ---
 

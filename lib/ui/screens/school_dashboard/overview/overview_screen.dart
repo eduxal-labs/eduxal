@@ -25,7 +25,9 @@ import '../../../widgets/active_term_provider.dart';
 import '../../../widgets/countdown_chip.dart';
 import '../../../widgets/student_avatar.dart';
 import '../../../widgets/today_status_card.dart';
+import '../../../widgets/quick_stat_row.dart';
 import '../../../theme/app_theme.dart';
+import '../../../../core/formatters.dart';
 import '../school_dashboard_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -104,11 +106,53 @@ class _OwnerOverview extends StatelessWidget {
 
         const SizedBox(height: 16),
 
+        // ── Today's attendance (school-wide) ─────────────────────────────
+        if (term != null) ...[
+          StreamBuilder<SchoolAttendanceSummary>(
+            stream: AttendanceDao(db).watchSchoolAttendanceSummary(
+              schoolId: schoolId,
+              year: term.year,
+              term: term.term,
+              date: DateTime.now()
+                  .toUtc()
+                  .difference(DateTime.utc(1970, 1, 1))
+                  .inDays,
+            ),
+            builder: (context, snap) {
+              if (!snap.hasData) return const SizedBox.shrink();
+              final s = snap.data!;
+              if (s.totalEnrolled == 0) return const SizedBox.shrink();
+              final pct = (s.attendanceRate * 100).toStringAsFixed(1);
+              return TodayStatusCard(
+                type: s.attendanceRate >= 0.90
+                    ? TodayStatusType.positive
+                    : s.attendanceRate >= 0.75
+                    ? TodayStatusType.warning
+                    : TodayStatusType.negative,
+                icon: Icons.groups_rounded,
+                title: '${s.presentCount}/${s.totalEnrolled} present ($pct%)',
+                subtitle: s.isFullyMarked
+                    ? 'All classes marked'
+                    : '${s.unmarkedCount} not yet marked',
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+        ],
+
         // ── Quick stats ──────────────────────────────────────────────────
         if (term != null) ...[
           _SectionTitle(label: 'Quick Stats', cs: cs),
           const SizedBox(height: 8),
           _OwnerQuickStats(schoolId: schoolId, term: term),
+          const SizedBox(height: 20),
+        ],
+
+        // ── Term revenue ─────────────────────────────────────────────────
+        if (term != null) ...[
+          _SectionTitle(label: 'Term Revenue', cs: cs),
+          const SizedBox(height: 8),
+          _OwnerRevenueSummary(schoolId: schoolId, term: term),
           const SizedBox(height: 20),
         ],
 
@@ -150,87 +194,337 @@ class _OwnerQuickStatsState extends State<_OwnerQuickStats> {
   late final MembersDao _membersDao;
   late final EnrollmentsDao _enrollmentsDao;
 
+  int _studentCount = 0;
+  int _teacherCount = 0;
+  int _staffCount = 0;
+  int _classCount = 0;
+
+  final List<StreamSubscription<dynamic>> _subs = [];
+
   @override
   void initState() {
     super.initState();
     _membersDao = MembersDao(db);
     _enrollmentsDao = EnrollmentsDao(db);
+    _subscribe();
+  }
+
+  void _subscribe() {
+    for (final s in _subs) {
+      s.cancel();
+    }
+    _subs.clear();
+
+    _subs.add(
+      _membersDao.watchStudents(widget.schoolId).listen((list) {
+        if (mounted) setState(() => _studentCount = list.length);
+      }),
+    );
+    _subs.add(
+      _membersDao.watchTeachers(widget.schoolId).listen((list) {
+        if (mounted) setState(() => _teacherCount = list.length);
+      }),
+    );
+    _subs.add(
+      _membersDao.watchStaff(widget.schoolId).listen((list) {
+        if (mounted) setState(() => _staffCount = list.length);
+      }),
+    );
+    _subs.add(
+      _enrollmentsDao
+          .watchPopulatedClasses(
+            schoolId: widget.schoolId,
+            year: widget.term.year,
+            term: widget.term.term,
+          )
+          .listen((list) {
+            if (mounted) setState(() => _classCount = list.length);
+          }),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _OwnerQuickStats oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.schoolId != widget.schoolId ||
+        oldWidget.term.year != widget.term.year ||
+        oldWidget.term.term != widget.term.term) {
+      _subscribe();
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final s in _subs) {
+      s.cancel();
+    }
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: StreamBuilder<List<StudentsData>>(
-                stream: _membersDao.watchStudents(widget.schoolId),
-                builder: (context, snap) {
-                  final count = snap.data?.length ?? 0;
-                  return _StatCard(
-                    icon: Icons.groups_outlined,
-                    label: 'Students',
-                    value: '$count',
-                    tint: const Color(0xFF3F51B5),
+    return QuickStatRow(
+      stats: [
+        QuickStat(
+          icon: Icons.groups_outlined,
+          label: 'Students',
+          value: '$_studentCount',
+        ),
+        QuickStat(
+          icon: Icons.school_outlined,
+          label: 'Teachers',
+          value: '$_teacherCount',
+        ),
+        QuickStat(
+          icon: Icons.badge_outlined,
+          label: 'Staff',
+          value: '$_staffCount',
+        ),
+        QuickStat(
+          icon: Icons.class_outlined,
+          label: 'Classes',
+          value: '$_classCount',
+        ),
+      ],
+    );
+  }
+}
+
+// ── Owner Revenue Summary ────────────────────────────────────────────────────
+
+class _OwnerRevenueSummary extends StatefulWidget {
+  const _OwnerRevenueSummary({required this.schoolId, required this.term});
+
+  final String schoolId;
+  final Term term;
+
+  @override
+  State<_OwnerRevenueSummary> createState() => _OwnerRevenueSummaryState();
+}
+
+class _OwnerRevenueSummaryState extends State<_OwnerRevenueSummary> {
+  StreamSubscription<TermFinanceSummary>? _sub;
+  TermFinanceSummary? _summary;
+
+  @override
+  void initState() {
+    super.initState();
+    _subscribeFinance();
+  }
+
+  void _subscribeFinance() {
+    _sub?.cancel();
+    _summary = null;
+    _sub = FinanceDao(db)
+        .watchTermFinanceSummary(
+          schoolId: widget.schoolId,
+          year: widget.term.year,
+          term: widget.term.term,
+        )
+        .listen((s) {
+          if (mounted) setState(() => _summary = s);
+        });
+  }
+
+  @override
+  void didUpdateWidget(covariant _OwnerRevenueSummary oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.schoolId != widget.schoolId ||
+        oldWidget.term.year != widget.term.year ||
+        oldWidget.term.term != widget.term.term) {
+      _subscribeFinance();
+    }
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final summary = _summary;
+
+    if (summary == null) {
+      return Container(
+        height: 100,
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        ),
+        alignment: Alignment.center,
+        child: SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(
+            strokeWidth: 1.5,
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+      );
+    }
+
+    final rate = summary.collectionRate;
+    final ratePct = (rate * 100).clamp(0.0, 100.0);
+    final collected = summary.totalPaid;
+    final pending = summary.totalPending;
+    final overdue = summary.totalOverdue;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        border: Border.all(
+          color: isDark
+              ? const Color(0xFF2A3848)
+              : cs.outlineVariant.withValues(alpha: 0.6),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Collection rate label ──
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${ratePct.toStringAsFixed(1)}% collected',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurface,
+                ),
+              ),
+              Text(
+                fmtCurrency(summary.totalInvoiced),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurfaceVariant,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // ── Progress bar ──
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: SizedBox(
+              height: 6,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final totalWidth = constraints.maxWidth;
+                  final greenWidth = totalWidth * rate.clamp(0.0, 1.0);
+                  return Stack(
+                    children: [
+                      Container(
+                        width: totalWidth,
+                        color: cs.surfaceContainerHighest,
+                      ),
+                      Container(
+                        width: greenWidth,
+                        color: const Color(0xFF4CAF50),
+                      ),
+                    ],
                   );
                 },
               ),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: StreamBuilder<List<TeachersData>>(
-                stream: _membersDao.watchTeachers(widget.schoolId),
-                builder: (context, snap) {
-                  final count = snap.data?.length ?? 0;
-                  return _StatCard(
-                    icon: Icons.school_outlined,
-                    label: 'Teachers',
-                    value: '$count',
-                    tint: const Color(0xFF009688),
-                  );
-                },
+          ),
+          const SizedBox(height: 12),
+
+          // ── Three-column breakdown ──
+          Row(
+            children: [
+              Expanded(
+                child: _RevenueStat(
+                  label: 'Collected',
+                  value: fmtCurrency(collected),
+                  color: const Color(0xFF4CAF50),
+                  cs: cs,
+                ),
+              ),
+              Expanded(
+                child: _RevenueStat(
+                  label: 'Pending',
+                  value: fmtCurrency(pending),
+                  color: Colors.amber[700]!,
+                  cs: cs,
+                ),
+              ),
+              Expanded(
+                child: _RevenueStat(
+                  label: 'Overdue',
+                  value: fmtCurrency(overdue),
+                  color: const Color(0xFFF44336),
+                  cs: cs,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RevenueStat extends StatelessWidget {
+  const _RevenueStat({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.cs,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.6),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: StreamBuilder<List<StaffData>>(
-                stream: _membersDao.watchStaff(widget.schoolId),
-                builder: (context, snap) {
-                  final count = snap.data?.length ?? 0;
-                  return _StatCard(
-                    icon: Icons.badge_outlined,
-                    label: 'Staff',
-                    value: '$count',
-                    tint: const Color(0xFFFF9800),
-                  );
-                },
-              ),
+        const SizedBox(height: 2),
+        Padding(
+          padding: const EdgeInsets.only(left: 10),
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurface,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: StreamBuilder<List<({int grade, int stream})>>(
-                stream: _enrollmentsDao.watchPopulatedClasses(
-                  schoolId: widget.schoolId,
-                  year: widget.term.year,
-                  term: widget.term.term,
-                ),
-                builder: (context, snap) {
-                  final count = snap.data?.length ?? 0;
-                  return _StatCard(
-                    icon: Icons.class_outlined,
-                    label: 'Classes',
-                    value: '$count',
-                    tint: const Color(0xFF7C4DFF),
-                  );
-                },
-              ),
-            ),
-          ],
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
       ],
     );
@@ -271,6 +565,50 @@ class _TeacherOverview extends StatelessWidget {
             teacherUserId: userId,
           ),
           const SizedBox(height: 16),
+        ],
+
+        // ── Attendance marking status ────────────────────────────────────
+        if (term != null && userId.isNotEmpty) ...[
+          StreamBuilder<List<ClassAttendanceStatus>>(
+            stream: AttendanceDao(db).watchTeacherClassAttendanceStatus(
+              schoolId: schoolId,
+              teacherId: userId,
+              year: term.year,
+              term: term.term,
+              date: DateTime.now()
+                  .toUtc()
+                  .difference(DateTime.utc(1970, 1, 1))
+                  .inDays,
+            ),
+            builder: (context, snap) {
+              if (!snap.hasData || snap.data!.isEmpty)
+                return const SizedBox.shrink();
+              final classes = snap.data!;
+              final allMarked = classes.every((c) => c.isMarked);
+              final unmarkedCount = classes.where((c) => !c.isMarked).length;
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: TodayStatusCard(
+                  type: allMarked
+                      ? TodayStatusType.positive
+                      : TodayStatusType.warning,
+                  icon: allMarked
+                      ? Icons.check_circle_rounded
+                      : Icons.edit_note_rounded,
+                  title: allMarked
+                      ? 'All classes marked'
+                      : '$unmarkedCount class${unmarkedCount > 1 ? "es" : ""} not marked',
+                  subtitle: classes
+                      .map((c) {
+                        final label = gradeLabel(c.grade);
+                        return c.isMarked ? '$label ✓' : '$label ✗';
+                      })
+                      .join('  '),
+                ),
+              );
+            },
+          ),
         ],
 
         // ── Today's schedule ─────────────────────────────────────────────
@@ -1343,6 +1681,62 @@ class _StaffOverview extends StatelessWidget {
         _WelcomeCard(name: userName, subtitle: school.name, cs: cs),
 
         const SizedBox(height: 20),
+
+        // ── Quick actions (permission-gated) ─────────────────────────────
+        if (perms.can(Resource.payments, Action.create) ||
+            perms.can(Resource.fees, Action.read)) ...[
+          _SectionTitle(label: 'Quick Actions', cs: cs),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              if (perms.can(Resource.payments, Action.create))
+                _QuickActionChip(
+                  icon: Icons.payments_rounded,
+                  label: 'Record Payment',
+                  color: Colors.green,
+                  onTap: () => DashboardNavigation.goToTab(context, 'Finance'),
+                ),
+              if (perms.can(Resource.fees, Action.read))
+                _QuickActionChip(
+                  icon: Icons.search_rounded,
+                  label: 'Check Balance',
+                  color: Colors.orange,
+                  onTap: () => DashboardNavigation.goToTab(context, 'Finance'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 20),
+        ],
+
+        // ── Today's collection (permission-gated) ────────────────────────
+        if (term != null && perms.can(Resource.fees, Action.read)) ...[
+          StreamBuilder<TermFinanceSummary>(
+            stream: FinanceDao(db).watchTermFinanceSummary(
+              schoolId: schoolId,
+              year: term.year,
+              term: term.term,
+            ),
+            builder: (context, snap) {
+              if (!snap.hasData) return const SizedBox.shrink();
+              final s = snap.data!;
+              final collected = fmtCurrency(s.totalPaid);
+              return TodayStatusCard(
+                type: s.collectionRate >= 0.70
+                    ? TodayStatusType.positive
+                    : s.collectionRate >= 0.40
+                    ? TodayStatusType.warning
+                    : TodayStatusType.negative,
+                icon: Icons.account_balance_rounded,
+                title: '$collected collected',
+                subtitle:
+                    '${s.paidCount} paid · ${s.pendingCount} pending · ${s.overdueCount} overdue',
+              );
+            },
+          ),
+          const SizedBox(height: 20),
+        ],
 
         // ── Quick stats (permission-gated) ───────────────────────────────
         if (term != null &&
@@ -4228,4 +4622,63 @@ String _fmtCurrency(double amount) {
     buf.write(wholePart[i]);
   }
   return buf.toString();
+}
+
+// ── Quick Action Chip (Staff Overview) ───────────────────────────────────────
+
+class _QuickActionChip extends StatelessWidget {
+  const _QuickActionChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Material(
+      color: color.withOpacity(isDark ? 0.12 : 0.08),
+      borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        splashColor: color.withOpacity(0.12),
+        highlightColor: color.withOpacity(0.06),
+        child: SizedBox(
+          width: 80,
+          height: 64,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 24,
+                color: color.withOpacity(isDark ? 0.8 : 0.7),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w300,
+                  color: cs.onSurface,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
