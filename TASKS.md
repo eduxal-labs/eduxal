@@ -1897,8 +1897,8 @@ class OverviewScreen extends StatelessWidget {
 - All imports are updated correctly.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/exams/CONTEXT.md` — note file split
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/exams/CONTEXT.md` — note file split
+- [x] Mark this task `[x]`
 
 ---
 
