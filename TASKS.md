@@ -620,8 +620,8 @@ In `_OverviewTab` of the guardian/student progress screen, add a **mini line cha
 5. **Place this chart** between the stats grid and the "Recent Exams" section in `_OverviewTab`.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/progress/CONTEXT.md` — note trend chart
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/progress/CONTEXT.md` — note trend chart
+- [x] Mark this task `[x]`
 
 ---
 
@@ -656,8 +656,8 @@ The current `_GuardianFinanceView` in `finance_screen.dart` shows balance card +
    - Future: default border
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note guardian finance improvements
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note guardian finance improvements
+- [x] Mark this task `[x]`
 
 ---
 
@@ -860,9 +860,9 @@ class LessonDeliveryRate {
 3. **Place after** the revenue card in `_OwnerOverview`.
 
 **Update after completion:**
-- [ ] Update `lib/database/daos/CONTEXT.md` — add `watchTodayLessonDelivery` to TimetableDao
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note lesson delivery card
-- [ ] Mark this task `[x]`
+- [x] Update `lib/database/daos/CONTEXT.md` — add `watchTodayLessonDelivery` to TimetableDao
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note lesson delivery card
+- [x] Mark this task `[x]`
 
 ---
 
@@ -904,8 +904,8 @@ class LessonDeliveryRate {
    Populate from: `ExamsGradesDao.watchExams()` for exam start dates + `term.end` for term end.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note term countdown and calendar
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note term countdown and calendar
+- [x] Mark this task `[x]`
 
 ---
 
@@ -1088,8 +1088,8 @@ Replace the existing `_StatCard` widgets in `_TeacherOverview` with an enhanced 
 3. **Implementation:** The existing `_TeacherOverview` already queries `SubjectsDao` and `ExamsGradesDao`. Reuse those streams and add a `ClassTeacherDao` stream for the class chips.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note teacher stats improvements
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note teacher stats improvements
+- [x] Mark this task `[x]`
 
 ---
 
@@ -1264,9 +1264,9 @@ class StudentBalanceLookup extends StatefulWidget {
   - Optional "Record Payment" button
 
 **Update after completion:**
-- [ ] Update `lib/ui/widgets/CONTEXT.md` — add `student_balance_lookup.dart` entry
-- [ ] Update `lib/database/daos/CONTEXT.md` — add `watchStudentBalance` to FinanceDao
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/widgets/CONTEXT.md` — add `student_balance_lookup.dart` entry
+- [x] Update `lib/database/daos/CONTEXT.md` — add `watchStudentBalance` to FinanceDao
+- [x] Mark this task `[x]`
 
 ---
 

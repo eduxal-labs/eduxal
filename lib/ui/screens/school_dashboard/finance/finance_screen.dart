@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/inline_date_picker_dialog.dart';
 import '../../../../client.dart';
+import '../../../../core/formatters.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/catalog_dao.dart';
 import '../../../../database/daos/finance_dao.dart';
@@ -132,6 +133,34 @@ String _paymentMethodLabel(PaymentMethod m) => switch (m) {
   PaymentMethod.cheque => 'Cheque',
   PaymentMethod.mpesa => 'M-Pesa',
   PaymentMethod.bank => 'Bank',
+};
+
+/// Returns an urgency border color for a guardian invoice tile, or null
+/// if no urgency indicator is needed.
+Color? _invoiceUrgencyColor(InvoiceWithDetails item) {
+  // No urgency for fully paid or cancelled invoices.
+  if (item.isFullyPaid || item.invoice.status == InvoiceStatus.cancelled) {
+    return null;
+  }
+  if (item.invoice.status == InvoiceStatus.overdue) {
+    return _kOverdueColor;
+  }
+  final due = item.invoice.due;
+  if (due != null) {
+    final dueSecs = due.toInt();
+    final nowSecs = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    if (dueSecs <= nowSecs) return _kOverdueColor;
+    if (dueSecs <= nowSecs + 7 * 86400) return _kPendingColor; // within 7 days
+  }
+  return null;
+}
+
+/// Icon for a payment method — used in the guardian payment timeline.
+IconData _paymentTimelineIcon(PaymentMethod m) => switch (m) {
+  PaymentMethod.mpesa => Icons.phone_android,
+  PaymentMethod.cash => Icons.payments_rounded,
+  PaymentMethod.bank => Icons.account_balance_rounded,
+  PaymentMethod.cheque => Icons.receipt_long_rounded,
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -2152,11 +2181,10 @@ class _GuardianFinanceContent extends StatelessWidget {
             compact: true,
           )
         else
-          ...summary.payments.map(
-            (pay) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _GuardianPaymentTile(item: pay, cs: cs, isDark: isDark),
-            ),
+          _GuardianPaymentTimeline(
+            payments: summary.payments,
+            cs: cs,
+            isDark: isDark,
           ),
       ],
     );
@@ -2196,6 +2224,12 @@ class _GuardianBalanceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final balance = summary.totalBalance;
     final balanceColor = balance > 0.01 ? _kOverdueColor : _kPaidColor;
+    final totalInvoiced = summary.totalInvoiced;
+    final totalPaid = summary.totalPaid;
+    final paidFraction = totalInvoiced > 0
+        ? (totalPaid / totalInvoiced).clamp(0.0, 1.0)
+        : 0.0;
+    final pctStr = (paidFraction * 100).toStringAsFixed(1);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -2212,40 +2246,78 @@ class _GuardianBalanceCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: _BalanceColumn(
-              label: 'Total Invoiced',
-              value: _fmtCurrency(summary.totalInvoiced),
-              cs: cs,
+          Row(
+            children: [
+              Expanded(
+                child: _BalanceColumn(
+                  label: 'Total Invoiced',
+                  value: _fmtCurrency(totalInvoiced),
+                  cs: cs,
+                ),
+              ),
+              Container(
+                width: 1,
+                height: 36,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.12),
+              ),
+              Expanded(
+                child: _BalanceColumn(
+                  label: 'Total Paid',
+                  value: _fmtCurrency(totalPaid),
+                  cs: cs,
+                  color: _kPaidColor,
+                ),
+              ),
+              Container(
+                width: 1,
+                height: 36,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.12),
+              ),
+              Expanded(
+                child: _BalanceColumn(
+                  label: 'Balance',
+                  value: _fmtCurrency(balance),
+                  cs: cs,
+                  color: balanceColor,
+                  isBold: true,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // ── Progress summary line ─────────────────────────────────
+          Text(
+            '${fmtCurrency(totalPaid)} / ${fmtCurrency(totalInvoiced)} ($pctStr%)',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurfaceVariant,
             ),
           ),
-          Container(
-            width: 1,
-            height: 36,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.12),
-          ),
-          Expanded(
-            child: _BalanceColumn(
-              label: 'Total Paid',
-              value: _fmtCurrency(summary.totalPaid),
-              cs: cs,
-              color: _kPaidColor,
+          const SizedBox(height: 6),
+          // ── Balance progress bar ──────────────────────────────────
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: SizedBox(
+              height: 8,
+              child: LinearProgressIndicator(
+                value: paidFraction,
+                backgroundColor: cs.onSurfaceVariant.withValues(alpha: 0.12),
+                valueColor: const AlwaysStoppedAnimation<Color>(_kPaidColor),
+              ),
             ),
           ),
-          Container(
-            width: 1,
-            height: 36,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.12),
-          ),
-          Expanded(
-            child: _BalanceColumn(
-              label: 'Balance',
-              value: _fmtCurrency(balance),
-              cs: cs,
-              color: balanceColor,
-              isBold: true,
+          const SizedBox(height: 6),
+          // ── Remaining line ────────────────────────────────────────
+          Text(
+            '${fmtCurrency(balance > 0 ? balance : 0)} remaining',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
             ),
           ),
         ],
@@ -2311,143 +2383,276 @@ class _GuardianInvoiceTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final statusColor = _invoiceStatusColor(item.invoice.status);
     final title = item.feeTitle ?? item.invoice.description ?? 'Invoice';
+    final urgencyColor = _invoiceUrgencyColor(item);
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: isDark
-            ? cs.surfaceContainerHighest.withValues(alpha: 0.4)
-            : cs.surface,
-        borderRadius: BorderRadius.circular(AppTheme.kRadius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.12 : 0.03),
-            blurRadius: 5,
-            offset: const Offset(0, 1.5),
+    return Stack(
+      children: [
+        Container(
+          padding: EdgeInsets.fromLTRB(
+            urgencyColor != null ? 18 : 14,
+            14,
+            14,
+            14,
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurface,
-                  ),
+          decoration: BoxDecoration(
+            color: isDark
+                ? cs.surfaceContainerHighest.withValues(alpha: 0.4)
+                : cs.surface,
+            borderRadius: BorderRadius.circular(AppTheme.kRadius),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.12 : 0.03),
+                blurRadius: 5,
+                offset: const Offset(0, 1.5),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Invoiced: ${_fmtCurrency(item.invoice.amount)} · '
+                      'Paid: ${_fmtCurrency(item.totalPaid)} · '
+                      'Balance: ${_fmtCurrency(item.balance)}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                      ),
+                    ),
+                    if (item.invoice.due != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        'Due: ${_fmtDateFromEpoch(item.invoice.due!.toInt())}',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w400,
+                          color:
+                              urgencyColor ??
+                              cs.onSurfaceVariant.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Invoiced: ${_fmtCurrency(item.invoice.amount)} · '
-                  'Paid: ${_fmtCurrency(item.totalPaid)} · '
-                  'Balance: ${_fmtCurrency(item.balance)}',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w400,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.65),
-                  ),
+              ),
+              _StatusBadge(
+                label: _invoiceStatusLabel(item.invoice.status),
+                color: statusColor,
+                cs: cs,
+                isDark: isDark,
+              ),
+            ],
+          ),
+        ),
+        // ── Urgency left-border strip ─────────────────────────────────
+        if (urgencyColor != null)
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            child: Container(
+              width: 3,
+              decoration: BoxDecoration(
+                color: urgencyColor,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(AppTheme.kRadius),
+                  bottomLeft: Radius.circular(AppTheme.kRadius),
                 ),
-              ],
+              ),
             ),
           ),
-          _StatusBadge(
-            label: _invoiceStatusLabel(item.invoice.status),
-            color: statusColor,
-            cs: cs,
-            isDark: isDark,
-          ),
-        ],
-      ),
+      ],
     );
   }
 }
 
-class _GuardianPaymentTile extends StatelessWidget {
-  const _GuardianPaymentTile({
-    required this.item,
+/// Renders all guardian payments as a vertical timeline with connected dots.
+class _GuardianPaymentTimeline extends StatelessWidget {
+  const _GuardianPaymentTimeline({
+    required this.payments,
     required this.cs,
     required this.isDark,
   });
 
-  final PaymentWithDetails item;
+  final List<PaymentWithDetails> payments;
   final ColorScheme cs;
   final bool isDark;
 
   @override
   Widget build(BuildContext context) {
-    final method = _paymentMethodLabel(item.payment.method);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (int i = 0; i < payments.length; i++)
+          _GuardianTimelineEntry(
+            item: payments[i],
+            cs: cs,
+            isDark: isDark,
+            isFirst: i == 0,
+            isLast: i == payments.length - 1,
+          ),
+      ],
+    );
+  }
+}
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: isDark
-            ? cs.surfaceContainerHighest.withValues(alpha: 0.4)
-            : cs.surface,
-        borderRadius: BorderRadius.circular(AppTheme.kRadius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.12 : 0.03),
-            blurRadius: 5,
-            offset: const Offset(0, 1.5),
-          ),
-        ],
-      ),
+/// A single entry in the guardian payment timeline.
+class _GuardianTimelineEntry extends StatelessWidget {
+  const _GuardianTimelineEntry({
+    required this.item,
+    required this.cs,
+    required this.isDark,
+    required this.isFirst,
+    required this.isLast,
+  });
+
+  final PaymentWithDetails item;
+  final ColorScheme cs;
+  final bool isDark;
+  final bool isFirst;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    final method = _paymentMethodLabel(item.payment.method);
+    final icon = _paymentTimelineIcon(item.payment.method);
+    // All recorded payments are confirmed (no pending status on Payment).
+    const dotColor = _kPaidColor;
+    final lineColor = cs.onSurfaceVariant.withValues(alpha: 0.15);
+
+    return IntrinsicHeight(
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: _kPaidColor.withValues(alpha: isDark ? 0.16 : 0.08),
-              borderRadius: BorderRadius.circular(7),
-            ),
-            child: const Icon(
-              Icons.check_rounded,
-              size: 16,
-              color: _kPaidColor,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
+          // ── Timeline rail (dot + connecting lines) ───────────────────
+          SizedBox(
+            width: 28,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  method,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurface,
+                // Line above the dot (hidden for the first entry).
+                if (!isFirst)
+                  Expanded(
+                    child: Center(child: Container(width: 2, color: lineColor)),
+                  )
+                else
+                  const Expanded(child: SizedBox.shrink()),
+                // Timeline dot.
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: const BoxDecoration(
+                    color: dotColor,
+                    shape: BoxShape.circle,
                   ),
                 ),
-                if (item.payment.reference != null &&
-                    item.payment.reference!.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      'Ref: ${item.payment.reference}',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w400,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                      ),
-                    ),
-                  ),
+                // Line below the dot (hidden for the last entry).
+                if (!isLast)
+                  Expanded(
+                    child: Center(child: Container(width: 2, color: lineColor)),
+                  )
+                else
+                  const Expanded(child: SizedBox.shrink()),
               ],
             ),
           ),
-          Text(
-            _fmtCurrency(item.payment.amount),
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: _kPaidColor,
-              letterSpacing: -0.2,
+          const SizedBox(width: 8),
+          // ── Payment content ─────────────────────────────────────────
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: Row(
+                children: [
+                  // Method icon chip.
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: dotColor.withValues(alpha: isDark ? 0.16 : 0.08),
+                      borderRadius: BorderRadius.circular(7),
+                    ),
+                    child: Icon(icon, size: 16, color: dotColor),
+                  ),
+                  const SizedBox(width: 10),
+                  // Details.
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                method,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: cs.onSurface,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              fmtCurrency(item.payment.amount),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: _kPaidColor,
+                                letterSpacing: -0.2,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            if (item.payment.reference != null &&
+                                item.payment.reference!.isNotEmpty)
+                              Expanded(
+                                child: Text(
+                                  'Ref: ${item.payment.reference}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w400,
+                                    color: cs.onSurfaceVariant.withValues(
+                                      alpha: 0.6,
+                                    ),
+                                  ),
+                                ),
+                              )
+                            else
+                              const Spacer(),
+                            Text(
+                              fmtRelativeTime(
+                                item.payment.created.toInt() * 1000,
+                              ),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w400,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.5,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],

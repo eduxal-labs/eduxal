@@ -156,11 +156,19 @@ class _OwnerOverview extends StatelessWidget {
           const SizedBox(height: 20),
         ],
 
+        // ── Lesson delivery ──────────────────────────────────────────────
+        if (term != null) ...[
+          _OwnerLessonDelivery(schoolId: schoolId, term: term),
+          const SizedBox(height: 20),
+        ],
+
         // ── Current term info ────────────────────────────────────────────
         if (term != null) ...[
           _SectionTitle(label: 'Current Term', cs: cs),
           const SizedBox(height: 8),
           _TermInfoCard(term: term, cs: cs),
+          const SizedBox(height: 10),
+          _AcademicMiniTimeline(schoolId: schoolId, term: term, cs: cs),
           const SizedBox(height: 20),
         ],
 
@@ -524,6 +532,233 @@ class _RevenueStat extends StatelessWidget {
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Owner Lesson Delivery ────────────────────────────────────────────────────
+
+class _OwnerLessonDelivery extends StatelessWidget {
+  const _OwnerLessonDelivery({required this.schoolId, required this.term});
+
+  final String schoolId;
+  final Term term;
+
+  @override
+  Widget build(BuildContext context) {
+    final todayDate = DateTime.now()
+        .toUtc()
+        .difference(DateTime.utc(1970, 1, 1))
+        .inDays;
+    final todayDay = _currentDayOfWeek().index;
+
+    return StreamBuilder<LessonDeliveryRate>(
+      stream: TimetableDao(db).watchTodayLessonDelivery(
+        schoolId: schoolId,
+        year: term.year,
+        term: term.term,
+        todayDate: todayDate,
+        todayDay: todayDay,
+      ),
+      builder: (context, snap) {
+        if (!snap.hasData) return const SizedBox.shrink();
+        final rate = snap.data!;
+        if (rate.expectedLessons == 0) return const SizedBox.shrink();
+        final pct = rate.deliveryRate;
+        final pctStr = (pct * 100).toStringAsFixed(0);
+        return TodayStatusCard(
+          type: pct >= 0.90
+              ? TodayStatusType.positive
+              : pct >= 0.70
+              ? TodayStatusType.warning
+              : TodayStatusType.negative,
+          icon: Icons.school_rounded,
+          title:
+              '${rate.deliveredLessons}/${rate.expectedLessons} lessons delivered ($pctStr%)',
+          subtitle:
+              '${rate.uniqueTeachersDelivered}/${rate.uniqueTeachersExpected} teachers active today',
+        );
+      },
+    );
+  }
+}
+
+// ── Academic Mini Timeline ───────────────────────────────────────────────────
+
+enum _EventType { today, exam, termEnd }
+
+class _TimelineEvent {
+  const _TimelineEvent({
+    required this.seconds,
+    required this.label,
+    required this.type,
+  });
+  final int seconds;
+  final String label;
+  final _EventType type;
+}
+
+class _AcademicMiniTimeline extends StatelessWidget {
+  const _AcademicMiniTimeline({
+    required this.schoolId,
+    required this.term,
+    required this.cs,
+  });
+
+  final String schoolId;
+  final Term term;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<ExamWithPapers>>(
+      stream: ExamsGradesDao(
+        db,
+      ).watchExamsForTerm(schoolId: schoolId, year: term.year, term: term.term),
+      builder: (context, snap) {
+        final nowSecs = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+        final termStartSecs = term.start.toInt();
+        final termEndSecs = term.end.toInt();
+        final totalSpan = termEndSecs - termStartSecs;
+        if (totalSpan <= 0) return const SizedBox.shrink();
+
+        final events = <_TimelineEvent>[];
+
+        // Today marker
+        if (nowSecs >= termStartSecs && nowSecs <= termEndSecs) {
+          events.add(
+            _TimelineEvent(
+              seconds: nowSecs,
+              label: 'Today',
+              type: _EventType.today,
+            ),
+          );
+        }
+
+        // Upcoming exam start dates (max 3)
+        if (snap.hasData) {
+          final upcoming =
+              snap.data!.where((e) => e.exam.start.toInt() >= nowSecs).toList()
+                ..sort((a, b) => a.exam.start.compareTo(b.exam.start));
+          for (final e in upcoming.take(3)) {
+            final secs = e.exam.start.toInt();
+            final dt = DateTime.fromMillisecondsSinceEpoch(
+              secs * 1000,
+              isUtc: true,
+            );
+            events.add(
+              _TimelineEvent(
+                seconds: secs,
+                label: '${dt.day} ${_months[dt.month - 1]}',
+                type: _EventType.exam,
+              ),
+            );
+          }
+        }
+
+        // Term end
+        final endDt = DateTime.fromMillisecondsSinceEpoch(
+          termEndSecs * 1000,
+          isUtc: true,
+        );
+        events.add(
+          _TimelineEvent(
+            seconds: termEndSecs,
+            label: '${endDt.day} ${_months[endDt.month - 1]}',
+            type: _EventType.termEnd,
+          ),
+        );
+
+        events.sort((a, b) => a.seconds.compareTo(b.seconds));
+        if (events.length < 2) return const SizedBox.shrink();
+
+        return _buildTimeline(events, termStartSecs, totalSpan);
+      },
+    );
+  }
+
+  Widget _buildTimeline(
+    List<_TimelineEvent> events,
+    int termStartSecs,
+    int totalSpan,
+  ) {
+    final items = <Widget>[];
+
+    for (int i = 0; i < events.length; i++) {
+      if (i == 0) {
+        final gap = events[i].seconds - termStartSecs;
+        final flex = (gap * 1000 ~/ totalSpan).clamp(1, 1000);
+        items.add(Expanded(flex: flex, child: const SizedBox()));
+      }
+
+      items.add(_eventColumn(events[i]));
+
+      if (i < events.length - 1) {
+        final gap = events[i + 1].seconds - events[i].seconds;
+        final flex = (gap * 1000 ~/ totalSpan).clamp(1, 1000);
+        items.add(Expanded(flex: flex, child: const SizedBox()));
+      }
+    }
+
+    return SizedBox(
+      height: 40,
+      child: Stack(
+        children: [
+          Positioned(
+            top: 4,
+            left: 0,
+            right: 0,
+            child: Container(
+              height: 1,
+              color: cs.outlineVariant.withValues(alpha: 0.3),
+            ),
+          ),
+          Row(children: items),
+        ],
+      ),
+    );
+  }
+
+  Widget _eventColumn(_TimelineEvent event) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (event.type == _EventType.today)
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: cs.primary, width: 2),
+              color: cs.surface,
+            ),
+          )
+        else
+          Container(
+            width: 8,
+            height: 8,
+            margin: const EdgeInsets.only(top: 1),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: event.type == _EventType.exam
+                  ? const Color(0xFFFF9800)
+                  : cs.error,
+            ),
+          ),
+        const SizedBox(height: 4),
+        Text(
+          event.label,
+          style: TextStyle(
+            fontSize: 9,
+            fontWeight: event.type == _EventType.today
+                ? FontWeight.w500
+                : FontWeight.w300,
+            color: event.type == _EventType.today
+                ? cs.primary
+                : cs.onSurfaceVariant.withValues(alpha: 0.6),
           ),
         ),
       ],
@@ -1139,7 +1374,7 @@ class _TodayLessonCard extends StatelessWidget {
   }
 }
 
-class _TeacherQuickStats extends StatelessWidget {
+class _TeacherQuickStats extends StatefulWidget {
   const _TeacherQuickStats({
     required this.schoolId,
     required this.term,
@@ -1153,73 +1388,154 @@ class _TeacherQuickStats extends StatelessWidget {
   final String userId;
 
   @override
-  Widget build(BuildContext context) {
+  State<_TeacherQuickStats> createState() => _TeacherQuickStatsState();
+}
+
+class _TeacherQuickStatsState extends State<_TeacherQuickStats> {
+  int _subjectCount = 0;
+  int _classCount = 0;
+  int _lessonsPerWeek = 0;
+  int _papersCount = 0;
+  Set<int> _teacherSubjectIds = {};
+  List<ExamWithPapers> _allExams = [];
+
+  final List<StreamSubscription<dynamic>> _subs = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _subscribe();
+  }
+
+  void _subscribe() {
+    for (final s in _subs) s.cancel();
+    _subs.clear();
+
     final membersDao = MembersDao(db);
+    final timetableDao = TimetableDao(db);
     final examsDao = ExamsGradesDao(db);
 
-    // Outer StreamBuilder: reactively watches the teacher's subject assignments
-    // for the current term. Drives both the "My Subjects" count and the
-    // subject-set used to filter "My Exams".
-    return StreamBuilder<List<SubjectTeacher>>(
-      stream: membersDao.watchTeacherSubjectsForTerm(
-        schoolId,
-        userId,
-        year: term.year,
-        term: term.term,
-      ),
-      builder: (context, subjectsSnap) {
-        final teacherSubjects = subjectsSnap.data ?? [];
-        // Distinct subject IDs this teacher is assigned to this term.
-        final teacherSubjectIds = teacherSubjects.map((s) => s.subject).toSet();
-        final subjectCount = teacherSubjectIds.length;
+    // 1. My Subjects — live count of subject assignments this term
+    _subs.add(
+      membersDao
+          .watchTeacherSubjectsForTerm(
+            widget.schoolId,
+            widget.userId,
+            year: widget.term.year,
+            term: widget.term.term,
+          )
+          .listen((list) {
+            if (!mounted) return;
+            final ids = list.map((s) => s.subject).toSet();
+            setState(() {
+              _teacherSubjectIds = ids;
+              _subjectCount = ids.length;
+            });
+            _recomputePapers();
+          }),
+    );
 
-        return Row(
-          children: [
-            // ── My Subjects (live count) ─────────────────────────────────
-            Expanded(
-              child: _StatCard(
-                icon: Icons.menu_book_outlined,
-                label: 'My Subjects',
-                value: '$subjectCount',
-                tint: const Color(0xFF3F51B5),
-              ),
-            ),
-            const SizedBox(width: 10),
-            // ── My Exams (matches: creator OR invigilator OR teaches subject)
-            Expanded(
-              child: StreamBuilder<List<ExamWithPapers>>(
-                stream: examsDao.watchExamsForTerm(
-                  schoolId: schoolId,
-                  year: term.year,
-                  term: term.term,
-                ),
-                builder: (context, snap) {
-                  final allExams = snap.data ?? [];
-                  final myExams = allExams
-                      .where(
-                        (e) =>
-                            // Teacher created the exam
-                            e.teacher.id == userId ||
-                            // Teacher is invigilator on any paper
-                            e.papers.any((p) => p.invigilator == userId) ||
-                            // Teacher teaches the subject of any paper
-                            e.papers.any(
-                              (p) => teacherSubjectIds.contains(p.subject),
-                            ),
-                      )
-                      .length;
-                  return _StatCard(
-                    icon: Icons.assignment_outlined,
-                    label: 'My Exams',
-                    value: '$myExams',
-                    tint: const Color(0xFF009688),
-                  );
-                },
-              ),
-            ),
-          ],
-        );
-      },
+    // 2. My Classes — class_teacher assignments for this term
+    _subs.add(
+      membersDao
+          .watchClassTeacherAssignments(widget.schoolId, widget.userId)
+          .listen((list) {
+            if (!mounted) return;
+            final count = list
+                .where(
+                  (c) =>
+                      c.year == widget.term.year && c.term == widget.term.term,
+                )
+                .length;
+            setState(() => _classCount = count);
+          }),
+    );
+
+    // 3. Lessons/Week — timetable entry count = weekly lesson slots
+    _subs.add(
+      timetableDao
+          .watchTeacherTimetable(
+            schoolId: widget.schoolId,
+            year: widget.term.year,
+            term: widget.term.term,
+            teacherUserId: widget.userId,
+          )
+          .listen((list) {
+            if (!mounted) return;
+            setState(() => _lessonsPerWeek = list.length);
+          }),
+    );
+
+    // 4. My Exams — papers count from exams where teacher is involved
+    _subs.add(
+      examsDao
+          .watchExamsForTerm(
+            schoolId: widget.schoolId,
+            year: widget.term.year,
+            term: widget.term.term,
+          )
+          .listen((allExams) {
+            if (!mounted) return;
+            _allExams = allExams;
+            _recomputePapers();
+          }),
+    );
+  }
+
+  void _recomputePapers() {
+    int papers = 0;
+    for (final e in _allExams) {
+      if (e.teacher.id == widget.userId ||
+          e.papers.any((p) => p.invigilator == widget.userId) ||
+          e.papers.any((p) => _teacherSubjectIds.contains(p.subject))) {
+        papers += e.papers.length;
+      }
+    }
+    if (mounted) setState(() => _papersCount = papers);
+  }
+
+  @override
+  void didUpdateWidget(covariant _TeacherQuickStats oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.schoolId != widget.schoolId ||
+        oldWidget.userId != widget.userId ||
+        oldWidget.term.year != widget.term.year ||
+        oldWidget.term.term != widget.term.term) {
+      _subscribe();
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final s in _subs) s.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return QuickStatRow(
+      stats: [
+        QuickStat(
+          icon: Icons.menu_book_outlined,
+          label: 'My Subjects',
+          value: '$_subjectCount',
+        ),
+        QuickStat(
+          icon: Icons.class_outlined,
+          label: 'My Classes',
+          value: '$_classCount',
+        ),
+        QuickStat(
+          icon: Icons.calendar_view_week_rounded,
+          label: 'Lessons/Week',
+          value: '$_lessonsPerWeek',
+        ),
+        QuickStat(
+          icon: Icons.assignment_outlined,
+          label: 'My Exams',
+          value: '$_papersCount',
+        ),
+      ],
     );
   }
 }
@@ -3949,23 +4265,14 @@ class _TermInfoCard extends StatelessWidget {
               ),
               const Spacer(),
               if (daysRemaining > 0)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: cs.primary.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    '$daysRemaining days left',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: cs.primary.withValues(alpha: 0.8),
-                    ),
-                  ),
+                CountdownChip(
+                  label: '$daysRemaining days',
+                  targetTime: DateTime.fromMillisecondsSinceEpoch(
+                    term.end.toInt() * 1000,
+                    isUtc: true,
+                  ).toLocal(),
+                  icon: Icons.timer_outlined,
+                  reachedLabel: 'Term ended',
                 ),
             ],
           ),

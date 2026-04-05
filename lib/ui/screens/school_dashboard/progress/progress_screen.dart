@@ -1,3 +1,4 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/extensions.dart';
@@ -275,6 +276,14 @@ class _OverviewTab extends StatelessWidget {
                   student: student,
                   year: term.year,
                   term: term.term,
+                  grades: grades,
+                ),
+                const SizedBox(height: 12),
+
+                // ── Grade trend chart ────────────────────────────────────────
+                _GradeTrendChart(
+                  schoolId: schoolId,
+                  studentAdm: student.adm,
                   grades: grades,
                 ),
                 const SizedBox(height: 12),
@@ -1223,6 +1232,237 @@ class _StreamRankStat extends StatelessWidget {
     );
   }
 }
+
+// ── Grade Trend Chart ────────────────────────────────────────────────────────
+//
+// Mini line chart showing the student's average score across the last 6 exams.
+// Empty state shown when fewer than 2 exams are available.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _GradeTrendChart extends StatefulWidget {
+  const _GradeTrendChart({
+    required this.schoolId,
+    required this.studentAdm,
+    required this.grades,
+  });
+
+  final String schoolId;
+  final int studentAdm;
+  final List<Grade> grades;
+
+  @override
+  State<_GradeTrendChart> createState() => _GradeTrendChartState();
+}
+
+class _GradeTrendChartState extends State<_GradeTrendChart> {
+  late final ExamsGradesDao _examsDao;
+  final Map<String, Exam?> _examCache = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _examsDao = ExamsGradesDao(db);
+  }
+
+  Future<Exam?> _getExam(String examId) async {
+    if (_examCache.containsKey(examId)) return _examCache[examId];
+    final exam = await _examsDao.getExam(examId);
+    _examCache[examId] = exam;
+    return exam;
+  }
+
+  Future<Map<String, Exam?>> _resolveExams(List<String> examIds) async {
+    final result = <String, Exam?>{};
+    for (final id in examIds) {
+      result[id] = await _getExam(id);
+    }
+    return result;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    if (widget.grades.isEmpty) return const SizedBox.shrink();
+
+    // Subject-level totals (paper == null) grouped by exam
+    final byExam = <String, List<Grade>>{};
+    for (final g in widget.grades) {
+      if (g.paper != null) continue;
+      (byExam[g.exam] ??= []).add(g);
+    }
+    // Fallback: if no subject-level totals, use all grades
+    if (byExam.isEmpty) {
+      for (final g in widget.grades) {
+        (byExam[g.exam] ??= []).add(g);
+      }
+    }
+
+    if (byExam.length < 2) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Center(
+          child: Text(
+            'Grade trend will appear after 2 exams',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w300,
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Sort exams chronologically (earliest grade creation per exam)
+    final examIds = byExam.keys.toList();
+    examIds.sort((a, b) {
+      final aMin = byExam[a]!
+          .map((g) => g.created)
+          .reduce((v, e) => v < e ? v : e);
+      final bMin = byExam[b]!
+          .map((g) => g.created)
+          .reduce((v, e) => v < e ? v : e);
+      return aMin.compareTo(bMin);
+    });
+
+    // Take last 6
+    final recentIds = examIds.length > 6
+        ? examIds.sublist(examIds.length - 6)
+        : examIds;
+
+    // Compute average percentage per exam
+    final averages = <double>[];
+    for (final id in recentIds) {
+      final grades = byExam[id]!;
+      final totalScore = grades.fold<double>(0, (s, g) => s + g.score);
+      final totalMax = grades.fold<double>(0, (s, g) => s + g.total);
+      averages.add(totalMax > 0 ? (totalScore / totalMax) * 100 : 0);
+    }
+
+    return FutureBuilder<Map<String, Exam?>>(
+      future: _resolveExams(recentIds),
+      builder: (context, snap) {
+        final examMap = snap.data ?? {};
+        final labels = recentIds.map((id) {
+          final name = examMap[id]?.name ?? '';
+          return name.length > 8 ? name.substring(0, 8) : name;
+        }).toList();
+
+        // While resolving exam names, still show the chart with empty labels
+        return _buildChart(cs, averages, labels);
+      },
+    );
+  }
+
+  Widget _buildChart(
+    ColorScheme cs,
+    List<double> averages,
+    List<String> labels,
+  ) {
+    final spots = <FlSpot>[];
+    for (var i = 0; i < averages.length; i++) {
+      spots.add(FlSpot(i.toDouble(), averages[i]));
+    }
+
+    return SizedBox(
+      height: 120,
+      child: LineChart(
+        LineChartData(
+          minY: 0,
+          maxY: 100,
+          clipData: const FlClipData.all(),
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            horizontalInterval: 25,
+            getDrawingHorizontalLine: (value) => FlLine(
+              color: cs.outlineVariant.withValues(alpha: 0.2),
+              strokeWidth: 0.5,
+            ),
+          ),
+          titlesData: FlTitlesData(
+            leftTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            rightTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            topTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 28,
+                interval: 1,
+                getTitlesWidget: (value, meta) {
+                  final i = value.toInt();
+                  if (i < 0 || i >= labels.length) {
+                    return const SizedBox.shrink();
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      labels[i],
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurfaceVariant,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+          borderData: FlBorderData(show: false),
+          lineBarsData: [
+            LineChartBarData(
+              spots: spots,
+              isCurved: true,
+              curveSmoothness: 0.3,
+              color: cs.primary,
+              barWidth: 2,
+              isStrokeCapRound: true,
+              dotData: FlDotData(
+                show: true,
+                getDotPainter: (spot, percent, barData, index) =>
+                    FlDotCirclePainter(
+                      radius: 4,
+                      color: cs.primary,
+                      strokeWidth: 0,
+                    ),
+              ),
+              belowBarData: BarAreaData(
+                show: true,
+                color: cs.primary.withValues(alpha: 0.08),
+              ),
+            ),
+          ],
+          lineTouchData: LineTouchData(
+            touchTooltipData: LineTouchTooltipData(
+              getTooltipColor: (_) => cs.surfaceContainerHighest,
+              getTooltipItems: (spots) => spots.map((s) {
+                return LineTooltipItem(
+                  '${s.y.toStringAsFixed(1)}%',
+                  TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Recent Exam Results ──────────────────────────────────────────────────────
 
 class _RecentExamResults extends StatefulWidget {
   const _RecentExamResults({

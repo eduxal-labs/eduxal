@@ -914,6 +914,61 @@ class TimetableDao extends DatabaseAccessor<AppDatabase>
     });
     sync.schedulePush();
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Reactive streams — lesson delivery tracking
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Watches today's lesson delivery rate for a school in a given term.
+  ///
+  /// Counts timetable entries for [todayDay] as expected lessons, and lessons
+  /// logged for [todayDate] as delivered lessons. Also tracks unique teacher
+  /// counts on both sides.
+  ///
+  /// Re-emits whenever [Timetable] or [Lessons] changes.
+  Stream<LessonDeliveryRate> watchTodayLessonDelivery({
+    required String schoolId,
+    required int year,
+    required int term,
+    required int todayDate,
+    required int todayDay, // 0=Mon..6=Sun (DayOfWeek index)
+  }) {
+    return customSelect(
+      'SELECT '
+      '  (SELECT COUNT(*) FROM timetable'
+      '   WHERE school = ?1 AND year = ?2 AND term = ?3 AND day = ?4) AS expected_lessons, '
+      '  (SELECT COUNT(*) FROM lessons'
+      '   WHERE school = ?1 AND year = ?2 AND term = ?3 AND date = ?5) AS delivered_lessons, '
+      '  (SELECT COUNT(DISTINCT teacher) FROM timetable'
+      '   WHERE school = ?1 AND year = ?2 AND term = ?3 AND day = ?4) AS unique_teachers_expected, '
+      '  (SELECT COUNT(DISTINCT teacher) FROM lessons'
+      '   WHERE school = ?1 AND year = ?2 AND term = ?3 AND date = ?5) AS unique_teachers_delivered',
+      variables: [
+        Variable.withString(schoolId), // ?1
+        Variable.withInt(year), // ?2
+        Variable.withInt(term), // ?3
+        Variable.withInt(todayDay), // ?4
+        Variable.withInt(todayDate), // ?5
+      ],
+      readsFrom: {timetable, lessons},
+    ).watch().map((rows) {
+      if (rows.isEmpty) {
+        return const LessonDeliveryRate(
+          expectedLessons: 0,
+          deliveredLessons: 0,
+          uniqueTeachersExpected: 0,
+          uniqueTeachersDelivered: 0,
+        );
+      }
+      final row = rows.first;
+      return LessonDeliveryRate(
+        expectedLessons: row.read<int>('expected_lessons'),
+        deliveredLessons: row.read<int>('delivered_lessons'),
+        uniqueTeachersExpected: row.read<int>('unique_teachers_expected'),
+        uniqueTeachersDelivered: row.read<int>('unique_teachers_delivered'),
+      );
+    });
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1017,4 +1072,33 @@ class SolverAssignment {
   final int subjectId;
   final String subjectName;
   final String teacherUserId;
+}
+
+/// Aggregated lesson delivery statistics for a single day at a school.
+///
+/// Compares scheduled timetable entries (expected) against recorded lessons
+/// (delivered) to produce a delivery rate and teacher participation stats.
+class LessonDeliveryRate {
+  const LessonDeliveryRate({
+    required this.expectedLessons,
+    required this.deliveredLessons,
+    required this.uniqueTeachersExpected,
+    required this.uniqueTeachersDelivered,
+  });
+
+  /// Number of timetable slots scheduled for today.
+  final int expectedLessons;
+
+  /// Number of lesson records logged for today.
+  final int deliveredLessons;
+
+  /// Distinct teachers with at least one timetable slot today.
+  final int uniqueTeachersExpected;
+
+  /// Distinct teachers who have logged at least one lesson today.
+  final int uniqueTeachersDelivered;
+
+  /// Fraction of expected lessons that have been delivered (0.0–1.0+).
+  double get deliveryRate =>
+      expectedLessons > 0 ? deliveredLessons / expectedLessons : 0;
 }

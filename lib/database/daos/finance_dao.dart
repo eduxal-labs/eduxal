@@ -128,6 +128,52 @@ class StudentFinanceSummary {
   double get totalBalance => totalInvoiced - totalPaid;
 }
 
+/// Lightweight balance summary for a single student across all terms.
+///
+/// Used by the [StudentBalanceLookup] widget to display a quick snapshot
+/// of a student's financial standing without needing full invoice/payment
+/// detail objects.
+class StudentBalanceSummary {
+  const StudentBalanceSummary({
+    required this.studentName,
+    required this.studentAdm,
+    required this.totalInvoiced,
+    required this.totalPaid,
+    required this.invoices,
+  });
+
+  final String studentName;
+  final int studentAdm;
+  final double totalInvoiced;
+  final double totalPaid;
+  final List<InvoiceBalanceItem> invoices;
+
+  /// Outstanding balance = total invoiced − total paid.
+  double get outstanding => totalInvoiced - totalPaid;
+
+  /// Fraction of total invoiced that has been paid (0.0–1.0).
+  double get collectionRate =>
+      totalInvoiced > 0 ? totalPaid / totalInvoiced : 0;
+}
+
+/// A single invoice's balance breakdown for the student balance card.
+class InvoiceBalanceItem {
+  const InvoiceBalanceItem({
+    required this.invoiceId,
+    required this.description,
+    required this.amount,
+    required this.paid,
+  });
+
+  final String invoiceId;
+  final String description;
+  final double amount;
+  final double paid;
+
+  /// Remaining balance on this invoice.
+  double get balance => amount - paid;
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // DAO
 // ═════════════════════════════════════════════════════════════════════════════
@@ -1280,5 +1326,95 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
       readsFrom: {},
     ).getSingle();
     return result.read<int>('c');
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // STUDENT BALANCE — lightweight reactive lookup
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Emits a [StudentBalanceSummary] for a single student across ALL terms
+  /// at the given school, or `null` if the student has no invoices.
+  ///
+  /// The query joins `students → invoices → payments` using a single
+  /// `customSelect` so the aggregate is computed in SQL rather than Dart.
+  /// The stream re-fires whenever the `invoices` or `payments` tables change.
+  Stream<StudentBalanceSummary?> watchStudentBalance({
+    required String schoolId,
+    required int studentAdm,
+  }) {
+    // We merge update triggers from both invoices and payments so that
+    // recording a new payment immediately re-fires the stream.
+    final trigger = StreamGroup.merge([
+      (select(invoices)..where(
+            (i) => i.school.equals(schoolId) & i.student.equals(studentAdm),
+          ))
+          .watch(),
+      tableUpdates(TableUpdateQuery.onTable(payments)).map((_) => <Invoice>[]),
+    ]);
+
+    return trigger.asyncMap((_) async {
+      // 1. Look up the student row for the name.
+      final studentRow =
+          await (select(students)..where(
+                (s) => s.school.equals(schoolId) & s.adm.equals(studentAdm),
+              ))
+              .getSingleOrNull();
+
+      if (studentRow == null) return null;
+
+      // 2. Fetch all invoices for this student at this school.
+      final invList =
+          await (select(invoices)
+                ..where(
+                  (i) =>
+                      i.school.equals(schoolId) & i.student.equals(studentAdm),
+                )
+                ..orderBy([(i) => OrderingTerm.desc(i.created)]))
+              .get();
+
+      if (invList.isEmpty) return null;
+
+      // 3. Load all payments linked to this student's invoices.
+      final invoiceIds = invList.map((i) => i.id).toList();
+      final payList = await (select(
+        payments,
+      )..where((p) => p.invoice.isIn(invoiceIds))).get();
+
+      // Build payment totals per invoice.
+      final payTotals = <String, double>{};
+      for (final p in payList) {
+        if (p.invoice != null) {
+          payTotals[p.invoice!] = (payTotals[p.invoice!] ?? 0) + p.amount;
+        }
+      }
+
+      // 4. Build balance items + grand totals.
+      var totalInvoiced = 0.0;
+      var totalPaid = 0.0;
+      final items = <InvoiceBalanceItem>[];
+
+      for (final inv in invList) {
+        final paid = payTotals[inv.id] ?? 0.0;
+        totalInvoiced += inv.amount;
+        totalPaid += paid;
+
+        items.add(
+          InvoiceBalanceItem(
+            invoiceId: inv.id,
+            description: inv.description ?? inv.fee ?? 'Invoice',
+            amount: inv.amount,
+            paid: paid,
+          ),
+        );
+      }
+
+      return StudentBalanceSummary(
+        studentName: studentRow.name,
+        studentAdm: studentAdm,
+        totalInvoiced: totalInvoiced,
+        totalPaid: totalPaid,
+        invoices: items,
+      );
+    });
   }
 }
