@@ -1318,9 +1318,9 @@ class MethodSummary {
 3. **In `_StaffOverview`** (from Task D1), feed the same data into the `TodayStatusCard`.
 
 **Update after completion:**
-- [ ] Update `lib/database/daos/CONTEXT.md` — add `watchDailyCollection` to FinanceDao
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note daily collection summary
-- [ ] Mark this task `[x]`
+- [x] Update `lib/database/daos/CONTEXT.md` — add `watchDailyCollection` to FinanceDao
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note daily collection summary
+- [x] Mark this task `[x]`
 
 ---
 

@@ -156,6 +156,29 @@ class StudentBalanceSummary {
       totalInvoiced > 0 ? totalPaid / totalInvoiced : 0;
 }
 
+/// Summary of a single payment method's contribution to daily collections.
+class MethodSummary {
+  const MethodSummary({required this.count, required this.amount});
+
+  final int count;
+  final double amount;
+}
+
+/// Aggregated collection totals for today (or any single-day window).
+class DailyCollectionSummary {
+  const DailyCollectionSummary({
+    required this.totalAmount,
+    required this.paymentCount,
+    required this.byMethod,
+  });
+
+  final double totalAmount;
+  final int paymentCount;
+
+  /// Breakdown keyed by [PaymentMethod] enum index.
+  final Map<int, MethodSummary> byMethod;
+}
+
 /// A single invoice's balance breakdown for the student balance card.
 class InvoiceBalanceItem {
   const InvoiceBalanceItem({
@@ -1414,6 +1437,54 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
         totalInvoiced: totalInvoiced,
         totalPaid: totalPaid,
         invoices: items,
+      );
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // DAILY COLLECTION — reactive summary
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Emits an aggregated summary of payments recorded today for [schoolId].
+  ///
+  /// [todayStartMs] and [todayEndMs] are milliseconds-since-epoch boundaries
+  /// for the current day (inclusive start, exclusive end).  The query groups
+  /// by payment method so the UI can show a per-method breakdown.
+  Stream<DailyCollectionSummary> watchDailyCollection({
+    required String schoolId,
+    required int todayStartMs,
+    required int todayEndMs,
+  }) {
+    return customSelect(
+      'SELECT method, COUNT(*) AS cnt, COALESCE(SUM(amount), 0.0) AS total '
+      'FROM payments '
+      'WHERE school = ? AND created >= ? AND created < ? '
+      'GROUP BY method',
+      variables: [
+        Variable.withString(schoolId),
+        Variable.withInt(todayStartMs),
+        Variable.withInt(todayEndMs),
+      ],
+      readsFrom: {payments},
+    ).watch().map((rows) {
+      var totalAmount = 0.0;
+      var paymentCount = 0;
+      final byMethod = <int, MethodSummary>{};
+
+      for (final row in rows) {
+        final methodIdx = row.read<int>('method');
+        final cnt = row.read<int>('cnt');
+        final total = row.read<double>('total');
+
+        totalAmount += total;
+        paymentCount += cnt;
+        byMethod[methodIdx] = MethodSummary(count: cnt, amount: total);
+      }
+
+      return DailyCollectionSummary(
+        totalAmount: totalAmount,
+        paymentCount: paymentCount,
+        byMethod: byMethod,
       );
     });
   }

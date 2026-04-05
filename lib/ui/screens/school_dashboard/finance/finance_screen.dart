@@ -407,17 +407,29 @@ class _OverviewTab extends StatelessWidget {
           );
         }
         final summary = snap.data!;
-        return _OverviewContent(summary: summary, cs: cs);
+        return _OverviewContent(
+          summary: summary,
+          cs: cs,
+          dao: dao,
+          schoolId: schoolId,
+        );
       },
     );
   }
 }
 
 class _OverviewContent extends StatelessWidget {
-  const _OverviewContent({required this.summary, required this.cs});
+  const _OverviewContent({
+    required this.summary,
+    required this.cs,
+    required this.dao,
+    required this.schoolId,
+  });
 
   final TermFinanceSummary summary;
   final ColorScheme cs;
+  final FinanceDao dao;
+  final String schoolId;
 
   @override
   Widget build(BuildContext context) {
@@ -434,6 +446,15 @@ class _OverviewContent extends StatelessWidget {
             children: [
               // ── Collection Rate hero ────────────────────────────────────
               _CollectionRateCard(summary: summary, cs: cs, isDark: isDark),
+              const SizedBox(height: 14),
+
+              // ── Daily collection summary ────────────────────────────────
+              _DailyCollectionCard(
+                dao: dao,
+                schoolId: schoolId,
+                cs: cs,
+                isDark: isDark,
+              ),
               const SizedBox(height: 20),
 
               // ── Metric cards ────────────────────────────────────────────
@@ -767,6 +788,155 @@ class _MetricCard extends StatelessWidget {
       return SizedBox(width: width, child: card);
     }
     return card;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Daily Collection Card
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _DailyCollectionCard extends StatelessWidget {
+  const _DailyCollectionCard({
+    required this.dao,
+    required this.schoolId,
+    required this.cs,
+    required this.isDark,
+  });
+
+  final FinanceDao dao;
+  final String schoolId;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final todayEnd = todayStart.add(const Duration(days: 1));
+    // payments.created stores seconds since epoch
+    final startSecs = todayStart.millisecondsSinceEpoch ~/ 1000;
+    final endSecs = todayEnd.millisecondsSinceEpoch ~/ 1000;
+
+    return StreamBuilder<DailyCollectionSummary>(
+      stream: dao.watchDailyCollection(
+        schoolId: schoolId,
+        todayStartMs: startSecs,
+        todayEndMs: endSecs,
+      ),
+      builder: (context, snap) {
+        final data = snap.data;
+        if (data == null) return const SizedBox.shrink();
+
+        // Build per-method breakdown chips.
+        final methodChips = <Widget>[];
+        for (final entry in data.byMethod.entries) {
+          final methodIdx = entry.key;
+          final ms = entry.value;
+          if (methodIdx < 0 || methodIdx >= PaymentMethod.values.length) {
+            continue;
+          }
+          final method = PaymentMethod.values[methodIdx];
+          if (methodChips.isNotEmpty) {
+            methodChips.add(
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Text(
+                  '\u00b7',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+            );
+          }
+          methodChips.add(
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _paymentTimelineIcon(method),
+                  size: 14,
+                  color: cs.onSurfaceVariant,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '${ms.count} ${_paymentMethodLabel(method)} '
+                  '(${_fmtCurrency(ms.amount)})',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark
+                ? _kPaidColor.withValues(alpha: 0.08)
+                : _kPaidColor.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(AppTheme.kRadius),
+            border: Border.all(
+              color: _kPaidColor.withValues(alpha: isDark ? 0.18 : 0.12),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.today_rounded, size: 16, color: _kPaidColor),
+                  const SizedBox(width: 6),
+                  Text(
+                    "Today's Collections",
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: cs.onSurfaceVariant,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${_fmtCurrency(data.totalAmount)} today',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurface,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              if (data.paymentCount > 0) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '${data.paymentCount} payment${data.paymentCount == 1 ? '' : 's'}',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                  ),
+                ),
+              ],
+              if (methodChips.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: methodChips,
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
   }
 }
 
