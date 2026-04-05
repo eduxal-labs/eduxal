@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart' hide Action;
+import 'package:flutter/services.dart';
 
 import '../../../client.dart';
 import '../../../database/database.dart';
@@ -25,6 +26,7 @@ import 'academics/academics_screen.dart';
 import 'exams/exams_grades_screen.dart';
 import 'members/members_page.dart';
 import '../../widgets/sync_indicator.dart';
+import '../../widgets/sync_status_banner.dart';
 import 'announcements/announcements_screen.dart';
 import 'finance/finance_screen.dart';
 import 'roles/school_roles_screen.dart';
@@ -55,6 +57,23 @@ class _NavItem {
   const _NavItem({required this.label, required this.icon});
   final String label;
   final IconData icon;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Keyboard shortcut intents (desktop only — width ≥ kTabletBreakpoint)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _GoToTabIntent extends Intent {
+  const _GoToTabIntent(this.tabIndex);
+  final int tabIndex;
+}
+
+class _SyncIntent extends Intent {
+  const _SyncIntent();
+}
+
+class _GoBackIntent extends Intent {
+  const _GoBackIntent();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -496,6 +515,71 @@ class _DashboardShellState extends State<_DashboardShell>
     };
   }
 
+  // ── Keyboard shortcuts (desktop ≥ kTabletBreakpoint) ──────────────────────
+
+  static const _shortcuts = <ShortcutActivator, Intent>{
+    SingleActivator(LogicalKeyboardKey.digit1, control: true): _GoToTabIntent(
+      0,
+    ),
+    SingleActivator(LogicalKeyboardKey.digit2, control: true): _GoToTabIntent(
+      1,
+    ),
+    SingleActivator(LogicalKeyboardKey.digit3, control: true): _GoToTabIntent(
+      2,
+    ),
+    SingleActivator(LogicalKeyboardKey.digit4, control: true): _GoToTabIntent(
+      3,
+    ),
+    SingleActivator(LogicalKeyboardKey.digit5, control: true): _GoToTabIntent(
+      4,
+    ),
+    SingleActivator(LogicalKeyboardKey.digit6, control: true): _GoToTabIntent(
+      5,
+    ),
+    SingleActivator(LogicalKeyboardKey.digit7, control: true): _GoToTabIntent(
+      6,
+    ),
+    SingleActivator(LogicalKeyboardKey.digit8, control: true): _GoToTabIntent(
+      7,
+    ),
+    SingleActivator(LogicalKeyboardKey.digit9, control: true): _GoToTabIntent(
+      8,
+    ),
+    SingleActivator(LogicalKeyboardKey.keyS, control: true): _SyncIntent(),
+    SingleActivator(LogicalKeyboardKey.escape): _GoBackIntent(),
+  };
+
+  Widget _wrapWithKeyboardShortcuts(Widget child) {
+    return Shortcuts(
+      shortcuts: _shortcuts,
+      child: Actions(
+        actions: {
+          _GoToTabIntent: CallbackAction<_GoToTabIntent>(
+            onInvoke: (intent) {
+              if (intent.tabIndex < _currentItems.length) {
+                _selectIndex(intent.tabIndex);
+              }
+              return null;
+            },
+          ),
+          _SyncIntent: CallbackAction<_SyncIntent>(
+            onInvoke: (_) {
+              sync.pushNow();
+              return null;
+            },
+          ),
+          _GoBackIntent: CallbackAction<_GoBackIntent>(
+            onInvoke: (_) {
+              if (mounted) Navigator.of(context).pop();
+              return null;
+            },
+          ),
+        },
+        child: Focus(autofocus: true, child: child),
+      ),
+    );
+  }
+
   // ── build — single Scaffold, layout mode drives navigation chrome ─────────
   //
   // A single Scaffold persists across all breakpoints. The LayoutBuilder
@@ -524,7 +608,10 @@ class _DashboardShellState extends State<_DashboardShell>
                 : w >= AppTheme.kMobileBreakpoint
                 ? _LayoutMode.rail
                 : _LayoutMode.mobile;
-            return _buildLayout(context, currentEntry, mode, content);
+            final layout = _buildLayout(context, currentEntry, mode, content);
+            return w >= AppTheme.kTabletBreakpoint
+                ? _wrapWithKeyboardShortcuts(layout)
+                : layout;
           },
         );
       },
@@ -597,6 +684,7 @@ class _DashboardShellState extends State<_DashboardShell>
                 items: _currentItems,
                 controller: _tabController,
               ),
+            const SyncStatusBanner(),
             Expanded(child: mainRow),
           ],
         ),
@@ -858,7 +946,7 @@ class _FullSidebar extends StatelessWidget {
                       size: 18,
                       color: cs.onSurfaceVariant,
                     ),
-                    tooltip: 'Back to Home',
+                    tooltip: 'Back to Home (Esc)',
                     style: IconButton.styleFrom(
                       minimumSize: const Size(36, 36),
                       padding: const EdgeInsets.all(8),
@@ -962,65 +1050,76 @@ class _FullSidebar extends StatelessWidget {
                     ? AppTheme.brandIndigo
                     : AppTheme.brandIndigoDark;
 
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 2),
-                  child: Material(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
-                    child: InkWell(
+                final shortcutHint = index < 9
+                    ? '${items[index].label} (Ctrl+${index + 1})'
+                    : items[index].label;
+                return Tooltip(
+                  message: shortcutHint,
+                  waitDuration: const Duration(milliseconds: 600),
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Material(
+                      color: Colors.transparent,
                       borderRadius: BorderRadius.circular(8),
-                      onTap: () => onItemSelected(index),
-                      overlayColor: WidgetStateProperty.all(
-                        cs.onSurface.withValues(alpha: 0.04),
-                      ),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 150),
-                        curve: Curves.easeInOut,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () => onItemSelected(index),
+                        overlayColor: WidgetStateProperty.all(
+                          cs.onSurface.withValues(alpha: 0.04),
                         ),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? accent.withValues(alpha: isLight2 ? 0.08 : 0.15)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              items[index].icon,
-                              size: 18,
-                              color: isSelected
-                                  ? accent
-                                  : cs.onSurfaceVariant.withValues(alpha: 0.7),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                items[index].label,
-                                style: TextStyle(
-                                  fontSize: 13.5,
-                                  fontWeight: isSelected
-                                      ? FontWeight.w500
-                                      : FontWeight.w400,
-                                  color: isSelected
-                                      ? accent
-                                      : cs.onSurfaceVariant,
-                                  letterSpacing: 0.1,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          curve: Curves.easeInOut,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? accent.withValues(
+                                    alpha: isLight2 ? 0.08 : 0.15,
+                                  )
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                items[index].icon,
+                                size: 18,
+                                color: isSelected
+                                    ? accent
+                                    : cs.onSurfaceVariant.withValues(
+                                        alpha: 0.7,
+                                      ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  items[index].label,
+                                  style: TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w500
+                                        : FontWeight.w400,
+                                    color: isSelected
+                                        ? accent
+                                        : cs.onSurfaceVariant,
+                                    letterSpacing: 0.1,
+                                  ),
                                 ),
                               ),
-                            ),
-                            if (isSelected)
-                              Container(
-                                width: 5,
-                                height: 5,
-                                decoration: BoxDecoration(
-                                  color: accent,
-                                  shape: BoxShape.circle,
+                              if (isSelected)
+                                Container(
+                                  width: 5,
+                                  height: 5,
+                                  decoration: BoxDecoration(
+                                    color: accent,
+                                    shape: BoxShape.circle,
+                                  ),
                                 ),
-                              ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -1112,7 +1211,7 @@ class _IconRail extends StatelessWidget {
               padding: const EdgeInsets.only(top: 8),
               child: _RailIconBtn(
                 icon: Icons.chevron_left_rounded,
-                tooltip: 'Back to Home',
+                tooltip: 'Back to Home (Esc)',
                 cs: cs,
                 onTap: () => Navigator.of(context).pop(),
               ),
@@ -1227,7 +1326,9 @@ class _IconRail extends StatelessWidget {
                     horizontal: 10,
                   ),
                   child: Tooltip(
-                    message: items[index].label,
+                    message: index < 9
+                        ? '${items[index].label} (Ctrl+${index + 1})'
+                        : items[index].label,
                     preferBelow: false,
                     waitDuration: const Duration(milliseconds: 400),
                     child: Material(

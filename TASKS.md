@@ -1580,8 +1580,8 @@ Shortcuts(
 3. **Only enable on desktop** (check `LayoutBuilder` width >= `kTabletBreakpoint`).
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note keyboard shortcuts
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note keyboard shortcuts
+- [x] Mark this task `[x]`
 
 ---
 
@@ -1639,9 +1639,9 @@ ValueListenableBuilder<SyncStatus>(
 4. **Also show** a thin 2px `LinearProgressIndicator` when `SyncStatus.pushing` or `SyncStatus.pulling` to indicate active sync activity. This goes at the very top of the dashboard, below the offline banner (if shown).
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note offline indicator
-- [ ] Update `lib/ui/screens/home/CONTEXT.md` (if exists) — note offline indicator
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note offline indicator
+- [x] Update `lib/ui/screens/home/CONTEXT.md` (if exists) — note offline indicator
+- [x] Mark this task `[x]`
 
 ---
 
@@ -1692,8 +1692,8 @@ void showOptimisticFeedback(BuildContext context, String message) {
 3. **Place this helper** in `lib/ui/widgets/optimistic_feedback.dart` as a static method so all screens can use it.
 
 **Update after completion:**
-- [ ] Update `lib/ui/widgets/CONTEXT.md` — add `optimistic_feedback.dart`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/widgets/CONTEXT.md` — add `optimistic_feedback.dart`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -1766,8 +1766,8 @@ FadeTransition(
 4. **Keep it subtle:** Small vertical offset (0.05 = ~5% of parent height), short duration, easeOut curve. The stagger should feel like cards "settling in" rather than "flying in".
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note staggered entrance
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note staggered entrance
+- [x] Mark this task `[x]`
 
 ---
 

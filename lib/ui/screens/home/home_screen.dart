@@ -6,6 +6,7 @@ import '../../../models/membership.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/edu_sheet.dart';
 import '../../widgets/sync_indicator.dart';
+import '../../widgets/sync_status_banner.dart';
 import '../../widgets/student_avatar.dart';
 import '../../widgets/user_avatar.dart';
 import '../account/account_screen.dart';
@@ -208,6 +209,9 @@ class _HomeScreenState extends State<HomeScreen>
                 if (user.user.level == UserLevel.system ||
                     user.user.level == UserLevel.super_)
                   _buildSystemCard(cs, user.user.level),
+
+                // ── Offline / sync banner ────────────────────────────────
+                const SyncStatusBanner(),
 
                 // ── Section header ──────────────────────────────────────
                 Padding(

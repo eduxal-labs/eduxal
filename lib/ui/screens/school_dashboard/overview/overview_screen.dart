@@ -79,6 +79,114 @@ class OverviewScreen extends StatelessWidget {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+// STAGGERED ENTRANCE ANIMATION WRAPPER
+// ═════════════════════════════════════════════════════════════════════════════
+
+/// Drop-in replacement for [ListView] that adds a staggered fade + slide
+/// entrance animation. Each non-[SizedBox] child animates in sequence with
+/// a slight delay, creating a cascading reveal effect. Spacer [SizedBox]
+/// widgets are rendered without animation so layout gaps remain stable.
+class _StaggeredList extends StatefulWidget {
+  const _StaggeredList({required this.children, this.padding});
+
+  final List<Widget> children;
+  final EdgeInsetsGeometry? padding;
+
+  @override
+  State<_StaggeredList> createState() => _StaggeredListState();
+}
+
+class _StaggeredListState extends State<_StaggeredList>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final int _totalMs;
+
+  /// Stagger delay between successive content sections.
+  static const int _staggerMs = 80;
+
+  /// Duration of each individual section's fade + slide animation.
+  static const int _itemDurationMs = 350;
+
+  /// Vertical slide offset (fraction of child height).
+  static const Offset _slideBegin = Offset(0, 0.05);
+
+  static const Curve _curve = Curves.easeOut;
+
+  @override
+  void initState() {
+    super.initState();
+    final sectionCount = _countSections(widget.children);
+    _totalMs = ((sectionCount - 1) * _staggerMs + _itemDurationMs).clamp(
+      600,
+      1500,
+    );
+    _controller = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: _totalMs),
+    )..forward();
+  }
+
+  static int _countSections(List<Widget> children) {
+    int n = 0;
+    for (final c in children) {
+      if (c is! SizedBox) n++;
+    }
+    return n.clamp(1, 50);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    int idx = 0;
+    final wrapped = <Widget>[];
+
+    for (final child in widget.children) {
+      if (child is SizedBox) {
+        wrapped.add(child);
+        continue;
+      }
+
+      final startMs = idx * _staggerMs;
+      if (startMs >= _totalMs) {
+        // Beyond animation window — show immediately.
+        wrapped.add(child);
+        idx++;
+        continue;
+      }
+
+      final begin = (startMs / _totalMs).clamp(0.0, 1.0);
+      final end = ((startMs + _itemDurationMs) / _totalMs).clamp(0.0, 1.0);
+
+      final curved = CurvedAnimation(
+        parent: _controller,
+        curve: Interval(begin, end, curve: _curve),
+      );
+
+      wrapped.add(
+        FadeTransition(
+          opacity: curved,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: _slideBegin,
+              end: Offset.zero,
+            ).animate(curved),
+            child: child,
+          ),
+        ),
+      );
+      idx++;
+    }
+
+    return ListView(padding: widget.padding, children: wrapped);
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 // OWNER OVERVIEW
 // ═════════════════════════════════════════════════════════════════════════════
 
@@ -98,7 +206,7 @@ class _OwnerOverview extends StatelessWidget {
     final schoolId = school.id;
     final term = termContext.currentTerm;
 
-    return ListView(
+    return _StaggeredList(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       children: [
         // ── School identity ──────────────────────────────────────────────
@@ -788,7 +896,7 @@ class _TeacherOverview extends StatelessWidget {
     final term = termContext.currentTerm;
     final userId = entry.teacher.user;
 
-    return ListView(
+    return _StaggeredList(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       children: [
         // ── Next class countdown ─────────────────────────────────────────
@@ -1990,7 +2098,7 @@ class _StaffOverview extends StatelessWidget {
       );
     }
 
-    return ListView(
+    return _StaggeredList(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       children: [
         // ── Welcome ──────────────────────────────────────────────────────
@@ -2359,7 +2467,7 @@ class _StudentOverview extends StatelessWidget {
     final studentAdm = entry.student.adm;
     final studentName = entry.student.name;
 
-    return ListView(
+    return _StaggeredList(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       children: [
         // ── Welcome ──────────────────────────────────────────────────────
@@ -3344,7 +3452,7 @@ class _GuardianOverview extends StatelessWidget {
     final ward = entry.ward;
     final userName = cache.currentUser?.user.name ?? 'Guardian';
 
-    return ListView(
+    return _StaggeredList(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       children: [
         // ── 1. Welcome ───────────────────────────────────────────────────
