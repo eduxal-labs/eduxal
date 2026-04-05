@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/formatters.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/exams_grades_dao.dart';
 import '../../../../database/tables/curriculum_subjects.dart';
@@ -318,7 +319,7 @@ class _ExamSummaryCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    '${_fmtDate(startDate)} – ${_fmtDate(endDate)}',
+                    '${fmtDateDt(startDate)} – ${fmtDateDt(endDate)}',
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w400,
@@ -438,7 +439,7 @@ class _PapersTab extends StatelessWidget {
               final dt = DateTime.fromMillisecondsSinceEpoch(
                 p.start.toInt() * 1000,
               );
-              final key = _fmtDate(dt);
+              final key = fmtDateDt(dt);
               grouped.putIfAbsent(key, () => []).add(p);
             }
 
@@ -1007,7 +1008,7 @@ class _GradesTabState extends State<_GradesTab>
                       ),
                       child: rows[index].hasGrades
                           ? Text(
-                              '${_fmtScore(rows[index].totalScore)}/${rows[index].totalPossible}',
+                              '${fmtScore(rows[index].totalScore)}/${rows[index].totalPossible}',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
@@ -1179,7 +1180,7 @@ class _GradeCell extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
-          '${_fmtScore(grade.score)}/${grade.total}',
+          '${fmtScore(grade.score)}/${grade.total}',
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w400,
@@ -1391,7 +1392,7 @@ class _MobileStudentGradeCardState extends State<_MobileStudentGradeCard> {
                                     ),
                                   ),
                                   Text(
-                                    '${_fmtScore(g.score)}/${g.total}',
+                                    '${fmtScore(g.score)}/${g.total}',
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w400,
@@ -1456,7 +1457,7 @@ class _MobileStudentGradeCardState extends State<_MobileStudentGradeCard> {
                       ),
                       Text(
                         hasGrades
-                            ? '${_fmtScore(row.totalScore)}/${row.totalPossible}'
+                            ? '${fmtScore(row.totalScore)}/${row.totalPossible}'
                             : '—',
                         style: TextStyle(
                           fontSize: 12,
@@ -2533,7 +2534,7 @@ class _PerformanceTabState extends State<_PerformanceTab>
               SizedBox(
                 width: 56,
                 child: Text(
-                  '${_fmtScore(r.totalScore)}/${r.totalPossible}',
+                  '${fmtScore(r.totalScore)}/${r.totalPossible}',
                   textAlign: TextAlign.end,
                   style: TextStyle(
                     fontSize: 11.5,
@@ -2714,7 +2715,7 @@ class _PaperTimetableCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        '${_fmtDate(startDt)} · ${_fmtTime(startDt)} – ${_fmtTime(endDt)}',
+                        '${fmtDateDt(startDt)} · ${fmtTimeDt(startDt)} – ${fmtTimeDt(endDt)}',
                         style: TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w400,
@@ -2856,8 +2857,8 @@ class _PapersCrossTable extends StatelessWidget {
         if (seen.add(mins)) {
           final edt = DateTime.fromMillisecondsSinceEpoch(p.end.toInt() * 1000);
           timeCols.add((
-            start: _fmtTime(sdt),
-            end: _fmtTime(edt),
+            start: fmtTimeDt(sdt),
+            end: fmtTimeDt(edt),
             startMins: mins,
           ));
         }
@@ -3455,9 +3456,8 @@ class _DistributionDonutPainter extends CustomPainter {
 }
 
 String _fmtDayHeader(DateTime d) {
-  const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  final wd = weekdays[d.weekday - 1];
-  return '$wd, ${d.day} ${_months[d.month - 1]}';
+  final wd = kDayNames[d.weekday - 1];
+  return '$wd, ${d.day} ${kMonthNames[d.month - 1]}';
 }
 
 Map<DateTime, List<Paper>> _groupExamPapersByDate(List<Paper> papers) {
@@ -3477,28 +3477,3 @@ List<DateTime> _sortedExamPaperDates(Map<DateTime, List<Paper>> grouped) {
   final dates = grouped.keys.toList()..sort();
   return dates;
 }
-
-String _fmtDate(DateTime d) =>
-    '${d.day.toString().padLeft(2, '0')} ${_months[d.month - 1]} ${d.year}';
-
-String _fmtTime(DateTime d) =>
-    '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-
-String _fmtScore(double score) => score == score.truncateToDouble()
-    ? score.toInt().toString()
-    : score.toStringAsFixed(1);
-
-const _months = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' hide Action;
 
 import '../../../../client.dart';
+import '../../../../core/formatters.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/finance_dao.dart';
 import '../../../../models/membership.dart';
@@ -474,7 +475,7 @@ class _GradeFeePage extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _fmtCurrency(fee.amount),
+                            fmtCurrency(fee.amount),
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w500,
@@ -843,40 +844,6 @@ String _resolveGradeLabel(int grade) {
       'Grade $grade';
 }
 
-String _fmtCurrency(double amount) {
-  final isNegative = amount < 0;
-  final absAmount = amount.abs();
-  final parts = absAmount.toStringAsFixed(2).split('.');
-  final wholePart = parts[0];
-  final decimalPart = parts[1];
-
-  final buffer = StringBuffer();
-  for (var i = 0; i < wholePart.length; i++) {
-    if (i > 0 && (wholePart.length - i) % 3 == 0) {
-      buffer.write(',');
-    }
-    buffer.write(wholePart[i]);
-  }
-
-  return '${isNegative ? '-' : ''}KES ${buffer.toString()}.$decimalPart';
-}
-
-String _fmtDateFromEpoch(int epochSeconds) {
-  final dt = DateTime.fromMillisecondsSinceEpoch(epochSeconds * 1000);
-  const months = [
-    '',
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-  return '${dt.day} ${months[dt.month]} ${dt.year}';
-}
+/// Thin adapter: epoch-seconds → formatted date via shared [fmtDateDt].
+String _fmtDateFromEpoch(int epochSeconds) =>
+    fmtDateDt(DateTime.fromMillisecondsSinceEpoch(epochSeconds * 1000));

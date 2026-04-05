@@ -464,7 +464,7 @@ class _OverviewContent extends StatelessWidget {
                     Expanded(
                       child: _MetricCard(
                         label: 'Total Invoiced',
-                        value: _fmtCurrency(summary.totalInvoiced),
+                        value: fmtCurrency(summary.totalInvoiced),
                         count: summary.invoiceCount,
                         countLabel: 'invoices',
                         color: cs.primary,
@@ -476,7 +476,7 @@ class _OverviewContent extends StatelessWidget {
                     Expanded(
                       child: _MetricCard(
                         label: 'Total Collected',
-                        value: _fmtCurrency(summary.totalPaid),
+                        value: fmtCurrency(summary.totalPaid),
                         count: summary.paidCount,
                         countLabel: 'paid',
                         color: _kPaidColor,
@@ -488,7 +488,7 @@ class _OverviewContent extends StatelessWidget {
                     Expanded(
                       child: _MetricCard(
                         label: 'Pending',
-                        value: _fmtCurrency(summary.totalPending),
+                        value: fmtCurrency(summary.totalPending),
                         count: summary.pendingCount,
                         countLabel: 'pending',
                         color: _kPendingColor,
@@ -500,7 +500,7 @@ class _OverviewContent extends StatelessWidget {
                     Expanded(
                       child: _MetricCard(
                         label: 'Overdue',
-                        value: _fmtCurrency(summary.totalOverdue),
+                        value: fmtCurrency(summary.totalOverdue),
                         count: summary.overdueCount,
                         countLabel: 'overdue',
                         color: _kOverdueColor,
@@ -535,7 +535,7 @@ class _OverviewContent extends StatelessWidget {
                       children: [
                         _MetricCard(
                           label: 'Total Invoiced',
-                          value: _fmtCurrency(summary.totalInvoiced),
+                          value: fmtCurrency(summary.totalInvoiced),
                           count: summary.invoiceCount,
                           countLabel: 'invoices',
                           color: cs.primary,
@@ -545,7 +545,7 @@ class _OverviewContent extends StatelessWidget {
                         ),
                         _MetricCard(
                           label: 'Total Collected',
-                          value: _fmtCurrency(summary.totalPaid),
+                          value: fmtCurrency(summary.totalPaid),
                           count: summary.paidCount,
                           countLabel: 'paid',
                           color: _kPaidColor,
@@ -555,7 +555,7 @@ class _OverviewContent extends StatelessWidget {
                         ),
                         _MetricCard(
                           label: 'Pending',
-                          value: _fmtCurrency(summary.totalPending),
+                          value: fmtCurrency(summary.totalPending),
                           count: summary.pendingCount,
                           countLabel: 'pending',
                           color: _kPendingColor,
@@ -565,7 +565,7 @@ class _OverviewContent extends StatelessWidget {
                         ),
                         _MetricCard(
                           label: 'Overdue',
-                          value: _fmtCurrency(summary.totalOverdue),
+                          value: fmtCurrency(summary.totalOverdue),
                           count: summary.overdueCount,
                           countLabel: 'overdue',
                           color: _kOverdueColor,
@@ -666,7 +666,7 @@ class _CollectionRateCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${_fmtCurrency(summary.totalPaid)} of ${_fmtCurrency(summary.totalInvoiced)}',
+                  '${fmtCurrency(summary.totalPaid)} of ${fmtCurrency(summary.totalInvoiced)}',
                   style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w500,
@@ -862,7 +862,7 @@ class _DailyCollectionCard extends StatelessWidget {
                 const SizedBox(width: 4),
                 Text(
                   '${ms.count} ${_paymentMethodLabel(method)} '
-                  '(${_fmtCurrency(ms.amount)})',
+                  '(${fmtCurrency(ms.amount)})',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
@@ -906,7 +906,7 @@ class _DailyCollectionCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                '${_fmtCurrency(data.totalAmount)} today',
+                '${fmtCurrency(data.totalAmount)} today',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w500,
@@ -1313,7 +1313,7 @@ class _InvoiceRowState extends State<_InvoiceRow> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          _fmtCurrency(item.invoice.amount),
+                          fmtCurrency(item.invoice.amount),
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
@@ -1323,7 +1323,7 @@ class _InvoiceRowState extends State<_InvoiceRow> {
                         if (balance > 0.01) ...[
                           const SizedBox(width: 4),
                           Text(
-                            '(bal: ${_fmtCurrency(balance)})',
+                            '(bal: ${fmtCurrency(balance)})',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w400,
@@ -1628,7 +1628,7 @@ class _PaymentRowState extends State<_PaymentRow> {
               // ── Amount ─────────────────────────────────────────────────
               const SizedBox(width: 12),
               Text(
-                _fmtCurrency(item.payment.amount),
+                fmtCurrency(item.payment.amount),
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
@@ -1908,7 +1908,7 @@ class _FeeGroupRowState extends State<_FeeGroupRow> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            _fmtCurrency(amount),
+                            fmtCurrency(amount),
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
@@ -2424,7 +2424,7 @@ class _GuardianBalanceCard extends StatelessWidget {
               Expanded(
                 child: _BalanceColumn(
                   label: 'Total Invoiced',
-                  value: _fmtCurrency(totalInvoiced),
+                  value: fmtCurrency(totalInvoiced),
                   cs: cs,
                 ),
               ),
@@ -2436,7 +2436,7 @@ class _GuardianBalanceCard extends StatelessWidget {
               Expanded(
                 child: _BalanceColumn(
                   label: 'Total Paid',
-                  value: _fmtCurrency(totalPaid),
+                  value: fmtCurrency(totalPaid),
                   cs: cs,
                   color: _kPaidColor,
                 ),
@@ -2449,7 +2449,7 @@ class _GuardianBalanceCard extends StatelessWidget {
               Expanded(
                 child: _BalanceColumn(
                   label: 'Balance',
-                  value: _fmtCurrency(balance),
+                  value: fmtCurrency(balance),
                   cs: cs,
                   color: balanceColor,
                   isBold: true,
@@ -2593,9 +2593,9 @@ class _GuardianInvoiceTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Invoiced: ${_fmtCurrency(item.invoice.amount)} · '
-                      'Paid: ${_fmtCurrency(item.totalPaid)} · '
-                      'Balance: ${_fmtCurrency(item.balance)}',
+                      'Invoiced: ${fmtCurrency(item.invoice.amount)} · '
+                      'Paid: ${fmtCurrency(item.totalPaid)} · '
+                      'Balance: ${fmtCurrency(item.balance)}',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w400,
@@ -3024,7 +3024,7 @@ class _GuardianPaymentSheetState extends State<_GuardianPaymentSheet> {
                           return DropdownMenuItem(
                             value: inv,
                             child: Text(
-                              '$title — ${_fmtCurrency(inv.balance)}',
+                              '$title — ${fmtCurrency(inv.balance)}',
                               overflow: TextOverflow.ellipsis,
                             ),
                           );
@@ -3055,7 +3055,7 @@ class _GuardianPaymentSheetState extends State<_GuardianPaymentSheet> {
                           ),
                         ),
                         Text(
-                          _fmtCurrency(_selectedInvoice.balance),
+                          fmtCurrency(_selectedInvoice.balance),
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
@@ -3555,7 +3555,7 @@ class _CreateFeeSheetState extends State<_CreateFeeSheet> {
                           isDark: isDark,
                         ),
                         child: Text(
-                          _fmtDateDt(_dueDate),
+                          fmtDateDt(_dueDate),
                           style: TextStyle(fontSize: 13.5, color: cs.onSurface),
                         ),
                       ),
@@ -3784,7 +3784,7 @@ class _RecordPaymentSheetState extends State<_RecordPaymentSheet> {
                           ),
                         ),
                         Text(
-                          _fmtCurrency(widget.item.balance),
+                          fmtCurrency(widget.item.balance),
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
@@ -4086,46 +4086,6 @@ class _EmptyState extends StatelessWidget {
 // UTILITY FUNCTIONS
 // ═════════════════════════════════════════════════════════════════════════════
 
-String _fmtCurrency(double amount) {
-  // Format with commas and 2 decimal places.
-  final isNegative = amount < 0;
-  final absAmount = amount.abs();
-  final parts = absAmount.toStringAsFixed(2).split('.');
-  final wholePart = parts[0];
-  final decimalPart = parts[1];
-
-  // Add comma separators.
-  final buffer = StringBuffer();
-  for (var i = 0; i < wholePart.length; i++) {
-    if (i > 0 && (wholePart.length - i) % 3 == 0) {
-      buffer.write(',');
-    }
-    buffer.write(wholePart[i]);
-  }
-
-  return '${isNegative ? '-' : ''}KES ${buffer.toString()}.$decimalPart';
-}
-
-String _fmtDateFromEpoch(int epochSeconds) {
-  final dt = DateTime.fromMillisecondsSinceEpoch(epochSeconds * 1000);
-  return _fmtDateDt(dt);
-}
-
-String _fmtDateDt(DateTime dt) {
-  final months = [
-    '',
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-  return '${dt.day} ${months[dt.month]} ${dt.year}';
-}
+/// Thin adapter: epoch-seconds → formatted date via shared [fmtDateDt].
+String _fmtDateFromEpoch(int epochSeconds) =>
+    fmtDateDt(DateTime.fromMillisecondsSinceEpoch(epochSeconds * 1000));

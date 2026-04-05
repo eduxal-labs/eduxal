@@ -4,6 +4,7 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
 import '../../../../client.dart';
+import '../../../../core/formatters.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/exams_grades_dao.dart';
 import '../../../../database/daos/members_dao.dart';
@@ -1860,26 +1861,7 @@ String _generateId() {
   return '${ms.toRadixString(16)}-${rand.toRadixString(16)}';
 }
 
-const _kMonths = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
-
-const _kDayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-String _fmtDate(DateTime d) => '${d.day} ${_kMonths[d.month - 1]}';
-String _fmtDateFull(DateTime d) =>
-    '${d.day} ${_kMonths[d.month - 1]} ${d.year}';
+String _fmtDate(DateTime d) => '${d.day} ${kMonthNames[d.month - 1]}';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Confirm button
@@ -2081,7 +2063,7 @@ class _DayColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dayName = _kDayNames[day.weekday % 7];
+    final dayName = kDayNames[day.weekday - 1];
     final dateLabel = _fmtDate(day);
 
     return Padding(
@@ -3676,7 +3658,7 @@ class _AddPaperRow extends StatelessWidget {
               final count = existingSlots
                   .where((s) => _sameDay(s.date, day))
                   .length;
-              final dayName = _kDayNames[day.weekday % 7];
+              final dayName = kDayNames[day.weekday - 1];
               return Padding(
                 padding: const EdgeInsets.only(right: 6),
                 child: GestureDetector(
@@ -3863,7 +3845,7 @@ class _ExamDateRangeTrigger extends StatelessWidget {
                       ? Row(
                           children: [
                             Text(
-                              _fmtDateFull(startDate!),
+                              fmtDateDt(startDate!),
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -3884,7 +3866,7 @@ class _ExamDateRangeTrigger extends StatelessWidget {
                             ),
                             Flexible(
                               child: Text(
-                                _fmtDateFull(endDate!),
+                                fmtDateDt(endDate!),
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
@@ -3897,7 +3879,7 @@ class _ExamDateRangeTrigger extends StatelessWidget {
                         )
                       : Text(
                           startDate != null
-                              ? '${_fmtDateFull(startDate!)}  →  …'
+                              ? '${fmtDateDt(startDate!)}  →  …'
                               : 'Pick date range',
                           style: TextStyle(
                             fontSize: 12,
@@ -4060,21 +4042,6 @@ class _ExamRangeCalendarState extends State<_ExamRangeCalendar>
 // Calendar sub-widgets
 // ─────────────────────────────────────────────────────────────────────────────
 
-const _kFullMonthNames = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-];
-
 class _CalendarMonthHeader extends StatelessWidget {
   const _CalendarMonthHeader({
     required this.viewMonth,
@@ -4103,7 +4070,7 @@ class _CalendarMonthHeader extends StatelessWidget {
           color: chevronColor,
         ),
         Text(
-          '${_kFullMonthNames[viewMonth.month - 1]} ${viewMonth.year}',
+          '${kMonthNamesFull[viewMonth.month - 1]} ${viewMonth.year}',
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../client.dart';
+import '../../../core/formatters.dart';
 import '../../../database/tables/enums.dart';
 import '../../../models/app_notification.dart';
 
@@ -358,7 +359,7 @@ class _NotificationCardState extends State<_NotificationCard> {
                       const SizedBox(height: 6),
                       // Timestamp.
                       Text(
-                        _relativeTime(n.occurred),
+                        fmtRelativeTime(n.occurred.millisecondsSinceEpoch),
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w400,
@@ -663,18 +664,3 @@ IconData _iconForAction(SyncAction action) => switch (action) {
   SyncAction.uploadAnswerSheet ||
   SyncAction.deleteAnswerSheet => Icons.photo_library_outlined,
 };
-
-String _relativeTime(DateTime time) {
-  final diff = DateTime.now().difference(time);
-  if (diff.inSeconds < 60) return 'Just now';
-  if (diff.inMinutes < 60) {
-    final m = diff.inMinutes;
-    return '$m ${m == 1 ? 'minute' : 'minutes'} ago';
-  }
-  if (diff.inHours < 24) {
-    final h = diff.inHours;
-    return '$h ${h == 1 ? 'hour' : 'hours'} ago';
-  }
-  final d = diff.inDays;
-  return '$d ${d == 1 ? 'day' : 'days'} ago';
-}

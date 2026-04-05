@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../widgets/inline_date_picker_dialog.dart';
 
+import '../../../../../core/formatters.dart';
 import '../../../../../client.dart';
 import '../../../../../database/database.dart';
 import '../../../../../database/daos/attendance_dao.dart';
@@ -33,52 +34,15 @@ Color _tileBackground(AttendanceStatus? status, ColorScheme cs) {
 // DATE HELPERS
 // ═════════════════════════════════════════════════════════════════════════════
 
-int _dateToEpochDays(DateTime dt) {
-  return DateTime.utc(dt.year, dt.month, dt.day).millisecondsSinceEpoch ~/
-      (1000 * 60 * 60 * 24);
-}
-
 bool _isSameDay(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;
 
-const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-const _months = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
-
-const _monthsFull = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-];
-
 String _fmtDate(DateTime d) {
-  final dayName = _weekdays[d.weekday - 1];
-  return '$dayName, ${d.day} ${_months[d.month - 1]} ${d.year}';
+  final dayName = kDayNames[d.weekday - 1];
+  return '$dayName, ${d.day} ${kMonthNames[d.month - 1]} ${d.year}';
 }
 
-String _fmtMonth(DateTime d) => '${_monthsFull[d.month - 1]} ${d.year}';
+String _fmtMonth(DateTime d) => '${kMonthNamesFull[d.month - 1]} ${d.year}';
 
 /// Returns the Monday of the week containing [date].
 DateTime _weekStart(DateTime date) {
@@ -163,7 +127,7 @@ class _AttendanceTabState extends State<AttendanceTab>
     _dao = AttendanceDao(db);
     _membersDao = MembersDao(db);
     _selectedDate = DateTime.now();
-    _selectedDateEpochDays = _dateToEpochDays(_selectedDate);
+    _selectedDateEpochDays = daysFromDate(_selectedDate);
     _calendarMonth = DateTime(DateTime.now().year, DateTime.now().month);
     _resolveCanMark();
   }
@@ -268,7 +232,7 @@ class _AttendanceTabState extends State<AttendanceTab>
   void _setDate(DateTime date) {
     setState(() {
       _selectedDate = date;
-      _selectedDateEpochDays = _dateToEpochDays(date);
+      _selectedDateEpochDays = daysFromDate(date);
     });
   }
 
@@ -277,7 +241,7 @@ class _AttendanceTabState extends State<AttendanceTab>
   void _selectHistoryDate(DateTime date) {
     setState(() {
       _selectedDate = date;
-      _selectedDateEpochDays = _dateToEpochDays(date);
+      _selectedDateEpochDays = daysFromDate(date);
       _showHistory = false;
     });
   }
@@ -646,7 +610,7 @@ class _WeeklyMiniStrip extends StatelessWidget {
               final isSelected = _isSameDay(day, selectedDate);
               final isDayToday = _isSameDay(day, today);
               final isFuture = day.isAfter(today);
-              final epochDays = _dateToEpochDays(day);
+              final epochDays = daysFromDate(day);
               final summary = summaryMap[epochDays];
 
               // Determine dot color.
@@ -683,7 +647,7 @@ class _WeeklyMiniStrip extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          _weekdays[day.weekday - 1],
+                          kDayNames[day.weekday - 1],
                           style: TextStyle(
                             fontSize: 9.5,
                             fontWeight: FontWeight.w400,
@@ -1465,7 +1429,7 @@ class _HistoryCalendar extends StatelessWidget {
 
                 // ── Day-of-week headers ────────────────────────────────────
                 Row(
-                  children: _weekdays
+                  children: kDayNames
                       .map(
                         (d) => Expanded(
                           child: Center(
@@ -1535,7 +1499,7 @@ class _HistoryCalendar extends StatelessWidget {
                 calendarMonth.month,
                 day,
               );
-              final epochDays = _dateToEpochDays(date);
+              final epochDays = daysFromDate(date);
               final summary = summaryMap[epochDays];
               final isToday = _isSameDay(date, today);
               final isFuture = date.isAfter(today);

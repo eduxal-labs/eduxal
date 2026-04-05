@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../client.dart';
+import '../../../../core/formatters.dart';
 import '../../../../models/question_grade.dart';
 import '../../../../models/result.dart';
 import '../../../theme/app_theme.dart';
@@ -254,7 +255,7 @@ class _OverallScoreBar extends StatelessWidget {
             textBaseline: TextBaseline.alphabetic,
             children: [
               Text(
-                '${_fmtScore(score)} / $total',
+                '${fmtScore(score)} / $total',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w500,
@@ -371,7 +372,7 @@ class _QuestionCardState extends State<_QuestionCard> {
                     borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
                   ),
                   child: Text(
-                    '${_fmtScore(d.marksAwarded)}/${d.totalMarks}',
+                    '${fmtScore(d.marksAwarded)}/${d.totalMarks}',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
@@ -523,7 +524,7 @@ class _RubricRow extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Text(
-            '${_fmtScore(result.marksAwarded)}/${result.marksAvailable}',
+            '${fmtScore(result.marksAwarded)}/${result.marksAvailable}',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
@@ -545,7 +546,3 @@ Color _pctColor(double pct, ColorScheme cs) {
   if (pct >= 50) return const Color(0xFFF59E0B);
   return cs.error;
 }
-
-String _fmtScore(double score) => score == score.truncateToDouble()
-    ? score.toInt().toString()
-    : score.toStringAsFixed(1);

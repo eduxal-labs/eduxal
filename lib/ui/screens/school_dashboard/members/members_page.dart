@@ -35,6 +35,7 @@ import '../../../widgets/member_creation/add_owner_panel.dart';
 import '../../../widgets/member_creation/add_staff_panel.dart';
 import '../../../widgets/member_creation/add_student_panel.dart';
 import '../../../widgets/member_creation/add_teacher_panel.dart';
+import '../../../widgets/pressable_row.dart';
 import '../../../theme/app_theme.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -622,46 +623,8 @@ class _DepartmentRow extends StatefulWidget {
 }
 
 class _DepartmentRowState extends State<_DepartmentRow>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin, PressableRowMixin {
   bool _isHovered = false;
-  bool _isPressed = false;
-  late final AnimationController _pressCtrl;
-  late final Animation<double> _scaleAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _pressCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 100),
-      reverseDuration: const Duration(milliseconds: 150),
-    );
-    _scaleAnim = Tween<double>(
-      begin: 1.0,
-      end: 0.98,
-    ).animate(CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut));
-  }
-
-  @override
-  void dispose() {
-    _pressCtrl.dispose();
-    super.dispose();
-  }
-
-  void _onTapDown(TapDownDetails _) {
-    setState(() => _isPressed = true);
-    _pressCtrl.forward();
-  }
-
-  void _onTapUp(TapUpDetails _) {
-    _pressCtrl.reverse();
-    setState(() => _isPressed = false);
-  }
-
-  void _onTapCancel() {
-    _pressCtrl.reverse();
-    setState(() => _isPressed = false);
-  }
 
   void _navigate(BuildContext context) {
     Navigator.of(context).push(
@@ -689,200 +652,183 @@ class _DepartmentRowState extends State<_DepartmentRow>
     final hoverBg = isDark
         ? accentColor.withValues(alpha: 0.12)
         : accentColor.withValues(alpha: 0.08);
-    final pressBg = isDark
-        ? accentColor.withValues(alpha: 0.18)
-        : accentColor.withValues(alpha: 0.12);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: ScaleTransition(
-        scale: _scaleAnim,
+      child: buildPressable(
+        onTap: () => _navigate(context),
         child: MouseRegion(
           onEnter: (_) => setState(() => _isHovered = true),
           onExit: (_) => setState(() => _isHovered = false),
           cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            onTapDown: _onTapDown,
-            onTapUp: _onTapUp,
-            onTapCancel: _onTapCancel,
-            onTap: () => _navigate(context),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              curve: Curves.easeOut,
-              decoration: BoxDecoration(
-                color: _isPressed
-                    ? pressBg
-                    : _isHovered
-                    ? hoverBg
-                    : idleBg,
-                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                border: Border.all(
-                  color: _isHovered || _isPressed
-                      ? accentColor.withValues(alpha: isDark ? 0.35 : 0.25)
-                      : cs.outline.withValues(alpha: isDark ? 0.10 : 0.08),
-                  width: 0.5,
-                ),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOut,
+            decoration: BoxDecoration(
+              color: _isHovered ? hoverBg : idleBg,
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              border: Border.all(
+                color: _isHovered
+                    ? accentColor.withValues(alpha: isDark ? 0.35 : 0.25)
+                    : cs.outline.withValues(alpha: isDark ? 0.10 : 0.08),
+                width: 0.5,
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                child: IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // ── Accent bar ──────────────────────────────────
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        width: _isHovered || _isPressed ? 4 : 3,
-                        decoration: BoxDecoration(
-                          color: accentColor.withValues(
-                            alpha: _isHovered || _isPressed ? 1.0 : 0.5,
-                          ),
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(4),
-                            bottomLeft: Radius.circular(4),
-                          ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // ── Accent bar ──────────────────────────────────
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: _isHovered ? 4 : 3,
+                      decoration: BoxDecoration(
+                        color: accentColor.withValues(
+                          alpha: _isHovered ? 1.0 : 0.5,
+                        ),
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(4),
+                          bottomLeft: Radius.circular(4),
                         ),
                       ),
+                    ),
 
-                      // ── Content ─────────────────────────────────────
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                          child: Row(
-                            children: [
-                              // ── Icon container ──────────────────────
-                              AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                width: 32,
-                                height: 32,
-                                decoration: BoxDecoration(
-                                  color: _isHovered || _isPressed
-                                      ? accentColor.withValues(
-                                          alpha: isDark ? 0.18 : 0.10,
-                                        )
-                                      : isDark
-                                      ? cs.surfaceContainerHighest.withValues(
-                                          alpha: 0.5,
-                                        )
-                                      : cs.surfaceContainerHighest,
-                                  borderRadius: BorderRadius.circular(
-                                    AppTheme.kChipRadius,
+                    // ── Content ─────────────────────────────────────
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                        child: Row(
+                          children: [
+                            // ── Icon container ──────────────────
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: _isHovered
+                                    ? accentColor.withValues(
+                                        alpha: isDark ? 0.18 : 0.10,
+                                      )
+                                    : isDark
+                                    ? cs.surfaceContainerHighest.withValues(
+                                        alpha: 0.5,
+                                      )
+                                    : cs.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.kChipRadius,
+                                ),
+                              ),
+                              child: Icon(
+                                Icons.domain_outlined,
+                                size: 16,
+                                color: _isHovered
+                                    ? accentColor
+                                    : cs.onSurfaceVariant.withValues(
+                                        alpha: 0.55,
+                                      ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+
+                            // ── Name + description ──────────────────
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    widget.dept.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: cs.onSurface,
+                                    ),
+                                  ),
+                                  if (widget.dept.description != null &&
+                                      widget.dept.description!.isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 2),
+                                      child: Text(
+                                        widget.dept.description!,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w400,
+                                          color: cs.onSurfaceVariant.withValues(
+                                            alpha: 0.55,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(width: 8),
+
+                            // ── Delete action (desktop: inline; mobile: icon) ─
+                            if (widget.onDelete != null && isDesktop)
+                              AnimatedOpacity(
+                                duration: const Duration(milliseconds: 120),
+                                opacity: _isHovered ? 1.0 : 0.0,
+                                child: Tooltip(
+                                  message: 'Delete',
+                                  waitDuration: const Duration(
+                                    milliseconds: 400,
+                                  ),
+                                  child: GestureDetector(
+                                    onTap: widget.onDelete,
+                                    child: AnimatedContainer(
+                                      duration: const Duration(
+                                        milliseconds: 100,
+                                      ),
+                                      width: 28,
+                                      height: 28,
+                                      decoration: BoxDecoration(
+                                        color: Colors.transparent,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Icon(
+                                        Icons.delete_outline_rounded,
+                                        size: 16,
+                                        color: cs.error,
+                                      ),
+                                    ),
                                   ),
                                 ),
+                              )
+                            else if (widget.onDelete != null && !isDesktop)
+                              _DeptMobileMenu(onDelete: widget.onDelete!),
+
+                            const SizedBox(width: 4),
+
+                            // ── Chevron ─────────────────────────────
+                            AnimatedSlide(
+                              duration: const Duration(milliseconds: 200),
+                              curve: Curves.easeOut,
+                              offset: Offset(_isHovered ? 0.15 : 0.0, 0),
+                              child: AnimatedOpacity(
+                                duration: const Duration(milliseconds: 200),
+                                opacity: _isHovered ? 0.8 : 0.3,
                                 child: Icon(
-                                  Icons.domain_outlined,
-                                  size: 16,
-                                  color: _isHovered || _isPressed
+                                  Icons.chevron_right_rounded,
+                                  size: 18,
+                                  color: _isHovered
                                       ? accentColor
-                                      : cs.onSurfaceVariant.withValues(
-                                          alpha: 0.55,
-                                        ),
+                                      : cs.onSurfaceVariant,
                                 ),
                               ),
-                              const SizedBox(width: 12),
-
-                              // ── Name + description ──────────────────
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      widget.dept.name,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                        color: cs.onSurface,
-                                      ),
-                                    ),
-                                    if (widget.dept.description != null &&
-                                        widget.dept.description!.isNotEmpty)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 2),
-                                        child: Text(
-                                          widget.dept.description!,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            fontSize: 11.5,
-                                            fontWeight: FontWeight.w400,
-                                            color: cs.onSurfaceVariant
-                                                .withValues(alpha: 0.55),
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-
-                              const SizedBox(width: 8),
-
-                              // ── Delete action (desktop: inline; mobile: icon) ─
-                              if (widget.onDelete != null && isDesktop)
-                                AnimatedOpacity(
-                                  duration: const Duration(milliseconds: 120),
-                                  opacity: _isHovered ? 1.0 : 0.0,
-                                  child: Tooltip(
-                                    message: 'Delete',
-                                    waitDuration: const Duration(
-                                      milliseconds: 400,
-                                    ),
-                                    child: GestureDetector(
-                                      onTap: widget.onDelete,
-                                      child: AnimatedContainer(
-                                        duration: const Duration(
-                                          milliseconds: 100,
-                                        ),
-                                        width: 28,
-                                        height: 28,
-                                        decoration: BoxDecoration(
-                                          color: Colors.transparent,
-                                          borderRadius: BorderRadius.circular(
-                                            6,
-                                          ),
-                                        ),
-                                        child: Icon(
-                                          Icons.delete_outline_rounded,
-                                          size: 16,
-                                          color: cs.error,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                )
-                              else if (widget.onDelete != null && !isDesktop)
-                                _DeptMobileMenu(onDelete: widget.onDelete!),
-
-                              const SizedBox(width: 4),
-
-                              // ── Chevron ─────────────────────────────
-                              AnimatedSlide(
-                                duration: const Duration(milliseconds: 200),
-                                curve: Curves.easeOut,
-                                offset: Offset(
-                                  _isHovered || _isPressed ? 0.15 : 0.0,
-                                  0,
-                                ),
-                                child: AnimatedOpacity(
-                                  duration: const Duration(milliseconds: 200),
-                                  opacity: _isHovered || _isPressed ? 0.8 : 0.3,
-                                  child: Icon(
-                                    Icons.chevron_right_rounded,
-                                    size: 18,
-                                    color: _isHovered || _isPressed
-                                        ? accentColor
-                                        : cs.onSurfaceVariant,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -2208,46 +2154,8 @@ class _UserDataRow extends StatefulWidget {
 }
 
 class _UserDataRowState extends State<_UserDataRow>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin, PressableRowMixin {
   bool _isHovered = false;
-  bool _isPressed = false;
-  late final AnimationController _pressCtrl;
-  late final Animation<double> _scaleAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _pressCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 100),
-      reverseDuration: const Duration(milliseconds: 150),
-    );
-    _scaleAnim = Tween<double>(
-      begin: 1.0,
-      end: 0.98,
-    ).animate(CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut));
-  }
-
-  @override
-  void dispose() {
-    _pressCtrl.dispose();
-    super.dispose();
-  }
-
-  void _onTapDown(TapDownDetails _) {
-    setState(() => _isPressed = true);
-    _pressCtrl.forward();
-  }
-
-  void _onTapUp(TapUpDetails _) {
-    _pressCtrl.reverse();
-    setState(() => _isPressed = false);
-  }
-
-  void _onTapCancel() {
-    _pressCtrl.reverse();
-    setState(() => _isPressed = false);
-  }
 
   Color _statusColor() {
     switch (widget.status) {
@@ -2278,9 +2186,6 @@ class _UserDataRowState extends State<_UserDataRow>
     final hoverBg = isDark
         ? accentColor.withValues(alpha: 0.12)
         : accentColor.withValues(alpha: 0.08);
-    final pressBg = isDark
-        ? accentColor.withValues(alpha: 0.18)
-        : accentColor.withValues(alpha: 0.12);
 
     // ── Avatar with status ring ────────────────────────────────────────
     Widget avatar = Container(
@@ -2288,9 +2193,7 @@ class _UserDataRowState extends State<_UserDataRow>
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(
-          color: accentColor.withValues(
-            alpha: _isHovered || _isPressed ? 0.7 : 0.35,
-          ),
+          color: accentColor.withValues(alpha: _isHovered ? 0.7 : 0.35),
           width: 1.5,
         ),
       ),
@@ -2308,11 +2211,7 @@ class _UserDataRowState extends State<_UserDataRow>
             child: StatusIndicator(
               status: widget.status!,
               level: widget.level!,
-              backgroundColor: _isPressed
-                  ? pressBg
-                  : _isHovered
-                  ? hoverBg
-                  : idleBg,
+              backgroundColor: _isHovered ? hoverBg : idleBg,
             ),
           ),
         ],
@@ -2321,145 +2220,135 @@ class _UserDataRowState extends State<_UserDataRow>
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: ScaleTransition(
-        scale: _scaleAnim,
+      child: buildPressable(
+        onTap: widget.onTap,
         child: MouseRegion(
           onEnter: (_) => setState(() => _isHovered = true),
           onExit: (_) => setState(() => _isHovered = false),
           cursor: widget.onTap != null
               ? SystemMouseCursors.click
               : SystemMouseCursors.basic,
-          child: GestureDetector(
-            onTapDown: widget.onTap != null ? _onTapDown : null,
-            onTapUp: widget.onTap != null ? _onTapUp : null,
-            onTapCancel: widget.onTap != null ? _onTapCancel : null,
-            onTap: widget.onTap,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              curve: Curves.easeOut,
-              decoration: BoxDecoration(
-                color: _isPressed
-                    ? pressBg
-                    : _isHovered
-                    ? hoverBg
-                    : idleBg,
-                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                border: Border.all(
-                  color: _isHovered || _isPressed
-                      ? accentColor.withValues(alpha: isDark ? 0.35 : 0.25)
-                      : cs.outline.withValues(alpha: isDark ? 0.10 : 0.08),
-                  width: 0.5,
-                ),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOut,
+            decoration: BoxDecoration(
+              color: _isHovered ? hoverBg : idleBg,
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              border: Border.all(
+                color: _isHovered
+                    ? accentColor.withValues(alpha: isDark ? 0.35 : 0.25)
+                    : cs.outline.withValues(alpha: isDark ? 0.10 : 0.08),
+                width: 0.5,
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                child: IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // ── Status accent bar ───────────────────────────
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        width: _isHovered || _isPressed ? 4 : 3,
-                        decoration: BoxDecoration(
-                          color: accentColor.withValues(
-                            alpha: _isHovered || _isPressed ? 1.0 : 0.7,
-                          ),
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(4),
-                            bottomLeft: Radius.circular(4),
-                          ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // ── Status accent bar ───────────────────────────
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: _isHovered ? 4 : 3,
+                      decoration: BoxDecoration(
+                        color: accentColor.withValues(
+                          alpha: _isHovered ? 1.0 : 0.7,
+                        ),
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(4),
+                          bottomLeft: Radius.circular(4),
                         ),
                       ),
+                    ),
 
-                      // ── Content ─────────────────────────────────────
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                          child: Row(
-                            children: [
-                              // Avatar
-                              avatar,
-                              const SizedBox(width: 12),
+                    // ── Content ─────────────────────────────────────
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                        child: Row(
+                          children: [
+                            // Avatar
+                            avatar,
+                            const SizedBox(width: 12),
 
-                              // Name + subtitle
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
+                            // Name + subtitle
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    widget.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: cs.onSurface,
+                                    ),
+                                  ),
+                                  if (widget.subtitle.isNotEmpty) ...[
+                                    const SizedBox(height: 2),
                                     Text(
-                                      widget.name,
+                                      widget.subtitle,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                        color: cs.onSurface,
-                                      ),
-                                    ),
-                                    if (widget.subtitle.isNotEmpty) ...[
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        widget.subtitle,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w400,
-                                          color: cs.onSurfaceVariant.withValues(
-                                            alpha: 0.55,
-                                          ),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w400,
+                                        color: cs.onSurfaceVariant.withValues(
+                                          alpha: 0.55,
                                         ),
                                       ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-
-                              // Trailing chip
-                              if (widget.trailing != null) ...[
-                                const SizedBox(width: 8),
-                                widget.trailing!,
-                              ],
-
-                              // Actions
-                              if (widget.actions.isNotEmpty) ...[
-                                const SizedBox(width: 4),
-                                isDesktop
-                                    ? _InlineActions(
-                                        actions: widget.actions,
-                                        isHovered: _isHovered,
-                                      )
-                                    : _MobileActions(actions: widget.actions),
-                              ],
-
-                              const SizedBox(width: 4),
-
-                              // ── Animated chevron ────────────────────
-                              if (widget.onTap != null)
-                                AnimatedSlide(
-                                  duration: const Duration(milliseconds: 200),
-                                  curve: Curves.easeOut,
-                                  offset: Offset(_isHovered ? 0.15 : 0.0, 0),
-                                  child: AnimatedOpacity(
-                                    duration: const Duration(milliseconds: 200),
-                                    opacity: _isHovered ? 0.8 : 0.35,
-                                    child: Icon(
-                                      Icons.chevron_right_rounded,
-                                      size: 18,
-                                      color: _isHovered
-                                          ? accentColor
-                                          : cs.onSurfaceVariant,
                                     ),
+                                  ],
+                                ],
+                              ),
+                            ),
+
+                            // Trailing chip
+                            if (widget.trailing != null) ...[
+                              const SizedBox(width: 8),
+                              widget.trailing!,
+                            ],
+
+                            // Actions
+                            if (widget.actions.isNotEmpty) ...[
+                              const SizedBox(width: 4),
+                              isDesktop
+                                  ? _InlineActions(
+                                      actions: widget.actions,
+                                      isHovered: _isHovered,
+                                    )
+                                  : _MobileActions(actions: widget.actions),
+                            ],
+
+                            const SizedBox(width: 4),
+
+                            // ── Animated chevron ────────────────────
+                            if (widget.onTap != null)
+                              AnimatedSlide(
+                                duration: const Duration(milliseconds: 200),
+                                curve: Curves.easeOut,
+                                offset: Offset(_isHovered ? 0.15 : 0.0, 0),
+                                child: AnimatedOpacity(
+                                  duration: const Duration(milliseconds: 200),
+                                  opacity: _isHovered ? 0.8 : 0.35,
+                                  child: Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 18,
+                                    color: _isHovered
+                                        ? accentColor
+                                        : cs.onSurfaceVariant,
                                   ),
                                 ),
-                            ],
-                          ),
+                              ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -2496,46 +2385,8 @@ class _FlatRow extends StatefulWidget {
 }
 
 class _FlatRowState extends State<_FlatRow>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin, PressableRowMixin {
   bool _isHovered = false;
-  bool _isPressed = false;
-  late final AnimationController _pressCtrl;
-  late final Animation<double> _scaleAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _pressCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 100),
-      reverseDuration: const Duration(milliseconds: 150),
-    );
-    _scaleAnim = Tween<double>(
-      begin: 1.0,
-      end: 0.98,
-    ).animate(CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut));
-  }
-
-  @override
-  void dispose() {
-    _pressCtrl.dispose();
-    super.dispose();
-  }
-
-  void _onTapDown(TapDownDetails _) {
-    setState(() => _isPressed = true);
-    _pressCtrl.forward();
-  }
-
-  void _onTapUp(TapUpDetails _) {
-    _pressCtrl.reverse();
-    setState(() => _isPressed = false);
-  }
-
-  void _onTapCancel() {
-    _pressCtrl.reverse();
-    setState(() => _isPressed = false);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -2554,151 +2405,138 @@ class _FlatRowState extends State<_FlatRow>
     final hoverBg = isDark
         ? accentColor.withValues(alpha: 0.12)
         : accentColor.withValues(alpha: 0.08);
-    final pressBg = isDark
-        ? accentColor.withValues(alpha: 0.18)
-        : accentColor.withValues(alpha: 0.12);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: ScaleTransition(
-        scale: _scaleAnim,
+      child: buildPressable(
+        onTap: widget.onTap,
         child: MouseRegion(
           onEnter: (_) => setState(() => _isHovered = true),
           onExit: (_) => setState(() => _isHovered = false),
           cursor: widget.onTap != null
               ? SystemMouseCursors.click
               : SystemMouseCursors.basic,
-          child: GestureDetector(
-            onTapDown: widget.onTap != null ? _onTapDown : null,
-            onTapUp: widget.onTap != null ? _onTapUp : null,
-            onTapCancel: widget.onTap != null ? _onTapCancel : null,
-            onTap: widget.onTap,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              curve: Curves.easeOut,
-              decoration: BoxDecoration(
-                color: _isPressed
-                    ? pressBg
-                    : _isHovered
-                    ? hoverBg
-                    : idleBg,
-                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                border: Border.all(
-                  color: _isHovered || _isPressed
-                      ? accentColor.withValues(alpha: isDark ? 0.35 : 0.25)
-                      : cs.outline.withValues(alpha: isDark ? 0.10 : 0.08),
-                  width: 0.5,
-                ),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOut,
+            decoration: BoxDecoration(
+              color: _isHovered ? hoverBg : idleBg,
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              border: Border.all(
+                color: _isHovered
+                    ? accentColor.withValues(alpha: isDark ? 0.35 : 0.25)
+                    : cs.outline.withValues(alpha: isDark ? 0.10 : 0.08),
+                width: 0.5,
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                child: IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // ── Accent bar ──────────────────────────────────
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        width: _isHovered || _isPressed ? 4 : 3,
-                        decoration: BoxDecoration(
-                          color: accentColor.withValues(
-                            alpha: _isHovered || _isPressed ? 1.0 : 0.7,
-                          ),
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(4),
-                            bottomLeft: Radius.circular(4),
-                          ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // ── Accent bar ──────────────────────────────────
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: _isHovered ? 4 : 3,
+                      decoration: BoxDecoration(
+                        color: accentColor.withValues(
+                          alpha: _isHovered ? 1.0 : 0.7,
+                        ),
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(4),
+                          bottomLeft: Radius.circular(4),
                         ),
                       ),
+                    ),
 
-                      // ── Content ─────────────────────────────────────
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                          child: Row(
-                            children: [
-                              // Leading (avatar)
-                              widget.leading,
-                              const SizedBox(width: 12),
+                    // ── Content ─────────────────────────────────────
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                        child: Row(
+                          children: [
+                            // Leading (avatar)
+                            widget.leading,
+                            const SizedBox(width: 12),
 
-                              // Name + subtitle
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
+                            // Name + subtitle
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    widget.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: cs.onSurface,
+                                    ),
+                                  ),
+                                  if (widget.subtitle.isNotEmpty) ...[
+                                    const SizedBox(height: 2),
                                     Text(
-                                      widget.name,
+                                      widget.subtitle,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                        color: cs.onSurface,
-                                      ),
-                                    ),
-                                    if (widget.subtitle.isNotEmpty) ...[
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        widget.subtitle,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w400,
-                                          color: cs.onSurfaceVariant.withValues(
-                                            alpha: 0.55,
-                                          ),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w400,
+                                        color: cs.onSurfaceVariant.withValues(
+                                          alpha: 0.55,
                                         ),
                                       ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-
-                              // Trailing chip
-                              if (widget.trailing != null) ...[
-                                const SizedBox(width: 8),
-                                widget.trailing!,
-                              ],
-
-                              // Actions
-                              if (widget.actions.isNotEmpty) ...[
-                                const SizedBox(width: 4),
-                                isDesktop
-                                    ? _InlineActions(
-                                        actions: widget.actions,
-                                        isHovered: _isHovered,
-                                      )
-                                    : _MobileActions(actions: widget.actions),
-                              ],
-
-                              const SizedBox(width: 4),
-
-                              // ── Animated chevron ────────────────────
-                              if (widget.onTap != null)
-                                AnimatedSlide(
-                                  duration: const Duration(milliseconds: 200),
-                                  curve: Curves.easeOut,
-                                  offset: Offset(_isHovered ? 0.15 : 0.0, 0),
-                                  child: AnimatedOpacity(
-                                    duration: const Duration(milliseconds: 200),
-                                    opacity: _isHovered ? 0.8 : 0.35,
-                                    child: Icon(
-                                      Icons.chevron_right_rounded,
-                                      size: 18,
-                                      color: _isHovered
-                                          ? accentColor
-                                          : cs.onSurfaceVariant,
                                     ),
+                                  ],
+                                ],
+                              ),
+                            ),
+
+                            // Trailing chip
+                            if (widget.trailing != null) ...[
+                              const SizedBox(width: 8),
+                              widget.trailing!,
+                            ],
+
+                            // Actions
+                            if (widget.actions.isNotEmpty) ...[
+                              const SizedBox(width: 4),
+                              isDesktop
+                                  ? _InlineActions(
+                                      actions: widget.actions,
+                                      isHovered: _isHovered,
+                                    )
+                                  : _MobileActions(actions: widget.actions),
+                            ],
+
+                            const SizedBox(width: 4),
+
+                            // ── Animated chevron ────────────────────
+                            if (widget.onTap != null)
+                              AnimatedSlide(
+                                duration: const Duration(milliseconds: 200),
+                                curve: Curves.easeOut,
+                                offset: Offset(_isHovered ? 0.15 : 0.0, 0),
+                                child: AnimatedOpacity(
+                                  duration: const Duration(milliseconds: 200),
+                                  opacity: _isHovered ? 0.8 : 0.35,
+                                  child: Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 18,
+                                    color: _isHovered
+                                        ? accentColor
+                                        : cs.onSurfaceVariant,
                                   ),
                                 ),
-                            ],
-                          ),
+                              ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -5836,46 +5674,8 @@ class _DeptAllItem extends StatefulWidget {
 }
 
 class _DeptAllItemState extends State<_DeptAllItem>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin, PressableRowMixin {
   bool _isHovered = false;
-  bool _isPressed = false;
-  late final AnimationController _pressCtrl;
-  late final Animation<double> _scaleAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _pressCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 100),
-      reverseDuration: const Duration(milliseconds: 150),
-    );
-    _scaleAnim = Tween<double>(
-      begin: 1.0,
-      end: 0.98,
-    ).animate(CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut));
-  }
-
-  @override
-  void dispose() {
-    _pressCtrl.dispose();
-    super.dispose();
-  }
-
-  void _onTapDown(TapDownDetails _) {
-    setState(() => _isPressed = true);
-    _pressCtrl.forward();
-  }
-
-  void _onTapUp(TapUpDetails _) {
-    _pressCtrl.reverse();
-    setState(() => _isPressed = false);
-  }
-
-  void _onTapCancel() {
-    _pressCtrl.reverse();
-    setState(() => _isPressed = false);
-  }
 
   Color _roleColor(ColorScheme cs) {
     return widget.roleTag == 'Teacher' ? cs.primary : cs.tertiary;
@@ -5893,166 +5693,153 @@ class _DeptAllItemState extends State<_DeptAllItem>
     final hoverBg = isDark
         ? roleClr.withValues(alpha: 0.10)
         : roleClr.withValues(alpha: 0.06);
-    final pressBg = isDark
-        ? roleClr.withValues(alpha: 0.16)
-        : roleClr.withValues(alpha: 0.10);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: ScaleTransition(
-        scale: _scaleAnim,
+      child: buildPressable(
         child: MouseRegion(
           onEnter: (_) => setState(() => _isHovered = true),
           onExit: (_) => setState(() => _isHovered = false),
-          child: GestureDetector(
-            onTapDown: _onTapDown,
-            onTapUp: _onTapUp,
-            onTapCancel: _onTapCancel,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              curve: Curves.easeOut,
-              decoration: BoxDecoration(
-                color: _isPressed
-                    ? pressBg
-                    : _isHovered
-                    ? hoverBg
-                    : idleBg,
-                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                border: Border.all(
-                  color: _isHovered || _isPressed
-                      ? roleClr.withValues(alpha: isDark ? 0.30 : 0.20)
-                      : cs.outline.withValues(alpha: isDark ? 0.08 : 0.06),
-                  width: 0.5,
-                ),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOut,
+            decoration: BoxDecoration(
+              color: _isHovered ? hoverBg : idleBg,
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              border: Border.all(
+                color: _isHovered
+                    ? roleClr.withValues(alpha: isDark ? 0.30 : 0.20)
+                    : cs.outline.withValues(alpha: isDark ? 0.08 : 0.06),
+                width: 0.5,
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                child: IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // ── Accent bar ──────────────────────────────
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        width: _isHovered || _isPressed ? 4 : 3,
-                        decoration: BoxDecoration(
-                          color: roleClr.withValues(
-                            alpha: _isHovered || _isPressed ? 1.0 : 0.5,
-                          ),
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(4),
-                            bottomLeft: Radius.circular(4),
-                          ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // ── Accent bar ──────────────────────────────
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: _isHovered ? 4 : 3,
+                      decoration: BoxDecoration(
+                        color: roleClr.withValues(
+                          alpha: _isHovered ? 1.0 : 0.5,
+                        ),
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(4),
+                          bottomLeft: Radius.circular(4),
                         ),
                       ),
+                    ),
 
-                      // ── Content ─────────────────────────────────
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-                          child: Row(
-                            children: [
-                              // ── Person icon ─────────────────────
-                              AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                width: 28,
-                                height: 28,
-                                decoration: BoxDecoration(
-                                  color: roleClr.withValues(
-                                    alpha: isDark ? 0.15 : 0.08,
-                                  ),
-                                  borderRadius: BorderRadius.circular(
-                                    AppTheme.kChipRadius,
-                                  ),
+                    // ── Content ─────────────────────────────────
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+                        child: Row(
+                          children: [
+                            // ── Person icon ─────────────────────
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: roleClr.withValues(
+                                  alpha: isDark ? 0.15 : 0.08,
                                 ),
-                                child: Icon(
-                                  Icons.person_outline_rounded,
-                                  size: 15,
-                                  color: roleClr.withValues(alpha: 0.8),
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.kChipRadius,
                                 ),
                               ),
-                              const SizedBox(width: 10),
+                              child: Icon(
+                                Icons.person_outline_rounded,
+                                size: 15,
+                                color: roleClr.withValues(alpha: 0.8),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
 
-                              // ── Name + status ───────────────────
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      widget.name,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w400,
-                                        color: cs.onSurface,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                            // ── Name + status ───────────────────
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    widget.name,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w400,
+                                      color: cs.onSurface,
                                     ),
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 1),
-                                      child: Text(
-                                        widget.statusLabel,
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w400,
-                                          color: cs.onSurfaceVariant.withValues(
-                                            alpha: 0.5,
-                                          ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 1),
+                                    child: Text(
+                                      widget.statusLabel,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w400,
+                                        color: cs.onSurfaceVariant.withValues(
+                                          alpha: 0.5,
                                         ),
                                       ),
                                     ),
-                                  ],
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(width: 6),
+
+                            // ── Role tag chip ───────────────────
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: roleClr.withValues(
+                                  alpha: isDark ? 0.15 : 0.10,
+                                ),
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.kChipRadius,
                                 ),
                               ),
-
-                              const SizedBox(width: 6),
-
-                              // ── Role tag chip ───────────────────
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 7,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: roleClr.withValues(
-                                    alpha: isDark ? 0.15 : 0.10,
-                                  ),
-                                  borderRadius: BorderRadius.circular(
-                                    AppTheme.kChipRadius,
-                                  ),
-                                ),
-                                child: Text(
-                                  widget.roleTag,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w500,
-                                    color: roleClr,
-                                    letterSpacing: 0.3,
-                                  ),
+                              child: Text(
+                                widget.roleTag,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w500,
+                                  color: roleClr,
+                                  letterSpacing: 0.3,
                                 ),
                               ),
-                              const SizedBox(width: 6),
+                            ),
+                            const SizedBox(width: 6),
 
-                              // ── Remove button (permission-gated) ─
-                              if (widget.onRemove != null)
-                                AnimatedActionButton(
-                                  icon: Icons.close_rounded,
-                                  iconSize: 15,
-                                  color: _isHovered
-                                      ? cs.error.withValues(alpha: 0.7)
-                                      : cs.error.withValues(alpha: 0.4),
-                                  size: 28,
-                                  tooltip: 'Remove',
-                                  showCheckOnSuccess: false,
-                                  onTap: widget.onRemove!,
-                                ),
-                            ],
-                          ),
+                            // ── Remove button (permission-gated) ─
+                            if (widget.onRemove != null)
+                              AnimatedActionButton(
+                                icon: Icons.close_rounded,
+                                iconSize: 15,
+                                color: _isHovered
+                                    ? cs.error.withValues(alpha: 0.7)
+                                    : cs.error.withValues(alpha: 0.4),
+                                size: 28,
+                                tooltip: 'Remove',
+                                showCheckOnSuccess: false,
+                                onTap: widget.onRemove!,
+                              ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -6153,46 +5940,8 @@ class _DeptMemberRow extends StatefulWidget {
 }
 
 class _DeptMemberRowState extends State<_DeptMemberRow>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin, PressableRowMixin {
   bool _isHovered = false;
-  bool _isPressed = false;
-  late final AnimationController _pressCtrl;
-  late final Animation<double> _scaleAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _pressCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 100),
-      reverseDuration: const Duration(milliseconds: 150),
-    );
-    _scaleAnim = Tween<double>(
-      begin: 1.0,
-      end: 0.98,
-    ).animate(CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut));
-  }
-
-  @override
-  void dispose() {
-    _pressCtrl.dispose();
-    super.dispose();
-  }
-
-  void _onTapDown(TapDownDetails _) {
-    setState(() => _isPressed = true);
-    _pressCtrl.forward();
-  }
-
-  void _onTapUp(TapUpDetails _) {
-    _pressCtrl.reverse();
-    setState(() => _isPressed = false);
-  }
-
-  void _onTapCancel() {
-    _pressCtrl.reverse();
-    setState(() => _isPressed = false);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -6206,146 +5955,134 @@ class _DeptMemberRowState extends State<_DeptMemberRow>
     final hoverBg = isDark
         ? accentColor.withValues(alpha: 0.10)
         : accentColor.withValues(alpha: 0.06);
-    final pressBg = isDark
-        ? accentColor.withValues(alpha: 0.16)
-        : accentColor.withValues(alpha: 0.10);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: ScaleTransition(
-        scale: _scaleAnim,
+      child: buildPressable(
         child: MouseRegion(
           onEnter: (_) => setState(() => _isHovered = true),
           onExit: (_) => setState(() => _isHovered = false),
-          child: GestureDetector(
-            onTapDown: _onTapDown,
-            onTapUp: _onTapUp,
-            onTapCancel: _onTapCancel,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              curve: Curves.easeOut,
-              decoration: BoxDecoration(
-                color: _isPressed
-                    ? pressBg
-                    : _isHovered
-                    ? hoverBg
-                    : idleBg,
-                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                border: Border.all(
-                  color: _isHovered || _isPressed
-                      ? accentColor.withValues(alpha: isDark ? 0.30 : 0.20)
-                      : cs.outline.withValues(alpha: isDark ? 0.08 : 0.06),
-                  width: 0.5,
-                ),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOut,
+            decoration: BoxDecoration(
+              color: _isHovered ? hoverBg : idleBg,
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              border: Border.all(
+                color: _isHovered
+                    ? accentColor.withValues(alpha: isDark ? 0.30 : 0.20)
+                    : cs.outline.withValues(alpha: isDark ? 0.08 : 0.06),
+                width: 0.5,
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                child: IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // ── Accent bar ──────────────────────────────
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        width: _isHovered || _isPressed ? 4 : 3,
-                        decoration: BoxDecoration(
-                          color: accentColor.withValues(
-                            alpha: _isHovered || _isPressed ? 1.0 : 0.5,
-                          ),
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(4),
-                            bottomLeft: Radius.circular(4),
-                          ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // ── Accent bar ──────────────────────────────
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: _isHovered ? 4 : 3,
+                      decoration: BoxDecoration(
+                        color: accentColor.withValues(
+                          alpha: _isHovered ? 1.0 : 0.5,
+                        ),
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(4),
+                          bottomLeft: Radius.circular(4),
                         ),
                       ),
+                    ),
 
-                      // ── Content ─────────────────────────────────
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-                          child: Row(
-                            children: [
-                              // ── Person icon ─────────────────────
-                              AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                width: 28,
-                                height: 28,
-                                decoration: BoxDecoration(
-                                  color: _isHovered
-                                      ? accentColor.withValues(
-                                          alpha: isDark ? 0.18 : 0.10,
-                                        )
-                                      : accentColor.withValues(
-                                          alpha: isDark ? 0.12 : 0.06,
-                                        ),
-                                  borderRadius: BorderRadius.circular(
-                                    AppTheme.kChipRadius,
-                                  ),
-                                ),
-                                child: Icon(
-                                  Icons.person_outline_rounded,
-                                  size: 15,
-                                  color: _isHovered
-                                      ? accentColor
-                                      : accentColor.withValues(alpha: 0.7),
+                    // ── Content ─────────────────────────────────
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+                        child: Row(
+                          children: [
+                            // ── Person icon ─────────────────────
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: _isHovered
+                                    ? accentColor.withValues(
+                                        alpha: isDark ? 0.18 : 0.10,
+                                      )
+                                    : accentColor.withValues(
+                                        alpha: isDark ? 0.12 : 0.06,
+                                      ),
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.kChipRadius,
                                 ),
                               ),
-                              const SizedBox(width: 10),
+                              child: Icon(
+                                Icons.person_outline_rounded,
+                                size: 15,
+                                color: _isHovered
+                                    ? accentColor
+                                    : accentColor.withValues(alpha: 0.7),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
 
-                              // ── Name + status ───────────────────
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      widget.name,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w400,
-                                        color: cs.onSurface,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                            // ── Name + status ───────────────────
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    widget.name,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w400,
+                                      color: cs.onSurface,
                                     ),
-                                    if (widget.statusLabel.isNotEmpty)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 1),
-                                        child: Text(
-                                          widget.statusLabel,
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w400,
-                                            color: cs.onSurfaceVariant
-                                                .withValues(alpha: 0.5),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  if (widget.statusLabel.isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 1),
+                                      child: Text(
+                                        widget.statusLabel,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w400,
+                                          color: cs.onSurfaceVariant.withValues(
+                                            alpha: 0.5,
                                           ),
                                         ),
                                       ),
-                                  ],
-                                ),
+                                    ),
+                                ],
                               ),
+                            ),
 
-                              const SizedBox(width: 6),
+                            const SizedBox(width: 6),
 
-                              // ── Remove button (permission-gated) ─
-                              if (widget.onRemove != null)
-                                AnimatedActionButton(
-                                  icon: Icons.close_rounded,
-                                  iconSize: 15,
-                                  color: _isHovered
-                                      ? cs.error.withValues(alpha: 0.7)
-                                      : cs.error.withValues(alpha: 0.4),
-                                  size: 28,
-                                  tooltip: 'Remove',
-                                  showCheckOnSuccess: false,
-                                  onTap: widget.onRemove!,
-                                ),
-                            ],
-                          ),
+                            // ── Remove button (permission-gated) ─
+                            if (widget.onRemove != null)
+                              AnimatedActionButton(
+                                icon: Icons.close_rounded,
+                                iconSize: 15,
+                                color: _isHovered
+                                    ? cs.error.withValues(alpha: 0.7)
+                                    : cs.error.withValues(alpha: 0.4),
+                                size: 28,
+                                tooltip: 'Remove',
+                                showCheckOnSuccess: false,
+                                onTap: widget.onRemove!,
+                              ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),

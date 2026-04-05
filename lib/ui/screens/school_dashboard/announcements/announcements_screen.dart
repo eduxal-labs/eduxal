@@ -20,6 +20,7 @@ import '../../../../models/school_context.dart';
 import '../../../widgets/active_term_provider.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_sheet.dart';
+import '../../../widgets/pressable_row.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Shared config builder
@@ -593,50 +594,12 @@ class _AnnouncementRow extends StatefulWidget {
 }
 
 class _AnnouncementRowState extends State<_AnnouncementRow>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin, PressableRowMixin {
   bool _isHovered = false;
-  bool _isPressed = false;
-  late final AnimationController _pressCtrl;
-  late final Animation<double> _scaleAnim;
 
   AnnouncementWithAuthor get item => widget.item;
   ColorScheme get cs => widget.cs;
   bool get isDark => widget.isDark;
-
-  @override
-  void initState() {
-    super.initState();
-    _pressCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 100),
-      reverseDuration: const Duration(milliseconds: 150),
-    );
-    _scaleAnim = Tween<double>(
-      begin: 1.0,
-      end: 0.98,
-    ).animate(CurvedAnimation(parent: _pressCtrl, curve: Curves.easeOut));
-  }
-
-  @override
-  void dispose() {
-    _pressCtrl.dispose();
-    super.dispose();
-  }
-
-  void _onTapDown(TapDownDetails _) {
-    setState(() => _isPressed = true);
-    _pressCtrl.forward();
-  }
-
-  void _onTapUp(TapUpDetails _) {
-    _pressCtrl.reverse();
-    setState(() => _isPressed = false);
-  }
-
-  void _onTapCancel() {
-    _pressCtrl.reverse();
-    setState(() => _isPressed = false);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -658,152 +621,136 @@ class _AnnouncementRowState extends State<_AnnouncementRow>
         ? cs.primary.withValues(alpha: 0.06)
         : cs.primary.withValues(alpha: 0.04);
     final hoverBg = cs.primary.withValues(alpha: 0.08);
-    final pressBg = cs.primary.withValues(alpha: 0.12);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: ScaleTransition(
-        scale: _scaleAnim,
+      child: buildPressable(
+        onTap: () => _showDetailSheet(context),
         child: MouseRegion(
           onEnter: (_) => setState(() => _isHovered = true),
           onExit: (_) => setState(() => _isHovered = false),
           cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            onTapDown: _onTapDown,
-            onTapUp: _onTapUp,
-            onTapCancel: _onTapCancel,
-            onTap: () => _showDetailSheet(context),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              curve: Curves.easeOut,
-              decoration: BoxDecoration(
-                color: _isPressed
-                    ? pressBg
-                    : _isHovered
-                    ? hoverBg
-                    : idleBg,
-                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                border: Border.all(
-                  color: _isHovered || _isPressed
-                      ? cs.outline.withValues(alpha: isDark ? 0.18 : 0.15)
-                      : cs.outline.withValues(alpha: 0.08),
-                  width: 0.5,
-                ),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOut,
+            decoration: BoxDecoration(
+              color: _isHovered ? hoverBg : idleBg,
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              border: Border.all(
+                color: _isHovered
+                    ? cs.outline.withValues(alpha: isDark ? 0.18 : 0.15)
+                    : cs.outline.withValues(alpha: 0.08),
+                width: 0.5,
               ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // ── Author avatar ────────────────────────────────────
-                    Container(
-                      width: 30,
-                      height: 30,
-                      decoration: BoxDecoration(
-                        color: cs.primary.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Center(
-                        child: Text(
-                          _authorInitial(),
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: cs.primary,
-                          ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Author avatar ────────────────────────────────────
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: cs.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Center(
+                      child: Text(
+                        _authorInitial(),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: cs.primary,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                  ),
+                  const SizedBox(width: 12),
 
-                    // ── Main content ─────────────────────────────────────
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Title + date row
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  item.title,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                    color: cs.onSurface,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                _formatTimestamp(item.created),
+                  // ── Main content ─────────────────────────────────────
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Title + date row
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                item.title,
                                 style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w400,
-                                  color: cs.onSurfaceVariant.withValues(
-                                    alpha: 0.55,
-                                  ),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: cs.onSurface,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _formatTimestamp(item.created),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w400,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.55,
                                 ),
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 3),
-
-                          // Body preview
-                          Text(
-                            item.content,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w400,
-                              color: cs.onSurfaceVariant.withValues(
-                                alpha: 0.65,
-                              ),
-                              height: 1.4,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-
-                          // Audience tags
-                          if (allTags.isNotEmpty) ...[
-                            const SizedBox(height: 6),
-                            Wrap(spacing: 5, runSpacing: 4, children: allTags),
                           ],
+                        ),
+                        const SizedBox(height: 3),
+
+                        // Body preview
+                        Text(
+                          item.content,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                            height: 1.4,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+
+                        // Audience tags
+                        if (allTags.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Wrap(spacing: 5, runSpacing: 4, children: allTags),
                         ],
-                      ),
+                      ],
                     ),
+                  ),
 
-                    // ── Desktop actions ──────────────────────────────────
-                    if ((canEdit || canDelete) && isDesktop) ...[
-                      const SizedBox(width: 4),
-                      _RowActions(
-                        isHovered: _isHovered,
-                        onEdit: canEdit ? () => _showEditSheet(context) : null,
-                        onDelete: canDelete
-                            ? () => _confirmDelete(context)
-                            : null,
-                        cs: cs,
-                      ),
-                    ],
-
-                    // ── Mobile three-dot ─────────────────────────────────
-                    if ((canEdit || canDelete) && !isDesktop)
-                      _MobileRowMenu(
-                        cs: cs,
-                        isDark: isDark,
-                        onEdit: canEdit ? () => _showEditSheet(context) : null,
-                        onDelete: canDelete
-                            ? () => _confirmDelete(context)
-                            : null,
-                      ),
+                  // ── Desktop actions ──────────────────────────────────
+                  if ((canEdit || canDelete) && isDesktop) ...[
+                    const SizedBox(width: 4),
+                    _RowActions(
+                      isHovered: _isHovered,
+                      onEdit: canEdit ? () => _showEditSheet(context) : null,
+                      onDelete: canDelete
+                          ? () => _confirmDelete(context)
+                          : null,
+                      cs: cs,
+                    ),
                   ],
-                ),
+
+                  // ── Mobile three-dot ─────────────────────────────────
+                  if ((canEdit || canDelete) && !isDesktop)
+                    _MobileRowMenu(
+                      cs: cs,
+                      isDark: isDark,
+                      onEdit: canEdit ? () => _showEditSheet(context) : null,
+                      onDelete: canDelete
+                          ? () => _confirmDelete(context)
+                          : null,
+                    ),
+                ],
               ),
             ),
           ),

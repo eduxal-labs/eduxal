@@ -5,6 +5,7 @@ import '../../../database/tables/enums.dart';
 import '../../../models/membership.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/edu_sheet.dart';
+import '../../widgets/pressable_row.dart';
 import '../../widgets/sync_indicator.dart';
 import '../../widgets/sync_status_banner.dart';
 import '../../widgets/student_avatar.dart';
@@ -608,43 +609,11 @@ class _EntryOptionCard extends StatefulWidget {
 }
 
 class _EntryOptionCardState extends State<_EntryOptionCard>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _scale;
+    with TickerProviderStateMixin, PressableRowMixin {
   bool _hovered = false;
-  bool _pressed = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 100),
-      reverseDuration: const Duration(milliseconds: 280),
-    );
-    _scale = Tween<double>(begin: 1.0, end: 0.97).animate(
-      CurvedAnimation(
-        parent: _ctrl,
-        curve: Curves.easeOut,
-        reverseCurve: Curves.elasticOut,
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
 
   Color get _bgColor {
     final base = AppTheme.nestedBg(widget.isDark, widget.cs);
-    if (_pressed) {
-      return Color.alphaBlend(
-        widget.roleColor.withValues(alpha: widget.isDark ? 0.12 : 0.08),
-        base,
-      );
-    }
     if (_hovered) {
       return Color.alphaBlend(
         widget.roleColor.withValues(alpha: widget.isDark ? 0.07 : 0.05),
@@ -654,11 +623,11 @@ class _EntryOptionCardState extends State<_EntryOptionCard>
     return base;
   }
 
-  Color get _borderColor => _pressed || _hovered
+  Color get _borderColor => _hovered
       ? widget.roleColor.withValues(alpha: 0.40)
       : AppTheme.borderColor(widget.isDark, widget.cs);
 
-  double get _accentAlpha => _pressed ? 1.0 : (_hovered ? 0.78 : 0.50);
+  double get _accentAlpha => _hovered ? 0.78 : 0.50;
 
   @override
   Widget build(BuildContext context) {
@@ -668,121 +637,104 @@ class _EntryOptionCardState extends State<_EntryOptionCard>
         cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
-        child: GestureDetector(
-          onTapDown: (_) {
-            setState(() => _pressed = true);
-            _ctrl.forward();
-          },
-          onTapUp: (_) {
-            setState(() => _pressed = false);
-            _ctrl.reverse();
-            widget.onTap();
-          },
-          onTapCancel: () {
-            setState(() => _pressed = false);
-            _ctrl.reverse();
-          },
-          child: ScaleTransition(
-            scale: _scale,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              curve: Curves.easeOut,
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                color: _bgColor,
-                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                border: Border.all(color: _borderColor),
-              ),
-              child: IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // ── Left accent bar
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      width: 3,
-                      color: widget.roleColor.withValues(alpha: _accentAlpha),
-                    ),
-                    const SizedBox(width: 12),
-                    // ── Role icon / custom leading widget
-                    Align(
-                      alignment: Alignment.center,
-                      child:
-                          widget.leadingWidget ??
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: widget.roleColor.withValues(
-                                alpha: widget.isDark ? 0.16 : 0.10,
-                              ),
-                              borderRadius: BorderRadius.circular(
-                                AppTheme.kCardRadius,
-                              ),
+        child: buildPressable(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOut,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: _bgColor,
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              border: Border.all(color: _borderColor),
+            ),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // ── Left accent bar
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 3,
+                    color: widget.roleColor.withValues(alpha: _accentAlpha),
+                  ),
+                  const SizedBox(width: 12),
+                  // ── Role icon / custom leading widget
+                  Align(
+                    alignment: Alignment.center,
+                    child:
+                        widget.leadingWidget ??
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: widget.roleColor.withValues(
+                              alpha: widget.isDark ? 0.16 : 0.10,
                             ),
-                            child: Icon(
-                              widget.icon,
-                              size: 20,
-                              color: widget.roleColor.withValues(alpha: 0.9),
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.kCardRadius,
                             ),
                           ),
-                    ),
-                    const SizedBox(width: 12),
-                    // ── Label + subtitle
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              widget.title,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: widget.cs.onSurface,
-                              ),
+                          child: Icon(
+                            widget.icon,
+                            size: 20,
+                            color: widget.roleColor.withValues(alpha: 0.9),
+                          ),
+                        ),
+                  ),
+                  const SizedBox(width: 12),
+                  // ── Label + subtitle
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            widget.title,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: widget.cs.onSurface,
                             ),
-                            if (widget.subtitle != null) ...[
-                              const SizedBox(height: 2),
-                              Text(
-                                widget.subtitle!,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w400,
-                                  color: widget.cs.onSurfaceVariant.withValues(
-                                    alpha: 0.65,
-                                  ),
+                          ),
+                          if (widget.subtitle != null) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              widget.subtitle!,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w400,
+                                color: widget.cs.onSurfaceVariant.withValues(
+                                  alpha: 0.65,
                                 ),
                               ),
-                            ],
+                            ),
                           ],
-                        ),
+                        ],
                       ),
                     ),
-                    // ── Animated chevron
-                    AnimatedSlide(
-                      offset: _hovered || _pressed
-                          ? const Offset(0.25, 0)
-                          : Offset.zero,
-                      duration: const Duration(milliseconds: 160),
-                      curve: Curves.easeOut,
-                      child: Padding(
-                        padding: const EdgeInsets.only(right: 14),
-                        child: Center(
-                          child: Icon(
-                            Icons.chevron_right_rounded,
-                            size: 20,
-                            color: widget.roleColor.withValues(
-                              alpha: _pressed || _hovered ? 0.80 : 0.35,
-                            ),
+                  ),
+                  // ── Animated chevron
+                  AnimatedSlide(
+                    offset: _hovered ? const Offset(0.25, 0) : Offset.zero,
+                    duration: const Duration(milliseconds: 160),
+                    curve: Curves.easeOut,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 14),
+                      child: Center(
+                        child: Icon(
+                          Icons.chevron_right_rounded,
+                          size: 20,
+                          color: widget.roleColor.withValues(
+                            alpha: _hovered ? 0.80 : 0.35,
                           ),
                         ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),

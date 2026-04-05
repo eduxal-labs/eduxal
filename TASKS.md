@@ -1964,8 +1964,8 @@ class _GradeCardState extends State<_GradeCard> with TickerProviderStateMixin, P
 ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/widgets/CONTEXT.md` — note widgets migrated to PressableRowMixin
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/widgets/CONTEXT.md` — note widgets migrated to PressableRowMixin
+- [x] Mark this task `[x]`
 
 ---
 
@@ -1993,8 +1993,8 @@ In each file listed above:
 5. **Verify** each file compiles after migration. Run `dart analyze` on each.
 
 **Update after completion:**
-- [ ] Update `lib/core/CONTEXT.md` — note migration complete
-- [ ] Mark this task `[x]`
+- [x] Update `lib/core/CONTEXT.md` — note migration complete
+- [x] Mark this task `[x]`
 
 ---
 

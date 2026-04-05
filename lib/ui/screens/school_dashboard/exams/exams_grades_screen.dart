@@ -7,6 +7,7 @@ import 'package:flutter/material.dart' hide Action;
 import 'package:flutter/services.dart';
 
 import '../../../../client.dart';
+import '../../../../core/formatters.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/catalog_dao.dart';
 import '../../../../database/daos/exams_grades_dao.dart';
@@ -767,7 +768,7 @@ class _ExamGroupRowState extends State<_ExamGroupRow>
                                         ),
                                         const SizedBox(width: 3),
                                         Text(
-                                          '${_fmtDate(startDate)} – ${_fmtDate(endDate)}',
+                                          '${fmtDateDt(startDate)} – ${fmtDateDt(endDate)}',
                                           style: TextStyle(
                                             fontSize: 11,
                                             fontWeight: FontWeight.w400,
@@ -4589,7 +4590,7 @@ class _GradeDateChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label =
-        '${date.day.toString().padLeft(2, '0')} ${_months[date.month - 1]}';
+        '${date.day.toString().padLeft(2, '0')} ${kMonthNames[date.month - 1]}';
     return GestureDetector(
       onTap: () async {
         final chosen = await showDialog<DateTime>(
@@ -4709,7 +4710,7 @@ class _GradeDatePickerDialog extends StatelessWidget {
                 children: examDays.map((day) {
                   final isSelected = _sameDay(day, selectedDate);
                   final label =
-                      '${day.day.toString().padLeft(2, '0')} ${_months[day.month - 1]}';
+                      '${day.day.toString().padLeft(2, '0')} ${kMonthNames[day.month - 1]}';
                   return GestureDetector(
                     onTap: () => Navigator.of(context).pop(day),
                     child: AnimatedContainer(
@@ -6247,10 +6248,10 @@ List<({String start, String end})> _uniquePaperStartTimes(List<Paper> papers) {
   for (final p in sorted) {
     final startDt = DateTime.fromMillisecondsSinceEpoch(p.start.toInt() * 1000);
     final endDt = DateTime.fromMillisecondsSinceEpoch(p.end.toInt() * 1000);
-    final startStr = _fmtTime(startDt);
+    final startStr = fmtTimeDt(startDt);
     if (!seen.contains(startStr)) {
       seen.add(startStr);
-      result.add((start: startStr, end: _fmtTime(endDt)));
+      result.add((start: startStr, end: fmtTimeDt(endDt)));
     }
   }
   return result;
@@ -6265,19 +6266,17 @@ List<Paper> _papersAt(
   final papers = grouped[day] ?? [];
   return papers.where((p) {
     final dt = DateTime.fromMillisecondsSinceEpoch(p.start.toInt() * 1000);
-    return _fmtTime(dt) == startTime;
+    return fmtTimeDt(dt) == startTime;
   }).toList();
 }
 
 String _fmtDayHeader(DateTime d) {
-  const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  final wd = weekdays[d.weekday - 1];
-  return '$wd, ${d.day} ${_months[d.month - 1]}';
+  final wd = kDayNames[d.weekday - 1];
+  return '$wd, ${d.day} ${kMonthNames[d.month - 1]}';
 }
 
 String _fmtDayColumn(DateTime d) {
-  const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  final wd = weekdays[d.weekday - 1];
+  final wd = kDayNames[d.weekday - 1];
   return '$wd ${d.day}';
 }
 
@@ -6373,8 +6372,8 @@ class _ExamGroupCrossTable extends StatelessWidget {
         if (seen.add(mins)) {
           final edt = DateTime.fromMillisecondsSinceEpoch(p.end.toInt() * 1000);
           timeCols.add((
-            start: _fmtTime(sdt),
-            end: _fmtTime(edt),
+            start: fmtTimeDt(sdt),
+            end: fmtTimeDt(edt),
             startMins: mins,
           ));
         }
@@ -7411,7 +7410,7 @@ class _PaperSlotCard extends StatelessWidget {
       paper.start.toInt() * 1000,
     );
     final endDt = DateTime.fromMillisecondsSinceEpoch(paper.end.toInt() * 1000);
-    final timeRange = '${_fmtTime(startDt)} – ${_fmtTime(endDt)}';
+    final timeRange = '${fmtTimeDt(startDt)} – ${fmtTimeDt(endDt)}';
     final invDisplay = invigilatorName.isNotEmpty ? invigilatorName : '—';
 
     return InkWell(
@@ -8400,7 +8399,7 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
 
     final d = _selectedDate;
     final dateLabel =
-        '${_kDayNamesShort[d.weekday % 7]}, ${d.day} ${_kMonthsShort[d.month - 1]} ${d.year}';
+        '${kDayNames[d.weekday - 1]}, ${d.day} ${kMonthNames[d.month - 1]} ${d.year}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -9018,7 +9017,7 @@ class _PaperSingleCalendarState extends State<_PaperSingleCalendar> {
               ),
               Expanded(
                 child: Text(
-                  '${_kFullMonthNames[_month.month - 1]} ${_month.year}',
+                  '${kMonthNamesFull[_month.month - 1]} ${_month.year}',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 13,
@@ -9846,53 +9845,6 @@ Color _pctColor(double pct, ColorScheme cs) {
   if (pct >= 50) return const Color(0xFFF59E0B);
   return cs.error;
 }
-
-String _fmtDate(DateTime d) =>
-    '${d.day.toString().padLeft(2, '0')} ${_months[d.month - 1]} ${d.year}';
-
-String _fmtTime(DateTime d) =>
-    '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-
-String _fmtScore(double score) => score == score.truncateToDouble()
-    ? score.toInt().toString()
-    : score.toStringAsFixed(1);
-
-const _months = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
-
-// Short month names (alias for calendar widgets)
-const _kMonthsShort = _months;
-
-// Full month names for calendar header
-const _kFullMonthNames = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-];
-
-// Short weekday names starting Sunday (index = weekday % 7)
-const _kDayNamesShort = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 InputDecoration _inputDeco(ColorScheme cs, {String? label}) {
   final isDark = cs.brightness == Brightness.dark;

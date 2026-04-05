@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/formatters.dart';
 import '../../../../../database/database.dart';
 import '../../../../../database/daos/academics_dao.dart';
 import '../../../../../database/daos/catalog_dao.dart';
@@ -669,7 +670,7 @@ class _ExamRowState extends State<_ExamRow>
                                         ),
                                         const SizedBox(width: 3),
                                         Text(
-                                          '${_fmtDate(startDate)} – ${_fmtDate(endDate)}',
+                                          '${fmtDateDt(startDate)} – ${fmtDateDt(endDate)}',
                                           style: TextStyle(
                                             fontSize: 11,
                                             fontWeight: FontWeight.w400,
@@ -836,21 +837,3 @@ Color _examTypeColor(ExamType type, ColorScheme cs) => switch (type) {
   ExamType.assignment => const Color(0xFFF59E0B),
   ExamType.assessment => const Color(0xFF4CAF50),
 };
-
-String _fmtDate(DateTime d) =>
-    '${d.day.toString().padLeft(2, '0')} ${_months[d.month - 1]} ${d.year}';
-
-const _months = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
