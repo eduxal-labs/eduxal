@@ -14,6 +14,7 @@ This directory contains **7 files** providing app-wide constants, extension meth
 | `app_cache.dart` | `AppCache` | ✅ Complete |
 | `constants.dart` | `kDomain`, `kPort`, `kVerificationExpiry`, `kResendCooldown`, `kAccessTokenDuration`, `kRefreshTokenDuration` | ✅ Complete |
 | `extensions.dart` | `PhoneNormalisation` extension on `String`, `gradeLabel()`, `gradeStreamLabel()` | ✅ Complete |
+| `formatters.dart` | `fmtDate`, `fmtDateFull`, `fmtDateDt`, `fmtDateContextual`, `fmtTime`, `fmtTimeSecs`, `fmtTimeDt`, `fmtScore`, `fmtPercent`, `fmtCurrency`, `fmtRelativeTime`, `dateFromDays`, `daysFromDate`, `kMonthNames`, `kMonthNamesFull`, `kDayNames` | ✅ Complete |
 | `grpc_errors.dart` | `GrpcErrorMessage` extension on `GrpcError` | ✅ Complete |
 | `permission_parser.dart` | `parsePermissions`, `serialisePermissions`, `countPermissions`, `popcount` | ✅ Complete |
 | `seeder.dart` | `Seeder` | ✅ Complete |
@@ -276,4 +277,5 @@ Populates the local Drift database with a realistic Kenyan secondary school for 
 - `applicationId = "com.eduxal.app"`, `android:label = "EduXal"` (set in Task 12)
 
 ## Last Updated
+Task H6 — Added `formatters.dart`: shared date/time/score/currency/relative-time formatting utilities extracted from duplicated private helpers across 8+ UI files. 16 exported symbols. Pure Dart, no Flutter dependency. File count: 8 files.
 Task A01 — Added `parsePermissionsBlob(Uint8List?)` as the new canonical parser for the `roles.permissions` blob column. Deprecated `parsePermissions(String?)` (retained for schema migration v9→v10 and fallback inside `parsePermissionsBlob`). Updated `serialisePermissions` deprecation notice. Seeder now produces binary blob via `Permissions(map).toBlob()` instead of JSON string. All 7 files current.
