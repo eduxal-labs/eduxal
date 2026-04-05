@@ -22,7 +22,9 @@ import '../../../../models/grade_analytics.dart';
 import '../../../../models/permissions.dart';
 import '../../../../models/school_permissions.dart';
 import '../../../widgets/active_term_provider.dart';
+import '../../../widgets/countdown_chip.dart';
 import '../../../widgets/student_avatar.dart';
+import '../../../widgets/today_status_card.dart';
 import '../../../theme/app_theme.dart';
 import '../school_dashboard_screen.dart';
 
@@ -260,6 +262,17 @@ class _TeacherOverview extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       children: [
+        // ── Next class countdown ─────────────────────────────────────────
+        if (term != null && userId.isNotEmpty) ...[
+          _TeacherNextClass(
+            schoolId: schoolId,
+            year: term.year,
+            term: term.term,
+            teacherUserId: userId,
+          ),
+          const SizedBox(height: 16),
+        ],
+
         // ── Today's schedule ─────────────────────────────────────────────
         if (term != null && userId.isNotEmpty) ...[
           _SectionTitle(
@@ -329,6 +342,117 @@ class _TeacherOverview extends StatelessWidget {
 
         const SizedBox(height: 80),
       ],
+    );
+  }
+}
+
+class _TeacherNextClass extends StatefulWidget {
+  const _TeacherNextClass({
+    required this.schoolId,
+    required this.year,
+    required this.term,
+    required this.teacherUserId,
+  });
+
+  final String schoolId;
+  final int year;
+  final int term;
+  final String teacherUserId;
+
+  @override
+  State<_TeacherNextClass> createState() => _TeacherNextClassState();
+}
+
+class _TeacherNextClassState extends State<_TeacherNextClass> {
+  late Future<List<Subject>> _subjectsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _subjectsFuture = CatalogDao(db).getSubjects();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TeacherNextClass oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.schoolId != widget.schoolId) {
+      setState(() {
+        _subjectsFuture = CatalogDao(db).getSubjects();
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<TimetableData>>(
+      stream: TimetableDao(db).watchTeacherTimetable(
+        schoolId: widget.schoolId,
+        year: widget.year,
+        term: widget.term,
+        teacherUserId: widget.teacherUserId,
+      ),
+      builder: (context, snap) {
+        if (!snap.hasData) return const SizedBox.shrink();
+
+        final allSlots = snap.data!;
+        final todayDay = _currentDayOfWeek();
+        final now = DateTime.now();
+        final nowSec = now.hour * 3600 + now.minute * 60 + now.second;
+
+        final todaySlots =
+            allSlots.where((s) => s.day == todayDay && s.end > nowSec).toList()
+              ..sort((a, b) => a.start.compareTo(b.start));
+
+        if (todaySlots.isEmpty) return const SizedBox.shrink();
+
+        final nextSlot = todaySlots.firstWhere(
+          (s) => s.start > nowSec,
+          orElse: () => todaySlots.first,
+        );
+
+        final isInProgress = nextSlot.start <= nowSec && nextSlot.end > nowSec;
+
+        return FutureBuilder<List<Subject>>(
+          future: _subjectsFuture,
+          builder: (context, subSnap) {
+            final subjectMap = <int, String>{};
+            for (final s in subSnap.data ?? []) {
+              subjectMap[s.id] = s.name;
+            }
+            final subjectName = subjectMap[nextSlot.subject] ?? 'Class';
+
+            if (isInProgress) {
+              return TodayStatusCard(
+                type: TodayStatusType.positive,
+                icon: Icons.play_circle_rounded,
+                title: '$subjectName in progress',
+                subtitle:
+                    '${_fmtTime(nextSlot.start)} – ${_fmtTime(nextSlot.end)}',
+                trailing: CountdownChip(
+                  label: 'Ends',
+                  targetTime: _todayAtSeconds(nextSlot.end),
+                  icon: Icons.timer_outlined,
+                  compact: true,
+                ),
+              );
+            }
+
+            return TodayStatusCard(
+              type: TodayStatusType.neutral,
+              icon: Icons.schedule_rounded,
+              title: 'Next: $subjectName',
+              subtitle:
+                  '${_fmtTime(nextSlot.start)} – ${_fmtTime(nextSlot.end)}',
+              trailing: CountdownChip(
+                label: 'Starts',
+                targetTime: _todayAtSeconds(nextSlot.start),
+                icon: Icons.timer_outlined,
+                compact: true,
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -1533,6 +1657,29 @@ class _StudentOverview extends StatelessWidget {
 
         const SizedBox(height: 16),
 
+        // ── Today's attendance status ────────────────────────────────────
+        if (term != null) ...[
+          _StudentTodayAttendance(
+            schoolId: schoolId,
+            year: term.year,
+            term: term.term,
+            studentAdm: studentAdm,
+            studentName: studentName,
+          ),
+          const SizedBox(height: 12),
+        ],
+
+        // ── Next class countdown ─────────────────────────────────────────
+        if (term != null) ...[
+          _StudentNextClass(
+            schoolId: schoolId,
+            year: term.year,
+            term: term.term,
+            studentAdm: studentAdm,
+          ),
+          const SizedBox(height: 16),
+        ],
+
         // ── Enrollment info ──────────────────────────────────────────────
         if (term != null) ...[
           _StudentEnrollmentInfo(
@@ -1573,6 +1720,22 @@ class _StudentOverview extends StatelessWidget {
           const SizedBox(height: 20),
         ],
 
+        // ── Upcoming exams ───────────────────────────────────────────────
+        if (term != null) ...[
+          _SectionTitle(
+            label: 'Upcoming Exams',
+            cs: cs,
+            onViewAll: () => DashboardNavigation.goToTab(context, 'Exams'),
+          ),
+          const SizedBox(height: 8),
+          _StudentUpcomingExams(
+            schoolId: schoolId,
+            term: term,
+            studentAdm: studentAdm,
+          ),
+          const SizedBox(height: 20),
+        ],
+
         // ── Attendance summary ───────────────────────────────────────────
         if (term != null) ...[
           _SectionTitle(
@@ -1608,6 +1771,385 @@ class _StudentOverview extends StatelessWidget {
 
         const SizedBox(height: 80),
       ],
+    );
+  }
+}
+
+class _StudentNextClass extends StatelessWidget {
+  const _StudentNextClass({
+    required this.schoolId,
+    required this.year,
+    required this.term,
+    required this.studentAdm,
+  });
+
+  final String schoolId;
+  final int year;
+  final int term;
+  final int studentAdm;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<Enrollment?>(
+      stream: EnrollmentsDao(db).watchStudentEnrollment(
+        schoolId: schoolId,
+        year: year,
+        term: term,
+        studentAdm: studentAdm,
+      ),
+      builder: (context, enrollSnap) {
+        if (!enrollSnap.hasData || enrollSnap.data == null) {
+          return const SizedBox.shrink();
+        }
+        final enrollment = enrollSnap.data!;
+
+        return StreamBuilder<List<TimetableEntry>>(
+          stream: TimetableDao(db).watchClassTimetable(
+            schoolId: schoolId,
+            year: year,
+            term: term,
+            grade: enrollment.grade,
+            stream: enrollment.stream,
+          ),
+          builder: (context, snap) {
+            if (!snap.hasData) return const SizedBox.shrink();
+
+            final todayDay = _currentDayOfWeek();
+            final now = DateTime.now();
+            final nowSec = now.hour * 3600 + now.minute * 60 + now.second;
+
+            final todaySlots =
+                snap.data!
+                    .where((e) => e.slot.day == todayDay && e.slot.end > nowSec)
+                    .toList()
+                  ..sort((a, b) => a.slot.start.compareTo(b.slot.start));
+
+            if (todaySlots.isEmpty) return const SizedBox.shrink();
+
+            final next = todaySlots.firstWhere(
+              (e) => e.slot.start > nowSec,
+              orElse: () => todaySlots.first,
+            );
+
+            final isInProgress =
+                next.slot.start <= nowSec && next.slot.end > nowSec;
+
+            if (isInProgress) {
+              return TodayStatusCard(
+                type: TodayStatusType.positive,
+                icon: Icons.play_circle_rounded,
+                title: '${next.subjectName} in progress',
+                subtitle:
+                    '${_fmtTime(next.slot.start)} – ${_fmtTime(next.slot.end)}',
+                trailing: CountdownChip(
+                  label: 'Ends',
+                  targetTime: _todayAtSeconds(next.slot.end),
+                  icon: Icons.timer_outlined,
+                  compact: true,
+                ),
+              );
+            }
+
+            return TodayStatusCard(
+              type: TodayStatusType.neutral,
+              icon: Icons.schedule_rounded,
+              title: 'Next: ${next.subjectName}',
+              subtitle:
+                  '${_fmtTime(next.slot.start)} – ${_fmtTime(next.slot.end)}',
+              trailing: CountdownChip(
+                label: 'Starts',
+                targetTime: _todayAtSeconds(next.slot.start),
+                icon: Icons.timer_outlined,
+                compact: true,
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _StudentTodayAttendance extends StatelessWidget {
+  const _StudentTodayAttendance({
+    required this.schoolId,
+    required this.year,
+    required this.term,
+    required this.studentAdm,
+    required this.studentName,
+  });
+
+  final String schoolId;
+  final int year;
+  final int term;
+  final int studentAdm;
+  final String studentName;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<Enrollment?>(
+      stream: EnrollmentsDao(db).watchStudentEnrollment(
+        schoolId: schoolId,
+        year: year,
+        term: term,
+        studentAdm: studentAdm,
+      ),
+      builder: (context, enrollSnap) {
+        if (!enrollSnap.hasData || enrollSnap.data == null) {
+          return const SizedBox.shrink();
+        }
+        final enrollment = enrollSnap.data!;
+        final todayDays = DateTime.now()
+            .toUtc()
+            .difference(DateTime.utc(1970, 1, 1))
+            .inDays;
+
+        return StreamBuilder<List<StudentAttendanceRow>>(
+          stream: AttendanceDao(db).watchClassAttendance(
+            schoolId: schoolId,
+            year: year,
+            term: term,
+            grade: enrollment.grade,
+            stream: enrollment.stream,
+            date: todayDays,
+          ),
+          builder: (context, attSnap) {
+            if (!attSnap.hasData) {
+              return TodayStatusCard(
+                type: TodayStatusType.neutral,
+                icon: Icons.schedule_rounded,
+                title: 'Checking attendance...',
+              );
+            }
+
+            final myRecord = attSnap.data!
+                .where((r) => r.student.adm == studentAdm)
+                .firstOrNull;
+
+            if (myRecord == null || !myRecord.isMarked) {
+              return TodayStatusCard(
+                type: TodayStatusType.neutral,
+                icon: Icons.hourglass_empty_rounded,
+                title: 'Attendance not yet taken',
+                subtitle: 'Your class hasn\'t been marked today',
+              );
+            }
+
+            final status = myRecord.effectiveStatus;
+            final isPresent = status == AttendanceStatus.present;
+            final isAbsent = status == AttendanceStatus.absent;
+
+            return TodayStatusCard(
+              type: isPresent
+                  ? TodayStatusType.positive
+                  : isAbsent
+                  ? TodayStatusType.negative
+                  : TodayStatusType.warning,
+              icon: isPresent
+                  ? Icons.check_circle_rounded
+                  : isAbsent
+                  ? Icons.cancel_rounded
+                  : Icons.info_rounded,
+              title: isPresent
+                  ? 'You are marked present today'
+                  : isAbsent
+                  ? 'You are marked absent today'
+                  : 'You are on leave today',
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _StudentUpcomingExams extends StatefulWidget {
+  const _StudentUpcomingExams({
+    required this.schoolId,
+    required this.term,
+    required this.studentAdm,
+  });
+
+  final String schoolId;
+  final Term term;
+  final int studentAdm;
+
+  @override
+  State<_StudentUpcomingExams> createState() => _StudentUpcomingExamsState();
+}
+
+class _StudentUpcomingExamsState extends State<_StudentUpcomingExams> {
+  late Future<List<Subject>> _subjectsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _subjectsFuture = CatalogDao(db).getSubjects();
+  }
+
+  @override
+  void didUpdateWidget(covariant _StudentUpcomingExams oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.schoolId != widget.schoolId) {
+      setState(() {
+        _subjectsFuture = CatalogDao(db).getSubjects();
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final nowSeconds = BigInt.from(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+    );
+
+    return StreamBuilder<Enrollment?>(
+      stream: EnrollmentsDao(db).watchStudentEnrollment(
+        schoolId: widget.schoolId,
+        year: widget.term.year,
+        term: widget.term.term,
+        studentAdm: widget.studentAdm,
+      ),
+      builder: (context, enrollSnap) {
+        if (!enrollSnap.hasData || enrollSnap.data == null) {
+          return _EmptyCard(
+            icon: Icons.assignment_outlined,
+            message: 'No upcoming exams',
+          );
+        }
+        final enrollment = enrollSnap.data!;
+
+        return StreamBuilder<List<ExamWithPapers>>(
+          stream: ExamsGradesDao(db).watchExamsForClass(
+            schoolId: widget.schoolId,
+            year: widget.term.year,
+            term: widget.term.term,
+            grade: enrollment.grade,
+            stream: enrollment.stream,
+          ),
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const _LoadingShimmer();
+            }
+
+            final allExams = snap.data ?? [];
+            final upcoming = <({Exam exam, Paper paper})>[];
+            for (final e in allExams) {
+              for (final p in e.papers) {
+                if (p.start > nowSeconds &&
+                    p.grade == enrollment.grade &&
+                    (p.stream == null || p.stream == enrollment.stream)) {
+                  upcoming.add((exam: e.exam, paper: p));
+                }
+              }
+            }
+
+            upcoming.sort((a, b) => a.paper.start.compareTo(b.paper.start));
+
+            if (upcoming.isEmpty) {
+              return _EmptyCard(
+                icon: Icons.assignment_outlined,
+                message: 'No upcoming exams',
+              );
+            }
+
+            final display = upcoming.take(3).toList();
+
+            return FutureBuilder<List<Subject>>(
+              future: _subjectsFuture,
+              builder: (context, subSnap) {
+                final subjectMap = <int, String>{};
+                for (final s in subSnap.data ?? []) {
+                  subjectMap[s.id] = s.name;
+                }
+
+                return Container(
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                    border: Border.all(
+                      color: cs.outline.withValues(alpha: 0.08),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < display.length; i++) ...[
+                        if (i > 0)
+                          Divider(
+                            height: 0.5,
+                            thickness: 0.5,
+                            color: cs.outline.withValues(alpha: 0.06),
+                          ),
+                        _buildExamRow(
+                          examName: display[i].exam.name,
+                          subjectName:
+                              subjectMap[display[i].paper.subject] ??
+                              'Subject ${display[i].paper.subject}',
+                          paperStart: display[i].paper.start,
+                          cs: cs,
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildExamRow({
+    required String examName,
+    required String subjectName,
+    required BigInt paperStart,
+    required ColorScheme cs,
+  }) {
+    final startDt = DateTime.fromMillisecondsSinceEpoch(
+      paperStart.toInt() * 1000,
+      isUtc: true,
+    ).toLocal();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  examName,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$subjectName · ${_fmtDateFromSeconds(paperStart)}',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          CountdownChip(
+            label: subjectName,
+            targetTime: startDt,
+            icon: Icons.access_time_rounded,
+            compact: true,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -2099,6 +2641,92 @@ class _GuardianOverview extends StatelessWidget {
         _WelcomeCard(name: userName, subtitle: 'Guardian', cs: cs),
 
         const SizedBox(height: 16),
+
+        // ── 1b. Ward attendance status ───────────────────────────────────
+        if (term != null)
+          StreamBuilder<Enrollment?>(
+            stream: EnrollmentsDao(db).watchStudentEnrollment(
+              schoolId: schoolId,
+              year: term.year,
+              term: term.term,
+              studentAdm: ward.adm,
+            ),
+            builder: (context, enrollSnap) {
+              if (!enrollSnap.hasData || enrollSnap.data == null) {
+                return const SizedBox.shrink();
+              }
+              final enrollment = enrollSnap.data!;
+              final todayDays = DateTime.now()
+                  .toUtc()
+                  .difference(DateTime.utc(1970, 1, 1))
+                  .inDays;
+
+              return StreamBuilder<List<StudentAttendanceRow>>(
+                stream: AttendanceDao(db).watchClassAttendance(
+                  schoolId: schoolId,
+                  year: term.year,
+                  term: term.term,
+                  grade: enrollment.grade,
+                  stream: enrollment.stream,
+                  date: todayDays,
+                ),
+                builder: (context, attSnap) {
+                  if (!attSnap.hasData) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: TodayStatusCard(
+                        type: TodayStatusType.neutral,
+                        icon: Icons.schedule_rounded,
+                        title: 'Checking attendance...',
+                      ),
+                    );
+                  }
+
+                  final wardRecord = attSnap.data!
+                      .where((r) => r.student.adm == ward.adm)
+                      .firstOrNull;
+
+                  if (wardRecord == null || !wardRecord.isMarked) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: TodayStatusCard(
+                        type: TodayStatusType.neutral,
+                        icon: Icons.hourglass_empty_rounded,
+                        title: 'Attendance not yet taken',
+                        subtitle:
+                            '${ward.name}\'s class hasn\'t been marked today',
+                      ),
+                    );
+                  }
+
+                  final status = wardRecord.effectiveStatus;
+                  final isPresent = status == AttendanceStatus.present;
+                  final isAbsent = status == AttendanceStatus.absent;
+
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: TodayStatusCard(
+                      type: isPresent
+                          ? TodayStatusType.positive
+                          : isAbsent
+                          ? TodayStatusType.negative
+                          : TodayStatusType.warning,
+                      icon: isPresent
+                          ? Icons.check_circle_rounded
+                          : isAbsent
+                          ? Icons.cancel_rounded
+                          : Icons.info_rounded,
+                      title: isPresent
+                          ? '${ward.name} is present today'
+                          : isAbsent
+                          ? '${ward.name} is absent today'
+                          : '${ward.name} is on leave today',
+                    ),
+                  );
+                },
+              );
+            },
+          ),
 
         // ── 2. Ward info (enhanced) ──────────────────────────────────────
         _WardInfoCard(ward: ward, schoolId: schoolId, term: term),
@@ -3501,6 +4129,16 @@ class _LoadingShimmer extends StatelessWidget {
 // ═════════════════════════════════════════════════════════════════════════════
 // HELPERS
 // ═════════════════════════════════════════════════════════════════════════════
+
+/// Converts seconds since midnight into a [DateTime] for today.
+DateTime _todayAtSeconds(int secondsSinceMidnight) {
+  final now = DateTime.now();
+  return DateTime(
+    now.year,
+    now.month,
+    now.day,
+  ).add(Duration(seconds: secondsSinceMidnight));
+}
 
 /// Returns the current day of the week as a [DayOfWeek] enum value.
 DayOfWeek _currentDayOfWeek() {

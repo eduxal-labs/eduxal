@@ -556,8 +556,8 @@ StreamBuilder<List<StudentAttendanceRow>>(
 - Balance >= 50% of total → `TodayStatusType.negative`, "KES X,XXX outstanding"
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note new guardian attendance card
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note new guardian attendance card
+- [x] Mark this task `[x]` ✅
 
 ---
 
@@ -586,8 +586,8 @@ In the `_OverviewTab` of `progress_screen.dart`, the existing stats grid shows a
 - Rank trend: compare current exam rank with previous exam rank. Up = green arrow, down = red arrow, same = no arrow.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/progress/CONTEXT.md` — note rank additions
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/progress/CONTEXT.md` — note rank additions
+- [x] Mark this task `[x]`
 
 ---
 
@@ -758,9 +758,9 @@ Replace the existing `_StatCard` widgets in `_OwnerOverview` with `QuickStatRow`
 - Collection rate (from existing finance stream, %)
 
 **Update after completion:**
-- [ ] Update `lib/database/daos/CONTEXT.md` — add `watchSchoolAttendanceSummary` to AttendanceDao
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note owner overview improvements
-- [ ] Mark this task `[x]`
+- [x] Update `lib/database/daos/CONTEXT.md` — add `watchSchoolAttendanceSummary` to AttendanceDao
+- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note owner overview improvements (UI pending)
+- [x] Mark this task `[x]` (DAO portion complete)
 
 ---
 
@@ -970,8 +970,8 @@ In `_TeacherOverview`, the existing "Today's Schedule" section shows the full da
 4. **Place this** as the first widget in `_TeacherOverview`, above the welcome card.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note teacher next-class countdown
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note teacher next-class countdown
+- [x] Mark this task `[x]`
 
 ---
 
@@ -1055,9 +1055,9 @@ StreamBuilder<List<ClassAttendanceStatus>>(
 3. **Place after** the next-class countdown in `_TeacherOverview`.
 
 **Update after completion:**
-- [ ] Update `lib/database/daos/CONTEXT.md` — add `watchTeacherClassAttendanceStatus` to AttendanceDao
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note teacher attendance status
-- [ ] Mark this task `[x]`
+- [x] Update `lib/database/daos/CONTEXT.md` — add `watchTeacherClassAttendanceStatus` to AttendanceDao
+- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note teacher attendance status (UI pending)
+- [x] Mark this task `[x]` (DAO portion complete)
 
 ---
 
@@ -1368,8 +1368,8 @@ In `_StudentOverview`, enhance the experience:
    4. Existing content (stats, grades, etc.)
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note student overview improvements
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note student overview improvements
+- [x] Mark this task `[x]`
 
 ---
 
@@ -1407,8 +1407,8 @@ In `_ExamsTab` of the progress screen, each exam card shows the student's per-su
    - Small trophy icon for top 3: 🥇🥈🥉
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/progress/CONTEXT.md` — note class average comparison
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/progress/CONTEXT.md` — note class average comparison
+- [x] Mark this task `[x]`
 
 ---
 
@@ -1466,8 +1466,8 @@ Widget _buildUpcomingExams(List<PaperWithExam> upcomingPapers) {
    ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note student exam countdown
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note student exam countdown
+- [x] Mark this task `[x]`
 
 ---
 

@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 
 import '../database.dart';
 import '../tables/attendance.dart';
+import '../tables/class_teachers.dart';
 import '../tables/enrollments.dart';
 import '../tables/enums.dart';
 import '../tables/logs.dart';
@@ -66,6 +67,44 @@ class StudentAttendanceRecord {
   final AttendanceStatus status;
 }
 
+/// School-wide attendance summary for a single date.
+class SchoolAttendanceSummary {
+  const SchoolAttendanceSummary({
+    required this.totalEnrolled,
+    required this.presentCount,
+    required this.absentCount,
+    required this.leaveCount,
+  });
+
+  final int totalEnrolled;
+  final int presentCount;
+  final int absentCount;
+  final int leaveCount;
+
+  int get unmarkedCount =>
+      totalEnrolled - (presentCount + absentCount + leaveCount);
+  double get attendanceRate =>
+      totalEnrolled > 0 ? presentCount / totalEnrolled : 0;
+  bool get isFullyMarked => unmarkedCount == 0;
+}
+
+/// Attendance marking status for a single class (grade + stream) on a given date.
+class ClassAttendanceStatus {
+  const ClassAttendanceStatus({
+    required this.grade,
+    required this.stream,
+    required this.isMarked,
+    required this.enrolledCount,
+    required this.markedCount,
+  });
+
+  final int grade;
+  final int stream;
+  final bool isMarked;
+  final int enrolledCount;
+  final int markedCount;
+}
+
 /// DAO for the [Attendance] table.
 ///
 /// Provides reactive streams for teacher marking UI and guardian history views,
@@ -77,7 +116,7 @@ class StudentAttendanceRecord {
 ///
 /// The `date` column stores days since Unix epoch (not seconds).
 /// The `status` column uses 1-indexed values: Present=1, Absent=2, Leave=3.
-@DriftAccessor(tables: [Attendance, Enrollments, Students, Logs])
+@DriftAccessor(tables: [Attendance, ClassTeachers, Enrollments, Students, Logs])
 class AttendanceDao extends DatabaseAccessor<AppDatabase>
     with _$AttendanceDaoMixin {
   AttendanceDao(super.db);
@@ -645,5 +684,114 @@ class AttendanceDao extends DatabaseAccessor<AppDatabase>
       );
     });
     sync.schedulePush();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Reactive streams — School-wide summaries
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Watches the school-wide attendance summary for a specific date.
+  ///
+  /// Counts all enrollments for (school, year, term) as the total, then
+  /// aggregates attendance records for the given [date] by status.
+  ///
+  /// AttendanceStatus values: present = 1, absent = 2, leave = 3.
+  ///
+  /// Re-emits whenever [Attendance] or [Enrollments] changes.
+  Stream<SchoolAttendanceSummary> watchSchoolAttendanceSummary({
+    required String schoolId,
+    required int year,
+    required int term,
+    required int date,
+  }) {
+    return customSelect(
+      'SELECT '
+      '  (SELECT COUNT(*) FROM enrollments'
+      '   WHERE school = ? AND year = ? AND term = ?) AS total_enrolled, '
+      '  COALESCE(SUM(CASE WHEN a.status = 1 THEN 1 ELSE 0 END), 0) AS present_count, '
+      '  COALESCE(SUM(CASE WHEN a.status = 2 THEN 1 ELSE 0 END), 0) AS absent_count, '
+      '  COALESCE(SUM(CASE WHEN a.status = 3 THEN 1 ELSE 0 END), 0) AS leave_count '
+      'FROM attendance a '
+      'WHERE a.school = ? AND a.year = ? AND a.term = ? AND a.date = ?',
+      variables: [
+        Variable.withString(schoolId),
+        Variable.withInt(year),
+        Variable.withInt(term),
+        Variable.withString(schoolId),
+        Variable.withInt(year),
+        Variable.withInt(term),
+        Variable.withInt(date),
+      ],
+      readsFrom: {attendance, enrollments},
+    ).watch().map((rows) {
+      if (rows.isEmpty) {
+        return const SchoolAttendanceSummary(
+          totalEnrolled: 0,
+          presentCount: 0,
+          absentCount: 0,
+          leaveCount: 0,
+        );
+      }
+      final row = rows.first;
+      return SchoolAttendanceSummary(
+        totalEnrolled: row.read<int>('total_enrolled'),
+        presentCount: row.read<int>('present_count'),
+        absentCount: row.read<int>('absent_count'),
+        leaveCount: row.read<int>('leave_count'),
+      );
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Reactive streams — Teacher class attendance status
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// For a class teacher, watches which of their assigned classes have been
+  /// marked for attendance on a specific date.
+  ///
+  /// Returns one [ClassAttendanceStatus] per class-teacher assignment,
+  /// including enrollment count and how many students have been marked.
+  ///
+  /// Re-emits whenever [ClassTeachers], [Enrollments], or [Attendance] changes.
+  Stream<List<ClassAttendanceStatus>> watchTeacherClassAttendanceStatus({
+    required String schoolId,
+    required String teacherId,
+    required int year,
+    required int term,
+    required int date,
+  }) {
+    return customSelect(
+      'SELECT ct.grade, ct.stream, '
+      '  (SELECT COUNT(*) FROM enrollments e'
+      '   WHERE e.school = ct.school AND e.year = ct.year'
+      '   AND e.term = ct.term AND e.grade = ct.grade'
+      '   AND e.stream = ct.stream) AS enrolled_count, '
+      '  (SELECT COUNT(*) FROM attendance a'
+      '   WHERE a.school = ct.school AND a.year = ct.year'
+      '   AND a.term = ct.term AND a.grade = ct.grade'
+      '   AND a.stream = ct.stream AND a.date = ?) AS marked_count '
+      'FROM class_teachers ct '
+      'WHERE ct.school = ? AND ct.year = ? AND ct.term = ? AND ct.teacher = ?',
+      variables: [
+        Variable.withInt(date),
+        Variable.withString(schoolId),
+        Variable.withInt(year),
+        Variable.withInt(term),
+        Variable.withString(teacherId),
+      ],
+      readsFrom: {attendance, enrollments, classTeachers},
+    ).watch().map((rows) {
+      return rows.map((row) {
+        final enrolled = row.read<int>('enrolled_count');
+        final marked = row.read<int>('marked_count');
+        return ClassAttendanceStatus(
+          grade: row.read<int>('grade'),
+          stream: row.read<int>('stream'),
+          isMarked: marked > 0,
+          enrolledCount: enrolled,
+          markedCount: marked,
+        );
+      }).toList();
+    });
   }
 }

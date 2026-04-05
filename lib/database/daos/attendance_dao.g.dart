@@ -6,6 +6,7 @@ part of 'attendance_dao.dart';
 mixin _$AttendanceDaoMixin on DatabaseAccessor<AppDatabase> {
   $SchoolsTable get schools => attachedDatabase.schools;
   $AttendanceTable get attendance => attachedDatabase.attendance;
+  $ClassTeachersTable get classTeachers => attachedDatabase.classTeachers;
   $EnrollmentsTable get enrollments => attachedDatabase.enrollments;
   $UsersTable get users => attachedDatabase.users;
   $StudentsTable get students => attachedDatabase.students;
@@ -21,6 +22,8 @@ class AttendanceDaoManager {
       $$SchoolsTableTableManager(_db.attachedDatabase, _db.schools);
   $$AttendanceTableTableManager get attendance =>
       $$AttendanceTableTableManager(_db.attachedDatabase, _db.attendance);
+  $$ClassTeachersTableTableManager get classTeachers =>
+      $$ClassTeachersTableTableManager(_db.attachedDatabase, _db.classTeachers);
   $$EnrollmentsTableTableManager get enrollments =>
       $$EnrollmentsTableTableManager(_db.attachedDatabase, _db.enrollments);
   $$UsersTableTableManager get users =>

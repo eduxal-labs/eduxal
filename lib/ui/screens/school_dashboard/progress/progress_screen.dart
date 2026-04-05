@@ -14,6 +14,7 @@ import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/active_term_provider.dart';
 import '../../../widgets/edu_empty_state.dart';
+import '../../../widgets/quick_stat_row.dart';
 import '../../../widgets/student_avatar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -268,8 +269,8 @@ class _OverviewTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
 
-                // ── 2×2 Stats grid ───────────────────────────────────────────
-                _StatsGrid(
+                // ── Quick stats row ──────────────────────────────────────────
+                _EnhancedStatsRow(
                   schoolId: schoolId,
                   student: student,
                   year: term.year,
@@ -281,7 +282,11 @@ class _OverviewTab extends StatelessWidget {
                 // ── Recent exam results ──────────────────────────────────────
                 _SectionTitle(label: 'Recent Exam Results', cs: cs),
                 const SizedBox(height: 8),
-                _RecentExamResults(grades: grades),
+                _RecentExamResults(
+                  grades: grades,
+                  studentAdm: student.adm,
+                  schoolId: schoolId,
+                ),
 
                 const SizedBox(height: 56),
               ],
@@ -407,8 +412,8 @@ class _StudentIdentityHeader extends StatelessWidget {
 
 // ── 2×2 Stats Grid ──────────────────────────────────────────────────────────
 
-class _StatsGrid extends StatelessWidget {
-  const _StatsGrid({
+class _EnhancedStatsRow extends StatelessWidget {
+  const _EnhancedStatsRow({
     required this.schoolId,
     required this.student,
     required this.year,
@@ -424,49 +429,296 @@ class _StatsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: _AttendanceStat(
-                schoolId: schoolId,
-                studentAdm: student.adm,
-                year: year,
-                term: term,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(child: _LatestExamAvgStat(grades: grades)),
+    // ── Attendance (async) ───────────────────────────────────────────────
+    return StreamBuilder<({int totalDays, int present, int absent, int leave})>(
+      stream: AttendanceDao(db).watchStudentAttendanceSummary(
+        schoolId: schoolId,
+        year: year,
+        term: term,
+        studentAdm: student.adm,
+      ),
+      builder: (context, attendSnap) {
+        final attData = attendSnap.data;
+        final attPct = (attData != null && attData.totalDays > 0)
+            ? (attData.present / attData.totalDays * 100)
+            : 0.0;
+
+        // ── Enrollment (needed for rank) ─────────────────────────────────
+        return StreamBuilder<Enrollment?>(
+          stream: EnrollmentsDao(db).watchStudentEnrollment(
+            schoolId: schoolId,
+            year: year,
+            term: term,
+            studentAdm: student.adm,
+          ),
+          builder: (context, enrollSnap) {
+            final enrollment = enrollSnap.data;
+
+            // ── Latest exam average + subjects count (sync from grades) ──
+            final latestExamPct = _computeLatestExamAvg(grades);
+            final subjectCount = grades.map((g) => g.subject).toSet().length;
+
+            // ── Rank data (needs class-wide grades) ─────────────────────
+            final latestExamId = _findLatestExamId(grades);
+
+            if (latestExamId == null || enrollment == null) {
+              // No exam data or not enrolled — show stats without rank
+              return QuickStatRow(
+                stats: [
+                  QuickStat(
+                    label: 'Attendance',
+                    value: '${attPct.toStringAsFixed(0)}',
+                    suffix: '%',
+                  ),
+                  QuickStat(
+                    label: 'Latest Avg',
+                    value: latestExamPct != null
+                        ? '${latestExamPct.toStringAsFixed(0)}'
+                        : '—',
+                    suffix: latestExamPct != null ? '%' : null,
+                  ),
+                  QuickStat(label: 'Subjects', value: '$subjectCount'),
+                  const QuickStat(label: 'Grade Rank', value: '—'),
+                ],
+              );
+            }
+
+            // ── Class-wide grades for ranking ────────────────────────────
+            return StreamBuilder<List<Grade>>(
+              stream: ExamsGradesDao(
+                db,
+              ).watchClassGrades(schoolId: schoolId, examId: latestExamId),
+              builder: (context, classSnap) {
+                final classGrades = classSnap.data ?? [];
+
+                // Stream names for stream rank display
+                return StreamBuilder<List<SchoolStream>>(
+                  stream: CatalogDao(db).watchStreamsBySchoolAndGrade(
+                    schoolId: schoolId,
+                    grade: enrollment.grade,
+                  ),
+                  builder: (context, streamSnap) {
+                    final streamName = streamSnap.data
+                        ?.where((s) => s.stream == enrollment.stream)
+                        .map((s) => s.name)
+                        .firstOrNull;
+
+                    return FutureBuilder<List<StudentsData>>(
+                      future: ExamsGradesDao(db).getEnrolledStudents(
+                        schoolId: schoolId,
+                        year: year,
+                        term: term,
+                        grade: enrollment.grade,
+                      ),
+                      builder: (context, gradeEnrolledSnap) {
+                        // ── Compute grade rank ───────────────────────────
+                        String gradeRankValue = '—';
+                        if (gradeEnrolledSnap.hasData) {
+                          final enrolledAdms = {
+                            for (final s in gradeEnrolledSnap.data!) s.adm,
+                          };
+                          final totals = _computeStudentTotals(
+                            classGrades,
+                            enrolledAdms,
+                          );
+                          if (totals.containsKey(student.adm)) {
+                            final target = totals[student.adm]!;
+                            final rank =
+                                totals.values.where((s) => s > target).length +
+                                1;
+                            gradeRankValue =
+                                '${_ordinal(rank)} / ${totals.length}';
+                          }
+                        }
+
+                        // Build stats list
+                        final stats = <QuickStat>[
+                          QuickStat(
+                            label: 'Attendance',
+                            value: '${attPct.toStringAsFixed(0)}',
+                            suffix: '%',
+                          ),
+                          QuickStat(
+                            label: 'Latest Avg',
+                            value: latestExamPct != null
+                                ? '${latestExamPct.toStringAsFixed(0)}'
+                                : '—',
+                            suffix: latestExamPct != null ? '%' : null,
+                          ),
+                          QuickStat(label: 'Subjects', value: '$subjectCount'),
+                          QuickStat(label: 'Grade Rank', value: gradeRankValue),
+                        ];
+
+                        // If student has a named stream, delegate to async widget for stream rank
+                        if (streamName != null && streamName.isNotEmpty) {
+                          return _StatsRowWithStreamRank(
+                            baseStats: stats.sublist(0, stats.length - 1),
+                            schoolId: schoolId,
+                            year: year,
+                            term: term,
+                            enrollment: enrollment,
+                            classGrades: classGrades,
+                            studentAdm: student.adm,
+                          );
+                        }
+
+                        return QuickStatRow(stats: stats);
+                      },
+                    );
+                  },
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// Computes the latest exam average percentage from the student's grades.
+  static double? _computeLatestExamAvg(List<Grade> grades) {
+    if (grades.isEmpty) return null;
+
+    final byExam = <String, List<Grade>>{};
+    for (final g in grades) {
+      if (g.paper != null) continue;
+      (byExam[g.exam] ??= []).add(g);
+    }
+    if (byExam.isEmpty) {
+      for (final g in grades) {
+        (byExam[g.exam] ??= []).add(g);
+      }
+    }
+    if (byExam.isEmpty) return null;
+
+    String? latestExam;
+    BigInt latestTime = BigInt.zero;
+    for (final entry in byExam.entries) {
+      final maxCreated = entry.value
+          .map((g) => g.created)
+          .reduce((a, b) => a > b ? a : b);
+      if (maxCreated > latestTime) {
+        latestTime = maxCreated;
+        latestExam = entry.key;
+      }
+    }
+    if (latestExam == null) return null;
+
+    final latestGrades = byExam[latestExam]!;
+    final totalScore = latestGrades.fold<double>(0, (s, g) => s + g.score);
+    final totalMax = latestGrades.fold<double>(0, (s, g) => s + g.total);
+    return totalMax > 0 ? (totalScore / totalMax * 100) : 0.0;
+  }
+
+  /// Finds the latest exam ID from the student's grades.
+  static String? _findLatestExamId(List<Grade> grades) {
+    if (grades.isEmpty) return null;
+
+    final byExam = <String, List<Grade>>{};
+    for (final g in grades) {
+      if (g.paper != null) continue;
+      (byExam[g.exam] ??= []).add(g);
+    }
+    if (byExam.isEmpty) {
+      for (final g in grades) {
+        (byExam[g.exam] ??= []).add(g);
+      }
+    }
+    if (byExam.isEmpty) return null;
+
+    String? latestExam;
+    BigInt latestTime = BigInt.zero;
+    for (final entry in byExam.entries) {
+      final maxCreated = entry.value
+          .map((g) => g.created)
+          .reduce((a, b) => a > b ? a : b);
+      if (maxCreated > latestTime) {
+        latestTime = maxCreated;
+        latestExam = entry.key;
+      }
+    }
+    return latestExam;
+  }
+
+  /// Sums scores per student from class-wide grades, filtered to enrolled set.
+  static Map<int, double> _computeStudentTotals(
+    List<Grade> classGrades,
+    Set<int> enrolledAdms,
+  ) {
+    final totals = <int, double>{};
+    // Prefer subject-level totals (paper == null)
+    for (final g in classGrades) {
+      if (g.paper != null) continue;
+      if (!enrolledAdms.contains(g.student)) continue;
+      totals[g.student] = (totals[g.student] ?? 0) + g.score;
+    }
+    if (totals.isEmpty) {
+      for (final g in classGrades) {
+        if (!enrolledAdms.contains(g.student)) continue;
+        totals[g.student] = (totals[g.student] ?? 0) + g.score;
+      }
+    }
+    return totals;
+  }
+}
+
+/// Helper widget: builds the full QuickStatRow including a stream rank stat
+/// that requires its own async fetch for stream-enrolled students.
+class _StatsRowWithStreamRank extends StatelessWidget {
+  const _StatsRowWithStreamRank({
+    required this.baseStats,
+    required this.schoolId,
+    required this.year,
+    required this.term,
+    required this.enrollment,
+    required this.classGrades,
+    required this.studentAdm,
+  });
+
+  final List<QuickStat> baseStats;
+  final String schoolId;
+  final int year;
+  final int term;
+  final Enrollment enrollment;
+  final List<Grade> classGrades;
+  final int studentAdm;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<StudentsData>>(
+      future: ExamsGradesDao(db).getEnrolledStudents(
+        schoolId: schoolId,
+        year: year,
+        term: term,
+        grade: enrollment.grade,
+        stream: enrollment.stream,
+      ),
+      builder: (context, streamEnrolledSnap) {
+        String streamRankValue = '—';
+        if (streamEnrolledSnap.hasData) {
+          final enrolledAdms = {
+            for (final s in streamEnrolledSnap.data!) s.adm,
+          };
+          if (enrolledAdms.length > 1) {
+            final totals = _EnhancedStatsRow._computeStudentTotals(
+              classGrades,
+              enrolledAdms,
+            );
+            if (totals.containsKey(studentAdm)) {
+              final target = totals[studentAdm]!;
+              final rank = totals.values.where((s) => s > target).length + 1;
+              streamRankValue = '${_ordinal(rank)} / ${totals.length}';
+            }
+          }
+        }
+
+        return QuickStatRow(
+          stats: [
+            ...baseStats,
+            QuickStat(label: 'Stream Rank', value: streamRankValue),
           ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(child: _SubjectsCountStat(grades: grades)),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _ClassRankStat(
-                schoolId: schoolId,
-                studentAdm: student.adm,
-                year: year,
-                term: term,
-                grades: grades,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _StreamRankStat(
-                schoolId: schoolId,
-                studentAdm: student.adm,
-                year: year,
-                term: term,
-                grades: grades,
-              ),
-            ),
-          ],
-        ),
-      ],
+        );
+      },
     );
   }
 }
@@ -973,9 +1225,15 @@ class _StreamRankStat extends StatelessWidget {
 }
 
 class _RecentExamResults extends StatefulWidget {
-  const _RecentExamResults({required this.grades});
+  const _RecentExamResults({
+    required this.grades,
+    this.studentAdm,
+    this.schoolId,
+  });
 
   final List<Grade> grades;
+  final int? studentAdm;
+  final String? schoolId;
 
   @override
   State<_RecentExamResults> createState() => _RecentExamResultsState();
@@ -1263,6 +1521,7 @@ class _ExamsTabState extends State<_ExamsTab> {
                           exam: examMap[examId],
                           grades: grades,
                           subjectNames: subjectNames,
+                          studentAdm: widget.student.adm,
                         );
                       },
                     ),
@@ -1284,6 +1543,7 @@ class _ExamCard extends StatefulWidget {
     required this.grades,
     this.exam,
     required this.subjectNames,
+    this.studentAdm,
   });
 
   final String examId;
@@ -1292,12 +1552,106 @@ class _ExamCard extends StatefulWidget {
   final List<Grade> grades;
   final Map<int, String> subjectNames;
 
+  /// When provided, enables class-average delta and exam rank display.
+  final int? studentAdm;
+
   @override
   State<_ExamCard> createState() => _ExamCardState();
 }
 
 class _ExamCardState extends State<_ExamCard> {
   bool _expanded = false;
+
+  /// Cached class-grades stream for this exam.
+  String? _classGradesExamId;
+  Stream<List<Grade>>? _classGradesStream;
+
+  Stream<List<Grade>> _getClassGradesStream() {
+    if (_classGradesStream != null && _classGradesExamId == widget.examId) {
+      return _classGradesStream!;
+    }
+    _classGradesExamId = widget.examId;
+    _classGradesStream = ExamsGradesDao(
+      db,
+    ).watchClassGrades(schoolId: widget.schoolId, examId: widget.examId);
+    return _classGradesStream!;
+  }
+
+  /// Computes the class average percentage for a specific subject.
+  /// Returns null if no data is available.
+  double? _classAvgForSubject(
+    List<Grade> classGrades,
+    int subject,
+    int? paper,
+  ) {
+    final subjectGrades = classGrades
+        .where((g) => g.subject == subject && g.paper == paper)
+        .toList();
+    if (subjectGrades.isEmpty) return null;
+    final totalPct = subjectGrades.fold<double>(0, (sum, g) {
+      return sum + (g.total > 0 ? (g.score / g.total * 100) : 0);
+    });
+    return totalPct / subjectGrades.length;
+  }
+
+  /// Builds a small delta indicator widget comparing student score to class avg.
+  Widget _buildDelta(double studentPct, double? classAvgPct, ColorScheme cs) {
+    if (classAvgPct == null) return const SizedBox.shrink();
+
+    final diff = studentPct - classAvgPct;
+    if (diff.abs() <= 2) {
+      // Within ±2 — considered average
+      return Text(
+        '—',
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+          color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+        ),
+      );
+    }
+
+    final isPositive = diff > 0;
+    final color = isPositive
+        ? const Color(0xFF4CAF50)
+        : const Color(0xFFF44336);
+    final sign = isPositive ? '+' : '−';
+    final value = diff.abs().round();
+
+    return Text(
+      '$sign$value',
+      style: TextStyle(
+        fontSize: 10,
+        fontWeight: FontWeight.w500,
+        color: color,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      ),
+    );
+  }
+
+  /// Computes exam rank: position of this student among all students by total score.
+  ({int rank, int total})? _computeExamRank(List<Grade> classGrades) {
+    if (widget.studentAdm == null) return null;
+
+    // Sum scores per student (subject-level totals preferred)
+    final studentTotals = <int, double>{};
+    for (final g in classGrades) {
+      if (g.paper != null) continue;
+      studentTotals[g.student] = (studentTotals[g.student] ?? 0) + g.score;
+    }
+    // Fallback to all grades if no subject-level totals
+    if (studentTotals.isEmpty) {
+      for (final g in classGrades) {
+        studentTotals[g.student] = (studentTotals[g.student] ?? 0) + g.score;
+      }
+    }
+
+    if (!studentTotals.containsKey(widget.studentAdm)) return null;
+
+    final targetScore = studentTotals[widget.studentAdm]!;
+    final rank = studentTotals.values.where((s) => s > targetScore).length + 1;
+    return (rank: rank, total: studentTotals.length);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1322,58 +1676,86 @@ class _ExamCardState extends State<_ExamCard> {
     final examType = widget.exam?.type;
     final subjectCount = displayGrades.length;
 
-    return GestureDetector(
-      onTap: displayGrades.isNotEmpty
-          ? () => setState(() => _expanded = !_expanded)
-          : null,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AppTheme.nestedBg(isDark, cs),
-          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-          border: Border.all(color: AppTheme.borderColor(isDark, cs)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Exam header ──────────────────────────────────────────────
-            Row(
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: cs.primary.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+    // If studentAdm is provided, load class-wide grades for delta + rank
+    final needsClassData = widget.studentAdm != null;
+
+    Widget buildCard(List<Grade>? classGrades) {
+      final rankData = classGrades != null
+          ? _computeExamRank(classGrades)
+          : null;
+
+      return GestureDetector(
+        onTap: displayGrades.isNotEmpty
+            ? () => setState(() => _expanded = !_expanded)
+            : null,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppTheme.nestedBg(isDark, cs),
+            borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+            border: Border.all(color: AppTheme.borderColor(isDark, cs)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Exam header ────────────────────────────────────────────
+              Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: cs.primary.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(
+                      Icons.quiz_outlined,
+                      size: 16,
+                      color: cs.primary.withValues(alpha: 0.7),
+                    ),
                   ),
-                  alignment: Alignment.center,
-                  child: Icon(
-                    Icons.quiz_outlined,
-                    size: 16,
-                    color: cs.primary.withValues(alpha: 0.7),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        examName,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: cs.onSurface,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          examName,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: cs.onSurface,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          if (examType != null) ...[
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            if (examType != null) ...[
+                              Text(
+                                examType.name[0].toUpperCase() +
+                                    examType.name.substring(1),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w400,
+                                  color: cs.onSurfaceVariant.withValues(
+                                    alpha: 0.55,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                '  ·  ',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: cs.onSurfaceVariant.withValues(
+                                    alpha: 0.3,
+                                  ),
+                                ),
+                              ),
+                            ],
                             Text(
-                              examType.name[0].toUpperCase() +
-                                  examType.name.substring(1),
+                              '$subjectCount subject${subjectCount == 1 ? '' : 's'}',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w400,
@@ -1382,101 +1764,125 @@ class _ExamCardState extends State<_ExamCard> {
                                 ),
                               ),
                             ),
-                            Text(
-                              '  ·  ',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: cs.onSurfaceVariant.withValues(
-                                  alpha: 0.3,
+                            // ── Exam rank (if available) ─────────────────
+                            if (rankData != null) ...[
+                              Text(
+                                '  ·  ',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: cs.onSurfaceVariant.withValues(
+                                    alpha: 0.3,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
-                          Text(
-                            '$subjectCount subject${subjectCount == 1 ? '' : 's'}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w400,
-                              color: cs.onSurfaceVariant.withValues(
-                                alpha: 0.55,
+                              Text(
+                                'Rank: ${_ordinal(rankData.rank)} / ${rankData.total}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: cs.primary.withValues(alpha: 0.7),
+                                ),
                               ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                _PercentBadge(percent: overallPct, cs: cs),
-                if (displayGrades.isNotEmpty) ...[
-                  const SizedBox(width: 4),
-                  AnimatedRotation(
-                    turns: _expanded ? 0.5 : 0.0,
-                    duration: const Duration(milliseconds: 200),
-                    child: Icon(
-                      Icons.expand_more_rounded,
-                      size: 18,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                            ],
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ],
-            ),
-
-            // ── Expandable subject/paper rows ────────────────────────────
-            if (_expanded && displayGrades.isNotEmpty) ...[
-              const SizedBox(height: 12),
-
-              ...displayGrades.asMap().entries.map((entry) {
-                final idx = entry.key;
-                final g = entry.value;
-                final pct = g.total > 0 ? (g.score / g.total * 100) : 0.0;
-                final name =
-                    widget.subjectNames[g.subject] ?? 'Subject ${g.subject}';
-
-                return Column(
-                  children: [
-                    if (idx > 0) AppTheme.tableRowDivider(isDark, cs),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              g.paper != null ? '$name (P${g.paper})' : name,
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w400,
-                                color: cs.onSurface,
-                              ),
-                            ),
-                          ),
-                          Text(
-                            '${g.score.toStringAsFixed(0)} / ${g.total.toStringAsFixed(0)}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w400,
-                              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                              fontFeatures: const [
-                                FontFeature.tabularFigures(),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          SizedBox(
-                            width: 44,
-                            child: _PercentBadge(percent: pct, cs: cs),
-                          ),
-                        ],
+                  _PercentBadge(percent: overallPct, cs: cs),
+                  if (displayGrades.isNotEmpty) ...[
+                    const SizedBox(width: 4),
+                    AnimatedRotation(
+                      turns: _expanded ? 0.5 : 0.0,
+                      duration: const Duration(milliseconds: 200),
+                      child: Icon(
+                        Icons.expand_more_rounded,
+                        size: 18,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.4),
                       ),
                     ),
                   ],
-                );
-              }),
+                ],
+              ),
+
+              // ── Expandable subject/paper rows ──────────────────────────
+              if (_expanded && displayGrades.isNotEmpty) ...[
+                const SizedBox(height: 12),
+
+                ...displayGrades.asMap().entries.map((entry) {
+                  final idx = entry.key;
+                  final g = entry.value;
+                  final pct = g.total > 0 ? (g.score / g.total * 100) : 0.0;
+                  final name =
+                      widget.subjectNames[g.subject] ?? 'Subject ${g.subject}';
+
+                  // Class average delta for this subject
+                  final classAvgPct = classGrades != null
+                      ? _classAvgForSubject(classGrades, g.subject, g.paper)
+                      : null;
+
+                  return Column(
+                    children: [
+                      if (idx > 0) AppTheme.tableRowDivider(isDark, cs),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                g.paper != null ? '$name (P${g.paper})' : name,
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w400,
+                                  color: cs.onSurface,
+                                ),
+                              ),
+                            ),
+                            // ── Delta indicator ──────────────────────────
+                            if (classAvgPct != null) ...[
+                              _buildDelta(pct, classAvgPct, cs),
+                              const SizedBox(width: 6),
+                            ],
+                            Text(
+                              '${g.score.toStringAsFixed(0)} / ${g.total.toStringAsFixed(0)}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w400,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.6,
+                                ),
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              width: 44,
+                              child: _PercentBadge(percent: pct, cs: cs),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                }),
+              ],
             ],
-          ],
+          ),
         ),
-      ),
+      );
+    }
+
+    if (!needsClassData) {
+      return buildCard(null);
+    }
+
+    return StreamBuilder<List<Grade>>(
+      stream: _getClassGradesStream(),
+      builder: (context, classSnap) {
+        return buildCard(classSnap.data);
+      },
     );
   }
 }
@@ -2600,3 +3006,18 @@ const _monthsFull = [
   'November',
   'December',
 ];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Ordinal suffix helper
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Returns an integer with its English ordinal suffix (e.g. 1st, 2nd, 3rd, 4th).
+String _ordinal(int n) {
+  if (n % 100 >= 11 && n % 100 <= 13) return '${n}th';
+  return switch (n % 10) {
+    1 => '${n}st',
+    2 => '${n}nd',
+    3 => '${n}rd',
+    _ => '${n}th',
+  };
+}
