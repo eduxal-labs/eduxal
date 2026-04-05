@@ -486,26 +486,77 @@ class _AnnouncementList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(0, 8, 0, 88),
-      itemCount: items.length * 2 - 1,
-      itemBuilder: (context, i) {
-        if (i.isOdd) {
-          return AppTheme.tableRowDivider(isDark, cs);
-        }
-        final item = items[i ~/ 2];
-        return _AnnouncementRow(
-          item: item,
-          cs: cs,
-          isDark: isDark,
-          canEdit: canEdit,
-          canDelete: canDelete,
-          dao: dao,
-          config: config,
-          schoolContext: schoolContext,
-          currentUserId: currentUserId,
-        );
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        sync.pushNow();
+        await Future.delayed(const Duration(milliseconds: 800));
       },
+      color: Theme.of(context).colorScheme.primary,
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(0, 8, 0, 88),
+        itemCount: items.length * 2 - 1,
+        itemBuilder: (context, i) {
+          if (i.isOdd) {
+            return AppTheme.tableRowDivider(isDark, cs);
+          }
+          final item = items[i ~/ 2];
+          // Per-row ownership check for dismissible (mirrors _AnnouncementRowState logic).
+          final isAuthor =
+              currentUserId != null && item.authorId == currentUserId;
+          final rowCanDelete = canDelete || isAuthor;
+
+          final row = _AnnouncementRow(
+            item: item,
+            cs: cs,
+            isDark: isDark,
+            canEdit: canEdit,
+            canDelete: canDelete,
+            dao: dao,
+            config: config,
+            schoolContext: schoolContext,
+            currentUserId: currentUserId,
+          );
+
+          if (!isMobile || !rowCanDelete) return row;
+
+          return Dismissible(
+            key: ValueKey(item.id),
+            direction: DismissDirection.endToStart,
+            background: Container(
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.only(right: 16),
+              color: Colors.red.withValues(alpha: 0.15),
+              child: const Icon(
+                Icons.delete_outline_rounded,
+                color: Colors.red,
+                size: 20,
+              ),
+            ),
+            confirmDismiss: (_) async {
+              final confirmed = await showEduConfirmDialog(
+                context: context,
+                title: 'Delete announcement?',
+                message:
+                    'This cannot be undone. The announcement will be removed for all users.',
+                confirmLabel: 'Delete',
+                isDestructive: true,
+              );
+              if (!confirmed) return false;
+              final user = cache.currentUser;
+              if (user == null) return false;
+              await dao.deleteAnnouncement(
+                id: item.id,
+                accountId: user.user.id,
+              );
+              return false; // Stream rebuild handles visual removal
+            },
+            child: row,
+          );
+        },
+      ),
     );
   }
 }

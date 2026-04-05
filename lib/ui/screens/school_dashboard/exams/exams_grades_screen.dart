@@ -520,16 +520,24 @@ class _ExamsListViewState extends State<_ExamsListView> {
                   );
                 }
                 final isDark = Theme.of(context).brightness == Brightness.dark;
-                return ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(0, 4, 0, 80),
-                  itemCount: items.length,
-                  itemBuilder: (context, i) {
-                    return _ExamGroupRow(
-                      group: items[i],
-                      config: widget.config,
-                      onTap: () => widget.onExamTap(items[i]),
-                    );
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    sync.pushNow();
+                    await Future.delayed(const Duration(milliseconds: 800));
                   },
+                  color: cs.primary,
+                  child: ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(0, 4, 0, 80),
+                    itemCount: items.length,
+                    itemBuilder: (context, i) {
+                      return _ExamGroupRow(
+                        group: items[i],
+                        config: widget.config,
+                        onTap: () => widget.onExamTap(items[i]),
+                      );
+                    },
+                  ),
                 );
               },
             ),

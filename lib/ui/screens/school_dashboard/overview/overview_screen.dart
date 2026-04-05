@@ -87,10 +87,11 @@ class OverviewScreen extends StatelessWidget {
 /// a slight delay, creating a cascading reveal effect. Spacer [SizedBox]
 /// widgets are rendered without animation so layout gaps remain stable.
 class _StaggeredList extends StatefulWidget {
-  const _StaggeredList({required this.children, this.padding});
+  const _StaggeredList({required this.children, this.padding, this.physics});
 
   final List<Widget> children;
   final EdgeInsetsGeometry? padding;
+  final ScrollPhysics? physics;
 
   @override
   State<_StaggeredList> createState() => _StaggeredListState();
@@ -182,7 +183,11 @@ class _StaggeredListState extends State<_StaggeredList>
       idx++;
     }
 
-    return ListView(padding: widget.padding, children: wrapped);
+    return ListView(
+      padding: widget.padding,
+      physics: widget.physics,
+      children: wrapped,
+    );
   }
 }
 
@@ -206,92 +211,100 @@ class _OwnerOverview extends StatelessWidget {
     final schoolId = school.id;
     final term = termContext.currentTerm;
 
-    return _StaggeredList(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      children: [
-        // ── School identity ──────────────────────────────────────────────
-        _SchoolIdentityCard(school: school),
+    return RefreshIndicator(
+      onRefresh: () async {
+        sync.pushNow();
+        await Future.delayed(const Duration(milliseconds: 800));
+      },
+      color: cs.primary,
+      child: _StaggeredList(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        children: [
+          // ── School identity ──────────────────────────────────────────────
+          _SchoolIdentityCard(school: school),
 
-        const SizedBox(height: 16),
-
-        // ── Today's attendance (school-wide) ─────────────────────────────
-        if (term != null) ...[
-          StreamBuilder<SchoolAttendanceSummary>(
-            stream: AttendanceDao(db).watchSchoolAttendanceSummary(
-              schoolId: schoolId,
-              year: term.year,
-              term: term.term,
-              date: DateTime.now()
-                  .toUtc()
-                  .difference(DateTime.utc(1970, 1, 1))
-                  .inDays,
-            ),
-            builder: (context, snap) {
-              if (!snap.hasData) return const SizedBox.shrink();
-              final s = snap.data!;
-              if (s.totalEnrolled == 0) return const SizedBox.shrink();
-              final pct = (s.attendanceRate * 100).toStringAsFixed(1);
-              return TodayStatusCard(
-                type: s.attendanceRate >= 0.90
-                    ? TodayStatusType.positive
-                    : s.attendanceRate >= 0.75
-                    ? TodayStatusType.warning
-                    : TodayStatusType.negative,
-                icon: Icons.groups_rounded,
-                title: '${s.presentCount}/${s.totalEnrolled} present ($pct%)',
-                subtitle: s.isFullyMarked
-                    ? 'All classes marked'
-                    : '${s.unmarkedCount} not yet marked',
-              );
-            },
-          ),
           const SizedBox(height: 16),
-        ],
 
-        // ── Quick stats ──────────────────────────────────────────────────
-        if (term != null) ...[
-          _SectionTitle(label: 'Quick Stats', cs: cs),
+          // ── Today's attendance (school-wide) ─────────────────────────────
+          if (term != null) ...[
+            StreamBuilder<SchoolAttendanceSummary>(
+              stream: AttendanceDao(db).watchSchoolAttendanceSummary(
+                schoolId: schoolId,
+                year: term.year,
+                term: term.term,
+                date: DateTime.now()
+                    .toUtc()
+                    .difference(DateTime.utc(1970, 1, 1))
+                    .inDays,
+              ),
+              builder: (context, snap) {
+                if (!snap.hasData) return const SizedBox.shrink();
+                final s = snap.data!;
+                if (s.totalEnrolled == 0) return const SizedBox.shrink();
+                final pct = (s.attendanceRate * 100).toStringAsFixed(1);
+                return TodayStatusCard(
+                  type: s.attendanceRate >= 0.90
+                      ? TodayStatusType.positive
+                      : s.attendanceRate >= 0.75
+                      ? TodayStatusType.warning
+                      : TodayStatusType.negative,
+                  icon: Icons.groups_rounded,
+                  title: '${s.presentCount}/${s.totalEnrolled} present ($pct%)',
+                  subtitle: s.isFullyMarked
+                      ? 'All classes marked'
+                      : '${s.unmarkedCount} not yet marked',
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // ── Quick stats ──────────────────────────────────────────────────
+          if (term != null) ...[
+            _SectionTitle(label: 'Quick Stats', cs: cs),
+            const SizedBox(height: 8),
+            _OwnerQuickStats(schoolId: schoolId, term: term),
+            const SizedBox(height: 20),
+          ],
+
+          // ── Term revenue ─────────────────────────────────────────────────
+          if (term != null) ...[
+            _SectionTitle(label: 'Term Revenue', cs: cs),
+            const SizedBox(height: 8),
+            _OwnerRevenueSummary(schoolId: schoolId, term: term),
+            const SizedBox(height: 20),
+          ],
+
+          // ── Lesson delivery ──────────────────────────────────────────────
+          if (term != null) ...[
+            _OwnerLessonDelivery(schoolId: schoolId, term: term),
+            const SizedBox(height: 20),
+          ],
+
+          // ── Current term info ────────────────────────────────────────────
+          if (term != null) ...[
+            _SectionTitle(label: 'Current Term', cs: cs),
+            const SizedBox(height: 8),
+            _TermInfoCard(term: term, cs: cs),
+            const SizedBox(height: 10),
+            _AcademicMiniTimeline(schoolId: schoolId, term: term, cs: cs),
+            const SizedBox(height: 20),
+          ],
+
+          // ── Recent announcements ─────────────────────────────────────────
+          _SectionTitle(
+            label: 'Recent Announcements',
+            cs: cs,
+            onViewAll: () =>
+                DashboardNavigation.goToTab(context, 'Announcements'),
+          ),
           const SizedBox(height: 8),
-          _OwnerQuickStats(schoolId: schoolId, term: term),
-          const SizedBox(height: 20),
+          _RecentAnnouncements(schoolId: schoolId, isOwner: true),
+
+          const SizedBox(height: 80),
         ],
-
-        // ── Term revenue ─────────────────────────────────────────────────
-        if (term != null) ...[
-          _SectionTitle(label: 'Term Revenue', cs: cs),
-          const SizedBox(height: 8),
-          _OwnerRevenueSummary(schoolId: schoolId, term: term),
-          const SizedBox(height: 20),
-        ],
-
-        // ── Lesson delivery ──────────────────────────────────────────────
-        if (term != null) ...[
-          _OwnerLessonDelivery(schoolId: schoolId, term: term),
-          const SizedBox(height: 20),
-        ],
-
-        // ── Current term info ────────────────────────────────────────────
-        if (term != null) ...[
-          _SectionTitle(label: 'Current Term', cs: cs),
-          const SizedBox(height: 8),
-          _TermInfoCard(term: term, cs: cs),
-          const SizedBox(height: 10),
-          _AcademicMiniTimeline(schoolId: schoolId, term: term, cs: cs),
-          const SizedBox(height: 20),
-        ],
-
-        // ── Recent announcements ─────────────────────────────────────────
-        _SectionTitle(
-          label: 'Recent Announcements',
-          cs: cs,
-          onViewAll: () =>
-              DashboardNavigation.goToTab(context, 'Announcements'),
-        ),
-        const SizedBox(height: 8),
-        _RecentAnnouncements(schoolId: schoolId, isOwner: true),
-
-        const SizedBox(height: 80),
-      ],
+      ),
     );
   }
 }
@@ -896,133 +909,147 @@ class _TeacherOverview extends StatelessWidget {
     final term = termContext.currentTerm;
     final userId = entry.teacher.user;
 
-    return _StaggeredList(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      children: [
-        // ── Next class countdown ─────────────────────────────────────────
-        if (term != null && userId.isNotEmpty) ...[
-          _TeacherNextClass(
-            schoolId: schoolId,
-            year: term.year,
-            term: term.term,
-            teacherUserId: userId,
-          ),
-          const SizedBox(height: 16),
-        ],
-
-        // ── Attendance marking status ────────────────────────────────────
-        if (term != null && userId.isNotEmpty) ...[
-          StreamBuilder<List<ClassAttendanceStatus>>(
-            stream: AttendanceDao(db).watchTeacherClassAttendanceStatus(
+    return RefreshIndicator(
+      onRefresh: () async {
+        sync.pushNow();
+        await Future.delayed(const Duration(milliseconds: 800));
+      },
+      color: cs.primary,
+      child: _StaggeredList(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        children: [
+          // ── Next class countdown ─────────────────────────────────────────
+          if (term != null && userId.isNotEmpty) ...[
+            _TeacherNextClass(
               schoolId: schoolId,
-              teacherId: userId,
               year: term.year,
               term: term.term,
-              date: DateTime.now()
-                  .toUtc()
-                  .difference(DateTime.utc(1970, 1, 1))
-                  .inDays,
+              teacherUserId: userId,
             ),
-            builder: (context, snap) {
-              if (!snap.hasData || snap.data!.isEmpty)
-                return const SizedBox.shrink();
-              final classes = snap.data!;
-              final allMarked = classes.every((c) => c.isMarked);
-              final unmarkedCount = classes.where((c) => !c.isMarked).length;
+            const SizedBox(height: 16),
+          ],
 
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: TodayStatusCard(
-                  type: allMarked
-                      ? TodayStatusType.positive
-                      : TodayStatusType.warning,
-                  icon: allMarked
-                      ? Icons.check_circle_rounded
-                      : Icons.edit_note_rounded,
-                  title: allMarked
-                      ? 'All classes marked'
-                      : '$unmarkedCount class${unmarkedCount > 1 ? "es" : ""} not marked',
-                  subtitle: classes
-                      .map((c) {
-                        final label = gradeLabel(c.grade);
-                        return c.isMarked ? '$label ✓' : '$label ✗';
-                      })
-                      .join('  '),
-                ),
-              );
-            },
-          ),
-        ],
+          // ── Attendance marking status ────────────────────────────────────
+          if (term != null && userId.isNotEmpty) ...[
+            StreamBuilder<List<ClassAttendanceStatus>>(
+              stream: AttendanceDao(db).watchTeacherClassAttendanceStatus(
+                schoolId: schoolId,
+                teacherId: userId,
+                year: term.year,
+                term: term.term,
+                date: DateTime.now()
+                    .toUtc()
+                    .difference(DateTime.utc(1970, 1, 1))
+                    .inDays,
+              ),
+              builder: (context, snap) {
+                if (!snap.hasData || snap.data!.isEmpty)
+                  return const SizedBox.shrink();
+                final classes = snap.data!;
+                final allMarked = classes.every((c) => c.isMarked);
+                final unmarkedCount = classes.where((c) => !c.isMarked).length;
 
-        // ── Today's schedule ─────────────────────────────────────────────
-        if (term != null && userId.isNotEmpty) ...[
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: TodayStatusCard(
+                    type: allMarked
+                        ? TodayStatusType.positive
+                        : TodayStatusType.warning,
+                    icon: allMarked
+                        ? Icons.check_circle_rounded
+                        : Icons.edit_note_rounded,
+                    title: allMarked
+                        ? 'All classes marked'
+                        : '$unmarkedCount class${unmarkedCount > 1 ? "es" : ""} not marked',
+                    subtitle: classes
+                        .map((c) {
+                          final label = gradeLabel(c.grade);
+                          return c.isMarked ? '$label ✓' : '$label ✗';
+                        })
+                        .join('  '),
+                  ),
+                );
+              },
+            ),
+          ],
+
+          // ── Today's schedule ─────────────────────────────────────────────
+          if (term != null && userId.isNotEmpty) ...[
+            _SectionTitle(
+              label: "Today's Schedule",
+              cs: cs,
+              onViewAll: () =>
+                  DashboardNavigation.goToTab(context, 'Timetable'),
+            ),
+            const SizedBox(height: 8),
+            _TeacherTodaySchedule(
+              schoolId: schoolId,
+              year: term.year,
+              term: term.term,
+              teacherUserId: userId,
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          // ── My Classes ───────────────────────────────────────────────────
+          if (term != null && userId.isNotEmpty) ...[
+            _SectionTitle(
+              label: 'My Classes',
+              cs: cs,
+              onViewAll: () =>
+                  DashboardNavigation.goToTab(context, 'My Classes'),
+            ),
+            const SizedBox(height: 8),
+            _TeacherClassChips(schoolId: schoolId, userId: userId, term: term),
+            const SizedBox(height: 20),
+          ],
+
+          // ── Quick stats ──────────────────────────────────────────────────
+          if (term != null) ...[
+            _SectionTitle(label: 'Quick Stats', cs: cs),
+            const SizedBox(height: 8),
+            _TeacherQuickStats(
+              schoolId: schoolId,
+              term: term,
+              entry: entry,
+              userId: userId,
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          // ── Upcoming Exams ───────────────────────────────────────────────
+          if (term != null && userId.isNotEmpty) ...[
+            _SectionTitle(
+              label: 'Upcoming Exams',
+              cs: cs,
+              onViewAll: () => DashboardNavigation.goToTab(context, 'Exams'),
+            ),
+            const SizedBox(height: 8),
+            _TeacherUpcomingExams(
+              schoolId: schoolId,
+              userId: userId,
+              term: term,
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          // ── Recent announcements ─────────────────────────────────────────
           _SectionTitle(
-            label: "Today's Schedule",
+            label: 'Recent Announcements',
             cs: cs,
-            onViewAll: () => DashboardNavigation.goToTab(context, 'Timetable'),
+            onViewAll: () =>
+                DashboardNavigation.goToTab(context, 'Announcements'),
           ),
           const SizedBox(height: 8),
-          _TeacherTodaySchedule(
+          _RecentAnnouncements(
             schoolId: schoolId,
-            year: term.year,
-            term: term.term,
-            teacherUserId: userId,
+            audienceBit: AudienceBits.teachers,
           ),
-          const SizedBox(height: 20),
+
+          const SizedBox(height: 80),
         ],
-
-        // ── My Classes ───────────────────────────────────────────────────
-        if (term != null && userId.isNotEmpty) ...[
-          _SectionTitle(
-            label: 'My Classes',
-            cs: cs,
-            onViewAll: () => DashboardNavigation.goToTab(context, 'My Classes'),
-          ),
-          const SizedBox(height: 8),
-          _TeacherClassChips(schoolId: schoolId, userId: userId, term: term),
-          const SizedBox(height: 20),
-        ],
-
-        // ── Quick stats ──────────────────────────────────────────────────
-        if (term != null) ...[
-          _SectionTitle(label: 'Quick Stats', cs: cs),
-          const SizedBox(height: 8),
-          _TeacherQuickStats(
-            schoolId: schoolId,
-            term: term,
-            entry: entry,
-            userId: userId,
-          ),
-          const SizedBox(height: 20),
-        ],
-
-        // ── Upcoming Exams ───────────────────────────────────────────────
-        if (term != null && userId.isNotEmpty) ...[
-          _SectionTitle(
-            label: 'Upcoming Exams',
-            cs: cs,
-            onViewAll: () => DashboardNavigation.goToTab(context, 'Exams'),
-          ),
-          const SizedBox(height: 8),
-          _TeacherUpcomingExams(schoolId: schoolId, userId: userId, term: term),
-          const SizedBox(height: 20),
-        ],
-
-        // ── Recent announcements ─────────────────────────────────────────
-        _SectionTitle(
-          label: 'Recent Announcements',
-          cs: cs,
-          onViewAll: () =>
-              DashboardNavigation.goToTab(context, 'Announcements'),
-        ),
-        const SizedBox(height: 8),
-        _RecentAnnouncements(
-          schoolId: schoolId,
-          audienceBit: AudienceBits.teachers,
-        ),
-
-        const SizedBox(height: 80),
-      ],
+      ),
     );
   }
 }
@@ -2098,119 +2125,129 @@ class _StaffOverview extends StatelessWidget {
       );
     }
 
-    return _StaggeredList(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      children: [
-        // ── Welcome ──────────────────────────────────────────────────────
-        _WelcomeCard(name: userName, subtitle: school.name, cs: cs),
+    return RefreshIndicator(
+      onRefresh: () async {
+        sync.pushNow();
+        await Future.delayed(const Duration(milliseconds: 800));
+      },
+      color: cs.primary,
+      child: _StaggeredList(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        children: [
+          // ── Welcome ──────────────────────────────────────────────────────
+          _WelcomeCard(name: userName, subtitle: school.name, cs: cs),
 
-        const SizedBox(height: 20),
-
-        // ── Quick actions (permission-gated) ─────────────────────────────
-        if (perms.can(Resource.payments, Action.create) ||
-            perms.can(Resource.fees, Action.read)) ...[
-          _SectionTitle(label: 'Quick Actions', cs: cs),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 12,
-            runSpacing: 8,
-            children: [
-              if (perms.can(Resource.payments, Action.create))
-                _QuickActionChip(
-                  icon: Icons.payments_rounded,
-                  label: 'Record Payment',
-                  color: Colors.green,
-                  onTap: () => DashboardNavigation.goToTab(context, 'Finance'),
-                ),
-              if (perms.can(Resource.fees, Action.read))
-                _QuickActionChip(
-                  icon: Icons.search_rounded,
-                  label: 'Check Balance',
-                  color: Colors.orange,
-                  onTap: () => DashboardNavigation.goToTab(context, 'Finance'),
-                ),
-            ],
-          ),
           const SizedBox(height: 20),
-        ],
 
-        // ── Today's collection (permission-gated) ────────────────────────
-        if (term != null && perms.can(Resource.fees, Action.read)) ...[
-          StreamBuilder<TermFinanceSummary>(
-            stream: FinanceDao(db).watchTermFinanceSummary(
+          // ── Quick actions (permission-gated) ─────────────────────────────
+          if (perms.can(Resource.payments, Action.create) ||
+              perms.can(Resource.fees, Action.read)) ...[
+            _SectionTitle(label: 'Quick Actions', cs: cs),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                if (perms.can(Resource.payments, Action.create))
+                  _QuickActionChip(
+                    icon: Icons.payments_rounded,
+                    label: 'Record Payment',
+                    color: Colors.green,
+                    onTap: () =>
+                        DashboardNavigation.goToTab(context, 'Finance'),
+                  ),
+                if (perms.can(Resource.fees, Action.read))
+                  _QuickActionChip(
+                    icon: Icons.search_rounded,
+                    label: 'Check Balance',
+                    color: Colors.orange,
+                    onTap: () =>
+                        DashboardNavigation.goToTab(context, 'Finance'),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          // ── Today's collection (permission-gated) ────────────────────────
+          if (term != null && perms.can(Resource.fees, Action.read)) ...[
+            StreamBuilder<TermFinanceSummary>(
+              stream: FinanceDao(db).watchTermFinanceSummary(
+                schoolId: schoolId,
+                year: term.year,
+                term: term.term,
+              ),
+              builder: (context, snap) {
+                if (!snap.hasData) return const SizedBox.shrink();
+                final s = snap.data!;
+                final collected = fmtCurrency(s.totalPaid);
+                return TodayStatusCard(
+                  type: s.collectionRate >= 0.70
+                      ? TodayStatusType.positive
+                      : s.collectionRate >= 0.40
+                      ? TodayStatusType.warning
+                      : TodayStatusType.negative,
+                  icon: Icons.account_balance_rounded,
+                  title: '$collected collected',
+                  subtitle:
+                      '${s.paidCount} paid · ${s.pendingCount} pending · ${s.overdueCount} overdue',
+                );
+              },
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          // ── Quick stats (permission-gated) ───────────────────────────────
+          if (term != null &&
+              _hasAnyStatPermission(schoolContext.permissions)) ...[
+            _SectionTitle(label: 'Quick Stats', cs: cs),
+            const SizedBox(height: 8),
+            _StaffQuickStats(
               schoolId: schoolId,
-              year: term.year,
-              term: term.term,
+              term: term,
+              permissions: schoolContext.permissions,
             ),
-            builder: (context, snap) {
-              if (!snap.hasData) return const SizedBox.shrink();
-              final s = snap.data!;
-              final collected = fmtCurrency(s.totalPaid);
-              return TodayStatusCard(
-                type: s.collectionRate >= 0.70
-                    ? TodayStatusType.positive
-                    : s.collectionRate >= 0.40
-                    ? TodayStatusType.warning
-                    : TodayStatusType.negative,
-                icon: Icons.account_balance_rounded,
-                title: '$collected collected',
-                subtitle:
-                    '${s.paidCount} paid · ${s.pendingCount} pending · ${s.overdueCount} overdue',
-              );
-            },
-          ),
-          const SizedBox(height: 20),
-        ],
+            const SizedBox(height: 20),
+          ],
 
-        // ── Quick stats (permission-gated) ───────────────────────────────
-        if (term != null &&
-            _hasAnyStatPermission(schoolContext.permissions)) ...[
-          _SectionTitle(label: 'Quick Stats', cs: cs),
-          const SizedBox(height: 8),
-          _StaffQuickStats(
-            schoolId: schoolId,
-            term: term,
-            permissions: schoolContext.permissions,
-          ),
-          const SizedBox(height: 20),
-        ],
-
-        // ── Limited access hint ──────────────────────────────────────────
-        if (term == null ||
-            !_hasAnyStatPermission(schoolContext.permissions)) ...[
-          const SizedBox(height: 12),
-          Text(
-            'Your dashboard shows features based on your assigned role.',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.45),
-              fontStyle: FontStyle.italic,
+          // ── Limited access hint ──────────────────────────────────────────
+          if (term == null ||
+              !_hasAnyStatPermission(schoolContext.permissions)) ...[
+            const SizedBox(height: 12),
+            Text(
+              'Your dashboard shows features based on your assigned role.',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+                fontStyle: FontStyle.italic,
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-        ],
+            const SizedBox(height: 12),
+          ],
 
-        // ── Recent announcements (permission-gated) ──────────────────────
-        if (schoolContext.permissions.can(
-          Resource.announcements,
-          Action.read,
-        )) ...[
-          _SectionTitle(
-            label: 'Recent Announcements',
-            cs: cs,
-            onViewAll: () =>
-                DashboardNavigation.goToTab(context, 'Announcements'),
-          ),
-          const SizedBox(height: 8),
-          _RecentAnnouncements(
-            schoolId: schoolId,
-            audienceBit: AudienceBits.staff,
-          ),
-        ],
+          // ── Recent announcements (permission-gated) ──────────────────────
+          if (schoolContext.permissions.can(
+            Resource.announcements,
+            Action.read,
+          )) ...[
+            _SectionTitle(
+              label: 'Recent Announcements',
+              cs: cs,
+              onViewAll: () =>
+                  DashboardNavigation.goToTab(context, 'Announcements'),
+            ),
+            const SizedBox(height: 8),
+            _RecentAnnouncements(
+              schoolId: schoolId,
+              audienceBit: AudienceBits.staff,
+            ),
+          ],
 
-        const SizedBox(height: 80),
-      ],
+          const SizedBox(height: 80),
+        ],
+      ),
     );
   }
 }
@@ -2467,128 +2504,138 @@ class _StudentOverview extends StatelessWidget {
     final studentAdm = entry.student.adm;
     final studentName = entry.student.name;
 
-    return _StaggeredList(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      children: [
-        // ── Welcome ──────────────────────────────────────────────────────
-        _WelcomeCard(name: studentName, subtitle: 'Student', cs: cs),
+    return RefreshIndicator(
+      onRefresh: () async {
+        sync.pushNow();
+        await Future.delayed(const Duration(milliseconds: 800));
+      },
+      color: cs.primary,
+      child: _StaggeredList(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        children: [
+          // ── Welcome ──────────────────────────────────────────────────────
+          _WelcomeCard(name: studentName, subtitle: 'Student', cs: cs),
 
-        const SizedBox(height: 16),
-
-        // ── Today's attendance status ────────────────────────────────────
-        if (term != null) ...[
-          _StudentTodayAttendance(
-            schoolId: schoolId,
-            year: term.year,
-            term: term.term,
-            studentAdm: studentAdm,
-            studentName: studentName,
-          ),
-          const SizedBox(height: 12),
-        ],
-
-        // ── Next class countdown ─────────────────────────────────────────
-        if (term != null) ...[
-          _StudentNextClass(
-            schoolId: schoolId,
-            year: term.year,
-            term: term.term,
-            studentAdm: studentAdm,
-          ),
           const SizedBox(height: 16),
-        ],
 
-        // ── Enrollment info ──────────────────────────────────────────────
-        if (term != null) ...[
-          _StudentEnrollmentInfo(
-            schoolId: schoolId,
-            year: term.year,
-            term: term.term,
-            studentAdm: studentAdm,
-          ),
-          const SizedBox(height: 16),
-        ],
+          // ── Today's attendance status ────────────────────────────────────
+          if (term != null) ...[
+            _StudentTodayAttendance(
+              schoolId: schoolId,
+              year: term.year,
+              term: term.term,
+              studentAdm: studentAdm,
+              studentName: studentName,
+            ),
+            const SizedBox(height: 12),
+          ],
 
-        // ── Today's schedule ─────────────────────────────────────────────
-        if (term != null) ...[
+          // ── Next class countdown ─────────────────────────────────────────
+          if (term != null) ...[
+            _StudentNextClass(
+              schoolId: schoolId,
+              year: term.year,
+              term: term.term,
+              studentAdm: studentAdm,
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // ── Enrollment info ──────────────────────────────────────────────
+          if (term != null) ...[
+            _StudentEnrollmentInfo(
+              schoolId: schoolId,
+              year: term.year,
+              term: term.term,
+              studentAdm: studentAdm,
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // ── Today's schedule ─────────────────────────────────────────────
+          if (term != null) ...[
+            _SectionTitle(
+              label: "Today's Schedule",
+              cs: cs,
+              onViewAll: () =>
+                  DashboardNavigation.goToTab(context, 'Timetable'),
+            ),
+            const SizedBox(height: 8),
+            _StudentTodaySchedule(
+              schoolId: schoolId,
+              year: term.year,
+              term: term.term,
+              studentAdm: studentAdm,
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          // ── Recent grades ────────────────────────────────────────────────
+          if (term != null) ...[
+            _SectionTitle(
+              label: 'Recent Grades',
+              cs: cs,
+              onViewAll: () => DashboardNavigation.goToTab(context, 'Grades'),
+            ),
+            const SizedBox(height: 8),
+            _StudentRecentGrades(schoolId: schoolId, studentAdm: studentAdm),
+            const SizedBox(height: 20),
+          ],
+
+          // ── Upcoming exams ───────────────────────────────────────────────
+          if (term != null) ...[
+            _SectionTitle(
+              label: 'Upcoming Exams',
+              cs: cs,
+              onViewAll: () => DashboardNavigation.goToTab(context, 'Exams'),
+            ),
+            const SizedBox(height: 8),
+            _StudentUpcomingExams(
+              schoolId: schoolId,
+              term: term,
+              studentAdm: studentAdm,
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          // ── Attendance summary ───────────────────────────────────────────
+          if (term != null) ...[
+            _SectionTitle(
+              label: 'Attendance',
+              cs: cs,
+              onViewAll: () =>
+                  DashboardNavigation.goToTab(context, 'Attendance'),
+            ),
+            const SizedBox(height: 8),
+            _StudentAttendanceSummary(
+              schoolId: schoolId,
+              year: term.year,
+              term: term.term,
+              studentAdm: studentAdm,
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          // ── Recent announcements ─────────────────────────────────────────
           _SectionTitle(
-            label: "Today's Schedule",
+            label: 'Recent Announcements',
             cs: cs,
-            onViewAll: () => DashboardNavigation.goToTab(context, 'Timetable'),
+            onViewAll: () =>
+                DashboardNavigation.goToTab(context, 'Announcements'),
           ),
           const SizedBox(height: 8),
-          _StudentTodaySchedule(
+          _RecentAnnouncements(
             schoolId: schoolId,
-            year: term.year,
-            term: term.term,
+            audienceBit: AudienceBits.students,
             studentAdm: studentAdm,
+            termYear: term?.year,
+            termNum: term?.term,
           ),
-          const SizedBox(height: 20),
+
+          const SizedBox(height: 80),
         ],
-
-        // ── Recent grades ────────────────────────────────────────────────
-        if (term != null) ...[
-          _SectionTitle(
-            label: 'Recent Grades',
-            cs: cs,
-            onViewAll: () => DashboardNavigation.goToTab(context, 'Grades'),
-          ),
-          const SizedBox(height: 8),
-          _StudentRecentGrades(schoolId: schoolId, studentAdm: studentAdm),
-          const SizedBox(height: 20),
-        ],
-
-        // ── Upcoming exams ───────────────────────────────────────────────
-        if (term != null) ...[
-          _SectionTitle(
-            label: 'Upcoming Exams',
-            cs: cs,
-            onViewAll: () => DashboardNavigation.goToTab(context, 'Exams'),
-          ),
-          const SizedBox(height: 8),
-          _StudentUpcomingExams(
-            schoolId: schoolId,
-            term: term,
-            studentAdm: studentAdm,
-          ),
-          const SizedBox(height: 20),
-        ],
-
-        // ── Attendance summary ───────────────────────────────────────────
-        if (term != null) ...[
-          _SectionTitle(
-            label: 'Attendance',
-            cs: cs,
-            onViewAll: () => DashboardNavigation.goToTab(context, 'Attendance'),
-          ),
-          const SizedBox(height: 8),
-          _StudentAttendanceSummary(
-            schoolId: schoolId,
-            year: term.year,
-            term: term.term,
-            studentAdm: studentAdm,
-          ),
-          const SizedBox(height: 20),
-        ],
-
-        // ── Recent announcements ─────────────────────────────────────────
-        _SectionTitle(
-          label: 'Recent Announcements',
-          cs: cs,
-          onViewAll: () =>
-              DashboardNavigation.goToTab(context, 'Announcements'),
-        ),
-        const SizedBox(height: 8),
-        _RecentAnnouncements(
-          schoolId: schoolId,
-          audienceBit: AudienceBits.students,
-          studentAdm: studentAdm,
-          termYear: term?.year,
-          termNum: term?.term,
-        ),
-
-        const SizedBox(height: 80),
-      ],
+      ),
     );
   }
 }
@@ -3452,266 +3499,276 @@ class _GuardianOverview extends StatelessWidget {
     final ward = entry.ward;
     final userName = cache.currentUser?.user.name ?? 'Guardian';
 
-    return _StaggeredList(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      children: [
-        // ── 1. Welcome ───────────────────────────────────────────────────
-        _WelcomeCard(name: userName, subtitle: 'Guardian', cs: cs),
+    return RefreshIndicator(
+      onRefresh: () async {
+        sync.pushNow();
+        await Future.delayed(const Duration(milliseconds: 800));
+      },
+      color: cs.primary,
+      child: _StaggeredList(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        children: [
+          // ── 1. Welcome ───────────────────────────────────────────────────
+          _WelcomeCard(name: userName, subtitle: 'Guardian', cs: cs),
 
-        const SizedBox(height: 16),
+          const SizedBox(height: 16),
 
-        // ── 1b. Ward attendance status ───────────────────────────────────
-        if (term != null)
-          StreamBuilder<Enrollment?>(
-            stream: EnrollmentsDao(db).watchStudentEnrollment(
-              schoolId: schoolId,
-              year: term.year,
-              term: term.term,
-              studentAdm: ward.adm,
-            ),
-            builder: (context, enrollSnap) {
-              if (!enrollSnap.hasData || enrollSnap.data == null) {
-                return const SizedBox.shrink();
-              }
-              final enrollment = enrollSnap.data!;
-              final todayDays = DateTime.now()
-                  .toUtc()
-                  .difference(DateTime.utc(1970, 1, 1))
-                  .inDays;
+          // ── 1b. Ward attendance status ───────────────────────────────────
+          if (term != null)
+            StreamBuilder<Enrollment?>(
+              stream: EnrollmentsDao(db).watchStudentEnrollment(
+                schoolId: schoolId,
+                year: term.year,
+                term: term.term,
+                studentAdm: ward.adm,
+              ),
+              builder: (context, enrollSnap) {
+                if (!enrollSnap.hasData || enrollSnap.data == null) {
+                  return const SizedBox.shrink();
+                }
+                final enrollment = enrollSnap.data!;
+                final todayDays = DateTime.now()
+                    .toUtc()
+                    .difference(DateTime.utc(1970, 1, 1))
+                    .inDays;
 
-              return StreamBuilder<List<StudentAttendanceRow>>(
-                stream: AttendanceDao(db).watchClassAttendance(
-                  schoolId: schoolId,
-                  year: term.year,
-                  term: term.term,
-                  grade: enrollment.grade,
-                  stream: enrollment.stream,
-                  date: todayDays,
-                ),
-                builder: (context, attSnap) {
-                  if (!attSnap.hasData) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: TodayStatusCard(
-                        type: TodayStatusType.neutral,
-                        icon: Icons.schedule_rounded,
-                        title: 'Checking attendance...',
-                      ),
-                    );
-                  }
-
-                  final wardRecord = attSnap.data!
-                      .where((r) => r.student.adm == ward.adm)
-                      .firstOrNull;
-
-                  if (wardRecord == null || !wardRecord.isMarked) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: TodayStatusCard(
-                        type: TodayStatusType.neutral,
-                        icon: Icons.hourglass_empty_rounded,
-                        title: 'Attendance not yet taken',
-                        subtitle:
-                            '${ward.name}\'s class hasn\'t been marked today',
-                      ),
-                    );
-                  }
-
-                  final status = wardRecord.effectiveStatus;
-                  final isPresent = status == AttendanceStatus.present;
-                  final isAbsent = status == AttendanceStatus.absent;
-
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: TodayStatusCard(
-                      type: isPresent
-                          ? TodayStatusType.positive
-                          : isAbsent
-                          ? TodayStatusType.negative
-                          : TodayStatusType.warning,
-                      icon: isPresent
-                          ? Icons.check_circle_rounded
-                          : isAbsent
-                          ? Icons.cancel_rounded
-                          : Icons.info_rounded,
-                      title: isPresent
-                          ? '${ward.name} is present today'
-                          : isAbsent
-                          ? '${ward.name} is absent today'
-                          : '${ward.name} is on leave today',
-                    ),
-                  );
-                },
-              );
-            },
-          ),
-
-        // ── 2. Ward info (enhanced) ──────────────────────────────────────
-        _WardInfoCard(ward: ward, schoolId: schoolId, term: term),
-
-        const SizedBox(height: 16),
-
-        // ── Unenrolled ward banner ───────────────────────────────────────
-        if (term != null)
-          StreamBuilder<Enrollment?>(
-            stream: EnrollmentsDao(db).watchStudentEnrollment(
-              schoolId: schoolId,
-              year: term.year,
-              term: term.term,
-              studentAdm: ward.adm,
-            ),
-            builder: (context, snap) {
-              // Don't show banner while loading or if enrollment exists.
-              if (snap.connectionState == ConnectionState.waiting ||
-                  snap.data != null) {
-                return const SizedBox.shrink();
-              }
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
+                return StreamBuilder<List<StudentAttendanceRow>>(
+                  stream: AttendanceDao(db).watchClassAttendance(
+                    schoolId: schoolId,
+                    year: term.year,
+                    term: term.term,
+                    grade: enrollment.grade,
+                    stream: enrollment.stream,
+                    date: todayDays,
                   ),
-                  decoration: BoxDecoration(
-                    color: Colors.amber.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                    border: Border.all(
-                      color: Colors.amber.withValues(alpha: 0.4),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.warning_amber_rounded,
-                        size: 20,
-                        color: Colors.amber.shade700,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${ward.name} is not enrolled this term',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: cs.onSurface,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Please contact the school for enrollment details.',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w300,
-                                color: cs.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
+                  builder: (context, attSnap) {
+                    if (!attSnap.hasData) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: TodayStatusCard(
+                          type: TodayStatusType.neutral,
+                          icon: Icons.schedule_rounded,
+                          title: 'Checking attendance...',
                         ),
+                      );
+                    }
+
+                    final wardRecord = attSnap.data!
+                        .where((r) => r.student.adm == ward.adm)
+                        .firstOrNull;
+
+                    if (wardRecord == null || !wardRecord.isMarked) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: TodayStatusCard(
+                          type: TodayStatusType.neutral,
+                          icon: Icons.hourglass_empty_rounded,
+                          title: 'Attendance not yet taken',
+                          subtitle:
+                              '${ward.name}\'s class hasn\'t been marked today',
+                        ),
+                      );
+                    }
+
+                    final status = wardRecord.effectiveStatus;
+                    final isPresent = status == AttendanceStatus.present;
+                    final isAbsent = status == AttendanceStatus.absent;
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: TodayStatusCard(
+                        type: isPresent
+                            ? TodayStatusType.positive
+                            : isAbsent
+                            ? TodayStatusType.negative
+                            : TodayStatusType.warning,
+                        icon: isPresent
+                            ? Icons.check_circle_rounded
+                            : isAbsent
+                            ? Icons.cancel_rounded
+                            : Icons.info_rounded,
+                        title: isPresent
+                            ? '${ward.name} is present today'
+                            : isAbsent
+                            ? '${ward.name} is absent today'
+                            : '${ward.name} is on leave today',
                       ),
-                    ],
+                    );
+                  },
+                );
+              },
+            ),
+
+          // ── 2. Ward info (enhanced) ──────────────────────────────────────
+          _WardInfoCard(ward: ward, schoolId: schoolId, term: term),
+
+          const SizedBox(height: 16),
+
+          // ── Unenrolled ward banner ───────────────────────────────────────
+          if (term != null)
+            StreamBuilder<Enrollment?>(
+              stream: EnrollmentsDao(db).watchStudentEnrollment(
+                schoolId: schoolId,
+                year: term.year,
+                term: term.term,
+                studentAdm: ward.adm,
+              ),
+              builder: (context, snap) {
+                // Don't show banner while loading or if enrollment exists.
+                if (snap.connectionState == ConnectionState.waiting ||
+                    snap.data != null) {
+                  return const SizedBox.shrink();
+                }
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                      border: Border.all(
+                        color: Colors.amber.withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          size: 20,
+                          color: Colors.amber.shade700,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${ward.name} is not enrolled this term',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: cs.onSurface,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Please contact the school for enrollment details.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w300,
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              );
-            },
-          ),
+                );
+              },
+            ),
 
-        // ── 3. Quick stats (2×2 grid) ────────────────────────────────────
-        if (term != null) ...[
-          _SectionTitle(label: 'Quick Stats', cs: cs),
-          const SizedBox(height: 8),
-          _GuardianQuickStats(
-            schoolId: schoolId,
-            term: term,
-            studentAdm: ward.adm,
-          ),
-          const SizedBox(height: 20),
-        ],
+          // ── 3. Quick stats (2×2 grid) ────────────────────────────────────
+          if (term != null) ...[
+            _SectionTitle(label: 'Quick Stats', cs: cs),
+            const SizedBox(height: 8),
+            _GuardianQuickStats(
+              schoolId: schoolId,
+              term: term,
+              studentAdm: ward.adm,
+            ),
+            const SizedBox(height: 20),
+          ],
 
-        // ── 4. Today's schedule ──────────────────────────────────────────
-        if (term != null) ...[
+          // ── 4. Today's schedule ──────────────────────────────────────────
+          if (term != null) ...[
+            _SectionTitle(
+              label: "Today's Schedule",
+              cs: cs,
+              onViewAll: () =>
+                  DashboardNavigation.goToTab(context, 'Timetable'),
+            ),
+            const SizedBox(height: 8),
+            _StudentTodaySchedule(
+              schoolId: schoolId,
+              year: term.year,
+              term: term.term,
+              studentAdm: ward.adm,
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          // ── 5. Attendance summary ────────────────────────────────────────
+          if (term != null) ...[
+            _SectionTitle(
+              label: 'Attendance',
+              cs: cs,
+              onViewAll: () =>
+                  DashboardNavigation.goToTab(context, 'Attendance'),
+            ),
+            const SizedBox(height: 8),
+            _StudentAttendanceSummary(
+              schoolId: schoolId,
+              year: term.year,
+              term: term.term,
+              studentAdm: ward.adm,
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          // ── 6. Recent grades ─────────────────────────────────────────────
+          if (term != null) ...[
+            _SectionTitle(
+              label: 'Recent Grades',
+              cs: cs,
+              onViewAll: () => DashboardNavigation.goToTab(context, 'Progress'),
+            ),
+            const SizedBox(height: 8),
+            _StudentRecentGrades(schoolId: schoolId, studentAdm: ward.adm),
+            const SizedBox(height: 20),
+          ],
+
+          // ── 7. Finance summary ───────────────────────────────────────────
+          if (term != null) ...[
+            _SectionTitle(
+              label: 'Finance',
+              cs: cs,
+              onViewAll: () => DashboardNavigation.goToTab(context, 'Finance'),
+            ),
+            const SizedBox(height: 8),
+            _GuardianFinanceSummary(
+              schoolId: schoolId,
+              year: term.year,
+              term: term.term,
+              studentAdm: ward.adm,
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          // ── 8. Recent announcements ──────────────────────────────────────
           _SectionTitle(
-            label: "Today's Schedule",
+            label: 'Recent Announcements',
             cs: cs,
-            onViewAll: () => DashboardNavigation.goToTab(context, 'Timetable'),
+            onViewAll: () =>
+                DashboardNavigation.goToTab(context, 'Announcements'),
           ),
           const SizedBox(height: 8),
-          _StudentTodaySchedule(
+          _RecentAnnouncements(
             schoolId: schoolId,
-            year: term.year,
-            term: term.term,
+            audienceBit: AudienceBits.guardians,
             studentAdm: ward.adm,
+            termYear: term?.year,
+            termNum: term?.term,
           ),
-          const SizedBox(height: 20),
+
+          const SizedBox(height: 80),
         ],
-
-        // ── 5. Attendance summary ────────────────────────────────────────
-        if (term != null) ...[
-          _SectionTitle(
-            label: 'Attendance',
-            cs: cs,
-            onViewAll: () => DashboardNavigation.goToTab(context, 'Attendance'),
-          ),
-          const SizedBox(height: 8),
-          _StudentAttendanceSummary(
-            schoolId: schoolId,
-            year: term.year,
-            term: term.term,
-            studentAdm: ward.adm,
-          ),
-          const SizedBox(height: 20),
-        ],
-
-        // ── 6. Recent grades ─────────────────────────────────────────────
-        if (term != null) ...[
-          _SectionTitle(
-            label: 'Recent Grades',
-            cs: cs,
-            onViewAll: () => DashboardNavigation.goToTab(context, 'Progress'),
-          ),
-          const SizedBox(height: 8),
-          _StudentRecentGrades(schoolId: schoolId, studentAdm: ward.adm),
-          const SizedBox(height: 20),
-        ],
-
-        // ── 7. Finance summary ───────────────────────────────────────────
-        if (term != null) ...[
-          _SectionTitle(
-            label: 'Finance',
-            cs: cs,
-            onViewAll: () => DashboardNavigation.goToTab(context, 'Finance'),
-          ),
-          const SizedBox(height: 8),
-          _GuardianFinanceSummary(
-            schoolId: schoolId,
-            year: term.year,
-            term: term.term,
-            studentAdm: ward.adm,
-          ),
-          const SizedBox(height: 20),
-        ],
-
-        // ── 8. Recent announcements ──────────────────────────────────────
-        _SectionTitle(
-          label: 'Recent Announcements',
-          cs: cs,
-          onViewAll: () =>
-              DashboardNavigation.goToTab(context, 'Announcements'),
-        ),
-        const SizedBox(height: 8),
-        _RecentAnnouncements(
-          schoolId: schoolId,
-          audienceBit: AudienceBits.guardians,
-          studentAdm: ward.adm,
-          termYear: term?.year,
-          termNum: term?.term,
-        ),
-
-        const SizedBox(height: 80),
-      ],
+      ),
     );
   }
 }

@@ -1517,8 +1517,8 @@ RefreshIndicator(
    - "Offline — showing local data" (if no connectivity)
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note pull-to-refresh on all screens
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note pull-to-refresh on all screens
+- [x] Mark this task `[x]`
 
 ---
 
@@ -1812,8 +1812,8 @@ else
 4. **Visual:** Red background slides in from the right with a trash icon. The row itself slides left. Standard Material Dismissible behavior.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note swipe actions on mobile
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note swipe actions on mobile
+- [x] Mark this task `[x]`
 
 ---
 

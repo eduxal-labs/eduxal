@@ -1002,11 +1002,44 @@ class _OwnersTabState extends State<_OwnersTab> {
               itemBuilder: (context, i) {
                 final owner = filtered[i];
                 final user = userMap[owner.user];
-                return _OwnerRow(
+                final row = _OwnerRow(
                   schoolId: widget.schoolId,
                   owner: owner,
                   user: user,
                   canDelete: _canDelete,
+                );
+                final isMobile = MediaQuery.sizeOf(context).width < 600;
+                if (!isMobile || !_canDelete || user == null) return row;
+                return Dismissible(
+                  key: ValueKey('owner_${owner.user}'),
+                  direction: DismissDirection.endToStart,
+                  background: Container(
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 16),
+                    color: Colors.red.withValues(alpha: 0.15),
+                    child: const Icon(
+                      Icons.delete_outline_rounded,
+                      color: Colors.red,
+                      size: 20,
+                    ),
+                  ),
+                  confirmDismiss: (_) async {
+                    final confirmed = await showEduConfirmDialog(
+                      context: context,
+                      title: 'Remove "${user.name}"?',
+                      message: 'This will remove the owner from this school.',
+                      confirmLabel: 'Remove',
+                      isDestructive: true,
+                    );
+                    if (!confirmed || !context.mounted) return false;
+                    final service = MemberManagementService(MembersDao(db));
+                    await service.removeOwner(
+                      schoolId: widget.schoolId,
+                      userId: user.id,
+                    );
+                    return false; // Stream rebuild handles visual removal
+                  },
+                  child: row,
                 );
               },
             );
@@ -1211,12 +1244,45 @@ class _TeachersTabState extends State<_TeachersTab> {
               itemBuilder: (context, i) {
                 final t = filtered[i];
                 final user = userMap[t.user];
-                return _TeacherRow(
+                final row = _TeacherRow(
                   schoolId: widget.schoolId,
                   teacher: t,
                   user: user,
                   canDelete: _canDelete,
                   canEdit: _canEdit,
+                );
+                final isMobile = MediaQuery.sizeOf(context).width < 600;
+                if (!isMobile || !_canDelete || user == null) return row;
+                return Dismissible(
+                  key: ValueKey('teacher_${t.user}'),
+                  direction: DismissDirection.endToStart,
+                  background: Container(
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 16),
+                    color: Colors.red.withValues(alpha: 0.15),
+                    child: const Icon(
+                      Icons.delete_outline_rounded,
+                      color: Colors.red,
+                      size: 20,
+                    ),
+                  ),
+                  confirmDismiss: (_) async {
+                    final confirmed = await showEduConfirmDialog(
+                      context: context,
+                      title: 'Remove "${user.name}"?',
+                      message: 'This will remove the teacher from this school.',
+                      confirmLabel: 'Remove',
+                      isDestructive: true,
+                    );
+                    if (!confirmed || !context.mounted) return false;
+                    final service = MemberManagementService(MembersDao(db));
+                    await service.removeTeacher(
+                      schoolId: widget.schoolId,
+                      userId: user.id,
+                    );
+                    return false; // Stream rebuild handles visual removal
+                  },
+                  child: row,
                 );
               },
             );
@@ -1443,12 +1509,46 @@ class _StaffTabState extends State<_StaffTab> {
               itemBuilder: (context, i) {
                 final s = filtered[i];
                 final user = userMap[s.user];
-                return _StaffRow(
+                final row = _StaffRow(
                   schoolId: widget.schoolId,
                   member: s,
                   user: user,
                   canDelete: _canDelete,
                   canEdit: _canEdit,
+                );
+                final isMobile = MediaQuery.sizeOf(context).width < 600;
+                if (!isMobile || !_canDelete || user == null) return row;
+                return Dismissible(
+                  key: ValueKey('staff_${s.user}'),
+                  direction: DismissDirection.endToStart,
+                  background: Container(
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 16),
+                    color: Colors.red.withValues(alpha: 0.15),
+                    child: const Icon(
+                      Icons.delete_outline_rounded,
+                      color: Colors.red,
+                      size: 20,
+                    ),
+                  ),
+                  confirmDismiss: (_) async {
+                    final confirmed = await showEduConfirmDialog(
+                      context: context,
+                      title: 'Remove "${user.name}"?',
+                      message:
+                          'This will remove the staff member from this school.',
+                      confirmLabel: 'Remove',
+                      isDestructive: true,
+                    );
+                    if (!confirmed || !context.mounted) return false;
+                    final service = MemberManagementService(MembersDao(db));
+                    await service.removeStaff(
+                      schoolId: widget.schoolId,
+                      userId: user.id,
+                    );
+                    return false; // Stream rebuild handles visual removal
+                  },
+                  child: row,
                 );
               },
             );
@@ -1656,10 +1756,44 @@ class _StudentsTabState extends State<_StudentsTab> {
           itemCount: filtered.length,
           itemBuilder: (context, i) {
             final s = filtered[i];
-            return _StudentRow(
+            final row = _StudentRow(
               schoolId: widget.schoolId,
               student: s,
               canDelete: _canDelete,
+            );
+            final isMobile = MediaQuery.sizeOf(context).width < 600;
+            if (!isMobile || !_canDelete) return row;
+            return Dismissible(
+              key: ValueKey('student_${s.adm}'),
+              direction: DismissDirection.endToStart,
+              background: Container(
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.only(right: 16),
+                color: Colors.red.withValues(alpha: 0.15),
+                child: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: Colors.red,
+                  size: 20,
+                ),
+              ),
+              confirmDismiss: (_) async {
+                final confirmed = await showEduConfirmDialog(
+                  context: context,
+                  title: 'Delete "${s.name}"?',
+                  message: 'This will permanently delete the student record.',
+                  confirmLabel: 'Delete',
+                  isDestructive: true,
+                );
+                if (!confirmed || !context.mounted) return false;
+                final service = MemberManagementService(MembersDao(db));
+                await service.changeStudentStatus(
+                  schoolId: widget.schoolId,
+                  adm: s.adm,
+                  status: StudentStatus.deleted,
+                );
+                return false; // Stream rebuild handles visual removal
+              },
+              child: row,
             );
           },
         );
@@ -1863,12 +1997,75 @@ class _GuardiansTabState extends State<_GuardiansTab> {
           itemCount: filtered.length,
           itemBuilder: (context, i) {
             final item = filtered[i];
-            return _UniqueGuardianRow(
+            final row = _UniqueGuardianRow(
               schoolId: widget.schoolId,
               user: item.user,
               wardCount: item.wardCount,
               canEditGuardian: _canEditGuardian,
               canUnlinkGuardian: _canUnlinkGuardian,
+            );
+            final isMobile = MediaQuery.sizeOf(context).width < 600;
+            if (!isMobile || !_canUnlinkGuardian) return row;
+            return Dismissible(
+              key: ValueKey('guardian_${item.user.id}'),
+              direction: DismissDirection.endToStart,
+              background: Container(
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.only(right: 16),
+                color: Colors.red.withValues(alpha: 0.15),
+                child: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: Colors.red,
+                  size: 20,
+                ),
+              ),
+              confirmDismiss: (_) async {
+                // For guardians with multiple wards, open the detail sheet
+                // instead of dismissing — the user must unlink per-ward.
+                if (item.wardCount > 1) {
+                  if (context.mounted) {
+                    final w = MediaQuery.sizeOf(context).width;
+                    if (w >= 600) {
+                      // Won't reach here (isMobile guard above), but defensive
+                      return false;
+                    }
+                    showEduSheet(
+                      context: context,
+                      builder: (_) => _GuardianWardsSheet(
+                        user: item.user,
+                        schoolId: widget.schoolId,
+                        canEditGuardian: _canEditGuardian,
+                        canUnlinkGuardian: _canUnlinkGuardian,
+                      ),
+                    );
+                  }
+                  return false;
+                }
+                final confirmed = await showEduConfirmDialog(
+                  context: context,
+                  title: 'Remove "${item.user.name}"?',
+                  message:
+                      'This will remove the guardian link from this school.',
+                  confirmLabel: 'Remove',
+                  isDestructive: true,
+                );
+                if (!confirmed) return false;
+                // For single-ward guardians, open detail to handle unlink
+                // (guardian removal requires knowing the specific ward)
+                if (context.mounted) {
+                  showEduSheet(
+                    context: context,
+                    builder: (_) => _GuardianWardsSheet(
+                      user: item.user,
+                      schoolId: widget.schoolId,
+                      canEditGuardian: _canEditGuardian,
+                      canUnlinkGuardian: _canUnlinkGuardian,
+                    ),
+                  );
+                }
+                return false;
+              },
+              child: row,
             );
           },
         );
