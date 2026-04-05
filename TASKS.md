@@ -1864,8 +1864,8 @@ class OverviewScreen extends StatelessWidget {
 4. **Preserve** all existing imports, streams, and behavior exactly. This is a pure structural refactoring — zero logic changes.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note file split
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note file split
+- [x] Mark this task `[x]`
 
 ---
 
