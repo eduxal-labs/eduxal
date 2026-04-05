@@ -2020,8 +2020,8 @@ In each file listed above:
 **Rules:** Same as G2 — pure structural split, zero logic changes, preserve all behavior.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note timetable file split
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note timetable file split
+- [x] Mark this task `[x]`
 
 ---
 
