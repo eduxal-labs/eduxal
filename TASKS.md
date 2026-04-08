@@ -667,7 +667,7 @@ MembershipRole.teacher => [
 
 ---
 
-### Task C2: `_canGradeContent` missing teacher-specific fallback
+### Task C2: `_canGradeContent` missing teacher-specific fallback ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`, `lib/ui/screens/school_dashboard/exams/CONTEXT.md`
@@ -703,8 +703,8 @@ bool get _canGradeContent {
 Verify that `_teacherSubjects` (or equivalent) is available in scope — it's used by `_canProgressStatus` so it should be.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/exams/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/exams/CONTEXT.md`
+- [x] Mark this task `[x]`
 
 ---
 
