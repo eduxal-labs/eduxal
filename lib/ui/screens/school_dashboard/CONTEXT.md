@@ -242,7 +242,9 @@ When `ActiveTermContext.hasTerms` is `false`, the dashboard shows a blank state 
 
 
 ## Last Updated
-Task B3 — Owner RBAC bypass in `MembersPage._computeVisibleTabs`. Added early return at the top of `_computeVisibleTabs()`: when the current entry is `OwnerEntry`, returns `_MemberTab.values` (all 6 tabs) without checking permissions. This ensures owners with zero role/scope assignments still see all member tabs instead of the "No member access" empty state. Re-added `import '../../../../models/membership.dart'` for `OwnerEntry` type check. The `_onEntryChanged` listener already calls `_computeVisibleTabs()` on entry change, so the bypass correctly re-evaluates when switching roles.
+Task B4 — Owner RBAC bypass in Roles screen CRUD. In `school_roles_screen.dart`, `canCreate`, `canEdit`, `canDelete` now include `isOwner` check (`entry is OwnerEntry`) so a freshly added owner with no scope assignments can still create/edit/delete roles (chicken-and-egg fix). Added `import '../../../../models/membership.dart'` for `OwnerEntry`.
+
+Previous: Task B3 — Owner RBAC bypass in `MembersPage._computeVisibleTabs`. Added early return at the top of `_computeVisibleTabs()`: when the current entry is `OwnerEntry`, returns `_MemberTab.values` (all 6 tabs) without checking permissions.
 
 Previous: Task B6 — Verified owner RBAC bypass in Announcements admin actions (already correctly implemented with `entry is OwnerEntry` checks on `canCreate`, `canEdit`, `canDelete`).
 

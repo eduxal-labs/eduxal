@@ -278,7 +278,7 @@ String actionLabel(Action a) => switch (a) {
 
 ---
 
-### Task B2: `SchoolPermissions` must bypass all checks for Super users
+### Task B2: `SchoolPermissions` must bypass all checks for Super users ✅
 
 **Files to modify:** `lib/models/school_permissions.dart`
 **Context files to read:** `lib/models/CONTEXT.md`
@@ -329,8 +329,8 @@ class SchoolPermissions {
 Import `UserLevel` from `database/tables/enums.dart` in `school_permissions.dart`.
 
 **Update after completion:**
-- [ ] Update `lib/models/CONTEXT.md` — note `SchoolPermissions` now has Super bypass
-- [ ] Mark this task `[x]`
+- [x] Update `lib/models/CONTEXT.md` — note `SchoolPermissions` now has Super bypass
+- [x] Mark this task `[x]`
 
 ---
 

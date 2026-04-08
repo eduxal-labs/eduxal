@@ -1173,18 +1173,14 @@ class _InvoiceListView extends StatelessWidget {
           return AppTheme.tableRowDivider(isDark, cs);
         }
         final item = items[index ~/ 2];
-        final canRecord = schoolContext.permissions.can(
-          Resource.payments,
-          Action.create,
-        );
-        final canEditInvoice = schoolContext.permissions.can(
-          Resource.fees,
-          Action.update,
-        );
-        final canDeleteInvoice = schoolContext.permissions.can(
-          Resource.fees,
-          Action.delete,
-        );
+        final isOwner = schoolContext.currentEntry.value is OwnerEntry;
+        final perms = schoolContext.permissions;
+        final canRecord =
+            isOwner || perms.can(Resource.payments, Action.create);
+        final canEditInvoice =
+            isOwner || perms.can(Resource.fees, Action.update);
+        final canDeleteInvoice =
+            isOwner || perms.can(Resource.fees, Action.delete);
         return _InvoiceRow(
           item: item,
           dao: dao,
@@ -1356,14 +1352,24 @@ class _InvoiceRowState extends State<_InvoiceRow> {
                         icon: Icons.edit_outlined,
                         label: 'Edit',
                         color: cs.onSurfaceVariant,
-                        onTap: () {},
+                        onTap: () {
+                          // TODO: implement invoice edit
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Coming soon')),
+                          );
+                        },
                       ),
                     if (widget.canDelete)
                       _FinanceRowAction(
                         icon: Icons.delete_outline_rounded,
                         label: 'Delete',
                         color: cs.error,
-                        onTap: () {},
+                        onTap: () {
+                          // TODO: implement invoice delete
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Coming soon')),
+                          );
+                        },
                       ),
                   ],
                 ),
@@ -1387,14 +1393,24 @@ class _InvoiceRowState extends State<_InvoiceRow> {
                         icon: Icons.edit_outlined,
                         label: 'Edit',
                         color: cs.onSurface,
-                        onTap: () {},
+                        onTap: () {
+                          // TODO: implement invoice edit
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Coming soon')),
+                          );
+                        },
                       ),
                     if (widget.canDelete)
                       _FinanceRowAction(
                         icon: Icons.delete_outline_rounded,
                         label: 'Delete',
                         color: cs.error,
-                        onTap: () {},
+                        onTap: () {
+                          // TODO: implement invoice delete
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Coming soon')),
+                          );
+                        },
                       ),
                   ],
                 ),
@@ -1505,22 +1521,16 @@ class _PaymentsTab extends StatelessWidget {
               return AppTheme.tableRowDivider(isDark, cs);
             }
             final item = items[index ~/ 2];
+            final isOwner = schoolContext.currentEntry.value is OwnerEntry;
+            final perms = schoolContext.permissions;
             return _PaymentRow(
               item: item,
               cs: cs,
               isDark: isDark,
-              canApprove: schoolContext.permissions.can(
-                Resource.payments,
-                Action.approve,
-              ),
-              canEdit: schoolContext.permissions.can(
-                Resource.payments,
-                Action.update,
-              ),
-              canDelete: schoolContext.permissions.can(
-                Resource.payments,
-                Action.delete,
-              ),
+              canApprove:
+                  isOwner || perms.can(Resource.payments, Action.approve),
+              canEdit: isOwner || perms.can(Resource.payments, Action.update),
+              canDelete: isOwner || perms.can(Resource.payments, Action.delete),
             );
           },
         );
@@ -1649,21 +1659,36 @@ class _PaymentRowState extends State<_PaymentRow> {
                         icon: Icons.thumb_up_outlined,
                         label: 'Approve',
                         color: _kPaidColor,
-                        onTap: () {},
+                        onTap: () {
+                          // TODO: implement payment approve
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Coming soon')),
+                          );
+                        },
                       ),
                     if (widget.canEdit)
                       _FinanceRowAction(
                         icon: Icons.edit_outlined,
                         label: 'Edit',
                         color: cs.onSurfaceVariant,
-                        onTap: () {},
+                        onTap: () {
+                          // TODO: implement payment edit
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Coming soon')),
+                          );
+                        },
                       ),
                     if (widget.canDelete)
                       _FinanceRowAction(
                         icon: Icons.delete_outline_rounded,
                         label: 'Delete',
                         color: cs.error,
-                        onTap: () {},
+                        onTap: () {
+                          // TODO: implement payment delete
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Coming soon')),
+                          );
+                        },
                       ),
                   ],
                 ),
@@ -1680,21 +1705,36 @@ class _PaymentRowState extends State<_PaymentRow> {
                         icon: Icons.thumb_up_outlined,
                         label: 'Approve',
                         color: _kPaidColor,
-                        onTap: () {},
+                        onTap: () {
+                          // TODO: implement payment approve
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Coming soon')),
+                          );
+                        },
                       ),
                     if (widget.canEdit)
                       _FinanceRowAction(
                         icon: Icons.edit_outlined,
                         label: 'Edit',
                         color: cs.onSurface,
-                        onTap: () {},
+                        onTap: () {
+                          // TODO: implement payment edit
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Coming soon')),
+                          );
+                        },
                       ),
                     if (widget.canDelete)
                       _FinanceRowAction(
                         icon: Icons.delete_outline_rounded,
                         label: 'Delete',
                         color: cs.error,
-                        onTap: () {},
+                        onTap: () {
+                          // TODO: implement payment delete
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Coming soon')),
+                          );
+                        },
                       ),
                   ],
                 ),
@@ -1737,10 +1777,9 @@ class _FeesTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = cs.brightness == Brightness.dark;
-    final canCreateFee = schoolContext.permissions.can(
-      Resource.fees,
-      Action.create,
-    );
+    final isOwner = schoolContext.currentEntry.value is OwnerEntry;
+    final canCreateFee =
+        isOwner || schoolContext.permissions.can(Resource.fees, Action.create);
 
     return Stack(
       children: [
