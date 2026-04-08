@@ -849,24 +849,28 @@ class _AccountActionsCard extends StatelessWidget {
 
     switch (user.level) {
       case UserLevel.normal:
-        addRow(
-          _ActionRow(
-            icon: Icons.upgrade_rounded,
-            iconColor: cs.primary,
-            label: 'Promote to member',
-            sublabel: 'Grants system access',
-            cs: cs,
-            onTap: () => onConfirmAndRun(
-              title: 'Promote to member?',
-              message:
-                  'This will grant system-level access to ${user.name}. '
-                  'They will be able to use the system dashboard.',
-              confirmLabel: 'Promote',
-              confirmColor: cs.primary,
-              onConfirm: () => onUpdateLevel(UserLevel.system),
+        // Promotion to System requires both Users.Update AND Users.Create
+        // to prevent circumventing the invite-level restriction (B3).
+        if (permissions.can(Resource.users, Action.update) &&
+            permissions.can(Resource.users, Action.create))
+          addRow(
+            _ActionRow(
+              icon: Icons.upgrade_rounded,
+              iconColor: cs.primary,
+              label: 'Promote to member',
+              sublabel: 'Grants system access',
+              cs: cs,
+              onTap: () => onConfirmAndRun(
+                title: 'Promote to member?',
+                message:
+                    'This will grant system-level access to ${user.name}. '
+                    'They will be able to use the system dashboard.',
+                confirmLabel: 'Promote',
+                confirmColor: cs.primary,
+                onConfirm: () => onUpdateLevel(UserLevel.system),
+              ),
             ),
-          ),
-        );
+          );
       case UserLevel.system:
         // Only a Super viewer can elevate someone to Super.
         if (viewerLevel == UserLevel.super_) {

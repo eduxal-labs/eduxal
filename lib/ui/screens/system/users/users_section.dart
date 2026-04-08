@@ -438,12 +438,18 @@ class _UsersSectionState extends State<UsersSection> {
                             Resource.users,
                             Action.update,
                           );
+                          final canCreate = widget.permissions.can(
+                            Resource.users,
+                            Action.create,
+                          );
                           final canDelete = widget.permissions.can(
                             Resource.users,
                             Action.delete,
                           );
 
-                          if (canUpdate && user.level == UserLevel.normal) {
+                          if (canUpdate &&
+                              canCreate &&
+                              user.level == UserLevel.normal) {
                             actions.add(
                               _RowAction(
                                 icon: Icons.shield_outlined,

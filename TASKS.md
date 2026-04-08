@@ -254,7 +254,7 @@ Additionally, `_updateLevel` and `_updateStatus` methods perform DAO calls with 
 
 ---
 
-### Task B3: Promote-to-System requires only `Users.Update` but invite requires `Users.Create` — inconsistency
+### Task B3: Promote-to-System requires only `Users.Update` but invite requires `Users.Create` — inconsistency ✅
 
 **Files to modify:** `lib/ui/screens/system/users/users_section.dart`, `lib/ui/screens/system/users/user_detail_sheet.dart`, `lib/ui/screens/system/members/members_section.dart`
 **Context files to read:** `lib/ui/screens/system/CONTEXT.md`
