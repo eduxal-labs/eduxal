@@ -93,12 +93,12 @@ Specifically:
 3. The `_GuardianPaymentSheet` class and `_showGuardianPaymentSheet` function can be deleted or left as dead code (executor's judgment — deletion is cleaner).
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note finance is now fully read-only for guardians/students
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note finance is now fully read-only for guardians/students
+- [x] Mark this task `[x]`
 
 ---
 
-### Task A4: Owner can remove themselves via info sheet (bypasses self-removal guard)
+### Task A4: Owner can remove themselves via info sheet (bypasses self-removal guard) ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/members/owners_tab.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -135,8 +135,8 @@ switch (result) {
 Import `MemberManagementService` if not already imported. Import `Result`, `Ok`, `Err` from `models/result.dart`.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -164,8 +164,8 @@ Future<void> _promote(UsersData user) async {
 Where `_permissions` is the `SystemPermissions` instance already available in the widget.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md`
+- [x] Mark this task `[x]`
 
 ---
 
