@@ -292,7 +292,7 @@ if (!widget.permissions.can(Resource.users, Action.update) ||
 
 ---
 
-### Task B4: Grade detail content tabs expose data without read permissions
+### Task B4: Grade detail content tabs expose data without read permissions ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/academics/grade_detail_page.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`

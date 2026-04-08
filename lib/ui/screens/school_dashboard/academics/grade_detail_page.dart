@@ -113,12 +113,20 @@ class _GradeDetailPageState extends State<GradeDetailPage>
 
   // ── Content tab definitions ────────────────────────────────────────────────
 
-  /// Whether the user has permission to see the Students tab.
+  /// Whether the user has permission to see each content tab.
   late final bool _canSeeStudents;
+  late final bool _canSeeExams;
+  late final bool _canSeeClasses; // gates Subjects, Timetable, Teachers
+  late final bool _canSeeLessons;
+  late final bool _canSeeAttendance;
 
-  /// Visible content tabs — the Students tab is only included when the user
-  /// has `students.read` permission (or is an owner).
+  /// Visible content tabs — only tabs the user has permission to see are
+  /// included. Teachers and owners always see all tabs.
   late final List<EduTab> _contentTabs;
+
+  /// Maps visible tab index → logical index (0=Students, 1=Exams, 2=Subjects,
+  /// 3=Attendance, 4=Timetable, 5=Lessons, 6=Teachers).
+  late final List<int> _visibleToLogical;
 
   // ── "All" sub-tab definitions ──────────────────────────────────────────────
 
@@ -170,27 +178,54 @@ class _GradeDetailPageState extends State<GradeDetailPage>
     );
     _allSubTabController.addListener(_onAllSubTabChanged);
 
-    // Gate the Students tab behind students.read permission.
-    _canSeeStudents = _can(Resource.students, Action.read);
+    // Gate each content tab behind the appropriate read permission.
+    // Teachers and owners always see all tabs — their membership in
+    // a class implies full visibility.
+    final entry = widget.schoolContext.currentEntry.value;
+    final isTeacher = entry is TeacherEntry;
+    final isOwner = entry is OwnerEntry;
+
+    _canSeeStudents =
+        _can(Resource.students, Action.read) || isOwner || isTeacher;
+    _canSeeExams = _can(Resource.exams, Action.read) || isOwner || isTeacher;
+    _canSeeClasses =
+        _can(Resource.classes, Action.read) || isOwner || isTeacher;
+    _canSeeLessons =
+        _can(Resource.lessons, Action.read) || isOwner || isTeacher;
+    _canSeeAttendance =
+        _can(Resource.attendance, Action.read) ||
+        _can(Resource.attendance, Action.mark) ||
+        isOwner ||
+        isTeacher;
+
     _contentTabs = [
       if (_canSeeStudents) const EduTab(label: 'Students'),
-      const EduTab(label: 'Exams'),
-      const EduTab(label: 'Subjects'),
-      const EduTab(label: 'Attendance'),
-      const EduTab(label: 'Timetable'),
-      const EduTab(label: 'Lessons'),
-      const EduTab(label: 'Teachers'),
+      if (_canSeeExams) const EduTab(label: 'Exams'),
+      if (_canSeeClasses) const EduTab(label: 'Subjects'),
+      if (_canSeeAttendance) const EduTab(label: 'Attendance'),
+      if (_canSeeClasses) const EduTab(label: 'Timetable'),
+      if (_canSeeLessons) const EduTab(label: 'Lessons'),
+      if (_canSeeClasses) const EduTab(label: 'Teachers'),
+    ];
+
+    _visibleToLogical = [
+      if (_canSeeStudents) 0,
+      if (_canSeeExams) 1,
+      if (_canSeeClasses) 2,
+      if (_canSeeAttendance) 3,
+      if (_canSeeClasses) 4,
+      if (_canSeeLessons) 5,
+      if (_canSeeClasses) 6,
     ];
 
     // Resolve initial content tab index — clamp to valid range.
     // `initialContentTabIndex` uses the *logical* ordering where 0=Students,
     // 1=Exams, 2=Subjects, 3=Attendance, etc.  Convert to visible index
-    // when the Students tab is hidden.
+    // using the mapping table.
     final logicalInit = widget.initialContentTabIndex ?? 0;
-    final initContent = (_canSeeStudents ? logicalInit : logicalInit - 1).clamp(
-      0,
-      _contentTabs.length - 1,
-    );
+    int initContent = _visibleToLogical.indexOf(logicalInit);
+    if (initContent < 0) initContent = 0;
+    initContent = initContent.clamp(0, math.max(0, _contentTabs.length - 1));
     _selectedContentIndex = initContent;
 
     _contentTabController = TabController(
@@ -289,10 +324,9 @@ class _GradeDetailPageState extends State<GradeDetailPage>
 
   /// Maps a visible content tab index → logical index (0=Students, 1=Exams,
   /// 2=Subjects, 3=Attendance, 4=Timetable, 5=Lessons, 6=Teachers).
-  /// When [_canSeeStudents] is false the Students tab is absent, so visible
-  /// index 0 corresponds to logical index 1 (Exams), etc.
+  /// Uses [_visibleToLogical] to handle arbitrary hidden tabs.
   int _logicalContentIndex(int visible) =>
-      _canSeeStudents ? visible : visible + 1;
+      visible < _visibleToLogical.length ? _visibleToLogical[visible] : 0;
 
   /// Brief scale-down-then-up bounce for the FAB.
   Future<void> _bounceFab() async {
@@ -449,12 +483,13 @@ class _GradeDetailPageState extends State<GradeDetailPage>
                                 : null,
                             children: [
                               if (_canSeeStudents) _buildStudentsTab(cs, term),
-                              _buildExamsTab(cs, term),
-                              _buildSubjectsTab(cs, term),
-                              _buildAttendanceTab(cs, term),
-                              _buildTimetableTab(cs, term),
-                              _buildLessonsTab(cs, term),
-                              _buildTeachersTab(cs, term),
+                              if (_canSeeExams) _buildExamsTab(cs, term),
+                              if (_canSeeClasses) _buildSubjectsTab(cs, term),
+                              if (_canSeeAttendance)
+                                _buildAttendanceTab(cs, term),
+                              if (_canSeeClasses) _buildTimetableTab(cs, term),
+                              if (_canSeeLessons) _buildLessonsTab(cs, term),
+                              if (_canSeeClasses) _buildTeachersTab(cs, term),
                             ],
                           ),
                   ),
