@@ -955,8 +955,8 @@ class _ExamCreationPageState extends State<ExamCreationPage>
       _showError('Please select the exam date range.');
       return;
     }
-    if (!_endDate!.isAfter(_startDate!)) {
-      _showError('Start date must be before end date.');
+    if (_endDate!.isBefore(_startDate!)) {
+      _showError('End date cannot be before start date.');
       return;
     }
     if (!_isTeacherEntry && _teacherId.isEmpty) {

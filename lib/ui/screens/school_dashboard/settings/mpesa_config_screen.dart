@@ -161,6 +161,7 @@ class _MpesaConfigScreenState extends State<MpesaConfigScreen> {
       _origConsumerSecret = consumerSecret;
       _origPasskey = passkey;
       _origEnv = _env;
+      final wasUpdate = _isUpdate;
       _isUpdate = true;
 
       if (mounted) {
@@ -168,7 +169,7 @@ class _MpesaConfigScreenState extends State<MpesaConfigScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              _isUpdate
+              wasUpdate
                   ? 'M-Pesa configuration updated.'
                   : 'M-Pesa configuration saved.',
             ),

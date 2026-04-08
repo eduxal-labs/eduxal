@@ -56,7 +56,7 @@ class _SchoolSettingsScreenState extends State<SchoolSettingsScreen> {
   bool _isDirty = false;
   String? _error;
 
-  SchoolsData get _school => widget.schoolContext.membership.school;
+  late SchoolsData _school;
 
   // ── Dirty tracking ────────────────────────────────────────────────────────
 
@@ -88,6 +88,7 @@ class _SchoolSettingsScreenState extends State<SchoolSettingsScreen> {
   @override
   void initState() {
     super.initState();
+    _school = widget.schoolContext.membership.school;
     final s = _school;
     _nameCtrl = TextEditingController(text: s.name);
     _mottoCtrl = TextEditingController(text: s.motto ?? '');
@@ -215,8 +216,13 @@ class _SchoolSettingsScreenState extends State<SchoolSettingsScreen> {
         await schoolsDao.logLogoChange(_school.id, accountId: accountId);
       }
 
+      // Re-read the school from the DB so _school reflects saved values.
+      // This prevents stale data if the user navigates away and back.
+      final updated = await schoolsDao.getSchool(_school.id);
+
       if (mounted) {
         setState(() {
+          if (updated != null) _school = updated;
           _isDirty = false;
           _logoImage = null;
         });

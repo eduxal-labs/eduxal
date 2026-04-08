@@ -127,7 +127,7 @@ class StudentOverview extends StatelessWidget {
             SectionTitle(
               label: 'Upcoming Exams',
               cs: cs,
-              onViewAll: () => DashboardNavigation.goToTab(context, 'Exams'),
+              onViewAll: () => DashboardNavigation.goToTab(context, 'Grades'),
             ),
             const SizedBox(height: 8),
             _StudentUpcomingExams(
@@ -143,8 +143,7 @@ class StudentOverview extends StatelessWidget {
             SectionTitle(
               label: 'Attendance',
               cs: cs,
-              onViewAll: () =>
-                  DashboardNavigation.goToTab(context, 'Attendance'),
+              onViewAll: () => DashboardNavigation.goToTab(context, 'Grades'),
             ),
             const SizedBox(height: 8),
             StudentAttendanceSummary(

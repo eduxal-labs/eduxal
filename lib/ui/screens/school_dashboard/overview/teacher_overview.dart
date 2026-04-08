@@ -141,7 +141,7 @@ class TeacherOverview extends StatelessWidget {
               label: 'My Classes',
               cs: cs,
               onViewAll: () =>
-                  DashboardNavigation.goToTab(context, 'My Classes'),
+                  DashboardNavigation.goToTab(context, 'Academics'),
             ),
             const SizedBox(height: 8),
             _TeacherClassChips(schoolId: schoolId, userId: userId, term: term),
@@ -721,7 +721,9 @@ class _TeacherQuickStatsState extends State<_TeacherQuickStats> {
             final count = list
                 .where(
                   (c) =>
-                      c.year == widget.term.year && c.term == widget.term.term,
+                      c.year == widget.term.year &&
+                      c.term == widget.term.term &&
+                      c.end == null,
                 )
                 .length;
             setState(() => _classCount = count);
@@ -762,10 +764,12 @@ class _TeacherQuickStatsState extends State<_TeacherQuickStats> {
   void _recomputePapers() {
     int papers = 0;
     for (final e in _allExams) {
-      if (e.teacher.id == widget.userId ||
-          e.papers.any((p) => p.invigilator == widget.userId) ||
-          e.papers.any((p) => _teacherSubjectIds.contains(p.subject))) {
-        papers += e.papers.length;
+      for (final p in e.papers) {
+        if (p.invigilator == widget.userId ||
+            _teacherSubjectIds.contains(p.subject) ||
+            e.teacher.id == widget.userId) {
+          papers++;
+        }
       }
     }
     if (mounted) setState(() => _papersCount = papers);

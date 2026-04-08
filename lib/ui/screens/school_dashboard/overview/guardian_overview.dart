@@ -255,8 +255,7 @@ class GuardianOverview extends StatelessWidget {
             SectionTitle(
               label: 'Attendance',
               cs: cs,
-              onViewAll: () =>
-                  DashboardNavigation.goToTab(context, 'Attendance'),
+              onViewAll: () => DashboardNavigation.goToTab(context, 'Progress'),
             ),
             const SizedBox(height: 8),
             StudentAttendanceSummary(

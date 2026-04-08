@@ -1167,7 +1167,7 @@ onViewAll: () => DashboardNavigation.goToTab(context, 'Progress'),
 ```
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -1196,7 +1196,7 @@ onViewAll: () => DashboardNavigation.goToTab(context, 'Grades'),
 ```
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -1322,7 +1322,7 @@ if (_endDate!.isBefore(_startDate!)) {
 ```
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -1351,7 +1351,7 @@ if (mounted) {
 ```
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
