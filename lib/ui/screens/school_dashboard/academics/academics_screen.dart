@@ -64,27 +64,6 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
   /// Determines which curriculum a grade number belongs to based on the
   /// numbering convention:
   ///   CBC: 1–14  (PP1=1, PP2=2, Grade 1–9 = 3–11, Grade 10–12 = 12–14)
-  ///   8-4-4: 1–8 (Standard 1–8) and 41–44 (Form 1–4)
-  ///
-  /// Grade numbers 1–8 are ambiguous — they exist in both systems. We resolve
-  /// ambiguity by checking if any grade ≥ 41 exists (which means 8-4-4 is in
-  /// use) or any grade ≥ 9 exists (which means CBC is in use). Grade numbers
-  /// 41–44 are unambiguously 8-4-4. Grade numbers 9–14 are unambiguously CBC.
-  ///
-  /// For simplicity when the set of grades is unknown, we default ambiguous
-  /// grades (1–8) to CBC. The curriculum chooser UI always creates at least
-  /// one grade, so the grouping will self-correct as grades are added.
-  CurriculumType _curriculumForGrade(int grade, Set<int> allGrades) {
-    // Unambiguous: Form grades are always 8-4-4.
-    if (grade >= 41) return CurriculumType.eightFourFour;
-    // Unambiguous: CBC upper grades.
-    if (grade >= 9) return CurriculumType.cbc;
-    // Ambiguous range (1–8). Check if we have any 8-4-4-only grades.
-    if (allGrades.any((g) => g >= 41)) return CurriculumType.eightFourFour;
-    // Default to CBC.
-    return CurriculumType.cbc;
-  }
-
   /// Builds a [SchoolConfig]-like structure from raw [SchoolStream] rows,
   /// grouping by curriculum and grade.
   ({List<_CurriculumGroup> curricula, bool isEmpty}) _buildGradeTree(
@@ -110,7 +89,7 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
     for (final entry in byGrade.entries) {
       final gradeNum = entry.key;
       final streams = entry.value..sort((a, b) => a.stream.compareTo(b.stream));
-      final type = _curriculumForGrade(gradeNum, allGrades);
+      final type = curriculumForGrade(gradeNum, allGrades: allGrades);
       final group = _GradeGroup(grade: gradeNum, streams: streams);
 
       if (type == CurriculumType.cbc) {

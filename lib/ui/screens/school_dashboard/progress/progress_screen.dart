@@ -10,6 +10,7 @@ import '../../../../database/daos/exams_grades_dao.dart';
 import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../database/tables/enums.dart';
 import '../../../../models/active_term_context.dart';
+import '../../../../models/school_config.dart';
 import '../../../../models/membership.dart';
 import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
@@ -2137,16 +2138,6 @@ class _MasteryTab extends StatelessWidget {
   final String schoolId;
   final StudentsData student;
 
-  /// Determines the curriculum type from a grade number.
-  /// Grades ≥ 41 (Form 1–4) are unambiguously 8-4-4.
-  /// Grades ≥ 9 (Grade 9–12) are unambiguously CBC.
-  /// Grades 1–8 are ambiguous — default to CBC (the newer curriculum).
-  static CurriculumType _curriculumForGrade(int grade) {
-    if (grade >= 41) return CurriculumType.eightFourFour;
-    if (grade >= 9) return CurriculumType.cbc;
-    return CurriculumType.cbc;
-  }
-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -2164,7 +2155,7 @@ class _MasteryTab extends StatelessWidget {
       builder: (context, enrollSnap) {
         final enrollments = enrollSnap.data ?? [];
         final curriculum = enrollments.isNotEmpty
-            ? _curriculumForGrade(enrollments.first.grade)
+            ? curriculumForGrade(enrollments.first.grade)
             : CurriculumType.cbc;
 
         // Step 2: Watch mastery data (already school + student scoped)

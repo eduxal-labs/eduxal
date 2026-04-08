@@ -134,6 +134,9 @@ Top-level settings config stored in `settings.data` JSON (version 2).
 - `GradeConfig` → has `int grade`, `List<GradeStream> streams`.
 - `GradeStream` → has `String name`, `int code`.
 - Grade label maps: `kCbcGradeLabels` (Map<int, String>), `kEightFourFourGradeLabels`, `gradeLabelsFor(CurriculumType)`.
+- **Shared helpers (top-level functions):**
+  - `CurriculumType curriculumForGrade(int grade, {Set<int> allGrades})` — determines curriculum type from a grade number. Grades ≥41 → 8-4-4, ≥9 → CBC, 1–8 resolved by checking `allGrades` for 8-4-4 markers (defaults to CBC).
+  - `SchoolConfig buildConfigFromStreams(List<SchoolStream> allStreams)` — converts raw `SchoolStream` rows (from `CatalogDao.watchAllStreamsForSchool`) into a `SchoolConfig`, grouping by curriculum type and grade. Previously duplicated across `announcements_screen.dart`, `exams_grades_screen.dart`, `exams_tab.dart`; now centralized here.
 
 ### `VerifyResult` — `verify_result.dart`
 Sealed union returned by `Authentication.verify()`:
@@ -238,4 +241,4 @@ Grouping model for the exams UI. Multiple exam rows sharing the same name are pr
 - **`ExamStreamEntry`** — One exam row + its papers for a specific stream. Fields: `exam` (Exam), `streamCode` (int?), `papers` (List<Paper>).
 
 ## Last Updated
-Task B2 — `SchoolPermissions` now has a `UserLevel _level` field with Super bypass: `can()`, `canAny()`, `canAll()` return `true` unconditionally for `UserLevel.super_`. Constructor accepts optional `level` parameter (default `UserLevel.normal`). Call sites in `SchoolScopesDao` updated to pass `level: userLevel`.
+Task G3 — Extracted shared `buildConfigFromStreams(List<SchoolStream>)` and `curriculumForGrade(int grade, {Set<int> allGrades})` as top-level functions in `school_config.dart`. Removed duplicate copies from `announcements_screen.dart`, `exams_grades_screen.dart`, `exams_tab.dart`. Replaced `_curriculumForGrade` in `academics_screen.dart` and `progress_screen.dart` with the shared version. Unused `curriculum_subjects.dart` imports removed from `announcements_screen.dart`, `exams_grades_screen.dart`, and `exams_tab.dart`.

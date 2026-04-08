@@ -1082,7 +1082,7 @@ This prevents the FAB from appearing on these tabs. Remove the `_showStubSnackba
 
 ---
 
-### Task G3: `_buildConfigFromStreams` duplicated across 4+ files
+### Task G3: `_buildConfigFromStreams` duplicated across 4+ files ✅
 
 **Files to modify:** `lib/models/school_config.dart` (create or modify), `lib/ui/screens/school_dashboard/exams/exams_grades_screen.dart`, `lib/ui/screens/school_dashboard/academics/tabs/exams_tab.dart`, `lib/ui/screens/school_dashboard/announcements/announcements_screen.dart`, `lib/ui/screens/school_dashboard/timetable/timetable_screen.dart`
 **Context files to read:** `lib/models/CONTEXT.md`, `lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -1103,8 +1103,8 @@ The curriculum-detection logic (`curriculumForGrade`) and `_buildConfigFromStrea
 3. Remove the duplicate function bodies.
 
 **Update after completion:**
-- [ ] Update `lib/models/CONTEXT.md` — note the new exports
-- [ ] Mark this task `[x]`
+- [x] Update `lib/models/CONTEXT.md` — note the new exports
+- [x] Mark this task `[x]`
 
 ---
 
