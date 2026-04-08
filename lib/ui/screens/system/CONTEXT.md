@@ -149,12 +149,13 @@ System sections check `SystemPermissions` before rendering sensitive actions:
 | Purge member | Only `UserLevel.super_` |
 | Activate/suspend/restore school | `schools.update` |
 | Delete school (soft) | `schools.delete` |
-| Purge school | Only `UserLevel.super_` (`canSeeDeleted`) |
+| Purge school | `schools.purge` (Super users pass via level shortcut) |
 | Create school | `schools.create` |
 | Edit role | `roles.update` |
 | Delete role | `roles.delete` |
 | Purge role | Only `UserLevel.super_` |
 | Manage plans | `plans.create`, `plans.update`, `plans.delete` |
+| Purge plan | `plans.purge` (Super users pass via level shortcut) |
 | See deleted records | Only `UserLevel.super_` (`SystemPermissions.canSeeDeleted`) |
 
 All action buttons in `users_section.dart`, `members_section.dart`, `schools_section.dart`, `roles_section.dart`, and `plans_section.dart` are now permission-gated. Each section computes `canUpdate` / `canDelete` from `widget.permissions.can(Resource.xxx, Action.yyy)` and conditionally includes row actions. Super-only actions (purge, promote-to-super, demote-from-super) additionally check `widget.permissions.level == UserLevel.super_` or `canSeeDeleted`.
@@ -177,7 +178,7 @@ For `UserLevel.super_` users, all permissions are granted unconditionally via `S
 - All sections receive `SystemPermissions` from the shell — they never compute their own.
 - Data is not school-scoped — all queries are system-wide (no `schoolId` filter).
 - The notification system reads from the `logs` table directly — it does not depend on the sync engine.
-- Permission gating uses `SystemPermissions.can(action)` — never raw `UserLevel` checks in UI code (except `canSeeDeleted` which is level-specific by design).
+- Permission gating uses `SystemPermissions.can(action)` — never raw `UserLevel` checks in UI code (except `canSeeDeleted` which is level-specific by design for *visibility* of deleted records, not for gating destructive actions like purge).
 - **Destructive action confirmations (E03):** All destructive or privilege-changing actions show a `showEduConfirmDialog` before executing. Specifically:
   - `schools_section.dart` `_trashSchool`: dialog now has `isDestructive: true`.
   - `plans_section.dart` `_deletePlan`: added confirmation dialog (`isDestructive: true`) and success snackbar on completion.

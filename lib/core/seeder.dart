@@ -66,6 +66,7 @@ class Seeder {
       await database.delete(database.invoices).go();
       await database.delete(database.fees).go();
       await database.delete(database.subjectTeachers).go();
+      await database.delete(database.topics).go();
       await database.delete(database.subjects).go();
       await database.delete(database.enrollments).go();
       await database.delete(database.classTeachers).go();
@@ -84,6 +85,8 @@ class Seeder {
 
       await database.delete(database.plans).go();
       await database.delete(database.exams).go();
+      await database.delete(database.streams).go();
+      await database.delete(database.mpesa).go();
       await database.delete(database.schools).go();
       await (database.delete(
         database.users,
@@ -837,6 +840,10 @@ class _SeederImpl {
     await _seedRolesAndScopes();
     await _seedMastery();
     await _seedLessons();
+
+    // Seeded data is local-only demo data — purge the log queue so the
+    // sync engine does not attempt to push thousands of entries.
+    await _db.delete(_db.logs).go();
   }
 
   // ── Helpers ──────────────────────────────────────────────────

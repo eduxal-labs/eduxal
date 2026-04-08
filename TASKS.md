@@ -876,7 +876,7 @@ bool get _showFab {
 
 ---
 
-### Task D6: Purge actions gated by `canSeeDeleted` instead of `Action.purge`
+### Task D6: Purge actions gated by `canSeeDeleted` instead of `Action.purge` ✅
 
 **Files to modify:** `lib/ui/screens/system/plans/plans_section.dart`, `lib/ui/screens/system/schools/schools_section.dart`
 **Context files to read:** `lib/ui/screens/system/CONTEXT.md`
@@ -891,8 +891,8 @@ In both `plans_section.dart` and `schools_section.dart`, Purge actions are gated
 Replace `permissions.canSeeDeleted` with `permissions.can(Resource.plans, Action.purge)` in `plans_section.dart` and `permissions.can(Resource.schools, Action.purge)` in `schools_section.dart`. For Super users this returns `true` via the level shortcut; for all others it checks the bitmask.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note the fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — note the fix
+- [x] Mark this task `[x]`
 
 ---
 
@@ -920,8 +920,8 @@ Add the missing deletes in the correct FK order:
 Place them alongside the existing delete sequence, respecting FK dependencies.
 
 **Update after completion:**
-- [ ] Update `lib/core/CONTEXT.md` — note the fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/core/CONTEXT.md` — note the fix
+- [x] Mark this task `[x]`
 
 ---
 
@@ -947,8 +947,8 @@ await database.delete(database.logs).go();
 This is safe because seeded data is local-only demo data that should not sync. The logs table is client-only.
 
 **Update after completion:**
-- [ ] Update `lib/core/CONTEXT.md` — note the fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/core/CONTEXT.md` — note the fix
+- [x] Mark this task `[x]`
 
 ---
 

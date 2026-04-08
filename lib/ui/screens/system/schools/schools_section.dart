@@ -244,7 +244,7 @@ class _SchoolsSectionState extends State<SchoolsSection> {
       );
     }
 
-    if (widget.permissions.canSeeDeleted &&
+    if (widget.permissions.can(Resource.schools, Action.purge) &&
         school.status == SchoolStatus.deleted) {
       actions.add(
         _RowAction(

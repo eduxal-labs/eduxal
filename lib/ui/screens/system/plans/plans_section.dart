@@ -187,7 +187,8 @@ class _PlansSectionState extends State<PlansSection> {
                 isDestructive: true,
                 onTap: (p) => _deletePlan(context, p),
               ),
-            if (plan.status == PlanStatus.deleted && permissions.canSeeDeleted)
+            if (plan.status == PlanStatus.deleted &&
+                permissions.can(Resource.plans, Action.purge))
               EduDataTableAction<Plan>(
                 icon: Icons.delete_forever_rounded,
                 label: 'Purge',
@@ -639,7 +640,7 @@ class _PlanCardState extends State<_PlanCard> {
                 // ── Status action buttons ────────────────────────────────
                 if (permissions.can(Resource.plans, Action.update) ||
                     (plan.status == PlanStatus.deleted &&
-                        permissions.canSeeDeleted)) ...[
+                        permissions.can(Resource.plans, Action.purge))) ...[
                   const SizedBox(height: 10),
                   Divider(
                     height: 1,
@@ -694,7 +695,7 @@ class _PlanCardState extends State<_PlanCard> {
                             cs: cs,
                           ),
                         if (plan.status == PlanStatus.deleted &&
-                            permissions.canSeeDeleted)
+                            permissions.can(Resource.plans, Action.purge))
                           _CardActionButton(
                             icon: Icons.delete_forever_rounded,
                             tooltip: 'Purge',
@@ -1715,7 +1716,7 @@ class _PlanDetailSheetState extends State<_PlanDetailSheet> {
                 ] else ...[
                   // Purge — only for deleted plans, super users only
                   if (plan.status == PlanStatus.deleted &&
-                      widget.permissions.canSeeDeleted)
+                      widget.permissions.can(Resource.plans, Action.purge))
                     IconButton(
                       icon: _purging
                           ? SizedBox(
