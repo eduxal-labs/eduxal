@@ -112,33 +112,14 @@ class _SchoolRolesBodyState extends State<_SchoolRolesBody> {
     );
   }
 
+  // TODO: Implement soft-delete for roles when a role status column is added.
+  // Currently there is no soft-delete path — both Delete and Purge call the
+  // same DAO hard-delete method. To avoid confusing users with two identical
+  // destructive actions, the Delete button is hidden from the UI. Only Purge
+  // is shown (Super users only). Re-enable Delete once soft-delete exists.
+  // ignore: unused_element
   Future<void> _deleteRole(BuildContext context, Role role) async {
-    final confirmed = await showEduConfirmDialog(
-      context: context,
-      title: 'Delete role',
-      message:
-          'Delete "${role.name}"?\n\n'
-          'Users assigned this role will lose its permissions.',
-      confirmLabel: 'Delete',
-      isDestructive: true,
-    );
-    if (!confirmed || !mounted) return;
-    try {
-      final accountId = cache.currentUser?.user.id;
-      if (accountId == null) return;
-      await _dao.deleteRole(role.id, accountId: accountId);
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('"${role.name}" deleted')));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to delete role: $e')));
-      }
-    }
+    // Stub — soft-delete not yet implemented.
   }
 
   Future<void> _purgeRole(BuildContext context, Role role) async {
@@ -156,11 +137,6 @@ class _SchoolRolesBodyState extends State<_SchoolRolesBody> {
     try {
       final accountId = cache.currentUser?.user.id;
       if (accountId == null) return;
-      // TODO: implement proper purge (hard delete vs soft delete).
-      // Currently both Delete and Purge call the same DAO method because
-      // there is no soft-delete/restore path for roles yet. Once soft-delete
-      // is implemented, Purge should bypass trash and permanently erase the
-      // record while Delete should merely mark it as deleted.
       await _dao.deleteRole(role.id, accountId: accountId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -211,7 +187,6 @@ class _SchoolRolesBodyState extends State<_SchoolRolesBody> {
 
     final canCreate = isOwner || perms.can(Resource.roles, Action.create);
     final canEdit = isOwner || perms.can(Resource.roles, Action.update);
-    final canDelete = isOwner || perms.can(Resource.roles, Action.delete);
 
     return StreamBuilder<List<Role>>(
       stream: _dao.watchSchoolRoles(_schoolId),
@@ -262,13 +237,10 @@ class _SchoolRolesBodyState extends State<_SchoolRolesBody> {
                                   onTap: (r) =>
                                       _showCreateSheet(context, existing: r),
                                 ),
-                              if (canDelete)
-                                EduDataTableAction<Role>(
-                                  icon: Icons.delete_outline_rounded,
-                                  label: 'Delete',
-                                  isDestructive: true,
-                                  onTap: (r) => _deleteRole(context, r),
-                                ),
+                              // NOTE: Delete button hidden — roles currently
+                              // only support hard delete (purge). Soft-delete
+                              // will be added when a role status column exists.
+                              // Until then, only Purge is shown to Super users.
                               if (_isSuper)
                                 EduDataTableAction<Role>(
                                   icon: Icons.delete_forever_rounded,

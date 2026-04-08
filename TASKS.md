@@ -1189,7 +1189,7 @@ if (widget.grade.streams.isEmpty) {
 
 ---
 
-### Task G7: Teacher timetable view creates pseudo `UsersData` with hardcoded empty fields
+### Task G7: Teacher timetable view creates pseudo `UsersData` with hardcoded empty fields ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/timetable/timetable_screen.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -1220,8 +1220,8 @@ final actualUser = UsersData(
 Or, if `TimetableEntry` can be refactored to accept a nullable teacher name instead of a full `UsersData`, that's cleaner.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
+- [x] Mark this task `[x]`
 
 ---
 

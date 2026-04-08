@@ -9,7 +9,7 @@ import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/timetable_dao.dart';
 import '../../../../database/daos/catalog_dao.dart';
-import '../../../../database/tables/enums.dart';
+
 import '../../../../models/active_term_context.dart';
 import '../../../../models/membership.dart';
 import '../../../../models/permissions.dart';
@@ -660,8 +660,9 @@ class _TeacherTimetableViewState extends State<_TeacherTimetableView> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final term = widget.termContext.currentTerm;
+    final currentUser = cache.currentUser;
 
-    if (term == null || _config == null) {
+    if (term == null || _config == null || currentUser == null) {
       return Center(
         child: SizedBox(
           width: 20,
@@ -673,6 +674,10 @@ class _TeacherTimetableViewState extends State<_TeacherTimetableView> {
 
     final schoolId = widget.schoolContext.membership.school.id;
 
+    // Use actual user data from the authenticated account instead of
+    // constructing a pseudo-user with empty phone / zero timestamps.
+    final actualUser = currentUser.user;
+
     return StreamBuilder<List<TimetableData>>(
       stream: _timetableDao.watchTeacherTimetable(
         schoolId: schoolId,
@@ -683,25 +688,11 @@ class _TeacherTimetableViewState extends State<_TeacherTimetableView> {
       builder: (context, snapshot) {
         final slots = snapshot.data ?? [];
 
-        // Convert TimetableData to TimetableEntry with a "self" teacher user
-        // We create a pseudo-user for display (teacher name comes from the
-        // account data already visible in the dashboard).
-        final teacherName = cache.currentUser?.user.name ?? 'You';
-        final pseudoUser = UsersData(
-          id: _teacherUserId,
-          phone: '',
-          name: teacherName,
-          level: UserLevel.normal,
-          status: UserStatus.active,
-          created: BigInt.zero,
-          updated: BigInt.zero,
-        );
-
         final entries = slots
             .map(
               (s) => TimetableEntry(
                 slot: s,
-                teacher: pseudoUser,
+                teacher: actualUser,
                 subjectName: subjectLabel(s.subject, _config!),
               ),
             )

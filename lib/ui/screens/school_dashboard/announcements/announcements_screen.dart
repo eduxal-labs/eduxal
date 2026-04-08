@@ -11,7 +11,7 @@ import '../../../../database/database.dart';
 import '../../../../database/daos/announcements_dao.dart';
 import '../../../../database/daos/catalog_dao.dart';
 import '../../../../database/daos/enrollments_dao.dart';
-import '../../../../database/tables/curriculum_subjects.dart';
+
 import '../../../../models/active_term_context.dart';
 import '../../../../models/membership.dart';
 import '../../../../models/school_config.dart';
@@ -21,64 +21,6 @@ import '../../../widgets/active_term_provider.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_sheet.dart';
 import '../../../widgets/pressable_row.dart';
-
-// ═════════════════════════════════════════════════════════════════════════════
-// Shared config builder
-// ═════════════════════════════════════════════════════════════════════════════
-
-/// Builds a [SchoolConfig] from raw [SchoolStream] rows using the same
-/// curriculum-detection heuristic used across the dashboard screens.
-SchoolConfig _buildConfigFromStreams(List<SchoolStream> allStreams) {
-  if (allStreams.isEmpty) return SchoolConfig.defaults();
-
-  final allGrades = allStreams.map((s) => s.grade).toSet();
-  final byGrade = <int, List<SchoolStream>>{};
-  for (final s in allStreams) {
-    byGrade.putIfAbsent(s.grade, () => []).add(s);
-  }
-
-  CurriculumType curriculumForGrade(int grade) {
-    if (grade >= 41) return CurriculumType.eightFourFour;
-    if (grade >= 9) return CurriculumType.cbc;
-    if (allGrades.any((g) => g >= 41)) return CurriculumType.eightFourFour;
-    return CurriculumType.cbc;
-  }
-
-  final cbcGrades = <GradeConfig>[];
-  final eftGrades = <GradeConfig>[];
-
-  for (final entry in byGrade.entries) {
-    final gradeNum = entry.key;
-    final streamRows = entry.value
-      ..sort((a, b) => a.stream.compareTo(b.stream));
-    final gradeStreams = streamRows
-        .map((s) => GradeStream(name: s.name, code: s.stream))
-        .toList();
-    final gc = GradeConfig(grade: gradeNum, streams: gradeStreams);
-    if (curriculumForGrade(gradeNum) == CurriculumType.cbc) {
-      cbcGrades.add(gc);
-    } else {
-      eftGrades.add(gc);
-    }
-  }
-
-  cbcGrades.sort((a, b) => a.grade.compareTo(b.grade));
-  eftGrades.sort((a, b) => a.grade.compareTo(b.grade));
-
-  final curricula = <CurriculumConfig>[];
-  if (cbcGrades.isNotEmpty) {
-    curricula.add(
-      CurriculumConfig(type: CurriculumType.cbc, grades: cbcGrades),
-    );
-  }
-  if (eftGrades.isNotEmpty) {
-    curricula.add(
-      CurriculumConfig(type: CurriculumType.eightFourFour, grades: eftGrades),
-    );
-  }
-
-  return SchoolConfig(curricula: curricula);
-}
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Entry point
@@ -191,7 +133,7 @@ class _AdminFeedState extends State<_AdminFeed> {
     ) {
       if (!mounted) return;
       setState(() {
-        _config = _buildConfigFromStreams(allStreams);
+        _config = buildConfigFromStreams(allStreams);
       });
     });
   }
@@ -354,7 +296,7 @@ class _RoleFeedState extends State<_RoleFeed> {
     ) {
       if (!mounted) return;
       setState(() {
-        _config = _buildConfigFromStreams(allStreams);
+        _config = buildConfigFromStreams(allStreams);
       });
     });
     if (widget.studentAdm != null) {

@@ -72,7 +72,7 @@ class StudentOverview extends StatelessWidget {
 
           // ── Next class countdown ─────────────────────────────────────────
           if (term != null && termContext.isCurrentTermActive) ...[
-            _StudentNextClass(
+            StudentNextClass(
               schoolId: schoolId,
               year: term.year,
               term: term.term,
@@ -130,7 +130,7 @@ class StudentOverview extends StatelessWidget {
               onViewAll: () => DashboardNavigation.goToTab(context, 'Grades'),
             ),
             const SizedBox(height: 8),
-            _StudentUpcomingExams(
+            StudentUpcomingExams(
               schoolId: schoolId,
               term: term,
               studentAdm: studentAdm,
@@ -178,8 +178,8 @@ class StudentOverview extends StatelessWidget {
   }
 }
 
-class _StudentNextClass extends StatelessWidget {
-  const _StudentNextClass({
+class StudentNextClass extends StatelessWidget {
+  const StudentNextClass({
     required this.schoolId,
     required this.year,
     required this.term,
@@ -366,8 +366,8 @@ class _StudentTodayAttendance extends StatelessWidget {
   }
 }
 
-class _StudentUpcomingExams extends StatefulWidget {
-  const _StudentUpcomingExams({
+class StudentUpcomingExams extends StatefulWidget {
+  const StudentUpcomingExams({
     required this.schoolId,
     required this.term,
     required this.studentAdm,
@@ -378,10 +378,10 @@ class _StudentUpcomingExams extends StatefulWidget {
   final int studentAdm;
 
   @override
-  State<_StudentUpcomingExams> createState() => _StudentUpcomingExamsState();
+  State<StudentUpcomingExams> createState() => _StudentUpcomingExamsState();
 }
 
-class _StudentUpcomingExamsState extends State<_StudentUpcomingExams> {
+class _StudentUpcomingExamsState extends State<StudentUpcomingExams> {
   late Future<List<Subject>> _subjectsFuture;
 
   @override
@@ -391,7 +391,7 @@ class _StudentUpcomingExamsState extends State<_StudentUpcomingExams> {
   }
 
   @override
-  void didUpdateWidget(covariant _StudentUpcomingExams oldWidget) {
+  void didUpdateWidget(covariant StudentUpcomingExams oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.schoolId != widget.schoolId) {
       setState(() {

@@ -5,7 +5,7 @@ import 'package:flutter/material.dart' hide Action;
 import '../../../../database/database.dart';
 import '../../../../database/daos/catalog_dao.dart';
 import '../../../../database/daos/exams_grades_dao.dart';
-import '../../../../database/tables/curriculum_subjects.dart';
+
 import '../../../../models/active_term_context.dart';
 import '../../../../models/exam_group.dart';
 import '../../../../models/membership.dart';
@@ -111,7 +111,7 @@ class _ExamsShellState extends State<_ExamsShell> {
     ) {
       if (!mounted) return;
       setState(() {
-        _config = _buildConfigFromStreams(allStreams);
+        _config = buildConfigFromStreams(allStreams);
       });
     });
   }
@@ -121,63 +121,6 @@ class _ExamsShellState extends State<_ExamsShell> {
     _configSub?.cancel();
     _subjectNamesSub?.cancel();
     super.dispose();
-  }
-
-  /// Builds a [SchoolConfig] from raw [SchoolStream] rows using the same
-  /// curriculum-detection logic as the Academics screen.
-  SchoolConfig _buildConfigFromStreams(List<SchoolStream> allStreams) {
-    if (allStreams.isEmpty) return SchoolConfig.defaults();
-
-    final allGrades = allStreams.map((s) => s.grade).toSet();
-
-    // Group streams by grade.
-    final byGrade = <int, List<SchoolStream>>{};
-    for (final s in allStreams) {
-      byGrade.putIfAbsent(s.grade, () => []).add(s);
-    }
-
-    CurriculumType curriculumForGrade(int grade) {
-      if (grade >= 41) return CurriculumType.eightFourFour;
-      if (grade >= 9) return CurriculumType.cbc;
-      if (allGrades.any((g) => g >= 41)) return CurriculumType.eightFourFour;
-      return CurriculumType.cbc;
-    }
-
-    final cbcGrades = <GradeConfig>[];
-    final eftGrades = <GradeConfig>[];
-
-    for (final entry in byGrade.entries) {
-      final gradeNum = entry.key;
-      final streamRows = entry.value
-        ..sort((a, b) => a.stream.compareTo(b.stream));
-      final gradeStreams = streamRows
-          .map((s) => GradeStream(name: s.name, code: s.stream))
-          .toList();
-      final gc = GradeConfig(grade: gradeNum, streams: gradeStreams);
-
-      if (curriculumForGrade(gradeNum) == CurriculumType.cbc) {
-        cbcGrades.add(gc);
-      } else {
-        eftGrades.add(gc);
-      }
-    }
-
-    cbcGrades.sort((a, b) => a.grade.compareTo(b.grade));
-    eftGrades.sort((a, b) => a.grade.compareTo(b.grade));
-
-    final curricula = <CurriculumConfig>[];
-    if (cbcGrades.isNotEmpty) {
-      curricula.add(
-        CurriculumConfig(type: CurriculumType.cbc, grades: cbcGrades),
-      );
-    }
-    if (eftGrades.isNotEmpty) {
-      curricula.add(
-        CurriculumConfig(type: CurriculumType.eightFourFour, grades: eftGrades),
-      );
-    }
-
-    return SchoolConfig(curricula: curricula);
   }
 
   void _openExam(ExamGroup group) {

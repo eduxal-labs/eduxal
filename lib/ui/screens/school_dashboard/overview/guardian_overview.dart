@@ -147,6 +147,17 @@ class GuardianOverview extends StatelessWidget {
               },
             ),
 
+          // ── 1c. Next class countdown ─────────────────────────────────────
+          if (term != null && termContext.isCurrentTermActive) ...[
+            StudentNextClass(
+              schoolId: schoolId,
+              year: term.year,
+              term: term.term,
+              studentAdm: ward.adm,
+            ),
+            const SizedBox(height: 12),
+          ],
+
           // ── 2. Ward info (enhanced) ──────────────────────────────────────
           _WardInfoCard(ward: ward, schoolId: schoolId, term: term),
 
@@ -276,6 +287,22 @@ class GuardianOverview extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             StudentRecentGrades(schoolId: schoolId, studentAdm: ward.adm),
+            const SizedBox(height: 20),
+          ],
+
+          // ── 6b. Upcoming exams ───────────────────────────────────────────
+          if (term != null) ...[
+            SectionTitle(
+              label: 'Upcoming Exams',
+              cs: cs,
+              onViewAll: () => DashboardNavigation.goToTab(context, 'Progress'),
+            ),
+            const SizedBox(height: 8),
+            StudentUpcomingExams(
+              schoolId: schoolId,
+              term: term,
+              studentAdm: ward.adm,
+            ),
             const SizedBox(height: 20),
           ],
 

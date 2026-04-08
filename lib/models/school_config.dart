@@ -1,3 +1,4 @@
+import '../database/database.dart';
 import '../database/tables/curriculum_subjects.dart';
 
 // ============================================================
@@ -199,3 +200,69 @@ const Map<int, String> kEightFourFourGradeLabels = {
 /// Returns the grade label map for [type].
 Map<int, String> gradeLabelsFor(CurriculumType type) =>
     type == CurriculumType.cbc ? kCbcGradeLabels : kEightFourFourGradeLabels;
+
+// ============================================================
+// Shared curriculum-detection helpers
+// ============================================================
+
+/// Determines the [CurriculumType] for a given grade number.
+///
+/// Grades ≥ 41 (Form 1–4) are unambiguously 8-4-4.
+/// Grades ≥ 9 (Grade 9–12) are unambiguously CBC.
+/// Grades 1–8 are ambiguous — resolved by checking [allGrades] for any
+/// 8-4-4-only grades (≥ 41). If none exist (or [allGrades] is empty),
+/// defaults to CBC.
+CurriculumType curriculumForGrade(int grade, {Set<int> allGrades = const {}}) {
+  if (grade >= 41) return CurriculumType.eightFourFour;
+  if (grade >= 9) return CurriculumType.cbc;
+  if (allGrades.any((g) => g >= 41)) return CurriculumType.eightFourFour;
+  return CurriculumType.cbc;
+}
+
+/// Builds a [SchoolConfig] from raw [SchoolStream] rows using the
+/// curriculum-detection heuristic in [curriculumForGrade].
+SchoolConfig buildConfigFromStreams(List<SchoolStream> allStreams) {
+  if (allStreams.isEmpty) return SchoolConfig.defaults();
+
+  final allGrades = allStreams.map((s) => s.grade).toSet();
+  final byGrade = <int, List<SchoolStream>>{};
+  for (final s in allStreams) {
+    byGrade.putIfAbsent(s.grade, () => []).add(s);
+  }
+
+  final cbcGrades = <GradeConfig>[];
+  final eftGrades = <GradeConfig>[];
+
+  for (final entry in byGrade.entries) {
+    final gradeNum = entry.key;
+    final streamRows = entry.value
+      ..sort((a, b) => a.stream.compareTo(b.stream));
+    final gradeStreams = streamRows
+        .map((s) => GradeStream(name: s.name, code: s.stream))
+        .toList();
+    final gc = GradeConfig(grade: gradeNum, streams: gradeStreams);
+    if (curriculumForGrade(gradeNum, allGrades: allGrades) ==
+        CurriculumType.cbc) {
+      cbcGrades.add(gc);
+    } else {
+      eftGrades.add(gc);
+    }
+  }
+
+  cbcGrades.sort((a, b) => a.grade.compareTo(b.grade));
+  eftGrades.sort((a, b) => a.grade.compareTo(b.grade));
+
+  final curricula = <CurriculumConfig>[];
+  if (cbcGrades.isNotEmpty) {
+    curricula.add(
+      CurriculumConfig(type: CurriculumType.cbc, grades: cbcGrades),
+    );
+  }
+  if (eftGrades.isNotEmpty) {
+    curricula.add(
+      CurriculumConfig(type: CurriculumType.eightFourFour, grades: eftGrades),
+    );
+  }
+
+  return SchoolConfig(curricula: curricula);
+}

@@ -91,36 +91,19 @@ class _RolesSectionState extends State<RolesSection> {
     );
   }
 
+  // TODO: Implement soft-delete for roles once a role status column is added.
+  // Currently there is no soft-delete path — both _deleteRole and _purgeRole
+  // called the same DAO hard-delete method. The Delete button has been hidden
+  // from the UI (only Purge is shown to Super users). Re-enable Delete once
+  // soft-delete is implemented.
+  // ignore: unused_element
   Future<void> _deleteRole(BuildContext context, Role role) async {
-    final confirmed = await showEduConfirmDialog(
-      context: context,
-      title: 'Delete role',
-      message:
-          'Permanently delete "${role.name}"?\n\n'
-          'This cannot be undone. Users assigned this role will '
-          'lose its permissions immediately.',
-      confirmLabel: 'Delete',
-      isDestructive: true,
-    );
-    if (!confirmed || !mounted) return;
-    try {
-      final accountId = cache.currentUser?.user.id;
-      if (accountId == null) return;
-      await rolesDao.deleteRole(role.id, accountId: accountId);
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('"${role.name}" deleted')));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to delete role: $e')));
-      }
-    }
+    // Stub — soft-delete not yet implemented.
   }
 
+  // NOTE: Roles currently only support hard delete (purge).
+  // Soft delete will be implemented when a role status column is added.
+  // Until then, only the Purge action is shown to Super users.
   Future<void> _purgeRole(BuildContext context, Role role) async {
     final confirmed = await showEduConfirmDialog(
       context: context,
@@ -136,10 +119,6 @@ class _RolesSectionState extends State<RolesSection> {
     try {
       final accountId = cache.currentUser?.user.id;
       if (accountId == null) return;
-      // TODO: implement proper purge (hard delete vs soft delete).
-      // Currently both Purge and Delete call the same DAO method because
-      // there is no soft-delete/restore path for roles yet. Once soft-delete
-      // is implemented, Delete should soft-delete and Purge should hard-delete.
       await rolesDao.deleteRole(role.id, accountId: accountId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -237,19 +216,9 @@ class _RolesSectionState extends State<RolesSection> {
                           );
                         }
 
-                        if (widget.permissions.can(
-                          models.Resource.roles,
-                          models.Action.delete,
-                        )) {
-                          actions.add(
-                            _RowAction(
-                              icon: Icons.delete_outline_rounded,
-                              label: 'Delete',
-                              isDestructive: true,
-                              onTap: () => _deleteRole(context, role),
-                            ),
-                          );
-                        }
+                        // NOTE: Delete button hidden — roles only support
+                        // hard delete (purge) for now. Soft-delete will be
+                        // added when a role status column is introduced.
 
                         if (widget.permissions.level == UserLevel.super_) {
                           actions.add(
