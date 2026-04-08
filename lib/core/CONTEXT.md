@@ -213,13 +213,16 @@ Populates the local Drift database with a realistic Kenyan secondary school for 
 | Invoices | 1 per student per fee | Linked to fee records |
 | Payments | ~60% of invoices | 50-100% of amount, varied methods (cash/cheque/mpesa/bank) |
 | Announcements | 5 | Term opening, exam schedule, sports day, parent meeting, library hours |
-| Roles | 1 | "Teacher" role with teaching permissions (attendance, lessons, grades) |
-| Scopes | 12 | All teachers assigned the Teacher role |
+| Roles | 2 | "Teacher" school-scoped role + "System Admin" system-scoped role (school=NULL, CRUD on all resources) |
+| Scopes | 13 | All teachers assigned the Teacher role + logged-in user assigned the System Admin role |
 | Mastery | Form 4 only | 4 subjects × 5 topics per student, scores 30-98% |
 | Lessons | ~100 | Spread over up to 25 working days across all focus grades |
 
 **Key implementation details:**
 
+- `_seedRolesAndScopes` creates both a school-scoped "Teacher" role and a system-scoped "System Admin" role (school=NULL) with Create+Read+Update+Delete on all `Resource` values. The system role is guarded by an existence check (`scopes` query for user+NULL school) so it is only created once even when `clearAndSeed` runs multiple `_SeederImpl` instances sequentially.
+- `_buildSystemPermissions()` helper builds the system admin blob: iterates all `Resource.values`, sets CRUD bitmask (`1|2|4|8`), encodes via `Permissions(map).toBlob()`.
+- `clearAndSeed` deletes `paperSubmissions` before `papers` in the reverse-dependency delete sequence to avoid orphaned rows.
 - Uses deterministic `Random(42)` seed for reproducible output.
 - Every insert into a synced table also writes a corresponding `logs` entry (`LogOperation.insert`) so the sync engine can push the seed data to the server for other users (teachers, parents, etc.) to see.
 - Invoice status updates after payments also produce `LogOperation.update` log entries with the correct column bitmask.
@@ -235,7 +238,7 @@ Populates the local Drift database with a realistic Kenyan secondary school for 
 - `_focusGrades` expanded from 4 entries to 14: Form 3, Form 4, CBC Grades 1–3 (Lower Primary, 18/stream), Grades 4–6 (Upper Primary, 17/stream), Grades 7–9 (Junior Secondary, 15/stream), Grades 10–12 (Senior Secondary, 12/stream).
 - CBC subject sets defined per level: `_cbcLowerPrimarySubjects` (9 subjects), `_cbcUpperPrimarySubjects` (10), `_cbcJuniorSecondarySubjects` (11), `_cbcStemSubjects` (9), `_cbcSocialSubjects` (9), `_cbcArtsSubjects` (9).
 
-**Dependencies:** `dart:convert`, `dart:math`, `package:bson`, `package:drift`, `package:flutter/foundation.dart` (for `debugPrint`), `database/database.dart`, `database/tables/enums.dart`, `database/tables/curriculum_subjects.dart`, `models/school_config.dart`.
+**Dependencies:** `dart:math`, `package:bson`, `package:drift`, `package:fixnum`, `package:flutter/foundation.dart` (for `debugPrint`), `package:protobuf`, `database/database.dart`, `database/tables/enums.dart`, `database/tables/curriculum_subjects.dart`, `models/permissions.dart`, `proto/services/sync.pb.dart`.
 
 ## Dependencies
 
@@ -279,3 +282,5 @@ Populates the local Drift database with a realistic Kenyan secondary school for 
 ## Last Updated
 Task H6 — Added `formatters.dart`: shared date/time/score/currency/relative-time formatting utilities extracted from duplicated private helpers across 8+ UI files. 16 exported symbols. Pure Dart, no Flutter dependency. File count: 8 files.
 Task A01 — Added `parsePermissionsBlob(Uint8List?)` as the new canonical parser for the `roles.permissions` blob column. Deprecated `parsePermissions(String?)` (retained for schema migration v9→v10 and fallback inside `parsePermissionsBlob`). Updated `serialisePermissions` deprecation notice. Seeder now produces binary blob via `Permissions(map).toBlob()` instead of JSON string. All 7 files current.
+Task G2 — Seeder now creates a system-scoped "System Admin" role (school=NULL) with CRUD on all resources, plus a scope linking the logged-in user to it. Guarded to run only once across multi-school seeding.
+Task G3 — `clearAndSeed` now deletes `paperSubmissions` before `papers` to prevent orphaned rows after reseeding.

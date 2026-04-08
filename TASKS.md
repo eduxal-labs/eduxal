@@ -1445,7 +1445,7 @@ void dispose() {
 
 ---
 
-### Task G2: Seeder creates no system-scoped roles
+### Task G2: Seeder creates no system-scoped roles ✅
 
 **Files to modify:** `lib/core/seeder.dart`
 **Context files to read:** `lib/core/CONTEXT.md`
@@ -1493,12 +1493,12 @@ Uint8List _buildSystemPermissions() {
 Adapt based on how `Permissions.toBlob()` works (or use the shared serialization from `permission_parser.dart`).
 
 **Update after completion:**
-- [ ] Update `lib/core/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/core/CONTEXT.md`
+- [x] Mark this task `[x]`
 
 ---
 
-### Task G3: `clearAndSeed` doesn't delete `paper_submissions`
+### Task G3: `clearAndSeed` doesn't delete `paper_submissions` ✅
 
 **Files to modify:** `lib/core/seeder.dart`
 **Context files to read:** `lib/core/CONTEXT.md`
@@ -1518,8 +1518,8 @@ await database.delete(database.paperSubmissions).go();
 ```
 
 **Update after completion:**
-- [ ] Update `lib/core/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/core/CONTEXT.md`
+- [x] Mark this task `[x]`
 
 ---
 
