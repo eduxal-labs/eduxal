@@ -76,7 +76,7 @@ Every lifecycle transition has a `debugPrint('[SyncEngine] ...')` call:
 **Internal dispatch:** `_applySingle(SyncDelta delta)` switches on `delta.table` (1–30, matching proto oneof field numbers) to route to a per-table handler.
 
 **Table coverage:** All 32 synced backend tables are handled:
-- Tables 1–34 mapped to: users(1), schools(2), owners(3), students(4), guardians(5), departments(6), teachers(7), staff(8), terms(9), class_teachers(10), enrollments(11), subjects(12), attendance(13), timetable(14), lessons(15), exams(16), papers(17), grades(18), fees(19), invoices(20), payments(21), announcements(22), mastery(23), aiusage(24), settings(25 — removed, skipped gracefully), roles(26), scopes(27), plans(28), subscriptions(29), discounts(30), subject_catalog(31), topics(32), streams(33), mpesa(34).
+- Tables 1–34 mapped to: users(1), schools(2), owners(3), students(4), guardians(5), departments(6), teachers(7), staff(8), terms(9), class_teachers(10), enrollments(11), subjects(12), attendance(13), timetable(14), lessons(15), exams(16), papers(17), grades(18), fees(19), invoices(20), payments(21), announcements(22), mastery(23), aiusage(24), settings(25 — removed in schema v2, skipped gracefully; also removed from `_flushOrder`), roles(26), scopes(27), plans(28), subscriptions(29), discounts(30), subject_catalog(31), topics(32), streams(33), mpesa(34).
 - Table 35 (exam_grades) — removed from server schema; delta is received gracefully with a `debugPrint` skip.
 - Table 36 (`scheme_pages`) — `_applySchemePages()`. rowKey: `"{school}|{exam}|{subject}|{paper}|{page}"` (paper = empty string when NULL). Nullable-paper handled with delete-then-insert for NULL paper, `ON CONFLICT DO UPDATE` for non-NULL.
 - Table 37 (`answer_pages`) — `_applyAnswerPages()`. rowKey: `"{school}|{exam}|{student}|{subject}|{paper}|{page}"` (paper = empty string when NULL). Same nullable-paper strategy as table 36.
@@ -102,7 +102,7 @@ Every lifecycle transition has a `debugPrint('[SyncEngine] ...')` call:
 
 **Critical design constraint:** All writes bypass the DAO layer entirely — they go directly to Drift table references (`_db.into(...)`, `_db.delete(...)`, `_db.customStatement(...)`). This ensures no rows are inserted into the `logs` table from incoming sync deltas.
 
-**Enum conversion:** Proto sends raw integers for enum columns. The delta writer converts them to the corresponding Dart enum types (e.g., `UserLevel.values[row.level]`, `AttendanceStatus.values.firstWhere((e) => e.value == row.status)` for non-zero-indexed enums).
+**Enum conversion:** Proto sends raw integers for enum columns. The delta writer converts them to the corresponding Dart enum types (e.g., `UserLevel.values[row.level]`, `AttendanceStatus.values.firstWhere((e) => e.value == row.status)` for non-zero-indexed enums). For `CurriculumType`, always use `.index_` (the custom wire value) rather than Dart's `.index` (positional ordinal) to avoid divergence if new enum members are added.
 
 **Permissions encoding:** `RoleInsert.permissions` arrives as `List<int>` (proto bytes) but the Drift `roles.permissions` column is currently `text`. The delta writer decodes bytes via the `_decodePermissions()` helper: tries `utf8.decode` first (restoring the original JSON string the client sent), falls back to `base64Encode` if bytes aren't valid UTF-8. This ensures `parsePermissions()` in `_role_helpers.dart` can always recover the permissions. **BUG-012 fix:** Previously used `base64Encode()` directly, which produced a base64 string that `jsonDecode()` couldn't parse, causing permissions to appear empty after sync.
 
@@ -276,7 +276,12 @@ The push flow was rewritten from a batch-based model (via `LogProcessor`) to a o
 - **Depended on by:** `client.dart` (✅ integrated — `Client.syncEngine` field, `Client._connectivityMonitor` field, `SyncEngine get sync` global getter, start/stop wired into `active()`, `saveAccount()`, `switchAccount()`, `logOut()`; connectivity monitor started in `_startSync()`, stopped in `switchAccount()` and `logOut()`), `ui/widgets/sync_indicator.dart` (binds to `sync.status` ValueNotifier), `main.dart` (global `runZonedGuarded` zone catches unhandled http2 transport errors, `_SyncLifecycleObserver` calls `sync.revive()` on app resume)
 
 ## Last Updated
-Tasks D4, D5 — Sync engine fixes:
+Task G6 — DeltaWriter misc fixes:
+- Fixed mastery comment: PK is `(school, student, subject, topic)` — removed erroneous `grade` from PK comment and rowKey comment.
+- Fixed `_applySubjectCatalog`: changed `CurriculumType.values.firstWhere(...).index` to `.index_` to use the custom wire value instead of Dart's positional ordinal.
+- Removed dead table index 25 (settings, removed in schema v2) from `_flushOrder` list.
+
+Previous: Tasks D4, D5 — Sync engine fixes:
 - **D4:** Error code 4 (not_found) now distinguishes delete/unassign actions from update/create actions. Delete actions whose target is already gone server-side are treated as success (log deleted). Other actions are still marked failed. Added `_isDeleteAction(SyncAction)` helper and `SyncAction? action` parameter to `_processActionResponse`. `_pushActions` builds `actionByLogId` map from pending logs to pass action to response handler.
 - **D5:** Added `VoidCallback? onUnauthenticated` field. Both push (`_pushActions` catch block) and watch (`_onWatchError`) unauthenticated handlers now call `onUnauthenticated?.call()` after `stop()`. `client.dart` wires this to attempt token refresh via `_refresh()` and restart sync via `_startSync()`.
 
