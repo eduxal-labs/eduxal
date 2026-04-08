@@ -714,7 +714,7 @@ These bugs are lower risk because of UI gating, but need defense-in-depth before
 
 ---
 
-### Task D1: MpesaConfigScreen missing defense-in-depth permission guard
+### Task D1: MpesaConfigScreen missing defense-in-depth permission guard ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/settings/mpesa_config_screen.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -738,8 +738,8 @@ These bugs are lower risk because of UI gating, but need defense-in-depth before
 3. Add the same guard to `_save()` and `_delete()` as early returns.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
+- [x] Mark this task `[x]`
 
 ---
 
