@@ -78,6 +78,7 @@ class _StudentsTabState extends State<StudentsTab> {
               schoolId: widget.schoolId,
               student: s,
               canDelete: _canDelete,
+              schoolContext: widget.schoolContext,
             );
             final isMobile = MediaQuery.sizeOf(context).width < 600;
             if (!isMobile || !_canDelete) return row;
@@ -129,10 +130,12 @@ class _StudentRow extends StatelessWidget {
   const _StudentRow({
     required this.schoolId,
     required this.student,
+    required this.schoolContext,
     this.canDelete = true,
   });
   final String schoolId;
   final StudentsData student;
+  final SchoolContext schoolContext;
   final bool canDelete;
 
   @override
@@ -180,6 +183,7 @@ class _StudentRow extends StatelessWidget {
         builder: (ctx, scrollCtrl) => StudentDetailSheet(
           initialStudent: student,
           schoolId: schoolId,
+          schoolContext: schoolContext,
           scrollController: scrollCtrl,
         ),
       ),
@@ -199,6 +203,7 @@ class _StudentRow extends StatelessWidget {
           child: StudentDetailSheet(
             initialStudent: student,
             schoolId: schoolId,
+            schoolContext: schoolContext,
             isSideSheet: true,
           ),
         );

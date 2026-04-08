@@ -165,8 +165,8 @@ class StudentDetailPage extends StatelessWidget {
 5. If `StudentDetailSheet` is a separate widget, pass the same permissions or computed booleans down.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
+- [x] Mark this task `[x]`
 
 ---
 
