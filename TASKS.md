@@ -12,7 +12,7 @@ These bugs allow privilege escalation, unauthorized data mutation, or permission
 
 ---
 
-### Task A1: `SystemSettingsScreen` grants Super permissions to all System users
+### Task A1: `SystemSettingsScreen` grants Super permissions to all System users ✅
 
 **Files to modify:** `lib/ui/screens/system/settings/system_settings_screen.dart`
 **Context files to read:** `lib/ui/screens/system/CONTEXT.md`
@@ -45,8 +45,8 @@ Replace the shortcut with proper permission loading. The `SystemDashboardScreen.
 Only `UserLevel.super_` should receive `SystemPermissions.superUser()`. System users get their actual scoped permissions.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note the fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — note the fix
+- [x] Mark this task `[x]`
 
 ---
 

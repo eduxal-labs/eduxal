@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:drift/drift.dart' hide Column;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Action;
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../cache/file_cache.dart';
@@ -20,6 +20,9 @@ import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../database/tables/enums.dart';
 import '../../../../models/curriculum_levels.dart';
 
+import '../../../../models/membership.dart';
+import '../../../../models/permissions.dart';
+import '../../../../models/school_context.dart';
 import '../../../../services/member_management.dart';
 import '../../../../services/members.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
@@ -39,10 +42,12 @@ class StudentDetailPage extends StatefulWidget {
     super.key,
     required this.initialStudent,
     required this.schoolId,
+    required this.schoolContext,
   });
 
   final StudentsData initialStudent;
   final String schoolId;
+  final SchoolContext schoolContext;
 
   @override
   State<StudentDetailPage> createState() => _StudentDetailPageState();
@@ -92,6 +97,7 @@ class _StudentDetailPageState extends State<StudentDetailPage>
           child: StudentDetailSheet(
             initialStudent: widget.initialStudent,
             schoolId: widget.schoolId,
+            schoolContext: widget.schoolContext,
           ),
         ),
       ),
@@ -108,12 +114,14 @@ class StudentDetailSheet extends StatefulWidget {
     super.key,
     required this.initialStudent,
     required this.schoolId,
+    required this.schoolContext,
     this.scrollController,
     this.isSideSheet = false,
   });
 
   final StudentsData initialStudent;
   final String schoolId;
+  final SchoolContext schoolContext;
   final ScrollController? scrollController;
   final bool isSideSheet;
 
@@ -241,29 +249,45 @@ class _StudentDetailSheetState extends State<StudentDetailSheet>
                   ),
                   const SizedBox(width: 8),
                   _StatusChip(status: student.status, cs: cs),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _ActionIcon(
-                        icon: Icons.edit_outlined,
-                        tooltip: 'Edit',
-                        color: cs.onSurfaceVariant,
-                        onTap: () => _showEditSheet(student),
-                      ),
-                      if (student.status == StudentStatus.active)
-                        _ActionIcon(
-                          icon: Icons.swap_horiz_rounded,
-                          tooltip: 'Change Status',
-                          color: cs.onSurfaceVariant,
-                          onTap: () => _showStatusSheet(student),
-                        ),
-                      _ActionIcon(
-                        icon: Icons.delete_outline_rounded,
-                        tooltip: 'Delete',
-                        color: cs.error.withValues(alpha: 0.7),
-                        onTap: () => _confirmDelete(student),
-                      ),
-                    ],
+                  Builder(
+                    builder: (context) {
+                      final entry = widget.schoolContext.currentEntry.value;
+                      final perms = widget.schoolContext.permissions;
+                      final isOwner = entry is OwnerEntry;
+                      final canEdit =
+                          isOwner ||
+                          perms.can(Resource.students, Action.update);
+                      final canDelete =
+                          isOwner ||
+                          perms.can(Resource.students, Action.delete);
+
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (canEdit)
+                            _ActionIcon(
+                              icon: Icons.edit_outlined,
+                              tooltip: 'Edit',
+                              color: cs.onSurfaceVariant,
+                              onTap: () => _showEditSheet(student),
+                            ),
+                          if (canEdit && student.status == StudentStatus.active)
+                            _ActionIcon(
+                              icon: Icons.swap_horiz_rounded,
+                              tooltip: 'Change Status',
+                              color: cs.onSurfaceVariant,
+                              onTap: () => _showStatusSheet(student),
+                            ),
+                          if (canDelete)
+                            _ActionIcon(
+                              icon: Icons.delete_outline_rounded,
+                              tooltip: 'Delete',
+                              color: cs.error.withValues(alpha: 0.7),
+                              onTap: () => _confirmDelete(student),
+                            ),
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),
