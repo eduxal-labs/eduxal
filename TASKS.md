@@ -515,8 +515,8 @@ if (result case Err(:final error) when context.mounted) {
 Import `core/grpc_errors.dart` for `toFriendlyMessage()` if not already imported.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
+- [x] Mark this task `[x]`
 
 ---
 
@@ -670,8 +670,8 @@ if (perms.canAny(Resource.classes, [Action.read]) ||
 ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
+- [x] Mark this task `[x]`
 
 ---
 
