@@ -743,7 +743,7 @@ These bugs are lower risk because of UI gating, but need defense-in-depth before
 
 ---
 
-### Task D2: Settings, Roles screens missing defense-in-depth permission checks
+### Task D2: Settings, Roles screens missing defense-in-depth permission checks ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/settings/school_settings_screen.dart`, `lib/ui/screens/school_dashboard/roles/school_roles_screen.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -776,8 +776,8 @@ Both `SchoolSettingsScreen` and `SchoolRolesScreen` perform no permission valida
    ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
+- [x] Mark this task `[x]`
 
 ---
 
