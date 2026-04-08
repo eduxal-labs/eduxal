@@ -439,54 +439,6 @@ void openCreatePlan(BuildContext context, SystemPermissions permissions) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Metadata chip — small icon + label inline badge
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _MetaChip extends StatelessWidget {
-  const _MetaChip({required this.icon, required this.label, required this.cs});
-
-  final IconData icon;
-  final String label;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = cs.brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: isDark ? 0.5 : 0.6),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 12,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-          ),
-          const SizedBox(width: 4),
-          Flexible(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.75),
-                letterSpacing: 0.1,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Plan status chip
 // ─────────────────────────────────────────────────────────────────────────────
 

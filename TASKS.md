@@ -1108,7 +1108,7 @@ The curriculum-detection logic (`curriculumForGrade`) and `_buildConfigFromStrea
 
 ---
 
-### Task G4: Mobile tab bar may truncate "Announcements" label at exactly 5 teacher tabs
+### Task G4: Mobile tab bar may truncate "Announcements" label at exactly 5 teacher tabs ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/school_dashboard_screen.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
