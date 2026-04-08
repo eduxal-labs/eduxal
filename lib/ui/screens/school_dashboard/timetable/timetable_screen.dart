@@ -117,6 +117,10 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
   late TabController _tabController;
   int _currentTabIndex = 0;
 
+  // Track term to detect changes in didUpdateWidget
+  int? _lastYear;
+  int? _lastTerm;
+
   StreamSubscription<bool>? _hasTimetableSub;
   StreamSubscription<List<SchoolStream>>? _configSub;
 
@@ -129,8 +133,28 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
           setState(() => _currentTabIndex = _tabController.index);
         }
       });
+    final term = widget.termContext.currentTerm;
+    _lastYear = term?.year;
+    _lastTerm = term?.term;
     _loadConfig();
     _subscribeHasTimetable();
+  }
+
+  @override
+  void didUpdateWidget(_OwnerTimetableShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final term = widget.termContext.currentTerm;
+    final newYear = term?.year;
+    final newTerm = term?.term;
+    if (newYear != _lastYear || newTerm != _lastTerm) {
+      _lastYear = newYear;
+      _lastTerm = newTerm;
+      _hasTimetableSub?.cancel();
+      _hasTimetable = false;
+      _rules = null;
+      _subscribeHasTimetable();
+      _loadConfig();
+    }
   }
 
   void _subscribeHasTimetable() {
@@ -457,12 +481,23 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
     final schoolId = widget.schoolContext.membership.school.id;
 
     final entry = widget.schoolContext.currentEntry.value;
+    final perms = widget.schoolContext.permissions;
     final canManage =
-        entry is OwnerEntry ||
-        widget.schoolContext.permissions.can(Resource.classes, Action.update);
+        entry is OwnerEntry || perms.can(Resource.classes, Action.update);
     final canDelete =
+        entry is OwnerEntry || perms.can(Resource.classes, Action.delete);
+    // Generate timetable clears all existing entries (delete) then inserts new
+    // ones (update) — requires both classes.update AND classes.delete.
+    final canGenerate =
         entry is OwnerEntry ||
-        widget.schoolContext.permissions.can(Resource.classes, Action.delete);
+        (perms.can(Resource.classes, Action.update) &&
+            perms.can(Resource.classes, Action.delete));
+    // Generate lessons creates records in the lessons table — requires
+    // classes.update (to read timetable context) AND lessons.create.
+    final canGenerateLessons =
+        entry is OwnerEntry ||
+        (perms.can(Resource.classes, Action.update) &&
+            perms.can(Resource.lessons, Action.create));
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -509,7 +544,8 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
           ),
         ],
       ),
-      floatingActionButton: _currentTabIndex == 0 && (canManage || canDelete)
+      floatingActionButton:
+          _currentTabIndex == 0 && (canGenerate || canManage || canDelete)
           ? Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.end,
@@ -545,16 +581,16 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
                           : const Icon(Icons.delete_outline_rounded, size: 18),
                     ),
                   if (canDelete) const SizedBox(height: 12),
-                  // Generate Lessons FAB — replaces the wizard "+" when timetable exists
-                  if (canManage)
+                  // Generate Lessons FAB — requires classes.update + lessons.create
+                  if (canGenerateLessons)
                     GenerateLessonsFab(
                       heroTag: 'timetable_gen_lessons',
                       onTap: _openGenerateLessonsDialog,
                       cs: cs,
                     ),
                 ] else ...[
-                  // No timetable yet — show the wizard FAB
-                  if (canManage)
+                  // No timetable yet — show the wizard FAB (requires classes.update + classes.delete)
+                  if (canGenerate)
                     GenerateFab(
                       heroTag: 'timetable_generate',
                       onTap: _openRulesSheet,
@@ -813,7 +849,11 @@ class _ClassTimetableViewState extends State<_ClassTimetableView> {
   @override
   void didUpdateWidget(_ClassTimetableView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.studentAdm != widget.studentAdm) {
+    final oldTerm = oldWidget.termContext.currentTerm;
+    final newTerm = widget.termContext.currentTerm;
+    if (oldWidget.studentAdm != widget.studentAdm ||
+        oldTerm?.year != newTerm?.year ||
+        oldTerm?.term != newTerm?.term) {
       _loadData();
     }
   }

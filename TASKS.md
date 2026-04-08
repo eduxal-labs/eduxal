@@ -470,8 +470,8 @@ For `_ClassTimetableView`:
 3. Better yet: replace the one-shot `db.select(db.enrollments)` query with `EnrollmentsDao.watchStudentEnrollment()` (a reactive stream that already exists and is used in `guardian_overview.dart`). Subscribe in `initState`, cancel in `dispose`. This also fixes the DAO bypass (raw Drift select vs DAO convention).
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
+- [x] Mark this task `[x]`
 
 ---
 
@@ -703,8 +703,8 @@ Two permission gaps in the timetable screen:
 4. Keep `canManage` for the "Rules" / "Edit Slots" actions that only modify existing entries.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
+- [x] Mark this task `[x]`
 
 ---
 
