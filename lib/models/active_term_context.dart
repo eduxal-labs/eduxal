@@ -86,6 +86,23 @@ class ActiveTermContext extends ChangeNotifier {
   /// `null` only when [hasTerms] is `false`.
   Term? get currentTerm => _termNotifier.value;
 
+  /// Whether today falls within the currently selected term's date range
+  /// (`start ≤ now ≤ end`).
+  ///
+  /// Returns `false` when no term is selected or when the current date is
+  /// outside the term boundaries (i.e. during holidays / between terms).
+  ///
+  /// Use this to gate "today" widgets (attendance, schedule, unmarked classes)
+  /// that should only appear while the term is in session.
+  bool get isCurrentTermActive {
+    final t = _termNotifier.value;
+    if (t == null) return false;
+    final nowSeconds = BigInt.from(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+    );
+    return t.start <= nowSeconds && nowSeconds <= t.end;
+  }
+
   /// Read-only [ValueNotifier] that fires whenever [currentTerm] changes.
   ///
   /// Widgets bind to this via [ValueListenableBuilder] to rebuild only when the

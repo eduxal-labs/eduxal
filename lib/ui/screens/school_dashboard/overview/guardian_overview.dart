@@ -62,7 +62,7 @@ class GuardianOverview extends StatelessWidget {
           const SizedBox(height: 16),
 
           // ── 1b. Ward attendance status ───────────────────────────────────
-          if (term != null)
+          if (term != null && termContext.isCurrentTermActive)
             StreamBuilder<Enrollment?>(
               stream: EnrollmentsDao(db).watchStudentEnrollment(
                 schoolId: schoolId,
@@ -233,7 +233,7 @@ class GuardianOverview extends StatelessWidget {
           ],
 
           // ── 4. Today's schedule ──────────────────────────────────────────
-          if (term != null) ...[
+          if (term != null && termContext.isCurrentTermActive) ...[
             SectionTitle(
               label: "Today's Schedule",
               cs: cs,

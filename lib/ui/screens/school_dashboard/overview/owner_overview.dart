@@ -56,7 +56,7 @@ class OwnerOverview extends StatelessWidget {
           const SizedBox(height: 16),
 
           // ── Today's attendance (school-wide) ─────────────────────────────
-          if (term != null) ...[
+          if (term != null && termContext.isCurrentTermActive) ...[
             StreamBuilder<SchoolAttendanceSummary>(
               stream: AttendanceDao(db).watchSchoolAttendanceSummary(
                 schoolId: schoolId,
@@ -106,7 +106,7 @@ class OwnerOverview extends StatelessWidget {
           ],
 
           // ── Lesson delivery ──────────────────────────────────────────────
-          if (term != null) ...[
+          if (term != null && termContext.isCurrentTermActive) ...[
             _OwnerLessonDelivery(schoolId: schoolId, term: term),
             const SizedBox(height: 20),
           ],

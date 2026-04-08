@@ -2099,6 +2099,7 @@ class _AddMemberSheetState extends State<AddMemberSheet> {
   }
 
   Future<void> _promote(UsersData user) async {
+    if (!widget.permissions.can(Resource.users, Action.update)) return;
     try {
       final accountId = cache.currentUser?.user.id;
       if (accountId == null) return;

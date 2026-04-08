@@ -57,7 +57,9 @@ class TeacherOverview extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         children: [
           // ── Next class countdown ─────────────────────────────────────────
-          if (term != null && userId.isNotEmpty) ...[
+          if (term != null &&
+              userId.isNotEmpty &&
+              termContext.isCurrentTermActive) ...[
             _TeacherNextClass(
               schoolId: schoolId,
               year: term.year,
@@ -68,7 +70,9 @@ class TeacherOverview extends StatelessWidget {
           ],
 
           // ── Attendance marking status ────────────────────────────────────
-          if (term != null && userId.isNotEmpty) ...[
+          if (term != null &&
+              userId.isNotEmpty &&
+              termContext.isCurrentTermActive) ...[
             StreamBuilder<List<ClassAttendanceStatus>>(
               stream: AttendanceDao(db).watchTeacherClassAttendanceStatus(
                 schoolId: schoolId,
@@ -112,7 +116,9 @@ class TeacherOverview extends StatelessWidget {
           ],
 
           // ── Today's schedule ─────────────────────────────────────────────
-          if (term != null && userId.isNotEmpty) ...[
+          if (term != null &&
+              userId.isNotEmpty &&
+              termContext.isCurrentTermActive) ...[
             SectionTitle(
               label: "Today's Schedule",
               cs: cs,

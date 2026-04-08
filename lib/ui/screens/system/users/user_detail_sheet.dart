@@ -333,6 +333,7 @@ class _UserDetailSheetState extends State<UserDetailSheet> {
                           user: user,
                           cs: cs,
                           permissions: widget.permissions,
+                          viewerId: cache.currentUser?.user.id ?? '',
                           onUpdateLevel: (level) => _updateLevel(user, level),
                           onUpdateStatus: (status) =>
                               _updateStatus(user, status),
@@ -593,6 +594,7 @@ class _ViewBody extends StatelessWidget {
     required this.user,
     required this.cs,
     required this.permissions,
+    required this.viewerId,
     required this.onUpdateLevel,
     required this.onUpdateStatus,
     required this.onConfirmAndRun,
@@ -601,6 +603,7 @@ class _ViewBody extends StatelessWidget {
   final UsersData user;
   final ColorScheme cs;
   final SystemPermissions permissions;
+  final String viewerId;
   final Future<void> Function(UserLevel) onUpdateLevel;
   final Future<void> Function(UserStatus) onUpdateStatus;
   final _ConfirmAndRun onConfirmAndRun;
@@ -699,6 +702,7 @@ class _ViewBody extends StatelessWidget {
             cs: cs,
             borderColor: borderColor,
             permissions: permissions,
+            viewerId: viewerId,
             onUpdateLevel: onUpdateLevel,
             onUpdateStatus: onUpdateStatus,
             onConfirmAndRun: onConfirmAndRun,
@@ -762,6 +766,7 @@ class _AccountActionsCard extends StatelessWidget {
     required this.cs,
     required this.borderColor,
     required this.permissions,
+    required this.viewerId,
     required this.onUpdateLevel,
     required this.onUpdateStatus,
     required this.onConfirmAndRun,
@@ -771,12 +776,17 @@ class _AccountActionsCard extends StatelessWidget {
   final ColorScheme cs;
   final Color borderColor;
   final SystemPermissions permissions;
+  final String viewerId;
   final Future<void> Function(UserLevel) onUpdateLevel;
   final Future<void> Function(UserStatus) onUpdateStatus;
   final _ConfirmAndRun onConfirmAndRun;
 
   @override
   Widget build(BuildContext context) {
+    // Self-action guard: never show level/status actions for the logged-in user.
+    final isMe = user.id == viewerId;
+    if (isMe) return const SizedBox.shrink();
+
     final rows = <Widget>[];
     bool first = true;
 
@@ -810,24 +820,27 @@ class _AccountActionsCard extends StatelessWidget {
           ),
         );
       case UserLevel.system:
-        addRow(
-          _ActionRow(
-            icon: Icons.arrow_upward_rounded,
-            iconColor: cs.primary,
-            label: 'Elevate to super',
-            sublabel: 'Grants full access',
-            cs: cs,
-            onTap: () => onConfirmAndRun(
-              title: 'Elevate to super?',
-              message:
-                  'This will grant full unrestricted access to ${user.name}. '
-                  'Super users bypass all permission checks.',
-              confirmLabel: 'Elevate',
-              confirmColor: cs.primary,
-              onConfirm: () => onUpdateLevel(UserLevel.super_),
+        // Only a Super viewer can elevate someone to Super.
+        if (viewerLevel == UserLevel.super_) {
+          addRow(
+            _ActionRow(
+              icon: Icons.arrow_upward_rounded,
+              iconColor: cs.primary,
+              label: 'Elevate to super',
+              sublabel: 'Grants full access',
+              cs: cs,
+              onTap: () => onConfirmAndRun(
+                title: 'Elevate to super?',
+                message:
+                    'This will grant full unrestricted access to ${user.name}. '
+                    'Super users bypass all permission checks.',
+                confirmLabel: 'Elevate',
+                confirmColor: cs.primary,
+                onConfirm: () => onUpdateLevel(UserLevel.super_),
+              ),
             ),
-          ),
-        );
+          );
+        }
         addRow(
           _ActionRow(
             icon: Icons.arrow_downward_rounded,

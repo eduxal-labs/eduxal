@@ -59,7 +59,7 @@ class StudentOverview extends StatelessWidget {
           const SizedBox(height: 16),
 
           // ── Today's attendance status ────────────────────────────────────
-          if (term != null) ...[
+          if (term != null && termContext.isCurrentTermActive) ...[
             _StudentTodayAttendance(
               schoolId: schoolId,
               year: term.year,
@@ -71,7 +71,7 @@ class StudentOverview extends StatelessWidget {
           ],
 
           // ── Next class countdown ─────────────────────────────────────────
-          if (term != null) ...[
+          if (term != null && termContext.isCurrentTermActive) ...[
             _StudentNextClass(
               schoolId: schoolId,
               year: term.year,
@@ -93,7 +93,7 @@ class StudentOverview extends StatelessWidget {
           ],
 
           // ── Today's schedule ─────────────────────────────────────────────
-          if (term != null) ...[
+          if (term != null && termContext.isCurrentTermActive) ...[
             SectionTitle(
               label: "Today's Schedule",
               cs: cs,

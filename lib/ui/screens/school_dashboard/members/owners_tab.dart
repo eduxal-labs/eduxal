@@ -424,35 +424,23 @@ class _OwnerInfoSheet extends StatelessWidget {
     );
     if (!confirmed || !context.mounted) return;
 
-    final accountId = cache.currentUser?.user.id;
-    if (accountId == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No active account. Please log in again.'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-      return;
-    }
-    try {
-      final dao = MembersDao(db);
-      await dao.removeOwner(
-        schoolId: schoolId,
-        userId: user.id,
-        accountId: accountId,
-      );
-      if (context.mounted) Navigator.pop(context); // close sheet
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to remove owner: $e'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
+    final service = MemberManagementService(MembersDao(db));
+    final result = await service.removeOwner(
+      schoolId: schoolId,
+      userId: user.id,
+    );
+    switch (result) {
+      case Ok():
+        if (context.mounted) Navigator.pop(context); // close sheet
+      case Err(:final error):
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to remove owner: $error'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
     }
   }
 }
