@@ -393,7 +393,7 @@ Three related issues in `users_section.dart`:
 
 ---
 
-### Task B6: MembersPage — Owner sees all tabs but FAB is missing (no OwnerEntry bypass on create)
+### Task B6: MembersPage — Owner sees all tabs but FAB is missing (no OwnerEntry bypass on create) ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/members/members_page.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -433,8 +433,8 @@ bool _canCreateForCurrentTab() {
 ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
+- [x] Mark this task `[x]`
 
 ---
 
