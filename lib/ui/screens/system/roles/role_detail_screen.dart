@@ -836,6 +836,29 @@ class _PermissionsTabState extends State<_PermissionsTab> {
     });
 
     try {
+      // Privilege escalation guard — skip for Super users.
+      if (widget.permissions.level != UserLevel.super_) {
+        for (final entry in _editPermissions.entries) {
+          if (!entry.value) continue;
+          final parts = entry.key.split('.');
+          if (parts.length < 2) continue;
+          final resource = Resource.values
+              .where((r) => r.name == parts.first)
+              .firstOrNull;
+          final action = Action.values
+              .where((a) => a.name == parts.skip(1).join('.'))
+              .firstOrNull;
+          if (resource != null &&
+              action != null &&
+              !widget.permissions.can(resource, action)) {
+            setState(
+              () => _saveError = 'Cannot grant permissions you do not hold.',
+            );
+            return;
+          }
+        }
+      }
+
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
       await rolesDao.updateRole(
@@ -1018,6 +1041,7 @@ class _PermissionsTabState extends State<_PermissionsTab> {
                       _toggleResourceSelection(group.resource),
                   onTogglePermission: _togglePermission,
                   onRemove: () => _removeResource(group.resource),
+                  canEditPermission: (r, a) => widget.permissions.can(r, a),
                   cs: cs,
                 ),
               );
@@ -1225,6 +1249,7 @@ class _ResourceRow extends StatelessWidget {
     required this.onToggleSelection,
     required this.onTogglePermission,
     required this.onRemove,
+    this.canEditPermission,
     required this.cs,
   });
 
@@ -1242,6 +1267,7 @@ class _ResourceRow extends StatelessWidget {
   final VoidCallback onToggleSelection;
   final void Function(String key) onTogglePermission;
   final VoidCallback onRemove;
+  final bool Function(Resource, Action)? canEditPermission;
   final ColorScheme cs;
 
   @override
@@ -1416,6 +1442,7 @@ class _ResourceRow extends StatelessWidget {
                 editPermissions: editPermissions,
                 originalPermissions: originalPermissions,
                 canEdit: canEdit,
+                canEditPermission: canEditPermission,
                 isLight: isLight,
                 onToggle: onTogglePermission,
                 cs: cs,
@@ -1438,6 +1465,7 @@ class _ExpandedPermissions extends StatelessWidget {
     required this.editPermissions,
     required this.originalPermissions,
     required this.canEdit,
+    this.canEditPermission,
     required this.isLight,
     required this.onToggle,
     required this.cs,
@@ -1448,6 +1476,7 @@ class _ExpandedPermissions extends StatelessWidget {
   final Map<String, bool> editPermissions;
   final Map<String, bool> originalPermissions;
   final bool canEdit;
+  final bool Function(Resource, Action)? canEditPermission;
   final bool isLight;
   final void Function(String key) onToggle;
   final ColorScheme cs;
@@ -1476,94 +1505,112 @@ class _ExpandedPermissions extends StatelessWidget {
             final changed = isOn != wasOn;
             final color = kActionColors[action] ?? cs.onSurfaceVariant;
             final icon = kActionIcons[action] ?? Icons.circle_outlined;
+            // Per-action gate: canEdit gates the whole section (Roles.Update),
+            // canEditPermission gates individual actions the user doesn't hold.
+            final actionEditable =
+                canEdit && (canEditPermission?.call(resource, action) ?? true);
 
-            return Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: canEdit ? () => onToggle(key) : null,
-                borderRadius: BorderRadius.circular(4),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 7,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        icon,
-                        size: 16,
-                        color: isOn
-                            ? color.withValues(alpha: 0.85)
-                            : cs.onSurfaceVariant.withValues(alpha: 0.25),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          actionLabel(action),
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w400,
-                            color: isOn
-                                ? cs.onSurface
-                                : cs.onSurfaceVariant.withValues(alpha: 0.4),
-                            letterSpacing: 0.1,
-                          ),
-                        ),
-                      ),
-                      if (changed) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isOn
-                                ? const Color(0xFF66BB6A).withValues(alpha: 0.1)
-                                : const Color(
-                                    0xFFEF5350,
-                                  ).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: Text(
-                            isOn ? 'added' : 'removed',
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w600,
-                              color: isOn
-                                  ? const Color(0xFF66BB6A)
-                                  : const Color(0xFFEF5350),
-                              letterSpacing: 0.3,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                      if (canEdit)
-                        SizedBox(
-                          width: 36,
-                          height: 22,
-                          child: FittedBox(
-                            child: Switch(
-                              value: isOn,
-                              onChanged: (_) => onToggle(key),
-                              activeTrackColor: color.withValues(alpha: 0.3),
-                              activeThumbColor: color,
-                              materialTapTargetSize:
-                                  MaterialTapTargetSize.shrinkWrap,
-                            ),
-                          ),
-                        )
-                      else
+            return Opacity(
+              opacity: (canEdit && !actionEditable) ? 0.35 : 1.0,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: actionEditable ? () => onToggle(key) : null,
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 7,
+                    ),
+                    child: Row(
+                      children: [
                         Icon(
-                          isOn
-                              ? Icons.check_circle_rounded
-                              : Icons.cancel_outlined,
+                          icon,
                           size: 16,
                           color: isOn
-                              ? color.withValues(alpha: 0.7)
-                              : cs.onSurfaceVariant.withValues(alpha: 0.2),
+                              ? color.withValues(alpha: 0.85)
+                              : cs.onSurfaceVariant.withValues(alpha: 0.25),
                         ),
-                    ],
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            actionLabel(action),
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w400,
+                              color: isOn
+                                  ? cs.onSurface
+                                  : cs.onSurfaceVariant.withValues(alpha: 0.4),
+                              letterSpacing: 0.1,
+                            ),
+                          ),
+                        ),
+                        if (changed) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isOn
+                                  ? const Color(
+                                      0xFF66BB6A,
+                                    ).withValues(alpha: 0.1)
+                                  : const Color(
+                                      0xFFEF5350,
+                                    ).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: Text(
+                              isOn ? 'added' : 'removed',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                                color: isOn
+                                    ? const Color(0xFF66BB6A)
+                                    : const Color(0xFFEF5350),
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        if (actionEditable)
+                          SizedBox(
+                            width: 36,
+                            height: 22,
+                            child: FittedBox(
+                              child: Switch(
+                                value: isOn,
+                                onChanged: (_) => onToggle(key),
+                                activeTrackColor: color.withValues(alpha: 0.3),
+                                activeThumbColor: color,
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                              ),
+                            ),
+                          )
+                        else if (canEdit)
+                          Tooltip(
+                            message: 'You do not hold this permission',
+                            child: Icon(
+                              Icons.lock_outline_rounded,
+                              size: 14,
+                              color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+                            ),
+                          )
+                        else
+                          Icon(
+                            isOn
+                                ? Icons.check_circle_rounded
+                                : Icons.cancel_outlined,
+                            size: 16,
+                            color: isOn
+                                ? color.withValues(alpha: 0.7)
+                                : cs.onSurfaceVariant.withValues(alpha: 0.2),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),

@@ -103,8 +103,12 @@ class _SchoolRolesBodyState extends State<_SchoolRolesBody> {
   void _showCreateSheet(BuildContext context, {Role? existing}) {
     showEduSheet<void>(
       context: context,
-      builder: (_) =>
-          _RoleFormSheet(schoolId: _schoolId, dao: _dao, existing: existing),
+      builder: (_) => _RoleFormSheet(
+        schoolId: _schoolId,
+        dao: _dao,
+        existing: existing,
+        schoolContext: widget.schoolContext,
+      ),
     );
   }
 
@@ -501,10 +505,12 @@ class _RoleFormSheet extends StatefulWidget {
   const _RoleFormSheet({
     required this.schoolId,
     required this.dao,
+    required this.schoolContext,
     this.existing,
   });
   final String schoolId;
   final SchoolScopesDao dao;
+  final SchoolContext schoolContext;
   final Role? existing;
 
   @override
@@ -546,7 +552,14 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
 
   // ── Permission toggles ─────────────────────────────────────────────────
 
+  // ── Editor permission helpers ───────────────────────────────────────────
+  bool get _isOwner => widget.schoolContext.currentEntry.value is OwnerEntry;
+
+  bool _canEditPermission(Resource r, Action a) =>
+      _isOwner || widget.schoolContext.permissions.can(r, a);
+
   void _togglePermission(Resource r, Action a) {
+    if (!_canEditPermission(r, a)) return;
     setState(() {
       final current = _permissions[r] ?? 0;
       _permissions[r] = current ^ a.mask;
@@ -556,36 +569,58 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
 
   void _toggleResourceAll(Resource r) {
     setState(() {
-      final allMask = r.applicableActions.fold<int>(0, (m, a) => m | a.mask);
+      final allMask = r.applicableActions
+          .where((a) => _canEditPermission(r, a))
+          .fold<int>(0, (m, a) => m | a.mask);
+      if (allMask == 0) return;
       final current = _permissions[r] ?? 0;
-      if (current == allMask) {
-        _permissions.remove(r);
+      // Only consider the bits the editor can toggle
+      if ((current & allMask) == allMask) {
+        // All editable bits are on — turn them off
+        _permissions[r] = current & ~allMask;
+        if (_permissions[r] == 0) _permissions.remove(r);
       } else {
-        _permissions[r] = allMask;
+        _permissions[r] = current | allMask;
       }
     });
   }
 
   void _toggleSelectAll() {
     setState(() {
-      final allPerms = <Resource, int>{};
+      final editablePerms = <Resource, int>{};
       for (final g in _resourceGroups) {
         for (final r in g.resources) {
-          allPerms[r] = r.applicableActions.fold<int>(0, (m, a) => m | a.mask);
+          final mask = r.applicableActions
+              .where((a) => _canEditPermission(r, a))
+              .fold<int>(0, (m, a) => m | a.mask);
+          if (mask != 0) editablePerms[r] = mask;
         }
       }
-      final totalPossible = allPerms.values.fold<int>(
+      final totalPossible = editablePerms.values.fold<int>(
         0,
         (s, v) => s + popcount(v),
       );
-      final totalCurrent = _permissions.values.fold<int>(
-        0,
-        (s, v) => s + popcount(v),
-      );
+      // Count only editable bits in current permissions
+      int totalCurrent = 0;
+      for (final entry in editablePerms.entries) {
+        totalCurrent += popcount((_permissions[entry.key] ?? 0) & entry.value);
+      }
       if (totalCurrent == totalPossible) {
-        _permissions.clear();
+        // All editable bits on — clear only the editable bits
+        for (final entry in editablePerms.entries) {
+          final r = entry.key;
+          final newMask = (_permissions[r] ?? 0) & ~entry.value;
+          if (newMask == 0) {
+            _permissions.remove(r);
+          } else {
+            _permissions[r] = newMask;
+          }
+        }
       } else {
-        _permissions.addAll(allPerms);
+        for (final entry in editablePerms.entries) {
+          _permissions[entry.key] =
+              (_permissions[entry.key] ?? 0) | entry.value;
+        }
       }
     });
   }
@@ -596,6 +631,27 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final user = cache.currentUser?.user;
     if (user == null) return;
+
+    // ── Privilege escalation guard ────────────────────────────────────────
+    if (!_isOwner) {
+      final editorPerms = widget.schoolContext.permissions;
+      for (final entry in _permissions.entries) {
+        final resource = entry.key;
+        final mask = entry.value;
+        for (final action in Action.values) {
+          if (mask & action.mask != 0 && !editorPerms.can(resource, action)) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Cannot grant permissions you do not hold.'),
+                ),
+              );
+            }
+            return;
+          }
+        }
+      }
+    }
 
     setState(() => _saving = true);
     try {
@@ -859,6 +915,7 @@ class _RoleFormSheetState extends State<_RoleFormSheet> {
                                         isDark: isDark,
                                         onToggle: _togglePermission,
                                         cs: cs,
+                                        canEditPermission: _canEditPermission,
                                       )
                                     : null,
                               );
@@ -1081,6 +1138,7 @@ class _PermExpandedActions extends StatelessWidget {
     required this.isDark,
     required this.onToggle,
     required this.cs,
+    this.canEditPermission,
   });
 
   final Resource resource;
@@ -1088,6 +1146,7 @@ class _PermExpandedActions extends StatelessWidget {
   final bool isDark;
   final void Function(Resource r, Action a) onToggle;
   final ColorScheme cs;
+  final bool Function(Resource r, Action a)? canEditPermission;
 
   @override
   Widget build(BuildContext context) {
@@ -1112,62 +1171,76 @@ class _PermExpandedActions extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: applicableActions.map((action) {
             final isOn = (currentMask & action.mask) != 0;
+            final editable = canEditPermission?.call(resource, action) ?? true;
             final color = kActionColors[action] ?? cs.primary;
             final icon = kActionIcons[action] ?? Icons.help_outline;
 
-            return Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => onToggle(resource, action),
-                borderRadius: BorderRadius.circular(4),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 7,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        icon,
-                        size: 16,
-                        color: isOn
-                            ? color.withValues(alpha: 0.85)
-                            : cs.onSurfaceVariant.withValues(alpha: 0.25),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          action.label,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w400,
-                            color: isOn
-                                ? cs.onSurface
-                                : cs.onSurfaceVariant.withValues(alpha: 0.45),
-                            letterSpacing: 0.1,
-                          ),
+            return Opacity(
+              opacity: editable ? 1.0 : 0.4,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: editable ? () => onToggle(resource, action) : null,
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 7,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          icon,
+                          size: 16,
+                          color: isOn
+                              ? color.withValues(alpha: 0.85)
+                              : cs.onSurfaceVariant.withValues(alpha: 0.25),
                         ),
-                      ),
-                      SizedBox(
-                        width: 36,
-                        height: 22,
-                        child: FittedBox(
-                          child: Switch(
-                            value: isOn,
-                            onChanged: (_) => onToggle(resource, action),
-                            activeTrackColor: color.withValues(alpha: 0.3),
-                            activeThumbColor: color,
-                            inactiveTrackColor: cs.surfaceContainerHighest
-                                .withValues(alpha: 0.5),
-                            inactiveThumbColor: cs.onSurfaceVariant.withValues(
-                              alpha: 0.3,
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            action.label,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w400,
+                              color: isOn
+                                  ? cs.onSurface
+                                  : cs.onSurfaceVariant.withValues(alpha: 0.45),
+                              letterSpacing: 0.1,
                             ),
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
                           ),
                         ),
-                      ),
-                    ],
+                        if (!editable)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: Icon(
+                              Icons.lock_outline_rounded,
+                              size: 12,
+                              color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+                            ),
+                          ),
+                        SizedBox(
+                          width: 36,
+                          height: 22,
+                          child: FittedBox(
+                            child: Switch(
+                              value: isOn,
+                              onChanged: editable
+                                  ? (_) => onToggle(resource, action)
+                                  : null,
+                              activeTrackColor: color.withValues(alpha: 0.3),
+                              activeThumbColor: color,
+                              inactiveTrackColor: cs.surfaceContainerHighest
+                                  .withValues(alpha: 0.5),
+                              inactiveThumbColor: cs.onSurfaceVariant
+                                  .withValues(alpha: 0.3),
+                              materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

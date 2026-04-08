@@ -124,8 +124,8 @@ Before the DAO call in each `_save()` / `_submit()`, verify the resulting permis
 
 **Update after completion:**
 - [ ] Update `lib/ui/screens/system/CONTEXT.md` — note the fix
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
+- [x] Mark this task `[x]`
 
 ---
 

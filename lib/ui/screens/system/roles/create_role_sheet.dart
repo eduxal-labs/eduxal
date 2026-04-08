@@ -6,6 +6,7 @@ import 'package:flutter/material.dart' hide Action;
 
 import '../../../../client.dart';
 import '../../../../database/database.dart';
+import '../../../../database/tables/enums.dart';
 
 import '../../../../models/permissions.dart';
 import '../../../../models/system_permissions.dart';
@@ -93,11 +94,19 @@ class _CreateRoleSheetState extends State<CreateRoleSheet> {
     return count;
   }
 
+  /// Whether the current user can edit a specific permission toggle.
+  /// Super users can edit everything; others are limited to permissions they hold.
+  bool _canEditPermission(Resource resource, Action action) {
+    return widget.permissions.can(resource, action);
+  }
+
   void _toggleSelectAll() {
     final setTo = !_allSelected;
     setState(() {
       for (final group in kResourceGroups) {
         for (final action in group.actions) {
+          // Only toggle permissions the user actually holds.
+          if (!_canEditPermission(group.resource, action)) continue;
           _permissions['${group.resource.name}.${action.name}'] = setTo;
         }
       }
@@ -107,11 +116,16 @@ class _CreateRoleSheetState extends State<CreateRoleSheet> {
   // ── Per-resource select all ────────────────────────────────────────────────
 
   void _toggleResourceAll(Resource resource, List<Action> actions) {
-    final allOn = actions.every(
+    // Only consider actions the user can actually edit.
+    final editableActions =
+        actions.where((a) => _canEditPermission(resource, a)).toList();
+    if (editableActions.isEmpty) return;
+
+    final allOn = editableActions.every(
       (a) => _permissions['${resource.name}.${a.name}'] == true,
     );
     setState(() {
-      for (final action in actions) {
+      for (final action in editableActions) {
         _permissions['${resource.name}.${action.name}'] = !allOn;
       }
     });
@@ -194,6 +208,29 @@ class _CreateRoleSheetState extends State<CreateRoleSheet> {
     });
 
     try {
+      // Privilege escalation guard — skip for Super users.
+      if (widget.permissions.level != UserLevel.super_) {
+        for (final entry in _permissions.entries) {
+          if (!entry.value) continue;
+          final parts = entry.key.split('.');
+          if (parts.length < 2) continue;
+          final resource = Resource.values
+              .where((r) => r.name == parts.first)
+              .firstOrNull;
+          final action = Action.values
+              .where((a) => a.name == parts.skip(1).join('.'))
+              .firstOrNull;
+          if (resource != null &&
+              action != null &&
+              !widget.permissions.can(resource, action)) {
+            setState(
+              () => _submitError = 'Cannot grant permissions you do not hold.',
+            );
+            return;
+          }
+        }
+      }
+
       final id = ObjectId().oid;
       final nowSeconds = BigInt.from(
         DateTime.now().millisecondsSinceEpoch ~/ 1000,
@@ -385,6 +422,7 @@ class _CreateRoleSheetState extends State<CreateRoleSheet> {
                         onToggleAll: () =>
                             _toggleResourceAll(group.resource, group.actions),
                         onTogglePermission: _togglePermission,
+                        canEditPermission: _canEditPermission,
                         cs: cs,
                       ),
                     );
@@ -605,6 +643,7 @@ class _ResourceRow extends StatelessWidget {
     required this.onToggleExpand,
     required this.onToggleAll,
     required this.onTogglePermission,
+    this.canEditPermission,
     required this.cs,
   });
 
@@ -618,6 +657,7 @@ class _ResourceRow extends StatelessWidget {
   final VoidCallback onToggleExpand;
   final VoidCallback onToggleAll;
   final void Function(String key) onTogglePermission;
+  final bool Function(Resource, Action)? canEditPermission;
   final ColorScheme cs;
 
   @override
@@ -626,6 +666,10 @@ class _ResourceRow extends StatelessWidget {
     final activeActions = actions
         .where((a) => permissions['${resource.name}.${a.name}'] == true)
         .toList();
+
+    // Disable "select all" toggle if any action in this resource can't be edited.
+    final canToggleAll = canEditPermission == null ||
+        actions.any((a) => canEditPermission!(resource, a));
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
@@ -743,32 +787,37 @@ class _ResourceRow extends StatelessWidget {
 
                       // Select all toggle.
                       const SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: onToggleAll,
-                        behavior: HitTestBehavior.opaque,
-                        child: Tooltip(
-                          message: allOn ? 'Deselect all' : 'Select all',
-                          child: Container(
-                            width: 22,
-                            height: 22,
-                            decoration: BoxDecoration(
-                              color: allOn
-                                  ? cs.primary.withValues(alpha: 0.12)
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
+                      Opacity(
+                        opacity: canToggleAll ? 1.0 : 0.35,
+                        child: GestureDetector(
+                          onTap: canToggleAll ? onToggleAll : null,
+                          behavior: HitTestBehavior.opaque,
+                          child: Tooltip(
+                            message: canToggleAll
+                                ? (allOn ? 'Deselect all' : 'Select all')
+                                : 'Insufficient permissions',
+                            child: Container(
+                              width: 22,
+                              height: 22,
+                              decoration: BoxDecoration(
                                 color: allOn
-                                    ? cs.primary.withValues(alpha: 0.4)
-                                    : cs.outlineVariant.withValues(alpha: 0.5),
-                                width: 1,
+                                    ? cs.primary.withValues(alpha: 0.12)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: allOn
+                                      ? cs.primary.withValues(alpha: 0.4)
+                                      : cs.outlineVariant.withValues(alpha: 0.5),
+                                  width: 1,
+                                ),
                               ),
-                            ),
-                            child: Icon(
-                              allOn ? Icons.check_rounded : Icons.add_rounded,
-                              size: 14,
-                              color: allOn
-                                  ? cs.primary
-                                  : cs.onSurfaceVariant.withValues(alpha: 0.45),
+                              child: Icon(
+                                allOn ? Icons.check_rounded : Icons.add_rounded,
+                                size: 14,
+                                color: allOn
+                                    ? cs.primary
+                                    : cs.onSurfaceVariant.withValues(alpha: 0.45),
+                              ),
                             ),
                           ),
                         ),
@@ -787,6 +836,7 @@ class _ResourceRow extends StatelessWidget {
                 permissions: permissions,
                 isLight: isLight,
                 onToggle: onTogglePermission,
+                canEditPermission: canEditPermission,
                 cs: cs,
               ),
           ],
@@ -807,6 +857,7 @@ class _ExpandedPermissions extends StatelessWidget {
     required this.permissions,
     required this.isLight,
     required this.onToggle,
+    this.canEditPermission,
     required this.cs,
   });
 
@@ -815,6 +866,7 @@ class _ExpandedPermissions extends StatelessWidget {
   final Map<String, bool> permissions;
   final bool isLight;
   final void Function(String key) onToggle;
+  final bool Function(Resource, Action)? canEditPermission;
   final ColorScheme cs;
 
   @override
@@ -839,55 +891,69 @@ class _ExpandedPermissions extends StatelessWidget {
             final isOn = permissions[key] == true;
             final color = kActionColors[action] ?? cs.onSurfaceVariant;
             final icon = kActionIcons[action] ?? Icons.circle_outlined;
+            final canEdit = canEditPermission?.call(resource, action) ?? true;
 
-            return Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => onToggle(key),
-                borderRadius: BorderRadius.circular(4),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 7,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        icon,
-                        size: 16,
-                        color: isOn
-                            ? color.withValues(alpha: 0.85)
-                            : cs.onSurfaceVariant.withValues(alpha: 0.25),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          actionLabel(action),
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w400,
-                            color: isOn
-                                ? cs.onSurface
-                                : cs.onSurfaceVariant.withValues(alpha: 0.4),
-                            letterSpacing: 0.1,
+            return Opacity(
+              opacity: canEdit ? 1.0 : 0.35,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: canEdit ? () => onToggle(key) : null,
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 7,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          icon,
+                          size: 16,
+                          color: isOn
+                              ? color.withValues(alpha: 0.85)
+                              : cs.onSurfaceVariant.withValues(alpha: 0.25),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            actionLabel(action),
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w400,
+                              color: isOn
+                                  ? cs.onSurface
+                                  : cs.onSurfaceVariant.withValues(alpha: 0.4),
+                              letterSpacing: 0.1,
+                            ),
                           ),
                         ),
-                      ),
-                      SizedBox(
-                        width: 36,
-                        height: 22,
-                        child: FittedBox(
-                          child: Switch(
-                            value: isOn,
-                            onChanged: (_) => onToggle(key),
-                            activeTrackColor: color.withValues(alpha: 0.3),
-                            activeThumbColor: color,
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
+                        if (!canEdit)
+                          Tooltip(
+                            message: 'You do not hold this permission',
+                            child: Icon(
+                              Icons.lock_outline_rounded,
+                              size: 14,
+                              color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+                            ),
+                          )
+                        else
+                          SizedBox(
+                            width: 36,
+                            height: 22,
+                            child: FittedBox(
+                              child: Switch(
+                                value: isOn,
+                                onChanged: (_) => onToggle(key),
+                                activeTrackColor: color.withValues(alpha: 0.3),
+                                activeThumbColor: color,
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),

@@ -288,6 +288,7 @@ class _SchoolRoleDetailScreenState extends State<SchoolRoleDetailScreen>
                           cs: cs,
                           horizontalPadding: horizontalPadding,
                           canUpdate: canUpdate,
+                          schoolContext: widget.schoolContext,
                         ),
                         _AssignedTab(
                           role: role,
@@ -638,6 +639,7 @@ class _PermissionsTab extends StatefulWidget {
     required this.cs,
     required this.horizontalPadding,
     required this.canUpdate,
+    required this.schoolContext,
   });
 
   final Role role;
@@ -645,6 +647,7 @@ class _PermissionsTab extends StatefulWidget {
   final ColorScheme cs;
   final double horizontalPadding;
   final bool canUpdate;
+  final SchoolContext schoolContext;
 
   @override
   State<_PermissionsTab> createState() => _PermissionsTabState();
@@ -737,6 +740,11 @@ class _PermissionsTabState extends State<_PermissionsTab> {
 
   void _togglePermission(Resource resource, Action action) {
     if (!widget.canUpdate) return;
+    // Privilege escalation guard — cannot toggle permissions you don't hold
+    final isOwner = widget.schoolContext.currentEntry.value is OwnerEntry;
+    if (!isOwner && !widget.schoolContext.permissions.can(resource, action)) {
+      return;
+    }
     setState(() {
       final current = (_editPermissions[resource] ?? 0) & action.mask != 0;
       if (current) {
@@ -812,6 +820,27 @@ class _PermissionsTabState extends State<_PermissionsTab> {
       final cleaned = Map.fromEntries(
         _editPermissions.entries.where((e) => e.value != 0),
       );
+
+      // Privilege escalation guard — cannot grant permissions you don't hold
+      final isOwner = widget.schoolContext.currentEntry.value is OwnerEntry;
+      if (!isOwner) {
+        final editorPerms = widget.schoolContext.permissions;
+        for (final entry in cleaned.entries) {
+          final resource = entry.key;
+          final mask = entry.value;
+          for (final action in Action.values) {
+            if (mask & action.mask != 0 && !editorPerms.can(resource, action)) {
+              if (mounted) {
+                setState(() {
+                  _saveError = 'Cannot grant permissions you do not hold.';
+                  _saving = false;
+                });
+              }
+              return;
+            }
+          }
+        }
+      }
 
       final serialised = Permissions(cleaned).toBlob();
       debugPrint('[PermTab._save] roleId=${widget.role.id}');
@@ -895,6 +924,12 @@ class _PermissionsTabState extends State<_PermissionsTab> {
     final cs = widget.cs;
     final isLight = cs.brightness == Brightness.light;
     final groups = buildResourceGroups();
+
+    // Privilege escalation — editor can only toggle permissions they hold
+    final isOwnerEntry = widget.schoolContext.currentEntry.value is OwnerEntry;
+    final editorPerms = widget.schoolContext.permissions;
+    bool canEditPerm(Resource r, Action a) =>
+        isOwnerEntry || editorPerms.can(r, a);
 
     final hasAnyPermissions = _editPermissions.values.any((m) => m != 0);
     final hasChanges = _hasChanges;
@@ -1024,6 +1059,7 @@ class _PermissionsTabState extends State<_PermissionsTab> {
                         changeSummary: _resourceChangeSummary(resource),
                         isLight: isLight,
                         readOnly: !widget.canUpdate,
+                        canEditPermission: canEditPerm,
                         onToggleExpand: () => _toggleExpand(resource),
                         onToggleSelection: () =>
                             _toggleResourceSelection(resource),
@@ -1234,6 +1270,7 @@ class _ResourceRow extends StatelessWidget {
     required this.changeSummary,
     required this.isLight,
     this.readOnly = false,
+    this.canEditPermission,
     required this.onToggleExpand,
     required this.onToggleSelection,
     required this.onTogglePermission,
@@ -1250,6 +1287,7 @@ class _ResourceRow extends StatelessWidget {
   final ({int added, int removed}) changeSummary;
   final bool isLight;
   final bool readOnly;
+  final bool Function(Resource, Action)? canEditPermission;
   final VoidCallback onToggleExpand;
   final VoidCallback onToggleSelection;
   final void Function(Resource resource, Action action) onTogglePermission;
@@ -1464,6 +1502,7 @@ class _ResourceRow extends StatelessWidget {
                 originalPermissions: originalPermissions,
                 isLight: isLight,
                 readOnly: readOnly,
+                canEditPermission: canEditPermission,
                 onToggle: onTogglePermission,
                 cs: cs,
               ),
@@ -1485,6 +1524,7 @@ class _ExpandedPermissions extends StatelessWidget {
     required this.originalPermissions,
     required this.isLight,
     this.readOnly = false,
+    this.canEditPermission,
     required this.onToggle,
     required this.cs,
   });
@@ -1494,6 +1534,7 @@ class _ExpandedPermissions extends StatelessWidget {
   final Map<Resource, int> originalPermissions;
   final bool isLight;
   final bool readOnly;
+  final bool Function(Resource, Action)? canEditPermission;
   final void Function(Resource resource, Action action) onToggle;
   final ColorScheme cs;
 
@@ -1524,11 +1565,14 @@ class _ExpandedPermissions extends StatelessWidget {
             final changed = isOn != wasOn;
             final color = kActionColors[action] ?? cs.primary;
             final icon = kActionIcons[action] ?? Icons.help_outline;
+            final canEdit =
+                !readOnly &&
+                (canEditPermission?.call(resource, action) ?? true);
 
             return Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: readOnly ? null : () => onToggle(resource, action),
+                onTap: canEdit ? () => onToggle(resource, action) : null,
                 borderRadius: BorderRadius.circular(4),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
@@ -1592,9 +1636,9 @@ class _ExpandedPermissions extends StatelessWidget {
                         child: FittedBox(
                           child: Switch(
                             value: isOn,
-                            onChanged: readOnly
-                                ? null
-                                : (_) => onToggle(resource, action),
+                            onChanged: canEdit
+                                ? (_) => onToggle(resource, action)
+                                : null,
                             activeTrackColor: color.withValues(alpha: 0.3),
                             activeThumbColor: color,
                             inactiveTrackColor: cs.surfaceContainerHighest
