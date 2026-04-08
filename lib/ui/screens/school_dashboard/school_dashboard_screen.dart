@@ -1547,7 +1547,7 @@ class _UnifiedMobileTabBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isScrollable = items.length > 5;
+    final isScrollable = items.length > 4;
 
     return Container(
       height: 44,

@@ -212,23 +212,18 @@ class StaffOverview extends StatelessWidget {
             const SizedBox(height: 12),
           ],
 
-          // ── Recent announcements (permission-gated) ──────────────────────
-          if (schoolContext.permissions.can(
-            Resource.announcements,
-            Action.read,
-          )) ...[
-            SectionTitle(
-              label: 'Recent Announcements',
-              cs: cs,
-              onViewAll: () =>
-                  DashboardNavigation.goToTab(context, 'Announcements'),
-            ),
-            const SizedBox(height: 8),
-            RecentAnnouncements(
-              schoolId: schoolId,
-              audienceBit: AudienceBits.staff,
-            ),
-          ],
+          // ── Recent announcements (always visible — matches Announcements tab) ─
+          SectionTitle(
+            label: 'Recent Announcements',
+            cs: cs,
+            onViewAll: () =>
+                DashboardNavigation.goToTab(context, 'Announcements'),
+          ),
+          const SizedBox(height: 8),
+          RecentAnnouncements(
+            schoolId: schoolId,
+            audienceBit: AudienceBits.staff,
+          ),
 
           const SizedBox(height: 80),
         ],

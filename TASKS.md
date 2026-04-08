@@ -1123,8 +1123,8 @@ The curriculum-detection logic (`curriculumForGrade`) and `_buildConfigFromStrea
 Change threshold from `items.length > 5` to `items.length > 4`. With 5+ items, the tab bar becomes scrollable and each tab gets its natural width.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
+- [x] Mark this task `[x]`
 
 ---
 
@@ -1251,7 +1251,7 @@ If the widgets are private (`_` prefixed) in `student_overview.dart`, move them 
 
 ---
 
-### Task G9: No `StreamBuilder` error handling across the app
+### Task G9: No `StreamBuilder` error handling across the app ✅
 
 **Files to modify:** `lib/ui/widgets/edu_stream_builder.dart` (new file), multiple screen files
 **Context files to read:** `lib/ui/widgets/CONTEXT.md`
@@ -1280,8 +1280,8 @@ Throughout the app, `StreamBuilder` widgets check `snap.hasData` or `ConnectionS
 3. Add a standard error-state check to any NEW `StreamBuilder`s added by other tasks in this round.
 
 **Update after completion:**
-- [ ] Update `lib/ui/widgets/CONTEXT.md` — note the new widget
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/widgets/CONTEXT.md` — note the new widget
+- [x] Mark this task `[x]`
 
 ---
 
