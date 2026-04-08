@@ -3,6 +3,7 @@ import 'package:flutter/material.dart' hide Action;
 import '../../../../database/database.dart';
 import '../../../../database/daos/departments_dao.dart';
 import '../../../../database/daos/members_dao.dart';
+import '../../../../models/membership.dart';
 import '../../../../models/permissions.dart';
 import '../../../../models/school_context.dart';
 import '../../../widgets/edu_sheet.dart';
@@ -70,6 +71,10 @@ class _MembersPageBodyState extends State<_MembersPageBody>
   }
 
   List<_MemberTab> _computeVisibleTabs() {
+    final entry = widget.schoolContext.currentEntry.value;
+    if (entry is OwnerEntry) {
+      return _MemberTab.values; // Owners see all member tabs
+    }
     final perms = widget.schoolContext.permissions;
     return [
       if (perms.can(Resource.departments, Action.read)) _MemberTab.departments,

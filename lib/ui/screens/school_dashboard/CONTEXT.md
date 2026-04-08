@@ -86,7 +86,7 @@ This directory contains **1 shell screen file** and **8 subdirectories**, each r
 ### `announcements/`
 | File | Widget | Status | Description |
 |---|---|---|---|
-| `announcements_screen.dart` | `AnnouncementsScreen` | ✅ Complete | Chronological feed of school announcements. Owners/Staff can create announcements targeted by role or class. Feed filters by `SchoolContext.currentEntry` role for relevance. Compose FAB simplified to icon-only `FloatingActionButton.small` matching Roles page pattern; `_ElevatedFab` class removed. `_RoleFeed` and `_AdminFeed` now load real `SchoolConfig` reactively from `CatalogDao.watchAllStreamsForSchool` via shared `_buildConfigFromStreams()` helper (same pattern as attendance/exams/timetable screens) instead of using `SchoolConfig.defaults()`. |
+| `announcements_screen.dart` | `AnnouncementsScreen` | ✅ Complete | Chronological feed of school announcements. Owners/Staff can create announcements targeted by role or class. Feed filters by `SchoolContext.currentEntry` role for relevance. Compose FAB simplified to icon-only `FloatingActionButton.small` matching Roles page pattern; `_ElevatedFab` class removed. `_RoleFeed` and `_AdminFeed` now load real `SchoolConfig` reactively from `CatalogDao.watchAllStreamsForSchool` via shared `_buildConfigFromStreams()` helper (same pattern as attendance/exams/timetable screens) instead of using `SchoolConfig.defaults()`. Owner gets full RBAC bypass on create/edit/delete actions (`entry is OwnerEntry` check). Teachers are excluded from blanket edit/delete (`!isTeacher` guard) — they can only edit/delete their own announcements via the per-row author check in `_AnnouncementRowState.build`. |
 
 **Data source:** `AnnouncementsDao.watchAnnouncements(schoolId, ...)`, `CatalogDao.watchAllStreamsForSchool(schoolId)`
 **Dependencies:** `database/daos/announcements_dao.dart`, `database/daos/catalog_dao.dart`, `database/daos/enrollments_dao.dart`, `database/tables/curriculum_subjects.dart`, `models/school_config.dart`, `models/school_context.dart`
@@ -242,7 +242,9 @@ When `ActiveTermContext.hasTerms` is `false`, the dashboard shows a blank state 
 
 
 ## Last Updated
-Task A3 — Remove guardian/student payment capability from `_GuardianFinanceView` (read-only finance enforcement).
+Task B6 — Verified owner RBAC bypass in Announcements admin actions (already correctly implemented with `entry is OwnerEntry` checks on `canCreate`, `canEdit`, `canDelete`).
+
+Previous: Task A3 — Remove guardian/student payment capability from `_GuardianFinanceView` (read-only finance enforcement).
 
 Previous: Task G7 — Remove My Classes page from teacher dashboard.
 

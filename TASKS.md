@@ -449,7 +449,7 @@ onTap: () {
 
 ---
 
-### Task B6: Owner RBAC bypass in Announcements admin actions
+### Task B6: Owner RBAC bypass in Announcements admin actions ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/announcements/announcements_screen.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
