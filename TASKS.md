@@ -604,8 +604,8 @@ The same pattern exists in `_TeacherNextClass` (approximately line 237–243) �
 5. Also fix `_TeacherUpcomingExams` and `_TeacherClassChips` which load subjects/streams as one-shot Futures via `CatalogDao(db).getSubjects()` — these should either be cached or use reactive streams.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
+- [x] Mark this task `[x]`
 
 ---
 

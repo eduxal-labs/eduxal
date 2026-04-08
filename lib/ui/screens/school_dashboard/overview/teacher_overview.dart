@@ -73,45 +73,11 @@ class TeacherOverview extends StatelessWidget {
           if (term != null &&
               userId.isNotEmpty &&
               termContext.isCurrentTermActive) ...[
-            StreamBuilder<List<ClassAttendanceStatus>>(
-              stream: AttendanceDao(db).watchTeacherClassAttendanceStatus(
-                schoolId: schoolId,
-                teacherId: userId,
-                year: term.year,
-                term: term.term,
-                date: DateTime.now()
-                    .toUtc()
-                    .difference(DateTime.utc(1970, 1, 1))
-                    .inDays,
-              ),
-              builder: (context, snap) {
-                if (!snap.hasData || snap.data!.isEmpty)
-                  return const SizedBox.shrink();
-                final classes = snap.data!;
-                final allMarked = classes.every((c) => c.isMarked);
-                final unmarkedCount = classes.where((c) => !c.isMarked).length;
-
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: TodayStatusCard(
-                    type: allMarked
-                        ? TodayStatusType.positive
-                        : TodayStatusType.warning,
-                    icon: allMarked
-                        ? Icons.check_circle_rounded
-                        : Icons.edit_note_rounded,
-                    title: allMarked
-                        ? 'All classes marked'
-                        : '$unmarkedCount class${unmarkedCount > 1 ? "es" : ""} not marked',
-                    subtitle: classes
-                        .map((c) {
-                          final label = gradeLabel(c.grade);
-                          return c.isMarked ? '$label ✓' : '$label ✗';
-                        })
-                        .join('  '),
-                  ),
-                );
-              },
+            _TeacherAttendanceCard(
+              schoolId: schoolId,
+              teacherId: userId,
+              year: term.year,
+              term: term.term,
             ),
           ],
 
@@ -197,6 +163,111 @@ class TeacherOverview extends StatelessWidget {
   }
 }
 
+// ═════════════════════════════════════════════════════════════════════════════
+// ATTENDANCE CARD — extracted from TeacherOverview.build() to cache stream
+// ═════════════════════════════════════════════════════════════════════════════
+
+class _TeacherAttendanceCard extends StatefulWidget {
+  const _TeacherAttendanceCard({
+    required this.schoolId,
+    required this.teacherId,
+    required this.year,
+    required this.term,
+  });
+
+  final String schoolId;
+  final String teacherId;
+  final int year;
+  final int term;
+
+  @override
+  State<_TeacherAttendanceCard> createState() => _TeacherAttendanceCardState();
+}
+
+class _TeacherAttendanceCardState extends State<_TeacherAttendanceCard> {
+  late AttendanceDao _dao;
+  late int _todayDays;
+  late Stream<List<ClassAttendanceStatus>> _stream;
+
+  @override
+  void initState() {
+    super.initState();
+    _dao = AttendanceDao(db);
+    _todayDays = DateTime.now()
+        .toUtc()
+        .difference(DateTime.utc(1970, 1, 1))
+        .inDays;
+    _stream = _buildStream();
+  }
+
+  Stream<List<ClassAttendanceStatus>> _buildStream() {
+    return _dao.watchTeacherClassAttendanceStatus(
+      schoolId: widget.schoolId,
+      teacherId: widget.teacherId,
+      year: widget.year,
+      term: widget.term,
+      date: _todayDays,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _TeacherAttendanceCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.schoolId != widget.schoolId ||
+        oldWidget.teacherId != widget.teacherId ||
+        oldWidget.year != widget.year ||
+        oldWidget.term != widget.term) {
+      // Recompute date on prop change (in case the widget was recreated
+      // across a midnight boundary with new term props).
+      _todayDays = DateTime.now()
+          .toUtc()
+          .difference(DateTime.utc(1970, 1, 1))
+          .inDays;
+      setState(() {
+        _stream = _buildStream();
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<ClassAttendanceStatus>>(
+      stream: _stream,
+      builder: (context, snap) {
+        if (!snap.hasData || snap.data!.isEmpty) return const SizedBox.shrink();
+        final classes = snap.data!;
+        final allMarked = classes.every((c) => c.isMarked);
+        final unmarkedCount = classes.where((c) => !c.isMarked).length;
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: TodayStatusCard(
+            type: allMarked
+                ? TodayStatusType.positive
+                : TodayStatusType.warning,
+            icon: allMarked
+                ? Icons.check_circle_rounded
+                : Icons.edit_note_rounded,
+            title: allMarked
+                ? 'All classes marked'
+                : '$unmarkedCount class${unmarkedCount > 1 ? "es" : ""} not marked',
+            subtitle: classes
+                .map((c) {
+                  final label = gradeLabel(c.grade);
+                  return c.isMarked ? '$label ✓' : '$label ✗';
+                })
+                .join('  '),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// NEXT CLASS COUNTDOWN
+// ═════════════════════════════════════════════════════════════════════════════
+
 class _TeacherNextClass extends StatefulWidget {
   const _TeacherNextClass({
     required this.schoolId,
@@ -216,19 +287,34 @@ class _TeacherNextClass extends StatefulWidget {
 
 class _TeacherNextClassState extends State<_TeacherNextClass> {
   late Future<List<Subject>> _subjectsFuture;
+  late Stream<List<TimetableData>> _timetableStream;
 
   @override
   void initState() {
     super.initState();
     _subjectsFuture = CatalogDao(db).getSubjects();
+    _timetableStream = _buildTimetableStream();
+  }
+
+  Stream<List<TimetableData>> _buildTimetableStream() {
+    return TimetableDao(db).watchTeacherTimetable(
+      schoolId: widget.schoolId,
+      year: widget.year,
+      term: widget.term,
+      teacherUserId: widget.teacherUserId,
+    );
   }
 
   @override
   void didUpdateWidget(covariant _TeacherNextClass oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.schoolId != widget.schoolId) {
+    if (oldWidget.schoolId != widget.schoolId ||
+        oldWidget.year != widget.year ||
+        oldWidget.term != widget.term ||
+        oldWidget.teacherUserId != widget.teacherUserId) {
       setState(() {
         _subjectsFuture = CatalogDao(db).getSubjects();
+        _timetableStream = _buildTimetableStream();
       });
     }
   }
@@ -236,12 +322,7 @@ class _TeacherNextClassState extends State<_TeacherNextClass> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<TimetableData>>(
-      stream: TimetableDao(db).watchTeacherTimetable(
-        schoolId: widget.schoolId,
-        year: widget.year,
-        term: widget.term,
-        teacherUserId: widget.teacherUserId,
-      ),
+      stream: _timetableStream,
       builder: (context, snap) {
         if (!snap.hasData) return const SizedBox.shrink();
 
@@ -307,6 +388,10 @@ class _TeacherNextClassState extends State<_TeacherNextClass> {
   }
 }
 
+// ═════════════════════════════════════════════════════════════════════════════
+// TODAY'S SCHEDULE
+// ═════════════════════════════════════════════════════════════════════════════
+
 class _TeacherTodaySchedule extends StatefulWidget {
   const _TeacherTodaySchedule({
     required this.schoolId,
@@ -327,6 +412,7 @@ class _TeacherTodaySchedule extends StatefulWidget {
 class _TeacherTodayScheduleState extends State<_TeacherTodaySchedule> {
   late Future<List<Subject>> _subjectsFuture;
   late Future<List<SchoolStream>> _streamsFuture;
+  late Stream<List<TimetableData>> _timetableStream;
   Timer? _refreshTimer;
   bool _showAll = false;
 
@@ -340,18 +426,32 @@ class _TeacherTodayScheduleState extends State<_TeacherTodaySchedule> {
     super.initState();
     _subjectsFuture = CatalogDao(db).getSubjects();
     _streamsFuture = CatalogDao(db).getStreamsForSchool(widget.schoolId);
+    _timetableStream = _buildTimetableStream();
     _refreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) setState(() {});
     });
   }
 
+  Stream<List<TimetableData>> _buildTimetableStream() {
+    return TimetableDao(db).watchTeacherTimetable(
+      schoolId: widget.schoolId,
+      year: widget.year,
+      term: widget.term,
+      teacherUserId: widget.teacherUserId,
+    );
+  }
+
   @override
   void didUpdateWidget(covariant _TeacherTodaySchedule oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.schoolId != widget.schoolId) {
+    if (oldWidget.schoolId != widget.schoolId ||
+        oldWidget.year != widget.year ||
+        oldWidget.term != widget.term ||
+        oldWidget.teacherUserId != widget.teacherUserId) {
       setState(() {
         _subjectsFuture = CatalogDao(db).getSubjects();
         _streamsFuture = CatalogDao(db).getStreamsForSchool(widget.schoolId);
+        _timetableStream = _buildTimetableStream();
         _showAll = false;
       });
     }
@@ -380,15 +480,8 @@ class _TeacherTodayScheduleState extends State<_TeacherTodaySchedule> {
 
   @override
   Widget build(BuildContext context) {
-    final timetableDao = TimetableDao(db);
-
     return StreamBuilder<List<TimetableData>>(
-      stream: timetableDao.watchTeacherTimetable(
-        schoolId: widget.schoolId,
-        year: widget.year,
-        term: widget.term,
-        teacherUserId: widget.teacherUserId,
-      ),
+      stream: _timetableStream,
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const LoadingShimmer();
@@ -651,6 +744,10 @@ class _TodayLessonCard extends StatelessWidget {
   }
 }
 
+// ═════════════════════════════════════════════════════════════════════════════
+// QUICK STATS
+// ═════════════════════════════════════════════════════════════════════════════
+
 class _TeacherQuickStats extends StatefulWidget {
   const _TeacherQuickStats({
     required this.schoolId,
@@ -821,7 +918,9 @@ class _TeacherQuickStatsState extends State<_TeacherQuickStats> {
   }
 }
 
-// ── Teacher Class Chips ──────────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════════════════
+// CLASS CHIPS
+// ═════════════════════════════════════════════════════════════════════════════
 
 class _TeacherClassChips extends StatefulWidget {
   const _TeacherClassChips({
@@ -840,31 +939,39 @@ class _TeacherClassChips extends StatefulWidget {
 
 class _TeacherClassChipsState extends State<_TeacherClassChips> {
   late Future<List<SchoolStream>> _streamsFuture;
+  late Stream<List<ClassTeacher>> _classTeacherStream;
 
   @override
   void initState() {
     super.initState();
     _streamsFuture = CatalogDao(db).getStreamsForSchool(widget.schoolId);
+    _classTeacherStream = _buildClassTeacherStream();
+  }
+
+  Stream<List<ClassTeacher>> _buildClassTeacherStream() {
+    return MembersDao(
+      db,
+    ).watchClassTeacherAssignments(widget.schoolId, widget.userId);
   }
 
   @override
   void didUpdateWidget(covariant _TeacherClassChips oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.schoolId != widget.schoolId) {
-      _streamsFuture = CatalogDao(db).getStreamsForSchool(widget.schoolId);
+    if (oldWidget.schoolId != widget.schoolId ||
+        oldWidget.userId != widget.userId) {
+      setState(() {
+        _streamsFuture = CatalogDao(db).getStreamsForSchool(widget.schoolId);
+        _classTeacherStream = _buildClassTeacherStream();
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final membersDao = MembersDao(db);
 
     return StreamBuilder<List<ClassTeacher>>(
-      stream: membersDao.watchClassTeacherAssignments(
-        widget.schoolId,
-        widget.userId,
-      ),
+      stream: _classTeacherStream,
       builder: (context, ctSnap) {
         if (ctSnap.connectionState == ConnectionState.waiting) {
           return const LoadingShimmer();
@@ -973,7 +1080,9 @@ class _TeacherClassChipsState extends State<_TeacherClassChips> {
   }
 }
 
-// ── Teacher Upcoming Exams ───────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════════════════
+// UPCOMING EXAMS
+// ═════════════════════════════════════════════════════════════════════════════
 
 class _TeacherUpcomingExams extends StatefulWidget {
   const _TeacherUpcomingExams({
@@ -992,19 +1101,45 @@ class _TeacherUpcomingExams extends StatefulWidget {
 
 class _TeacherUpcomingExamsState extends State<_TeacherUpcomingExams> {
   late Future<List<Subject>> _subjectsFuture;
+  late Stream<List<SubjectTeacher>> _subjectTeacherStream;
+  late Stream<List<ExamWithPapers>> _examsStream;
 
   @override
   void initState() {
     super.initState();
     _subjectsFuture = CatalogDao(db).getSubjects();
+    _subjectTeacherStream = _buildSubjectTeacherStream();
+    _examsStream = _buildExamsStream();
+  }
+
+  Stream<List<SubjectTeacher>> _buildSubjectTeacherStream() {
+    return MembersDao(db).watchTeacherSubjectsForTerm(
+      widget.schoolId,
+      widget.userId,
+      year: widget.term.year,
+      term: widget.term.term,
+    );
+  }
+
+  Stream<List<ExamWithPapers>> _buildExamsStream() {
+    return ExamsGradesDao(db).watchExamsForTerm(
+      schoolId: widget.schoolId,
+      year: widget.term.year,
+      term: widget.term.term,
+    );
   }
 
   @override
   void didUpdateWidget(covariant _TeacherUpcomingExams oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.schoolId != widget.schoolId) {
+    if (oldWidget.schoolId != widget.schoolId ||
+        oldWidget.userId != widget.userId ||
+        oldWidget.term.year != widget.term.year ||
+        oldWidget.term.term != widget.term.term) {
       setState(() {
         _subjectsFuture = CatalogDao(db).getSubjects();
+        _subjectTeacherStream = _buildSubjectTeacherStream();
+        _examsStream = _buildExamsStream();
       });
     }
   }
@@ -1012,8 +1147,6 @@ class _TeacherUpcomingExamsState extends State<_TeacherUpcomingExams> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final examsDao = ExamsGradesDao(db);
-    final membersDao = MembersDao(db);
     final nowSeconds = BigInt.from(
       DateTime.now().millisecondsSinceEpoch ~/ 1000,
     );
@@ -1021,22 +1154,13 @@ class _TeacherUpcomingExamsState extends State<_TeacherUpcomingExams> {
     // Outer stream: teacher's subject assignments for this term — drives
     // the wider "teaches subject" filter (aligned with _TeacherQuickStats).
     return StreamBuilder<List<SubjectTeacher>>(
-      stream: membersDao.watchTeacherSubjectsForTerm(
-        widget.schoolId,
-        widget.userId,
-        year: widget.term.year,
-        term: widget.term.term,
-      ),
+      stream: _subjectTeacherStream,
       builder: (context, subjectsSnap) {
         final teacherSubjects = subjectsSnap.data ?? [];
         final teacherSubjectIds = teacherSubjects.map((s) => s.subject).toSet();
 
         return StreamBuilder<List<ExamWithPapers>>(
-          stream: examsDao.watchExamsForTerm(
-            schoolId: widget.schoolId,
-            year: widget.term.year,
-            term: widget.term.term,
-          ),
+          stream: _examsStream,
           builder: (context, snap) {
             if (snap.connectionState == ConnectionState.waiting &&
                 subjectsSnap.connectionState == ConnectionState.waiting) {

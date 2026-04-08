@@ -169,6 +169,11 @@ class _ExamCreationPageState extends State<ExamCreationPage>
   // Duplicate subject conflict tracking (slot ID → error message)
   Map<String, String> _duplicateSubjectConflicts = {};
 
+  // Teacher grade scoping — only populated for TeacherEntry.
+  // null = show all grades (non-teacher or fetch failed), non-null = filter.
+  Set<int>? _teacherAssignedGrades;
+  bool _loadingTeacherGrades = false;
+
   @override
   void initState() {
     super.initState();
@@ -176,17 +181,70 @@ class _ExamCreationPageState extends State<ExamCreationPage>
     _subjectsDao = SubjectsDao(db);
     _membersDao = MembersDao(db);
 
+    if (_isTeacherEntry) {
+      // For teachers, fetch assigned grades first, then build filtered tabs.
+      _loadingTeacherGrades = true;
+      _gradeTabs = [];
+      _gradeTabController = TabController(length: 0, vsync: this);
+      _fetchTeacherGrades();
+    } else {
+      _initGradeTabs();
+    }
+
+    _loadTeachers();
+  }
+
+  /// Fetches the teacher's assigned grades for the current term via a one-shot
+  /// read, then rebuilds the grade tabs filtered to those grades.
+  Future<void> _fetchTeacherGrades() async {
+    try {
+      final entry = widget.entry as TeacherEntry;
+      final subjects = await _membersDao
+          .watchTeacherSubjectsForTerm(
+            widget.schoolId,
+            entry.teacher.user,
+            year: widget.year,
+            term: widget.term,
+          )
+          .first;
+      if (!mounted) return;
+      _teacherAssignedGrades = subjects.map((s) => s.grade).toSet();
+    } catch (_) {
+      if (!mounted) return;
+      // On error, fall back to showing all grades.
+      _teacherAssignedGrades = null;
+    }
+    // Dispose the placeholder controller before rebuilding.
+    _gradeTabController.dispose();
+    for (final ctrl in _streamTabControllers.values) {
+      ctrl.dispose();
+    }
+    _streamTabControllers.clear();
+    _activeStreamTabIndex.clear();
+
+    setState(() {
+      _loadingTeacherGrades = false;
+      _initGradeTabs();
+    });
+  }
+
+  /// Builds `_gradeTabs` from `widget.config.curricula`, optionally filtered
+  /// by `_teacherAssignedGrades`, and creates all associated tab controllers.
+  void _initGradeTabs() {
     // Build grade tabs: one tab per configured grade (no synthetic "All" tab).
+    // For teachers, filter to only grades they have assignments in.
     _gradeTabs = [
       for (final curriculum in widget.config.curricula)
         for (final gc in curriculum.grades)
-          _GradeTabEntry(
-            label:
-                gradeLabelsFor(curriculum.type)[gc.grade] ??
-                'Grade ${gc.grade}',
-            grade: gc.grade,
-            curriculum: curriculum.type,
-          ),
+          if (_teacherAssignedGrades == null ||
+              _teacherAssignedGrades!.contains(gc.grade))
+            _GradeTabEntry(
+              label:
+                  gradeLabelsFor(curriculum.type)[gc.grade] ??
+                  'Grade ${gc.grade}',
+              grade: gc.grade,
+              curriculum: curriculum.type,
+            ),
     ];
 
     // Determine initial tab index from preselectedGrade.
@@ -247,8 +305,9 @@ class _ExamCreationPageState extends State<ExamCreationPage>
       }
     }
 
-    _onGradeTabChanged();
-    _loadTeachers();
+    if (_gradeTabs.isNotEmpty) {
+      _onGradeTabChanged();
+    }
   }
 
   @override
@@ -1261,15 +1320,80 @@ class _ExamCreationPageState extends State<ExamCreationPage>
                     ),
                   ),
                   const SizedBox(height: 12),
-                  _buildGradeTabs(cs),
 
-                  // ── Section 3: Stream chips ─────────────────────────────
-                  ..._buildStreamSection(cs),
+                  // Teacher grade scoping: loading / empty / normal
+                  if (_loadingTeacherGrades)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32),
+                      child: Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 1.5),
+                        ),
+                      ),
+                    )
+                  else if (_isTeacherEntry && _gradeTabs.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 32),
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: cs.surfaceContainerHighest.withValues(
+                                  alpha: 0.6,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                Icons.school_outlined,
+                                size: 24,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.5,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'No assigned grades',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: cs.onSurface,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'You can only create exams for grades\nwhere you have subject assignments.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w300,
+                                height: 1.4,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.6,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else ...[
+                    _buildGradeTabs(cs),
 
-                  const SizedBox(height: 20),
+                    // ── Section 3: Stream chips ─────────────────────────────
+                    ..._buildStreamSection(cs),
 
-                  // ── Section 4: Paper timetable ──────────────────────────
-                  ..._buildTimetableSections(cs, isDark),
+                    const SizedBox(height: 20),
+
+                    // ── Section 4: Paper timetable ──────────────────────────
+                    ..._buildTimetableSections(cs, isDark),
+                  ],
                 ],
               ),
             ),
