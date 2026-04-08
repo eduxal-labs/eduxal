@@ -552,7 +552,7 @@ Update the call site to pass `permissions`.
 
 ---
 
-### Task B9: Promote-to-System permission gate inconsistency
+### Task B9: Promote-to-System permission gate inconsistency ✅
 
 **Files to modify:** `lib/ui/screens/system/users/users_section.dart`
 **Context files to read:** `lib/ui/screens/system/CONTEXT.md`
@@ -587,8 +587,8 @@ if (canUpdate && user.level == UserLevel.system && permissions.level == UserLeve
 If `permissions.level` is not exposed on `SystemPermissions`, add a public getter for it.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -662,12 +662,12 @@ MembershipRole.teacher => [
 ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
+- [x] Mark this task `[x]`
 
 ---
 
-### Task C2: `_canGradeContent` missing teacher-specific fallback ✅
+### Task C2: `_canGradeContent` missing teacher-specific fallback
 
 **Files to modify:** `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`, `lib/ui/screens/school_dashboard/exams/CONTEXT.md`
@@ -703,8 +703,8 @@ bool get _canGradeContent {
 Verify that `_teacherSubjects` (or equivalent) is available in scope — it's used by `_canProgressStatus` so it should be.
 
 **Update after completion:**
-- [x] Update `lib/ui/screens/school_dashboard/exams/CONTEXT.md`
-- [x] Mark this task `[x]`
+- [ ] Update `lib/ui/screens/school_dashboard/exams/CONTEXT.md`
+- [ ] Mark this task `[x]`
 
 ---
 
@@ -731,8 +731,8 @@ if (perms.canAny(Resource.classes, [Action.read]) ||
 This ensures staff with attendance permissions can navigate to the Academics section (which contains the attendance tab inside grade detail pages).
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -759,8 +759,8 @@ MembershipRole.staff => [
 ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -822,8 +822,8 @@ const _NavItem(label: 'Announcements', icon: Icons.campaign_outlined),
 ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
+- [x] Mark this task `[x]`
 
 ---
 
