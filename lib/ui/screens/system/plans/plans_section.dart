@@ -2339,41 +2339,6 @@ class _FeatureToggleRow extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Card action button — compact icon button for plan card status actions
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _CardActionButton extends StatelessWidget {
-  const _CardActionButton({
-    required this.icon,
-    required this.tooltip,
-    required this.color,
-    required this.onTap,
-    required this.cs,
-  });
-
-  final IconData icon;
-  final String tooltip;
-  final Color color;
-  final VoidCallback onTap;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(4),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-          child: Icon(icon, size: 18, color: color),
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Plan status action buttons — contextual transitions (edit form)
 // ─────────────────────────────────────────────────────────────────────────────
 
