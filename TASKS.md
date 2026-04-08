@@ -1055,7 +1055,7 @@ Delete the `_PlanCard` class and its `_PlanCardState` class entirely.
 
 ---
 
-### Task G2: Timetable/Lessons FAB stubs show "Coming soon" snackbar
+### Task G2: Timetable/Lessons FAB stubs show "Coming soon" snackbar ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/academics/grade_detail_page.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -1077,8 +1077,8 @@ Hide the FAB on these tabs until the feature is implemented. In `_actionsForCont
 This prevents the FAB from appearing on these tabs. Remove the `_showStubSnackbar` method if it becomes unused.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the change
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the change
+- [x] Mark this task `[x]`
 
 ---
 
@@ -1156,7 +1156,7 @@ Remove the `_deleteRole` method (or leave it with a TODO for future soft-delete 
 
 ---
 
-### Task G6: `streams.first` fallback without empty-list guard in grade detail page
+### Task G6: `streams.first` fallback without empty-list guard in grade detail page ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/academics/grade_detail_page.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -1184,8 +1184,8 @@ if (widget.grade.streams.isEmpty) {
 ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
+- [x] Mark this task `[x]`
 
 ---
 

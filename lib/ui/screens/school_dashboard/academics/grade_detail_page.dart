@@ -22,6 +22,7 @@ import '../../../theme/app_theme.dart';
 import '../../../widgets/active_term_provider.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_sheet.dart';
+import '../../../widgets/edu_empty_state.dart';
 import '../../../widgets/no_terms_blank_state.dart';
 import '../../../widgets/edu_tab_bar.dart';
 import 'tabs/comparisons_tab.dart';
@@ -361,6 +362,39 @@ class _GradeDetailPageState extends State<GradeDetailPage>
     final isDark = cs.brightness == Brightness.dark;
     final termCtx = ActiveTermProvider.read(context);
     final streams = widget.grade.streams;
+
+    // Guard: no streams configured for this grade.
+    if (streams.isEmpty) {
+      return Scaffold(
+        backgroundColor: cs.surfaceContainerLowest,
+        appBar: AppBar(
+          leading: IconButton(
+            icon: Icon(
+              Icons.chevron_left_rounded,
+              size: 24,
+              color: cs.onSurface,
+            ),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          title: Text(
+            widget.gradeLabel,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurface,
+            ),
+          ),
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          backgroundColor: cs.surface,
+        ),
+        body: const EduEmptyState(
+          icon: Icons.view_stream_outlined,
+          title: 'No streams configured',
+          subtitle: 'No streams have been set up for this grade yet.',
+        ),
+      );
+    }
 
     // Build stream tab descriptors: "All" + one per stream.
     final streamTabs = <EduTab>[
@@ -730,26 +764,8 @@ class _GradeDetailPageState extends State<GradeDetailPage>
           ),
       ],
       // 3 = Attendance — no FAB (marking is inline).
-      4 => [
-        // Timetable tab — add slot requires create on classes.
-        if (_can(Resource.classes, Action.create))
-          _FabAction(
-            icon: Icons.schedule_outlined,
-            label: 'Add Slot',
-            subtitle: 'Add a timetable slot',
-            onTap: () => _showStubSnackbar(context, 'Add Slot'),
-          ),
-      ],
-      5 => [
-        // Lessons tab — record lesson requires create on lessons.
-        if (_can(Resource.lessons, Action.create))
-          _FabAction(
-            icon: Icons.menu_book_outlined,
-            label: 'Record Lesson',
-            subtitle: 'Record a lesson for this class',
-            onTap: () => _showStubSnackbar(context, 'Record Lesson'),
-          ),
-      ],
+      // 4 = Timetable — no FAB (not yet implemented).
+      // 5 = Lessons — no FAB (not yet implemented).
       6 => [
         // Teachers tab — assign class/subject teacher requires assign on classes.
         if (_can(Resource.classes, Action.assign))
@@ -786,16 +802,6 @@ class _GradeDetailPageState extends State<GradeDetailPage>
       return;
     }
     _showActionSheet(context, actions);
-  }
-
-  void _showStubSnackbar(BuildContext context, String action) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$action — coming soon'),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
   }
 
   // ── Action sheet ───────────────────────────────────────────────────────────
