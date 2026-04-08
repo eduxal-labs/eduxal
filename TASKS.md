@@ -1225,7 +1225,7 @@ Or, if `TimetableEntry` can be refactored to accept a nullable teacher name inst
 
 ---
 
-### Task G8: Guardian overview missing "Upcoming Exams" and "Next Class" sections
+### Task G8: Guardian overview missing "Upcoming Exams" and "Next Class" sections ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/overview/guardian_overview.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -1246,8 +1246,8 @@ Import and add the same sections from `student_overview.dart` (or extract them i
 If the widgets are private (`_` prefixed) in `student_overview.dart`, move them to `overview_shared.dart` and make them public, then import in both files.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the enhancement
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the enhancement
+- [x] Mark this task `[x]`
 
 ---
 
