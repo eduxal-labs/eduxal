@@ -831,7 +831,7 @@ const _NavItem(label: 'Announcements', icon: Icons.campaign_outlined),
 
 ---
 
-### Task D1: `LogsDao.markFailed` and `retryLog` use `customStatement` without `notifyUpdates`
+### Task D1: `LogsDao.markFailed` and `retryLog` use `customStatement` without `notifyUpdates` ✅
 
 **Files to modify:** `lib/database/daos/logs_dao.dart`
 **Context files to read:** `lib/database/daos/CONTEXT.md`, `lib/sync/CONTEXT.md`
@@ -856,12 +856,12 @@ db.notifyUpdates({TableUpdate('logs')});
 Import `TableUpdate` from `package:drift/drift.dart` if not already imported. `db` should be accessible via `attachedDatabase` in the DAO.
 
 **Update after completion:**
-- [ ] Update `lib/database/daos/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/database/daos/CONTEXT.md`
+- [x] Mark this task `[x]`
 
 ---
 
-### Task D2: `_revertCreate` uses `customStatement` without `notifyUpdates` for data table
+### Task D2: `_revertCreate` uses `customStatement` without `notifyUpdates` for data table ✅
 
 **Files to modify:** `lib/database/daos/logs_dao.dart`
 **Context files to read:** `lib/database/daos/CONTEXT.md`
@@ -898,12 +898,12 @@ Future<void> _revertCreate(SyncAction action, Uint8List payload) async {
 Alternatively, build a `Set<String>` and call `notifyUpdates` once at the end with all touched tables.
 
 **Update after completion:**
-- [ ] Update `lib/database/daos/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/database/daos/CONTEXT.md`
+- [x] Mark this task `[x]`
 
 ---
 
-### Task D3: `_revertCreate` for `createPaper` DELETE missing `grade` and `stream` columns
+### Task D3: `_revertCreate` for `createPaper` DELETE missing `grade` and `stream` columns ✅
 
 **Files to modify:** `lib/database/daos/logs_dao.dart`
 **Context files to read:** `lib/database/daos/CONTEXT.md`
@@ -956,8 +956,8 @@ case SyncAction.createPaper:
 ```
 
 **Update after completion:**
-- [ ] Update `lib/database/daos/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/database/daos/CONTEXT.md`
+- [x] Mark this task `[x]`
 
 ---
 

@@ -114,11 +114,13 @@ class LogsDao extends DatabaseAccessor<AppDatabase> with _$LogsDaoMixin {
   // ─────────────────────────────────────────────────────────────────────
 
   /// Marks a log entry as failed and records the error message.
-  Future<void> markFailed(int id, String error) {
-    return customStatement(
+  Future<void> markFailed(int id, String error) async {
+    await customStatement(
       'UPDATE logs SET status = ?, error = ?, attempts = attempts + 1 WHERE id = ?',
       [LogStatus.failed.index, error, id],
     );
+    // Notify Drift's stream engine that logs table was modified (BUG-008 pattern)
+    db.notifyUpdates({TableUpdate('logs')});
   }
 
   /// Resets a failed log entry back to [LogStatus.pending] so the sync engine
@@ -126,11 +128,13 @@ class LogsDao extends DatabaseAccessor<AppDatabase> with _$LogsDaoMixin {
   ///
   /// The [attempts] counter and [error] field are cleared so the engine treats
   /// this as a fresh attempt.
-  Future<void> retryLog(int id) {
-    return customStatement(
+  Future<void> retryLog(int id) async {
+    await customStatement(
       'UPDATE logs SET status = ?, error = NULL, attempts = 0 WHERE id = ?',
       [LogStatus.pending.index, id],
     );
+    // Notify Drift's stream engine that logs table was modified (BUG-008 pattern)
+    db.notifyUpdates({TableUpdate('logs')});
   }
 
   // ─────────────────────────────────────────────────────────────────────
@@ -166,12 +170,19 @@ class LogsDao extends DatabaseAccessor<AppDatabase> with _$LogsDaoMixin {
 
   /// Issues a raw DELETE against the locally-inserted row for the given
   /// `create*` [action]. For all other action types this is a no-op.
+  ///
+  /// Collects all touched table names and notifies Drift's stream engine
+  /// after the deletes complete (BUG-008 pattern — customStatement does
+  /// not trigger automatic stream invalidation).
   Future<void> _revertCreate(SyncAction action, List<int> payload) async {
+    final touchedTables = <String>{};
+
     switch (action) {
       // ── Schools ──────────────────────────────────────────────────────────
       case SyncAction.createSchool:
         final p = sync_pb.CreateSchoolPayload.fromBuffer(payload);
         await customStatement('DELETE FROM schools WHERE id = ?', [p.id]);
+        touchedTables.add('schools');
 
       // ── Teachers ─────────────────────────────────────────────────────────
       case SyncAction.createTeacher:
@@ -180,6 +191,7 @@ class LogsDao extends DatabaseAccessor<AppDatabase> with _$LogsDaoMixin {
           'DELETE FROM teachers WHERE school = ? AND user = ?',
           [p.school, p.userId],
         );
+        touchedTables.add('teachers');
         // Remove the optimistic users row only when the client invented it
         // (phone present in payload = invitation flow, not an existing user).
         if (p.hasUserId() && p.hasPhone()) {
@@ -187,6 +199,7 @@ class LogsDao extends DatabaseAccessor<AppDatabase> with _$LogsDaoMixin {
             'DELETE FROM users WHERE id = ? AND status = ?',
             [p.userId, 0], // 0 = Invited
           );
+          touchedTables.add('users');
         }
 
       // ── Staff ─────────────────────────────────────────────────────────────
@@ -196,11 +209,13 @@ class LogsDao extends DatabaseAccessor<AppDatabase> with _$LogsDaoMixin {
           'DELETE FROM staff WHERE school = ? AND user = ?',
           [p.school, p.userId],
         );
+        touchedTables.add('staff');
         if (p.hasUserId() && p.hasPhone()) {
           await customStatement(
             'DELETE FROM users WHERE id = ? AND status = ?',
             [p.userId, 0],
           );
+          touchedTables.add('users');
         }
 
       // ── Owners ────────────────────────────────────────────────────────────
@@ -210,11 +225,13 @@ class LogsDao extends DatabaseAccessor<AppDatabase> with _$LogsDaoMixin {
           'DELETE FROM owners WHERE school = ? AND user = ?',
           [p.school, p.userId],
         );
+        touchedTables.add('owners');
         if (p.hasUserId() && p.hasPhone()) {
           await customStatement(
             'DELETE FROM users WHERE id = ? AND status = ?',
             [p.userId, 0],
           );
+          touchedTables.add('users');
         }
 
       // ── Students ──────────────────────────────────────────────────────────
@@ -224,6 +241,7 @@ class LogsDao extends DatabaseAccessor<AppDatabase> with _$LogsDaoMixin {
           'DELETE FROM students WHERE school = ? AND adm = ?',
           [p.school, p.adm],
         );
+        touchedTables.add('students');
 
       // ── Guardians ─────────────────────────────────────────────────────────
       case SyncAction.createGuardian:
@@ -232,11 +250,13 @@ class LogsDao extends DatabaseAccessor<AppDatabase> with _$LogsDaoMixin {
           'DELETE FROM guardians WHERE school = ? AND user = ? AND student = ?',
           [p.school, p.userId, p.student],
         );
+        touchedTables.add('guardians');
         if (p.hasUserId() && p.hasPhone()) {
           await customStatement(
             'DELETE FROM users WHERE id = ? AND status = ?',
             [p.userId, 0],
           );
+          touchedTables.add('users');
         }
 
       // ── Departments ───────────────────────────────────────────────────────
@@ -246,6 +266,7 @@ class LogsDao extends DatabaseAccessor<AppDatabase> with _$LogsDaoMixin {
           'DELETE FROM departments WHERE school = ? AND name = ?',
           [p.school, p.name],
         );
+        touchedTables.add('departments');
 
       // ── Terms ─────────────────────────────────────────────────────────────
       case SyncAction.createTerm:
@@ -254,6 +275,7 @@ class LogsDao extends DatabaseAccessor<AppDatabase> with _$LogsDaoMixin {
           'DELETE FROM terms WHERE school = ? AND year = ? AND term = ?',
           [p.school, p.year, p.term],
         );
+        touchedTables.add('terms');
 
       // ── Timetable entries ─────────────────────────────────────────────────
       case SyncAction.createTimetableEntry:
@@ -273,6 +295,7 @@ class LogsDao extends DatabaseAccessor<AppDatabase> with _$LogsDaoMixin {
             p.start,
           ],
         );
+        touchedTables.add('timetable');
 
       // ── Lessons ───────────────────────────────────────────────────────────
       case SyncAction.createLesson:
@@ -292,60 +315,76 @@ class LogsDao extends DatabaseAccessor<AppDatabase> with _$LogsDaoMixin {
             p.teacher,
           ],
         );
+        touchedTables.add('lessons');
 
       // ── Exams ─────────────────────────────────────────────────────────────
       case SyncAction.createExam:
         final p = sync_pb.CreateExamPayload.fromBuffer(payload);
         await customStatement('DELETE FROM exams WHERE id = ?', [p.id]);
+        touchedTables.add('exams');
 
       // ── Papers ────────────────────────────────────────────────────────────
-      // The `paper` column is nullable: null = subject-level paper,
-      // non-null = numbered paper (e.g. Paper 1, 2, 3).
+      // Full PK is (school, exam, subject, paper, grade, stream).
+      // Both `paper` and `stream` are nullable — use IS NULL for absent fields.
       case SyncAction.createPaper:
         final p = sync_pb.CreatePaperPayload.fromBuffer(payload);
+        final conditions = <String>['school = ?', 'exam = ?', 'subject = ?'];
+        final args = <Object?>[p.school, p.exam, p.subject];
         if (p.hasPaper()) {
-          await customStatement(
-            'DELETE FROM papers '
-            'WHERE school = ? AND exam = ? AND subject = ? AND paper = ?',
-            [p.school, p.exam, p.subject, p.paper],
-          );
+          conditions.add('paper = ?');
+          args.add(p.paper);
         } else {
-          await customStatement(
-            'DELETE FROM papers '
-            'WHERE school = ? AND exam = ? AND subject = ? AND paper IS NULL',
-            [p.school, p.exam, p.subject],
-          );
+          conditions.add('paper IS NULL');
         }
+        conditions.add('grade = ?');
+        args.add(p.grade);
+        if (p.hasStream()) {
+          conditions.add('stream = ?');
+          args.add(p.stream);
+        } else {
+          conditions.add('stream IS NULL');
+        }
+        await customStatement(
+          'DELETE FROM papers WHERE ${conditions.join(' AND ')}',
+          args,
+        );
+        touchedTables.add('papers');
 
       // ── Fees ──────────────────────────────────────────────────────────────
       case SyncAction.createFee:
         final p = sync_pb.CreateFeePayload.fromBuffer(payload);
         await customStatement('DELETE FROM fees WHERE id = ?', [p.id]);
+        touchedTables.add('fees');
 
       // ── Invoices ──────────────────────────────────────────────────────────
       case SyncAction.createInvoice:
         final p = sync_pb.CreateInvoicePayload.fromBuffer(payload);
         await customStatement('DELETE FROM invoices WHERE id = ?', [p.id]);
+        touchedTables.add('invoices');
 
       // ── Payments ──────────────────────────────────────────────────────────
       case SyncAction.createPayment:
         final p = sync_pb.CreatePaymentPayload.fromBuffer(payload);
         await customStatement('DELETE FROM payments WHERE id = ?', [p.id]);
+        touchedTables.add('payments');
 
       // ── Announcements ─────────────────────────────────────────────────────
       case SyncAction.createAnnouncement:
         final p = sync_pb.CreateAnnouncementPayload.fromBuffer(payload);
         await customStatement('DELETE FROM announcements WHERE id = ?', [p.id]);
+        touchedTables.add('announcements');
 
       // ── Roles ─────────────────────────────────────────────────────────────
       case SyncAction.createRole:
         final p = sync_pb.CreateRolePayload.fromBuffer(payload);
         await customStatement('DELETE FROM roles WHERE id = ?', [p.id]);
+        touchedTables.add('roles');
 
       // ── Plans ─────────────────────────────────────────────────────────────
       case SyncAction.createPlan:
         final p = sync_pb.CreatePlanPayload.fromBuffer(payload);
         await customStatement('DELETE FROM plans WHERE id = ?', [p.id]);
+        touchedTables.add('plans');
 
       // ── Subscriptions ─────────────────────────────────────────────────────
       case SyncAction.createSubscription:
@@ -355,6 +394,7 @@ class LogsDao extends DatabaseAccessor<AppDatabase> with _$LogsDaoMixin {
           'WHERE school = ? AND plan = ? AND year = ? AND term = ? AND student = ?',
           [p.school, p.plan, p.year, p.term, p.student],
         );
+        touchedTables.add('subscriptions');
 
       // ── Discounts ─────────────────────────────────────────────────────────
       case SyncAction.createDiscount:
@@ -364,6 +404,7 @@ class LogsDao extends DatabaseAccessor<AppDatabase> with _$LogsDaoMixin {
           'WHERE school = ? AND plan = ? AND year = ? AND term = ? AND grade = ?',
           [p.school, p.plan, p.year, p.term, p.grade],
         );
+        touchedTables.add('discounts');
 
       // ── Non-create actions — no local data to revert ──────────────────────
       // update / delete / mark / assign / unassign / enroll / unenroll /
@@ -372,6 +413,12 @@ class LogsDao extends DatabaseAccessor<AppDatabase> with _$LogsDaoMixin {
       // will arrive (or has already arrived) via the watchChanges stream.
       default:
         break;
+    }
+
+    // Notify Drift's stream engine for all tables modified by the revert
+    // (customStatement does not trigger automatic stream invalidation).
+    if (touchedTables.isNotEmpty) {
+      db.notifyUpdates(touchedTables.map((t) => TableUpdate(t)).toSet());
     }
   }
 }
