@@ -81,9 +81,13 @@ In-memory session object for a user's active school dashboard visit.
 
 ### `SchoolPermissions` — `school_permissions.dart`
 Aggregated permission set for a user at a specific school. Now wraps [Permissions] bitmask model.
-- **Fields:** `String schoolId`, `String userId`, `Permissions permissions`.
-- **API:** `can(Resource, Action)`, `canAny(Resource, List<Action>)`, `canAll(Resource, List<Action>)` — typed Resource/Action parameters (no more string keys).
-- **Factory:** `SchoolPermissions.empty(schoolId, userId)` — for users with no scopes.
+- **Fields:** `String schoolId`, `String userId`, `Permissions permissions`, `UserLevel _level` (private, exposed via `level` getter).
+- **Super bypass (Task B2):** When `_level == UserLevel.super_`, `can()`, `canAny()`, and `canAll()` return `true` unconditionally — even if the underlying `permissions` bitmask is empty. Mirrors the pattern in `SystemPermissions`.
+- **API:** `can(Resource, Action)`, `canAny(Resource, List<Action>)`, `canAll(Resource, List<Action>)` — typed Resource/Action parameters. `level` getter exposes the user level.
+- **Constructor:** `SchoolPermissions({schoolId, userId, permissions, level})` — `level` defaults to `UserLevel.normal`.
+- **Factory:** `SchoolPermissions.empty(schoolId, userId, {level})` — for users with no scopes. Also accepts optional `level` for Super bypass.
+- **Import:** `UserLevel` from `../database/tables/enums.dart`.
+- **Call sites updated (Task B2):** `SchoolScopesDao.getAggregatedPermissions()` and `watchAggregatedPermissions()` now pass `level: userLevel` to the constructor.
 - **Fix (Task P2):** Replaced `Set<String>` with `Permissions` bitmask model. Construction site in `school_dashboard_screen.dart` updated to use `Permissions.fromJson` + `union()`.
 
 ### `Permissions` / `Resource` / `Action` — `permissions.dart`
@@ -234,4 +238,4 @@ Grouping model for the exams UI. Multiple exam rows sharing the same name are pr
 - **`ExamStreamEntry`** — One exam row + its papers for a specific stream. Fields: `exam` (Exam), `streamCode` (int?), `papers` (List<Paper>).
 
 ## Last Updated
-Task A01 — `RolePermissions.permissionsData` changed from `String` to `Uint8List`. `SystemPermissions.forUser()` switched from `parsePermissions()` to `parsePermissionsBlob()`. Reflects `roles.permissions` column migration from text to blob (schema v10).
+Task B2 — `SchoolPermissions` now has a `UserLevel _level` field with Super bypass: `can()`, `canAny()`, `canAll()` return `true` unconditionally for `UserLevel.super_`. Constructor accepts optional `level` parameter (default `UserLevel.normal`). Call sites in `SchoolScopesDao` updated to pass `level: userLevel`.

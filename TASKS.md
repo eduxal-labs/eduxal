@@ -334,7 +334,7 @@ Import `UserLevel` from `database/tables/enums.dart` in `school_permissions.dart
 
 ---
 
-### Task B3: Owner RBAC bypass in `MembersPage._computeVisibleTabs`
+### Task B3: Owner RBAC bypass in `MembersPage._computeVisibleTabs` ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/members/members_page.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -369,8 +369,8 @@ List<_MemberTab> _computeVisibleTabs() {
 Also ensure `_computeVisibleTabs` is re-invoked when the entry changes (if using `ValueListenableBuilder` on `currentEntry`, this should already happen; verify).
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
+- [x] Mark this task `[x]`
 
 ---
 

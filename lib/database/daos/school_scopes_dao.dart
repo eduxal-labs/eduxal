@@ -361,6 +361,7 @@ class SchoolScopesDao extends DatabaseAccessor<AppDatabase>
       schoolId: schoolId,
       userId: userId,
       permissions: aggregated,
+      level: userLevel,
     );
   }
 
@@ -404,6 +405,7 @@ class SchoolScopesDao extends DatabaseAccessor<AppDatabase>
         schoolId: schoolId,
         userId: userId,
         permissions: aggregated,
+        level: userLevel,
       );
     });
   }
