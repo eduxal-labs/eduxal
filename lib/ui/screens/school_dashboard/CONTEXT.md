@@ -27,8 +27,8 @@ This directory contains **1 shell screen file** and **8 subdirectories**, each r
   - Disposes `SchoolContext` and `ActiveTermContext` on pop.
 - **Navigation items by role:**
   - **Owner:** Overview | Academics | Exams | Members | Finance | Announcements | Timetable | Roles
-  - **Teacher:** Overview | Timetable | (permission-gated: Exams [exams.read], Academics [classes.read], Members, Finance, Announcements, Roles)
-  - **Staff:** Overview | (permission-gated: Academics, Exams, Members [checks all 5 member resources: departments, owners, teachers, staff, students — expanded in Task A1], Finance, Announcements, Timetable, Roles)
+  - **Teacher:** Overview | Academics | Exams | Timetable (core 4, always visible) | Announcements (always visible) | (permission-gated: Members, Finance, Roles)
+  - **Staff:** Overview | Announcements (always visible) | (permission-gated: Academics [classes.read OR attendance.read/mark], Exams [exams.read], Members [checks all 5 member resources: departments, owners, teachers, staff, students — expanded in Task A1], Finance, Timetable [classes.read], Roles [roles.read], Settings [schools.update])
   - **Student:** Overview | Grades | Timetable | Finance | Announcements
   - **Guardian:** Overview | Progress | Timetable | Finance | Announcements
 - **Dependencies:** `models/school_context.dart`, `models/school_permissions.dart`, `models/membership.dart`, `models/active_term_context.dart`, `client.dart` (DAOs, `logsDao`), `database/daos/terms_dao.dart`, `database/daos/school_scopes_dao.dart`, `database/tables/enums.dart` (for `UserLevel`), `ui/widgets/term_selector_chip.dart`, `ui/widgets/active_term_provider.dart`, `ui/screens/notifications/notifications_page.dart` (note: `ui/widgets/looping_tab_strip.dart` import removed — `LoopingTabStrip` no longer used here)
@@ -242,7 +242,17 @@ When `ActiveTermContext.hasTerms` is `false`, the dashboard shows a blank state 
 
 
 ## Last Updated
-Task C5 — Staff/Teacher announcements routing fix. In `announcements_screen.dart`, added `Action.read` to the `canAny(Resource.announcements, [...])` check for both `StaffEntry` and `TeacherEntry` routing. Previously, a staff/teacher with only `announcements.read` permission was routed to `_RoleFeed` (audience-filtered) instead of `_AdminFeed` (all announcements). Now `Action.read` is included alongside `Action.create`, `Action.update`, `Action.delete` in the admin routing gate.
+Tasks C1, C3, C4, C6 — School dashboard nav fixes in `school_dashboard_screen.dart`:
+
+**(C1 — Teacher core 4)** Moved `Academics` and `Exams` from permission-gated section into the always-visible core for `MembershipRole.teacher`. Teacher nav items are now: Overview | Academics | Exams | Timetable (core 4, always visible), followed by permission-gated Members, Finance, Announcements (always visible), Roles. Previously Exams required `exams.read` and Academics required `classes.read` — both are now unconditional. The `ExamsGradesScreen` and `AcademicsScreen` already contain teacher-specific filtering logic (teacher filter, assigned classes/subjects scoping) that handles teachers without explicit read permissions.
+
+**(C3 — Staff Academics alt gate)** For `MembershipRole.staff`, the Academics nav item gate expanded from `perms.canAny(Resource.classes, [Action.read])` to also include `perms.canAny(Resource.attendance, [Action.read, Action.mark])`. Staff with attendance permissions but no `classes.read` can now navigate to the Academics section (which contains the attendance tab inside grade detail pages).
+
+**(C4 — Staff Settings nav item)** Added a permission-gated Settings nav item for `MembershipRole.staff`: `if (perms.can(Resource.schools, Action.update))`. The `SchoolSettingsScreen` already handles non-owner access correctly (defense-in-depth guard from Task E01). Staff with `schools.update` permission now have a navigation path to school settings.
+
+**(C6 — Always-visible Announcements)** Removed the `perms.canAny(Resource.announcements, [Action.read])` gate on the Announcements nav item for both `MembershipRole.teacher` and `MembershipRole.staff`. Announcements are now always visible for all roles (matching student/guardian treatment). The `AnnouncementsScreen` already handles routing internally: users with admin permissions get `_AdminFeed`, others get `_RoleFeed` filtered to their audience bit.
+
+Previous: Task C5 — Staff/Teacher announcements routing fix. In `announcements_screen.dart`, added `Action.read` to the `canAny(Resource.announcements, [...])` check for both `StaffEntry` and `TeacherEntry` routing. Previously, a staff/teacher with only `announcements.read` permission was routed to `_RoleFeed` (audience-filtered) instead of `_AdminFeed` (all announcements). Now `Action.read` is included alongside `Action.create`, `Action.update`, `Action.delete` in the admin routing gate.
 
 Previous: Task B5 — Owner RBAC bypass in Finance action buttons. In `finance_screen.dart`, added `isOwner` (`entry is OwnerEntry`) fallback to all permission checks within the three finance tabs: `_InvoiceListView.build()` (`canRecord`, `canEditInvoice`, `canDeleteInvoice`), `_PaymentsTab.build()` (`canApprove`, `canEdit`, `canDelete`), `_FeesTab.build()` (`canCreateFee`). Owners now see all action buttons regardless of scope assignments. No-op handlers for Invoice edit/delete and Payment approve/edit/delete replaced with "Coming soon" `SnackBar` + `// TODO: implement` comments. `OwnerEntry` was already imported via `models/membership.dart`.
 
