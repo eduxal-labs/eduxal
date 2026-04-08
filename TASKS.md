@@ -1035,7 +1035,7 @@ The school detail screen creates 3 separate `StreamBuilder<SchoolsData?>` widget
 
 ---
 
-### Task G1: Dead `_PlanCard` widget class (272 lines of unused code)
+### Task G1: Dead `_PlanCard` widget class (272 lines of unused code) ✅
 
 **Files to modify:** `lib/ui/screens/system/plans/plans_section.dart`
 **Context files to read:** `lib/ui/screens/system/CONTEXT.md`
@@ -1050,8 +1050,8 @@ The `_PlanCard` widget class (approximately lines 444–716) is defined but the 
 Delete the `_PlanCard` class and its `_PlanCardState` class entirely.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note the cleanup
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — note the cleanup
+- [x] Mark this task `[x]`
 
 ---
 
