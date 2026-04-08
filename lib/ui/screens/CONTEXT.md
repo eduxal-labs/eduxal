@@ -16,6 +16,7 @@ This directory contains **7 subdirectories**, each representing a major area of 
 | `home/` | Home screen — membership picker (school cards) | 1 |
 | `notifications/` | Standalone full-page notifications screen | 1 |
 | `school_dashboard/` | School-scoped dashboard — the main app surface | 10+ (has own CONTEXT.md) |
+| `shared/` | Shared UI helpers used across multiple screen areas | 0 (helpers only) |
 | `splash/` | Splash/loading screen — session check + routing | 1 |
 | `system/` | System admin dashboard for super_/system users | 8+ (has own CONTEXT.md) |
 
@@ -114,6 +115,15 @@ This directory contains **7 subdirectories**, each representing a major area of 
 
 ---
 
+### `shared/` — Shared UI Helpers
+| File | Purpose | Status |
+|---|---|---|
+| `role_permission_editor.dart` | Shared `ResourceGroup` class, `kResourceGroups` constant list (19 typed resources with their applicable `Action` lists from AGENT.md §17a), `kActionColors`/`kActionIcons` maps (keyed by typed `Action` enum, covering all 9 actions), and `actionLabel()` function. Imported by `system/roles/create_role_sheet.dart`, `system/roles/role_detail_screen.dart`, and `system/roles/role_detail_sheet.dart`. Replaces the old per-file string-based `_buildResourceGroups`/`_ResourceGroup`/`_kBaseActions`/`_kActionColors`/`_kActionIcons`/`_capitalise` helpers. | ✅ Complete (Task B1) |
+
+**Dependencies:** `models/permissions.dart` (`Resource`, `Action` enums), `package:flutter/material.dart` (`Colors`, `Icons`)
+
+---
+
 ### `system/` — System Admin Dashboard
 - **Has own CONTEXT.md** at `system/CONTEXT.md`
 - **Entry point:** `system_dashboard_screen.dart` — responsive shell for super_/system level users
@@ -149,4 +159,4 @@ main.dart → SplashScreen
 - Screen-specific helper widgets (that are only used by one screen) live in the same directory as the screen.
 
 ## Last Updated
-Task F10 — Guardian card ward info: `_MembershipCard` in `home/home_screen.dart` now shows "Guardian of {ward.name}" subtitle for each `GuardianEntry` in the membership. Previous: Task 02 — Generate Lessons UI.
+Task B1 — Extracted shared permission editor helpers to `shared/role_permission_editor.dart`. Added `shared/` directory with `ResourceGroup`, `kResourceGroups`, `kActionColors`, `kActionIcons`, `actionLabel` — used by all three system role files. Previous: Task F10 — Guardian card ward info: `_MembershipCard` in `home/home_screen.dart` now shows "Guardian of {ward.name}" subtitle for each `GuardianEntry` in the membership. Previous: Task 02 — Generate Lessons UI.

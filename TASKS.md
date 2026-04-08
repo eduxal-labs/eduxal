@@ -175,7 +175,7 @@ The role permission editor UI is fundamentally broken — resource names don't m
 
 ---
 
-### Task B1: Extract `_buildResourceGroups` to shared file
+### Task B1: Extract `_buildResourceGroups` to shared file ✅
 
 **Files to create:** `lib/ui/screens/shared/role_permission_editor.dart`
 **Files to modify:** `lib/ui/screens/system/roles/create_role_sheet.dart`, `lib/ui/screens/system/roles/role_detail_screen.dart`, `lib/ui/screens/system/roles/role_detail_sheet.dart`
@@ -272,9 +272,9 @@ String actionLabel(Action a) => switch (a) {
 **Important:** The permission state (`Map<String, bool>` keyed by `"resource.action"`) must now use `resource.name` (e.g. `"classes.assign"`, `"attendance.mark"`) which matches the `Resource` enum's `.name` property. This eliminates the mismatch bug where UI keys like `"classTeachers"` didn't match enum values like `"classes"`.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md`
-- [ ] Update `lib/ui/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md`
+- [x] Update `lib/ui/CONTEXT.md`
+- [x] Mark this task `[x]`
 
 ---
 

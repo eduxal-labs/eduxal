@@ -17,86 +17,7 @@ import '../../../widgets/animated_action_button.dart';
 import '../../../widgets/animated_save_button.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_sheet.dart';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Resource groupings (shared with create_role_sheet / role_detail_sheet)
-// ─────────────────────────────────────────────────────────────────────────────
-
-const _kBaseActions = ['read', 'create', 'update', 'delete'];
-
-List<_ResourceGroup> _buildResourceGroups({required bool isSuperUser}) {
-  List<String> a([List<String> actions = _kBaseActions]) =>
-      isSuperUser ? [...actions, 'purge'] : actions;
-
-  return <_ResourceGroup>[
-    _ResourceGroup('People', {
-      'users': a(),
-      'students': a(),
-      'guardians': a(),
-      'teachers': a(),
-      'staff': a(),
-    }),
-    _ResourceGroup('Academic', {
-      'terms': a(),
-      'subjects': a(),
-      'enrollments': a(['read', 'create', 'delete']),
-      'lessons': a(),
-      'exams': a(),
-      'papers': a(),
-      'grades': a(),
-      'timetable': a(),
-      'attendance': a(),
-      'mastery': a(['read', 'update']),
-      'classTeachers': a(['read', 'create', 'delete']),
-    }),
-    _ResourceGroup('Finance', {
-      'fees': a(),
-      'invoices': a(),
-      'payments': a(),
-      'discounts': a(),
-      'subscriptions': a(),
-    }),
-    _ResourceGroup('School Admin', {
-      'schools': a(),
-      'departments': a(),
-      'owners': a(['read', 'create', 'delete']),
-      'settings': a(['read', 'update']),
-      'announcements': a(),
-      'aiusage': a(['read', 'update']),
-    }),
-    _ResourceGroup('System', {
-      'roles': a(),
-      'scopes': a(['read', 'create', 'delete']),
-      'plans': a(),
-    }),
-  ];
-}
-
-class _ResourceGroup {
-  const _ResourceGroup(this.label, this.resources);
-  final String label;
-  final Map<String, List<String>> resources;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Action colour mapping
-// ─────────────────────────────────────────────────────────────────────────────
-
-const _kActionColors = <String, Color>{
-  'read': Color(0xFF42A5F5), // blue
-  'create': Color(0xFF66BB6A), // green
-  'update': Color(0xFFFFA726), // orange
-  'delete': Color(0xFFEF5350), // red
-  'purge': Color(0xFFAB47BC), // purple
-};
-
-const _kActionIcons = <String, IconData>{
-  'read': Icons.visibility_outlined,
-  'create': Icons.add_circle_outline,
-  'update': Icons.edit_outlined,
-  'delete': Icons.delete_outline_rounded,
-  'purge': Icons.local_fire_department_outlined,
-};
+import '../../shared/role_permission_editor.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Permission helpers
@@ -174,9 +95,6 @@ Map<String, List<String>> _groupByResource(Map<String, bool> perms) {
   }
   return grouped;
 }
-
-String _capitalise(String s) =>
-    s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 
 String _initials(String name) {
   final parts = name.trim().split(RegExp(r'\s+'));
@@ -775,10 +693,10 @@ class _PermissionsTabState extends State<_PermissionsTab> {
   late Map<String, bool> _originalPermissions;
 
   /// Resources selected for bulk removal.
-  final Set<String> _selectedResources = {};
+  final Set<Resource> _selectedResources = {};
 
   /// Resources that are currently expanded (showing full permission details).
-  final Set<String> _expandedResources = {};
+  final Set<Resource> _expandedResources = {};
 
   bool _saving = false;
   String? _saveError;
@@ -834,7 +752,7 @@ class _PermissionsTabState extends State<_PermissionsTab> {
     return (added: added, removed: removed);
   }
 
-  ({int added, int removed}) _resourceChangeSummary(String resource) {
+  ({int added, int removed}) _resourceChangeSummary(Resource resource) {
     int added = 0;
     int removed = 0;
     final allKeys = <String>{
@@ -842,7 +760,7 @@ class _PermissionsTabState extends State<_PermissionsTab> {
       ..._editPermissions.keys,
     };
     for (final k in allKeys) {
-      if (!k.startsWith('$resource.')) continue;
+      if (!k.startsWith('${resource.name}.')) continue;
       final orig = _originalPermissions[k] == true;
       final curr = _editPermissions[k] == true;
       if (!orig && curr) added++;
@@ -858,10 +776,10 @@ class _PermissionsTabState extends State<_PermissionsTab> {
     });
   }
 
-  void _removeResource(String resource) {
+  void _removeResource(Resource resource) {
     setState(() {
       final keysToRemove = _editPermissions.keys
-          .where((k) => k.startsWith('$resource.'))
+          .where((k) => k.startsWith('${resource.name}.'))
           .toList();
       for (final k in keysToRemove) {
         _editPermissions[k] = false;
@@ -875,7 +793,7 @@ class _PermissionsTabState extends State<_PermissionsTab> {
     setState(() {
       for (final resource in _selectedResources) {
         final keysToRemove = _editPermissions.keys
-            .where((k) => k.startsWith('$resource.'))
+            .where((k) => k.startsWith('${resource.name}.'))
             .toList();
         for (final k in keysToRemove) {
           _editPermissions[k] = false;
@@ -886,7 +804,7 @@ class _PermissionsTabState extends State<_PermissionsTab> {
     });
   }
 
-  void _toggleResourceSelection(String resource) {
+  void _toggleResourceSelection(Resource resource) {
     setState(() {
       if (_selectedResources.contains(resource)) {
         _selectedResources.remove(resource);
@@ -896,7 +814,7 @@ class _PermissionsTabState extends State<_PermissionsTab> {
     });
   }
 
-  void _toggleExpand(String resource) {
+  void _toggleExpand(Resource resource) {
     setState(() {
       if (_expandedResources.contains(resource)) {
         _expandedResources.remove(resource);
@@ -984,8 +902,7 @@ class _PermissionsTabState extends State<_PermissionsTab> {
   Widget build(BuildContext context) {
     final cs = widget.cs;
     final isLight = cs.brightness == Brightness.light;
-    final isSuperUser = widget.permissions.level == UserLevel.super_;
-    final groups = _buildResourceGroups(isSuperUser: isSuperUser);
+    final groups = kResourceGroups;
 
     final hasAnyPermissions = _editPermissions.values.any((v) => v == true);
     final hasChanges = _hasChanges;
@@ -1077,51 +994,31 @@ class _PermissionsTabState extends State<_PermissionsTab> {
 
               final gi = hasAnyPermissions ? index : index - 1;
               final group = groups[gi];
-              final allResources = group.resources.entries.toList();
 
               return Padding(
                 padding: EdgeInsets.only(
-                  bottom: gi < groups.length - 1 ? 20 : 0,
+                  bottom: gi < groups.length - 1 ? 6 : 0,
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        group.label.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.45),
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                    ),
-                    ...allResources.map((entry) {
-                      return _ResourceRow(
-                        resource: entry.key,
-                        allActions: entry.value,
-                        editPermissions: _editPermissions,
-                        originalPermissions: _originalPermissions,
-                        isExpanded: _expandedResources.contains(entry.key),
-                        isSelected: _selectedResources.contains(entry.key),
-                        selectionMode: selectionMode,
-                        changeSummary: _resourceChangeSummary(entry.key),
-                        canEdit: widget.permissions.can(
-                          Resource.roles,
-                          Action.update,
-                        ),
-                        isLight: isLight,
-                        onToggleExpand: () => _toggleExpand(entry.key),
-                        onToggleSelection: () =>
-                            _toggleResourceSelection(entry.key),
-                        onTogglePermission: _togglePermission,
-                        onRemove: () => _removeResource(entry.key),
-                        cs: cs,
-                      );
-                    }),
-                  ],
+                child: _ResourceRow(
+                  resource: group.resource,
+                  allActions: group.actions,
+                  editPermissions: _editPermissions,
+                  originalPermissions: _originalPermissions,
+                  isExpanded: _expandedResources.contains(group.resource),
+                  isSelected: _selectedResources.contains(group.resource),
+                  selectionMode: selectionMode,
+                  changeSummary: _resourceChangeSummary(group.resource),
+                  canEdit: widget.permissions.can(
+                    Resource.roles,
+                    Action.update,
+                  ),
+                  isLight: isLight,
+                  onToggleExpand: () => _toggleExpand(group.resource),
+                  onToggleSelection: () =>
+                      _toggleResourceSelection(group.resource),
+                  onTogglePermission: _togglePermission,
+                  onRemove: () => _removeResource(group.resource),
+                  cs: cs,
                 ),
               );
             },
@@ -1331,8 +1228,8 @@ class _ResourceRow extends StatelessWidget {
     required this.cs,
   });
 
-  final String resource;
-  final List<String> allActions;
+  final Resource resource;
+  final List<Action> allActions;
   final Map<String, bool> editPermissions;
   final Map<String, bool> originalPermissions;
   final bool isExpanded;
@@ -1350,7 +1247,7 @@ class _ResourceRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final activeActions = allActions
-        .where((a) => editPermissions['$resource.$a'] == true)
+        .where((a) => editPermissions['${resource.name}.${a.name}'] == true)
         .toList();
     final hasChanges = changeSummary.added > 0 || changeSummary.removed > 0;
 
@@ -1436,7 +1333,7 @@ class _ResourceRow extends StatelessWidget {
                       // Resource name.
                       Expanded(
                         child: Text(
-                          _capitalise(resource),
+                          resource.label,
                           style: TextStyle(
                             fontSize: 13.5,
                             fontWeight: FontWeight.w500,
@@ -1477,13 +1374,13 @@ class _ResourceRow extends StatelessWidget {
                       // Coloured action icons (collapsed summary).
                       ...activeActions.map((action) {
                         final color =
-                            _kActionColors[action] ?? cs.onSurfaceVariant;
+                            kActionColors[action] ?? cs.onSurfaceVariant;
                         final icon =
-                            _kActionIcons[action] ?? Icons.circle_outlined;
+                            kActionIcons[action] ?? Icons.circle_outlined;
                         return Padding(
                           padding: const EdgeInsets.only(left: 2),
                           child: Tooltip(
-                            message: action,
+                            message: actionLabel(action),
                             child: Icon(
                               icon,
                               size: 15,
@@ -1546,8 +1443,8 @@ class _ExpandedPermissions extends StatelessWidget {
     required this.cs,
   });
 
-  final String resource;
-  final List<String> allActions;
+  final Resource resource;
+  final List<Action> allActions;
   final Map<String, bool> editPermissions;
   final Map<String, bool> originalPermissions;
   final bool canEdit;
@@ -1573,12 +1470,12 @@ class _ExpandedPermissions extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: allActions.map((action) {
-            final key = '$resource.$action';
+            final key = '${resource.name}.${action.name}';
             final isOn = editPermissions[key] == true;
             final wasOn = originalPermissions[key] == true;
             final changed = isOn != wasOn;
-            final color = _kActionColors[action] ?? cs.onSurfaceVariant;
-            final icon = _kActionIcons[action] ?? Icons.circle_outlined;
+            final color = kActionColors[action] ?? cs.onSurfaceVariant;
+            final icon = kActionIcons[action] ?? Icons.circle_outlined;
 
             return Material(
               color: Colors.transparent,
@@ -1602,7 +1499,7 @@ class _ExpandedPermissions extends StatelessWidget {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          _capitalise(action),
+                          actionLabel(action),
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w400,

@@ -5,11 +5,12 @@ import 'package:flutter/material.dart' hide Action;
 
 import '../../../../client.dart';
 import '../../../../database/database.dart';
-import '../../../../database/tables/enums.dart';
+
 import '../../../../models/permissions.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
+import '../../shared/role_permission_editor.dart';
 
 /// Modal bottom sheet showing the full details of a [Role] row.
 ///
@@ -293,8 +294,6 @@ class _RoleDetailSheetState extends State<RoleDetailSheet> {
                           nameCtrl: _nameCtrl,
                           descCtrl: _descCtrl,
                           permissions: _editPermissions,
-                          isSuperUser:
-                              widget.permissions.level == UserLevel.super_,
                           onPermissionToggled: (key, value) {
                             setState(() => _editPermissions[key] = value);
                           },
@@ -520,8 +519,6 @@ class _ViewBody extends StatelessWidget {
       );
     }
 
-    final groups = _buildResourceGroups(isSuperUser: true);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -535,215 +532,6 @@ class _ViewBody extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        ...groups.map((group) {
-          final groupResources = group.resources.keys
-              .where((r) => grouped.containsKey(r))
-              .toList();
-          if (groupResources.isEmpty) return const SizedBox.shrink();
-
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(
-                    group.label,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-                      letterSpacing: 0.6,
-                    ),
-                  ),
-                ),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    int crossAxisCount = (constraints.maxWidth / 160).floor();
-                    if (crossAxisCount < 1) crossAxisCount = 1;
-                    final itemWidth =
-                        (constraints.maxWidth - (crossAxisCount - 1) * 12) /
-                        crossAxisCount;
-
-                    return Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: groupResources.map((resource) {
-                        final actions = grouped[resource]!;
-
-                        return Container(
-                          width: itemWidth,
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: cs.surfaceContainerLowest,
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(
-                              color: cs.outlineVariant.withValues(alpha: 0.5),
-                              width: 1,
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Text(
-                                _capitalise(resource),
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  color: cs.onSurface,
-                                  letterSpacing: 0.1,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 6,
-                                children: actions.map((action) {
-                                  return Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: cs.primary.withValues(alpha: 0.08),
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(
-                                        color: cs.primary.withValues(
-                                          alpha: 0.22,
-                                        ),
-                                        width: 1,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      action,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w500,
-                                        color: cs.primary,
-                                        letterSpacing: 0.2,
-                                      ),
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    );
-                  },
-                ),
-              ],
-            ),
-          );
-        }),
-      ],
-    );
-  }
-
-  static String _capitalise(String s) =>
-      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Edit body — name / description fields + permission builder
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// The known resources and their available actions, grouped for display.
-/// Base actions available to all users.
-const _kBaseActions = ['read', 'create', 'update', 'delete'];
-
-/// Builds resource groups with the correct action lists.
-///
-/// When [isSuperUser] is `true`, every resource gains a fifth `purge` action.
-List<_ResourceGroup> _buildResourceGroups({required bool isSuperUser}) {
-  List<String> a([List<String> actions = _kBaseActions]) =>
-      isSuperUser ? [...actions, 'purge'] : actions;
-
-  return <_ResourceGroup>[
-    _ResourceGroup('People', {
-      'users': a(),
-      'students': a(),
-      'guardians': a(),
-      'teachers': a(),
-      'staff': a(),
-    }),
-    _ResourceGroup('Academic', {
-      'terms': a(),
-      'subjects': a(),
-      'enrollments': a(['read', 'create', 'delete']),
-      'lessons': a(),
-      'exams': a(),
-      'papers': a(),
-      'grades': a(),
-      'timetable': a(),
-      'attendance': a(),
-      'mastery': a(['read', 'update']),
-      'classTeachers': a(['read', 'create', 'delete']),
-    }),
-    _ResourceGroup('Finance', {
-      'fees': a(),
-      'invoices': a(),
-      'payments': a(),
-      'discounts': a(),
-      'subscriptions': a(),
-    }),
-    _ResourceGroup('School Admin', {
-      'schools': a(),
-      'departments': a(),
-      'owners': a(['read', 'create', 'delete']),
-      'settings': a(['read', 'update']),
-      'announcements': a(),
-      'aiusage': a(['read', 'update']),
-    }),
-    _ResourceGroup('System', {
-      'roles': a(),
-      'scopes': a(['read', 'create', 'delete']),
-      'plans': a(),
-    }),
-  ];
-}
-
-class _ResourceGroup {
-  const _ResourceGroup(this.label, this.resources);
-  final String label;
-  final Map<String, List<String>> resources;
-}
-
-class _PermissionGroupSection extends StatelessWidget {
-  const _PermissionGroupSection({
-    required this.group,
-    required this.permissions,
-    required this.onToggle,
-    required this.onToggleResourceAll,
-    required this.cs,
-  });
-
-  final _ResourceGroup group;
-  final Map<String, bool> permissions;
-  final void Function(String key, bool value) onToggle;
-  final void Function(String resource, List<String> actions, bool allOn)
-  onToggleResourceAll;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 16, bottom: 8),
-          child: Text(
-            group.label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-              letterSpacing: 0.6,
-            ),
-          ),
-        ),
         LayoutBuilder(
           builder: (context, constraints) {
             int crossAxisCount = (constraints.maxWidth / 160).floor();
@@ -752,26 +540,70 @@ class _PermissionGroupSection extends StatelessWidget {
                 (constraints.maxWidth - (crossAxisCount - 1) * 12) /
                 crossAxisCount;
 
+            final activeGroups = kResourceGroups
+                .where((g) => grouped.containsKey(g.resource.name))
+                .toList();
+
             return Wrap(
               spacing: 12,
               runSpacing: 12,
-              children: group.resources.entries.map((entry) {
-                final resource = entry.key;
-                final actions = entry.value;
-                final keys = actions.map((a) => '$resource.$a').toList();
-                final allOn = keys.every((k) => permissions[k] == true);
+              children: activeGroups.map((group) {
+                final actions = grouped[group.resource.name]!;
 
-                return SizedBox(
+                return Container(
                   width: itemWidth,
-                  child: _ResourceBlock(
-                    resource: resource,
-                    actions: actions,
-                    permissions: permissions,
-                    allOn: allOn,
-                    onToggle: onToggle,
-                    onSelectAll: () =>
-                        onToggleResourceAll(resource, keys, allOn),
-                    cs: cs,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerLowest,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: cs.outlineVariant.withValues(alpha: 0.5),
+                      width: 1,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        group.label,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: cs.onSurface,
+                          letterSpacing: 0.1,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: actions.map((action) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: cs.primary.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: cs.primary.withValues(alpha: 0.22),
+                                width: 1,
+                              ),
+                            ),
+                            child: Text(
+                              action,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: cs.primary,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
                   ),
                 );
               }).toList(),
@@ -783,6 +615,10 @@ class _PermissionGroupSection extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Edit body — name / description fields + permission builder
+// ─────────────────────────────────────────────────────────────────────────────
+
 class _EditBody extends StatelessWidget {
   const _EditBody({
     required this.nameCtrl,
@@ -790,7 +626,6 @@ class _EditBody extends StatelessWidget {
     required this.permissions,
     required this.onPermissionToggled,
     required this.onSelectAllForResource,
-    required this.isSuperUser,
     required this.error,
     required this.cs,
   });
@@ -801,7 +636,6 @@ class _EditBody extends StatelessWidget {
   final void Function(String key, bool value) onPermissionToggled;
   final void Function(String resource, List<String> keys, bool allOn)
   onSelectAllForResource;
-  final bool isSuperUser;
   final String? error;
   final ColorScheme cs;
 
@@ -863,13 +697,24 @@ class _EditBody extends StatelessWidget {
         ),
         const SizedBox(height: 8),
 
-        ..._buildResourceGroups(isSuperUser: isSuperUser).map((group) {
-          return _PermissionGroupSection(
-            group: group,
-            permissions: permissions,
-            onToggle: onPermissionToggled,
-            onToggleResourceAll: onSelectAllForResource,
-            cs: cs,
+        ...kResourceGroups.map((group) {
+          final keys = group.actions
+              .map((a) => '${group.resource.name}.${a.name}')
+              .toList();
+          final allOn = keys.every((k) => permissions[k] == true);
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _ResourceBlock(
+              resource: group.resource,
+              actions: group.actions,
+              permissions: permissions,
+              allOn: allOn,
+              onToggle: onPermissionToggled,
+              onSelectAll: () =>
+                  onSelectAllForResource(group.resource.name, keys, allOn),
+              cs: cs,
+            ),
           );
         }),
 
@@ -894,8 +739,8 @@ class _ResourceBlock extends StatelessWidget {
     required this.cs,
   });
 
-  final String resource;
-  final List<String> actions;
+  final Resource resource;
+  final List<Action> actions;
   final Map<String, bool> permissions;
   final bool allOn;
   final void Function(String key, bool value) onToggle;
@@ -921,7 +766,7 @@ class _ResourceBlock extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  _ViewBody._capitalise(resource),
+                  resource.label,
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
@@ -948,7 +793,7 @@ class _ResourceBlock extends StatelessWidget {
             spacing: 6,
             runSpacing: 6,
             children: actions.map((action) {
-              final key = '$resource.$action';
+              final key = '${resource.name}.${action.name}';
               final on = permissions[key] == true;
               return GestureDetector(
                 onTap: () => onToggle(key, !on),
@@ -970,7 +815,7 @@ class _ResourceBlock extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    action,
+                    actionLabel(action),
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,

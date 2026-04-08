@@ -6,110 +6,11 @@ import 'package:flutter/material.dart' hide Action;
 
 import '../../../../client.dart';
 import '../../../../database/database.dart';
-import '../../../../database/tables/enums.dart';
+
 import '../../../../models/permissions.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Resource groupings (approved by project owner)
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Base actions for each resource. `purge` is appended dynamically when the
-/// current user is [UserLevel.super_].
-const _kBaseActions = ['read', 'create', 'update', 'delete'];
-
-/// Builds resource groups with the correct action lists.
-///
-/// When [isSuperUser] is `true`, every resource gains a fifth `purge` action.
-///
-/// Groupings:
-/// - **People:** users, students, guardians, teachers, staff
-/// - **Academic:** terms, subjects, enrollments, lessons, exams, papers, grades,
-///   timetable, attendance, mastery, classTeachers
-/// - **Finance:** fees, invoices, payments, discounts, subscriptions
-/// - **School Admin:** schools, departments, owners, settings, announcements, aiusage
-/// - **System:** roles, scopes, plans
-List<_ResourceGroup> _buildResourceGroups({required bool isSuperUser}) {
-  List<String> a([List<String> actions = _kBaseActions]) =>
-      isSuperUser ? [...actions, 'purge'] : actions;
-
-  return <_ResourceGroup>[
-    _ResourceGroup('People', {
-      'users': a(),
-      'students': a(),
-      'guardians': a(),
-      'teachers': a(),
-      'staff': a(),
-    }),
-    _ResourceGroup('Academic', {
-      'terms': a(),
-      'subjects': a(),
-      'enrollments': a(['read', 'create', 'delete']),
-      'lessons': a(),
-      'exams': a(),
-      'papers': a(),
-      'grades': a(),
-      'timetable': a(),
-      'attendance': a(),
-      'mastery': a(['read', 'update']),
-      'classTeachers': a(['read', 'create', 'delete']),
-    }),
-    _ResourceGroup('Finance', {
-      'fees': a(),
-      'invoices': a(),
-      'payments': a(),
-      'discounts': a(),
-      'subscriptions': a(),
-    }),
-    _ResourceGroup('School Admin', {
-      'schools': a(),
-      'departments': a(),
-      'owners': a(['read', 'create', 'delete']),
-      'settings': a(['read', 'update']),
-      'announcements': a(),
-      'aiusage': a(['read', 'update']),
-    }),
-    _ResourceGroup('System', {
-      'roles': a(),
-      'scopes': a(['read', 'create', 'delete']),
-      'plans': a(),
-    }),
-  ];
-}
-
-class _ResourceGroup {
-  const _ResourceGroup(this.label, this.resources);
-  final String label;
-  final Map<String, List<String>> resources;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Action colour / icon mapping (matches role_detail_screen.dart)
-// ─────────────────────────────────────────────────────────────────────────────
-
-const _kActionColors = <String, Color>{
-  'read': Color(0xFF42A5F5), // blue
-  'create': Color(0xFF66BB6A), // green
-  'update': Color(0xFFFFA726), // orange
-  'delete': Color(0xFFEF5350), // red
-  'purge': Color(0xFFAB47BC), // purple
-};
-
-const _kActionIcons = <String, IconData>{
-  'read': Icons.visibility_outlined,
-  'create': Icons.add_circle_outline,
-  'update': Icons.edit_outlined,
-  'delete': Icons.delete_outline_rounded,
-  'purge': Icons.local_fire_department_outlined,
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-String _capitalise(String s) =>
-    s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+import '../../shared/role_permission_editor.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CreateRoleSheet
@@ -140,16 +41,11 @@ class _CreateRoleSheetState extends State<CreateRoleSheet> {
 
   // ── Permission state ────────────────────────────────────────────────────────
 
-  /// Resource groups built once based on the current user's level.
-  late final List<_ResourceGroup> _resourceGroups = _buildResourceGroups(
-    isSuperUser: widget.permissions.level == UserLevel.super_,
-  );
-
   /// Flat permission map: key = "resource.action", value = enabled.
   final Map<String, bool> _permissions = {};
 
   /// Resources that are currently expanded (showing full permission details).
-  final Set<String> _expandedResources = {};
+  final Set<Resource> _expandedResources = {};
 
   // ── Validation / submit state ───────────────────────────────────────────────
 
@@ -167,10 +63,10 @@ class _CreateRoleSheetState extends State<CreateRoleSheet> {
   // ── Global select all ──────────────────────────────────────────────────────
 
   bool get _allSelected {
-    for (final group in _resourceGroups) {
-      for (final entry in group.resources.entries) {
-        for (final action in entry.value) {
-          if (_permissions['${entry.key}.$action'] != true) return false;
+    for (final group in kResourceGroups) {
+      for (final action in group.actions) {
+        if (_permissions['${group.resource.name}.${action.name}'] != true) {
+          return false;
         }
       }
     }
@@ -179,10 +75,10 @@ class _CreateRoleSheetState extends State<CreateRoleSheet> {
 
   int get _totalSelectedCount {
     int count = 0;
-    for (final group in _resourceGroups) {
-      for (final entry in group.resources.entries) {
-        for (final action in entry.value) {
-          if (_permissions['${entry.key}.$action'] == true) count++;
+    for (final group in kResourceGroups) {
+      for (final action in group.actions) {
+        if (_permissions['${group.resource.name}.${action.name}'] == true) {
+          count++;
         }
       }
     }
@@ -191,10 +87,8 @@ class _CreateRoleSheetState extends State<CreateRoleSheet> {
 
   int get _totalPermissionCount {
     int count = 0;
-    for (final group in _resourceGroups) {
-      for (final entry in group.resources.entries) {
-        count += entry.value.length;
-      }
+    for (final group in kResourceGroups) {
+      count += group.actions.length;
     }
     return count;
   }
@@ -202,11 +96,9 @@ class _CreateRoleSheetState extends State<CreateRoleSheet> {
   void _toggleSelectAll() {
     final setTo = !_allSelected;
     setState(() {
-      for (final group in _resourceGroups) {
-        for (final entry in group.resources.entries) {
-          for (final action in entry.value) {
-            _permissions['${entry.key}.$action'] = setTo;
-          }
+      for (final group in kResourceGroups) {
+        for (final action in group.actions) {
+          _permissions['${group.resource.name}.${action.name}'] = setTo;
         }
       }
     });
@@ -214,11 +106,13 @@ class _CreateRoleSheetState extends State<CreateRoleSheet> {
 
   // ── Per-resource select all ────────────────────────────────────────────────
 
-  void _toggleResourceAll(String resource, List<String> actions) {
-    final allOn = actions.every((a) => _permissions['$resource.$a'] == true);
+  void _toggleResourceAll(Resource resource, List<Action> actions) {
+    final allOn = actions.every(
+      (a) => _permissions['${resource.name}.${a.name}'] == true,
+    );
     setState(() {
       for (final action in actions) {
-        _permissions['$resource.$action'] = !allOn;
+        _permissions['${resource.name}.${action.name}'] = !allOn;
       }
     });
   }
@@ -234,7 +128,7 @@ class _CreateRoleSheetState extends State<CreateRoleSheet> {
 
   // ── Expand / collapse ──────────────────────────────────────────────────────
 
-  void _toggleExpand(String resource) {
+  void _toggleExpand(Resource resource) {
     setState(() {
       if (_expandedResources.contains(resource)) {
         _expandedResources.remove(resource);
@@ -340,8 +234,10 @@ class _CreateRoleSheetState extends State<CreateRoleSheet> {
 
   // ── Resource helpers ────────────────────────────────────────────────────────
 
-  int _resourceSelectedCount(String resource, List<String> actions) {
-    return actions.where((a) => _permissions['$resource.$a'] == true).length;
+  int _resourceSelectedCount(Resource resource, List<Action> actions) {
+    return actions
+        .where((a) => _permissions['${resource.name}.${a.name}'] == true)
+        .length;
   }
 
   // ── Build ───────────────────────────────────────────────────────────────────
@@ -465,56 +361,31 @@ class _CreateRoleSheetState extends State<CreateRoleSheet> {
                   const SizedBox(height: 16),
 
                   // Permission groups.
-                  ..._resourceGroups.asMap().entries.map((groupEntry) {
+                  ...kResourceGroups.asMap().entries.map((groupEntry) {
                     final gi = groupEntry.key;
                     final group = groupEntry.value;
+                    final selectedCount = _resourceSelectedCount(
+                      group.resource,
+                      group.actions,
+                    );
+
                     return Padding(
                       padding: EdgeInsets.only(
-                        bottom: gi < _resourceGroups.length - 1 ? 20 : 0,
+                        bottom: gi < kResourceGroups.length - 1 ? 6 : 0,
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // Section header.
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Text(
-                              group.label.toUpperCase(),
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: cs.onSurfaceVariant.withValues(
-                                  alpha: 0.45,
-                                ),
-                                letterSpacing: 1.2,
-                              ),
-                            ),
-                          ),
-                          // Resource rows.
-                          ...group.resources.entries.map((entry) {
-                            final resource = entry.key;
-                            final actions = entry.value;
-                            final selectedCount = _resourceSelectedCount(
-                              resource,
-                              actions,
-                            );
-
-                            return _ResourceRow(
-                              resource: resource,
-                              actions: actions,
-                              permissions: _permissions,
-                              selectedCount: selectedCount,
-                              totalCount: actions.length,
-                              isExpanded: _expandedResources.contains(resource),
-                              isLight: isLight,
-                              onToggleExpand: () => _toggleExpand(resource),
-                              onToggleAll: () =>
-                                  _toggleResourceAll(resource, actions),
-                              onTogglePermission: _togglePermission,
-                              cs: cs,
-                            );
-                          }),
-                        ],
+                      child: _ResourceRow(
+                        resource: group.resource,
+                        actions: group.actions,
+                        permissions: _permissions,
+                        selectedCount: selectedCount,
+                        totalCount: group.actions.length,
+                        isExpanded: _expandedResources.contains(group.resource),
+                        isLight: isLight,
+                        onToggleExpand: () => _toggleExpand(group.resource),
+                        onToggleAll: () =>
+                            _toggleResourceAll(group.resource, group.actions),
+                        onTogglePermission: _togglePermission,
+                        cs: cs,
                       ),
                     );
                   }),
@@ -737,8 +608,8 @@ class _ResourceRow extends StatelessWidget {
     required this.cs,
   });
 
-  final String resource;
-  final List<String> actions;
+  final Resource resource;
+  final List<Action> actions;
   final Map<String, bool> permissions;
   final int selectedCount;
   final int totalCount;
@@ -753,7 +624,7 @@ class _ResourceRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final allOn = selectedCount == totalCount;
     final activeActions = actions
-        .where((a) => permissions['$resource.$a'] == true)
+        .where((a) => permissions['${resource.name}.${a.name}'] == true)
         .toList();
 
     return Padding(
@@ -808,7 +679,7 @@ class _ResourceRow extends StatelessWidget {
                       // Resource name.
                       Expanded(
                         child: Text(
-                          _capitalise(resource),
+                          resource.label,
                           style: TextStyle(
                             fontSize: 13.5,
                             fontWeight: FontWeight.w500,
@@ -854,13 +725,13 @@ class _ResourceRow extends StatelessWidget {
                       // Coloured action icons (collapsed summary).
                       ...activeActions.map((action) {
                         final color =
-                            _kActionColors[action] ?? cs.onSurfaceVariant;
+                            kActionColors[action] ?? cs.onSurfaceVariant;
                         final icon =
-                            _kActionIcons[action] ?? Icons.circle_outlined;
+                            kActionIcons[action] ?? Icons.circle_outlined;
                         return Padding(
                           padding: const EdgeInsets.only(left: 2),
                           child: Tooltip(
-                            message: action,
+                            message: actionLabel(action),
                             child: Icon(
                               icon,
                               size: 15,
@@ -939,8 +810,8 @@ class _ExpandedPermissions extends StatelessWidget {
     required this.cs,
   });
 
-  final String resource;
-  final List<String> actions;
+  final Resource resource;
+  final List<Action> actions;
   final Map<String, bool> permissions;
   final bool isLight;
   final void Function(String key) onToggle;
@@ -964,10 +835,10 @@ class _ExpandedPermissions extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: actions.map((action) {
-            final key = '$resource.$action';
+            final key = '${resource.name}.${action.name}';
             final isOn = permissions[key] == true;
-            final color = _kActionColors[action] ?? cs.onSurfaceVariant;
-            final icon = _kActionIcons[action] ?? Icons.circle_outlined;
+            final color = kActionColors[action] ?? cs.onSurfaceVariant;
+            final icon = kActionIcons[action] ?? Icons.circle_outlined;
 
             return Material(
               color: Colors.transparent,
@@ -991,7 +862,7 @@ class _ExpandedPermissions extends StatelessWidget {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          _capitalise(action),
+                          actionLabel(action),
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w400,
