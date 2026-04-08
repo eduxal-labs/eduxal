@@ -347,7 +347,7 @@ Teachers always get all tabs (core 4 includes Academics which implies class-leve
 
 ---
 
-### Task B5: Self-demotion not blocked + Purge shown for non-deleted users + Invited users promotable to Super
+### Task B5: Self-demotion not blocked + Purge shown for non-deleted users + Invited users promotable to Super ✅
 
 **Files to modify:** `lib/ui/screens/system/users/users_section.dart`
 **Context files to read:** `lib/ui/screens/system/CONTEXT.md`
@@ -388,8 +388,8 @@ Three related issues in `users_section.dart`:
    ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note the fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — note the fix
+- [x] Mark this task `[x]`
 
 ---
 

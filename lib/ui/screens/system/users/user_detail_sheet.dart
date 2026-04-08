@@ -740,7 +740,10 @@ class _ViewBody extends StatelessWidget {
         ),
 
         // ── Account Actions section ──────────────────────────────────────
-        if (permissions.can(Resource.users, Action.update)) ...[
+        if (permissions.can(Resource.users, Action.update) ||
+            if (permissions.can(Resource.users, Action.update) ||
+                permissions.can(Resource.users, Action.delete)) ...[
+                permissions.can(Resource.users, Action.delete)) ...[
           const SizedBox(height: 20),
           _SectionHeader(title: 'Account Actions', cs: cs),
           const SizedBox(height: 4),
@@ -992,24 +995,25 @@ class _AccountActionsCard extends StatelessWidget {
             ),
           );
       case UserStatus.suspended:
-        addRow(
-          _ActionRow(
-            icon: Icons.restore_rounded,
-            iconColor: const Color(0xFF26A69A),
-            label: 'Restore',
-            sublabel: 'Reactivates account access',
-            cs: cs,
-            onTap: () => onConfirmAndRun(
-              title: 'Restore ${user.name}?',
-              message:
-                  'This will reactivate the account, allowing them to '
-                  'access the system again.',
-              confirmLabel: 'Restore',
-              confirmColor: const Color(0xFF26A69A),
-              onConfirm: () => onUpdateStatus(UserStatus.active),
+        if (permissions.can(Resource.users, Action.update))
+          addRow(
+            _ActionRow(
+              icon: Icons.restore_rounded,
+              iconColor: const Color(0xFF26A69A),
+              label: 'Restore',
+              sublabel: 'Reactivates account access',
+              cs: cs,
+              onTap: () => onConfirmAndRun(
+                title: 'Restore ${user.name}?',
+                message:
+                    'This will reactivate the account, allowing them to '
+                    'access the system again.',
+                confirmLabel: 'Restore',
+                confirmColor: const Color(0xFF26A69A),
+                onConfirm: () => onUpdateStatus(UserStatus.active),
+              ),
             ),
-          ),
-        );
+          );
         if (permissions.can(Resource.users, Action.delete))
           addRow(
             _ActionRow(
@@ -1030,24 +1034,25 @@ class _AccountActionsCard extends StatelessWidget {
             ),
           );
       case UserStatus.deleted:
-        addRow(
-          _ActionRow(
-            icon: Icons.restore_rounded,
-            iconColor: const Color(0xFF26A69A),
-            label: 'Restore',
-            sublabel: 'Reactivates account access',
-            cs: cs,
-            onTap: () => onConfirmAndRun(
-              title: 'Restore ${user.name}?',
-              message:
-                  'This will reactivate the account, allowing them to '
-                  'access the system again.',
-              confirmLabel: 'Restore',
-              confirmColor: const Color(0xFF26A69A),
-              onConfirm: () => onUpdateStatus(UserStatus.active),
+        if (permissions.can(Resource.users, Action.update))
+          addRow(
+            _ActionRow(
+              icon: Icons.restore_rounded,
+              iconColor: const Color(0xFF26A69A),
+              label: 'Restore',
+              sublabel: 'Reactivates account access',
+              cs: cs,
+              onTap: () => onConfirmAndRun(
+                title: 'Restore ${user.name}?',
+                message:
+                    'This will reactivate the account, allowing them to '
+                    'access the system again.',
+                confirmLabel: 'Restore',
+                confirmColor: const Color(0xFF26A69A),
+                onConfirm: () => onUpdateStatus(UserStatus.active),
+              ),
             ),
-          ),
-        );
+          );
         // Purge is only available to super_ users.
         if (viewerLevel == UserLevel.super_) {
           addRow(
