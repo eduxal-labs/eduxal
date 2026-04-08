@@ -1627,8 +1627,8 @@ Future<void> _updateLevel(UserLevel level) async {
 Same pattern for `_updateStatus`.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -1657,8 +1657,8 @@ Option 1 is simpler. Update `watchSystemMembers()` in `users_dao.dart`:
 This shows both System (1) and Super (2) users in the Members tab.
 
 **Update after completion:**
-- [ ] Update `lib/database/daos/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/database/daos/CONTEXT.md`
+- [x] Mark this task `[x]`
 
 ---
 

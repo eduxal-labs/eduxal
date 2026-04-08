@@ -57,6 +57,7 @@ class Seeder {
       await database.delete(database.mastery).go();
       await database.delete(database.aiUsage).go();
       await database.delete(database.grades).go();
+      await database.delete(database.paperSubmissions).go();
       await database.delete(database.papers).go();
       await database.delete(database.lessons).go();
       await database.delete(database.timetable).go();
@@ -2245,6 +2246,68 @@ class _SeederImpl {
         sync_pb.AssignRolePayload(school: _schoolId, user: tid, role: _roleId),
       );
     }
+
+    // ── System-scoped role (school = NULL) ──────────────────────
+    // Guard: only create once across multiple _SeederImpl runs
+    // (e.g. clearAndSeed seeds two schools sequentially).
+    final existingSystemScope = await (_db.select(
+      _db.scopes,
+    )..where((s) => s.user.equals(_userId) & s.school.isNull())).get();
+
+    if (existingSystemScope.isEmpty) {
+      final systemRoleId = _id();
+      final systemPermBlob = _buildSystemPermissions();
+
+      await _db
+          .into(_db.roles)
+          .insert(
+            RolesCompanion.insert(
+              id: systemRoleId,
+              name: 'System Admin',
+              description: const Value(
+                'Full system-level administrative access',
+              ),
+              permissions: systemPermBlob,
+              created: _nowSec,
+              updated: _nowSec,
+            ),
+          );
+      await _log(
+        SyncAction.createRole,
+        'System Admin',
+        sync_pb.CreateRolePayload(
+          id: systemRoleId,
+          name: 'System Admin',
+          description: 'Full system-level administrative access',
+          permissions: systemPermBlob,
+        ),
+      );
+
+      await _db
+          .into(_db.scopes)
+          .insert(
+            ScopesCompanion.insert(
+              user: _userId,
+              role: systemRoleId,
+              created: _nowSec,
+            ),
+          );
+      await _log(
+        SyncAction.assignRole,
+        'System Admin',
+        sync_pb.AssignRolePayload(user: _userId, role: systemRoleId),
+      );
+    }
+  }
+
+  /// Builds a permissions blob granting Create + Read + Update + Delete
+  /// on every [Resource]. Used for the system-scoped admin role.
+  Uint8List _buildSystemPermissions() {
+    const crudMask = 1 | 2 | 4 | 8; // create + read + update + delete
+    final permMap = <Resource, int>{
+      for (final r in Resource.values) r: crudMask,
+    };
+    return Permissions(permMap).toBlob();
   }
 
   // ── Mastery ─────────────────────────────────────────────────
