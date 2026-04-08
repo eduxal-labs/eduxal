@@ -222,7 +222,7 @@ if (_permissions.can(Resource.plans, Action.read))
 
 ---
 
-### Task B2: User detail sheet "Delete" action not gated by `Users.Delete` permission
+### Task B2: User detail sheet "Delete" action not gated by `Users.Delete` permission ✅
 
 **Files to modify:** `lib/ui/screens/system/users/user_detail_sheet.dart`
 **Context files to read:** `lib/ui/screens/system/CONTEXT.md`
@@ -249,8 +249,8 @@ Additionally, `_updateLevel` and `_updateStatus` methods perform DAO calls with 
 5. Pop the sheet after `purgeUser` succeeds: `if (context.mounted) Navigator.of(context).pop();`
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note the fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — note the fix
+- [x] Mark this task `[x]`
 
 ---
 
