@@ -982,7 +982,7 @@ Alternative (better): Replace the `FutureBuilder` with an inline `.then()` on th
 
 ---
 
-### Task F2: PaperDetailPage loads enrolled students as one-shot Future, not reactive
+### Task F2: PaperDetailPage loads enrolled students as one-shot Future, not reactive ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -1000,8 +1000,8 @@ Alternative (better): Replace the `FutureBuilder` with an inline `.then()` on th
 4. If the DAO doesn't have a `watch` variant, add `watchEnrolledStudents()` that mirrors `getEnrolledStudents()` but returns a `Stream`.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
+- [x] Mark this task `[x]`
 
 ---
 

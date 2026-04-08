@@ -40,6 +40,10 @@ class _OwnersTabState extends State<OwnersTab> {
   final _searchCtrl = TextEditingController();
   String _query = '';
 
+  // Cached user map — stale-while-revalidate pattern to avoid FutureBuilder flicker.
+  Map<String, UsersData>? _userMap;
+  Set<String>? _lastUserIds;
+
   @override
   void dispose() {
     _searchCtrl.dispose();
@@ -47,15 +51,31 @@ class _OwnersTabState extends State<OwnersTab> {
   }
 
   /// Batch-load all users for a list of owner records in one pass.
-  Future<Map<String, UsersData>> _batchLoadUsers(
-    List<OwnersData> owners,
-  ) async {
-    final userIds = owners.map((o) => o.user).toSet().toList();
-    if (userIds.isEmpty) return {};
-    final users = await (db.select(
+  /// Updates [_userMap] via setState when complete.
+  void _refreshUsersIfNeeded(List<OwnersData> owners) {
+    final currentIds = owners.map((o) => o.user).toSet();
+    if (_lastUserIds != null && _setEquals(currentIds, _lastUserIds!)) return;
+    _lastUserIds = currentIds;
+    if (currentIds.isEmpty) {
+      _userMap = {};
+      return;
+    }
+    (db.select(
       db.users,
-    )..where((t) => t.id.isIn(userIds))).get();
-    return {for (final u in users) u.id: u};
+    )..where((t) => t.id.isIn(currentIds.toList()))).get().then((users) {
+      if (!mounted) return;
+      setState(() {
+        _userMap = {for (final u in users) u.id: u};
+      });
+    });
+  }
+
+  static bool _setEquals(Set<String> a, Set<String> b) {
+    if (a.length != b.length) return false;
+    for (final item in a) {
+      if (!b.contains(item)) return false;
+    }
+    return true;
   }
 
   @override
@@ -75,81 +95,78 @@ class _OwnersTabState extends State<OwnersTab> {
             hint: 'Tap + to add a school owner.',
           );
         }
-        return FutureBuilder<Map<String, UsersData>>(
-          future: _batchLoadUsers(owners),
-          builder: (context, usersSnap) {
-            final userMap = usersSnap.data ?? {};
 
-            // Apply search filter using resolved user data
-            final filtered = _query.isEmpty
-                ? owners
-                : owners.where((o) {
-                    final q = _query.toLowerCase();
-                    final u = userMap[o.user];
-                    if (u == null) return false;
-                    return u.name.toLowerCase().contains(q) ||
-                        u.phone.toLowerCase().contains(q);
-                  }).toList();
+        // Refresh user map only when member IDs change; show stale data while loading.
+        _refreshUsersIfNeeded(owners);
+        final userMap = _userMap ?? {};
 
-            return FlatMemberList(
-              searchController: _searchCtrl,
-              searchHint: 'Search owners…',
-              onSearchChanged: (v) => setState(() => _query = v.trim()),
-              itemCount: filtered.length,
-              itemBuilder: (context, i) {
-                final owner = filtered[i];
-                final user = userMap[owner.user];
-                final currentUserId = cache.currentUser?.user.id;
-                final isSelf = owner.user == currentUserId;
-                final row = _OwnerRow(
+        // Apply search filter using resolved user data
+        final filtered = _query.isEmpty
+            ? owners
+            : owners.where((o) {
+                final q = _query.toLowerCase();
+                final u = userMap[o.user];
+                if (u == null) return false;
+                return u.name.toLowerCase().contains(q) ||
+                    u.phone.toLowerCase().contains(q);
+              }).toList();
+
+        return FlatMemberList(
+          searchController: _searchCtrl,
+          searchHint: 'Search owners…',
+          onSearchChanged: (v) => setState(() => _query = v.trim()),
+          itemCount: filtered.length,
+          itemBuilder: (context, i) {
+            final owner = filtered[i];
+            final user = userMap[owner.user];
+            final currentUserId = cache.currentUser?.user.id;
+            final isSelf = owner.user == currentUserId;
+            final row = _OwnerRow(
+              schoolId: widget.schoolId,
+              owner: owner,
+              user: user,
+              canDelete: _canDelete && !isSelf,
+            );
+            final isMobile = MediaQuery.sizeOf(context).width < 600;
+            if (!isMobile || !_canDelete || user == null || isSelf) return row;
+            return Dismissible(
+              key: ValueKey('owner_${owner.user}'),
+              direction: DismissDirection.endToStart,
+              background: Container(
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.only(right: 16),
+                color: Colors.red.withValues(alpha: 0.15),
+                child: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: Colors.red,
+                  size: 20,
+                ),
+              ),
+              confirmDismiss: (_) async {
+                final confirmed = await showEduConfirmDialog(
+                  context: context,
+                  title: 'Remove "${user.name}"?',
+                  message: 'This will remove the owner from this school.',
+                  confirmLabel: 'Remove',
+                  isDestructive: true,
+                );
+                if (!confirmed || !context.mounted) return false;
+                final service = MemberManagementService(MembersDao(db));
+                final result = await service.removeOwner(
                   schoolId: widget.schoolId,
-                  owner: owner,
-                  user: user,
-                  canDelete: _canDelete && !isSelf,
+                  userId: user.id,
                 );
-                final isMobile = MediaQuery.sizeOf(context).width < 600;
-                if (!isMobile || !_canDelete || user == null || isSelf)
-                  return row;
-                return Dismissible(
-                  key: ValueKey('owner_${owner.user}'),
-                  direction: DismissDirection.endToStart,
-                  background: Container(
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.only(right: 16),
-                    color: Colors.red.withValues(alpha: 0.15),
-                    child: const Icon(
-                      Icons.delete_outline_rounded,
-                      color: Colors.red,
-                      size: 20,
+                if (result case Err(:final error) when context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to remove owner: $error'),
+                      behavior: SnackBarBehavior.floating,
                     ),
-                  ),
-                  confirmDismiss: (_) async {
-                    final confirmed = await showEduConfirmDialog(
-                      context: context,
-                      title: 'Remove "${user.name}"?',
-                      message: 'This will remove the owner from this school.',
-                      confirmLabel: 'Remove',
-                      isDestructive: true,
-                    );
-                    if (!confirmed || !context.mounted) return false;
-                    final service = MemberManagementService(MembersDao(db));
-                    final result = await service.removeOwner(
-                      schoolId: widget.schoolId,
-                      userId: user.id,
-                    );
-                    if (result case Err(:final error) when context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Failed to remove owner: $error'),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                    }
-                    return false; // Stream rebuild handles visual removal
-                  },
-                  child: row,
-                );
+                  );
+                }
+                return false; // Stream rebuild handles visual removal
               },
+              child: row,
             );
           },
         );

@@ -33,6 +33,16 @@ class SchoolsDao extends DatabaseAccessor<AppDatabase> with _$SchoolsDaoMixin {
     return select(schools).watch();
   }
 
+  /// Emits a single school row (or `null`) whenever the row with the given
+  /// [id] changes. Unlike [watchSchools], this sets up a targeted query that
+  /// only tracks one row instead of the entire table.
+  ///
+  /// Used by the school detail screen to keep the header, edit button, and
+  /// body in sync with a single subscription.
+  Stream<SchoolsData?> watchSchoolById(String id) {
+    return (select(schools)..where((t) => t.id.equals(id))).watchSingleOrNull();
+  }
+
   /// Emits the full list of all schools ordered by name ascending whenever
   /// any row in the [Schools] table changes.
   ///

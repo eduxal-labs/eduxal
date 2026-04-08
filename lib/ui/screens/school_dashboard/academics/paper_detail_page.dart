@@ -83,6 +83,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
   late Stream<Paper?> _paperStream;
   List<StudentsData> _students = [];
   bool _loadingStudents = true;
+  StreamSubscription<List<StudentsData>>? _studentsSub;
   bool? _lastIsDesktop;
 
   bool _hasDirtyGrades = false;
@@ -248,7 +249,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
       grade: _paper.grade,
       stream: _paper.stream,
     );
-    _loadStudents();
+    _subscribeStudents();
     _loadSchemeFiles();
 
     // Subscribe to teacher subjects if the current entry is a teacher.
@@ -269,6 +270,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
 
   @override
   void dispose() {
+    _studentsSub?.cancel();
     _teacherSubjectsSub?.cancel();
     _entranceController.dispose();
     super.dispose();
@@ -342,19 +344,22 @@ class _PaperDetailPageState extends State<PaperDetailPage>
     );
   }
 
-  Future<void> _loadStudents() async {
-    final list = await _dao.getEnrolledStudents(
-      schoolId: widget.schoolId,
-      year: widget.year,
-      term: widget.term,
-      grade: widget.grade,
-      stream: _paper.stream,
-    );
-    if (!mounted) return;
-    setState(() {
-      _students = list;
-      _loadingStudents = false;
-    });
+  void _subscribeStudents() {
+    _studentsSub = _dao
+        .watchEnrolledStudents(
+          schoolId: widget.schoolId,
+          year: widget.year,
+          term: widget.term,
+          grade: widget.grade,
+          stream: _paper.stream,
+        )
+        .listen((list) {
+          if (!mounted) return;
+          setState(() {
+            _students = list;
+            _loadingStudents = false;
+          });
+        });
   }
 
   @override

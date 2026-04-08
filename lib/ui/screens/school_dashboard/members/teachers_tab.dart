@@ -41,21 +41,37 @@ class _TeachersTabState extends State<TeachersTab> {
   final _searchCtrl = TextEditingController();
   String _query = '';
 
+  // Cached user data — eliminates FutureBuilder flickering on stream emissions.
+  Map<String, UsersData> _userMap = {};
+  Set<String> _lastUserIds = {};
+
   @override
   void dispose() {
     _searchCtrl.dispose();
     super.dispose();
   }
 
-  Future<Map<String, UsersData>> _batchLoadUsers(
-    List<TeachersData> teachers,
-  ) async {
-    final userIds = teachers.map((t) => t.user).toSet().toList();
-    if (userIds.isEmpty) return {};
-    final users = await (db.select(
-      db.users,
-    )..where((t) => t.id.isIn(userIds))).get();
-    return {for (final u in users) u.id: u};
+  /// Batch-load all users for a list of teacher records in one pass.
+  /// Only re-fetches when the set of user IDs actually changes.
+  void _refreshUsers(List<TeachersData> teachers) {
+    final currentIds = teachers.map((t) => t.user).toSet();
+    if (currentIds.length == _lastUserIds.length &&
+        currentIds.containsAll(_lastUserIds)) {
+      return; // ID set unchanged — keep cached _userMap
+    }
+    _lastUserIds = currentIds;
+    final userIds = currentIds.toList();
+    if (userIds.isEmpty) {
+      _userMap = {};
+      return;
+    }
+    // Fire async fetch; stale _userMap is shown until this completes.
+    (db.select(db.users)..where((t) => t.id.isIn(userIds))).get().then((users) {
+      if (!mounted) return;
+      setState(() {
+        _userMap = {for (final u in users) u.id: u};
+      });
+    });
   }
 
   @override
@@ -75,80 +91,78 @@ class _TeachersTabState extends State<TeachersTab> {
             hint: 'Tap + to add a teacher.',
           );
         }
-        return FutureBuilder<Map<String, UsersData>>(
-          future: _batchLoadUsers(list),
-          builder: (context, usersSnap) {
-            final userMap = usersSnap.data ?? {};
 
-            final filtered = _query.isEmpty
-                ? list
-                : list.where((t) {
-                    final q = _query.toLowerCase();
-                    final u = userMap[t.user];
-                    if (u == null) return false;
-                    return u.name.toLowerCase().contains(q) ||
-                        u.phone.toLowerCase().contains(q) ||
-                        (t.department?.toLowerCase().contains(q) ?? false) ||
-                        (t.role?.toLowerCase().contains(q) ?? false);
-                  }).toList();
+        // Refresh user cache only when member IDs change.
+        _refreshUsers(list);
+        final userMap = _userMap;
 
-            return FlatMemberList(
-              searchController: _searchCtrl,
-              searchHint: 'Search teachers…',
-              onSearchChanged: (v) => setState(() => _query = v.trim()),
-              itemCount: filtered.length,
-              itemBuilder: (context, i) {
-                final t = filtered[i];
-                final user = userMap[t.user];
-                final row = _TeacherRow(
+        final filtered = _query.isEmpty
+            ? list
+            : list.where((t) {
+                final q = _query.toLowerCase();
+                final u = userMap[t.user];
+                if (u == null) return false;
+                return u.name.toLowerCase().contains(q) ||
+                    u.phone.toLowerCase().contains(q) ||
+                    (t.department?.toLowerCase().contains(q) ?? false) ||
+                    (t.role?.toLowerCase().contains(q) ?? false);
+              }).toList();
+
+        return FlatMemberList(
+          searchController: _searchCtrl,
+          searchHint: 'Search teachers…',
+          onSearchChanged: (v) => setState(() => _query = v.trim()),
+          itemCount: filtered.length,
+          itemBuilder: (context, i) {
+            final t = filtered[i];
+            final user = userMap[t.user];
+            final row = _TeacherRow(
+              schoolId: widget.schoolId,
+              teacher: t,
+              user: user,
+              canDelete: _canDelete,
+              canEdit: _canEdit,
+            );
+            final isMobile = MediaQuery.sizeOf(context).width < 600;
+            if (!isMobile || !_canDelete || user == null) return row;
+            return Dismissible(
+              key: ValueKey('teacher_${t.user}'),
+              direction: DismissDirection.endToStart,
+              background: Container(
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.only(right: 16),
+                color: Colors.red.withValues(alpha: 0.15),
+                child: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: Colors.red,
+                  size: 20,
+                ),
+              ),
+              confirmDismiss: (_) async {
+                final confirmed = await showEduConfirmDialog(
+                  context: context,
+                  title: 'Remove "${user.name}"?',
+                  message: 'This will remove the teacher from this school.',
+                  confirmLabel: 'Remove',
+                  isDestructive: true,
+                );
+                if (!confirmed || !context.mounted) return false;
+                final service = MemberManagementService(MembersDao(db));
+                final result = await service.removeTeacher(
                   schoolId: widget.schoolId,
-                  teacher: t,
-                  user: user,
-                  canDelete: _canDelete,
-                  canEdit: _canEdit,
+                  userId: user.id,
                 );
-                final isMobile = MediaQuery.sizeOf(context).width < 600;
-                if (!isMobile || !_canDelete || user == null) return row;
-                return Dismissible(
-                  key: ValueKey('teacher_${t.user}'),
-                  direction: DismissDirection.endToStart,
-                  background: Container(
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.only(right: 16),
-                    color: Colors.red.withValues(alpha: 0.15),
-                    child: const Icon(
-                      Icons.delete_outline_rounded,
-                      color: Colors.red,
-                      size: 20,
+                if (result case Err(:final error) when context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to remove teacher: $error'),
+                      behavior: SnackBarBehavior.floating,
                     ),
-                  ),
-                  confirmDismiss: (_) async {
-                    final confirmed = await showEduConfirmDialog(
-                      context: context,
-                      title: 'Remove "${user.name}"?',
-                      message: 'This will remove the teacher from this school.',
-                      confirmLabel: 'Remove',
-                      isDestructive: true,
-                    );
-                    if (!confirmed || !context.mounted) return false;
-                    final service = MemberManagementService(MembersDao(db));
-                    final result = await service.removeTeacher(
-                      schoolId: widget.schoolId,
-                      userId: user.id,
-                    );
-                    if (result case Err(:final error) when context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Failed to remove teacher: $error'),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                    }
-                    return false; // Stream rebuild handles visual removal
-                  },
-                  child: row,
-                );
+                  );
+                }
+                return false; // Stream rebuild handles visual removal
               },
+              child: row,
             );
           },
         );

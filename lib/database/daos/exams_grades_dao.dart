@@ -620,6 +620,38 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     return rows.map((r) => r.readTable(students)).toList();
   }
 
+  /// Reactive version of [getEnrolledStudents]. Returns a stream that
+  /// re-emits whenever the underlying enrollment or student rows change.
+  Stream<List<StudentsData>> watchEnrolledStudents({
+    required String schoolId,
+    required int year,
+    required int term,
+    required int grade,
+    int? stream, // null → all streams
+  }) {
+    final query =
+        select(students).join([
+            innerJoin(
+              enrollments,
+              enrollments.student.equalsExp(students.adm) &
+                  enrollments.school.equalsExp(students.school) &
+                  enrollments.year.equals(year) &
+                  enrollments.term.equals(term) &
+                  enrollments.grade.equals(grade),
+            ),
+          ])
+          ..where(students.school.equals(schoolId))
+          ..orderBy([OrderingTerm.asc(students.adm)]);
+
+    if (stream != null) {
+      query.where(enrollments.stream.equals(stream));
+    }
+
+    return query.watch().map(
+      (rows) => rows.map((r) => r.readTable(students)).toList(),
+    );
+  }
+
   // ───────────────────────────────────────────────────────────────────────────
   // Analytics
   // ───────────────────────────────────────────────────────────────────────────
