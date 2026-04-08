@@ -36,6 +36,8 @@ class StaffTab extends StatefulWidget {
 class _StaffTabState extends State<StaffTab> {
   final _searchCtrl = TextEditingController();
   String _query = '';
+  Map<String, UsersData> _userMap = {};
+  Set<String> _lastUserIds = {};
 
   @override
   void dispose() {
@@ -43,15 +45,23 @@ class _StaffTabState extends State<StaffTab> {
     super.dispose();
   }
 
-  Future<Map<String, UsersData>> _batchLoadUsers(
-    List<StaffData> staffList,
-  ) async {
-    final userIds = staffList.map((s) => s.user).toSet().toList();
-    if (userIds.isEmpty) return {};
-    final users = await (db.select(
-      db.users,
-    )..where((t) => t.id.isIn(userIds))).get();
-    return {for (final u in users) u.id: u};
+  void _refreshUsersIfNeeded(List<StaffData> staffList) {
+    final currentIds = staffList.map((s) => s.user).toSet();
+    if (currentIds.length == _lastUserIds.length &&
+        currentIds.containsAll(_lastUserIds)) {
+      return;
+    }
+    _lastUserIds = currentIds;
+    final userIds = currentIds.toList();
+    if (userIds.isEmpty) {
+      _userMap = {};
+      return;
+    }
+    (db.select(db.users)..where((t) => t.id.isIn(userIds))).get().then((users) {
+      if (mounted) {
+        setState(() => _userMap = {for (final u in users) u.id: u});
+      }
+    });
   }
 
   @override
@@ -71,83 +81,77 @@ class _StaffTabState extends State<StaffTab> {
             hint: 'Tap + to add a staff member.',
           );
         }
-        return FutureBuilder<Map<String, UsersData>>(
-          future: _batchLoadUsers(list),
-          builder: (context, usersSnap) {
-            final userMap = usersSnap.data ?? {};
+        _refreshUsersIfNeeded(list);
+        final userMap = _userMap;
 
-            final filtered = _query.isEmpty
-                ? list
-                : list.where((s) {
-                    final q = _query.toLowerCase();
-                    final u = userMap[s.user];
-                    if (u == null) return false;
-                    return u.name.toLowerCase().contains(q) ||
-                        u.phone.toLowerCase().contains(q) ||
-                        (s.department?.toLowerCase().contains(q) ?? false) ||
-                        (s.role?.toLowerCase().contains(q) ?? false);
-                  }).toList();
+        final filtered = _query.isEmpty
+            ? list
+            : list.where((s) {
+                final q = _query.toLowerCase();
+                final u = userMap[s.user];
+                if (u == null) return false;
+                return u.name.toLowerCase().contains(q) ||
+                    u.phone.toLowerCase().contains(q) ||
+                    (s.department?.toLowerCase().contains(q) ?? false) ||
+                    (s.role?.toLowerCase().contains(q) ?? false);
+              }).toList();
 
-            return FlatMemberList(
-              searchController: _searchCtrl,
-              searchHint: 'Search staff…',
-              onSearchChanged: (v) => setState(() => _query = v.trim()),
-              itemCount: filtered.length,
-              itemBuilder: (context, i) {
-                final s = filtered[i];
-                final user = userMap[s.user];
-                final row = _StaffRow(
+        return FlatMemberList(
+          searchController: _searchCtrl,
+          searchHint: 'Search staff…',
+          onSearchChanged: (v) => setState(() => _query = v.trim()),
+          itemCount: filtered.length,
+          itemBuilder: (context, i) {
+            final s = filtered[i];
+            final user = userMap[s.user];
+            final row = _StaffRow(
+              schoolId: widget.schoolId,
+              member: s,
+              user: user,
+              canDelete: _canDelete,
+              canEdit: _canEdit,
+            );
+            final isMobile = MediaQuery.sizeOf(context).width < 600;
+            if (!isMobile || !_canDelete || user == null) return row;
+            return Dismissible(
+              key: ValueKey('staff_${s.user}'),
+              direction: DismissDirection.endToStart,
+              background: Container(
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.only(right: 16),
+                color: Colors.red.withValues(alpha: 0.15),
+                child: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: Colors.red,
+                  size: 20,
+                ),
+              ),
+              confirmDismiss: (_) async {
+                final confirmed = await showEduConfirmDialog(
+                  context: context,
+                  title: 'Remove "${user.name}"?',
+                  message:
+                      'This will remove the staff member from this school.',
+                  confirmLabel: 'Remove',
+                  isDestructive: true,
+                );
+                if (!confirmed || !context.mounted) return false;
+                final service = MemberManagementService(MembersDao(db));
+                final result = await service.removeStaff(
                   schoolId: widget.schoolId,
-                  member: s,
-                  user: user,
-                  canDelete: _canDelete,
-                  canEdit: _canEdit,
+                  userId: user.id,
                 );
-                final isMobile = MediaQuery.sizeOf(context).width < 600;
-                if (!isMobile || !_canDelete || user == null) return row;
-                return Dismissible(
-                  key: ValueKey('staff_${s.user}'),
-                  direction: DismissDirection.endToStart,
-                  background: Container(
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.only(right: 16),
-                    color: Colors.red.withValues(alpha: 0.15),
-                    child: const Icon(
-                      Icons.delete_outline_rounded,
-                      color: Colors.red,
-                      size: 20,
+                if (result case Err(:final error) when context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to remove staff member: $error'),
+                      behavior: SnackBarBehavior.floating,
                     ),
-                  ),
-                  confirmDismiss: (_) async {
-                    final confirmed = await showEduConfirmDialog(
-                      context: context,
-                      title: 'Remove "${user.name}"?',
-                      message:
-                          'This will remove the staff member from this school.',
-                      confirmLabel: 'Remove',
-                      isDestructive: true,
-                    );
-                    if (!confirmed || !context.mounted) return false;
-                    final service = MemberManagementService(MembersDao(db));
-                    final result = await service.removeStaff(
-                      schoolId: widget.schoolId,
-                      userId: user.id,
-                    );
-                    if (result case Err(:final error) when context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Failed to remove staff member: $error',
-                          ),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                    }
-                    return false; // Stream rebuild handles visual removal
-                  },
-                  child: row,
-                );
+                  );
+                }
+                return false; // Stream rebuild handles visual removal
               },
+              child: row,
             );
           },
         );

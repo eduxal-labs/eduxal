@@ -956,7 +956,7 @@ This is safe because seeded data is local-only demo data that should not sync. T
 
 ---
 
-### Task F1: FutureBuilder-in-StreamBuilder anti-pattern causes flickering in member tabs
+### Task F1: FutureBuilder-in-StreamBuilder anti-pattern causes flickering in member tabs ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/members/owners_tab.dart`, `lib/ui/screens/school_dashboard/members/teachers_tab.dart`, `lib/ui/screens/school_dashboard/members/staff_tab.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`

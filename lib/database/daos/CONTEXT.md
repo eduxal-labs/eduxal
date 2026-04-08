@@ -135,6 +135,7 @@ Each DAO extends `DatabaseAccessor<AppDatabase>` and is annotated with `@DriftAc
 
 ### `SchoolsDao`
 - `watchSchools() → Stream<List<SchoolsData>>` — All schools (unordered).
+- `watchSchoolById(String id) → Stream<SchoolsData?>` — Single school by id, targeted query (no full-table scan). Added in Task F3.
 - `watchAllSchools() → Stream<List<SchoolsData>>` — All schools ordered by name ascending.
 - `watchOwnersForSchool(String schoolId) → Stream<List<({OwnersData owner, UsersData user})>>` — Owners joined with users.
 - `getSchool(String id) → Future<SchoolsData?>` — Single school by id.

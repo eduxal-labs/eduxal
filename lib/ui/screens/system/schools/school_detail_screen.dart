@@ -48,10 +48,16 @@ class _SchoolDetailScreenState extends State<SchoolDetailScreen>
   late final Animation<double> _fadeIn;
   late final Animation<Offset> _slideUp;
   late final TabController _tabController;
+  late SchoolsData _school;
+  StreamSubscription<SchoolsData?>? _schoolSub;
 
   @override
   void initState() {
     super.initState();
+    _school = widget.school;
+    _schoolSub = schoolsDao.watchSchoolById(widget.school.id).listen((data) {
+      if (data != null && mounted) setState(() => _school = data);
+    });
     _tabController = TabController(length: 4, vsync: this);
     _entranceController = AnimationController(
       vsync: this,
@@ -70,6 +76,7 @@ class _SchoolDetailScreenState extends State<SchoolDetailScreen>
 
   @override
   void dispose() {
+    _schoolSub?.cancel();
     _entranceController.dispose();
     _tabController.dispose();
     super.dispose();
@@ -100,27 +107,16 @@ class _SchoolDetailScreenState extends State<SchoolDetailScreen>
           onPressed: () => Navigator.of(context).pop(),
           tooltip: 'Back',
         ),
-        title: StreamBuilder<SchoolsData?>(
-          stream: schoolsDao.watchSchools().map(
-            (list) => list
-                .where((s) => s.id == widget.school.id)
-                .cast<SchoolsData?>()
-                .firstOrNull,
+        title: Text(
+          _school.name,
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w400,
+            color: cs.onSurface,
+            letterSpacing: 0.1,
           ),
-          initialData: widget.school,
-          builder: (context, snapshot) {
-            return Text(
-              snapshot.data?.name ?? widget.school.name,
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurface,
-                letterSpacing: 0.1,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            );
-          },
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
         centerTitle: false,
         backgroundColor: Colors.transparent,
@@ -158,40 +154,28 @@ class _SchoolDetailScreenState extends State<SchoolDetailScreen>
             ),
           const SizedBox(width: 8),
           if (widget.permissions.can(Resource.schools, Action.update))
-            StreamBuilder<SchoolsData?>(
-              stream: schoolsDao.watchSchools().map(
-                (list) => list
-                    .where((s) => s.id == widget.school.id)
-                    .cast<SchoolsData?>()
-                    .firstOrNull,
-              ),
-              initialData: widget.school,
-              builder: (context, snapshot) {
-                final school = snapshot.data ?? widget.school;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: IconButton(
-                    icon: Icon(
-                      Icons.edit_outlined,
-                      size: 18,
-                      color: cs.onSurfaceVariant,
-                    ),
-                    onPressed: () => _openEditSheet(school),
-                    tooltip: 'Edit school',
-                    style: IconButton.styleFrom(
-                      backgroundColor: cs.surfaceContainer,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: BorderSide(
-                          color: cs.outlineVariant.withValues(alpha: 0.5),
-                        ),
-                      ),
-                      padding: const EdgeInsets.all(8),
-                      minimumSize: const Size(36, 36),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: IconButton(
+                icon: Icon(
+                  Icons.edit_outlined,
+                  size: 18,
+                  color: cs.onSurfaceVariant,
+                ),
+                onPressed: () => _openEditSheet(_school),
+                tooltip: 'Edit school',
+                style: IconButton.styleFrom(
+                  backgroundColor: cs.surfaceContainer,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    side: BorderSide(
+                      color: cs.outlineVariant.withValues(alpha: 0.5),
                     ),
                   ),
-                );
-              },
+                  padding: const EdgeInsets.all(8),
+                  minimumSize: const Size(36, 36),
+                ),
+              ),
             ),
         ],
       ),
@@ -199,80 +183,67 @@ class _SchoolDetailScreenState extends State<SchoolDetailScreen>
         position: _slideUp,
         child: FadeTransition(
           opacity: _fadeIn,
-          child: StreamBuilder<SchoolsData?>(
-            stream: schoolsDao.watchSchools().map(
-              (list) => list
-                  .where((s) => s.id == widget.school.id)
-                  .cast<SchoolsData?>()
-                  .firstOrNull,
-            ),
-            initialData: widget.school,
-            builder: (context, snapshot) {
-              final school = snapshot.data ?? widget.school;
-
-              return Center(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: maxWidth),
-                  child: NestedScrollView(
-                    headerSliverBuilder: (context, innerBoxIsScrolled) {
-                      return [
-                        SliverToBoxAdapter(
-                          child: Padding(
-                            padding: EdgeInsets.fromLTRB(
-                              horizontalPadding,
-                              4,
-                              horizontalPadding,
-                              12,
-                            ),
-                            child: _HeaderSection(school: school, cs: cs),
-                          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxWidth),
+              child: NestedScrollView(
+                headerSliverBuilder: (context, innerBoxIsScrolled) {
+                  return [
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          horizontalPadding,
+                          4,
+                          horizontalPadding,
+                          12,
                         ),
-                        SliverPersistentHeader(
-                          pinned: true,
-                          delegate: _TabBarDelegate(
-                            tabController: _tabController,
-                            cs: cs,
-                            isLight: isLight,
-                            horizontalPadding: horizontalPadding,
-                          ),
-                        ),
-                      ];
-                    },
-                    body: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _OwnersTab(
-                          school: school,
-                          permissions: widget.permissions,
-                          cs: cs,
-                          horizontalPadding: horizontalPadding,
-                        ),
-                        _PlaceholderTab(
-                          cs: cs,
-                          horizontalPadding: horizontalPadding,
-                          icon: Icons.card_membership_outlined,
-                          title: 'Subscriptions',
-                          subtitle:
-                              'Plan and billing information will appear here once subscription data is synced.',
-                        ),
-                        _SettingsTab(
-                          school: school,
-                          permissions: widget.permissions,
-                          cs: cs,
-                          horizontalPadding: horizontalPadding,
-                        ),
-                        _IntegrationsTab(
-                          school: school,
-                          permissions: widget.permissions,
-                          cs: cs,
-                          horizontalPadding: horizontalPadding,
-                        ),
-                      ],
+                        child: _HeaderSection(school: _school, cs: cs),
+                      ),
                     ),
-                  ),
+                    SliverPersistentHeader(
+                      pinned: true,
+                      delegate: _TabBarDelegate(
+                        tabController: _tabController,
+                        cs: cs,
+                        isLight: isLight,
+                        horizontalPadding: horizontalPadding,
+                      ),
+                    ),
+                  ];
+                },
+                body: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _OwnersTab(
+                      school: _school,
+                      permissions: widget.permissions,
+                      cs: cs,
+                      horizontalPadding: horizontalPadding,
+                    ),
+                    _PlaceholderTab(
+                      cs: cs,
+                      horizontalPadding: horizontalPadding,
+                      icon: Icons.card_membership_outlined,
+                      title: 'Subscriptions',
+                      subtitle:
+                          'Plan and billing information will appear here once subscription data is synced.',
+                    ),
+                    _SettingsTab(
+                      school: _school,
+                      permissions: widget.permissions,
+                      cs: cs,
+                      horizontalPadding: horizontalPadding,
+                    ),
+                    _IntegrationsTab(
+                      school: _school,
+                      permissions: widget.permissions,
+                      cs: cs,
+                      horizontalPadding: horizontalPadding,
+                    ),
+                  ],
                 ),
-              );
-            },
+              ),
+            ),
           ),
         ),
       ),
