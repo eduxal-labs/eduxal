@@ -134,9 +134,11 @@ System sections check `SystemPermissions` before rendering sensitive actions:
 | Action | Required permission |
 |---|---|
 | View users | `users.read` (auto-granted for system/super_ levels) |
-| Promote user to System | `users.assign` + target must not be deleted/suspended |
-| Promote user to Super | Only `UserLevel.super_` + target must not be deleted/suspended |
-| Demote/suspend/restore user | `users.update` |
+| Promote user to System | `users.update` + target must be `UserLevel.normal` |
+| Promote user to Super | `users.update` + `permissions.level == UserLevel.super_` + target must be `UserLevel.system` |
+| Demote to Normal | `users.update` + target must be `UserLevel.system` |
+| Demote to System | `users.update` + `permissions.level == UserLevel.super_` + target must be `UserLevel.super_` |
+| Suspend/restore user | `users.update` |
 | Delete user (soft) | `users.delete` |
 | Purge user | Only `UserLevel.super_` (`canSeeDeleted`) |
 | Suspend/restore/demote member | `users.update` |
@@ -153,11 +155,11 @@ System sections check `SystemPermissions` before rendering sensitive actions:
 | Manage plans | `plans.create`, `plans.update`, `plans.delete` |
 | See deleted records | Only `UserLevel.super_` (`SystemPermissions.canSeeDeleted`) |
 
-All action buttons in `users_section.dart`, `members_section.dart`, `schools_section.dart`, `roles_section.dart`, and `plans_section.dart` are now permission-gated. Each section computes `canUpdate` / `canDelete` from `widget.permissions.can(Resource.xxx, Action.yyy)` and conditionally includes row actions. Super-only actions (purge, promote-to-super) additionally check `widget.permissions.level == UserLevel.super_` or `canSeeDeleted`.
+All action buttons in `users_section.dart`, `members_section.dart`, `schools_section.dart`, `roles_section.dart`, and `plans_section.dart` are now permission-gated. Each section computes `canUpdate` / `canDelete` from `widget.permissions.can(Resource.xxx, Action.yyy)` and conditionally includes row actions. Super-only actions (purge, promote-to-super, demote-from-super) additionally check `widget.permissions.level == UserLevel.super_` or `canSeeDeleted`.
 
 **Privilege escalation guards (A03):**
 - `_promoteMember` in `members_section.dart`: blocks self-promotion, requires `UserLevel.super_` to promote to Super, requires target `UserStatus.active`.
-- `_promoteUser` in `users_section.dart`: blocks self-promotion, requires `UserLevel.super_` to promote to Super, blocks promoting deleted/suspended users. "Promote to System" row action now gated by `users.assign` (was `users.update`).
+- `_promoteUser` in `users_section.dart`: blocks self-promotion, requires `UserLevel.super_` to promote to Super, blocks promoting deleted/suspended users. "Promote to System" row action gated by `users.update` (was incorrectly `users.assign` — `Resource.users` does not include `assign` in its applicable actions per §17a, so the permission could never be granted). "Elevate to Super" and "Demote to System" now use explicit `widget.permissions.level == UserLevel.super_` check instead of `canSeeDeleted` proxy.
 - `_canCreateSystemUser` in `invite_user_sheet.dart`: now requires both `isElevated` AND `users.create` permission (was `isElevated` alone).
 - `_submit` in `invite_user_sheet.dart`: hard guard blocks Super-level invites unconditionally; blocks System-level invites without `users.create` permission.
 
@@ -181,7 +183,9 @@ For `UserLevel.super_` users, all permissions are granted unconditionally via `S
 - **Reactive system permissions (D01):** `system_dashboard_screen.dart` `_SystemDashboardScreenState` now mixes in `WidgetsBindingObserver`. After initial `_loadPermissions()` one-shot load, subscribes to `usersDao.watchSystemPermissions(userId)` — a Drift reactive stream that re-emits when any system-scoped scope or role row changes via sync deltas. On change, rebuilds `SystemPermissions` and calls `setState`. Also re-loads permissions on `AppLifecycleState.resumed` via `_reloadPermissionsOnResume()`. New field: `_permissionsSub` (`StreamSubscription<List<RolePermissions>>?`). New import: `dart:async`.
 
 ## Last Updated
-Task B10 — `schools/schools_section.dart`: Gated Purge action behind `school.status == SchoolStatus.deleted` in addition to `widget.permissions.canSeeDeleted`. Previously, the Purge button appeared for every school when the user was Super (including active/trial/suspended schools). Now it only appears for deleted schools, matching the pattern used in the Plans section.
+Task B9 — `users/users_section.dart`: Fixed permission gate inconsistencies. (1) "Promote to System" action now gated by `canUpdate` instead of `canAssign` — `Resource.users` applicable actions are `[read, update, delete]` per §17a, so `users.assign` could never be granted through the role UI, making the button permanently invisible. Removed unused `canAssign` variable. (2) "Elevate to Super" and "Demote to System" actions now use explicit `widget.permissions.level == UserLevel.super_` check instead of `canSeeDeleted` as a proxy for Super-level check. Both express the same condition (`_level == UserLevel.super_`) but the explicit level check is clearer in intent and consistent with `user_detail_sheet.dart`.
+
+Previous: Task B10 — `schools/schools_section.dart`: Gated Purge action behind `school.status == SchoolStatus.deleted` in addition to `widget.permissions.canSeeDeleted`. Previously, the Purge button appeared for every school when the user was Super (including active/trial/suspended schools). Now it only appears for deleted schools, matching the pattern used in the Plans section.
 
 Previous: Task B1 — `roles/`: Extracted shared permission editor helpers (`_buildResourceGroups`, `_ResourceGroup`, `_kBaseActions`, `_kActionColors`, `_kActionIcons`, `_capitalise`) from `create_role_sheet.dart`, `role_detail_screen.dart`, and `role_detail_sheet.dart` into `ui/screens/shared/role_permission_editor.dart`. All three files now use typed `Resource`/`Action` enums from `models/permissions.dart` via the shared `kResourceGroups`, `kActionColors`, `kActionIcons`, and `actionLabel` exports. Removed unused `database/tables/enums.dart` imports from `create_role_sheet.dart` and `role_detail_sheet.dart`. Previous: Task A5 — `members_section.dart`: `AddMemberSheet._promote()` now has a defense-in-depth permission guard checking `widget.permissions.can(Resource.users, Action.update)` at the start; returns early if the caller lacks permission. Previous: Tasks A1, A2 — `user_detail_sheet.dart`: Super-only gate on "Elevate to super" action (Task A1) and self-action guard preventing users from modifying their own level/status (Task A2). Added `viewerId` parameter to `_ViewBody` and `_AccountActionsCard`, threaded from `cache.currentUser?.user.id`. Previous: Tasks F01, F02 — Notification retry/delete action buttons (`_NotificationTile` → StatefulWidget with `_retryLog`/`_deleteLog` methods, confirmation dialog, inline loading states). System stats resilience: replaced nested 6-StreamBuilder pyramid with independent per-card `_IndependentStatCard<T>` StreamBuilders; removed legacy `_StatsErrorCard`/`_CardGridSkeleton`; added `_SingleCardError` and `_SingleCardSkeleton` per-card widgets. Previous: Tasks F11, F12 — Deleted record filtering for non-Super users + dead code cleanup.
 

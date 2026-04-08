@@ -612,8 +612,8 @@ if (permissions.canSeeDeleted && school.status == SchoolStatus.deleted)
 ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -621,7 +621,7 @@ if (permissions.canSeeDeleted && school.status == SchoolStatus.deleted)
 
 ---
 
-### Task C1: Exams and Academics tabs should be core 4 for teachers (not permission-gated)
+### Task C1: Exams and Academics tabs should be core 4 for teachers (not permission-gated) ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/school_dashboard_screen.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -708,7 +708,7 @@ Verify that `_teacherSubjects` (or equivalent) is available in scope — it's us
 
 ---
 
-### Task C3: Staff with `attendance.mark` but no `classes.read` cannot access attendance
+### Task C3: Staff with `attendance.mark` but no `classes.read` cannot access attendance ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/school_dashboard_screen.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -736,7 +736,7 @@ This ensures staff with attendance permissions can navigate to the Academics sec
 
 ---
 
-### Task C4: No Settings nav item for staff with `schools.update` permission
+### Task C4: No Settings nav item for staff with `schools.update` permission ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/school_dashboard_screen.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -798,7 +798,7 @@ Same change for `TeacherEntry`.
 
 ---
 
-### Task C6: Staff/Teacher Announcements tab should always be visible (like student/guardian)
+### Task C6: Staff/Teacher Announcements tab should always be visible (like student/guardian) ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/school_dashboard_screen.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`

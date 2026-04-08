@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Action;
 
 import '../../../../client.dart';
-import '../../../../models/permissions.dart';
+import '../../../../models/permissions.dart' show Action, Resource;
 import '../../../../models/system_permissions.dart';
 import '../../../../models/system_stats.dart';
 import '../../../theme/app_theme.dart';
