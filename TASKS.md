@@ -961,7 +961,7 @@ case SyncAction.createPaper:
 
 ---
 
-### Task D4: Error code 4 (`not_found`) always marks failed — should delete log for delete actions
+### Task D4: Error code 4 (`not_found`) always marks failed — should delete log for delete actions ✅
 
 **Files to modify:** `lib/sync/sync_engine.dart`
 **Context files to read:** `lib/sync/CONTEXT.md`
@@ -1037,7 +1037,7 @@ The `action` (SyncAction) should be available from the log entry being processed
 
 ---
 
-### Task D5: No auto-recovery from unauthenticated sync stop
+### Task D5: No auto-recovery from unauthenticated sync stop ✅
 
 **Files to modify:** `lib/sync/sync_engine.dart`, `lib/client.dart`
 **Context files to read:** `lib/sync/CONTEXT.md`, `lib/CONTEXT.md`
@@ -1091,7 +1091,7 @@ syncEngine.onUnauthenticated = () async {
 
 ---
 
-### Task D6: Double `_startSync` in `logOut` when single account remains
+### Task D6: Double `_startSync` in `logOut` when single account remains ✅
 
 **Files to modify:** `lib/client.dart`
 **Context files to read:** `lib/CONTEXT.md`

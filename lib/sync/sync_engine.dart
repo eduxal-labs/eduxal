@@ -112,6 +112,10 @@ class SyncEngine {
   String _accountId = '';
   String _accessToken = '';
 
+  /// Callback invoked when the server returns [StatusCode.unauthenticated].
+  /// Set by `client.dart` to trigger token refresh and sync restart.
+  VoidCallback? onUnauthenticated;
+
   // ── Push throttle ────────────────────────────────────────────────────────
   bool _pushing = false;
   bool _pushScheduled = false;
@@ -463,6 +467,10 @@ class SyncEngine {
       '(${first.action.name}, 1/${pending.length})',
     );
 
+    // Build a lookup from log ID → SyncAction so _processActionResponse can
+    // distinguish delete actions from update actions (needed for error code 4).
+    final actionByLogId = {for (final log in pending) log.id: log.action};
+
     int nextIndex = 1;
 
     try {
@@ -472,7 +480,7 @@ class SyncEngine {
           break;
         }
 
-        await _processActionResponse(response);
+        await _processActionResponse(response, actionByLogId[response.id]);
 
         // Send the next action if there are more.
         if (nextIndex < pending.length) {
@@ -508,8 +516,9 @@ class SyncEngine {
         debugPrint('[SyncEngine] ── end Push GrpcError details ──');
 
         if (e.code == StatusCode.unauthenticated) {
-          _log('Unauthenticated on push — stopping sync for token refresh');
-          stop();
+          _log('Unauthenticated on push — stopping sync');
+          await stop();
+          onUnauthenticated?.call();
           return;
         }
       }
@@ -525,13 +534,20 @@ class SyncEngine {
 
   /// Processes a single [ActionResponse] from the server.
   ///
+  /// [action] is the [SyncAction] from the log entry that triggered this
+  /// response. Used to distinguish delete actions from update actions when
+  /// handling error code 4 (not_found).
+  ///
   /// Error codes:
   /// - 0: ok — delete log, apply returned rows.
   /// - 1: permission_denied — mark failed, show in notifications.
   /// - 2: conflict — apply server version, delete log.
   /// - 3: validation_error — mark failed, user must fix.
-  /// - 4: not_found — mark failed.
-  Future<void> _processActionResponse(sync_pb.ActionResponse response) async {
+  /// - 4: not_found — delete log for deletes, mark failed for others.
+  Future<void> _processActionResponse(
+    sync_pb.ActionResponse response,
+    SyncAction? action,
+  ) async {
     final logId = response.id;
 
     try {
@@ -609,9 +625,21 @@ class SyncEngine {
             await _logsDao.markFailed(logId, errorMsg);
 
           case 4: // not_found
-            _log('Action $logId: not found — $errorMsg');
-            debugPrint('[SyncEngine] Action #$logId — not found: $errorMsg');
-            await _logsDao.markFailed(logId, errorMsg);
+            if (action != null && _isDeleteAction(action)) {
+              _log(
+                'Action $logId: delete target already gone — '
+                'treating as success',
+              );
+              debugPrint(
+                '[SyncEngine] Action #$logId — not found but is a delete '
+                'action (${action.name}) — deleting log',
+              );
+              await _logsDao.deleteLog(logId);
+            } else {
+              _log('Action $logId: not found — $errorMsg');
+              debugPrint('[SyncEngine] Action #$logId — not found: $errorMsg');
+              await _logsDao.markFailed(logId, errorMsg);
+            }
 
           default:
             _log(
@@ -634,6 +662,45 @@ class SyncEngine {
       debugPrint('[SyncEngine] Error processing action #$logId response: $e');
     }
   }
+
+  /// Returns `true` if [action] is a delete/remove/unassign action — i.e. the
+  /// resource being acted on is expected to no longer exist after the action.
+  /// Used by error code 4 (not_found) handling: if the target is already gone
+  /// server-side, a delete action is effectively a success.
+  bool _isDeleteAction(SyncAction action) => switch (action) {
+    SyncAction.deleteSchool ||
+    SyncAction.deleteTeacher ||
+    SyncAction.deleteStaff ||
+    SyncAction.deleteOwner ||
+    SyncAction.deleteStudent ||
+    SyncAction.deleteGuardian ||
+    SyncAction.deleteDepartment ||
+    SyncAction.deleteTerm ||
+    SyncAction.deleteTimetableEntry ||
+    SyncAction.deleteAttendance ||
+    SyncAction.deleteLesson ||
+    SyncAction.deleteExam ||
+    SyncAction.deletePaper ||
+    SyncAction.deleteGrade ||
+    SyncAction.deleteFee ||
+    SyncAction.deleteInvoice ||
+    SyncAction.deletePayment ||
+    SyncAction.deleteAnnouncement ||
+    SyncAction.deleteRole ||
+    SyncAction.deleteUser ||
+    SyncAction.deletePlan ||
+    SyncAction.deleteSubscription ||
+    SyncAction.deleteDiscount ||
+    SyncAction.deleteSubject ||
+    SyncAction.deleteTopic ||
+    SyncAction.deleteStream ||
+    SyncAction.deleteMpesa ||
+    SyncAction.unenrollStudent ||
+    SyncAction.unassignClassTeacher ||
+    SyncAction.unassignSubject ||
+    SyncAction.unassignRole => true,
+    _ => false,
+  };
 
   /// Applies a single [ActionRow] from a push response to the local database.
   ///
@@ -1147,9 +1214,10 @@ class SyncEngine {
       debugPrint('[SyncEngine] ── end GrpcError details ──');
 
       if (error.code == StatusCode.unauthenticated) {
-        _log('Unauthenticated — stopping sync for token refresh');
+        _log('Unauthenticated — stopping sync');
         debugPrint('[SyncEngine] Watch: UNAUTHENTICATED — stopping sync');
         stop();
+        onUnauthenticated?.call();
         return;
       }
     }

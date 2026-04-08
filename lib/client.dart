@@ -120,6 +120,21 @@ class Client {
     _connectivityMonitor = ConnectivityMonitor(
       onOnline: () => syncEngine.revive(),
     );
+
+    // When the server returns Unauthenticated on a sync stream, attempt a
+    // token refresh and restart sync. Without this, sync silently dies after
+    // the access token expires (~3 days).
+    syncEngine.onUnauthenticated = () async {
+      debugPrint('[Client] Sync unauthenticated — attempting token refresh');
+      final active = await _accountsDao.getActiveAccount();
+      if (active == null) return;
+      final refreshed = await _refresh(active.refreshToken);
+      if (refreshed != null) {
+        _startSync(refreshed);
+      } else {
+        debugPrint('[Client] Refresh token expired — user must re-login');
+      }
+    };
   }
 
   final ClientChannel _channel;
@@ -423,11 +438,8 @@ class Client {
     if (remaining.length == 1) {
       final first = remaining.first;
       await _accountsDao.setActiveAccount(first.user.id);
-      await saveAccount(first);
+      await saveAccount(first); // already calls _startSync internally
       cache.currentUser = first;
-      // saveAccount already restarts sync if it was running, but since we
-      // just stopped it, we need to start it explicitly for the new account.
-      _startSync(first);
     }
     // 2+ remaining: leave all inactive; UI will prompt the user to choose.
   }

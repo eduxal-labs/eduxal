@@ -140,6 +140,9 @@ No files import `log_processor.dart` — all references were removed in Task C7.
 
 **Constructor:** `SyncEngine(ClientChannel channel, AccountsDao accountsDao, LogsDao logsDao)`
 
+**Key public fields:**
+- `VoidCallback? onUnauthenticated` — Callback invoked when the server returns `StatusCode.unauthenticated` on either push or watch streams. Set by `client.dart` to trigger token refresh and sync restart. Called after `stop()`. **(Added Task D5)**
+
 **Key public methods:**
 - `Future<void> start({required String accountId, required String accessToken, required int lastSeq})` — Starts sync for a specific account. Stops any existing session first. Pushes pending actions, opens watch stream, starts periodic push timer (5s).
 - `Future<void> stop()` — Stops sync entirely. Cancels all streams, subscriptions, and timers.
@@ -158,7 +161,7 @@ No files import `log_processor.dart` — all references were removed in Task C7.
 3. After `DeltaWriter.apply()`, if `delta.fileUrls.isNotEmpty`, calls `_handleFileUrls(delta.fileUrls, isPushOriginator: false)` to download files from S3.
 4. After `_handleFileUrls`, if `delta.table == 37` (answer_pages) and `delta.operation != 2` (not a delete), calls `_insertAnswerSubmissions(delta)` to populate `paper_submissions` rows so the UI can discover the downloaded answer files immediately.
 5. Tracks `_lastSeq` — persists it to `accounts.lastSeq` via `AccountsDao.updateLastSeq()` whenever the DeltaWriter flushes its buffer (checked via `bufferIsEmpty` getter). Status transitions to `idle` on flush.
-6. On `GrpcError(StatusCode.unauthenticated)` → stops sync entirely (caller handles token refresh).
+6. On `GrpcError(StatusCode.unauthenticated)` → stops sync entirely and calls `onUnauthenticated?.call()` so `client.dart` can attempt token refresh and restart sync. **(Updated Task D5)**
 7. On other errors or stream completion → sets status to `disconnected`, schedules reconnect with exponential backoff (1s→2s→4s→8s→16s→30s max). All transitions have `debugPrint` for visibility.
 
 **`_insertAnswerSubmissions(SyncDelta delta)`:**
@@ -179,22 +182,27 @@ The push flow was rewritten from a batch-based model (via `LogProcessor`) to a o
 5. Processes the response via `_processActionResponse()`, then sends the next action.
 6. After all actions are acknowledged, closes the stream.
 
-**ActionResponse handling (`_processActionResponse`):**
+**ActionResponse handling (`_processActionResponse(ActionResponse response, SyncAction? action)`):**
+- Accepts the `SyncAction` from the originating log entry (looked up via `actionByLogId` map built in `_pushActions`). **(Updated Task D4)**
 - If `response.success` → apply returned `ActionRow` objects to local DB via `_applyActionRow()`, then delete the log entry.
 - Error codes:
   - Code 1 (permission_denied): marks log as failed via `LogsDao.markFailed()` (shown in notifications).
   - Code 2 (conflict): applies server's rows to local DB, deletes the log entry.
   - Code 3 (validation_error): marks log as failed (user must fix).
-  - Code 4 (not_found): marks log as failed.
+  - Code 4 (not_found): **if `_isDeleteAction(action)` → deletes log (target already gone = success); otherwise marks log as failed.** **(Fixed Task D4)**
   - Default: marks log as failed.
 - Note: `ActionResponse` does not carry a `serverSeq` field — seq advances come through the watch stream exclusively.
+
+**`_isDeleteAction(SyncAction action)` helper:** **(Added Task D4)**
+- Returns `true` for all 27 delete/remove/unassign actions: `deleteSchool`, `deleteTeacher`, `deleteStaff`, `deleteOwner`, `deleteStudent`, `deleteGuardian`, `deleteDepartment`, `deleteTerm`, `deleteTimetableEntry`, `deleteAttendance`, `deleteLesson`, `deleteExam`, `deletePaper`, `deleteGrade`, `deleteFee`, `deleteInvoice`, `deletePayment`, `deleteAnnouncement`, `deleteRole`, `deleteUser`, `deletePlan`, `deleteSubscription`, `deleteDiscount`, `deleteSubject`, `deleteTopic`, `deleteStream`, `deleteMpesa`, `unenrollStudent`, `unassignClassTeacher`, `unassignSubject`, `unassignRole`.
+- Used by error code 4 handler: if the server says "not found" for a delete action, the resource is already gone — treat as success.
 
 **`_applyActionRow(ActionRow row)`:**
 - Converts `ActionRow` to a `SyncDelta` (with `seq: Int64.ZERO`, copying `table`, `operation`, `rowKey`, `data`).
 - Calls `DeltaWriter.apply()` then immediately `DeltaWriter.flush()` — push response rows are written right away rather than waiting for the buffer to fill.
 
 **Push stream error handling:**
-- On `GrpcError(StatusCode.unauthenticated)` during push → stops sync entirely.
+- On `GrpcError(StatusCode.unauthenticated)` during push → stops sync entirely and calls `onUnauthenticated?.call()`. **(Updated Task D5)**
 - On other gRPC errors → sets status to `disconnected`, actions remain in logs table for next push cycle.
 - Stream controller is always closed in a `finally` block.
 
@@ -242,8 +250,8 @@ The push flow was rewritten from a batch-based model (via `LogProcessor`) to a o
 - **No coalescing or batching.** Each log row maps 1:1 to an `ActionRequest`. The old batch/coalesce/supersede logic (via `LogProcessor`) has been removed.
 - **One-at-a-time push.** Actions are sent sequentially over a bidirectional gRPC stream. The client sends one `ActionRequest`, waits for the `ActionResponse`, processes it, then sends the next.
 - **Self-contained payloads.** The `payload` blob in each log row is a serialized proto message (e.g. `CreateSchoolPayload`). The sync engine does NOT read other tables to build the request — the payload is pre-built by the DAO at mutation time.
-- **Failed log retry:** Per-action error codes from server: 0=ok (delete log), 1=permission_denied (mark failed), 2=conflict (apply server version, delete log), 3=validation_error (mark failed), 4=not_found (mark failed).
-- **Reactive Unauthorized:** If the server responds with Unauthorized on a stream connection, the sync engine stops — `client.dart` handles token refresh and restarts sync.
+- **Failed log retry:** Per-action error codes from server: 0=ok (delete log), 1=permission_denied (mark failed), 2=conflict (apply server version, delete log), 3=validation_error (mark failed), 4=not_found (**delete log for delete/unassign actions, mark failed for others** — Task D4).
+- **Reactive Unauthorized:** If the server responds with Unauthorized on a push or watch stream, the sync engine stops and calls `onUnauthenticated` — `client.dart` sets this callback to attempt token refresh and restart sync automatically (Task D5).
 - **UI independence:** The UI binds only to Drift streams. Drift streams don't care where data came from. A write from user action and a write from sync both trigger the same `Stream<T>` updates.
 
 ## Sync-Write vs User-Write Verification (Task 11)
@@ -268,6 +276,11 @@ The push flow was rewritten from a batch-based model (via `LogProcessor`) to a o
 - **Depended on by:** `client.dart` (✅ integrated — `Client.syncEngine` field, `Client._connectivityMonitor` field, `SyncEngine get sync` global getter, start/stop wired into `active()`, `saveAccount()`, `switchAccount()`, `logOut()`; connectivity monitor started in `_startSync()`, stopped in `switchAccount()` and `logOut()`), `ui/widgets/sync_indicator.dart` (binds to `sync.status` ValueNotifier), `main.dart` (global `runZonedGuarded` zone catches unhandled http2 transport errors, `_SyncLifecycleObserver` calls `sync.revive()` on app resume)
 
 ## Last Updated
+Tasks D4, D5 — Sync engine fixes:
+- **D4:** Error code 4 (not_found) now distinguishes delete/unassign actions from update/create actions. Delete actions whose target is already gone server-side are treated as success (log deleted). Other actions are still marked failed. Added `_isDeleteAction(SyncAction)` helper and `SyncAction? action` parameter to `_processActionResponse`. `_pushActions` builds `actionByLogId` map from pending logs to pass action to response handler.
+- **D5:** Added `VoidCallback? onUnauthenticated` field. Both push (`_pushActions` catch block) and watch (`_onWatchError`) unauthenticated handlers now call `onUnauthenticated?.call()` after `stop()`. `client.dart` wires this to attempt token refresh via `_refresh()` and restart sync via `_startSync()`.
+
+Previous:
 Connectivity monitoring fix (BUG-020 — Sync engine does not react to connectivity changes):
 - **New file:** `connectivity.dart` — `ConnectivityMonitor` class using `connectivity_plus: ^6.1.4`. Listens to `Connectivity().onConnectivityChanged` (returns `List<ConnectivityResult>` in v6 API). Tracks `_wasOnline` state to detect offline→online transitions. Debounces rapid flaps with a 500 ms `Timer`. Fires `onOnline` callback on confirmed transition. `start()` does an initial `checkConnectivity()` call (fire-and-forget) to set accurate baseline. `stop()` cancels subscription and debounce timer.
 - **Modified:** `client.dart` — Added `import 'sync/connectivity.dart'`. Added `late final ConnectivityMonitor _connectivityMonitor` field to `Client`, initialized in constructor with `onOnline: () => syncEngine.revive()`. `_startSync()` now calls `_connectivityMonitor.start()` after `syncEngine.start()`. `switchAccount()` and `logOut()` call `_connectivityMonitor.stop()` before `syncEngine.stop()`.

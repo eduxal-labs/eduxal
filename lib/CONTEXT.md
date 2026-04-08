@@ -47,10 +47,11 @@ UI (screens/widgets) → Services → DAOs → Drift (SQLite)
 - **Dependencies:** `core/constants.dart`, `core/app_cache.dart`, `database/database.dart`, all DAO files, `models/authenticated.dart`, `models/result.dart`, `services/authentication.dart`, `sync/sync_engine.dart`.
 - **Key behaviour:**
   - `active()` — pure DB read. If access token expired → `_refresh()`. If refresh token expired → delete account, return null. **On success, starts `SyncEngine`** via `_startSync()`.
-  - `saveAccount()` — recomputes token expiry from `now`, writes to both `users` and `accounts` tables in a transaction, sets active. **If sync was running, restarts it** with the fresh token.
+  - `saveAccount()` — recomputes token expiry from `now`, writes to both `users` and `accounts` tables in a transaction, sets active. **If sync was running, restarts it** with the fresh token. Also calls `_startSync()` internally.
   - `switchAccount()` — **stops sync** for the previous account, switches, and **starts sync** for the new one.
-  - `logOut()` — **stops sync**, deletes active account. If 1 remains, auto-activates it and starts sync. If 0, returns to unauthenticated state.
+  - `logOut()` — **stops sync**, deletes active account. If 1 remains, auto-activates it via `saveAccount()` (which already starts sync — no separate `_startSync` call). If 0, wipes all data. **(Fixed Task D6 — removed duplicate `_startSync` call)**
   - `_startSync(Authenticated)` — internal helper that calls `syncEngine.start()` with accountId, accessToken, and lastSeq from the `Authenticated` model.
+  - **Constructor** sets `syncEngine.onUnauthenticated` callback — on unauthenticated, attempts token refresh via `_refresh()` and restarts sync via `_startSync()`. **(Added Task D5)**
 
 ### `main.dart`
 - **Status:** ✅ Complete
@@ -66,4 +67,8 @@ UI (screens/widgets) → Services → DAOs → Drift (SQLite)
 - Every local mutation to a synced table writes a corresponding row to the `logs` table.
 
 ## Last Updated
-Task 1001 — Updated to reflect UI overhaul (Tracks 1–10). No structural changes to `lib/` top-level layout — all changes were within existing subdirectories (`ui/`, `models/`, `database/`, `services/`, `core/`).
+Tasks D5, D6 — Sync/client fixes:
+- **D5:** `Client` constructor now sets `syncEngine.onUnauthenticated` callback. When the sync engine receives `StatusCode.unauthenticated` from the server (push or watch), it stops sync and fires this callback. The callback reads the active account, attempts `_refresh(refreshToken)`, and on success calls `_startSync(refreshed)` to resume sync with fresh tokens. On failure (refresh token also expired), logs that the user must re-login.
+- **D6:** Removed duplicate `_startSync(first)` call in `logOut()` when exactly one account remains after logout. `saveAccount(first)` already calls `_startSync()` internally — the extra call caused a double stop-and-restart that killed in-flight sync operations.
+
+Previous: Task 1001 — Updated to reflect UI overhaul (Tracks 1–10). No structural changes to `lib/` top-level layout — all changes were within existing subdirectories (`ui/`, `models/`, `database/`, `services/`, `core/`).
