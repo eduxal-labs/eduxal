@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart' hide Action;
 
-import '../../../../database/database.dart';
 import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../database/tables/enums.dart';
 import '../../../../models/school_config.dart';
@@ -64,61 +63,6 @@ const kSubjectColors = [
 
 Color colorForSubject(int subjectCode) {
   return kSubjectColors[subjectCode.abs() % kSubjectColors.length];
-}
-
-/// Builds a [SchoolConfig] from raw [SchoolStream] rows, grouping by
-/// curriculum type and grade. Shared by all timetable view variants
-/// (owner, teacher, staff, student/guardian).
-SchoolConfig buildConfigFromStreams(List<SchoolStream> allStreams) {
-  if (allStreams.isEmpty) return SchoolConfig.defaults();
-
-  final allGrades = allStreams.map((s) => s.grade).toSet();
-  final byGrade = <int, List<SchoolStream>>{};
-  for (final s in allStreams) {
-    byGrade.putIfAbsent(s.grade, () => []).add(s);
-  }
-
-  CurriculumType curriculumForGrade(int grade) {
-    if (grade >= 41) return CurriculumType.eightFourFour;
-    if (grade >= 9) return CurriculumType.cbc;
-    if (allGrades.any((g) => g >= 41)) return CurriculumType.eightFourFour;
-    return CurriculumType.cbc;
-  }
-
-  final cbcGrades = <GradeConfig>[];
-  final eftGrades = <GradeConfig>[];
-
-  for (final entry in byGrade.entries) {
-    final gradeNum = entry.key;
-    final streamRows = entry.value
-      ..sort((a, b) => a.stream.compareTo(b.stream));
-    final gradeStreams = streamRows
-        .map((s) => GradeStream(name: s.name, code: s.stream))
-        .toList();
-    final gc = GradeConfig(grade: gradeNum, streams: gradeStreams);
-    if (curriculumForGrade(gradeNum) == CurriculumType.cbc) {
-      cbcGrades.add(gc);
-    } else {
-      eftGrades.add(gc);
-    }
-  }
-
-  cbcGrades.sort((a, b) => a.grade.compareTo(b.grade));
-  eftGrades.sort((a, b) => a.grade.compareTo(b.grade));
-
-  final curricula = <CurriculumConfig>[];
-  if (cbcGrades.isNotEmpty) {
-    curricula.add(
-      CurriculumConfig(type: CurriculumType.cbc, grades: cbcGrades),
-    );
-  }
-  if (eftGrades.isNotEmpty) {
-    curricula.add(
-      CurriculumConfig(type: CurriculumType.eightFourFour, grades: eftGrades),
-    );
-  }
-
-  return SchoolConfig(curricula: curricula);
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
