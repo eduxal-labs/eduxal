@@ -1005,7 +1005,7 @@ Alternative (better): Replace the `FutureBuilder` with an inline `.then()` on th
 
 ---
 
-### Task F3: Triple stream subscription in system school detail screen
+### Task F3: Triple stream subscription in system school detail screen ✅
 
 **Files to modify:** `lib/ui/screens/system/schools/school_detail_screen.dart`
 **Context files to read:** `lib/ui/screens/system/CONTEXT.md`
@@ -1026,8 +1026,8 @@ The school detail screen creates 3 separate `StreamBuilder<SchoolsData?>` widget
 3. Pass the live `SchoolsData` down to the app bar title, edit button, and body.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` and `lib/database/daos/CONTEXT.md` — note the fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` and `lib/database/daos/CONTEXT.md` — note the fix
+- [x] Mark this task `[x]`
 
 ---
 
