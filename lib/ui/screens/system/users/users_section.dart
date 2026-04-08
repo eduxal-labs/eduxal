@@ -184,9 +184,8 @@ class _UsersSectionState extends State<UsersSection> {
       return;
     }
 
-    // Guard: do not allow promoting deleted or suspended users.
-    if (user.status == UserStatus.deleted ||
-        user.status == UserStatus.suspended) {
+    // Guard: only active users may be promoted.
+    if (user.status != UserStatus.active) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Cannot promote a ${user.status.name} user')),
@@ -223,6 +222,17 @@ class _UsersSectionState extends State<UsersSection> {
 
   Future<void> _demoteUser(UsersData user, UserLevel targetLevel) async {
     final label = targetLevel == UserLevel.system ? 'System' : 'Normal';
+
+    // Guard: no user may demote themselves.
+    final currentUser = cache.currentUser;
+    if (currentUser != null && user.id == currentUser.user.id) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('You cannot demote yourself')),
+        );
+      }
+      return;
+    }
 
     final confirmed = await showEduConfirmDialog(
       context: context,
@@ -526,7 +536,8 @@ class _UsersSectionState extends State<UsersSection> {
                               ),
                             );
                           }
-                          if (canSeeDeleted) {
+                          if (canSeeDeleted &&
+                              user.status == UserStatus.deleted) {
                             actions.add(
                               _RowAction(
                                 icon: Icons.delete_forever_rounded,

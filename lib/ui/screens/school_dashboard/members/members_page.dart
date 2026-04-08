@@ -151,6 +151,9 @@ class _MembersPageBodyState extends State<_MembersPageBody>
     final ct = _currentTab;
     if (ct == null) return false;
 
+    final entry = widget.schoolContext.currentEntry.value;
+    if (entry is OwnerEntry) return true;
+
     final perms = widget.schoolContext.permissions;
 
     return switch (ct) {

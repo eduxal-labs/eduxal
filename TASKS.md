@@ -176,7 +176,7 @@ These bugs expose data or actions to users who shouldn't have access. Fix after 
 
 ---
 
-### Task B1: Settings tab gate only checks `Plans.Read`, excluding `Subjects.Read` + inner sub-tabs not individually gated
+### Task B1: Settings tab gate only checks `Plans.Read`, excluding `Subjects.Read` + inner sub-tabs not individually gated ✅
 
 **Files to modify:** `lib/ui/screens/system/system_dashboard_screen.dart`
 **Context files to read:** `lib/ui/screens/system/CONTEXT.md`
@@ -217,8 +217,8 @@ if (_permissions.can(Resource.plans, Action.read))
    Update the `TabController` length and `TabBarView` children accordingly. If only one sub-resource is readable, skip the inner tab bar entirely and render the single section directly.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note the fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — note the fix
+- [x] Mark this task `[x]`
 
 ---
 

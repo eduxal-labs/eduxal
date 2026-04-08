@@ -264,7 +264,8 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
           icon: Icons.verified_user_outlined,
           label: 'Roles',
         ),
-      if (_permissions.can(Resource.plans, Action.read))
+      if (_permissions.can(Resource.plans, Action.read) ||
+          _permissions.can(Resource.subjects, Action.read))
         const _TabItem(
           id: _TabId.settings,
           icon: Icons.settings_outlined,
@@ -306,7 +307,8 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
           icon: Icons.verified_user_outlined,
           label: 'Roles',
         ),
-      if (_permissions.can(Resource.plans, Action.read))
+      if (_permissions.can(Resource.plans, Action.read) ||
+          _permissions.can(Resource.subjects, Action.read))
         const _TabItem(
           id: _TabId.settings,
           icon: Icons.settings_outlined,
@@ -697,28 +699,57 @@ class _SettingsTabBody extends StatefulWidget {
 
 class _SettingsTabBodyState extends State<_SettingsTabBody>
     with SingleTickerProviderStateMixin {
-  late final TabController _innerTabController;
+  TabController? _innerTabController;
   final ValueNotifier<CurriculumType> _curriculum = ValueNotifier(
     CurriculumType.cbc,
   );
 
+  bool get _canSeePlans => widget.permissions.can(Resource.plans, Action.read);
+  bool get _canSeeSubjects =>
+      widget.permissions.can(Resource.subjects, Action.read);
+  int get _innerTabCount => (_canSeePlans ? 1 : 0) + (_canSeeSubjects ? 1 : 0);
+
   @override
   void initState() {
     super.initState();
-    _innerTabController = TabController(length: 2, vsync: this);
-    _innerTabController.addListener(_handleTabChange);
+    _syncInnerTabs();
+  }
+
+  @override
+  void didUpdateWidget(covariant _SettingsTabBody old) {
+    super.didUpdateWidget(old);
+    final oldPlans = old.permissions.can(Resource.plans, Action.read);
+    final oldSubjects = old.permissions.can(Resource.subjects, Action.read);
+    if (oldPlans != _canSeePlans || oldSubjects != _canSeeSubjects) {
+      _syncInnerTabs();
+      setState(() {});
+    }
+  }
+
+  /// (Re-)creates the inner [TabController] when the visible tab count
+  /// changes. When only one sub-resource is readable, no controller is
+  /// needed — the single section is rendered directly.
+  void _syncInnerTabs() {
+    _innerTabController?.removeListener(_handleTabChange);
+    _innerTabController?.dispose();
+    if (_innerTabCount > 1) {
+      _innerTabController = TabController(length: _innerTabCount, vsync: this);
+      _innerTabController!.addListener(_handleTabChange);
+    } else {
+      _innerTabController = null;
+    }
   }
 
   void _handleTabChange() {
-    if (!_innerTabController.indexIsChanging) {
+    if (_innerTabController != null && !_innerTabController!.indexIsChanging) {
       setState(() {});
     }
   }
 
   @override
   void dispose() {
-    _innerTabController.removeListener(_handleTabChange);
-    _innerTabController.dispose();
+    _innerTabController?.removeListener(_handleTabChange);
+    _innerTabController?.dispose();
     _curriculum.dispose();
     super.dispose();
   }
@@ -727,8 +758,20 @@ class _SettingsTabBodyState extends State<_SettingsTabBody>
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
-    final isPlans = _innerTabController.index == 0;
-    final isSubjects = _innerTabController.index == 1;
+    final canSeePlans = _canSeePlans;
+    final canSeeSubjects = _canSeeSubjects;
+    final hasBothTabs = canSeePlans && canSeeSubjects;
+
+    // Determine which section is currently active.
+    final bool showingPlans;
+    final bool showingSubjects;
+    if (hasBothTabs && _innerTabController != null) {
+      showingPlans = _innerTabController!.index == 0;
+      showingSubjects = _innerTabController!.index == 1;
+    } else {
+      showingPlans = canSeePlans;
+      showingSubjects = canSeeSubjects;
+    }
 
     final canCreatePlan = widget.permissions.can(Resource.plans, Action.create);
     final canCreateSubject = widget.permissions.can(
@@ -742,22 +785,25 @@ class _SettingsTabBodyState extends State<_SettingsTabBody>
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: Row(
             children: [
-              Expanded(
-                child: EduTabBar(
-                  controller: _innerTabController,
-                  isScrollable: true,
-                  tabs: const [
-                    EduTab(label: 'Plans'),
-                    EduTab(label: 'Subjects'),
-                  ],
-                ),
-              ),
-              if (isSubjects) ...[
+              if (hasBothTabs)
+                Expanded(
+                  child: EduTabBar(
+                    controller: _innerTabController!,
+                    isScrollable: true,
+                    tabs: const [
+                      EduTab(label: 'Plans'),
+                      EduTab(label: 'Subjects'),
+                    ],
+                  ),
+                )
+              else
+                const Spacer(),
+              if (showingSubjects) ...[
                 const SizedBox(width: 8),
                 _buildCurriculumToggle(cs, isDark),
               ],
-              if ((isPlans && canCreatePlan) ||
-                  (isSubjects && canCreateSubject)) ...[
+              if ((showingPlans && canCreatePlan) ||
+                  (showingSubjects && canCreateSubject)) ...[
                 const SizedBox(width: 12),
                 FloatingActionButton.small(
                   heroTag: 'fab_settings_add',
@@ -766,13 +812,13 @@ class _SettingsTabBodyState extends State<_SettingsTabBody>
                     borderRadius: BorderRadius.circular(10),
                   ),
                   onPressed: () {
-                    if (isPlans) {
+                    if (showingPlans) {
                       openCreatePlan(context, widget.permissions);
-                    } else if (isSubjects) {
+                    } else if (showingSubjects) {
                       _showCreateSubject(context);
                     }
                   },
-                  tooltip: isPlans ? 'New Plan' : 'New Subject',
+                  tooltip: showingPlans ? 'New Plan' : 'New Subject',
                   child: const Icon(
                     Icons.add_rounded,
                     size: 20,
@@ -784,16 +830,23 @@ class _SettingsTabBodyState extends State<_SettingsTabBody>
           ),
         ),
         Expanded(
-          child: TabBarView(
-            controller: _innerTabController,
-            children: [
-              PlansSection(permissions: widget.permissions),
-              SubjectsSection(
-                permissions: widget.permissions,
-                curriculumNotifier: _curriculum,
-              ),
-            ],
-          ),
+          child: hasBothTabs && _innerTabController != null
+              ? TabBarView(
+                  controller: _innerTabController!,
+                  children: [
+                    PlansSection(permissions: widget.permissions),
+                    SubjectsSection(
+                      permissions: widget.permissions,
+                      curriculumNotifier: _curriculum,
+                    ),
+                  ],
+                )
+              : showingPlans
+              ? PlansSection(permissions: widget.permissions)
+              : SubjectsSection(
+                  permissions: widget.permissions,
+                  curriculumNotifier: _curriculum,
+                ),
         ),
       ],
     );

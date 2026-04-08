@@ -227,8 +227,18 @@ class _UserDetailSheetState extends State<UserDetailSheet> {
   // ── Action helpers ─────────────────────────────────────────────────────────
 
   Future<void> _updateLevel(UsersData user, UserLevel level) async {
+    // Defense-in-depth: permission check
+    if (!widget.permissions.can(Resource.users, Action.update)) return;
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;
+    // Self-action guard
+    if (user.id == accountId) return;
+    // Level hierarchy: promoting to Super requires viewer to be Super
+    if (level == UserLevel.super_ &&
+        widget.permissions.level != UserLevel.super_)
+      return;
+    // Status guard: only allow level changes for active users
+    if (user.status != UserStatus.active) return;
     try {
       await usersDao.setUserLevel(user.id, level, accountId: accountId);
       if (mounted) {
@@ -247,8 +257,17 @@ class _UserDetailSheetState extends State<UserDetailSheet> {
   }
 
   Future<void> _updateStatus(UsersData user, UserStatus status) async {
+    // Defense-in-depth: check appropriate permission
+    final isDelete = status == UserStatus.deleted;
+    if (isDelete) {
+      if (!widget.permissions.can(Resource.users, Action.delete)) return;
+    } else {
+      if (!widget.permissions.can(Resource.users, Action.update)) return;
+    }
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;
+    // Self-action guard
+    if (user.id == accountId) return;
     try {
       await usersDao.updateUserStatus(user.id, status, accountId: accountId);
       if (mounted) {
@@ -914,61 +933,64 @@ class _AccountActionsCard extends StatelessWidget {
     // ── Status actions ─────────────────────────────────────────────────
     switch (user.status) {
       case UserStatus.invited:
-        addRow(
-          _ActionRow(
-            icon: Icons.block_outlined,
-            iconColor: const Color(0xFFFFB300),
-            label: 'Suspend',
-            sublabel: 'Prevents account access',
-            cs: cs,
-            destructive: true,
-            onTap: () => onConfirmAndRun(
-              title: 'Suspend ${user.name}?',
-              message:
-                  'Suspending this account will prevent them from accessing the system until restored.',
-              confirmLabel: 'Suspend',
-              confirmColor: const Color(0xFFFFB300),
-              onConfirm: () => onUpdateStatus(UserStatus.suspended),
+        if (permissions.can(Resource.users, Action.update))
+          addRow(
+            _ActionRow(
+              icon: Icons.block_outlined,
+              iconColor: const Color(0xFFFFB300),
+              label: 'Suspend',
+              sublabel: 'Prevents account access',
+              cs: cs,
+              destructive: true,
+              onTap: () => onConfirmAndRun(
+                title: 'Suspend ${user.name}?',
+                message:
+                    'Suspending this account will prevent them from accessing the system until restored.',
+                confirmLabel: 'Suspend',
+                confirmColor: const Color(0xFFFFB300),
+                onConfirm: () => onUpdateStatus(UserStatus.suspended),
+              ),
             ),
-          ),
-        );
+          );
       case UserStatus.active:
-        addRow(
-          _ActionRow(
-            icon: Icons.block_outlined,
-            iconColor: const Color(0xFFFFB300),
-            label: 'Suspend',
-            sublabel: 'Prevents account access',
-            cs: cs,
-            destructive: true,
-            onTap: () => onConfirmAndRun(
-              title: 'Suspend ${user.name}?',
-              message:
-                  'Suspending this account will prevent them from accessing the system until restored.',
-              confirmLabel: 'Suspend',
-              confirmColor: const Color(0xFFFFB300),
-              onConfirm: () => onUpdateStatus(UserStatus.suspended),
+        if (permissions.can(Resource.users, Action.update))
+          addRow(
+            _ActionRow(
+              icon: Icons.block_outlined,
+              iconColor: const Color(0xFFFFB300),
+              label: 'Suspend',
+              sublabel: 'Prevents account access',
+              cs: cs,
+              destructive: true,
+              onTap: () => onConfirmAndRun(
+                title: 'Suspend ${user.name}?',
+                message:
+                    'Suspending this account will prevent them from accessing the system until restored.',
+                confirmLabel: 'Suspend',
+                confirmColor: const Color(0xFFFFB300),
+                onConfirm: () => onUpdateStatus(UserStatus.suspended),
+              ),
             ),
-          ),
-        );
-        addRow(
-          _ActionRow(
-            icon: Icons.delete_outline_rounded,
-            iconColor: const Color(0xFFEF5350),
-            label: 'Delete',
-            sublabel: 'Marks account as deleted',
-            cs: cs,
-            destructive: true,
-            onTap: () => onConfirmAndRun(
-              title: 'Delete ${user.name}?',
-              message:
-                  'This will mark the account as deleted. The user will lose access. This action can be reversed by restoring the account.',
-              confirmLabel: 'Delete',
-              confirmColor: const Color(0xFFEF5350),
-              onConfirm: () => onUpdateStatus(UserStatus.deleted),
+          );
+        if (permissions.can(Resource.users, Action.delete))
+          addRow(
+            _ActionRow(
+              icon: Icons.delete_outline_rounded,
+              iconColor: const Color(0xFFEF5350),
+              label: 'Delete',
+              sublabel: 'Marks account as deleted',
+              cs: cs,
+              destructive: true,
+              onTap: () => onConfirmAndRun(
+                title: 'Delete ${user.name}?',
+                message:
+                    'This will mark the account as deleted. The user will lose access. This action can be reversed by restoring the account.',
+                confirmLabel: 'Delete',
+                confirmColor: const Color(0xFFEF5350),
+                onConfirm: () => onUpdateStatus(UserStatus.deleted),
+              ),
             ),
-          ),
-        );
+          );
       case UserStatus.suspended:
         addRow(
           _ActionRow(
@@ -988,24 +1010,25 @@ class _AccountActionsCard extends StatelessWidget {
             ),
           ),
         );
-        addRow(
-          _ActionRow(
-            icon: Icons.delete_outline_rounded,
-            iconColor: const Color(0xFFEF5350),
-            label: 'Delete',
-            sublabel: 'Marks account as deleted',
-            cs: cs,
-            destructive: true,
-            onTap: () => onConfirmAndRun(
-              title: 'Delete ${user.name}?',
-              message:
-                  'This will mark the account as deleted. The user will lose access. This action can be reversed by restoring the account.',
-              confirmLabel: 'Delete',
-              confirmColor: const Color(0xFFEF5350),
-              onConfirm: () => onUpdateStatus(UserStatus.deleted),
+        if (permissions.can(Resource.users, Action.delete))
+          addRow(
+            _ActionRow(
+              icon: Icons.delete_outline_rounded,
+              iconColor: const Color(0xFFEF5350),
+              label: 'Delete',
+              sublabel: 'Marks account as deleted',
+              cs: cs,
+              destructive: true,
+              onTap: () => onConfirmAndRun(
+                title: 'Delete ${user.name}?',
+                message:
+                    'This will mark the account as deleted. The user will lose access. This action can be reversed by restoring the account.',
+                confirmLabel: 'Delete',
+                confirmColor: const Color(0xFFEF5350),
+                onConfirm: () => onUpdateStatus(UserStatus.deleted),
+              ),
             ),
-          ),
-        );
+          );
       case UserStatus.deleted:
         addRow(
           _ActionRow(
@@ -1045,6 +1068,7 @@ class _AccountActionsCard extends StatelessWidget {
                   final accountId = cache.currentUser?.user.id;
                   if (accountId == null) return;
                   await usersDao.purgeUser(user.id, accountId: accountId);
+                  if (context.mounted) Navigator.of(context).pop();
                 },
               ),
             ),
