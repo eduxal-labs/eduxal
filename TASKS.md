@@ -1127,7 +1127,7 @@ All tasks in this track are independent and can run in parallel.
 
 ---
 
-### Task E1: Teacher "My Classes" ViewAll navigates to non-existent tab
+### Task E1: Teacher "My Classes" ViewAll navigates to non-existent tab ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/overview/teacher_overview.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -1145,7 +1145,7 @@ onViewAll: () => DashboardNavigation.goToTab(context, 'Academics'),
 ```
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -1200,7 +1200,7 @@ onViewAll: () => DashboardNavigation.goToTab(context, 'Grades'),
 
 ---
 
-### Task E4: Overview ViewAll buttons silently fail for permission-gated hidden tabs
+### Task E4: Overview ViewAll buttons silently fail for permission-gated hidden tabs ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/overview/teacher_overview.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -1226,7 +1226,7 @@ Where `navLabels` is passed from the parent `SchoolDashboardScreen` or inferred 
 Alternatively, if the number of cases is small after C1/C6, a simpler approach is to just verify each remaining `onViewAll` label matches an existing tab name and fix any mismatches.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -1234,7 +1234,7 @@ Alternatively, if the number of cases is small after C1/C6, a simpler approach i
 
 ---
 
-### Task F1: Teacher "My Papers" stat counts all papers in matched exams
+### Task F1: Teacher "My Papers" stat counts all papers in matched exams ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/overview/teacher_overview.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -1265,11 +1265,11 @@ void _recomputePapers() {
 ```
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
-### Task F2: Teacher "My Classes" count includes ended class-teacher assignments
+### Task F2: Teacher "My Classes" count includes ended class-teacher assignments ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/overview/teacher_overview.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -1290,7 +1290,7 @@ final activeClasses = classTeachers.where((c) =>
 ```
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 

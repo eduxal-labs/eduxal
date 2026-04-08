@@ -16,6 +16,7 @@ Owner-facing school profile and settings editor. Provides a full-page form for e
   - Dirty tracking across all fields with `AnimatedSaveButton`
   - Save writes via `SchoolsDao.updateSchoolDetails()` which auto-creates `SyncAction.updateSchool` log entry
   - Logo save via `FileCache.saveBytes()` + `SchoolsDao.logLogoChange()`
+  - **Post-save refresh (F5 fix):** `_school` is a mutable `SchoolsData` field (not a getter). After successful save, re-reads from `schoolsDao.getSchool()` and updates `_school` via `setState`, preventing stale data if user navigates away and back.
   - Error banner for validation/save failures
   - Responsive: constrained to 560px max-width on desktop, full-width on mobile
   - **Integrations section:** Navigation row linking to `MpesaConfigScreen`
@@ -80,4 +81,4 @@ Owner-facing school profile and settings editor. Provides a full-page form for e
 - Sensitive fields (consumer key, consumer secret, passkey) are masked by default with visibility toggles
 
 ## Last Updated
-Tasks F8 & F9 — Created `MpesaConfigScreen`, added Integrations navigation row and Subscription section to `SchoolSettingsScreen`.
+Task F5 — Fixed stale school data after save: `_school` changed from getter to mutable field, refreshed from DAO after successful save.
