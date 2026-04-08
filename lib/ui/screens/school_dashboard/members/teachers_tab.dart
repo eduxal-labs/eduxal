@@ -3,6 +3,7 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart' hide Action;
 import '../../../widgets/inline_date_picker_dialog.dart';
 import '../../../../client.dart';
+
 import '../../../../database/database.dart';
 import '../../../../database/daos/members_dao.dart';
 import '../../../../database/tables/curriculum_subjects.dart';
@@ -131,10 +132,18 @@ class _TeachersTabState extends State<TeachersTab> {
                     );
                     if (!confirmed || !context.mounted) return false;
                     final service = MemberManagementService(MembersDao(db));
-                    await service.removeTeacher(
+                    final result = await service.removeTeacher(
                       schoolId: widget.schoolId,
                       userId: user.id,
                     );
+                    if (result case Err(:final error) when context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Failed to remove teacher: $error'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
                     return false; // Stream rebuild handles visual removal
                   },
                   child: row,
@@ -1018,8 +1027,22 @@ class _TeacherInfoSheetState extends State<_TeacherInfoSheet> {
     );
     if (!confirmed) return;
 
-    await service.removeTeacher(schoolId: schoolId, userId: teacher.user);
-    if (context.mounted) Navigator.pop(context); // close sheet
+    final result = await service.removeTeacher(
+      schoolId: schoolId,
+      userId: teacher.user,
+    );
+    if (!context.mounted) return;
+    switch (result) {
+      case Ok():
+        Navigator.pop(context); // close sheet
+      case Err(:final error):
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to remove teacher: $error'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+    }
   }
 }
 

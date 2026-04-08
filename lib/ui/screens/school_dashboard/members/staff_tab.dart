@@ -129,10 +129,20 @@ class _StaffTabState extends State<StaffTab> {
                     );
                     if (!confirmed || !context.mounted) return false;
                     final service = MemberManagementService(MembersDao(db));
-                    await service.removeStaff(
+                    final result = await service.removeStaff(
                       schoolId: widget.schoolId,
                       userId: user.id,
                     );
+                    if (result case Err(:final error) when context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Failed to remove staff member: $error',
+                          ),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
                     return false; // Stream rebuild handles visual removal
                   },
                   child: row,
@@ -720,8 +730,23 @@ class _StaffInfoSheet extends StatelessWidget {
     );
     if (!confirmed) return;
 
-    await service.removeStaff(schoolId: schoolId, userId: member.user);
-    if (context.mounted) Navigator.pop(context); // close sheet
+    final result = await service.removeStaff(
+      schoolId: schoolId,
+      userId: member.user,
+    );
+    switch (result) {
+      case Ok():
+        if (context.mounted) Navigator.pop(context); // close sheet
+      case Err(:final error):
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to remove staff member: $error'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+    }
   }
 }
 

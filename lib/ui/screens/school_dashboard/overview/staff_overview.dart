@@ -132,7 +132,9 @@ class StaffOverview extends StatelessWidget {
               spacing: 12,
               runSpacing: 8,
               children: [
-                if (perms.can(Resource.payments, Action.create))
+                if (perms.can(Resource.payments, Action.create) &&
+                    (perms.can(Resource.fees, Action.read) ||
+                        perms.can(Resource.payments, Action.read)))
                   QuickActionChip(
                     icon: Icons.payments_rounded,
                     label: 'Record Payment',

@@ -547,8 +547,8 @@ Compare with `_ExamsTabState` in `exams_tab.dart` which correctly caches the str
 5. Reference the cached `_examStream` in the `StreamBuilder`.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
+- [x] Mark this task `[x]`
 
 ---
 
@@ -636,8 +636,8 @@ if (perms.can(Resource.payments, Action.create) &&
 Alternatively, add `payments.create` to the Finance tab's visibility gate in `_itemsForRole` for `MembershipRole.staff`.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
+- [x] Mark this task `[x]`
 
 ---
 

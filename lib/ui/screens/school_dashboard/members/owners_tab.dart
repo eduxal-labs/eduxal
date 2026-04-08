@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' hide Action;
 
 import '../../../../client.dart';
+
 import '../../../../models/result.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/members_dao.dart';
@@ -129,10 +130,18 @@ class _OwnersTabState extends State<OwnersTab> {
                     );
                     if (!confirmed || !context.mounted) return false;
                     final service = MemberManagementService(MembersDao(db));
-                    await service.removeOwner(
+                    final result = await service.removeOwner(
                       schoolId: widget.schoolId,
                       userId: user.id,
                     );
+                    if (result case Err(:final error) when context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Failed to remove owner: $error'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
                     return false; // Stream rebuild handles visual removal
                   },
                   child: row,

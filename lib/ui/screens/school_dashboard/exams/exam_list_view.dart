@@ -48,6 +48,7 @@ class ExamsListView extends StatefulWidget {
 
 class _ExamsListViewState extends State<ExamsListView> {
   late final ExamsGradesDao _dao;
+  late Stream<List<ExamGroup>> _examStream;
 
   // ── Search & filter state ──────────────────────────────────────────────
   final _searchCtrl = TextEditingController();
@@ -60,6 +61,18 @@ class _ExamsListViewState extends State<ExamsListView> {
   void initState() {
     super.initState();
     _dao = ExamsGradesDao(db);
+    _examStream = _buildStream();
+  }
+
+  @override
+  void didUpdateWidget(covariant ExamsListView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.schoolId != widget.schoolId ||
+        oldWidget.year != widget.year ||
+        oldWidget.term != widget.term ||
+        oldWidget.entry != widget.entry) {
+      _examStream = _buildStream();
+    }
   }
 
   @override
@@ -169,7 +182,7 @@ class _ExamsListViewState extends State<ExamsListView> {
           ),
           Expanded(
             child: StreamBuilder<List<ExamGroup>>(
-              stream: _buildStream(),
+              stream: _examStream,
               builder: (context, snap) {
                 if (snap.connectionState == ConnectionState.waiting) {
                   return const Center(
