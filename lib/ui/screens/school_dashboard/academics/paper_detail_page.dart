@@ -173,10 +173,9 @@ class _PaperDetailPageState extends State<PaperDetailPage>
   /// Whether the current user can enter grades, submit answer sheets, or trigger AI marking.
   /// This IS subject-specific for teachers.
   bool get _canGradeContent {
+    if (widget.schoolContext.currentEntry.value is OwnerEntry) return true;
     final perms = widget.schoolContext.permissions;
-    if (perms.can(Resource.grades, Action.read) ||
-        perms.can(Resource.grades, Action.mark))
-      return true;
+    if (perms.can(Resource.grades, Action.mark)) return true;
     // Teacher-specific fallback: can also grade if they created the exam, are
     // the invigilator, or teach this paper's subject to this class.
     final entry = widget.schoolContext.currentEntry.value;

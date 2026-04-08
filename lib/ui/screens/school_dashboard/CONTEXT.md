@@ -242,7 +242,9 @@ When `ActiveTermContext.hasTerms` is `false`, the dashboard shows a blank state 
 
 
 ## Last Updated
-Tasks C1, C3, C4, C6 — School dashboard nav fixes in `school_dashboard_screen.dart`:
+Task A2 — Security fix in `paper_detail_page.dart`: `_canGradeContent` no longer grants grade write access via `grades.read`. Previously the getter checked `perms.can(Resource.grades, Action.read) || perms.can(Resource.grades, Action.mark)` — meaning any user with only `grades.read` could enter scores, upload answer sheets, and trigger AI marking. Fixed to check only `perms.can(Resource.grades, Action.mark)`. Added `OwnerEntry` bypass (`if (widget.schoolContext.currentEntry.value is OwnerEntry) return true;`) to align with the existing bypass in `ExamGroupDetailView._canMarkGrades`. The teacher-specific fallback (exam creator / invigilator / subject teacher check) remains untouched.
+
+Previous: Tasks C1, C3, C4, C6 — School dashboard nav fixes in `school_dashboard_screen.dart`:
 
 **(C1 — Teacher core 4)** Moved `Academics` and `Exams` from permission-gated section into the always-visible core for `MembershipRole.teacher`. Teacher nav items are now: Overview | Academics | Exams | Timetable (core 4, always visible), followed by permission-gated Members, Finance, Announcements (always visible), Roles. Previously Exams required `exams.read` and Academics required `classes.read` — both are now unconditional. The `ExamsGradesScreen` and `AcademicsScreen` already contain teacher-specific filtering logic (teacher filter, assigned classes/subjects scoping) that handles teachers without explicit read permissions.
 

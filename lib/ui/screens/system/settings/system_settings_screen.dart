@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart' hide Action;
 
-import '../../../../client.dart';
 import '../../../../database/tables/curriculum_subjects.dart';
-import '../../../../database/tables/enums.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../theme/app_theme.dart';
 import '../plans/plans_section.dart';
@@ -23,7 +21,12 @@ import 'subjects_section.dart';
 /// Uses a cupertino-inspired segmented control for tab switching instead of a
 /// traditional Material [TabBar].
 class SystemSettingsScreen extends StatefulWidget {
-  const SystemSettingsScreen({super.key});
+  const SystemSettingsScreen({super.key, required this.permissions});
+
+  /// Pre-loaded permissions for the current user. Must be computed by the
+  /// caller — only [UserLevel.super_] receives [SystemPermissions.superUser()];
+  /// system users receive their actual scoped permissions.
+  final SystemPermissions permissions;
 
   @override
   State<SystemSettingsScreen> createState() => _SystemSettingsScreenState();
@@ -73,14 +76,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen>
     final isDesktop = width >= AppTheme.kMobileBreakpoint;
     final maxWidth = isDesktop ? 780.0 : double.infinity;
 
-    // Load permissions synchronously from cache for gating create/edit.
-    final user = cache.currentUser;
-    final permissions =
-        (user != null &&
-            (user.user.level == UserLevel.super_ ||
-                user.user.level == UserLevel.system))
-        ? SystemPermissions.superUser()
-        : SystemPermissions.none();
+    final permissions = widget.permissions;
 
     return Scaffold(
       backgroundColor: cs.surfaceContainerLowest,
