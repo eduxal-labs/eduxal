@@ -45,13 +45,16 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
     return (select(users)..orderBy([(t) => OrderingTerm.asc(t.name)])).watch();
   }
 
-  /// Emits all users where `level = system`, ordered by name ascending.
+  /// Emits all users where `level >= system` (system + super), ordered by name.
   ///
-  /// Used by the Members tab on the system dashboard. Does **not** include
-  /// Normal or Super users.
+  /// Used by the Members tab on the system dashboard.
   Stream<List<UsersData>> watchSystemMembers() {
     return (select(users)
-          ..where((t) => t.level.equalsValue(UserLevel.system))
+          ..where(
+            (t) =>
+                t.level.equalsValue(UserLevel.system) |
+                t.level.equalsValue(UserLevel.super_),
+          )
           ..orderBy([(t) => OrderingTerm.asc(t.name)]))
         .watch();
   }

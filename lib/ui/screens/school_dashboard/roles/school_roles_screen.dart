@@ -137,6 +137,41 @@ class _SchoolRolesBodyState extends State<_SchoolRolesBody> {
     }
   }
 
+  Future<void> _purgeRole(BuildContext context, Role role) async {
+    final confirmed = await showEduConfirmDialog(
+      context: context,
+      title: 'Permanently destroy role',
+      message:
+          'Permanently destroy "${role.name}"? This cannot be undone.\n\n'
+          'The role and all its permission assignments will be '
+          'irrecoverably removed.',
+      confirmLabel: 'Purge',
+      isDestructive: true,
+    );
+    if (!confirmed || !mounted) return;
+    try {
+      final accountId = cache.currentUser?.user.id;
+      if (accountId == null) return;
+      // TODO: implement proper purge (hard delete vs soft delete).
+      // Currently both Delete and Purge call the same DAO method because
+      // there is no soft-delete/restore path for roles yet. Once soft-delete
+      // is implemented, Purge should bypass trash and permanently erase the
+      // record while Delete should merely mark it as deleted.
+      await _dao.deleteRole(role.id, accountId: accountId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('"${role.name}" permanently deleted')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to purge role: $e')));
+      }
+    }
+  }
+
   // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
@@ -210,7 +245,7 @@ class _SchoolRolesBodyState extends State<_SchoolRolesBody> {
                                   icon: Icons.delete_forever_rounded,
                                   label: 'Purge',
                                   isDestructive: true,
-                                  onTap: (r) => _deleteRole(context, r),
+                                  onTap: (r) => _purgeRole(context, r),
                                 ),
                             ],
                             columns: const [

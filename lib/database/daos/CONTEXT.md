@@ -69,6 +69,7 @@ Each DAO extends `DatabaseAccessor<AppDatabase>` and is annotated with `@DriftAc
 - `getUserById(String id) → Future<UsersData?>` — Single user lookup.
 - `getUserByPhone(String phone) → Future<UsersData?>` — Lookup by phone number.
 - `watchAllUsers() → Stream<List<UsersData>>` — Reactive list of all users.
+- `watchSystemMembers() → Stream<List<UsersData>>` — Reactive list of users where `level >= system` (system + super), ordered by name. **(G8: changed from `level = system` to `level = system OR level = super_` so Super users remain visible in the Members tab after promotion.)**
 - `getSystemPermissions(String userId) → Future<List<RolePermissions>>` — One-shot fetch of system-scoped role permissions (scopes where `school IS NULL`), joined with roles.
 - `watchSystemPermissions(String userId) → Stream<List<RolePermissions>>` — **(New, D01)** Reactive stream of system-scoped role permissions. Re-emits when any matching scope or role row changes. Used by the system dashboard to keep `SystemPermissions` up-to-date via sync deltas.
 
@@ -343,7 +344,9 @@ Other DAOs are created locally where needed (e.g. inside service classes or scre
 - **`logs_dao.dart`** — `markFailed` and `retryLog` changed from `return customStatement(...)` to `await customStatement(...); db.notifyUpdates({TableUpdate('logs')})` so that `watchFailedLogs` and `watchFailedLogCount` streams re-emit on status changes (BUG-008 pattern). `_revertCreate` now collects all touched data table names into a `Set<String> touchedTables` and calls `db.notifyUpdates(touchedTables.map(...).toSet())` after the switch block, ensuring phantom rows are cleared from the UI. The `createPaper` case now includes all 6 PK columns `(school, exam, subject, paper, grade, stream)` using dynamic condition building with `IS NULL` for absent nullable fields, preventing accidental cross-grade/stream deletion (BUG-001 prevention).
 
 ## Last Updated
-Tasks D1, D2, D3 — `logs_dao.dart`: Added `notifyUpdates` to `markFailed`, `retryLog`, and `_revertCreate`; fixed `createPaper` revert to use full 6-column PK.
+Task G8 — `users_dao.dart`: Changed `watchSystemMembers()` filter from `level = system` to `level = system OR level = super_` so that Super users remain visible in the Members tab after promotion.
+
+Previous: Tasks D1, D2, D3 — `logs_dao.dart`: Added `notifyUpdates` to `markFailed`, `retryLog`, and `_revertCreate`; fixed `createPaper` revert to use full 6-column PK.
 
 Previous: Task F12 — `exams_grades_dao.dart`: Added TODO(perf) comment to `watchExamGroups` documenting that when `teacherId` is non-null, all exams for the term are loaded and filtered in Dart (checking exam creator, invigilator, and subject_teachers). Moving the filter to SQL is difficult with Drift's query builder due to the multi-table join/EXISTS logic required. Acceptable for typical term sizes (< 50 exams) but flagged for revisit if performance degrades on large schools.
 

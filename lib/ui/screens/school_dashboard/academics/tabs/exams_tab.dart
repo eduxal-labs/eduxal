@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../../core/formatters.dart';
@@ -53,6 +55,8 @@ class _ExamsTabState extends State<ExamsTab>
   late final AcademicsDao _dao;
   late final CatalogDao _catalogDao;
   late Stream<List<ExamWithPapers>> _stream;
+  StreamSubscription? _subjectSub;
+  StreamSubscription? _configSub;
 
   SchoolConfig _config = SchoolConfig.defaults();
   Map<int, String> _subjectNames = {};
@@ -90,6 +94,13 @@ class _ExamsTabState extends State<ExamsTab>
     }
   }
 
+  @override
+  void dispose() {
+    _subjectSub?.cancel();
+    _configSub?.cancel();
+    super.dispose();
+  }
+
   Stream<List<ExamWithPapers>> _buildStream() {
     return _dao.watchExamsForGradeStream(
       schoolId: widget.schoolId,
@@ -100,8 +111,9 @@ class _ExamsTabState extends State<ExamsTab>
     );
   }
 
-  Future<void> _loadSubjectNames() async {
-    _catalogDao.watchSubjects().listen((subjects) {
+  void _loadSubjectNames() {
+    _subjectSub?.cancel();
+    _subjectSub = _catalogDao.watchSubjects().listen((subjects) {
       if (!mounted) return;
       setState(() {
         _subjectNames = {for (final s in subjects) s.id: s.name};
@@ -109,9 +121,12 @@ class _ExamsTabState extends State<ExamsTab>
     });
   }
 
-  Future<void> _loadConfig() async {
+  void _loadConfig() {
+    _configSub?.cancel();
     final schoolId = widget.schoolContext.membership.school.id;
-    _catalogDao.watchAllStreamsForSchool(schoolId).listen((allStreams) {
+    _configSub = _catalogDao.watchAllStreamsForSchool(schoolId).listen((
+      allStreams,
+    ) {
       if (!mounted) return;
       setState(() {
         _config = _buildConfigFromStreams(allStreams);

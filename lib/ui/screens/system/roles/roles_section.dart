@@ -136,7 +136,10 @@ class _RolesSectionState extends State<RolesSection> {
     try {
       final accountId = cache.currentUser?.user.id;
       if (accountId == null) return;
-      // Purge uses the same deleteRole DAO call — it's a hard delete.
+      // TODO: implement proper purge (hard delete vs soft delete).
+      // Currently both Purge and Delete call the same DAO method because
+      // there is no soft-delete/restore path for roles yet. Once soft-delete
+      // is implemented, Delete should soft-delete and Purge should hard-delete.
       await rolesDao.deleteRole(role.id, accountId: accountId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

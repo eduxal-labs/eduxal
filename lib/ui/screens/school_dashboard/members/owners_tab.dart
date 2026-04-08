@@ -240,8 +240,9 @@ class _OwnerRow extends StatelessWidget {
   Future<void> _confirmRemoveOwner(BuildContext context, UsersData user) async {
     final confirmed = await showEduConfirmDialog(
       context: context,
-      title: 'Remove "${user.name}"?',
-      message: 'This will remove the owner from this school.',
+      title: 'Remove Owner',
+      message:
+          'Remove ${user.name} as an owner of this school? This action can be undone by re-adding them.',
       confirmLabel: 'Remove',
       isDestructive: true,
     );
@@ -252,12 +253,24 @@ class _OwnerRow extends StatelessWidget {
       userId: user.id,
     );
     switch (result) {
-      case Err(:final error) when context.mounted:
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to remove owner: $error')),
-        );
-      default:
-        break;
+      case Ok():
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('"${user.name}" removed'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      case Err(:final error):
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to remove owner: $error'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
     }
   }
 }

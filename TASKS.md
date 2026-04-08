@@ -1538,7 +1538,7 @@ After Task A4 is complete, both `_OwnerRow._confirmRemoveOwner` and `_OwnerInfoS
 This is a verification task after A4. If A4 is done well, both paths should be consistent. If not, align them.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -1558,7 +1558,7 @@ Both school and system role screens have `_purgeRole` methods that call the same
 2. Add a comment explaining that Purge should eventually be a true hard delete (bypassing trash/soft-delete) vs Delete which should be a soft delete — but currently both are hard deletes because there's no soft-delete path.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 

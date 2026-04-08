@@ -114,7 +114,6 @@ class DeltaWriter {
     5,
     6,
     27,
-    25,
     9,
     33,
     11,
@@ -1228,8 +1227,8 @@ class DeltaWriter {
   }
 
   // ---------------------------------------------------------------------------
-  // 23: mastery  — PK: (school, student, grade, subject, topic)
-  //     rowKey: "{school}|{student}|{grade}|{subject}|{topic}"
+  // 23: mastery  — PK: (school, student, subject, topic)
+  //     rowKey: "{school}|{student}|{subject}|{topic}"
   // ---------------------------------------------------------------------------
 
   Future<void> _applyMastery(SyncDelta delta) async {
@@ -1545,7 +1544,7 @@ class DeltaWriter {
     final serverId = _parseInt(delta.rowKey);
     final curriculumIndex = CurriculumType.values
         .firstWhere((e) => e.index_ == row.curriculum)
-        .index;
+        .index_;
 
     // The local optimistic insert uses autoIncrement(), so the local ID may
     // differ from the server-assigned ID. A plain ON CONFLICT(id) would fail

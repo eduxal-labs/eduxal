@@ -229,13 +229,41 @@ class _UserDetailSheetState extends State<UserDetailSheet> {
   Future<void> _updateLevel(UsersData user, UserLevel level) async {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;
-    await usersDao.setUserLevel(user.id, level, accountId: accountId);
+    try {
+      await usersDao.setUserLevel(user.id, level, accountId: accountId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('User level updated to ${level.name}')),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to update level: $e')));
+      }
+    }
   }
 
   Future<void> _updateStatus(UsersData user, UserStatus status) async {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;
-    await usersDao.updateUserStatus(user.id, status, accountId: accountId);
+    try {
+      await usersDao.updateUserStatus(user.id, status, accountId: accountId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('User status updated to ${status.name}')),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to update status: $e')));
+      }
+    }
   }
 
   /// Shows a confirmation dialog and, on confirm, calls [onConfirm].
