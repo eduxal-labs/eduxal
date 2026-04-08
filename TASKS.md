@@ -1128,7 +1128,7 @@ Change threshold from `items.length > 5` to `items.length > 4`. With 5+ items, t
 
 ---
 
-### Task G5: Role Purge and Delete perform identical operations
+### Task G5: Role Purge and Delete perform identical operations ✅
 
 **Files to modify:** `lib/ui/screens/system/roles/roles_section.dart`, `lib/ui/screens/school_dashboard/roles/school_roles_screen.dart`
 **Context files to read:** `lib/ui/screens/system/CONTEXT.md`, `lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -1151,8 +1151,8 @@ Hide the "Delete" button entirely for now. Only show "Purge" to Super users (whi
 Remove the `_deleteRole` method (or leave it with a TODO for future soft-delete support, but ensure it's not called from any UI).
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note the change
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — note the change
+- [x] Mark this task `[x]`
 
 ---
 
