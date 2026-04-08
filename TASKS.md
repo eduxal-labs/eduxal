@@ -552,7 +552,7 @@ Compare with `_ExamsTabState` in `exams_tab.dart` which correctly caches the str
 
 ---
 
-### Task C4: Exam creation page shows ALL school grades, not teacher-scoped
+### Task C4: Exam creation page shows ALL school grades, not teacher-scoped ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/exams/exam_creation_page.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -574,8 +574,8 @@ Compare with `_ExamsTabState` in `exams_tab.dart` which correctly caches the str
 The teacher's assigned grades can be derived from the same `MembersDao.watchTeacherSubjectsForTerm()` and `MembersDao.watchClassTeacherAssignments()` methods used in the overview and academics screens.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
+- [x] Mark this task `[x]`
 
 ---
 
