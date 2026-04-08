@@ -476,7 +476,7 @@ final canDelete = isOwner || perms.can(Resource.announcements, Action.delete);
 
 ---
 
-### Task B7: System dashboard tabs need permission-based visibility gating
+### Task B7: System dashboard tabs need permission-based visibility gating ✅
 
 **Files to modify:** `lib/ui/screens/system/system_dashboard_screen.dart`
 **Context files to read:** `lib/ui/screens/system/CONTEXT.md`, `lib/models/CONTEXT.md`
@@ -514,8 +514,8 @@ final tabs = <_SystemNavItem>[
 Adapt the desktop sidebar the same way. The `_SystemNavItem` structure may vary — match the existing code pattern.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md`
+- [x] Mark this task `[x]`
 
 ---
 

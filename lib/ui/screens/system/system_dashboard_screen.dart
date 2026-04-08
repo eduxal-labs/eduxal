@@ -29,19 +29,19 @@ import 'roles/create_role_sheet.dart';
 import 'members/members_section.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tab index constants — mobile (7 tabs: Home, Users, Members, Schools, Roles, Settings, Notifications)
+// Dynamic tab identity — tabs are gated by permissions at runtime.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const int _kMobileTabHome = 0;
-const int _kMobileTabMembers = 2;
-const int _kMobileTabSettings = 5;
-const int _kMobileTabNotifications = 6;
+/// Unique identity for each possible tab, independent of display index.
+enum _TabId { home, users, members, schools, roles, settings, notifications }
 
-// Desktop tab indices (6 tabs: Users, Members, Schools, Roles, Settings, Notifications)
-const int _kDesktopTabUsers = 0;
-const int _kDesktopTabMembers = 1;
-const int _kDesktopTabSchools = 2;
-const int _kDesktopTabRoles = 3;
+/// Lightweight descriptor for a visible tab — carries identity, icon, and label.
+class _TabItem {
+  const _TabItem({required this.id, required this.icon, required this.label});
+  final _TabId id;
+  final IconData icon;
+  final String label;
+}
 
 /// The fully-functional system dashboard screen.
 ///
@@ -85,14 +85,20 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
   /// Scaffold key — used for scaffold access.
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  /// Mobile tab controller (6 tabs: Home, Users, Members, Schools, Roles, Settings).
-  late final TabController _mobileTabController;
+  /// Visible mobile tabs — rebuilt when permissions change.
+  List<_TabItem> _mobileTabs = const [];
 
-  /// Desktop tab controller (Users=0, Members=1, Schools=2, Roles=3, Settings=4, Notifications=5).
+  /// Visible desktop tabs — rebuilt when permissions change.
+  List<_TabItem> _desktopTabs = const [];
+
+  /// Mobile tab controller — length matches [_mobileTabs].
+  late TabController _mobileTabController;
+
+  /// Desktop tab controller — length matches [_desktopTabs].
   /// No explicit listener needed — desktop uses [AnimatedBuilder] on the
   /// controller directly (see [_DesktopBody] + button builder) so rebuilds
   /// are driven by the animation, not a manual [setState] callback.
-  late final TabController _desktopTabController;
+  late TabController _desktopTabController;
 
   /// Entrance animation.
   late final AnimationController _entranceController;
@@ -104,9 +110,17 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
   @override
   void initState() {
     super.initState();
-    _mobileTabController = TabController(length: 7, vsync: this);
+    _mobileTabs = _computeMobileTabs();
+    _desktopTabs = _computeDesktopTabs();
+    _mobileTabController = TabController(
+      length: _mobileTabs.length,
+      vsync: this,
+    );
     _mobileTabController.addListener(_onMobileTabChanged);
-    _desktopTabController = TabController(length: 6, vsync: this);
+    _desktopTabController = TabController(
+      length: _desktopTabs.length,
+      vsync: this,
+    );
 
     _entranceController = AnimationController(
       vsync: this,
@@ -155,6 +169,7 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
     if (user.user.level == UserLevel.super_) {
       setState(() {
         _permissions = SystemPermissions.superUser();
+        _syncTabControllers();
       });
       // Super users bypass all checks, no need to watch.
       return;
@@ -165,6 +180,7 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
     if (!mounted) return;
     setState(() {
       _permissions = SystemPermissions.forUser(user.user.level, rolePerms);
+      _syncTabControllers();
     });
 
     // Subscribe to reactive watch stream so permissions update when
@@ -179,7 +195,10 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
         debugPrint(
           '[SystemDashboard] Permissions changed via watch stream — updating',
         );
-        setState(() => _permissions = updated);
+        setState(() {
+          _permissions = updated;
+          _syncTabControllers();
+        });
       }
     });
   }
@@ -203,8 +222,155 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
     final updated = SystemPermissions.forUser(user.user.level, rolePerms);
     if (updated.permissions != _permissions.permissions) {
       debugPrint('[SystemDashboard] Permissions changed on resume — updating');
-      setState(() => _permissions = updated);
+      setState(() {
+        _permissions = updated;
+        _syncTabControllers();
+      });
     }
+  }
+
+  // ── Tab computation ────────────────────────────────────────────────────────
+
+  /// All possible mobile tabs with their permission gates.
+  /// Home and Notifications are always visible; others require read permission.
+  List<_TabItem> _computeMobileTabs() {
+    return [
+      const _TabItem(
+        id: _TabId.home,
+        icon: Icons.bar_chart_rounded,
+        label: 'Home',
+      ),
+      if (_permissions.can(Resource.users, Action.read))
+        const _TabItem(
+          id: _TabId.users,
+          icon: Icons.people_outline_rounded,
+          label: 'Users',
+        ),
+      if (_permissions.can(Resource.users, Action.read))
+        const _TabItem(
+          id: _TabId.members,
+          icon: Icons.shield_outlined,
+          label: 'Members',
+        ),
+      if (_permissions.can(Resource.schools, Action.read))
+        const _TabItem(
+          id: _TabId.schools,
+          icon: Icons.school_outlined,
+          label: 'Schools',
+        ),
+      if (_permissions.can(Resource.roles, Action.read))
+        const _TabItem(
+          id: _TabId.roles,
+          icon: Icons.verified_user_outlined,
+          label: 'Roles',
+        ),
+      if (_permissions.can(Resource.plans, Action.read))
+        const _TabItem(
+          id: _TabId.settings,
+          icon: Icons.settings_outlined,
+          label: 'Settings',
+        ),
+      const _TabItem(
+        id: _TabId.notifications,
+        icon: Icons.notifications_outlined,
+        label: 'Notifications',
+      ),
+    ];
+  }
+
+  /// All possible desktop tabs with their permission gates.
+  /// Desktop has no Home tab (stats shown above tab bar). Notifications always visible.
+  List<_TabItem> _computeDesktopTabs() {
+    return [
+      if (_permissions.can(Resource.users, Action.read))
+        const _TabItem(
+          id: _TabId.users,
+          icon: Icons.people_outline_rounded,
+          label: 'Users',
+        ),
+      if (_permissions.can(Resource.users, Action.read))
+        const _TabItem(
+          id: _TabId.members,
+          icon: Icons.shield_outlined,
+          label: 'Members',
+        ),
+      if (_permissions.can(Resource.schools, Action.read))
+        const _TabItem(
+          id: _TabId.schools,
+          icon: Icons.school_outlined,
+          label: 'Schools',
+        ),
+      if (_permissions.can(Resource.roles, Action.read))
+        const _TabItem(
+          id: _TabId.roles,
+          icon: Icons.verified_user_outlined,
+          label: 'Roles',
+        ),
+      if (_permissions.can(Resource.plans, Action.read))
+        const _TabItem(
+          id: _TabId.settings,
+          icon: Icons.settings_outlined,
+          label: 'Settings',
+        ),
+      const _TabItem(
+        id: _TabId.notifications,
+        icon: Icons.notifications_outlined,
+        label: 'Notifications',
+      ),
+    ];
+  }
+
+  /// Recomputes visible tab lists and recreates [TabController]s when the
+  /// number of visible tabs changes (e.g. after a permissions update).
+  void _syncTabControllers() {
+    final newMobileTabs = _computeMobileTabs();
+    final newDesktopTabs = _computeDesktopTabs();
+
+    if (newMobileTabs.length != _mobileTabs.length) {
+      final clampedIndex = _mobileTabController.index.clamp(
+        0,
+        newMobileTabs.length - 1,
+      );
+      _mobileTabController.removeListener(_onMobileTabChanged);
+      _mobileTabController.dispose();
+      _mobileTabController = TabController(
+        length: newMobileTabs.length,
+        vsync: this,
+        initialIndex: clampedIndex,
+      );
+      _mobileTabController.addListener(_onMobileTabChanged);
+    }
+
+    if (newDesktopTabs.length != _desktopTabs.length) {
+      final clampedIndex = _desktopTabController.index.clamp(
+        0,
+        newDesktopTabs.length - 1,
+      );
+      _desktopTabController.dispose();
+      _desktopTabController = TabController(
+        length: newDesktopTabs.length,
+        vsync: this,
+        initialIndex: clampedIndex,
+      );
+    }
+
+    _mobileTabs = newMobileTabs;
+    _desktopTabs = newDesktopTabs;
+  }
+
+  /// Maps a [_TabId] to the corresponding section widget (mobile layout).
+  Widget _contentForTab(_TabId id) {
+    return switch (id) {
+      _TabId.home => SystemStatsSection(permissions: _permissions),
+      _TabId.users => UsersSection(permissions: _permissions),
+      _TabId.members => MembersSection(permissions: _permissions),
+      _TabId.schools => SchoolsSection(permissions: _permissions),
+      _TabId.roles => RolesSection(permissions: _permissions),
+      _TabId.settings => _SettingsTabBody(permissions: _permissions),
+      _TabId.notifications => NotificationsSection(
+        accountId: cache.currentUser?.user.id,
+      ),
+    };
   }
 
   // ── Add Member modal ──────────────────────────────────────────────────────
@@ -220,11 +386,12 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
   // ── FAB logic (mobile only) ────────────────────────────────────────────────
 
   bool get _showFab {
-    final tab = _mobileTabController.index;
+    if (_mobileTabs.isEmpty) return false;
+    final tabId = _mobileTabs[_mobileTabController.index].id;
     // FAB on: Users, Members, Schools, Roles (not Home, Settings, or Notifications).
-    if (tab == _kMobileTabHome ||
-        tab == _kMobileTabSettings ||
-        tab == _kMobileTabNotifications) {
+    if (tabId == _TabId.home ||
+        tabId == _TabId.settings ||
+        tabId == _TabId.notifications) {
       return false;
     }
     return _permissions.can(Resource.users, Action.create) ||
@@ -346,15 +513,7 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
           EduTabBar(
             controller: _mobileTabController,
             padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
-            tabs: const [
-              EduTab(icon: Icons.bar_chart_rounded),
-              EduTab(icon: Icons.people_outline_rounded),
-              EduTab(icon: Icons.shield_outlined),
-              EduTab(icon: Icons.school_outlined),
-              EduTab(icon: Icons.verified_user_outlined),
-              EduTab(icon: Icons.settings_outlined),
-              EduTab(icon: Icons.notifications_outlined),
-            ],
+            tabs: _mobileTabs.map((t) => EduTab(icon: t.icon)).toList(),
           ),
           // ── Animated tab content ─────────────────────────────────────
           Expanded(
@@ -364,15 +523,9 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
                 opacity: _fadeIn,
                 child: TabBarView(
                   controller: _mobileTabController,
-                  children: [
-                    SystemStatsSection(permissions: _permissions),
-                    UsersSection(permissions: _permissions),
-                    MembersSection(permissions: _permissions),
-                    SchoolsSection(permissions: _permissions),
-                    RolesSection(permissions: _permissions),
-                    _SettingsTabBody(permissions: _permissions),
-                    NotificationsSection(accountId: cache.currentUser?.user.id),
-                  ],
+                  children: _mobileTabs
+                      .map((t) => _contentForTab(t.id))
+                      .toList(),
                 ),
               ),
             ),
@@ -386,14 +539,14 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
 
   Widget _buildFab(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final tab = _mobileTabController.index;
+    final tabId = _mobileTabs[_mobileTabController.index].id;
 
     final canInvite = _permissions.can(Resource.users, Action.create);
     final canAddMember = _permissions.can(Resource.users, Action.update);
     final canCreateSchool = _permissions.can(Resource.schools, Action.create);
     final canCreateRole = _permissions.can(Resource.roles, Action.create);
-    // Members tab (index 2) — only the addMember action is relevant.
-    if (tab == _kMobileTabMembers) {
+    // Members tab — only the addMember action is relevant.
+    if (tabId == _TabId.members) {
       if (!canAddMember) return const SizedBox.shrink();
       return FloatingActionButton.small(
         heroTag: 'fab_system_members',
@@ -496,6 +649,7 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
         opacity: _fadeIn,
         child: _DesktopBody(
           tabController: _desktopTabController,
+          tabs: _desktopTabs,
           permissions: _permissions,
           accountId: cache.currentUser?.user.id,
           onInviteUser: _permissions.can(Resource.users, Action.create)
@@ -737,6 +891,7 @@ class _SettingsTabBodyState extends State<_SettingsTabBody>
 class _DesktopBody extends StatelessWidget {
   const _DesktopBody({
     required this.tabController,
+    required this.tabs,
     required this.permissions,
     this.accountId,
     this.onInviteUser,
@@ -746,6 +901,7 @@ class _DesktopBody extends StatelessWidget {
   });
 
   final TabController tabController;
+  final List<_TabItem> tabs;
   final SystemPermissions permissions;
   final String? accountId;
   final VoidCallback? onInviteUser;
@@ -838,14 +994,9 @@ class _DesktopBody extends StatelessWidget {
                           controller: tabController,
                           isScrollable: true,
                           padding: EdgeInsets.zero,
-                          tabs: const [
-                            EduTab(label: 'Users'),
-                            EduTab(label: 'Members'),
-                            EduTab(label: 'Schools'),
-                            EduTab(label: 'Roles'),
-                            EduTab(label: 'Settings'),
-                            EduTab(label: 'Notifications'),
-                          ],
+                          tabs: tabs
+                              .map((t) => EduTab(label: t.label))
+                              .toList(),
                         ),
                       ),
                     ),
@@ -858,12 +1009,12 @@ class _DesktopBody extends StatelessWidget {
                     child: AnimatedBuilder(
                       animation: tabController,
                       builder: (context, _) {
-                        final index = tabController.index;
-                        final VoidCallback? action = switch (index) {
-                          _kDesktopTabUsers => onInviteUser,
-                          _kDesktopTabMembers => onAddMember,
-                          _kDesktopTabSchools => onCreateSchool,
-                          _kDesktopTabRoles => onCreateRole,
+                        final tabId = tabs[tabController.index].id;
+                        final VoidCallback? action = switch (tabId) {
+                          _TabId.users => onInviteUser,
+                          _TabId.members => onAddMember,
+                          _TabId.schools => onCreateSchool,
+                          _TabId.roles => onCreateRole,
                           _ => null,
                         };
 
@@ -898,14 +1049,19 @@ class _DesktopBody extends StatelessWidget {
         Expanded(
           child: TabBarView(
             controller: tabController,
-            children: [
-              UsersSection(permissions: permissions),
-              MembersSection(permissions: permissions),
-              SchoolsSection(permissions: permissions),
-              RolesSection(permissions: permissions),
-              _SettingsTabBody(permissions: permissions),
-              NotificationsSection(accountId: accountId),
-            ],
+            children: tabs.map((t) {
+              return switch (t.id) {
+                _TabId.users => UsersSection(permissions: permissions),
+                _TabId.members => MembersSection(permissions: permissions),
+                _TabId.schools => SchoolsSection(permissions: permissions),
+                _TabId.roles => RolesSection(permissions: permissions),
+                _TabId.settings => _SettingsTabBody(permissions: permissions),
+                _TabId.notifications => NotificationsSection(
+                  accountId: accountId,
+                ),
+                _TabId.home => SystemStatsSection(permissions: permissions),
+              };
+            }).toList(),
           ),
         ),
       ],
