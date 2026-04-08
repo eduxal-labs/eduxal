@@ -471,8 +471,8 @@ final canDelete = isOwner || perms.can(Resource.announcements, Action.delete);
 ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -592,7 +592,7 @@ If `permissions.level` is not exposed on `SystemPermissions`, add a public gette
 
 ---
 
-### Task B10: Purge action on Schools tab shown for all schools, not just deleted ones
+### Task B10: Purge action on Schools tab shown for all schools, not just deleted ones ✅
 
 **Files to modify:** `lib/ui/screens/system/schools/schools_section.dart`
 **Context files to read:** `lib/ui/screens/system/CONTEXT.md`
@@ -612,8 +612,8 @@ if (permissions.canSeeDeleted && school.status == SchoolStatus.deleted)
 ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -1032,8 +1032,8 @@ bool _isDeleteAction(SyncAction action) => switch (action) {
 The `action` (SyncAction) should be available from the log entry being processed. If it's not currently passed to the error handler, extract it from the log entry before the switch.
 
 **Update after completion:**
-- [ ] Update `lib/sync/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/sync/CONTEXT.md`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -1085,9 +1085,9 @@ syncEngine.onUnauthenticated = () async {
 ```
 
 **Update after completion:**
-- [ ] Update `lib/sync/CONTEXT.md`
-- [ ] Update `lib/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/sync/CONTEXT.md`
+- [x] Update `lib/CONTEXT.md`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -1116,8 +1116,8 @@ if (remaining.length == 1) {
 ```
 
 **Update after completion:**
-- [ ] Update `lib/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/CONTEXT.md`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -1400,7 +1400,7 @@ if (updated != null && mounted) {
 
 ---
 
-### Task G1: `_ExamsTabState` leaks two stream subscriptions
+### Task G1: `_ExamsTabState` leaks two stream subscriptions ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/academics/tabs/exams_tab.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -1441,7 +1441,7 @@ void dispose() {
 ```
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -1562,7 +1562,7 @@ Both school and system role screens have `_purgeRole` methods that call the same
 
 ---
 
-### Task G6: DeltaWriter misc fixes (comment, `.index` vs `.index_`, dead table)
+### Task G6: DeltaWriter misc fixes (comment, `.index` vs `.index_`, dead table) ✅
 
 **Files to modify:** `lib/sync/delta_writer.dart`
 **Context files to read:** `lib/sync/CONTEXT.md`
@@ -1585,8 +1585,8 @@ Three minor issues:
 3. Line ~128: Remove `25` from `_flushOrder` list.
 
 **Update after completion:**
-- [ ] Update `lib/sync/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/sync/CONTEXT.md`
+- [x] Mark this task `[x]`
 
 ---
 
