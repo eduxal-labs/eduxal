@@ -164,6 +164,14 @@ class _SchoolSettingsScreenState extends State<SchoolSettingsScreen> {
   // ── Save ──────────────────────────────────────────────────────────────────
 
   Future<void> _save() async {
+    // Defense-in-depth: build() already blocks unauthorized access,
+    // but guard the write path as well.
+    final entry = widget.schoolContext.currentEntry.value;
+    final perms = widget.schoolContext.permissions;
+    if (entry is! OwnerEntry && !perms.can(Resource.schools, Action.update)) {
+      return;
+    }
+
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
       setState(() => _error = 'School name is required.');

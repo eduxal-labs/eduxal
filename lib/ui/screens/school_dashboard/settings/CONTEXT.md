@@ -49,6 +49,7 @@ Owner-facing school profile and settings editor. Provides a full-page form for e
 - **Exports:** `MpesaConfigScreen` (public `StatefulWidget`)
 - **Props:** `SchoolContext schoolContext`
 - **Features:**
+  - **Permission guard (D1):** Defense-in-depth guard via `_hasPermission` getter — checks `entry is OwnerEntry || perms.can(Resource.schools, Action.update)`. Applied in three places: (1) top of `build()` returns `RestrictedAccessState` (from `exams_shared.dart`) for unauthorized users, (2) early return in `_save()`, (3) early return in `_delete()`. `material.dart` import updated to `hide Action` to resolve conflict with `permissions.dart`. New imports: `models/membership.dart` (`OwnerEntry`), `models/permissions.dart` (`Resource`, `Action`), `../exams/exams_shared.dart` (`RestrictedAccessState`).
   - Full Scaffold with AppBar, back button (`Icons.chevron_left_rounded`), delete action, and `AnimatedSaveButton`
   - Environment toggle: sandbox / production (radio-style `_EnvOption` tiles)
   - Business short code field (text, numeric keyboard)
@@ -67,7 +68,10 @@ Owner-facing school profile and settings editor. Provides a full-page form for e
 - **Dependencies:**
   - `client.dart` — `cache`, `catalogDao` globals
   - `database/tables/mpesa.dart` — `MpesaEnv` enum
+  - `models/membership.dart` — `OwnerEntry` (D1 permission guard)
+  - `models/permissions.dart` — `Resource`, `Action` (D1 permission guard)
   - `models/school_context.dart` — `SchoolContext`
+  - `ui/screens/school_dashboard/exams/exams_shared.dart` — `RestrictedAccessState` (D1 permission guard)
   - `ui/theme/app_theme.dart` — design tokens (`kRadius`, `kCardRadius`, `kModalRadius`, `kChipRadius`, `kTabletBreakpoint`)
   - `ui/widgets/animated_save_button.dart` — `AnimatedSaveButton`
 
@@ -81,4 +85,7 @@ Owner-facing school profile and settings editor. Provides a full-page form for e
 - Sensitive fields (consumer key, consumer secret, passkey) are masked by default with visibility toggles
 
 ## Last Updated
+Task D1 — Added defense-in-depth permission guard to `mpesa_config_screen.dart`. Non-owner users without `Resource.schools` / `Action.update` permission are blocked in `build()` (returns `RestrictedAccessState`), `_save()` (early return), and `_delete()` (early return). New `_hasPermission` getter centralises the check. New imports: `models/membership.dart`, `models/permissions.dart`, `../exams/exams_shared.dart`. `material.dart` import updated to `hide Action`.
+
+Previous:
 Task F5 — Fixed stale school data after save: `_school` changed from getter to mutable field, refreshed from DAO after successful save.

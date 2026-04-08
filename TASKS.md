@@ -781,7 +781,7 @@ Both `SchoolSettingsScreen` and `SchoolRolesScreen` perform no permission valida
 
 ---
 
-### Task D3: Owner self-removal button visible in members tab
+### Task D3: Owner self-removal button visible in members tab ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/members/owners_tab.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -803,12 +803,12 @@ The `_OwnerRow` shows a "Remove" action button for ALL owners including the curr
 3. In the mobile Dismissible path, add the same guard — skip the dismissible wrapper entirely for the current user's row.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
+- [x] Mark this task `[x]`
 
 ---
 
-### Task D4: System dashboard logout has no confirmation dialog
+### Task D4: System dashboard logout has no confirmation dialog ✅
 
 **Files to modify:** `lib/ui/screens/system/system_dashboard_screen.dart`
 **Context files to read:** `lib/ui/screens/system/CONTEXT.md`
@@ -837,8 +837,8 @@ case _UserMenuAction.logout:
 ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note the fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — note the fix
+- [x] Mark this task `[x]`
 
 ---
 
@@ -871,8 +871,8 @@ bool get _showFab {
 ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note the fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — note the fix
+- [x] Mark this task `[x]`
 
 ---
 

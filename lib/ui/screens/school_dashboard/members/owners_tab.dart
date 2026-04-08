@@ -99,14 +99,17 @@ class _OwnersTabState extends State<OwnersTab> {
               itemBuilder: (context, i) {
                 final owner = filtered[i];
                 final user = userMap[owner.user];
+                final currentUserId = cache.currentUser?.user.id;
+                final isSelf = owner.user == currentUserId;
                 final row = _OwnerRow(
                   schoolId: widget.schoolId,
                   owner: owner,
                   user: user,
-                  canDelete: _canDelete,
+                  canDelete: _canDelete && !isSelf,
                 );
                 final isMobile = MediaQuery.sizeOf(context).width < 600;
-                if (!isMobile || !_canDelete || user == null) return row;
+                if (!isMobile || !_canDelete || user == null || isSelf)
+                  return row;
                 return Dismissible(
                   key: ValueKey('owner_${owner.user}'),
                   direction: DismissDirection.endToStart,

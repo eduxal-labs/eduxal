@@ -8,6 +8,7 @@ import '../../../database/tables/curriculum_subjects.dart';
 import '../../../models/permissions.dart';
 import '../../../models/system_permissions.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/edu_confirm_dialog.dart';
 import '../../widgets/edu_sheet.dart';
 import '../../widgets/edu_tab_bar.dart';
 import '../../widgets/sync_indicator.dart';
@@ -390,16 +391,13 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
   bool get _showFab {
     if (_mobileTabs.isEmpty) return false;
     final tabId = _mobileTabs[_mobileTabController.index].id;
-    // FAB on: Users, Members, Schools, Roles (not Home, Settings, or Notifications).
-    if (tabId == _TabId.home ||
-        tabId == _TabId.settings ||
-        tabId == _TabId.notifications) {
-      return false;
-    }
-    return _permissions.can(Resource.users, Action.create) ||
-        _permissions.can(Resource.users, Action.assign) ||
-        _permissions.can(Resource.schools, Action.create) ||
-        _permissions.can(Resource.roles, Action.create);
+    return switch (tabId) {
+      _TabId.users => _permissions.can(Resource.users, Action.create),
+      _TabId.schools => _permissions.can(Resource.schools, Action.create),
+      _TabId.roles => _permissions.can(Resource.roles, Action.create),
+      _TabId.members => _permissions.can(Resource.users, Action.assign),
+      _ => false,
+    };
   }
 
   void _toggleFab() => setState(() => _fabExpanded = !_fabExpanded);
@@ -1245,6 +1243,14 @@ class _UserMenuAnchorState extends State<_UserMenuAnchor> {
           );
         }
       case _UserMenuAction.logout:
+        final confirmed = await showEduConfirmDialog(
+          context: context,
+          title: 'Log out?',
+          message: 'You will need to sign in again.',
+          confirmLabel: 'Log out',
+          isDestructive: true,
+        );
+        if (!confirmed || !mounted) return;
         await client.logOut();
         if (!mounted) return;
         Navigator.of(context).pushAndRemoveUntil(

@@ -184,6 +184,31 @@ class _SchoolRolesBodyState extends State<_SchoolRolesBody> {
     final entry = widget.schoolContext.currentEntry.value;
     final isOwner = entry is OwnerEntry;
     final perms = widget.schoolContext.permissions;
+
+    // Defense-in-depth: nav routing should prevent unauthorized access,
+    // but guard here as well.
+    if (!isOwner && !perms.can(Resource.roles, Action.read)) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.lock_outline, size: 48, color: Colors.grey),
+            SizedBox(height: 16),
+            Text('Access restricted'),
+            SizedBox(height: 4),
+            Text(
+              'You don\'t have permission to view roles.',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w300,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     final canCreate = isOwner || perms.can(Resource.roles, Action.create);
     final canEdit = isOwner || perms.can(Resource.roles, Action.update);
     final canDelete = isOwner || perms.can(Resource.roles, Action.delete);

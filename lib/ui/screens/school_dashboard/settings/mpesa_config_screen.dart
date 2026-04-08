@@ -1,10 +1,13 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Action;
 
 import '../../../../client.dart';
 import '../../../../database/tables/mpesa.dart';
+import '../../../../models/membership.dart';
+import '../../../../models/permissions.dart';
 import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/animated_save_button.dart';
+import '../exams/exams_shared.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MpesaConfigScreen — owner-facing M-Pesa Daraja API configuration
@@ -113,7 +116,15 @@ class _MpesaConfigScreenState extends State<MpesaConfigScreen> {
     _onChanged();
   }
 
+  bool get _hasPermission {
+    final entry = widget.schoolContext.currentEntry.value;
+    final perms = widget.schoolContext.permissions;
+    return entry is OwnerEntry || perms.can(Resource.schools, Action.update);
+  }
+
   Future<void> _save() async {
+    if (!_hasPermission) return;
+
     final shortcode = _shortcodeCtrl.text.trim();
     final consumerKey = _consumerKeyCtrl.text.trim();
     final consumerSecret = _consumerSecretCtrl.text.trim();
@@ -186,6 +197,7 @@ class _MpesaConfigScreenState extends State<MpesaConfigScreen> {
   }
 
   Future<void> _delete() async {
+    if (!_hasPermission) return;
     if (!_isUpdate) return;
 
     final accountId = cache.currentUser?.user.id;
@@ -285,6 +297,11 @@ class _MpesaConfigScreenState extends State<MpesaConfigScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Defense-in-depth: block access for non-owners without schools.update.
+    if (!_hasPermission) {
+      return const RestrictedAccessState();
+    }
+
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
     final screenWidth = MediaQuery.sizeOf(context).width;
