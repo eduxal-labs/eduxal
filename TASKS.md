@@ -405,7 +405,7 @@ Import `OwnerEntry` from `models/membership.dart` if not already imported.
 
 ---
 
-### Task B5: Owner RBAC bypass in Finance action buttons
+### Task B5: Owner RBAC bypass in Finance action buttons ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/finance/finance_screen.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -444,8 +444,8 @@ onTap: () {
 ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
+- [x] Mark this task `[x]`
 
 ---
 
