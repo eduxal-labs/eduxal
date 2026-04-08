@@ -374,7 +374,7 @@ Also ensure `_computeVisibleTabs` is re-invoked when the entry changes (if using
 
 ---
 
-### Task B4: Owner RBAC bypass in Roles screen CRUD (chicken-and-egg problem)
+### Task B4: Owner RBAC bypass in Roles screen CRUD (chicken-and-egg problem) ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/roles/school_roles_screen.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -400,8 +400,8 @@ final canDelete = isOwner || perms.can(Resource.roles, Action.delete);
 Import `OwnerEntry` from `models/membership.dart` if not already imported.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
+- [x] Mark this task `[x]`
 
 ---
 

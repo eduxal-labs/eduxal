@@ -242,7 +242,9 @@ When `ActiveTermContext.hasTerms` is `false`, the dashboard shows a blank state 
 
 
 ## Last Updated
-Task B4 — Owner RBAC bypass in Roles screen CRUD. In `school_roles_screen.dart`, `canCreate`, `canEdit`, `canDelete` now include `isOwner` check (`entry is OwnerEntry`) so a freshly added owner with no scope assignments can still create/edit/delete roles (chicken-and-egg fix). Added `import '../../../../models/membership.dart'` for `OwnerEntry`.
+Task B5 — Owner RBAC bypass in Finance action buttons. In `finance_screen.dart`, added `isOwner` (`entry is OwnerEntry`) fallback to all permission checks within the three finance tabs: `_InvoiceListView.build()` (`canRecord`, `canEditInvoice`, `canDeleteInvoice`), `_PaymentsTab.build()` (`canApprove`, `canEdit`, `canDelete`), `_FeesTab.build()` (`canCreateFee`). Owners now see all action buttons regardless of scope assignments. No-op handlers for Invoice edit/delete and Payment approve/edit/delete replaced with "Coming soon" `SnackBar` + `// TODO: implement` comments. `OwnerEntry` was already imported via `models/membership.dart`.
+
+Previous: Task B4 — Owner RBAC bypass in Roles screen CRUD. In `school_roles_screen.dart`, `canCreate`, `canEdit`, `canDelete` now include `isOwner` check (`entry is OwnerEntry`) so a freshly added owner with no scope assignments can still create/edit/delete roles (chicken-and-egg fix). Added `import '../../../../models/membership.dart'` for `OwnerEntry`.
 
 Previous: Task B3 — Owner RBAC bypass in `MembersPage._computeVisibleTabs`. Added early return at the top of `_computeVisibleTabs()`: when the current entry is `OwnerEntry`, returns `_MemberTab.values` (all 6 tabs) without checking permissions.
 
