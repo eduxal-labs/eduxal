@@ -56,7 +56,6 @@ class StaffOverview extends StatelessWidget {
     // Check if staff has ANY meaningful permission at all
     final hasAnyPermission =
         hasAnyStatPermission(perms) ||
-        perms.can(Resource.announcements, Action.read) ||
         perms.can(Resource.roles, Action.read) ||
         perms.can(Resource.attendance, Action.read) ||
         perms.can(Resource.attendance, Action.mark);

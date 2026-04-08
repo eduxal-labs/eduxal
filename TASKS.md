@@ -1308,8 +1308,8 @@ SectionTitle(label: 'Recent Announcements', cs: cs, onViewAll: () => ...),
 ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — note the fix
+- [x] Mark this task `[x]`
 
 ---
 
