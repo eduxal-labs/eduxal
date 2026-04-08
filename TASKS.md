@@ -1355,7 +1355,7 @@ if (mounted) {
 
 ---
 
-### Task F5: School settings shows stale data after save
+### Task F5: School settings shows stale data after save ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/settings/school_settings_screen.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/settings/CONTEXT.md`
@@ -1391,8 +1391,8 @@ if (updated != null && mounted) {
 ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/settings/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/settings/CONTEXT.md`
+- [x] Mark this task `[x]`
 
 ---
 
