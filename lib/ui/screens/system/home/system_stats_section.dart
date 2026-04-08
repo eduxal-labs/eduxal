@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../../client.dart';
+import '../../../../models/permissions.dart';
 import '../../../../models/system_permissions.dart';
 import '../../../../models/system_stats.dart';
 import '../../../theme/app_theme.dart';
@@ -44,37 +45,45 @@ class _StatsCardGrid extends StatelessWidget {
     final canSeeDeleted = permissions.canSeeDeleted;
 
     // Each card is an independent StreamBuilder — errors are isolated.
+    // Cards are permission-gated: a System user without the relevant Read
+    // permission does not see that stat card at all.
     final cardWidgets = <Widget>[
-      _IndependentStatCard<UserStats>(
-        stream: systemStatsDao.watchUserStats(),
-        isDesktop: isDesktop,
-        builder: (stats) => _buildUserCard(stats, canSeeDeleted),
-      ),
-      _IndependentStatCard<SchoolStats>(
-        stream: systemStatsDao.watchSchoolStats(),
-        isDesktop: isDesktop,
-        builder: (stats) => _buildSchoolCard(stats, canSeeDeleted),
-      ),
-      _IndependentStatCard<StudentStats>(
-        stream: systemStatsDao.watchStudentStats(),
-        isDesktop: isDesktop,
-        builder: (stats) => _buildStudentCard(stats),
-      ),
-      _IndependentStatCard<TeacherStats>(
-        stream: systemStatsDao.watchTeacherStats(),
-        isDesktop: isDesktop,
-        builder: (stats) => _buildTeacherCard(stats),
-      ),
-      _IndependentStatCard<SubscriptionStats>(
-        stream: systemStatsDao.watchSubscriptionStats(),
-        isDesktop: isDesktop,
-        builder: (stats) => _buildSubscriptionCard(stats, canSeeDeleted),
-      ),
-      _IndependentStatCard<RevenueStats>(
-        stream: systemStatsDao.watchRevenueStats(),
-        isDesktop: isDesktop,
-        builder: (stats) => _buildRevenueCard(stats),
-      ),
+      if (permissions.can(Resource.users, Action.read))
+        _IndependentStatCard<UserStats>(
+          stream: systemStatsDao.watchUserStats(),
+          isDesktop: isDesktop,
+          builder: (stats) => _buildUserCard(stats, canSeeDeleted),
+        ),
+      if (permissions.can(Resource.schools, Action.read))
+        _IndependentStatCard<SchoolStats>(
+          stream: systemStatsDao.watchSchoolStats(),
+          isDesktop: isDesktop,
+          builder: (stats) => _buildSchoolCard(stats, canSeeDeleted),
+        ),
+      if (permissions.can(Resource.students, Action.read))
+        _IndependentStatCard<StudentStats>(
+          stream: systemStatsDao.watchStudentStats(),
+          isDesktop: isDesktop,
+          builder: (stats) => _buildStudentCard(stats),
+        ),
+      if (permissions.can(Resource.teachers, Action.read))
+        _IndependentStatCard<TeacherStats>(
+          stream: systemStatsDao.watchTeacherStats(),
+          isDesktop: isDesktop,
+          builder: (stats) => _buildTeacherCard(stats),
+        ),
+      if (permissions.can(Resource.plans, Action.read))
+        _IndependentStatCard<SubscriptionStats>(
+          stream: systemStatsDao.watchSubscriptionStats(),
+          isDesktop: isDesktop,
+          builder: (stats) => _buildSubscriptionCard(stats, canSeeDeleted),
+        ),
+      if (permissions.can(Resource.plans, Action.read))
+        _IndependentStatCard<RevenueStats>(
+          stream: systemStatsDao.watchRevenueStats(),
+          isDesktop: isDesktop,
+          builder: (stats) => _buildRevenueCard(stats),
+        ),
     ];
 
     return LayoutBuilder(

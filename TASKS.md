@@ -764,7 +764,7 @@ MembershipRole.staff => [
 
 ---
 
-### Task C5: Staff/Teacher announcements routing — `read` permission routes to filtered feed
+### Task C5: Staff/Teacher announcements routing — `read` permission routes to filtered feed ✅
 
 **Files to modify:** `lib/ui/screens/school_dashboard/announcements/announcements_screen.dart`
 **Context files to read:** `lib/ui/screens/school_dashboard/CONTEXT.md`
@@ -793,8 +793,8 @@ StaffEntry() =>
 Same change for `TeacherEntry`.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md`
+- [x] Mark this task `[x]`
 
 ---
 

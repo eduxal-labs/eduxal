@@ -433,11 +433,7 @@ class _UsersSectionState extends State<UsersSection> {
                             Action.delete,
                           );
 
-                          final canAssign = widget.permissions.can(
-                            Resource.users,
-                            Action.assign,
-                          );
-                          if (canAssign && user.level == UserLevel.normal) {
+                          if (canUpdate && user.level == UserLevel.normal) {
                             actions.add(
                               _RowAction(
                                 icon: Icons.shield_outlined,
@@ -450,7 +446,7 @@ class _UsersSectionState extends State<UsersSection> {
                           }
                           if (canUpdate &&
                               user.level == UserLevel.system &&
-                              canSeeDeleted) {
+                              widget.permissions.level == UserLevel.super_) {
                             actions.add(
                               _RowAction(
                                 icon: Icons.star_outline_rounded,
@@ -474,7 +470,7 @@ class _UsersSectionState extends State<UsersSection> {
                           }
                           if (canUpdate &&
                               user.level == UserLevel.super_ &&
-                              canSeeDeleted) {
+                              widget.permissions.level == UserLevel.super_) {
                             actions.add(
                               _RowAction(
                                 icon: Icons.arrow_downward_rounded,

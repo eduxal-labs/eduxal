@@ -113,6 +113,7 @@ class AnnouncementsScreen extends StatelessWidget {
           ),
           StaffEntry() =>
             schoolContext.permissions.canAny(Resource.announcements, [
+                  Action.read,
                   Action.create,
                   Action.update,
                   Action.delete,
@@ -125,6 +126,7 @@ class AnnouncementsScreen extends StatelessWidget {
                   ),
           TeacherEntry() =>
             schoolContext.permissions.canAny(Resource.announcements, [
+                  Action.read,
                   Action.create,
                   Action.update,
                   Action.delete,

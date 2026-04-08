@@ -174,8 +174,24 @@ class _PaperDetailPageState extends State<PaperDetailPage>
   /// This IS subject-specific for teachers.
   bool get _canGradeContent {
     final perms = widget.schoolContext.permissions;
-    return perms.can(Resource.grades, Action.read) ||
-        perms.can(Resource.grades, Action.mark);
+    if (perms.can(Resource.grades, Action.read) ||
+        perms.can(Resource.grades, Action.mark))
+      return true;
+    // Teacher-specific fallback: can also grade if they created the exam, are
+    // the invigilator, or teach this paper's subject to this class.
+    final entry = widget.schoolContext.currentEntry.value;
+    if (entry is TeacherEntry) {
+      final userId = entry.teacher.user;
+      if (_exam.teacher == userId) return true;
+      if (_paper.invigilator == userId) return true;
+      return _teacherSubjects.any(
+        (st) =>
+            st.grade == _paper.grade &&
+            st.subject == _paper.subject &&
+            (_paper.stream == null || st.stream == _paper.stream),
+      );
+    }
+    return false;
   }
 
   Future<void> _loadSchemeFiles() async {

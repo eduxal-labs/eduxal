@@ -436,18 +436,16 @@ class _DashboardShellState extends State<_DashboardShell>
         _NavItem(label: 'Settings', icon: Icons.settings_outlined),
       ],
       MembershipRole.teacher => [
-        // ── Always visible (core) ────────────────────────────────
+        // ── Always visible (core 4) ─────────────────────────────
         const _NavItem(label: 'Overview', icon: Icons.space_dashboard_outlined),
+        const _NavItem(label: 'Academics', icon: Icons.menu_book_outlined),
+        const _NavItem(label: 'Exams', icon: Icons.assignment_outlined),
         const _NavItem(
           label: 'Timetable',
           icon: Icons.calendar_view_week_outlined,
         ),
 
         // ── Permission-gated (visible only with proper role/scope) ──
-        if (perms.canAny(Resource.exams, [Action.read]))
-          const _NavItem(label: 'Exams', icon: Icons.assignment_outlined),
-        if (perms.canAny(Resource.classes, [Action.read]))
-          const _NavItem(label: 'Academics', icon: Icons.menu_book_outlined),
         if (perms.canAny(Resource.students, [Action.read]) ||
             perms.canAny(Resource.teachers, [Action.read]) ||
             perms.canAny(Resource.staff, [Action.read]) ||
@@ -459,8 +457,7 @@ class _DashboardShellState extends State<_DashboardShell>
             label: 'Finance',
             icon: Icons.account_balance_outlined,
           ),
-        if (perms.canAny(Resource.announcements, [Action.read]))
-          const _NavItem(label: 'Announcements', icon: Icons.campaign_outlined),
+        const _NavItem(label: 'Announcements', icon: Icons.campaign_outlined),
         if (perms.canAny(Resource.roles, [Action.read]))
           const _NavItem(
             label: 'Roles',
@@ -469,7 +466,8 @@ class _DashboardShellState extends State<_DashboardShell>
       ],
       MembershipRole.staff => [
         const _NavItem(label: 'Overview', icon: Icons.space_dashboard_outlined),
-        if (perms.canAny(Resource.classes, [Action.read]))
+        if (perms.canAny(Resource.classes, [Action.read]) ||
+            perms.canAny(Resource.attendance, [Action.read, Action.mark]))
           const _NavItem(label: 'Academics', icon: Icons.menu_book_outlined),
         if (perms.canAny(Resource.exams, [Action.read]))
           const _NavItem(label: 'Exams', icon: Icons.assignment_outlined),
@@ -485,8 +483,7 @@ class _DashboardShellState extends State<_DashboardShell>
             label: 'Finance',
             icon: Icons.account_balance_outlined,
           ),
-        if (perms.canAny(Resource.announcements, [Action.read]))
-          const _NavItem(label: 'Announcements', icon: Icons.campaign_outlined),
+        const _NavItem(label: 'Announcements', icon: Icons.campaign_outlined),
         if (perms.canAny(Resource.classes, [Action.read]))
           const _NavItem(
             label: 'Timetable',
@@ -497,6 +494,8 @@ class _DashboardShellState extends State<_DashboardShell>
             label: 'Roles',
             icon: Icons.admin_panel_settings_outlined,
           ),
+        if (perms.can(Resource.schools, Action.update))
+          const _NavItem(label: 'Settings', icon: Icons.settings_outlined),
       ],
       MembershipRole.student => const [
         _NavItem(label: 'Overview', icon: Icons.space_dashboard_outlined),
