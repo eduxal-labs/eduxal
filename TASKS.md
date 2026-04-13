@@ -1274,8 +1274,8 @@ onTap: () {
 **Do NOT delete** `subject_bulk_import_sheet.dart` — it still works for the paste-only workflow and may be useful as a fallback. Just change the wiring so the button opens the new multi-file sheet.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note `_SubjectTile` now opens `MultiFileImportSheet`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — note `_SubjectTile` now opens `MultiFileImportSheet`
+- [x] Mark this task `[x]`
 
 ---
 

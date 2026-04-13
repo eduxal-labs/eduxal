@@ -15,6 +15,7 @@ import '../../../widgets/edu_sheet.dart';
 import 'bulk_import_sheet.dart';
 import 'create_question_sheet.dart';
 import 'questions_list_page.dart';
+import 'multi_file_import_sheet.dart';
 import 'subject_bulk_import_sheet.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -517,12 +518,12 @@ class _SubjectTileState extends State<_SubjectTile>
                         if (widget.canCreate) ...[
                           _TinyAction(
                             icon: Icons.upload_file_outlined,
-                            tooltip: 'Bulk import questions',
+                            tooltip: 'Import question files',
                             onTap: () {
                               showEduSheet(
                                 context: context,
-                                maxWidth: 560,
-                                builder: (_) => SubjectBulkImportSheet(
+                                maxWidth: 620,
+                                builder: (_) => MultiFileImportSheet(
                                   subjectName: subject.name,
                                   subjectId: subject.id,
                                   curriculum: widget.curriculum,
