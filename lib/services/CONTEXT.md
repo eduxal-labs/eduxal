@@ -5,7 +5,7 @@
 
 ## Overview
 
-This directory contains **7 service files**. Services sit between the UI and the data layer (DAOs + gRPC). They:
+This directory contains **8 service files**. Services sit between the UI and the data layer (DAOs + gRPC). They:
 - Combine multiple DAO calls into transactional operations.
 - Map between proto types and domain models.
 - Write to the `logs` table alongside every synced-table mutation.
@@ -22,6 +22,7 @@ This directory contains **7 service files**. Services sit between the UI and the
 | `ai_marking.dart` | `AiMarkingService` | AI-powered paper marking: request presigned S3 PUT URLs, upload files, trigger server-side AI marking. Wraps `AiMarking` gRPC service. | ✅ Complete |
 | `question_bank.dart` | `QuestionBankService` | Question bank operations: CRUD for questions within topics, bulk import from JSON, presigned S3 upload URLs for question images. Wraps `QuestionBank` gRPC service. | ✅ Complete |
 | `timetable_generator.dart` | `TimetableGenerator`, `TimetableSlot`, `GeneratorResult`, `GeneratorSuccess`, `GeneratorFailure`, `GeneratorInput`, `runTimetableGenerator` | Pure-Dart CSP backtracking solver for timetable generation. No Flutter dependencies. Run via `compute(runTimetableGenerator, input)`. | ✅ Complete |
+| `import_file_parser.dart` | `ParsedImportFile`, `MissingImage`, `parseImportFile` | Pure-Dart utility for parsing and validating question bank JSON files for bulk import. Zero Flutter/UI dependencies. | ✅ Complete |
 
 ## Key Methods by Service
 
@@ -210,6 +211,24 @@ Wraps the `QuestionBank` gRPC service for question bank operations. Handles CRUD
 
 **Dependencies:** `grpc` package (ClientChannel, CallOptions, GrpcError), `dart:io` (HttpClient, HttpHeaders, File), `models/question.dart` (domain models: `Question`, `RubricCriterion`, `QuestionImage`, `ImageContext`, `BulkImportResult`), `models/paper_generation.dart` (`PaperQuestion`, `PaperPdf`, `TopicAllocation`), `models/marking_status.dart` (`MarkingStatus`, `MarkingPhase`), `models/question_grade.dart` (`QuestionGradeDetail`, `RubricResult`), `models/result.dart`, `proto/services/question_bank.pb.dart` (proto message types), `proto/services/question_bank.pbgrpc.dart` (`QuestionBankClient`), `proto/services/question_bank.pbenum.dart` (`ImageContext`, `MarkingStatusEnum` proto enums).
 
+### `ImportFileParser` — `import_file_parser.dart`
+
+Pure-Dart utility for parsing and validating question bank JSON files for bulk import. Zero Flutter/UI dependencies.
+
+**Top-level function:** `parseImportFile(String filePath, String jsonContent) → ParsedImportFile`
+
+**Data classes:**
+- `ParsedImportFile` — Full result of parsing: file metadata (subject, curriculum, grade, topic), question count, image reference analysis (found/missing counts), cleaned JSON with basenames, `imagePathMap` (basename→absolute path), `questionImageMap` (question index→basenames).
+- `MissingImage` — A single missing image reference: `questionIndex`, `filename` (basename), `absolutePath`.
+
+**Key properties on `ParsedImportFile`:**
+- `isValid` — `true` if no validation errors
+- `hasMissingImages` — `true` if any image file was not found on disk
+- `hasImages` — `true` if any image references exist
+- `cleanedJson` — JSON string with image filenames stripped to basenames (null if invalid)
+
+**Dependencies:** `dart:convert`, `dart:io` only.
+
 ---
 
 ## Planned Services (Not Yet Created)
@@ -234,4 +253,4 @@ Wraps the `QuestionBank` gRPC service for question bank operations. Handles CRUD
 - `client.dart` is the only file that holds the gRPC `ClientChannel`. Services receive the channel (or a service client) via constructor injection.
 
 ## Last Updated
-Task 03 — Added `uploadFileToUrl` and `_contentTypeForExtension` static methods to `QuestionBankService`.
+Task 02 — Created import_file_parser.dart utility for JSON file parsing/validation.

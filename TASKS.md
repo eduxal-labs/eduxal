@@ -88,6 +88,8 @@ class BulkImportResult {
 
 ## Task 02: Create `ImportFileParser` Utility
 
+**Status: ✅ Complete**
+
 **Files to create:** `lib/services/import_file_parser.dart`
 **Context files to read:** `lib/models/CONTEXT.md`, `lib/services/CONTEXT.md`
 **Depends on:** None
