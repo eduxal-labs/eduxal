@@ -209,7 +209,20 @@ Wraps the `QuestionBank` gRPC service for question bank operations. Handles CRUD
 | `uploadFileToUrl` | `static Future<bool> uploadFileToUrl(String putUrl, String localPath)` | Uploads a local file to a presigned S3/R2 PUT URL. Returns `true` on HTTP 2xx, `false` on failure. Auto-detects Content-Type from file extension. |
 | `_contentTypeForExtension` | `static String _contentTypeForExtension(String path)` | Private helper: maps file extension to MIME type (svg, png, jpg, gif, webp). |
 
-**Dependencies:** `grpc` package (ClientChannel, CallOptions, GrpcError), `dart:io` (HttpClient, HttpHeaders, File), `models/question.dart` (domain models: `Question`, `RubricCriterion`, `QuestionImage`, `ImageContext`, `BulkImportResult`), `models/paper_generation.dart` (`PaperQuestion`, `PaperPdf`, `TopicAllocation`), `models/marking_status.dart` (`MarkingStatus`, `MarkingPhase`), `models/question_grade.dart` (`QuestionGradeDetail`, `RubricResult`), `models/result.dart`, `proto/services/question_bank.pb.dart` (proto message types), `proto/services/question_bank.pbgrpc.dart` (`QuestionBankClient`), `proto/services/question_bank.pbenum.dart` (`ImageContext`, `MarkingStatusEnum` proto enums).
+#### File Import Orchestrator (Task 04)
+
+| Method | Signature | Description |
+|---|---|---|
+| `importFileWithImages` | `Future<FileImportResult> importFileWithImages({required ParsedImportFile parsed, required String accessToken, ImportProgressCallback? onProgress})` | High-level orchestrator for a single parsed file. Pipeline: bulk import questions → build `ImageUploadSpec` objects for all created questions → request upload URLs in a single batch → upload each file to its PUT URL. Reports progress via optional `onProgress` callback with phase (`'importing'` / `'uploading'`), detail string, and 0.0–1.0 progress. Returns `FileImportResult` with counts and per-item errors. |
+
+**Top-level types (defined above `QuestionBankService` class):**
+
+| Type | Description |
+|---|---|
+| `ImportProgressCallback` | `typedef void Function(String phase, String detail, double progress)` — Progress callback for `importFileWithImages`. |
+| `FileImportResult` | Result of importing a single file. Fields: `fileName`, `topic`, `questionsCreated`, `questionsErrored`, `imagesUploaded`, `imagesFailed`, `imagesSkipped`, `errors`. Getters: `isFullSuccess` (no errors/failures/skips), `isPartialSuccess` (at least one question created). |
+
+**Dependencies:** `grpc` package (ClientChannel, CallOptions, GrpcError), `dart:io` (HttpClient, HttpHeaders, File), `dart:convert` (jsonDecode — used by `importFileWithImages`), `models/question.dart` (domain models: `Question`, `RubricCriterion`, `QuestionImage`, `ImageContext`, `BulkImportResult`), `models/paper_generation.dart` (`PaperQuestion`, `PaperPdf`, `TopicAllocation`), `models/marking_status.dart` (`MarkingStatus`, `MarkingPhase`), `models/question_grade.dart` (`QuestionGradeDetail`, `RubricResult`), `models/result.dart`, `proto/services/question_bank.pb.dart` (proto message types), `proto/services/question_bank.pbgrpc.dart` (`QuestionBankClient`), `proto/services/question_bank.pbenum.dart` (`ImageContext`, `MarkingStatusEnum` proto enums), `import_file_parser.dart` (`ParsedImportFile` — used by `importFileWithImages`).
 
 ### `ImportFileParser` — `import_file_parser.dart`
 
@@ -253,4 +266,4 @@ Pure-Dart utility for parsing and validating question bank JSON files for bulk i
 - `client.dart` is the only file that holds the gRPC `ClientChannel`. Services receive the channel (or a service client) via constructor injection.
 
 ## Last Updated
-Task 03b — Rewrote `requestImageUploadUrls` for new proto contract (`ImageUploadSpec` → `ImageUploadUrl`).
+Task 04 — Added `importFileWithImages` orchestrator, `ImportProgressCallback` typedef, and `FileImportResult` class to `QuestionBankService`.

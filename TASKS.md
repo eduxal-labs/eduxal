@@ -970,8 +970,8 @@ Then add this method inside `QuestionBankService`:
 Note: The `Result` import (`Ok`, `Err`) is already used throughout this file, so no new imports are needed for it. Add `import 'dart:io';` and `import 'dart:convert';` at the top if not already present.
 
 **Update after completion:**
-- [ ] Update `lib/services/CONTEXT.md` — add `importFileWithImages`, `ImportProgressCallback`, `FileImportResult`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/services/CONTEXT.md` — add `importFileWithImages`, `ImportProgressCallback`, `FileImportResult`
+- [x] Mark this task `[x]`
 
 ---
 

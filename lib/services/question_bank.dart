@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:grpc/grpc.dart';
@@ -10,6 +11,39 @@ import '../models/result.dart';
 import '../proto/services/question_bank.pb.dart' as pb;
 import '../proto/services/question_bank.pbgrpc.dart' as pbgrpc;
 import '../proto/services/question_bank.pbenum.dart' as pbenum;
+import 'import_file_parser.dart';
+
+/// Callback for reporting progress from [QuestionBankService.importFileWithImages].
+typedef ImportProgressCallback =
+    void Function(String phase, String detail, double progress);
+
+/// Result of importing a single file with its images.
+class FileImportResult {
+  final String fileName;
+  final String topic;
+  final int questionsCreated;
+  final int questionsErrored;
+  final int imagesUploaded;
+  final int imagesFailed;
+  final int imagesSkipped; // missing on disk
+  final List<String>
+  errors; // per-question import errors + per-image upload errors
+
+  const FileImportResult({
+    required this.fileName,
+    required this.topic,
+    required this.questionsCreated,
+    required this.questionsErrored,
+    required this.imagesUploaded,
+    required this.imagesFailed,
+    required this.imagesSkipped,
+    required this.errors,
+  });
+
+  bool get isFullSuccess =>
+      questionsErrored == 0 && imagesFailed == 0 && imagesSkipped == 0;
+  bool get isPartialSuccess => questionsCreated > 0;
+}
 
 /// Service for question bank operations.
 ///
@@ -694,6 +728,224 @@ class QuestionBankService {
       'webp' => 'image/webp',
       _ => 'application/octet-stream',
     };
+  }
+
+  // ---------------------------------------------------------------------------
+  // File Import Orchestrator
+  // ---------------------------------------------------------------------------
+
+  /// Imports a single parsed file: bulk-imports questions, then uploads images.
+  ///
+  /// [parsed] — a validated [ParsedImportFile] (must have `isValid == true`).
+  /// [accessToken] — auth token.
+  /// [onProgress] — optional progress callback.
+  ///
+  /// Flow:
+  /// 1. Call `bulkImport(parsed.cleanedJson)`.
+  /// 2. Map `question_ids` back to original question indices (skipping errored
+  ///    indices from the import response).
+  /// 3. Build `ImageUploadSpec` objects for all images across all created
+  ///    questions and call `requestImageUploadUrls` once with all specs.
+  /// 4. Upload each image file to its PUT URL via `uploadFileToUrl`.
+  /// 5. Collect results.
+  Future<FileImportResult> importFileWithImages({
+    required ParsedImportFile parsed,
+    required String accessToken,
+    ImportProgressCallback? onProgress,
+  }) async {
+    assert(parsed.isValid && parsed.cleanedJson != null);
+
+    final errors = <String>[];
+
+    // ── Phase 1: Bulk import questions ────────────────────────────────────
+    onProgress?.call(
+      'importing',
+      'Importing ${parsed.questionCount} questions…',
+      0.0,
+    );
+
+    final importResult = await bulkImport(
+      jsonContent: parsed.cleanedJson!,
+      accessToken: accessToken,
+    );
+
+    switch (importResult) {
+      case Err(:final error):
+        return FileImportResult(
+          fileName: parsed.fileName,
+          topic: parsed.topic,
+          questionsCreated: 0,
+          questionsErrored: parsed.questionCount,
+          imagesUploaded: 0,
+          imagesFailed: 0,
+          imagesSkipped: parsed.missingImages.length,
+          errors: ['Import failed: ${error.message ?? error.code}'],
+        );
+      case Ok(:final value):
+        // Collect per-question import errors.
+        final errorIndices = <int>{};
+        for (final e in value.errors) {
+          errorIndices.add(e.index);
+          errors.add('Q${e.index + 1}: ${e.message}');
+        }
+
+        final createdIds = value.questionIds;
+
+        // If no questions were created or no images to upload, return early.
+        if (createdIds.isEmpty || !parsed.hasImages) {
+          return FileImportResult(
+            fileName: parsed.fileName,
+            topic: parsed.topic,
+            questionsCreated: value.createdCount,
+            questionsErrored: value.errors.length,
+            imagesUploaded: 0,
+            imagesFailed: 0,
+            imagesSkipped: parsed.missingImages.length,
+            errors: errors,
+          );
+        }
+
+        // ── Phase 2: Build ImageUploadSpec objects ───────────────────────
+        int imagesUploaded = 0;
+        int imagesFailed = 0;
+        int imagesSkipped = parsed.missingImages.length;
+
+        final allSpecs = <pb.ImageUploadSpec>[];
+        final specToLocalPath =
+            <String, String>{}; // "qid:position" → local path
+
+        final cleanedParsed =
+            jsonDecode(parsed.cleanedJson!) as Map<String, dynamic>;
+        final questions = cleanedParsed['questions'] as List<dynamic>;
+
+        int k = 0;
+        for (
+          var j = 0;
+          j < parsed.questionCount && k < createdIds.length;
+          j++
+        ) {
+          if (errorIndices.contains(j)) continue;
+          final questionId = createdIds[k];
+          k++;
+
+          if (j >= questions.length) continue;
+          final q = questions[j] as Map<String, dynamic>;
+          final images = q['images'] as List<dynamic>? ?? [];
+
+          for (var p = 0; p < images.length; p++) {
+            final img = images[p] as Map<String, dynamic>;
+            final basename = (img['filename'] as String?) ?? '';
+            if (basename.isEmpty) continue;
+
+            final localPath = parsed.imagePathMap[basename];
+            if (localPath == null) continue; // missing on disk
+
+            final contextStr = (img['context'] as String?) ?? 'question';
+            final contextInt = switch (contextStr) {
+              'rubric' => 1,
+              'example_answer' => 2,
+              _ => 0, // question
+            };
+
+            final spec = pb.ImageUploadSpec()
+              ..questionId = questionId
+              ..position = p + 1
+              ..context = contextInt
+              ..filename = basename;
+            if (img['caption'] is String) {
+              spec.caption = img['caption'] as String;
+            }
+
+            allSpecs.add(spec);
+            specToLocalPath['$questionId:${p + 1}'] = localPath;
+          }
+        }
+
+        if (allSpecs.isEmpty) {
+          return FileImportResult(
+            fileName: parsed.fileName,
+            topic: parsed.topic,
+            questionsCreated: value.createdCount,
+            questionsErrored: value.errors.length,
+            imagesUploaded: 0,
+            imagesFailed: 0,
+            imagesSkipped: imagesSkipped,
+            errors: errors,
+          );
+        }
+
+        // ── Phase 3: Request upload URLs and upload files ────────────────
+        int uploadsDone = 0;
+        final totalUploads = allSpecs.length;
+
+        onProgress?.call(
+          'uploading',
+          'Uploading images (0/$totalUploads)…',
+          0.0,
+        );
+
+        // Single batched call for all images in this file.
+        final urlResult = await requestImageUploadUrls(
+          imageSpecs: allSpecs,
+          accessToken: accessToken,
+        );
+
+        switch (urlResult) {
+          case Err(:final error):
+            imagesFailed += allSpecs.length;
+            errors.add(
+              'Image URL request failed: '
+              '${error.message ?? error.code}',
+            );
+          case Ok(:final value):
+            for (final uploadUrl in value) {
+              final key = '${uploadUrl.questionId}:${uploadUrl.position}';
+              final localPath = specToLocalPath[key];
+              if (localPath == null) {
+                imagesFailed++;
+                errors.add(
+                  'No local path for Q${uploadUrl.questionId} '
+                  'pos ${uploadUrl.position}.',
+                );
+                uploadsDone++;
+                onProgress?.call(
+                  'uploading',
+                  'Uploading images ($uploadsDone/$totalUploads)…',
+                  uploadsDone / totalUploads,
+                );
+                continue;
+              }
+
+              final ok = await uploadFileToUrl(uploadUrl.putUrl, localPath);
+              if (ok) {
+                imagesUploaded++;
+              } else {
+                imagesFailed++;
+                errors.add(
+                  'Upload failed: Q${uploadUrl.questionId} '
+                  'pos ${uploadUrl.position}.',
+                );
+              }
+              uploadsDone++;
+              onProgress?.call(
+                'uploading',
+                'Uploading images ($uploadsDone/$totalUploads)…',
+                uploadsDone / totalUploads,
+              );
+            }
+        }
+
+        return FileImportResult(
+          fileName: parsed.fileName,
+          topic: parsed.topic,
+          questionsCreated: value.createdCount,
+          questionsErrored: value.errors.length,
+          imagesUploaded: imagesUploaded,
+          imagesFailed: imagesFailed,
+          imagesSkipped: imagesSkipped,
+          errors: errors,
+        );
+    }
   }
 
   // ---------------------------------------------------------------------------
