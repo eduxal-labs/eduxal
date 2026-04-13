@@ -675,8 +675,8 @@ Replace the current `requestImageUploadUrls` method (around line 252) with:
 ```
 
 **Update after completion:**
-- [ ] Update `lib/services/CONTEXT.md` — note `requestImageUploadUrls` signature changed to accept `List<pb.ImageUploadSpec>` and return `List<pb.ImageUploadUrl>`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/services/CONTEXT.md` — note `requestImageUploadUrls` signature changed to accept `List<pb.ImageUploadSpec>` and return `List<pb.ImageUploadUrl>`
+- [x] Mark this task `[x]`
 
 ---
 

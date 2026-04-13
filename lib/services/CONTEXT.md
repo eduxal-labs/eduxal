@@ -177,7 +177,7 @@ Wraps the `QuestionBank` gRPC service for question bank operations. Handles CRUD
 | `updateQuestion` | `Future<Result<Question, GrpcError>> updateQuestion({required int id, required String text, required int marks, required List<RubricCriterion> rubric, String? exampleAnswer, List<QuestionImage> images = const [], required String accessToken})` | Update an existing question. |
 | `deleteQuestion` | `Future<Result<void, GrpcError>> deleteQuestion({required int id, required String accessToken})` | Delete a question. Returns `Ok(null)` on success. |
 | `bulkImport` | `Future<Result<BulkImportResult, GrpcError>> bulkImport({required String jsonContent, required String accessToken})` | Bulk import questions from JSON content. Uses 60s timeout. |
-| `requestImageUploadUrls` | `Future<Result<List<SignedImageUrl>, GrpcError>> requestImageUploadUrls({required int questionId, required List<String> filenames, required String accessToken})` | Get presigned PUT URLs for question images. Returns proto `SignedImageUrl` directly (no domain model — transient upload flow only). |
+| `requestImageUploadUrls` | `Future<Result<List<ImageUploadUrl>, GrpcError>> requestImageUploadUrls({required List<ImageUploadSpec> imageSpecs, required String accessToken})` | Get presigned PUT URLs for question images. Each `ImageUploadSpec` carries `questionId`, `position`, `context`, `filename`, and optional `caption`. Returns proto `ImageUploadUrl` directly (no domain model — transient upload flow only). |
 
 #### Paper Generation (Task 04)
 
@@ -253,4 +253,4 @@ Pure-Dart utility for parsing and validating question bank JSON files for bulk i
 - `client.dart` is the only file that holds the gRPC `ClientChannel`. Services receive the channel (or a service client) via constructor injection.
 
 ## Last Updated
-Task 02 — Created import_file_parser.dart utility for JSON file parsing/validation.
+Task 03b — Rewrote `requestImageUploadUrls` for new proto contract (`ImageUploadSpec` → `ImageUploadUrl`).

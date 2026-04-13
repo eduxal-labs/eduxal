@@ -247,22 +247,24 @@ class QuestionBankService {
   // Image Upload URLs
   // ---------------------------------------------------------------------------
 
-  /// Request presigned PUT URLs for uploading question images.
+  /// Requests presigned S3/R2 PUT URLs for uploading question images.
   ///
-  /// Returns the proto [pb.SignedImageUrl] directly since it is only used
-  /// transiently in the upload flow (no domain model needed).
-  Future<Result<List<pb.SignedImageUrl>, GrpcError>> requestImageUploadUrls({
-    required int questionId,
-    required List<String> filenames,
+  /// Each [spec] in [imageSpecs] must contain:
+  /// - `questionId`: the server-assigned question ID
+  /// - `position`: 1-indexed position within the question's images
+  /// - `context`: 0=question, 1=rubric, 2=example_answer
+  /// - `filename`: basename of the file (for extension detection)
+  /// - `caption`: optional caption text
+  ///
+  /// Returns [ImageUploadUrl] objects with `putUrl` for each image.
+  Future<Result<List<pb.ImageUploadUrl>, GrpcError>> requestImageUploadUrls({
+    required List<pb.ImageUploadSpec> imageSpecs,
     required String accessToken,
   }) async {
-    print(
-      '[QB] requestImageUploadUrls → questionId=$questionId '
-      'filenames=${filenames.length}',
-    );
+    print('[QB] requestImageUploadUrls → specs=${imageSpecs.length}');
     try {
-      final req = pb.ImageUploadUrlsRequest()..questionId = questionId;
-      req.filenames.addAll(filenames);
+      final req = pb.ImageUploadUrlsRequest();
+      req.images.addAll(imageSpecs);
       final options = CallOptions(
         metadata: {'authorization': 'Bearer $accessToken'},
         timeout: const Duration(seconds: 30),
