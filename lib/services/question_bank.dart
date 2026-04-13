@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:grpc/grpc.dart';
 
 import '../models/marking_status.dart' as models;
@@ -633,6 +635,63 @@ class QuestionBankService {
       }
       await Future.delayed(interval);
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Image File Upload
+  // ---------------------------------------------------------------------------
+
+  /// Uploads a local file to a presigned S3/R2 PUT URL.
+  ///
+  /// [putUrl] — the presigned PUT URL from [requestImageUploadUrls].
+  /// [localPath] — absolute path to the file on the local filesystem.
+  ///
+  /// Returns `true` on HTTP 2xx, `false` on any failure.
+  static Future<bool> uploadFileToUrl(String putUrl, String localPath) async {
+    if (putUrl.isEmpty || localPath.isEmpty) return false;
+    HttpClient? httpClient;
+    try {
+      final file = File(localPath);
+      if (!await file.exists()) {
+        print('[QB] uploadFileToUrl: file not found at $localPath');
+        return false;
+      }
+      final length = await file.length();
+      final contentType = _contentTypeForExtension(localPath);
+
+      httpClient = HttpClient();
+      final request = await httpClient.putUrl(Uri.parse(putUrl));
+      request.headers.set(HttpHeaders.contentTypeHeader, contentType);
+      request.headers.set(HttpHeaders.contentLengthHeader, length.toString());
+      await request.addStream(file.openRead());
+      final response = await request.close();
+      await response.drain<void>();
+
+      final ok = response.statusCode >= 200 && response.statusCode < 300;
+      print(
+        '[QB] uploadFileToUrl: ${ok ? 'OK' : 'FAIL'} '
+        '(${response.statusCode}) ${localPath.split('/').last}',
+      );
+      return ok;
+    } catch (e) {
+      print('[QB] uploadFileToUrl: ERROR $e');
+      return false;
+    } finally {
+      httpClient?.close(force: false);
+    }
+  }
+
+  /// Returns the MIME Content-Type for common image file extensions.
+  static String _contentTypeForExtension(String path) {
+    final ext = path.split('.').last.toLowerCase();
+    return switch (ext) {
+      'svg' => 'image/svg+xml',
+      'png' => 'image/png',
+      'jpg' || 'jpeg' => 'image/jpeg',
+      'gif' => 'image/gif',
+      'webp' => 'image/webp',
+      _ => 'application/octet-stream',
+    };
   }
 
   // ---------------------------------------------------------------------------

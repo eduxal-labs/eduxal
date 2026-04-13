@@ -201,7 +201,14 @@ Wraps the `QuestionBank` gRPC service for question bank operations. Handles CRUD
 - `_toProtoCriterion(RubricCriterion) → pb.RubricCriterion` — Maps domain rubric criterion to proto message. Also used by `editPaperQuestion`.
 - `_toProtoImage(QuestionImage) → pb.QuestionImage` — Maps domain question image to proto message (including context, filename, caption, description).
 
-**Dependencies:** `grpc` package (ClientChannel, CallOptions, GrpcError), `models/question.dart` (domain models: `Question`, `RubricCriterion`, `QuestionImage`, `ImageContext`, `BulkImportResult`), `models/paper_generation.dart` (`PaperQuestion`, `PaperPdf`, `TopicAllocation`), `models/marking_status.dart` (`MarkingStatus`, `MarkingPhase`), `models/question_grade.dart` (`QuestionGradeDetail`, `RubricResult`), `models/result.dart`, `proto/services/question_bank.pb.dart` (proto message types), `proto/services/question_bank.pbgrpc.dart` (`QuestionBankClient`), `proto/services/question_bank.pbenum.dart` (`ImageContext`, `MarkingStatusEnum` proto enums).
+#### Image Upload (Task 03)
+
+| Method | Signature | Description |
+|---|---|---|
+| `uploadFileToUrl` | `static Future<bool> uploadFileToUrl(String putUrl, String localPath)` | Uploads a local file to a presigned S3/R2 PUT URL. Returns `true` on HTTP 2xx, `false` on failure. Auto-detects Content-Type from file extension. |
+| `_contentTypeForExtension` | `static String _contentTypeForExtension(String path)` | Private helper: maps file extension to MIME type (svg, png, jpg, gif, webp). |
+
+**Dependencies:** `grpc` package (ClientChannel, CallOptions, GrpcError), `dart:io` (HttpClient, HttpHeaders, File), `models/question.dart` (domain models: `Question`, `RubricCriterion`, `QuestionImage`, `ImageContext`, `BulkImportResult`), `models/paper_generation.dart` (`PaperQuestion`, `PaperPdf`, `TopicAllocation`), `models/marking_status.dart` (`MarkingStatus`, `MarkingPhase`), `models/question_grade.dart` (`QuestionGradeDetail`, `RubricResult`), `models/result.dart`, `proto/services/question_bank.pb.dart` (proto message types), `proto/services/question_bank.pbgrpc.dart` (`QuestionBankClient`), `proto/services/question_bank.pbenum.dart` (`ImageContext`, `MarkingStatusEnum` proto enums).
 
 ---
 
@@ -227,4 +234,4 @@ Wraps the `QuestionBank` gRPC service for question bank operations. Handles CRUD
 - `client.dart` is the only file that holds the gRPC `ClientChannel`. Services receive the channel (or a service client) via constructor injection.
 
 ## Last Updated
-Task F5 — Added `removeStudent` method to `MemberManagementService` with `Resource.students` / `Action.delete` permission guard. Delegates to `MembersDao.removeStudent(schoolId, adm, accountId)`. Previous: Task A5 — Added defense-in-depth permission guards to all `MemberManagementService` mutation methods.
+Task 03 — Added `uploadFileToUrl` and `_contentTypeForExtension` static methods to `QuestionBankService`.
