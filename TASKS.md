@@ -17,17 +17,17 @@
 
 ---
 
-## Prerequisite P1: Backend Proto Change (Project Owner)
+## Prerequisite P1: Backend Proto Changes & Stub Regeneration
 
-**What:** Add `repeated int32 created_ids = 3;` to the `BulkImportResponse` message in the proto definition.
+**Status: Handled by backend tasks in `../ledger/TASKS.md` (Tasks B1 + B2)**
 
-**Why:** After `bulkImport` succeeds, the client needs the server-assigned question IDs to call `requestImageUploadUrls(questionId, filenames)` for image upload. Without this field, the image upload pipeline is impossible without per-question `createQuestion` calls (550+ RPCs per subject instead of 1 per file).
+The backend already has `question_ids` in `BulkImportResponse` and populates it. Backend Task B1 adds `filename` to `ImageUploadSpec` for correct file extension support. Backend Task B2 regenerates Dart proto stubs. Client tasks below proceed after B2 completes.
 
-**Contract:**
-- `created_ids` is ordered: it corresponds 1:1 with the questions in the input JSON array, **excluding** indices that appear in `errors[].index`.
-- Example: JSON has questions at indices `[0,1,2,3,4]`. Server errors on index 2. Response: `created_ids = [101, 102, 104, 105]`, `errors = [{index:2, message:"..."}]`. Mapping: `0→101, 1→102, 3→104, 4→105`.
-
-**After completion:** Regenerate Dart proto stubs and place them in `lib/proto/services/`. Then proceed to Task 01.
+**Proto contract changes after B2:**
+- `BulkImportResponse` now has `questionIds` (repeated int32, field 3) — server-assigned IDs in order, excluding errored indices.
+- `ImageUploadUrlsRequest` now takes `repeated ImageUploadSpec images` instead of `{questionId, filenames}`.
+- `ImageUploadSpec` (new message): `questionId`, `position`, `context` (0=question, 1=rubric, 2=example\_answer), `caption` (optional), `filename` (basename for extension detection).
+- `ImageUploadUrl` (replaces `SignedImageUrl`): `questionId`, `position`, `key` (S3 object key), `putUrl`.
 
 ---
 
@@ -40,7 +40,7 @@
 
 **Specification:**
 
-Add a `createdIds` field to the `BulkImportResult` class so the client can use server-assigned question IDs for image upload.
+Add a `questionIds` field to the `BulkImportResult` class so the client can use server-assigned question IDs for image upload.
 
 Current definition (around line 93):
 
@@ -63,25 +63,25 @@ Change to:
 ```dart
 class BulkImportResult {
   final int createdCount;
-  final List<int> createdIds;
+  final List<int> questionIds;
   final List<ImportError> errors;
   const BulkImportResult({
     required this.createdCount,
-    required this.createdIds,
+    required this.questionIds,
     required this.errors,
   });
 
   factory BulkImportResult.fromProto(pb.BulkImportResponse proto) =>
       BulkImportResult(
         createdCount: proto.createdCount,
-        createdIds: proto.createdIds.toList(),
+        questionIds: proto.questionIds.toList(),
         errors: proto.errors.map(ImportError.fromProto).toList(),
       );
 }
 ```
 
 **Update after completion:**
-- [ ] Update `lib/models/CONTEXT.md` — note `BulkImportResult` now has `createdIds`
+- [ ] Update `lib/models/CONTEXT.md` — note `BulkImportResult` now has `questionIds`
 - [ ] Mark this task `[x]`
 
 ---
@@ -533,8 +533,8 @@ ParsedImportFile _buildResult({
 ```
 
 **Update after completion:**
-- [ ] Update `lib/services/CONTEXT.md` — add entry for `import_file_parser.dart`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/services/CONTEXT.md` — add entry for `import_file_parser.dart`
+- [x] Mark this task `[x]`
 
 ---
 
@@ -620,20 +620,81 @@ The `dart:io` import (`HttpClient`, `HttpHeaders`, `File`) is already present in
 
 ---
 
+## Task 03b: Rewrite `requestImageUploadUrls` for New Proto Contract
+
+**Files to modify:** `lib/services/question_bank.dart`
+**Context files to read:** `lib/services/CONTEXT.md`
+**Depends on:** P1 (proto stubs regenerated)
+**Parallel group:** P2
+
+**Specification:**
+
+The `requestImageUploadUrls` method must be rewritten because the proto contract changed. The old contract used `{questionId, filenames}` → `SignedImageUrl`. The new contract uses `{repeated ImageUploadSpec}` → `ImageUploadUrl`.
+
+Replace the current `requestImageUploadUrls` method (around line 252) with:
+
+```dart
+    /// Requests presigned S3/R2 PUT URLs for uploading question images.
+    ///
+    /// Each [spec] in [imageSpecs] must contain:
+    /// - `questionId`: the server-assigned question ID
+    /// - `position`: 1-indexed position within the question's images
+    /// - `context`: 0=question, 1=rubric, 2=example_answer
+    /// - `filename`: basename of the file (for extension detection)
+    /// - `caption`: optional caption text
+    ///
+    /// Returns [ImageUploadUrl] objects with `putUrl` for each image.
+    Future<Result<List<pb.ImageUploadUrl>, GrpcError>> requestImageUploadUrls({
+      required List<pb.ImageUploadSpec> imageSpecs,
+      required String accessToken,
+    }) async {
+      print(
+        '[QB] requestImageUploadUrls → specs=${imageSpecs.length}',
+      );
+      try {
+        final req = pb.ImageUploadUrlsRequest();
+        req.images.addAll(imageSpecs);
+        final options = CallOptions(
+          metadata: {'authorization': 'Bearer $accessToken'},
+          timeout: const Duration(seconds: 30),
+        );
+        final client = pbgrpc.QuestionBankClient(_mainChannel);
+        final resp = await client.requestImageUploadUrls(req, options: options);
+        print('[QB] requestImageUploadUrls ← OK (urls=${resp.urls.length})');
+        return Ok(resp.urls.toList());
+      } on GrpcError catch (e) {
+        print('[QB] requestImageUploadUrls ← GrpcError: ${e.code} ${e.message}');
+        return Err(e);
+      } catch (e, st) {
+        print(
+          '[QB] requestImageUploadUrls ← UNEXPECTED ${e.runtimeType}: $e\n$st',
+        );
+        return Err(GrpcError.internal('requestImageUploadUrls failed: $e'));
+      }
+    }
+```
+
+**Update after completion:**
+- [ ] Update `lib/services/CONTEXT.md` — note `requestImageUploadUrls` signature changed to accept `List<pb.ImageUploadSpec>` and return `List<pb.ImageUploadUrl>`
+- [ ] Mark this task `[x]`
+
+---
+
 ## Task 04: Add `importFileWithImages` Orchestrator to `QuestionBankService`
 
 **Files to modify:** `lib/services/question_bank.dart`
 **Context files to read:** `lib/services/CONTEXT.md`, `lib/services/import_file_parser.dart` (from Task 02)
-**Depends on:** Task 01, Task 02, Task 03
+**Depends on:** Task 01, Task 02, Task 03, Task 03b
 **Parallel group:** None (sequential)
 
 **Specification:**
 
 Add a high-level orchestrator method that handles the full pipeline for a single parsed file: bulk import → request image upload URLs → upload files. This method is called by the UI for each file in the multi-file batch.
 
-Add this import at the top of `question_bank.dart`:
+Add these imports at the top of `question_bank.dart` if not already present:
 
 ```dart
+import 'dart:convert';
 import 'import_file_parser.dart';
 ```
 
@@ -701,11 +762,11 @@ Then add this method inside `QuestionBankService`:
   ///
   /// Flow:
   /// 1. Call `bulkImport(parsed.cleanedJson)`.
-  /// 2. Map `created_ids` back to original question indices (skipping errored
+  /// 2. Map `question_ids` back to original question indices (skipping errored
   ///    indices from the import response).
-  /// 3. For each created question that has images, call
-  ///    `requestImageUploadUrls(questionId, filenames)`.
-  /// 4. Upload each found image file to its PUT URL via `uploadFileToUrl`.
+  /// 3. Build `ImageUploadSpec` objects for all images across all created
+  ///    questions and call `requestImageUploadUrls` once with all specs.
+  /// 4. Upload each image file to its PUT URL via `uploadFileToUrl`.
   /// 5. Collect results.
   Future<FileImportResult> importFileWithImages({
     required ParsedImportFile parsed,
@@ -744,7 +805,7 @@ Then add this method inside `QuestionBankService`:
           errors.add('Q${e.index + 1}: ${e.message}');
         }
 
-        final createdIds = value.createdIds;
+        final createdIds = value.questionIds;
 
         // If no questions were created or no images to upload, return early.
         if (createdIds.isEmpty || !parsed.hasImages) {
@@ -760,38 +821,63 @@ Then add this method inside `QuestionBankService`:
           );
         }
 
-        // ── Phase 2: Map created IDs to original question indices ────────
-        // Build the mapping: created_ids[k] → original questions[j]
-        // by walking the original indices and skipping errored ones.
-        final idToOriginalIndex = <int, int>{};
-        int k = 0;
-        for (var j = 0; j < parsed.questionCount && k < createdIds.length; j++) {
-          if (errorIndices.contains(j)) continue;
-          idToOriginalIndex[createdIds[k]] = j;
-          k++;
-        }
-
-        // ── Phase 3: Upload images ───────────────────────────────────────
+        // ── Phase 2: Build ImageUploadSpec objects ───────────────────────
+        // Parse cleanedJson to get image metadata (context, caption,
+        // filename) for building ImageUploadSpec objects.
         int imagesUploaded = 0;
         int imagesFailed = 0;
         int imagesSkipped = parsed.missingImages.length;
 
-        // Collect all (questionId, basename) pairs that need upload.
-        final uploads = <(int questionId, String basename)>[];
-        for (final entry in idToOriginalIndex.entries) {
-          final questionId = entry.key;
-          final originalIndex = entry.value;
-          final basenames = parsed.questionImageMap[originalIndex];
-          if (basenames == null || basenames.isEmpty) continue;
-          for (final bn in basenames) {
-            // Only upload if the file was found on disk.
-            if (parsed.imagePathMap.containsKey(bn)) {
-              uploads.add((questionId, bn));
+        final allSpecs = <pb.ImageUploadSpec>[];
+        final specToLocalPath = <String, String>{}; // "qid:position" → local path
+
+        final cleanedParsed =
+            jsonDecode(parsed.cleanedJson!) as Map<String, dynamic>;
+        final questions = cleanedParsed['questions'] as List<dynamic>;
+
+        int k = 0;
+        for (var j = 0;
+            j < parsed.questionCount && k < createdIds.length;
+            j++) {
+          if (errorIndices.contains(j)) continue;
+          final questionId = createdIds[k];
+          k++;
+
+          if (j >= questions.length) continue;
+          final q = questions[j] as Map<String, dynamic>;
+          final images = q['images'] as List<dynamic>? ?? [];
+
+          for (var p = 0; p < images.length; p++) {
+            final img = images[p] as Map<String, dynamic>;
+            final basename = (img['filename'] as String?) ?? '';
+            if (basename.isEmpty) continue;
+
+            final localPath = parsed.imagePathMap[basename];
+            if (localPath == null) continue; // missing on disk
+
+            final contextStr =
+                (img['context'] as String?) ?? 'question';
+            final contextInt = switch (contextStr) {
+              'rubric' => 1,
+              'example_answer' => 2,
+              _ => 0, // question
+            };
+
+            final spec = pb.ImageUploadSpec()
+              ..questionId = questionId
+              ..position = p + 1
+              ..context = contextInt
+              ..filename = basename;
+            if (img['caption'] is String) {
+              spec.caption = img['caption'] as String;
             }
+
+            allSpecs.add(spec);
+            specToLocalPath['$questionId:${p + 1}'] = localPath;
           }
         }
 
-        if (uploads.isEmpty) {
+        if (allSpecs.isEmpty) {
           return FileImportResult(
             fileName: parsed.fileName,
             topic: parsed.topic,
@@ -804,72 +890,67 @@ Then add this method inside `QuestionBankService`:
           );
         }
 
-        // Group uploads by questionId to batch requestImageUploadUrls calls.
-        final byQuestion = <int, List<String>>{};
-        for (final (qid, bn) in uploads) {
-          byQuestion.putIfAbsent(qid, () => []).add(bn);
-        }
-
+        // ── Phase 3: Request upload URLs and upload files ────────────────
         int uploadsDone = 0;
-        final totalUploads = uploads.length;
+        final totalUploads = allSpecs.length;
 
-        for (final entry in byQuestion.entries) {
-          final questionId = entry.key;
-          final filenames = entry.value;
+        onProgress?.call(
+          'uploading',
+          'Uploading images (0/$totalUploads)…',
+          0.0,
+        );
 
-          onProgress?.call(
-            'uploading',
-            'Uploading images ($uploadsDone/$totalUploads)…',
-            uploadsDone / totalUploads,
-          );
+        // Single batched call for all images in this file.
+        final urlResult = await requestImageUploadUrls(
+          imageSpecs: allSpecs,
+          accessToken: accessToken,
+        );
 
-          // Request presigned PUT URLs for this question's images.
-          final urlResult = await requestImageUploadUrls(
-            questionId: questionId,
-            filenames: filenames,
-            accessToken: accessToken,
-          );
-
-          switch (urlResult) {
-            case Err(:final error):
-              // All images for this question fail.
-              imagesFailed += filenames.length;
-              errors.add(
-                'Image URL request failed for Q$questionId: '
-                '${error.message ?? error.code}',
-              );
-              uploadsDone += filenames.length;
-              continue;
-            case Ok(:final value):
-              for (final signedUrl in value) {
-                final localPath = parsed.imagePathMap[signedUrl.filename];
-                if (localPath == null) {
-                  imagesFailed++;
-                  errors.add(
-                    'No local path for "${signedUrl.filename}" '
-                    '(Q$questionId).',
-                  );
-                  uploadsDone++;
-                  continue;
-                }
-
-                final ok = await uploadFileToUrl(signedUrl.putUrl, localPath);
-                if (ok) {
-                  imagesUploaded++;
-                } else {
-                  imagesFailed++;
-                  errors.add(
-                    'Upload failed: "${signedUrl.filename}" (Q$questionId).',
-                  );
-                }
+        switch (urlResult) {
+          case Err(:final error):
+            imagesFailed += allSpecs.length;
+            errors.add(
+              'Image URL request failed: '
+              '${error.message ?? error.code}',
+            );
+          case Ok(:final value):
+            for (final uploadUrl in value) {
+              final key =
+                  '${uploadUrl.questionId}:${uploadUrl.position}';
+              final localPath = specToLocalPath[key];
+              if (localPath == null) {
+                imagesFailed++;
+                errors.add(
+                  'No local path for Q${uploadUrl.questionId} '
+                  'pos ${uploadUrl.position}.',
+                );
                 uploadsDone++;
                 onProgress?.call(
                   'uploading',
                   'Uploading images ($uploadsDone/$totalUploads)…',
                   uploadsDone / totalUploads,
                 );
+                continue;
               }
-          }
+
+              final ok =
+                  await uploadFileToUrl(uploadUrl.putUrl, localPath);
+              if (ok) {
+                imagesUploaded++;
+              } else {
+                imagesFailed++;
+                errors.add(
+                  'Upload failed: Q${uploadUrl.questionId} '
+                  'pos ${uploadUrl.position}.',
+                );
+              }
+              uploadsDone++;
+              onProgress?.call(
+                'uploading',
+                'Uploading images ($uploadsDone/$totalUploads)…',
+                uploadsDone / totalUploads,
+              );
+            }
         }
 
         return FileImportResult(
@@ -886,7 +967,7 @@ Then add this method inside `QuestionBankService`:
   }
 ```
 
-Note: The `Result` import (`Ok`, `Err`) is already used throughout this file, so no new imports are needed for it. Add `import 'dart:io';` at the top if not already present.
+Note: The `Result` import (`Ok`, `Err`) is already used throughout this file, so no new imports are needed for it. Add `import 'dart:io';` and `import 'dart:convert';` at the top if not already present.
 
 **Update after completion:**
 - [ ] Update `lib/services/CONTEXT.md` — add `importFileWithImages`, `ImportProgressCallback`, `FileImportResult`
@@ -1201,13 +1282,14 @@ onTap: () {
 ## Dependency Graph
 
 ```
-P1 (Owner: backend proto) ─────────────────────────────┐
+P1 (Backend: B1 + B2) ─────────────────────────────────┐
                                                         │
 Task 01 (update BulkImportResult model) ←───── P1 ─────┤
 Task 02 (ImportFileParser utility)      ←── (none) ─────┤── Parallel group P1
-Task 03 (uploadFileToUrl method)        ←── (none) ─────┘
+Task 03 (uploadFileToUrl method)        ←── (none) ─────┤
+Task 03b (rewrite requestImageUploadUrls) ←── P1 ───────┘
                                                         │
-Task 04 (importFileWithImages orchestr) ←── 01, 02, 03 ─┤── Sequential
+Task 04 (importFileWithImages orchestr) ←── 01, 02, 03, 03b ── Sequential
                                                         │
 Task 05 (MultiFileImportSheet UI)       ←── 02, 04 ─────┤── Sequential
                                                         │
@@ -1215,7 +1297,8 @@ Task 06 (Wire up in SubjectsSection)    ←── 05 ─────────
 ```
 
 **Parallel execution plan:**
-- **Batch 1:** Tasks 01, 02, 03 in parallel (disjoint files: `models/question.dart`, `services/import_file_parser.dart` [new], `services/question_bank.dart`)
-- **Batch 2:** Task 04 (modifies `services/question_bank.dart` — must wait for Task 03)
-- **Batch 3:** Task 05 (new file, no conflicts)
-- **Batch 4:** Task 06 (modifies `subjects_section.dart`)
+- **Batch 1:** Tasks 02 (✅ DONE), 03 (✅ DONE) — already completed
+- **Batch 2 (after P1/stubs):** Tasks 01, 03b in parallel (disjoint areas: `models/question.dart`, `services/question_bank.dart` line ~252)
+- **Batch 3:** Task 04 (modifies `services/question_bank.dart` — must wait for 01 + 03b)
+- **Batch 4:** Task 05 (new file, no conflicts)
+- **Batch 5:** Task 06 (modifies `subjects_section.dart`)
