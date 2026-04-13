@@ -186,7 +186,7 @@ Domain models for the AI question bank. All have `fromProto` factories mapping f
 - **`RubricCriterion`** — One rubric criterion with mark allocation. Fields: `criterion` (String), `marks` (int). Factory: `fromProto(pb.RubricCriterion)`.
 - **`QuestionImage`** — Image attached to a question. Fields: `context` (ImageContext), `filename` (String), `caption` (String?), `description` (String), `getUrl` (String? — populated after upload or from server). Factory: `fromProto(pb.QuestionImage)`.
 - **`Question`** — A question in the question bank. Fields: `id` (int), `topicId` (int), `text` (String), `marks` (int), `rubric` (List\<RubricCriterion\>), `exampleAnswer` (String?), `images` (List\<QuestionImage\>), `created` (DateTime), `updated` (DateTime). Factory: `fromProto(pb.Question)` — proto `created`/`updated` are Int64 seconds since epoch, converted via `DateTime.fromMillisecondsSinceEpoch(proto.field.toInt() * 1000)`.
-- **`BulkImportResult`** — Result of bulk import. Fields: `createdCount` (int), `errors` (List\<ImportError\>). Factory: `fromProto(pb.BulkImportResponse)`.
+- **`BulkImportResult`** — Result of bulk import. Fields: `createdCount` (int), `questionIds` (List\<int\> — server-assigned IDs for uploaded questions, used for image upload), `errors` (List\<ImportError\>). Factory: `fromProto(pb.BulkImportResponse)`.
 - **`ImportError`** — Single error from bulk import. Fields: `index` (int), `message` (String). Factory: `fromProto(pb.ImportError)`.
 
 ### Paper Generation models — `paper_generation.dart`
@@ -241,4 +241,4 @@ Grouping model for the exams UI. Multiple exam rows sharing the same name are pr
 - **`ExamStreamEntry`** — One exam row + its papers for a specific stream. Fields: `exam` (Exam), `streamCode` (int?), `papers` (List<Paper>).
 
 ## Last Updated
-Task G3 — Extracted shared `buildConfigFromStreams(List<SchoolStream>)` and `curriculumForGrade(int grade, {Set<int> allGrades})` as top-level functions in `school_config.dart`. Removed duplicate copies from `announcements_screen.dart`, `exams_grades_screen.dart`, `exams_tab.dart`. Replaced `_curriculumForGrade` in `academics_screen.dart` and `progress_screen.dart` with the shared version. Unused `curriculum_subjects.dart` imports removed from `announcements_screen.dart`, `exams_grades_screen.dart`, and `exams_tab.dart`.
+Task 01 — Added `questionIds` (List\<int\>) field to `BulkImportResult` in `question.dart` for server-assigned question IDs used in image upload flow.

@@ -81,8 +81,8 @@ class BulkImportResult {
 ```
 
 **Update after completion:**
-- [ ] Update `lib/models/CONTEXT.md` — note `BulkImportResult` now has `questionIds`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/models/CONTEXT.md` — note `BulkImportResult` now has `questionIds`
+- [x] Mark this task `[x]`
 
 ---
 

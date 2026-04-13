@@ -87,12 +87,18 @@ class Question {
 /// Result of a bulk import operation.
 class BulkImportResult {
   final int createdCount;
+  final List<int> questionIds;
   final List<ImportError> errors;
-  const BulkImportResult({required this.createdCount, required this.errors});
+  const BulkImportResult({
+    required this.createdCount,
+    required this.questionIds,
+    required this.errors,
+  });
 
   factory BulkImportResult.fromProto(pb.BulkImportResponse proto) =>
       BulkImportResult(
         createdCount: proto.createdCount,
+        questionIds: proto.questionIds.toList(),
         errors: proto.errors.map(ImportError.fromProto).toList(),
       );
 }
