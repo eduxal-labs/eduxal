@@ -220,7 +220,7 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
       subject: widget.subjectId,
       paper: widget.paperId,
       grade: widget.grade,
-      paperQuestionId: question.id,
+      position: question.order,
       topicId: _findTopicForQuestion(question),
       marks: question.marks,
       accessToken: accessToken,
@@ -319,11 +319,7 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
     setState(() => _isSavingEdit = true);
 
     final result = await questionBankService.editPaperQuestion(
-      school: widget.schoolId,
-      exam: widget.examId,
-      subject: widget.subjectId,
-      paper: widget.paperId,
-      paperQuestionId: question.id,
+      questionId: question.questionId,
       text: text,
       marks: marks,
       rubric: rubric,
@@ -333,7 +329,18 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
     if (!mounted) return;
 
     switch (result) {
-      case Ok(value: final updated):
+      case Ok(value: final editedQuestion):
+        // Reconstruct PaperQuestion from the returned Question,
+        // preserving the original order/position.
+        final updated = PaperQuestion(
+          id: editedQuestion.id.toString(),
+          questionId: editedQuestion.id,
+          text: editedQuestion.text,
+          marks: editedQuestion.marks,
+          rubric: editedQuestion.rubric,
+          images: editedQuestion.images,
+          order: question.order,
+        );
         // Preserve topic mapping
         final topicId = _questionTopics.remove(question.id);
         if (topicId != null) {
@@ -1254,7 +1261,6 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
       paper: widget.paperId,
       grade: widget.grade,
       stream: widget.stream,
-      paperQuestionIds: _generatedQuestions.map((q) => q.id).toList(),
       accessToken: accessToken,
     );
 

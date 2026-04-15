@@ -32,15 +32,18 @@ class PaperQuestion {
     required this.order,
   });
 
-  factory PaperQuestion.fromProto(pb.PaperQuestion proto) => PaperQuestion(
-    id: proto.id,
-    questionId: proto.questionId,
-    text: proto.text,
-    marks: proto.marks,
-    rubric: proto.rubric.map(RubricCriterion.fromProto).toList(),
-    images: proto.images.map(QuestionImage.fromProto).toList(),
-    order: proto.order,
-  );
+  factory PaperQuestion.fromProto(pb.PaperQuestion proto) {
+    final q = proto.question;
+    return PaperQuestion(
+      id: q.id.toString(),
+      questionId: q.id,
+      text: q.text,
+      marks: q.marks,
+      rubric: q.rubric.map(RubricCriterion.fromProto).toList(),
+      images: q.images.map(QuestionImage.fromProto).toList(),
+      order: proto.position,
+    );
+  }
 }
 
 /// Result of paper finalization — contains the PDF URL.

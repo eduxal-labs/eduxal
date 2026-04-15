@@ -13,11 +13,11 @@ class RubricResult {
     required this.marksAvailable,
   });
 
-  factory RubricResult.fromProto(pb.RubricResult proto) => RubricResult(
+  factory RubricResult.fromProto(pb.RubricCriterion proto) => RubricResult(
     criterion: proto.criterion,
-    satisfied: proto.satisfied,
-    marksAwarded: proto.marksAwarded,
-    marksAvailable: proto.marksAvailable,
+    satisfied: proto.marks > 0,
+    marksAwarded: proto.marks.toDouble(),
+    marksAvailable: proto.marks,
   );
 }
 
@@ -36,12 +36,12 @@ class QuestionGradeDetail {
     required this.rubricResults,
   });
 
-  factory QuestionGradeDetail.fromProto(pb.QuestionGrade proto) =>
+  factory QuestionGradeDetail.fromProto(pb.QuestionGradeDetail proto) =>
       QuestionGradeDetail(
         questionText: proto.questionText,
-        marksAwarded: proto.marksAwarded,
-        totalMarks: proto.totalMarks,
+        marksAwarded: proto.score,
+        totalMarks: proto.questionMarks,
         feedback: proto.feedback,
-        rubricResults: proto.rubricResults.map(RubricResult.fromProto).toList(),
+        rubricResults: proto.rubric.map(RubricResult.fromProto).toList(),
       );
 }

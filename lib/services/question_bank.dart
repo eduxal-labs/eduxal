@@ -10,7 +10,7 @@ import '../models/question_grade.dart' as models;
 import '../models/result.dart';
 import '../proto/services/question_bank.pb.dart' as pb;
 import '../proto/services/question_bank.pbgrpc.dart' as pbgrpc;
-import '../proto/services/question_bank.pbenum.dart' as pbenum;
+
 import 'import_file_parser.dart';
 
 /// Callback for reporting progress from [QuestionBankService.importFileWithImages].
@@ -67,14 +67,6 @@ class QuestionBankService {
   final String _host;
   final int _port;
 
-  /// Creates a brand-new [ClientChannel] for fallback use.
-  /// Caller is responsible for shutting it down.
-  ClientChannel _freshChannel() => ClientChannel(
-    _host,
-    port: _port,
-    options: const ChannelOptions(credentials: ChannelCredentials.secure()),
-  );
-
   // ---------------------------------------------------------------------------
   // Question CRUD
   // ---------------------------------------------------------------------------
@@ -121,7 +113,7 @@ class QuestionBankService {
   }) async {
     print('[QB] getQuestion → id=$id');
     try {
-      final req = pb.GetQuestionRequest()..id = id;
+      final req = pb.GetQuestionRequest()..questionId = id;
       final options = CallOptions(
         metadata: {'authorization': 'Bearer $accessToken'},
         timeout: const Duration(seconds: 30),
@@ -161,7 +153,6 @@ class QuestionBankService {
         ..marks = marks;
       req.rubric.addAll(rubric.map(_toProtoCriterion));
       if (exampleAnswer != null) req.exampleAnswer = exampleAnswer;
-      req.images.addAll(images.map(_toProtoImage));
       final options = CallOptions(
         metadata: {'authorization': 'Bearer $accessToken'},
         timeout: const Duration(seconds: 30),
@@ -196,12 +187,11 @@ class QuestionBankService {
     );
     try {
       final req = pb.UpdateQuestionRequest()
-        ..id = id
+        ..questionId = id
         ..text = text
         ..marks = marks;
       req.rubric.addAll(rubric.map(_toProtoCriterion));
       if (exampleAnswer != null) req.exampleAnswer = exampleAnswer;
-      req.images.addAll(images.map(_toProtoImage));
       final options = CallOptions(
         metadata: {'authorization': 'Bearer $accessToken'},
         timeout: const Duration(seconds: 30),
@@ -227,7 +217,7 @@ class QuestionBankService {
   }) async {
     print('[QB] deleteQuestion → id=$id');
     try {
-      final req = pb.DeleteQuestionRequest()..id = id;
+      final req = pb.DeleteQuestionRequest()..questionId = id;
       final options = CallOptions(
         metadata: {'authorization': 'Bearer $accessToken'},
         timeout: const Duration(seconds: 30),
@@ -360,7 +350,7 @@ class QuestionBankService {
       );
       final client = pbgrpc.QuestionBankClient(_mainChannel);
       final resp = await client.generatePaper(req, options: options);
-      final questions = resp.paperQuestions
+      final questions = resp.questions
           .map(models.PaperQuestion.fromProto)
           .toList();
       print('[QB] generatePaper ← OK (questions=${questions.length})');
@@ -381,14 +371,14 @@ class QuestionBankService {
     required int subject,
     int? paper,
     required int grade,
-    required String paperQuestionId,
+    required int position,
     required int topicId,
     required int marks,
     required String accessToken,
   }) async {
     print(
       '[QB] regenerateQuestion → school=$school exam=$exam '
-      'paperQuestionId=$paperQuestionId topicId=$topicId marks=$marks',
+      'position=$position topicId=$topicId marks=$marks',
     );
     try {
       final req = pb.RegenerateQuestionRequest()
@@ -396,7 +386,7 @@ class QuestionBankService {
         ..exam = exam
         ..subject = subject
         ..grade = grade
-        ..paperQuestionId = paperQuestionId
+        ..position = position
         ..topicId = topicId
         ..marks = marks;
       if (paper != null) req.paper = paper;
@@ -406,7 +396,7 @@ class QuestionBankService {
       );
       final client = pbgrpc.QuestionBankClient(_mainChannel);
       final resp = await client.regenerateQuestion(req, options: options);
-      final question = models.PaperQuestion.fromProto(resp.paperQuestion);
+      final question = models.PaperQuestion.fromProto(resp.replacement);
       print('[QB] regenerateQuestion ← OK (id=${question.id})');
       return Ok(question);
     } on GrpcError catch (e) {
@@ -419,30 +409,24 @@ class QuestionBankService {
   }
 
   /// Edit a question on the generated paper.
-  Future<Result<models.PaperQuestion, GrpcError>> editPaperQuestion({
-    required String school,
-    required String exam,
-    required int subject,
-    int? paper,
-    required String paperQuestionId,
+  Future<Result<models.Question, GrpcError>> editPaperQuestion({
+    required int questionId,
     required String text,
     required int marks,
     required List<models.RubricCriterion> rubric,
+    String? exampleAnswer,
     required String accessToken,
   }) async {
     print(
-      '[QB] editPaperQuestion → school=$school exam=$exam '
-      'paperQuestionId=$paperQuestionId marks=$marks rubric=${rubric.length}',
+      '[QB] editPaperQuestion → questionId=$questionId '
+      'marks=$marks rubric=${rubric.length}',
     );
     try {
       final req = pb.EditPaperQuestionRequest()
-        ..school = school
-        ..exam = exam
-        ..subject = subject
-        ..paperQuestionId = paperQuestionId
+        ..questionId = questionId
         ..text = text
         ..marks = marks;
-      if (paper != null) req.paper = paper;
+      if (exampleAnswer != null) req.exampleAnswer = exampleAnswer;
       req.rubric.addAll(rubric.map(_toProtoCriterion));
       final options = CallOptions(
         metadata: {'authorization': 'Bearer $accessToken'},
@@ -450,7 +434,7 @@ class QuestionBankService {
       );
       final client = pbgrpc.QuestionBankClient(_mainChannel);
       final resp = await client.editPaperQuestion(req, options: options);
-      final question = models.PaperQuestion.fromProto(resp.paperQuestion);
+      final question = models.Question.fromProto(resp.question);
       print('[QB] editPaperQuestion ← OK (id=${question.id})');
       return Ok(question);
     } on GrpcError catch (e) {
@@ -470,12 +454,11 @@ class QuestionBankService {
     int? paper,
     required int grade,
     int? stream,
-    required List<String> paperQuestionIds,
     required String accessToken,
   }) async {
     print(
       '[QB] finalizePaper → school=$school exam=$exam subject=$subject '
-      'grade=$grade questions=${paperQuestionIds.length}',
+      'grade=$grade',
     );
     try {
       final req = pb.FinalizePaperRequest()
@@ -485,7 +468,6 @@ class QuestionBankService {
         ..grade = grade;
       if (paper != null) req.paper = paper;
       if (stream != null) req.stream = stream;
-      req.paperQuestionIds.addAll(paperQuestionIds);
       final options = CallOptions(
         metadata: {'authorization': 'Bearer $accessToken'},
         timeout: const Duration(seconds: 60),
@@ -617,7 +599,7 @@ class QuestionBankService {
       );
       final client = pbgrpc.QuestionBankClient(_mainChannel);
       final resp = await client.getQuestionGrades(req, options: options);
-      final grades = resp.questionGrades
+      final grades = resp.grades
           .map(models.QuestionGradeDetail.fromProto)
           .toList();
       print('[QB] getQuestionGrades ← OK (count=${grades.length})');
@@ -952,27 +934,9 @@ class QuestionBankService {
   // Proto Mapping Helpers
   // ---------------------------------------------------------------------------
 
-  /// Convert domain [models.ImageContext] to proto [pbenum.ImageContext].
-  pbenum.ImageContext _toProtoImageContext(models.ImageContext ctx) =>
-      switch (ctx) {
-        models.ImageContext.question => pbenum.ImageContext.QUESTION,
-        models.ImageContext.rubric => pbenum.ImageContext.RUBRIC,
-        models.ImageContext.exampleAnswer => pbenum.ImageContext.EXAMPLE_ANSWER,
-      };
-
-  /// Convert domain [models.RubricCriterion] to proto [pb.RubricCriterion].
-  pb.RubricCriterion _toProtoCriterion(models.RubricCriterion r) =>
-      pb.RubricCriterion()
+  /// Convert domain [models.RubricCriterion] to proto [pb.RubricCriterionInput].
+  pb.RubricCriterionInput _toProtoCriterion(models.RubricCriterion r) =>
+      pb.RubricCriterionInput()
         ..criterion = r.criterion
         ..marks = r.marks;
-
-  /// Convert domain [models.QuestionImage] to proto [pb.QuestionImage].
-  pb.QuestionImage _toProtoImage(models.QuestionImage img) {
-    final proto = pb.QuestionImage()
-      ..context = _toProtoImageContext(img.context)
-      ..filename = img.filename
-      ..description = img.description;
-    if (img.caption != null) proto.caption = img.caption!;
-    return proto;
-  }
 }

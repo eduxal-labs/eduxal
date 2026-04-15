@@ -1,5 +1,4 @@
 import '../proto/services/question_bank.pb.dart' as pb;
-import '../proto/services/question_bank.pbenum.dart' as pbenum;
 
 /// Image context for where the image appears on a question.
 enum ImageContext { question, rubric, exampleAnswer }
@@ -31,20 +30,18 @@ class QuestionImage {
 
   factory QuestionImage.fromProto(pb.QuestionImage proto) => QuestionImage(
     context: _imageContextFromProto(proto.context),
-    filename: proto.filename,
+    filename: proto.key,
     caption: proto.hasCaption() ? proto.caption : null,
-    description: proto.description,
-    getUrl: proto.hasGetUrl() ? proto.getUrl : null,
+    description: proto.hasCaption() ? proto.caption : '',
+    getUrl: proto.hasUrl() ? proto.url : null,
   );
 }
 
-ImageContext _imageContextFromProto(pbenum.ImageContext proto) =>
-    switch (proto) {
-      pbenum.ImageContext.QUESTION => ImageContext.question,
-      pbenum.ImageContext.RUBRIC => ImageContext.rubric,
-      pbenum.ImageContext.EXAMPLE_ANSWER => ImageContext.exampleAnswer,
-      _ => ImageContext.question,
-    };
+ImageContext _imageContextFromProto(int context) => switch (context) {
+  1 => ImageContext.rubric,
+  2 => ImageContext.exampleAnswer,
+  _ => ImageContext.question,
+};
 
 /// A question in the question bank.
 class Question {
@@ -97,7 +94,7 @@ class BulkImportResult {
 
   factory BulkImportResult.fromProto(pb.BulkImportResponse proto) =>
       BulkImportResult(
-        createdCount: proto.createdCount,
+        createdCount: proto.questionsCreated,
         questionIds: proto.questionIds.toList(),
         errors: proto.errors.map(ImportError.fromProto).toList(),
       );
