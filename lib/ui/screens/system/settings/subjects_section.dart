@@ -681,12 +681,6 @@ class _TopicsPanelState extends State<_TopicsPanel> {
       if (widget.curriculum == CurriculumType.cbc && e.key <= 2) {
         return false;
       }
-      // 8-4-4 is being phased out — only Form 3 (43) and Form 4 (44) remain
-      if (widget.curriculum == CurriculumType.eightFourFour &&
-          e.key != 43 &&
-          e.key != 44) {
-        return false;
-      }
       return true;
     }).toList();
   }

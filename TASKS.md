@@ -1,150 +1,141 @@
 # TASKS.md
 
-## Proto Reconciliation — Fix Build Errors from question_bank Proto Schema Change
+## Question Import Investigation — System-Wide Questions + 8-4-4 Grade Coverage
 
-The generated `question_bank.pb.dart` proto stubs were updated to a newer schema, but the
-app-side models and services still target the old field names/types. This caused ~40 compile
-errors that prevented the Linux (and all other) builds.
+The system dashboard question import flow has two reported issues:
 
-**Status: ✅ All tasks complete. Build passes.**
+1. Importing many JSON files from the **system dashboard** fails with **"school not found"**.
+   This is incorrect for question-bank CRUD/import because system questions are global and should not require a school.
+2. Under **8-4-4** in the system dashboard question/topic flow, only **Form 3** and **Form 4** are available.
+   The user wants **Form 1–Form 4** available for question import and topic management.
+
+Research findings already confirmed from the current client codebase:
+- System settings/question-bank UI is documented as **system-wide, not school-scoped**.
+- `QuestionBankService.createQuestion()` and `bulkImport()` currently send only `topicId` / `jsonContent` and **do not send a school field**.
+- Generated proto request types for question CRUD/import (`CreateQuestionRequest`, `BulkImportRequest`, `ListQuestionsRequest`) also **do not contain a `school` field**.
+- The current 8-4-4 restriction is client-side in `lib/ui/screens/system/settings/subjects_section.dart`, where `_TopicsPanelState._gradeEntries` explicitly filters 8-4-4 grades down to only `43` and `44`.
+- Shared grade labels already support full 8-4-4 coverage: `41=Form 1`, `42=Form 2`, `43=Form 3`, `44=Form 4`.
+
+Because the user also asked whether the server needs changes, the tasks below separate:
+- client fixes that are definitely needed,
+- and a server/proto contract audit to determine whether backend changes are also required.
 
 ---
 
-### Task 01: Fix `lib/models/marking_status.dart`
-**Files to create/modify:** `lib/models/marking_status.dart`
-**Context files to read (if needed):** none
+### Task 01: Remove client-side 8-4-4 grade restriction in system subjects/questions UI
+**Files to create/modify:** `lib/ui/screens/system/settings/subjects_section.dart`
+**Context files to read (if needed):** `lib/ui/screens/system/CONTEXT.md`
 **Depends on:** none
 **Parallel group:** P1
 
 **Specification:**
+Update `_TopicsPanelState._gradeEntries` so that:
+- CBC still excludes `PP1` and `PP2` (`grade <= 2`) exactly as it does now.
+- 8-4-4 no longer filters to only `43` and `44`.
+- For `CurriculumType.eightFourFour`, all entries from `gradeLabelsFor(widget.curriculum)` must remain available, which includes:
+  - `41 -> Form 1`
+  - `42 -> Form 2`
+  - `43 -> Form 3`
+  - `44 -> Form 4`
 
-The proto `MarkingStatusResponse` changed:
-- `status` (MarkingStatusEnum) → `phase` (MarkingPhase enum from pbenum)
-- `progressCurrent` (int) + `progressTotal` (int) → `progress` (String, e.g. "5/14")
-- `errorMessage` (String) + `hasErrorMessage()` → `error` (String) + `hasError()`
-- New field: `estimatedCompletion` (Int64)
-
-The pbenum file no longer has `MarkingStatusEnum`. It has `MarkingPhase` with values:
-`QUEUED(0)`, `DOWNLOADING(1)`, `CACHING(2)`, `MARKING(3)`, `AGGREGATING(4)`, `COMPLETE(5)`, `FAILED(6)`.
+Do not change the shared grade-label maps in `models/school_config.dart`; they already contain the correct labels.
+Do not alter CBC behavior.
 
 **Update after completion:**
+- [ ] Update `lib/ui/screens/system/CONTEXT.md` — note that system question/topic grade chips now expose full 8-4-4 Form 1–4 coverage
 - [x] Mark this task `[x]`
+- [ ] Orchestrator: git commit after this task
 
 ---
 
-### Task 02: Fix `lib/models/question.dart`
-**Files to create/modify:** `lib/models/question.dart`
-**Context files to read (if needed):** none
+### Task 02: Audit and fix system question import flow so it remains school-agnostic on the client
+**Files to create/modify:** `lib/ui/screens/system/settings/multi_file_import_sheet.dart`, `lib/ui/screens/system/settings/subject_bulk_import_sheet.dart`, `lib/services/import_file_parser.dart`, `lib/services/question_bank.dart`
+**Context files to read (if needed):** `lib/ui/screens/system/CONTEXT.md`, `lib/services/CONTEXT.md`
 **Depends on:** none
 **Parallel group:** P1
 
 **Specification:**
+Perform a focused client audit of the system-dashboard import path and fix any client-side behavior that incorrectly assumes school scope.
 
-Three issues fixed:
-- `QuestionImage.fromProto` updated to use new proto fields (`key`, `url`, `caption` instead of `filename`, `description`, `getUrl`)
-- `_imageContextFromProto` changed to accept `int` instead of `pbenum.ImageContext`
-- `BulkImportResult.fromProto`: `proto.createdCount` → `proto.questionsCreated`
-- Removed `pbenum` import
+Use the already-known flow:
+- `MultiFileImportSheet._importAll()` calls `client.questionBank.importFileWithImages(...)`
+- `QuestionBankService.importFileWithImages()` calls `bulkImport(parsed.cleanedJson!, accessToken: ...)`
+- `QuestionBankService.bulkImport()` sends `pb.BulkImportRequest()..jsonContent = jsonContent`
+- `BulkImportRequest` has no `school` field in the generated proto
+
+Required work:
+1. Verify that no client code in this import path injects, derives, or requires a school ID.
+2. If any client-side validation/error mapping is converting a backend failure into a misleading generic import failure, improve the surfaced error text/logging so the exact backend message is preserved for diagnosis.
+3. Add concise diagnostic logging around the import request/response path so future failures clearly show:
+   - file/topic being imported,
+   - whether the request is system-wide,
+   - and the exact gRPC error code/message returned by the backend.
+4. Preserve the existing import behavior for image upload and partial-success handling.
+
+Important constraints:
+- Do not invent a school parameter in the client proto/service layer.
+- Do not change generated proto files.
+- Do not broaden this into paper-generation APIs; those school-scoped APIs are separate and valid.
 
 **Update after completion:**
-- [x] Mark this task `[x]`
+- [ ] Update `lib/services/CONTEXT.md` — document the clarified system-wide import behavior and any new diagnostics in `QuestionBankService`
+- [ ] Update `lib/ui/screens/system/CONTEXT.md` — document any import-sheet behavior/error-message changes
+- [ ] Mark this task `[x]`
+- [ ] Orchestrator: git commit after this task
 
 ---
 
-### Task 03: Fix `lib/models/question_grade.dart`
-**Files to create/modify:** `lib/models/question_grade.dart`
-**Context files to read (if needed):** none
-**Depends on:** none
-**Parallel group:** P1
-
-**Specification:**
-
-- `RubricResult.fromProto` changed from `pb.RubricResult` to `pb.RubricCriterion`
-- `QuestionGradeDetail.fromProto` changed from `pb.QuestionGrade` to `pb.QuestionGradeDetail`
-
-**Update after completion:**
-- [x] Mark this task `[x]`
-
----
-
-### Task 04: Fix `lib/models/paper_generation.dart`
-**Files to create/modify:** `lib/models/paper_generation.dart`
-**Context files to read (if needed):** none
-**Depends on:** none
-**Parallel group:** P1
-
-**Specification:**
-
-Proto `PaperQuestion` changed from flat fields to nested: `position` (int) + `question` (nested `Question`).
-Rewrote `PaperQuestion.fromProto` to extract fields from the nested `question` sub-message.
-
-**Update after completion:**
-- [x] Mark this task `[x]`
-
----
-
-### Task 05: Fix `lib/services/question_bank.dart`
-**Files to create/modify:** `lib/services/question_bank.dart`
-**Context files to read (if needed):** none
-**Depends on:** Tasks 01–04 (model changes)
+### Task 03: Produce backend/proto compatibility findings for the “school not found” import failure
+**Files to create/modify:** `TASKS.md`
+**Context files to read (if needed):** `lib/proto/CONTEXT.md`, `lib/services/CONTEXT.md`, `lib/ui/screens/system/CONTEXT.md`
+**Depends on:** Task 02
 **Parallel group:** P2
 
 **Specification:**
+After Task 02 confirms the client request shape, append a short findings section under this task in `TASKS.md` summarizing whether the server must change.
 
-Fixed all field name mismatches:
-- Removed `pbenum` import and `_toProtoImageContext`/`_toProtoImage` helpers
-- Changed `_toProtoCriterion` to return `pb.RubricCriterionInput`
-- Fixed `getQuestion`, `updateQuestion`, `deleteQuestion`: `..id` → `..questionId`
-- Removed `req.images.addAll(...)` from `createQuestion`/`updateQuestion`
-- Fixed `generatePaper`: `resp.paperQuestions` → `resp.questions`
-- Fixed `regenerateQuestion`: `paperQuestionId` → `position`, `resp.paperQuestion` → `resp.replacement`
-- Fixed `editPaperQuestion`: removed `school`/`exam`/`subject`/`paper` params, return type → `Question`
-- Fixed `finalizePaper`: removed `paperQuestionIds` param
-- Fixed `getQuestionGrades`: `resp.questionGrades` → `resp.grades`
-- Removed unused `_freshChannel` method
+The executor should base the conclusion on the already-established client/proto contract:
+- `CreateQuestionRequest` has `topicId`, `text`, `marks`, `exampleAnswer`, `rubric`
+- `BulkImportRequest` has only `jsonContent`
+- `ListQuestionsRequest` has `topicId`, `minMarks`, `maxMarks`, `offset`, `limit`
+- None of these request types include `school`
+
+Expected conclusion format to append under this task:
+- **Client status:** whether the client is now correctly school-agnostic
+- **Proto contract status:** whether the proto currently models question-bank CRUD/import as global
+- **Server change required?:** `Yes`, `No`, or `Likely yes`
+- **Why:** one concise paragraph
+
+Decision rule:
+- If the backend still throws “school not found” for `bulkImportQuestions` / question creation despite the proto carrying no school field, mark **Server change required?: Likely yes** and explain that the backend is incorrectly enforcing school scope for a system-wide question-bank endpoint, or is deriving school from auth/session in a way that breaks system imports.
+- If Task 02 uncovers a client bug that actually sends the wrong endpoint/path/metadata, document that instead.
+
+This task is documentation-only inside `TASKS.md`; do not edit server code in this repository.
 
 **Update after completion:**
-- [x] Mark this task `[x]`
+- [ ] Mark this task `[x]`
+- [ ] Orchestrator: git commit after this task
 
 ---
 
-### Task 06: Fix `lib/ui/screens/school_dashboard/academics/paper_generation_page.dart`
-**Files to create/modify:** `lib/ui/screens/school_dashboard/academics/paper_generation_page.dart`
+### Task 04: Update context inventories after the question-import fixes
+**Files to create/modify:** `lib/ui/screens/system/CONTEXT.md`, `lib/services/CONTEXT.md`
 **Context files to read (if needed):** none
-**Depends on:** Task 05 (service signature changes)
+**Depends on:** Tasks 01–03
 **Parallel group:** P3
 
 **Specification:**
+Refresh the relevant context files so future agents do not re-investigate the same issue.
 
-- `regenerateQuestion` call: `paperQuestionId: question.id` → `position: question.order`
-- `editPaperQuestion` call: removed `school`/`exam`/`subject`/`paper`, changed to `questionId: question.questionId`, added PaperQuestion reconstruction from returned Question
-- `finalizePaper` call: removed `paperQuestionIds` parameter
-
-**Update after completion:**
-- [x] Mark this task `[x]`
-
----
-
-### Task 07: Fix minor warnings
-**Files to create/modify:** `lib/database/tables/roles.dart`
-**Context files to read (if needed):** none
-**Depends on:** none
-**Parallel group:** P1
-
-**Specification:**
-
-Removed unused import of `dart:typed_data`.
+Required updates:
+- In `lib/ui/screens/system/CONTEXT.md`:
+  - note that system question/topic management is system-wide and not school-scoped,
+  - note that 8-4-4 grade selection now exposes Form 1–4,
+  - note any improved import diagnostics or user-facing error behavior.
+- In `lib/services/CONTEXT.md`:
+  - note the question-bank import request shape is school-agnostic,
+  - note any new logging/diagnostic behavior in `QuestionBankService.importFileWithImages()` / `bulkImport()`.
 
 **Update after completion:**
-- [x] Mark this task `[x]`
-
----
-
-### Task 08: Verify build
-**Depends on:** Tasks 01–07
-**Parallel group:** P4
-
-`flutter analyze` — 0 errors, 0 new warnings. Only pre-existing info/warnings.
-`flutter build linux` — ✅ Built successfully.
-
-- [x] Mark this task `[x]`
+- [ ] Mark this task `[x]`
+- [ ] Orchestrator: git commit after this task
