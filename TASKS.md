@@ -143,5 +143,5 @@ Required updates:
   - note any new logging/diagnostic behavior in `QuestionBankService.importFileWithImages()` / `bulkImport()`.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task

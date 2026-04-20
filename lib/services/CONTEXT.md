@@ -176,7 +176,7 @@ Wraps the `QuestionBank` gRPC service for question bank operations. Handles CRUD
 | `createQuestion` | `Future<Result<Question, GrpcError>> createQuestion({required int topicId, required String text, required int marks, required List<RubricCriterion> rubric, String? exampleAnswer, List<QuestionImage> images = const [], required String accessToken})` | Create one question in a topic. Maps domain models to proto types for rubric criteria and images. |
 | `updateQuestion` | `Future<Result<Question, GrpcError>> updateQuestion({required int id, required String text, required int marks, required List<RubricCriterion> rubric, String? exampleAnswer, List<QuestionImage> images = const [], required String accessToken})` | Update an existing question. |
 | `deleteQuestion` | `Future<Result<void, GrpcError>> deleteQuestion({required int id, required String accessToken})` | Delete a question. Returns `Ok(null)` on success. |
-| `bulkImport` | `Future<Result<BulkImportResult, GrpcError>> bulkImport({required String jsonContent, required String accessToken, String? diagnosticLabel})` | Bulk import questions from JSON content. Uses 60s timeout. System question-bank import remains school-agnostic: the client sends only `jsonContent` (no school field) and logs concise request/response diagnostics with `scope=system-wide`, `school=none`, and exact gRPC code/message on failure. |
+| `bulkImport` | `Future<Result<BulkImportResult, GrpcError>> bulkImport({required String jsonContent, required String accessToken, String? diagnosticLabel})` | Bulk import questions from JSON content. Uses 60s timeout. Question-bank import remains school-agnostic: the client sends only `jsonContent` (no school field). For the system dashboard flow, diagnostics explicitly record `scope=system-wide`, `school=none`, and preserve the exact gRPC code/message on failure so misleading backend errors like "school not found" can be traced without re-auditing the client request shape. |
 | `requestImageUploadUrls` | `Future<Result<List<ImageUploadUrl>, GrpcError>> requestImageUploadUrls({required List<ImageUploadSpec> imageSpecs, required String accessToken})` | Get presigned PUT URLs for question images. Each `ImageUploadSpec` carries `questionId`, `position`, `context`, `filename`, and optional `caption`. Returns proto `ImageUploadUrl` directly (no domain model — transient upload flow only). |
 
 #### Paper Generation (Task 04)
@@ -213,7 +213,7 @@ Wraps the `QuestionBank` gRPC service for question bank operations. Handles CRUD
 
 | Method | Signature | Description |
 |---|---|---|
-| `importFileWithImages` | `Future<FileImportResult> importFileWithImages({required ParsedImportFile parsed, required String accessToken, ImportProgressCallback? onProgress})` | High-level orchestrator for a single parsed file. Pipeline: bulk import questions → build `ImageUploadSpec` objects for all created questions → request upload URLs in a single batch → upload each file to its PUT URL. Reports progress via optional `onProgress` callback with phase (`'importing'` / `'uploading'`), detail string, and 0.0–1.0 progress. Preserves partial-success and image-upload behavior while adding concise diagnostics for file/topic, `scope=system-wide`, `school=none`, and exact gRPC failure details. Returns `FileImportResult` with counts and per-item errors. |
+| `importFileWithImages` | `Future<FileImportResult> importFileWithImages({required ParsedImportFile parsed, required String accessToken, ImportProgressCallback? onProgress})` | High-level orchestrator for a single parsed file. Pipeline: bulk import questions → build `ImageUploadSpec` objects for all created questions → request upload URLs in a single batch → upload each file to its PUT URL. Reports progress via optional `onProgress` callback with phase (`'importing'` / `'uploading'`), detail string, and 0.0–1.0 progress. Preserves partial-success and image-upload behavior while adding concise diagnostics for file/topic context, explicit system-wide scope (`scope=system-wide`, `school=none`), and exact gRPC failure details. Returns `FileImportResult` with counts and per-item errors. |
 
 **Top-level types (defined above `QuestionBankService` class):**
 
@@ -228,7 +228,7 @@ Wraps the `QuestionBank` gRPC service for question bank operations. Handles CRUD
 
 Pure-Dart utility for parsing and validating question bank JSON files for bulk import. Zero Flutter/UI dependencies.
 
-**Top-level function:** `parseImportFile(String filePath, String jsonContent) → ParsedImportFile` — intentionally school-agnostic for system question import; validates only file-local payload structure and image references, never a school identifier.
+**Top-level function:** `parseImportFile(String filePath, String jsonContent) → ParsedImportFile` — intentionally school-agnostic for system question import; validates only file-local payload structure and image references, never a school identifier. This parser is not responsible for any school lookup and should not be treated as part of a school-scoped import contract.
 
 **Data classes:**
 - `ParsedImportFile` — Full result of parsing: file metadata (subject, curriculum, grade, topic), question count, image reference analysis (found/missing counts), cleaned JSON with basenames, `imagePathMap` (basename→absolute path), `questionImageMap` (question index→basenames).
@@ -266,6 +266,9 @@ Pure-Dart utility for parsing and validating question bank JSON files for bulk i
 - `client.dart` is the only file that holds the gRPC `ClientChannel`. Services receive the channel (or a service client) via constructor injection.
 
 ## Last Updated
+Task 04 — Context refresh after question-import investigation: documented that `QuestionBankService` question import remains school-agnostic at the request-shape level (`BulkImportRequest()..jsonContent = ...` only, no school field), that `ImportFileParser` is purely file-structure/image validation and never participates in school lookup, and that the new diagnostics in `bulkImport()` / `importFileWithImages()` explicitly capture system-wide scope plus exact backend gRPC failures for future audits.
+
+Previous:
 Task 02 — Clarified system question-bank import as school-agnostic in both `QuestionBankService` and `ImportFileParser`. `bulkImport()` now accepts an optional `diagnosticLabel` used only for logging; the request shape is still just `BulkImportRequest()..jsonContent = ...` with no school field. Added concise request/response diagnostics for system-wide imports (`scope=system-wide`, `school=none`) and preserved exact backend gRPC messages in surfaced import failures. `importFileWithImages()` now logs file/topic-level import and image-upload stages without changing partial-success or image-upload behavior.
 
 Previous:
