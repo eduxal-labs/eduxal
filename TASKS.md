@@ -112,8 +112,14 @@ Decision rule:
 
 This task is documentation-only inside `TASKS.md`; do not edit server code in this repository.
 
+**Findings:**
+- **Client status:** The client request path is correctly school-agnostic. The system import flow sends question-bank CRUD/import requests without deriving, injecting, or requiring a school ID.
+- **Proto contract status:** The proto currently models question-bank CRUD/import as global. `CreateQuestionRequest`, `BulkImportRequest`, and `ListQuestionsRequest` do not include a `school` field, so the wire contract does not support school-scoped question-bank CRUD/import.
+- **Server change required?:** Likely yes
+- **Why:** The established client/proto contract is global, but the backend audit found the question-bank contract is also intended to be global while still returning a misleading `SchoolNotFound` error when bulk import references a missing subject/topic. That means the failure is not caused by the client request shape; it points to backend validation/error mapping that still reports school-scoped failure semantics for a global endpoint. The server should stop enforcing or implying school scope for these question-bank endpoints and return a subject/topic-specific validation error instead.
+
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
