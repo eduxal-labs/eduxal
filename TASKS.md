@@ -78,9 +78,9 @@ Important constraints:
 - Do not broaden this into paper-generation APIs; those school-scoped APIs are separate and valid.
 
 **Update after completion:**
-- [ ] Update `lib/services/CONTEXT.md` — document the clarified system-wide import behavior and any new diagnostics in `QuestionBankService`
-- [ ] Update `lib/ui/screens/system/CONTEXT.md` — document any import-sheet behavior/error-message changes
-- [ ] Mark this task `[x]`
+- [x] Update `lib/services/CONTEXT.md` — document the clarified system-wide import behavior and any new diagnostics in `QuestionBankService`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — document any import-sheet behavior/error-message changes
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---

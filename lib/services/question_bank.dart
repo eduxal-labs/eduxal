@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'package:grpc/grpc.dart';
@@ -55,6 +56,7 @@ class FileImportResult {
 /// Uses the **main** [ClientChannel] (shared with the sync engine) for all gRPC
 /// calls. A fresh-channel fallback is available if the main channel fails.
 class QuestionBankService {
+  static const String _questionBankLog = 'QuestionBankService';
   QuestionBankService({
     required ClientChannel channel,
     required String host,
@@ -240,11 +242,21 @@ class QuestionBankService {
   // ---------------------------------------------------------------------------
 
   /// Bulk import questions from JSON content.
+  ///
+  /// This endpoint is system-wide for question-bank imports. It does not send,
+  /// derive, or require a school identifier on the client request path.
   Future<Result<models.BulkImportResult, GrpcError>> bulkImport({
     required String jsonContent,
     required String accessToken,
+    String? diagnosticLabel,
   }) async {
-    print('[QB] bulkImport → jsonContent.length=${jsonContent.length}');
+    final label = diagnosticLabel?.trim().isNotEmpty == true
+        ? diagnosticLabel!.trim()
+        : 'bulk import';
+    _logImportDiagnostic(
+      'bulkImport.request',
+      'label=$label scope=system-wide school=none jsonLength=${jsonContent.length}',
+    );
     try {
       final req = pb.BulkImportRequest()..jsonContent = jsonContent;
       final options = CallOptions(
@@ -254,15 +266,26 @@ class QuestionBankService {
       final client = pbgrpc.QuestionBankClient(_mainChannel);
       final resp = await client.bulkImportQuestions(req, options: options);
       final result = models.BulkImportResult.fromProto(resp);
-      print(
-        '[QB] bulkImport ← OK (created=${result.createdCount} errors=${result.errors.length})',
+      _logImportDiagnostic(
+        'bulkImport.response',
+        'label=$label scope=system-wide school=none created=${result.createdCount} errors=${result.errors.length}',
       );
       return Ok(result);
-    } on GrpcError catch (e) {
-      print('[QB] bulkImport ← GrpcError: ${e.code} ${e.message}');
+    } on GrpcError catch (e, st) {
+      _logGrpcFailure(
+        operation: 'bulkImport',
+        error: e,
+        stackTrace: st,
+        context:
+            'label=$label scope=system-wide school=none jsonLength=${jsonContent.length}',
+      );
       return Err(e);
     } catch (e, st) {
-      print('[QB] bulkImport ← UNEXPECTED ${e.runtimeType}: $e\n$st');
+      _logImportDiagnostic(
+        'bulkImport.unexpected',
+        'label=$label scope=system-wide school=none errorType=${e.runtimeType} error=$e',
+        stackTrace: st,
+      );
       return Err(GrpcError.internal('bulkImport failed: $e'));
     }
   }
@@ -738,6 +761,16 @@ class QuestionBankService {
     assert(parsed.isValid && parsed.cleanedJson != null);
 
     final errors = <String>[];
+    final diagnosticLabel =
+        '${parsed.fileName} topic="${parsed.topic}" subject="${parsed.subject}"';
+
+    _logImportDiagnostic(
+      'importFileWithImages.start',
+      'label=$diagnosticLabel scope=system-wide school=none '
+          'curriculum=${parsed.curriculum} grade=${parsed.grade} '
+          'questions=${parsed.questionCount} images=${parsed.totalImageRefs} '
+          'missingImages=${parsed.missingImages.length}',
+    );
 
     // ── Phase 1: Bulk import questions ────────────────────────────────────
     onProgress?.call(
@@ -749,10 +782,17 @@ class QuestionBankService {
     final importResult = await bulkImport(
       jsonContent: parsed.cleanedJson!,
       accessToken: accessToken,
+      diagnosticLabel: diagnosticLabel,
     );
 
     switch (importResult) {
       case Err(:final error):
+        final exactMessage = _grpcMessage(error);
+        _logImportDiagnostic(
+          'importFileWithImages.importFailed',
+          'label=$diagnosticLabel scope=system-wide school=none '
+              'grpcCode=${error.code} grpcMessage=$exactMessage',
+        );
         return FileImportResult(
           fileName: parsed.fileName,
           topic: parsed.topic,
@@ -761,9 +801,16 @@ class QuestionBankService {
           imagesUploaded: 0,
           imagesFailed: 0,
           imagesSkipped: parsed.missingImages.length,
-          errors: ['Import failed: ${error.message ?? error.code}'],
+          errors: ['Import failed: $exactMessage'],
         );
       case Ok(:final value):
+        _logImportDiagnostic(
+          'importFileWithImages.importSucceeded',
+          'label=$diagnosticLabel scope=system-wide school=none '
+              'created=${value.createdCount} questionErrors=${value.errors.length} '
+              'questionIds=${value.questionIds.length}',
+        );
+
         // Collect per-question import errors.
         final errorIndices = <int>{};
         for (final e in value.errors) {
@@ -775,6 +822,12 @@ class QuestionBankService {
 
         // If no questions were created or no images to upload, return early.
         if (createdIds.isEmpty || !parsed.hasImages) {
+          _logImportDiagnostic(
+            'importFileWithImages.complete',
+            'label=$diagnosticLabel scope=system-wide school=none '
+                'questionsCreated=${value.createdCount} questionsErrored=${value.errors.length} '
+                'imagesUploaded=0 imagesFailed=0 imagesSkipped=${parsed.missingImages.length}',
+          );
           return FileImportResult(
             fileName: parsed.fileName,
             topic: parsed.topic,
@@ -844,6 +897,12 @@ class QuestionBankService {
         }
 
         if (allSpecs.isEmpty) {
+          _logImportDiagnostic(
+            'importFileWithImages.complete',
+            'label=$diagnosticLabel scope=system-wide school=none '
+                'questionsCreated=${value.createdCount} questionsErrored=${value.errors.length} '
+                'imagesUploaded=0 imagesFailed=0 imagesSkipped=$imagesSkipped',
+          );
           return FileImportResult(
             fileName: parsed.fileName,
             topic: parsed.topic,
@@ -860,6 +919,11 @@ class QuestionBankService {
         int uploadsDone = 0;
         final totalUploads = allSpecs.length;
 
+        _logImportDiagnostic(
+          'importFileWithImages.imageUploadRequest',
+          'label=$diagnosticLabel scope=system-wide school=none uploadSpecs=$totalUploads',
+        );
+
         onProgress?.call(
           'uploading',
           'Uploading images (0/$totalUploads)…',
@@ -875,11 +939,18 @@ class QuestionBankService {
         switch (urlResult) {
           case Err(:final error):
             imagesFailed += allSpecs.length;
-            errors.add(
-              'Image URL request failed: '
-              '${error.message ?? error.code}',
+            final exactMessage = _grpcMessage(error);
+            _logImportDiagnostic(
+              'importFileWithImages.imageUploadRequestFailed',
+              'label=$diagnosticLabel scope=system-wide school=none '
+                  'grpcCode=${error.code} grpcMessage=$exactMessage',
             );
+            errors.add('Image URL request failed: $exactMessage');
           case Ok(:final value):
+            _logImportDiagnostic(
+              'importFileWithImages.imageUploadResponse',
+              'label=$diagnosticLabel scope=system-wide school=none urls=${value.length}',
+            );
             for (final uploadUrl in value) {
               final key = '${uploadUrl.questionId}:${uploadUrl.position}';
               final localPath = specToLocalPath[key];
@@ -917,6 +988,13 @@ class QuestionBankService {
             }
         }
 
+        _logImportDiagnostic(
+          'importFileWithImages.complete',
+          'label=$diagnosticLabel scope=system-wide school=none '
+              'questionsCreated=${value.createdCount} questionsErrored=${value.errors.length} '
+              'imagesUploaded=$imagesUploaded imagesFailed=$imagesFailed imagesSkipped=$imagesSkipped',
+        );
+
         return FileImportResult(
           fileName: parsed.fileName,
           topic: parsed.topic,
@@ -928,6 +1006,40 @@ class QuestionBankService {
           errors: errors,
         );
     }
+  }
+
+  void _logImportDiagnostic(
+    String event,
+    String message, {
+    StackTrace? stackTrace,
+  }) {
+    developer.log(
+      message,
+      name: _questionBankLog,
+      error: event,
+      stackTrace: stackTrace,
+    );
+  }
+
+  void _logGrpcFailure({
+    required String operation,
+    required GrpcError error,
+    required StackTrace stackTrace,
+    required String context,
+  }) {
+    _logImportDiagnostic(
+      '$operation.grpcError',
+      '$context grpcCode=${error.code} grpcMessage=${_grpcMessage(error)}',
+      stackTrace: stackTrace,
+    );
+  }
+
+  String _grpcMessage(GrpcError error) {
+    final message = error.message?.trim();
+    if (message != null && message.isNotEmpty) {
+      return message;
+    }
+    return 'gRPC error ${error.code}';
   }
 
   // ---------------------------------------------------------------------------

@@ -87,6 +87,11 @@ class MissingImage {
 
 /// Parses and validates a single JSON file for bulk import.
 ///
+/// This parser is intentionally school-agnostic for the system question-bank
+/// import flow. It validates only file-local question payload structure
+/// (`subject`, `curriculum`, `grade`, `topic`, `questions`, and image
+/// references) and does not derive, inject, or require any school identifier.
+///
 /// The JSON is expected to have the structure:
 /// ```json
 /// {

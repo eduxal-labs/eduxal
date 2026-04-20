@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -84,6 +85,15 @@ class _SubjectBulkImportSheetState extends State<SubjectBulkImportSheet> {
       if (result != null && result.files.single.path != null) {
         final file = File(result.files.single.path!);
         final content = await file.readAsString();
+        developer.log(
+          'Picked system-wide question import file: '
+          'path=${result.files.single.path} '
+          'subject=${widget.subjectName} '
+          'subjectId=${widget.subjectId} '
+          'curriculum=${widget.curriculum.name} '
+          'school=none',
+          name: 'SubjectBulkImportSheet',
+        );
         _jsonCtrl.text = content;
         // Reset validation state
         setState(() {
@@ -279,6 +289,18 @@ class _SubjectBulkImportSheetState extends State<SubjectBulkImportSheet> {
   Future<void> _import() async {
     if (!_validated) return;
 
+    final jsonContent = _jsonCtrl.text.trim();
+    final diagnosticLabel =
+        'subject="${widget.subjectName}" '
+        'subjectId=${widget.subjectId} '
+        'curriculum=${widget.curriculum.name}';
+
+    developer.log(
+      'Starting system-wide question import: '
+      '$diagnosticLabel school=none jsonLength=${jsonContent.length}',
+      name: 'SubjectBulkImportSheet',
+    );
+
     setState(() {
       _importing = true;
       _importError = null;
@@ -286,14 +308,21 @@ class _SubjectBulkImportSheetState extends State<SubjectBulkImportSheet> {
     });
 
     final result = await questionBankService.bulkImport(
-      jsonContent: _jsonCtrl.text.trim(),
+      jsonContent: jsonContent,
       accessToken: accessToken,
+      diagnosticLabel: diagnosticLabel,
     );
 
     if (!mounted) return;
 
     switch (result) {
       case Ok<BulkImportResult, GrpcError>(:final value):
+        developer.log(
+          'System-wide question import completed: '
+          '$diagnosticLabel school=none '
+          'created=${value.createdCount} errors=${value.errors.length}',
+          name: 'SubjectBulkImportSheet',
+        );
         setState(() {
           _importing = false;
           _importResult = value;
@@ -302,9 +331,20 @@ class _SubjectBulkImportSheetState extends State<SubjectBulkImportSheet> {
           widget.onImported?.call();
         }
       case Err<BulkImportResult, GrpcError>(:final error):
+        final exactMessage = (error.message != null && error.message!.trim().isNotEmpty)
+            ? error.message!.trim()
+            : 'gRPC error ${error.code}';
+        developer.log(
+          'System-wide question import failed: '
+          '$diagnosticLabel school=none '
+          'grpcCode=${error.code} grpcMessage=$exactMessage',
+          name: 'SubjectBulkImportSheet',
+          error: error,
+          stackTrace: StackTrace.current,
+        );
         setState(() {
           _importing = false;
-          _importError = error.message ?? 'Import failed (${error.code}).';
+          _importError = 'Import failed: $exactMessage';
         });
     }
   }

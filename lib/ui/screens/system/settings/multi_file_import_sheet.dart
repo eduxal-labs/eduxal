@@ -89,6 +89,11 @@ class _MultiFileImportSheetState extends State<MultiFileImportSheet> {
         }
         // Sort by topic name for readability.
         parsed.sort((a, b) => a.topic.compareTo(b.topic));
+        debugPrint(
+          '[SystemImportUI] picked ${parsed.length} file(s) for '
+          'system-wide subject import: ${widget.subjectName} '
+          '(school=none, curriculum=$_curriculumLabel)',
+        );
         setState(() {
           _parsedFiles = parsed;
           _results = [];
@@ -96,8 +101,11 @@ class _MultiFileImportSheetState extends State<MultiFileImportSheet> {
           _fatalError = null;
         });
       }
-    } catch (_) {
-      // Silently ignore picker cancellation.
+    } catch (e, st) {
+      debugPrint(
+        '[SystemImportUI] file picker/read failed for system-wide import: $e',
+      );
+      debugPrint('$st');
     } finally {
       if (mounted) setState(() => _pickingFiles = false);
     }
@@ -108,6 +116,13 @@ class _MultiFileImportSheetState extends State<MultiFileImportSheet> {
   Future<void> _importAll() async {
     final validFiles = _parsedFiles.where((f) => f.isValid).toList();
     if (validFiles.isEmpty) return;
+
+    debugPrint(
+      '[SystemImportUI] starting system-wide multi-file import '
+      'subject=${widget.subjectName} subjectId=${widget.subjectId} '
+      'curriculum=$_curriculumLabel validFiles=${validFiles.length} '
+      'invalidFiles=$_invalidCount school=none',
+    );
 
     setState(() {
       _importing = true;
@@ -122,17 +137,30 @@ class _MultiFileImportSheetState extends State<MultiFileImportSheet> {
     for (var i = 0; i < validFiles.length; i++) {
       if (!_importing) break; // cancelled
 
+      final parsed = validFiles[i];
+      debugPrint(
+        '[SystemImportUI] importing file ${i + 1}/${validFiles.length}: '
+        'file=${parsed.fileName} topic=${parsed.topic} '
+        'questions=${parsed.questionCount} images=${parsed.totalImageRefs} '
+        'school=none',
+      );
+
       setState(() {
         _currentFileIndex = i;
         _currentPhase = 'importing';
-        _currentDetail = 'Preparing…';
+        _currentDetail = 'Preparing system-wide import…';
         _currentProgress = 0.0;
       });
 
       final result = await qbService.importFileWithImages(
-        parsed: validFiles[i],
+        parsed: parsed,
         accessToken: token,
         onProgress: (phase, detail, progress) {
+          debugPrint(
+            '[SystemImportUI] progress file=${parsed.fileName} '
+            'topic=${parsed.topic} phase=$phase progress=${progress.toStringAsFixed(2)} '
+            'detail=$detail school=none',
+          );
           if (mounted) {
             setState(() {
               _currentPhase = phase;
@@ -141,6 +169,16 @@ class _MultiFileImportSheetState extends State<MultiFileImportSheet> {
             });
           }
         },
+      );
+
+      debugPrint(
+        '[SystemImportUI] completed file=${parsed.fileName} topic=${parsed.topic} '
+        'questionsCreated=${result.questionsCreated} '
+        'questionsErrored=${result.questionsErrored} '
+        'imagesUploaded=${result.imagesUploaded} '
+        'imagesFailed=${result.imagesFailed} '
+        'imagesSkipped=${result.imagesSkipped} '
+        'errors=${result.errors.length} school=none',
       );
 
       if (mounted) {
@@ -156,6 +194,15 @@ class _MultiFileImportSheetState extends State<MultiFileImportSheet> {
         _completed = true;
         _currentFileIndex = -1;
       });
+      debugPrint(
+        '[SystemImportUI] system-wide multi-file import finished '
+        'results=${_results.length} created=${_results.fold<int>(0, (a, r) => a + r.questionsCreated)} '
+        'errored=${_results.fold<int>(0, (a, r) => a + r.questionsErrored)} '
+        'uploaded=${_results.fold<int>(0, (a, r) => a + r.imagesUploaded)} '
+        'failed=${_results.fold<int>(0, (a, r) => a + r.imagesFailed)} '
+        'skipped=${_results.fold<int>(0, (a, r) => a + r.imagesSkipped)} '
+        'school=none',
+      );
       // Notify parent to refresh topic counts.
       if (_results.any((r) => r.questionsCreated > 0)) {
         widget.onImported?.call();
@@ -164,6 +211,10 @@ class _MultiFileImportSheetState extends State<MultiFileImportSheet> {
   }
 
   void _cancelImport() {
+    debugPrint(
+      '[SystemImportUI] import cancelled by user '
+      'subject=${widget.subjectName} school=none',
+    );
     setState(() => _importing = false);
   }
 
