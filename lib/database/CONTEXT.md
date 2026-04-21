@@ -14,7 +14,7 @@ All tables are defined in `tables/`, all query logic lives in `daos/`, and the `
 
 | File | Status | Description |
 |---|---|---|
-| `database.dart` | ✅ Complete | `AppDatabase` class — registers all 35 tables + all DAOs. Schema version **10**. `MigrationStrategy.onUpgrade` handles: v1→v2 (add `accounts.lastSeq` column), v2→v3 (drop+recreate `logs` table for action-based model), v3→v4 (drop overly-restrictive unique indexes on exams), v4→v5 (create `paper_submissions` table), v5→v6 (add `accounts.theme` column), v6→v7 (add `papers.grade`/`stream`, drop `exam_grades`, recreate triggers), v7→v8 (rebuild `papers` and `grades` tables for new composite PK shape), v8→v9 (create `scheme_pages` and `answer_pages` tables), v9→v10 (migrate `roles.permissions` from TEXT to BLOB — table recreation with data conversion via `parsePermissions()` → `Permissions.toBlob()`). `onCreate` applies triggers + indexes as raw SQL. Singleton accessed via global `db` variable set in `client.dart`'s `initializeClient()`. |
+| `database.dart` | ✅ Complete | `AppDatabase` class — registers all 35 tables + all DAOs. Schema version **11**. `MigrationStrategy.onUpgrade` handles: v1→v2 (add `accounts.lastSeq` column), v2→v3 (drop+recreate `logs` table for action-based model), v3→v4 (drop overly-restrictive unique indexes on exams), v4→v5 (create `paper_submissions` table), v5→v6 (add `accounts.theme` column), v6→v7 (add `papers.grade`/`stream`, drop `exam_grades`, recreate triggers), v7→v8 (rebuild `papers` and `grades` tables for new composite PK shape), v8→v9 (create `scheme_pages` and `answer_pages` tables), v9→v10 (migrate `roles.permissions` from TEXT to BLOB — table recreation with data conversion via `parsePermissions()` → `Permissions.toBlob()`), v10→v11 (add `papers.time_allowed_minutes` and `papers.custom_instructions` nullable columns via `ALTER TABLE`). `onCreate` applies triggers + indexes as raw SQL. Singleton accessed via global `db` variable set in `client.dart`'s `initializeClient()`. |
 | `database.g.dart` | ✅ Generated | Drift code-gen output — `part of` `database.dart`. Contains all generated data classes (`UsersData`, `SchoolsData`, `AccountsData`, etc.) and table accessors. **Never edit manually.** Regenerate with `dart run build_runner build`. |
 
 ## Subdirectories
@@ -81,9 +81,9 @@ The `logs` table was redesigned in Task C2 from a mutation-tracking model (`tbl`
 **Added enums:** `SyncAction` (81 values, explicit `int value` per entry) + `SyncActionConverter`.
 
 ## Last Updated
-Task A01 — Migrate `roles.permissions` from TEXT to BLOB:
-- Bumped `schemaVersion` 9 → **10**. Added `from < 10` migration: table-recreation pattern for `roles` — reads existing text permissions, creates `roles_new` with BLOB column, copies data converting text → binary blob via `parsePermissions()` → `Permissions(map).toBlob()`, drops old table, renames. Indexes on roles are recreated by `_createTriggersAndIndexes()` in `beforeOpen`.
-- Added imports for `permission_parser.dart` and `models/permissions.dart` in `database.dart`.
-- `database.g.dart` regenerated — `Role.permissions` type changed from `String` to `Uint8List`, `RolesCompanion.permissions` changed from `Value<String>` to `Value<Uint8List>`.
+Task C03 — Add `time_allowed_minutes` and `custom_instructions` to `Papers` table:
+- Bumped `schemaVersion` 10 → **11**. Added `from < 11` migration: two `ALTER TABLE papers ADD COLUMN` statements — `time_allowed_minutes INTEGER` (nullable) and `custom_instructions TEXT` (nullable).
+- `lib/database/tables/papers.dart` — added `IntColumn get timeAllowedMinutes => integer().nullable()()` and `TextColumn get customInstructions => text().nullable()()` at end of `Papers` class.
+- `database.g.dart` regenerated — `PapersData` now has `int? timeAllowedMinutes` and `String? customInstructions` fields; `PapersCompanion` has corresponding `Value<int?>` and `Value<String?>` fields.
 
-Previous: Tasks C3–C8 (File Sync) — schema version 9, added scheme_pages and answer_pages tables.
+Previous: Task A01 — Migrate `roles.permissions` from TEXT to BLOB (schema version 10).

@@ -623,12 +623,12 @@ class AppDatabase extends _$AppDatabase {
         await customStatement('PRAGMA foreign_keys = ON');
       }
       if (from < 11) {
-        // Add time_allowed_minutes and instructions columns to papers table.
+        // Add time_allowed_minutes and custom_instructions columns to papers table.
         await customStatement(
           'ALTER TABLE papers ADD COLUMN time_allowed_minutes INTEGER',
         );
         await customStatement(
-          'ALTER TABLE papers ADD COLUMN instructions TEXT',
+          'ALTER TABLE papers ADD COLUMN custom_instructions TEXT',
         );
       }
     },

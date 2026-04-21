@@ -990,11 +990,12 @@ class DeltaWriter {
         ' AND stream ${streamVal == null ? 'IS NULL' : '= ?'}',
         [k[0], k[1], _parseInt(k[2]), gradeVal, ?streamVal],
       );
-      final timeAllowedVal =
-          row.hasTimeAllowedMinutes() ? row.timeAllowedMinutes : null;
+      final timeAllowedVal = row.hasTimeAllowedMinutes()
+          ? row.timeAllowedMinutes
+          : null;
       final instructionsVal = row.hasInstructions() ? row.instructions : null;
       await _db.customStatement(
-        'INSERT INTO papers (school, exam, subject, paper, topic, invigilator, start, "end", status, grade, stream, time_allowed_minutes, instructions, created, updated)'
+        'INSERT INTO papers (school, exam, subject, paper, topic, invigilator, start, "end", status, grade, stream, time_allowed_minutes, custom_instructions, created, updated)'
         ' VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [
           k[0],
@@ -1018,11 +1019,12 @@ class DeltaWriter {
       // papers for different (grade, stream) combinations are never confused.
       // Previously this only listed 4 columns, causing the upsert to match
       // the wrong row when multiple streams share the same (subject, paper).
-      final timeAllowedVal =
-          row.hasTimeAllowedMinutes() ? row.timeAllowedMinutes : null;
+      final timeAllowedVal = row.hasTimeAllowedMinutes()
+          ? row.timeAllowedMinutes
+          : null;
       final instructionsVal = row.hasInstructions() ? row.instructions : null;
       await _db.customStatement(
-        'INSERT INTO papers (school, exam, subject, paper, topic, invigilator, start, "end", status, grade, stream, time_allowed_minutes, instructions, created, updated)'
+        'INSERT INTO papers (school, exam, subject, paper, topic, invigilator, start, "end", status, grade, stream, time_allowed_minutes, custom_instructions, created, updated)'
         ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         ' ON CONFLICT (school, exam, subject, paper, grade, stream) DO UPDATE SET'
         ' topic = excluded.topic,'
@@ -1031,7 +1033,7 @@ class DeltaWriter {
         ' "end" = excluded."end",'
         ' status = excluded.status,'
         ' time_allowed_minutes = excluded.time_allowed_minutes,'
-        ' instructions = excluded.instructions,'
+        ' custom_instructions = excluded.custom_instructions,'
         ' created = excluded.created,'
         ' updated = excluded.updated',
         [

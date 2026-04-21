@@ -544,7 +544,7 @@ add `marking_scheme_url` to the Drift table.
 
 ---
 
-### Task C03: Add time_allowed and instructions fields to create/edit paper UI
+### Task C03: ✅ Add time_allowed and instructions fields to create/edit paper UI
 
 **Files to create/modify:**
 - `lib/ui/screens/school_dashboard/exams/create_paper_sheet.dart`
