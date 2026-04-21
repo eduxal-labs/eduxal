@@ -604,6 +604,54 @@ class QuestionBankService {
     }
   }
 
+  /// Copy a finalized paper's question set to one or more additional streams.
+  /// The server copies question rows and generates a PDF for each target stream.
+  /// The source stream must already have generated questions.
+  /// Partial failures are possible — check [StreamCopyResult.success] per stream.
+  Future<Result<List<models.StreamCopyResult>, GrpcError>> copyPaperToStreams({
+    required String school,
+    required String exam,
+    required int subject,
+    int? paper,
+    required int grade,
+    int? sourceStream,
+    required List<int> targetStreams,
+    required String accessToken,
+  }) async {
+    print(
+      '[QB] copyPaperToStreams → school=$school exam=$exam '
+      'grade=$grade targets=$targetStreams',
+    );
+    try {
+      final req = pb.CopyPaperToStreamsRequest()
+        ..school = school
+        ..exam = exam
+        ..subject = subject
+        ..grade = grade;
+      if (paper != null) req.paper = paper;
+      if (sourceStream != null) req.sourceStream = sourceStream;
+      req.targetStreams.addAll(targetStreams);
+      final options = CallOptions(
+        metadata: {'authorization': 'Bearer $accessToken'},
+        // Allow up to 2 minutes — server generates a PDF per stream.
+        timeout: const Duration(seconds: 120),
+      );
+      final client = pbgrpc.QuestionBankClient(_mainChannel);
+      final resp = await client.copyPaperToStreams(req, options: options);
+      final results = resp.results
+          .map(models.StreamCopyResult.fromProto)
+          .toList();
+      print('[QB] copyPaperToStreams ← OK (${results.length} streams)');
+      return Ok(results);
+    } on GrpcError catch (e) {
+      print('[QB] copyPaperToStreams ← GrpcError: ${e.code} ${e.message}');
+      return Err(e);
+    } catch (e, st) {
+      print('[QB] copyPaperToStreams ← UNEXPECTED ${e.runtimeType}: $e\n$st\n');
+      return Err(GrpcError.internal('copyPaperToStreams failed: $e'));
+    }
+  }
+
   /// Get the PDF URL for a finalized paper.
   Future<Result<models.PaperPdf, GrpcError>> getPaperPdf({
     required String school,

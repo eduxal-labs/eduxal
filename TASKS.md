@@ -502,7 +502,7 @@ Center(
 
 ---
 
-### Task P05: Add `copyPaperToStreams` service method + `StreamCopyResult` model
+### Task P05: ✅ Add `copyPaperToStreams` service method + `StreamCopyResult` model
 
 **Files to modify/create:**
 - `lib/models/paper_generation.dart` — add `StreamCopyResult` class
@@ -651,10 +651,10 @@ Future<Result<List<models.StreamCopyResult>, GrpcError>> copyPaperToStreams({
 ```
 
 **Update after completion:**
-- [ ] Update `lib/models/CONTEXT.md` — add `StreamCopyResult` to `paper_generation.dart` entry
-- [ ] Update `lib/services/CONTEXT.md` — add `copyPaperToStreams` to `question_bank.dart` entry
-- [ ] Mark this task `[x]`
-- [ ] Commit: `git add -A && git commit -m "feat: add copyPaperToStreams service method and StreamCopyResult model"`
+- [x] Update `lib/models/CONTEXT.md` — add `StreamCopyResult` to `paper_generation.dart` entry
+- [x] Update `lib/services/CONTEXT.md` — add `copyPaperToStreams` to `question_bank.dart` entry
+- [x] Mark this task `[x]`
+- [x] Commit: `git add -A && git commit -m "feat: add copyPaperToStreams service method and StreamCopyResult model"`
 
 ---
 

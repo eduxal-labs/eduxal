@@ -1,3 +1,5 @@
+import 'package:fixnum/fixnum.dart' show Int64;
+
 import 'question.dart';
 import '../proto/services/question_bank.pb.dart' as pb;
 
@@ -86,4 +88,45 @@ class PaperPdf {
     ),
     // GetPaperPdfResponse does not carry a marking scheme URL — stays null.
   );
+}
+
+/// Result for a single target stream in a [copyPaperToStreams] operation.
+class StreamCopyResult {
+  final int stream;
+  final bool success;
+  final String? pdfUrl;
+  final DateTime? pdfExpiry;
+  final String? markingSchemeUrl;
+  final DateTime? markingSchemeExpiry;
+  final String? error;
+
+  const StreamCopyResult({
+    required this.stream,
+    required this.success,
+    this.pdfUrl,
+    this.pdfExpiry,
+    this.markingSchemeUrl,
+    this.markingSchemeExpiry,
+    this.error,
+  });
+
+  factory StreamCopyResult.fromProto(pb.StreamCopyResult proto) {
+    return StreamCopyResult(
+      stream: proto.stream,
+      success: proto.success,
+      pdfUrl: proto.pdfUrl.isEmpty ? null : proto.pdfUrl,
+      pdfExpiry: proto.pdfExpiry == Int64.ZERO
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(proto.pdfExpiry.toInt() * 1000),
+      markingSchemeUrl: proto.markingSchemeUrl.isEmpty
+          ? null
+          : proto.markingSchemeUrl,
+      markingSchemeExpiry: proto.markingSchemeExpiry == Int64.ZERO
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(
+              proto.markingSchemeExpiry.toInt() * 1000,
+            ),
+      error: proto.error.isEmpty ? null : proto.error,
+    );
+  }
 }

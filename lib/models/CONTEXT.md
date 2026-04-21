@@ -190,11 +190,12 @@ Domain models for the AI question bank. All have `fromProto` factories mapping f
 - **`ImportError`** — Single error from bulk import. Fields: `index` (int), `message` (String). Factory: `fromProto(pb.ImportError)`.
 
 ### Paper Generation models — `paper_generation.dart`
-Domain models for AI paper generation flow. Imports `question.dart` for `RubricCriterion` and `QuestionImage`, plus `proto/services/question_bank.pb.dart`.
+Domain models for AI paper generation flow. Imports `question.dart` for `RubricCriterion` and `QuestionImage`, plus `proto/services/question_bank.pb.dart` and `package:fixnum/fixnum.dart` (for `Int64.ZERO` comparisons).
 
 - **`TopicAllocation`** — Topic with mark allocation for paper generation. Fields: `topicId` (int), `topicName` (String — display only, not sent to server), `marks` (int, mutable, default 0). No `fromProto` — constructed locally by the UI.
 - **`PaperQuestion`** — Generated question for a paper before finalization. Fields: `id` (String — server-assigned temp ID), `questionId` (int), `text` (String), `marks` (int), `rubric` (List\<RubricCriterion\>), `images` (List\<QuestionImage\>), `order` (int). Factory: `fromProto(pb.PaperQuestion)`.
 - **`PaperPdf`** — Result of paper finalization with PDF URL. Fields: `pdfUrl` (String), `pdfExpiry` (DateTime). Factories: `fromProto(pb.FinalizePaperResponse)`, `fromGetPdfProto(pb.GetPaperPdfResponse)` — both convert Int64 seconds to DateTime.
+- **`StreamCopyResult`** — Result for a single target stream in a `copyPaperToStreams` operation. Fields: `stream` (int), `success` (bool), `pdfUrl` (String?), `pdfExpiry` (DateTime?), `markingSchemeUrl` (String?), `markingSchemeExpiry` (DateTime?), `error` (String?). Factory: `fromProto(pb.StreamCopyResult)` — checks `Int64.ZERO` for expiry fields, empty string for optional string fields.
 
 ### Marking Status models — `marking_status.dart`
 Domain models for AI marking job status polling. Imports: `proto/services/question_bank.pb.dart`, `question_bank.pbenum.dart`.
@@ -241,4 +242,7 @@ Grouping model for the exams UI. Multiple exam rows sharing the same name are pr
 - **`ExamStreamEntry`** — One exam row + its papers for a specific stream. Fields: `exam` (Exam), `streamCode` (int?), `papers` (List<Paper>).
 
 ## Last Updated
+Task P05 — Added `StreamCopyResult` class to `paper_generation.dart`. Added `import 'package:fixnum/fixnum.dart' show Int64;` to support `Int64.ZERO` comparisons in `fromProto`. Factory maps proto optional Int64 expiry fields via zero-check and optional string fields via empty-string check.
+
+Previous:
 Task 01 — Added `questionIds` (List\<int\>) field to `BulkImportResult` in `question.dart` for server-assigned question IDs used in image upload flow.
