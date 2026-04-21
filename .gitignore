@@ -67,3 +67,4 @@ test_materials/
 
 # Flutter Linux ephemeral — large pre-built GTK binaries downloaded by flutter
 /linux/flutter/ephemeral/
+*.pdf
