@@ -49,17 +49,34 @@ class PaperQuestion {
   }
 }
 
-/// Result of paper finalization — contains the PDF URL.
+/// Result of paper finalization — contains the PDF URL and optional marking
+/// scheme URL (only present when the server generates a marking scheme PDF).
 class PaperPdf {
   final String pdfUrl;
   final DateTime pdfExpiry;
-  const PaperPdf({required this.pdfUrl, required this.pdfExpiry});
+  final String? markingSchemeUrl; // null when not generated / not available
+  final DateTime? markingSchemeExpiry; // null when markingSchemeUrl is null
+
+  const PaperPdf({
+    required this.pdfUrl,
+    required this.pdfExpiry,
+    this.markingSchemeUrl,
+    this.markingSchemeExpiry,
+  });
 
   factory PaperPdf.fromProto(pb.FinalizePaperResponse proto) => PaperPdf(
     pdfUrl: proto.pdfUrl,
     pdfExpiry: DateTime.fromMillisecondsSinceEpoch(
       proto.pdfExpiry.toInt() * 1000,
     ),
+    markingSchemeUrl: proto.hasMarkingSchemeUrl()
+        ? proto.markingSchemeUrl
+        : null,
+    markingSchemeExpiry: proto.hasMarkingSchemeExpiry()
+        ? DateTime.fromMillisecondsSinceEpoch(
+            proto.markingSchemeExpiry.toInt() * 1000,
+          )
+        : null,
   );
 
   factory PaperPdf.fromGetPdfProto(pb.GetPaperPdfResponse proto) => PaperPdf(
@@ -67,5 +84,6 @@ class PaperPdf {
     pdfExpiry: DateTime.fromMillisecondsSinceEpoch(
       proto.pdfExpiry.toInt() * 1000,
     ),
+    // GetPaperPdfResponse does not carry a marking scheme URL — stays null.
   );
 }

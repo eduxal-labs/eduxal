@@ -450,7 +450,7 @@ passed to the server for `regenerateQuestion` is unchanged (correct 0-based valu
 
 ---
 
-### Task C02: Store and display marking scheme URL after finalization
+### Task C02: ✅ Store and display marking scheme URL after finalization
 
 **Files to create/modify:**
 - `lib/models/paper_generation.dart`
@@ -538,9 +538,9 @@ add `marking_scheme_url` to the Drift table.
 ---
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/exams/CONTEXT.md`
-- [ ] Mark this task `[x]`
-- [ ] Commit: `git add -A && git commit -m "feat: display marking scheme PDF link after paper finalization"`
+- [x] Update `lib/ui/screens/school_dashboard/exams/CONTEXT.md`
+- [x] Mark this task `[x]`
+- [x] Commit: `git add -A && git commit -m "feat: display marking scheme PDF link after paper finalization"`
 
 ---
 

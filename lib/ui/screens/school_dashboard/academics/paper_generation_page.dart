@@ -1645,6 +1645,27 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
                       ),
                       const SizedBox(height: 8),
 
+                      // View Marking Scheme button (only when server returned a marking scheme URL)
+                      if (_paperPdf?.markingSchemeUrl != null) ...[
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: _FinalizeActionButton(
+                            icon: Icons.fact_check_outlined,
+                            label: 'View Marking Scheme',
+                            color: cs.secondary,
+                            textColor: cs.onSecondary,
+                            onTap: () => downloadAndOpenDirectUrl(
+                              url: _paperPdf!.markingSchemeUrl!,
+                              title: 'Marking Scheme',
+                              context: context,
+                            ),
+                          ),
+                        ),
+                      ],
+
+                      const SizedBox(height: 8),
+
                       // Done button
                       SizedBox(
                         width: double.infinity,
@@ -1655,7 +1676,7 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
                               ? cs.surfaceContainerHighest
                               : cs.surfaceContainerHigh,
                           textColor: cs.onSurface,
-                          onTap: () => Navigator.of(context).pop(),
+                          onTap: () => Navigator.of(context).pop(_paperPdf),
                         ),
                       ),
                     ],

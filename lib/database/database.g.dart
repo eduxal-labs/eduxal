@@ -11400,6 +11400,27 @@ class $PapersTable extends Papers with TableInfo<$PapersTable, Paper> {
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _timeAllowedMinutesMeta =
+      const VerificationMeta('timeAllowedMinutes');
+  @override
+  late final GeneratedColumn<int> timeAllowedMinutes = GeneratedColumn<int>(
+    'time_allowed_minutes',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _customInstructionsMeta =
+      const VerificationMeta('customInstructions');
+  @override
+  late final GeneratedColumn<String> customInstructions =
+      GeneratedColumn<String>(
+        'custom_instructions',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _createdMeta = const VerificationMeta(
     'created',
   );
@@ -11435,6 +11456,8 @@ class $PapersTable extends Papers with TableInfo<$PapersTable, Paper> {
     status,
     grade,
     stream,
+    timeAllowedMinutes,
+    customInstructions,
     created,
     updated,
   ];
@@ -11527,6 +11550,24 @@ class $PapersTable extends Papers with TableInfo<$PapersTable, Paper> {
         stream.isAcceptableOrUnknown(data['stream']!, _streamMeta),
       );
     }
+    if (data.containsKey('time_allowed_minutes')) {
+      context.handle(
+        _timeAllowedMinutesMeta,
+        timeAllowedMinutes.isAcceptableOrUnknown(
+          data['time_allowed_minutes']!,
+          _timeAllowedMinutesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('custom_instructions')) {
+      context.handle(
+        _customInstructionsMeta,
+        customInstructions.isAcceptableOrUnknown(
+          data['custom_instructions']!,
+          _customInstructionsMeta,
+        ),
+      );
+    }
     if (data.containsKey('created')) {
       context.handle(
         _createdMeta,
@@ -11598,6 +11639,14 @@ class $PapersTable extends Papers with TableInfo<$PapersTable, Paper> {
         DriftSqlType.int,
         data['${effectivePrefix}stream'],
       ),
+      timeAllowedMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}time_allowed_minutes'],
+      ),
+      customInstructions: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}custom_instructions'],
+      ),
       created: attachedDatabase.typeMapping.read(
         DriftSqlType.bigInt,
         data['${effectivePrefix}created'],
@@ -11630,6 +11679,8 @@ class Paper extends DataClass implements Insertable<Paper> {
   final PaperStatus status;
   final int grade;
   final int? stream;
+  final int? timeAllowedMinutes;
+  final String? customInstructions;
   final BigInt created;
   final BigInt updated;
   const Paper({
@@ -11644,6 +11695,8 @@ class Paper extends DataClass implements Insertable<Paper> {
     required this.status,
     required this.grade,
     this.stream,
+    this.timeAllowedMinutes,
+    this.customInstructions,
     required this.created,
     required this.updated,
   });
@@ -11671,6 +11724,12 @@ class Paper extends DataClass implements Insertable<Paper> {
     if (!nullToAbsent || stream != null) {
       map['stream'] = Variable<int>(stream);
     }
+    if (!nullToAbsent || timeAllowedMinutes != null) {
+      map['time_allowed_minutes'] = Variable<int>(timeAllowedMinutes);
+    }
+    if (!nullToAbsent || customInstructions != null) {
+      map['custom_instructions'] = Variable<String>(customInstructions);
+    }
     map['created'] = Variable<BigInt>(created);
     map['updated'] = Variable<BigInt>(updated);
     return map;
@@ -11695,6 +11754,12 @@ class Paper extends DataClass implements Insertable<Paper> {
       stream: stream == null && nullToAbsent
           ? const Value.absent()
           : Value(stream),
+      timeAllowedMinutes: timeAllowedMinutes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(timeAllowedMinutes),
+      customInstructions: customInstructions == null && nullToAbsent
+          ? const Value.absent()
+          : Value(customInstructions),
       created: Value(created),
       updated: Value(updated),
     );
@@ -11717,6 +11782,10 @@ class Paper extends DataClass implements Insertable<Paper> {
       status: serializer.fromJson<PaperStatus>(json['status']),
       grade: serializer.fromJson<int>(json['grade']),
       stream: serializer.fromJson<int?>(json['stream']),
+      timeAllowedMinutes: serializer.fromJson<int?>(json['timeAllowedMinutes']),
+      customInstructions: serializer.fromJson<String?>(
+        json['customInstructions'],
+      ),
       created: serializer.fromJson<BigInt>(json['created']),
       updated: serializer.fromJson<BigInt>(json['updated']),
     );
@@ -11736,6 +11805,8 @@ class Paper extends DataClass implements Insertable<Paper> {
       'status': serializer.toJson<PaperStatus>(status),
       'grade': serializer.toJson<int>(grade),
       'stream': serializer.toJson<int?>(stream),
+      'timeAllowedMinutes': serializer.toJson<int?>(timeAllowedMinutes),
+      'customInstructions': serializer.toJson<String?>(customInstructions),
       'created': serializer.toJson<BigInt>(created),
       'updated': serializer.toJson<BigInt>(updated),
     };
@@ -11753,6 +11824,8 @@ class Paper extends DataClass implements Insertable<Paper> {
     PaperStatus? status,
     int? grade,
     Value<int?> stream = const Value.absent(),
+    Value<int?> timeAllowedMinutes = const Value.absent(),
+    Value<String?> customInstructions = const Value.absent(),
     BigInt? created,
     BigInt? updated,
   }) => Paper(
@@ -11767,6 +11840,12 @@ class Paper extends DataClass implements Insertable<Paper> {
     status: status ?? this.status,
     grade: grade ?? this.grade,
     stream: stream.present ? stream.value : this.stream,
+    timeAllowedMinutes: timeAllowedMinutes.present
+        ? timeAllowedMinutes.value
+        : this.timeAllowedMinutes,
+    customInstructions: customInstructions.present
+        ? customInstructions.value
+        : this.customInstructions,
     created: created ?? this.created,
     updated: updated ?? this.updated,
   );
@@ -11785,6 +11864,12 @@ class Paper extends DataClass implements Insertable<Paper> {
       status: data.status.present ? data.status.value : this.status,
       grade: data.grade.present ? data.grade.value : this.grade,
       stream: data.stream.present ? data.stream.value : this.stream,
+      timeAllowedMinutes: data.timeAllowedMinutes.present
+          ? data.timeAllowedMinutes.value
+          : this.timeAllowedMinutes,
+      customInstructions: data.customInstructions.present
+          ? data.customInstructions.value
+          : this.customInstructions,
       created: data.created.present ? data.created.value : this.created,
       updated: data.updated.present ? data.updated.value : this.updated,
     );
@@ -11804,6 +11889,8 @@ class Paper extends DataClass implements Insertable<Paper> {
           ..write('status: $status, ')
           ..write('grade: $grade, ')
           ..write('stream: $stream, ')
+          ..write('timeAllowedMinutes: $timeAllowedMinutes, ')
+          ..write('customInstructions: $customInstructions, ')
           ..write('created: $created, ')
           ..write('updated: $updated')
           ..write(')'))
@@ -11823,6 +11910,8 @@ class Paper extends DataClass implements Insertable<Paper> {
     status,
     grade,
     stream,
+    timeAllowedMinutes,
+    customInstructions,
     created,
     updated,
   );
@@ -11841,6 +11930,8 @@ class Paper extends DataClass implements Insertable<Paper> {
           other.status == this.status &&
           other.grade == this.grade &&
           other.stream == this.stream &&
+          other.timeAllowedMinutes == this.timeAllowedMinutes &&
+          other.customInstructions == this.customInstructions &&
           other.created == this.created &&
           other.updated == this.updated);
 }
@@ -11857,6 +11948,8 @@ class PapersCompanion extends UpdateCompanion<Paper> {
   final Value<PaperStatus> status;
   final Value<int> grade;
   final Value<int?> stream;
+  final Value<int?> timeAllowedMinutes;
+  final Value<String?> customInstructions;
   final Value<BigInt> created;
   final Value<BigInt> updated;
   final Value<int> rowid;
@@ -11872,6 +11965,8 @@ class PapersCompanion extends UpdateCompanion<Paper> {
     this.status = const Value.absent(),
     this.grade = const Value.absent(),
     this.stream = const Value.absent(),
+    this.timeAllowedMinutes = const Value.absent(),
+    this.customInstructions = const Value.absent(),
     this.created = const Value.absent(),
     this.updated = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -11888,6 +11983,8 @@ class PapersCompanion extends UpdateCompanion<Paper> {
     this.status = const Value.absent(),
     required int grade,
     this.stream = const Value.absent(),
+    this.timeAllowedMinutes = const Value.absent(),
+    this.customInstructions = const Value.absent(),
     required BigInt created,
     required BigInt updated,
     this.rowid = const Value.absent(),
@@ -11912,6 +12009,8 @@ class PapersCompanion extends UpdateCompanion<Paper> {
     Expression<int>? status,
     Expression<int>? grade,
     Expression<int>? stream,
+    Expression<int>? timeAllowedMinutes,
+    Expression<String>? customInstructions,
     Expression<BigInt>? created,
     Expression<BigInt>? updated,
     Expression<int>? rowid,
@@ -11928,6 +12027,9 @@ class PapersCompanion extends UpdateCompanion<Paper> {
       if (status != null) 'status': status,
       if (grade != null) 'grade': grade,
       if (stream != null) 'stream': stream,
+      if (timeAllowedMinutes != null)
+        'time_allowed_minutes': timeAllowedMinutes,
+      if (customInstructions != null) 'custom_instructions': customInstructions,
       if (created != null) 'created': created,
       if (updated != null) 'updated': updated,
       if (rowid != null) 'rowid': rowid,
@@ -11946,6 +12048,8 @@ class PapersCompanion extends UpdateCompanion<Paper> {
     Value<PaperStatus>? status,
     Value<int>? grade,
     Value<int?>? stream,
+    Value<int?>? timeAllowedMinutes,
+    Value<String?>? customInstructions,
     Value<BigInt>? created,
     Value<BigInt>? updated,
     Value<int>? rowid,
@@ -11962,6 +12066,8 @@ class PapersCompanion extends UpdateCompanion<Paper> {
       status: status ?? this.status,
       grade: grade ?? this.grade,
       stream: stream ?? this.stream,
+      timeAllowedMinutes: timeAllowedMinutes ?? this.timeAllowedMinutes,
+      customInstructions: customInstructions ?? this.customInstructions,
       created: created ?? this.created,
       updated: updated ?? this.updated,
       rowid: rowid ?? this.rowid,
@@ -12006,6 +12112,12 @@ class PapersCompanion extends UpdateCompanion<Paper> {
     if (stream.present) {
       map['stream'] = Variable<int>(stream.value);
     }
+    if (timeAllowedMinutes.present) {
+      map['time_allowed_minutes'] = Variable<int>(timeAllowedMinutes.value);
+    }
+    if (customInstructions.present) {
+      map['custom_instructions'] = Variable<String>(customInstructions.value);
+    }
     if (created.present) {
       map['created'] = Variable<BigInt>(created.value);
     }
@@ -12032,6 +12144,8 @@ class PapersCompanion extends UpdateCompanion<Paper> {
           ..write('status: $status, ')
           ..write('grade: $grade, ')
           ..write('stream: $stream, ')
+          ..write('timeAllowedMinutes: $timeAllowedMinutes, ')
+          ..write('customInstructions: $customInstructions, ')
           ..write('created: $created, ')
           ..write('updated: $updated, ')
           ..write('rowid: $rowid')
@@ -33668,6 +33782,8 @@ typedef $$PapersTableCreateCompanionBuilder =
       Value<PaperStatus> status,
       required int grade,
       Value<int?> stream,
+      Value<int?> timeAllowedMinutes,
+      Value<String?> customInstructions,
       required BigInt created,
       required BigInt updated,
       Value<int> rowid,
@@ -33685,6 +33801,8 @@ typedef $$PapersTableUpdateCompanionBuilder =
       Value<PaperStatus> status,
       Value<int> grade,
       Value<int?> stream,
+      Value<int?> timeAllowedMinutes,
+      Value<String?> customInstructions,
       Value<BigInt> created,
       Value<BigInt> updated,
       Value<int> rowid,
@@ -33782,6 +33900,16 @@ class $$PapersTableFilterComposer
 
   ColumnFilters<int> get stream => $composableBuilder(
     column: $table.stream,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get timeAllowedMinutes => $composableBuilder(
+    column: $table.timeAllowedMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get customInstructions => $composableBuilder(
+    column: $table.customInstructions,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -33896,6 +34024,16 @@ class $$PapersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get timeAllowedMinutes => $composableBuilder(
+    column: $table.timeAllowedMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get customInstructions => $composableBuilder(
+    column: $table.customInstructions,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<BigInt> get created => $composableBuilder(
     column: $table.created,
     builder: (column) => ColumnOrderings(column),
@@ -33991,6 +34129,16 @@ class $$PapersTableAnnotationComposer
   GeneratedColumn<int> get stream =>
       $composableBuilder(column: $table.stream, builder: (column) => column);
 
+  GeneratedColumn<int> get timeAllowedMinutes => $composableBuilder(
+    column: $table.timeAllowedMinutes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get customInstructions => $composableBuilder(
+    column: $table.customInstructions,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<BigInt> get created =>
       $composableBuilder(column: $table.created, builder: (column) => column);
 
@@ -34083,6 +34231,8 @@ class $$PapersTableTableManager
                 Value<PaperStatus> status = const Value.absent(),
                 Value<int> grade = const Value.absent(),
                 Value<int?> stream = const Value.absent(),
+                Value<int?> timeAllowedMinutes = const Value.absent(),
+                Value<String?> customInstructions = const Value.absent(),
                 Value<BigInt> created = const Value.absent(),
                 Value<BigInt> updated = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -34098,6 +34248,8 @@ class $$PapersTableTableManager
                 status: status,
                 grade: grade,
                 stream: stream,
+                timeAllowedMinutes: timeAllowedMinutes,
+                customInstructions: customInstructions,
                 created: created,
                 updated: updated,
                 rowid: rowid,
@@ -34115,6 +34267,8 @@ class $$PapersTableTableManager
                 Value<PaperStatus> status = const Value.absent(),
                 required int grade,
                 Value<int?> stream = const Value.absent(),
+                Value<int?> timeAllowedMinutes = const Value.absent(),
+                Value<String?> customInstructions = const Value.absent(),
                 required BigInt created,
                 required BigInt updated,
                 Value<int> rowid = const Value.absent(),
@@ -34130,6 +34284,8 @@ class $$PapersTableTableManager
                 status: status,
                 grade: grade,
                 stream: stream,
+                timeAllowedMinutes: timeAllowedMinutes,
+                customInstructions: customInstructions,
                 created: created,
                 updated: updated,
                 rowid: rowid,

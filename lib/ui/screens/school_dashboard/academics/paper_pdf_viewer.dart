@@ -12,6 +12,8 @@ import '../../../../models/result.dart';
 /// Shows a loading SnackBar while downloading, and an error SnackBar on failure.
 /// On desktop platforms, opens the PDF with the system default viewer.
 /// On mobile or unsupported platforms, shows the saved file path in a SnackBar.
+///
+/// [title] is used in the loading/error SnackBar messages (default: 'Exam Paper').
 Future<void> downloadAndOpenPdf({
   required String school,
   required String exam,
@@ -21,15 +23,16 @@ Future<void> downloadAndOpenPdf({
   int? stream,
   required String accessToken,
   required BuildContext context,
+  String title = 'Exam Paper',
 }) async {
   final messenger = ScaffoldMessenger.of(context);
 
   // Show persistent loading SnackBar — dismissed on completion or error.
   messenger.showSnackBar(
-    const SnackBar(
+    SnackBar(
       content: Row(
         children: [
-          SizedBox(
+          const SizedBox(
             width: 16,
             height: 16,
             child: CircularProgressIndicator(
@@ -37,11 +40,11 @@ Future<void> downloadAndOpenPdf({
               color: Colors.white,
             ),
           ),
-          SizedBox(width: 12),
-          Text('Downloading PDF…'),
+          const SizedBox(width: 12),
+          Text('Downloading $title…'),
         ],
       ),
-      duration: Duration(minutes: 5),
+      duration: const Duration(minutes: 5),
     ),
   );
 
@@ -61,7 +64,7 @@ Future<void> downloadAndOpenPdf({
       case Err(:final error):
         messenger.hideCurrentSnackBar();
         messenger.showSnackBar(
-          SnackBar(content: Text('Failed to get PDF: ${error.message}')),
+          SnackBar(content: Text('Failed to get $title: ${error.message}')),
         );
         return;
 
@@ -77,7 +80,7 @@ Future<void> downloadAndOpenPdf({
             messenger.showSnackBar(
               SnackBar(
                 content: Text(
-                  'PDF download failed (HTTP ${response.statusCode})',
+                  '$title download failed (HTTP ${response.statusCode})',
                 ),
               ),
             );
@@ -94,7 +97,7 @@ Future<void> downloadAndOpenPdf({
 
           messenger.hideCurrentSnackBar();
 
-          // 4. Open with system viewer (desktop) or show path (mobile).
+          // 4. Open with system viewer (desktop) or show share sheet (mobile).
           if (Platform.isLinux) {
             await Process.run('xdg-open', [file.path]);
           } else if (Platform.isMacOS) {
@@ -106,7 +109,7 @@ Future<void> downloadAndOpenPdf({
             // open in a PDF viewer, or share the file.
             await Share.shareXFiles([
               XFile(file.path, mimeType: 'application/pdf'),
-            ], subject: 'Exam Paper PDF');
+            ], subject: '$title PDF');
           }
         } finally {
           httpClient.close();
@@ -115,7 +118,98 @@ Future<void> downloadAndOpenPdf({
   } catch (e) {
     messenger.hideCurrentSnackBar();
     messenger.showSnackBar(
-      SnackBar(content: Text('Failed to download PDF: $e')),
+      SnackBar(content: Text('Failed to download $title: $e')),
+    );
+  }
+}
+
+/// Downloads a PDF from a direct presigned URL and opens it with the system
+/// viewer.
+///
+/// Unlike [downloadAndOpenPdf], this function does not make a gRPC call to
+/// retrieve a URL first — the caller provides [url] directly (e.g. a marking
+/// scheme URL from [FinalizePaperResponse]).
+///
+/// [title] is used in the loading/error SnackBar messages (default: 'PDF').
+Future<void> downloadAndOpenDirectUrl({
+  required String url,
+  required BuildContext context,
+  String title = 'PDF',
+}) async {
+  final messenger = ScaffoldMessenger.of(context);
+
+  // Show persistent loading SnackBar — dismissed on completion or error.
+  messenger.showSnackBar(
+    SnackBar(
+      content: Row(
+        children: [
+          const SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.5,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text('Downloading $title…'),
+        ],
+      ),
+      duration: const Duration(minutes: 5),
+    ),
+  );
+
+  try {
+    final httpClient = HttpClient();
+    try {
+      final request = await httpClient.getUrl(Uri.parse(url));
+      final response = await request.close();
+
+      if (response.statusCode != 200) {
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              '$title download failed (HTTP ${response.statusCode})',
+            ),
+          ),
+        );
+        return;
+      }
+
+      // Save to temp directory with a sanitized, timestamped filename.
+      final tempDir = await getTemporaryDirectory();
+      final safeName = title
+          .toLowerCase()
+          .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+          .replaceAll(RegExp(r'^_|_$'), '');
+      final filename =
+          '${safeName}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+      final file = File('${tempDir.path}/$filename');
+      final sink = file.openWrite();
+      await response.pipe(sink);
+
+      messenger.hideCurrentSnackBar();
+
+      // Open with system viewer (desktop) or share sheet (mobile).
+      if (Platform.isLinux) {
+        await Process.run('xdg-open', [file.path]);
+      } else if (Platform.isMacOS) {
+        await Process.run('open', [file.path]);
+      } else if (Platform.isWindows) {
+        await Process.run('start', ['', file.path], runInShell: true);
+      } else {
+        await Share.shareXFiles([
+          XFile(file.path, mimeType: 'application/pdf'),
+        ], subject: '$title PDF');
+      }
+    } finally {
+      httpClient.close();
+    }
+  } catch (e) {
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(content: Text('Failed to download $title: $e')),
     );
   }
 }

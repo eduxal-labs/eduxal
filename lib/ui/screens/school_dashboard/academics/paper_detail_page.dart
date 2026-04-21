@@ -20,6 +20,7 @@ import '../../../../database/daos/members_dao.dart';
 import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../database/tables/enums.dart';
 
+import '../../../../models/paper_generation.dart';
 import '../../../../models/result.dart';
 import '../../../../models/membership.dart';
 import '../../../../models/permissions.dart';
@@ -99,6 +100,9 @@ class _PaperDetailPageState extends State<PaperDetailPage>
 
   // ── Marking scheme state ────────────────────────────────────────────────
   List<String> _schemeFiles = [];
+
+  // ── Generated paper PDF (populated when returning from PaperGenerationPage) ──
+  PaperPdf? _paperPdf;
 
   // ── Teacher subject restriction (only for TeacherEntry) ─────────────────
   List<SubjectTeacher> _teacherSubjects = [];
@@ -453,6 +457,9 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                         aiProgress: _aiMarking ? _aiProgress : null,
                         schemeFiles: _schemeFiles,
                         onSchemeUpdated: _loadSchemeFiles,
+                        paperPdf: _paperPdf,
+                        onPaperGenerated: (pdf) =>
+                            setState(() => _paperPdf = pdf),
                       ),
                       const SizedBox(height: 16),
 
@@ -640,6 +647,8 @@ class _PaperHeader extends StatefulWidget {
     this.aiProgress,
     this.schemeFiles = const [],
     this.onSchemeUpdated,
+    this.paperPdf,
+    this.onPaperGenerated,
   });
 
   final Paper paper;
@@ -662,6 +671,8 @@ class _PaperHeader extends StatefulWidget {
   final double? aiProgress;
   final List<String> schemeFiles;
   final VoidCallback? onSchemeUpdated;
+  final PaperPdf? paperPdf;
+  final void Function(PaperPdf)? onPaperGenerated;
 
   @override
   State<_PaperHeader> createState() => _PaperHeaderState();
@@ -924,6 +935,14 @@ class _PaperHeaderState extends State<_PaperHeader>
   }
 
   // ── Build ───────────────────────────────────────────────────────────────
+
+  void _openMarkingScheme(String url) {
+    downloadAndOpenDirectUrl(
+      url: url,
+      title: 'Marking Scheme',
+      context: context,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1201,22 +1220,28 @@ class _PaperHeaderState extends State<_PaperHeader>
                   message: 'Generate Paper',
                   child: InkWell(
                     onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => PaperGenerationPage(
-                            schoolId: widget.schoolId,
-                            examId: widget.exam.exam.id,
-                            subjectId: widget.paper.subject,
-                            paperId: widget.paper.paper,
-                            grade: widget.paper.grade,
-                            stream: widget.paper.stream,
-                            subjectName:
-                                widget.subjectNames[widget.paper.subject] ??
-                                'Subject ${widget.paper.subject}',
-                            examName: widget.exam.exam.name,
-                          ),
-                        ),
-                      );
+                      Navigator.of(context)
+                          .push(
+                            MaterialPageRoute(
+                              builder: (context) => PaperGenerationPage(
+                                schoolId: widget.schoolId,
+                                examId: widget.exam.exam.id,
+                                subjectId: widget.paper.subject,
+                                paperId: widget.paper.paper,
+                                grade: widget.paper.grade,
+                                stream: widget.paper.stream,
+                                subjectName:
+                                    widget.subjectNames[widget.paper.subject] ??
+                                    'Subject ${widget.paper.subject}',
+                                examName: widget.exam.exam.name,
+                              ),
+                            ),
+                          )
+                          .then((result) {
+                            if (result is PaperPdf && mounted) {
+                              widget.onPaperGenerated?.call(result);
+                            }
+                          });
                     },
                     borderRadius: BorderRadius.circular(4),
                     child: Padding(
@@ -1274,6 +1299,28 @@ class _PaperHeaderState extends State<_PaperHeader>
                               color: cs.primary.withValues(alpha: 0.7),
                             ),
                     ),
+                  ),
+                ),
+              ],
+              // ── View Marking Scheme (available after AI paper generation) ────
+              if (widget.paperPdf?.markingSchemeUrl != null) ...[
+                const SizedBox(width: 4),
+                Tooltip(
+                  message: 'View Marking Scheme',
+                  child: IconButton(
+                    iconSize: 20,
+                    constraints: const BoxConstraints(
+                      minWidth: 28,
+                      minHeight: 28,
+                    ),
+                    padding: EdgeInsets.zero,
+                    icon: Icon(
+                      Icons.fact_check_outlined,
+                      size: 18,
+                      color: cs.secondary,
+                    ),
+                    onPressed: () =>
+                        _openMarkingScheme(widget.paperPdf!.markingSchemeUrl!),
                   ),
                 ),
               ],

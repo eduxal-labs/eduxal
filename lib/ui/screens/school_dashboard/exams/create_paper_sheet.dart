@@ -570,6 +570,12 @@ class _CreatePaperSheetState extends State<CreatePaperSheet> {
                 if (_isOutOfRange) const SizedBox(height: 14),
                 // Time picker
                 _buildTimeRow(cs: cs, isDark: isDark, indigo: indigo),
+                const SizedBox(height: 14),
+                // Time allowed (optional)
+                _buildTimeAllowedRow(cs: cs, isDark: isDark, indigo: indigo),
+                const SizedBox(height: 14),
+                // Custom instructions (optional)
+                _buildInstructionsRow(cs: cs, isDark: isDark, indigo: indigo),
                 const SizedBox(height: 16),
               ],
             ),
@@ -949,6 +955,159 @@ class _CreatePaperSheetState extends State<CreatePaperSheet> {
           ),
         ],
       ),
+    );
+  }
+
+  // ── Time allowed row ──────────────────────────────────────────────────────
+
+  Widget _buildTimeAllowedRow({
+    required ColorScheme cs,
+    required bool isDark,
+    required Color indigo,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Time allowed (minutes)',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+            letterSpacing: 0.4,
+          ),
+        ),
+        const SizedBox(height: 6),
+        TextFormField(
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          initialValue: _timeAllowedMinutes?.toString(),
+          decoration: InputDecoration(
+            hintText: 'e.g. 90',
+            hintStyle: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 10,
+            ),
+            isDense: true,
+            filled: true,
+            fillColor: isDark
+                ? const Color(0xFF1E2C3C)
+                : cs.surfaceContainerHighest.withValues(alpha: 0.55),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+              borderSide: BorderSide(
+                color: cs.outlineVariant.withValues(alpha: isDark ? 0.25 : 0.4),
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+              borderSide: BorderSide(
+                color: cs.outlineVariant.withValues(alpha: isDark ? 0.25 : 0.4),
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+              borderSide: BorderSide(color: indigo.withValues(alpha: 0.7)),
+            ),
+          ),
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+            color: cs.onSurface,
+          ),
+          onChanged: (v) {
+            final parsed = int.tryParse(v);
+            setState(
+              () => _timeAllowedMinutes = (parsed != null && parsed > 0)
+                  ? parsed
+                  : null,
+            );
+          },
+        ),
+        if (_timeAllowedMinutes != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              '= ${_formatMinutes(_timeAllowedMinutes!)}',
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w400,
+                color: indigo.withValues(alpha: 0.85),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  // ── Instructions row ──────────────────────────────────────────────────────
+
+  Widget _buildInstructionsRow({
+    required ColorScheme cs,
+    required bool isDark,
+    required Color indigo,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Instructions (optional)',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+            letterSpacing: 0.4,
+          ),
+        ),
+        const SizedBox(height: 6),
+        TextFormField(
+          controller: _instructionsCtrl,
+          maxLines: 5,
+          minLines: 2,
+          decoration: InputDecoration(
+            hintText: 'Leave blank to use default instructions',
+            hintStyle: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 10,
+            ),
+            filled: true,
+            fillColor: isDark
+                ? const Color(0xFF1E2C3C)
+                : cs.surfaceContainerHighest.withValues(alpha: 0.55),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+              borderSide: BorderSide(
+                color: cs.outlineVariant.withValues(alpha: isDark ? 0.25 : 0.4),
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+              borderSide: BorderSide(
+                color: cs.outlineVariant.withValues(alpha: isDark ? 0.25 : 0.4),
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+              borderSide: BorderSide(color: indigo.withValues(alpha: 0.7)),
+            ),
+          ),
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+            color: cs.onSurface,
+          ),
+        ),
+      ],
     );
   }
 
