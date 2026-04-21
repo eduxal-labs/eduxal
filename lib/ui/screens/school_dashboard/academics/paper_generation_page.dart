@@ -682,7 +682,7 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Add topics for this subject and grade to generate a paper',
+              'Topics for this subject may still be syncing, or none have been added for this grade yet.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12,
