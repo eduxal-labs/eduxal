@@ -984,7 +984,7 @@ PaperGenerationPage(
 
 ---
 
-### Task P07: Add in-app PDF viewer (`PaperPdfViewerPage`)
+### Task P07: ✅ Add in-app PDF viewer (`PaperPdfViewerPage`)
 
 **Files to modify/create:**
 - `pubspec.yaml` — add `pdfx` and `printing` packages
