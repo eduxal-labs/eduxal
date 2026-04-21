@@ -4,7 +4,7 @@
 
 ---
 
-### Task P01: Remove auto-status-advance from `_finalize()` in PaperGenerationPage
+### Task P01: ✅ Remove auto-status-advance from `_finalize()` in PaperGenerationPage
 
 **Files to modify:** `lib/ui/screens/school_dashboard/academics/paper_generation_page.dart`
 **Context files to read (if needed):** None — full spec below
@@ -57,7 +57,7 @@ The paper's `status` remains `PaperStatus.pending`. The teacher explicitly advan
 from the paper detail page when they want to start the exam.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Commit: `git add -A && git commit -m "fix: do not auto-advance paper status to progress after PDF generation"`
 
 ---
