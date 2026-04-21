@@ -190,7 +190,7 @@ if (pdf != null) {
 
 ---
 
-### Task P03: Add `clearPaperQuestions` service method to `QuestionBankService`
+### Task P03: ✅ Add `clearPaperQuestions` service method to `QuestionBankService`
 
 **Files to modify:**
 - `lib/services/question_bank.dart`
@@ -278,9 +278,9 @@ Future<Result<int, GrpcError>> clearPaperQuestions({
 ```
 
 **Update after completion:**
-- [ ] Update `lib/services/CONTEXT.md` — add `clearPaperQuestions` to `question_bank.dart` entry
-- [ ] Mark this task `[x]`
-- [ ] Commit: `git add -A && git commit -m "feat: add clearPaperQuestions service method"`
+- [x] Update `lib/services/CONTEXT.md` — add `clearPaperQuestions` to `question_bank.dart` entry
+- [x] Mark this task `[x]`
+- [x] Commit: `git add -A && git commit -m "feat: add clearPaperQuestions service method"`
 
 ---
 

@@ -187,6 +187,7 @@ Wraps the `QuestionBank` gRPC service for question bank operations. Handles CRUD
 | `regenerateQuestion` | `Future<Result<PaperQuestion, GrpcError>> regenerateQuestion({required String school, required String exam, required int subject, int? paper, required int grade, required String paperQuestionId, required int topicId, required int marks, required String accessToken})` | Regenerate a single question on the paper. Uses 60s timeout. |
 | `editPaperQuestion` | `Future<Result<PaperQuestion, GrpcError>> editPaperQuestion({required String school, required String exam, required int subject, int? paper, required String paperQuestionId, required String text, required int marks, required List<RubricCriterion> rubric, required String accessToken})` | Edit a question on the generated paper. Uses existing `_toProtoCriterion` helper for rubric conversion. |
 | `finalizePaper` | `Future<Result<PaperPdf, GrpcError>> finalizePaper({required String school, required String exam, required int subject, int? paper, required int grade, int? stream, required List<String> paperQuestionIds, required String accessToken})` | Finalize the paper and generate PDF. Uses 60s timeout. Returns `PaperPdf` via `PaperPdf.fromProto(resp)`. |
+| `clearPaperQuestions` | `Future<Result<int, GrpcError>> clearPaperQuestions({required String school, required String exam, required int subject, int? paper, required int grade, int? stream, required String accessToken})` | Delete all generated questions for a paper and invalidate its S3 PDF. Only valid when the paper is still in Pending status. Returns count of `paper_questions` rows deleted on success. Uses 30s timeout. |
 | `getPaperPdf` | `Future<Result<PaperPdf, GrpcError>> getPaperPdf({required String school, required String exam, required int subject, int? paper, required int grade, int? stream, required String accessToken})` | Get the PDF URL for a finalized paper. Returns `PaperPdf` via `PaperPdf.fromGetPdfProto(resp)`. |
 
 #### Marking Status & Question Grades (Task 05)
@@ -266,6 +267,9 @@ Pure-Dart utility for parsing and validating question bank JSON files for bulk i
 - `client.dart` is the only file that holds the gRPC `ClientChannel`. Services receive the channel (or a service client) via constructor injection.
 
 ## Last Updated
+Task P03 — Added `clearPaperQuestions` to `QuestionBankService`. New method deletes all generated questions for a paper and invalidates its S3 PDF; returns `int` (questions deleted count) on success. Wraps the new `ClearPaperQuestions` RPC in `question_bank.pbgrpc.dart`. Added to Paper Generation table in this CONTEXT.md.
+
+Previous:
 Task 04 — Context refresh after question-import investigation: documented that `QuestionBankService` question import remains school-agnostic at the request-shape level (`BulkImportRequest()..jsonContent = ...` only, no school field), that `ImportFileParser` is purely file-structure/image validation and never participates in school lookup, and that the new diagnostics in `bulkImport()` / `importFileWithImages()` explicitly capture system-wide scope plus exact backend gRPC failures for future audits.
 
 Previous:

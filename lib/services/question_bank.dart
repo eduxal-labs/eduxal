@@ -558,6 +558,52 @@ class QuestionBankService {
     }
   }
 
+  /// Delete all generated questions for a paper and invalidate its S3 PDF.
+  /// Only valid when the paper is still in Pending status.
+  /// Returns the count of paper_questions rows deleted on success.
+  Future<Result<int, GrpcError>> clearPaperQuestions({
+    required String school,
+    required String exam,
+    required int subject,
+    int? paper,
+    required int grade,
+    int? stream,
+    required String accessToken,
+  }) async {
+    print(
+      '[QB] clearPaperQuestions → school=$school exam=$exam '
+      'subject=$subject grade=$grade',
+    );
+    try {
+      final req = pb.ClearPaperQuestionsRequest()
+        ..school = school
+        ..exam = exam
+        ..subject = subject
+        ..grade = grade;
+      if (paper != null) req.paper = paper;
+      if (stream != null) req.stream = stream;
+      final options = CallOptions(
+        metadata: {'authorization': 'Bearer $accessToken'},
+        timeout: const Duration(seconds: 30),
+      );
+      final client = pbgrpc.QuestionBankClient(_mainChannel);
+      final resp = await client.clearPaperQuestions(req, options: options);
+      print(
+        '[QB] clearPaperQuestions ← OK '
+        '(deleted=${resp.questionsDeleted} pdf=${resp.pdfDeleted})',
+      );
+      return Ok(resp.questionsDeleted);
+    } on GrpcError catch (e) {
+      print('[QB] clearPaperQuestions ← GrpcError: ${e.code} ${e.message}');
+      return Err(e);
+    } catch (e, st) {
+      print(
+        '[QB] clearPaperQuestions ← UNEXPECTED ${e.runtimeType}: $e\n$st\n',
+      );
+      return Err(GrpcError.internal('clearPaperQuestions failed: $e'));
+    }
+  }
+
   /// Get the PDF URL for a finalized paper.
   Future<Result<models.PaperPdf, GrpcError>> getPaperPdf({
     required String school,
