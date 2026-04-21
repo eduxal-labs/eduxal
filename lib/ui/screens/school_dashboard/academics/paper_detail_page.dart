@@ -465,7 +465,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
 
                       // ── Marking Status Indicator ────────────────────────
                       if (_aiPhase != _AiPhase.idle ||
-                          currentPaper.status == PaperStatus.progress)
+                          currentPaper.status == PaperStatus.done)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: MarkingStatusIndicator(
