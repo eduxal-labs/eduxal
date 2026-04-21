@@ -62,7 +62,7 @@ from the paper detail page when they want to start the exam.
 
 ---
 
-### Task P02: Fix "View/Print Paper" button — load PDF URL on init and update condition
+### Task P02: ✅ Fix "View/Print Paper" button — load PDF URL on init and update condition
 
 **Files to modify:** `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`
 **Context files to read (if needed):** None — full spec below
@@ -185,8 +185,8 @@ if (pdf != null) {
 ```
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Commit: `git add -A && git commit -m "fix: show View/Print Paper button for any paper with a generated PDF"`
+- [x] Mark this task `[x]`
+- [x] Commit: `git add -A && git commit -m "fix: show View/Print Paper button for any paper with a generated PDF"`
 
 ---
 

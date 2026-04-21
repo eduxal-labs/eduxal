@@ -222,6 +222,32 @@ class _PaperDetailPageState extends State<PaperDetailPage>
     return Directory('$base/$rel');
   }
 
+  /// Attempt to load the presigned PDF URL for this paper from the server.
+  /// Called on init so returning users can view a previously-generated PDF
+  /// without having to re-open the generation wizard.
+  /// Silently ignores errors — not every pending paper has a generated PDF.
+  Future<void> _tryLoadExistingPdf() async {
+    final token = accessToken;
+    if (token.isEmpty) return;
+    final result = await questionBankService.getPaperPdf(
+      school: widget.schoolId,
+      exam: _exam.id,
+      subject: _paper.subject,
+      paper: _paper.paper,
+      grade: _paper.grade,
+      stream: _paper.stream,
+      accessToken: token,
+    );
+    if (!mounted) return;
+    switch (result) {
+      case Ok(:final value):
+        setState(() => _paperPdf = value);
+      case Err():
+        // Paper not yet finalized — ignore silently.
+        break;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -256,6 +282,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
     );
     _subscribeStudents();
     _loadSchemeFiles();
+    _tryLoadExistingPdf();
 
     // Subscribe to teacher subjects if the current entry is a teacher.
     final entry = widget.schoolContext.currentEntry.value;
@@ -460,6 +487,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                         paperPdf: _paperPdf,
                         onPaperGenerated: (pdf) =>
                             setState(() => _paperPdf = pdf),
+                        onPdfCleared: () => setState(() => _paperPdf = null),
                       ),
                       const SizedBox(height: 16),
 
@@ -649,6 +677,7 @@ class _PaperHeader extends StatefulWidget {
     this.onSchemeUpdated,
     this.paperPdf,
     this.onPaperGenerated,
+    this.onPdfCleared,
   });
 
   final Paper paper;
@@ -673,6 +702,7 @@ class _PaperHeader extends StatefulWidget {
   final VoidCallback? onSchemeUpdated;
   final PaperPdf? paperPdf;
   final void Function(PaperPdf)? onPaperGenerated;
+  final VoidCallback? onPdfCleared;
 
   @override
   State<_PaperHeader> createState() => _PaperHeaderState();
@@ -1219,29 +1249,31 @@ class _PaperHeaderState extends State<_PaperHeader>
                 Tooltip(
                   message: 'Generate Paper',
                   child: InkWell(
-                    onTap: () {
-                      Navigator.of(context)
-                          .push(
-                            MaterialPageRoute(
-                              builder: (context) => PaperGenerationPage(
-                                schoolId: widget.schoolId,
-                                examId: widget.exam.exam.id,
-                                subjectId: widget.paper.subject,
-                                paperId: widget.paper.paper,
-                                grade: widget.paper.grade,
-                                stream: widget.paper.stream,
-                                subjectName:
-                                    widget.subjectNames[widget.paper.subject] ??
-                                    'Subject ${widget.paper.subject}',
-                                examName: widget.exam.exam.name,
-                              ),
-                            ),
-                          )
-                          .then((result) {
-                            if (result is PaperPdf && mounted) {
-                              widget.onPaperGenerated?.call(result);
-                            }
-                          });
+                    onTap: () async {
+                      final pdf = await Navigator.push<PaperPdf?>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PaperGenerationPage(
+                            schoolId: widget.schoolId,
+                            examId: widget.exam.exam.id,
+                            subjectId: widget.paper.subject,
+                            paperId: widget.paper.paper,
+                            grade: widget.paper.grade,
+                            stream: widget.paper.stream,
+                            subjectName:
+                                widget.subjectNames[widget.paper.subject] ??
+                                'Subject ${widget.paper.subject}',
+                            examName: widget.exam.exam.name,
+                          ),
+                        ),
+                      );
+                      if (!mounted) return;
+                      if (pdf != null) {
+                        widget.onPaperGenerated?.call(pdf);
+                      } else {
+                        // Teacher may have cleared questions — refresh PDF state.
+                        widget.onPdfCleared?.call();
+                      }
                     },
                     borderRadius: BorderRadius.circular(4),
                     child: Padding(
@@ -1255,8 +1287,8 @@ class _PaperHeaderState extends State<_PaperHeader>
                   ),
                 ),
               ],
-              // ── Print Paper (progress, done, or marked) ───────────────
-              if (!isPending) ...[
+              // ── Print Paper (available whenever a PDF URL exists) ─────
+              if (widget.paperPdf != null) ...[
                 const SizedBox(width: 4),
                 Tooltip(
                   message: 'View / Print Paper',
