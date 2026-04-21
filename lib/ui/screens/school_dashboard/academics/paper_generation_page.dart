@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:grpc/grpc.dart' hide ConnectionState;
 
 import '../../../../client.dart';
 import '../../../../database/database.dart';
@@ -52,6 +53,10 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
   PaperPdf? _paperPdf;
   bool _isGenerating = false;
   bool _isFinalizing = false;
+  String? _generateError;
+
+  /// Guard against `addPostFrameCallback` accumulating on every stream rebuild.
+  List<Topic> _lastSyncedTopics = [];
 
   /// Track paperQuestionId → topicId for regeneration.
   /// Built when generating paper from allocations.
@@ -127,7 +132,10 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
     final nonZero = _allocations.where((a) => a.marks > 0).toList();
     if (nonZero.isEmpty) return;
 
-    setState(() => _isGenerating = true);
+    setState(() {
+      _isGenerating = true;
+      _generateError = null;
+    });
 
     final result = await questionBankService.generatePaper(
       school: widget.schoolId,
@@ -157,16 +165,29 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
           _isGenerating = false;
         });
       case Err(error: final e):
-        setState(() => _isGenerating = false);
-        ScaffoldMessenger.of(context)
-          ..clearSnackBars()
-          ..showSnackBar(
-            SnackBar(
-              content: Text(e.message ?? 'Failed to generate paper'),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+        setState(() {
+          _isGenerating = false;
+          _generateError = _friendlyGenerateError(e);
+        });
     }
+  }
+
+  String _friendlyGenerateError(GrpcError e) {
+    final msg = e.message?.toLowerCase() ?? '';
+    if (e.code == StatusCode.failedPrecondition ||
+        msg.contains('nothing to update') ||
+        msg.contains('not enough question')) {
+      return 'Not enough questions in the bank to fill the requested marks. '
+          'Try a smaller total, or contact the system admin to add more '
+          'questions for this subject and grade.';
+    }
+    if (e.code == StatusCode.notFound) {
+      return 'Subject, exam, or topic not found. Please refresh and try again.';
+    }
+    if (e.code == StatusCode.unauthenticated) {
+      return 'Your session has expired. Please log in again.';
+    }
+    return e.message ?? 'Failed to generate paper. Please try again.';
   }
 
   /// Build a mapping from paperQuestionId → topicId.
@@ -564,77 +585,110 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
 
         // ── Topic list ──
         Expanded(
-          child: StreamBuilder<List<Topic>>(
-            stream: catalogDao.watchTopicsBySubjectAndGrade(
-              subjectId: widget.subjectId,
-              grade: widget.grade,
-            ),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting &&
-                  !snapshot.hasData) {
-                return const Center(
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                );
-              }
-
-              final topics = snapshot.data ?? [];
-
-              if (topics.isEmpty) {
-                return _buildEmptyTopics(cs);
-              }
-
-              // Sync allocations + controllers with latest topic list
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (!mounted) return;
-                final needsSync =
-                    _allocations.length != topics.length ||
-                    topics.any(
-                      (t) => !_allocations.any((a) => a.topicId == t.id),
+          child: Stack(
+            children: [
+              StreamBuilder<List<Topic>>(
+                stream: catalogDao.watchTopicsBySubjectAndGrade(
+                  subjectId: widget.subjectId,
+                  grade: widget.grade,
+                ),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting &&
+                      !snapshot.hasData) {
+                    return const Center(
+                      child: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
                     );
-                if (needsSync) {
-                  setState(() => _syncAllocations(topics));
-                } else if (_allocations.isEmpty && topics.isNotEmpty) {
-                  setState(() => _syncAllocations(topics));
-                }
-              });
-
-              // First render — sync immediately
-              if (_allocations.length != topics.length) {
-                _syncAllocations(topics);
-              }
-
-              return ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: _allocations.length,
-                separatorBuilder: (_, i) =>
-                    AppTheme.tableRowDivider(isDark, cs),
-                itemBuilder: (context, index) {
-                  if (index >= _allocations.length ||
-                      index >= _markControllers.length) {
-                    return const SizedBox.shrink();
                   }
-                  final alloc = _allocations[index];
-                  return _TopicRow(
-                    allocation: alloc,
-                    controller: _markControllers[index],
-                    cs: cs,
-                    isDark: isDark,
-                    enabled: !_isGenerating,
-                    onChanged: (value) {
-                      setState(() {
-                        alloc.marks = value;
-                      });
+
+                  final topics = snapshot.data ?? [];
+
+                  if (topics.isEmpty) {
+                    return _buildEmptyTopics(cs);
+                  }
+
+                  // Only schedule a sync when the topic list actually changed.
+                  final topicsChanged =
+                      topics.length != _lastSyncedTopics.length ||
+                      topics.any(
+                        (t) => !_lastSyncedTopics.any((l) => l.id == t.id),
+                      );
+
+                  if (topicsChanged) {
+                    _lastSyncedTopics = List.of(topics);
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (!mounted) return;
+                      setState(() => _syncAllocations(topics));
+                    });
+                  }
+
+                  return ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: _allocations.length,
+                    separatorBuilder: (_, i) =>
+                        AppTheme.tableRowDivider(isDark, cs),
+                    itemBuilder: (context, index) {
+                      if (index >= _allocations.length ||
+                          index >= _markControllers.length) {
+                        return const SizedBox.shrink();
+                      }
+                      final alloc = _allocations[index];
+                      return _TopicRow(
+                        allocation: alloc,
+                        controller: _markControllers[index],
+                        cs: cs,
+                        isDark: isDark,
+                        enabled: !_isGenerating,
+                        onChanged: (value) {
+                          setState(() {
+                            alloc.marks = value;
+                          });
+                        },
+                      );
                     },
                   );
                 },
-              );
-            },
+              ),
+              // Loading overlay — shown while generating
+              if (_isGenerating)
+                Positioned.fill(
+                  child: Container(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surface.withValues(alpha: 0.75),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Generating questions…',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant
+                                .withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
+
+        if (_generateError != null)
+          _GenerationErrorBanner(message: _generateError!, cs: cs),
 
         // ── Sticky footer ──
         _AllocationFooter(
@@ -2446,6 +2500,42 @@ class _AllocationFooterState extends State<_AllocationFooter>
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _GenerationErrorBanner extends StatelessWidget {
+  const _GenerationErrorBanner({required this.message, required this.cs});
+
+  final String message;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: cs.errorContainer.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        border: Border.all(color: cs.error.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline_rounded, size: 16, color: cs.error),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                color: cs.onErrorContainer,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
