@@ -1,9 +1,12 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:grpc/grpc.dart' hide ConnectionState;
 
 import '../../../../client.dart';
 import '../../../../database/database.dart';
+import '../../../../database/daos/exams_grades_dao.dart';
+import '../../../../database/tables/enums.dart';
 import '../../../../models/paper_generation.dart';
 import '../../../../models/question.dart';
 import '../../../../models/result.dart';
@@ -1322,6 +1325,33 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
 
     switch (result) {
       case Ok(:final value):
+        // Auto-advance paper status pending → progress so the "View / Print Paper"
+        // button is visible on the paper detail page immediately after the user exits.
+        final accountId = cache.currentUser?.user.id;
+        if (accountId != null) {
+          final now = BigInt.from(
+            DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          );
+          try {
+            await ExamsGradesDao(db).updatePaper(
+              schoolId: widget.schoolId,
+              examId: widget.examId,
+              subject: widget.subjectId,
+              paperNum: widget.paperId,
+              grade: widget.grade,
+              stream: widget.stream,
+              changes: PapersCompanion(
+                status: const Value(PaperStatus.progress),
+                updated: Value(now),
+              ),
+              accountId: accountId,
+            );
+          } catch (e) {
+            // Non-fatal: PDF was generated successfully even if status advance fails.
+            debugPrint('[PaperGen] Failed to advance paper status: $e');
+          }
+        }
+        if (!mounted) return;
         setState(() {
           _paperPdf = value;
           _isFinalizing = false;

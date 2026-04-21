@@ -941,7 +941,6 @@ class _PaperHeaderState extends State<_PaperHeader>
     final status = paper.status;
     final isPending = status == PaperStatus.pending;
     final isMarked = status == PaperStatus.marked;
-    final isDoneOrMarked = status == PaperStatus.done || isMarked;
     final color = _statusColor(status);
     final next = _nextStatus(status);
     final nextColor = next != null ? _statusColor(next) : color;
@@ -1231,11 +1230,11 @@ class _PaperHeaderState extends State<_PaperHeader>
                   ),
                 ),
               ],
-              // ── Print Paper (done or marked) ──────────────────────────
-              if (isDoneOrMarked) ...[
+              // ── Print Paper (progress, done, or marked) ───────────────
+              if (!isPending) ...[
                 const SizedBox(width: 4),
                 Tooltip(
-                  message: 'Print Paper',
+                  message: 'View / Print Paper',
                   child: InkWell(
                     onTap: _printBusy
                         ? null

@@ -364,7 +364,7 @@ registration automatically via its manifest merge.
 
 ---
 
-### Task 03: Auto-advance paper status after finalization + expose print button earlier
+### [x] Task 03: Auto-advance paper status after finalization + expose print button earlier
 
 **Files to create/modify:**
 - `lib/ui/screens/school_dashboard/academics/paper_generation_page.dart`
