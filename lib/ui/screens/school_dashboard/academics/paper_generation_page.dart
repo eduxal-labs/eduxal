@@ -85,6 +85,7 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
   void initState() {
     super.initState();
     _totalMarksController = TextEditingController(text: '$_totalMarks');
+    _tryRestoreExistingQuestions();
   }
 
   @override
@@ -191,6 +192,36 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
       return 'Your session has expired. Please log in again.';
     }
     return e.message ?? 'Failed to generate paper. Please try again.';
+  }
+
+  /// Fetch questions already generated for this paper from the server and
+  /// restore wizard state to the review step (step 1) if any are found.
+  Future<void> _tryRestoreExistingQuestions() async {
+    final result = await questionBankService.getPaperQuestions(
+      school: widget.schoolId,
+      exam: widget.examId,
+      subject: widget.subjectId,
+      paper: widget.paperId,
+      grade: widget.grade,
+      stream: widget.stream,
+      accessToken: accessToken,
+    );
+    if (!mounted) return;
+    switch (result) {
+      case Ok(value: final questions) when questions.isNotEmpty:
+        _buildQuestionTopicMap(
+          questions,
+          _allocations.where((a) => a.marks > 0).toList(),
+        );
+        setState(() {
+          _generatedQuestions = questions;
+          _currentStep = 1; // skip straight to the review step
+        });
+      case Ok():
+      case Err():
+        // No existing questions or network error — stay on allocation step.
+        break;
+    }
   }
 
   /// Build a mapping from paperQuestionId → topicId.

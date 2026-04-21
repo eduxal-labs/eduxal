@@ -352,6 +352,9 @@ class QuestionImage extends $pb.GeneratedMessage {
   void clearCaption() => $_clearField(6);
 }
 
+/// Global catalog operation.
+/// Creates a question in the shared system-wide question bank and is not school-scoped.
+/// School-scoped fields belong only to paper assembly / grading / marking requests.
 class CreateQuestionRequest extends $pb.GeneratedMessage {
   factory CreateQuestionRequest({
     $core.int? topicId,
@@ -574,6 +577,9 @@ class CreateQuestionResponse extends $pb.GeneratedMessage {
   Question ensureQuestion() => $_ensure(0);
 }
 
+/// Global catalog operation.
+/// Updates a question in the shared system-wide question bank and is not school-scoped.
+/// School-scoped fields belong only to paper assembly / grading / marking requests.
 class UpdateQuestionRequest extends $pb.GeneratedMessage {
   factory UpdateQuestionRequest({
     $core.int? questionId,
@@ -730,6 +736,9 @@ class UpdateQuestionResponse extends $pb.GeneratedMessage {
   Question ensureQuestion() => $_ensure(0);
 }
 
+/// Global catalog operation.
+/// Deletes a question from the shared system-wide question bank and is not school-scoped.
+/// School-scoped fields belong only to paper assembly / grading / marking requests.
 class DeleteQuestionRequest extends $pb.GeneratedMessage {
   factory DeleteQuestionRequest({
     $core.int? questionId,
@@ -824,6 +833,9 @@ class DeleteQuestionResponse extends $pb.GeneratedMessage {
   static DeleteQuestionResponse? _defaultInstance;
 }
 
+/// Global catalog operation.
+/// Imports questions into the shared system-wide question bank and is not school-scoped.
+/// School-scoped fields belong only to paper assembly / grading / marking requests.
 class BulkImportRequest extends $pb.GeneratedMessage {
   factory BulkImportRequest({
     $core.String? jsonContent,
@@ -883,11 +895,13 @@ class BulkImportResponse extends $pb.GeneratedMessage {
     $core.int? questionsCreated,
     $core.Iterable<ImportError>? errors,
     $core.Iterable<$core.int>? questionIds,
+    $core.int? duplicatesSkipped,
   }) {
     final result = create();
     if (questionsCreated != null) result.questionsCreated = questionsCreated;
     if (errors != null) result.errors.addAll(errors);
     if (questionIds != null) result.questionIds.addAll(questionIds);
+    if (duplicatesSkipped != null) result.duplicatesSkipped = duplicatesSkipped;
     return result;
   }
 
@@ -908,6 +922,7 @@ class BulkImportResponse extends $pb.GeneratedMessage {
     ..pPM<ImportError>(2, _omitFieldNames ? '' : 'errors',
         subBuilder: ImportError.create)
     ..p<$core.int>(3, _omitFieldNames ? '' : 'questionIds', $pb.PbFieldType.K3)
+    ..aI(4, _omitFieldNames ? '' : 'duplicatesSkipped')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -943,6 +958,15 @@ class BulkImportResponse extends $pb.GeneratedMessage {
 
   @$pb.TagNumber(3)
   $pb.PbList<$core.int> get questionIds => $_getList(2);
+
+  @$pb.TagNumber(4)
+  $core.int get duplicatesSkipped => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set duplicatesSkipped($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasDuplicatesSkipped() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearDuplicatesSkipped() => $_clearField(4);
 }
 
 class ImportError extends $pb.GeneratedMessage {
@@ -1303,6 +1327,9 @@ class ImageUploadUrl extends $pb.GeneratedMessage {
   void clearPutUrl() => $_clearField(4);
 }
 
+/// School-scoped paper assembly operation.
+/// The `school` field is intentional here because paper generation is school-bound,
+/// unlike global question-bank catalog CRUD/import/list requests.
 class GeneratePaperRequest extends $pb.GeneratedMessage {
   factory GeneratePaperRequest({
     $core.String? school,
@@ -1622,6 +1649,9 @@ class PaperQuestion extends $pb.GeneratedMessage {
   Question ensureQuestion() => $_ensure(1);
 }
 
+/// School-scoped paper assembly operation.
+/// The `school` field is intentional here because paper regeneration is school-bound,
+/// unlike global question-bank catalog CRUD/import/list requests.
 class RegenerateQuestionRequest extends $pb.GeneratedMessage {
   factory RegenerateQuestionRequest({
     $core.String? school,
@@ -1994,6 +2024,9 @@ class EditPaperQuestionResponse extends $pb.GeneratedMessage {
   Question ensureQuestion() => $_ensure(0);
 }
 
+/// School-scoped paper assembly operation.
+/// The `school` field is intentional here because paper finalization is school-bound,
+/// unlike global question-bank catalog CRUD/import/list requests.
 class FinalizePaperRequest extends $pb.GeneratedMessage {
   factory FinalizePaperRequest({
     $core.String? school,
@@ -2175,6 +2208,9 @@ class FinalizePaperResponse extends $pb.GeneratedMessage {
   void clearPdfExpiry() => $_clearField(2);
 }
 
+/// School-scoped paper retrieval operation.
+/// The `school` field is intentional here because paper PDF access is school-bound,
+/// unlike global question-bank catalog CRUD/import/list requests.
 class GetPaperPdfRequest extends $pb.GeneratedMessage {
   factory GetPaperPdfRequest({
     $core.String? school,
@@ -2355,6 +2391,176 @@ class GetPaperPdfResponse extends $pb.GeneratedMessage {
   void clearPdfExpiry() => $_clearField(2);
 }
 
+/// Returns the currently assembled question list for a paper, ordered by position.
+/// Returns an empty list if no paper has been generated yet for this identity.
+class GetPaperQuestionsRequest extends $pb.GeneratedMessage {
+  factory GetPaperQuestionsRequest({
+    $core.String? school,
+    $core.String? exam,
+    $core.int? subject,
+    $core.int? paper,
+    $core.int? grade,
+    $core.int? stream,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (exam != null) result.exam = exam;
+    if (subject != null) result.subject = subject;
+    if (paper != null) result.paper = paper;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
+    return result;
+  }
+
+  GetPaperQuestionsRequest._();
+
+  factory GetPaperQuestionsRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory GetPaperQuestionsRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetPaperQuestionsRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'question_bank'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'exam')
+    ..aI(3, _omitFieldNames ? '' : 'subject')
+    ..aI(4, _omitFieldNames ? '' : 'paper')
+    ..aI(5, _omitFieldNames ? '' : 'grade')
+    ..aI(6, _omitFieldNames ? '' : 'stream')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetPaperQuestionsRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetPaperQuestionsRequest copyWith(
+          void Function(GetPaperQuestionsRequest) updates) =>
+      super.copyWith((message) => updates(message as GetPaperQuestionsRequest))
+          as GetPaperQuestionsRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GetPaperQuestionsRequest create() => GetPaperQuestionsRequest._();
+  @$core.override
+  GetPaperQuestionsRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static GetPaperQuestionsRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetPaperQuestionsRequest>(create);
+  static GetPaperQuestionsRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get exam => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set exam($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasExam() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearExam() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get subject => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set subject($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSubject() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSubject() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get paper => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set paper($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasPaper() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearPaper() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get grade => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set grade($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasGrade() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearGrade() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get stream => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set stream($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasStream() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearStream() => $_clearField(6);
+}
+
+class GetPaperQuestionsResponse extends $pb.GeneratedMessage {
+  factory GetPaperQuestionsResponse({
+    $core.Iterable<PaperQuestion>? questions,
+  }) {
+    final result = create();
+    if (questions != null) result.questions.addAll(questions);
+    return result;
+  }
+
+  GetPaperQuestionsResponse._();
+
+  factory GetPaperQuestionsResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory GetPaperQuestionsResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetPaperQuestionsResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'question_bank'),
+      createEmptyInstance: create)
+    ..pPM<PaperQuestion>(1, _omitFieldNames ? '' : 'questions',
+        subBuilder: PaperQuestion.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetPaperQuestionsResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetPaperQuestionsResponse copyWith(
+          void Function(GetPaperQuestionsResponse) updates) =>
+      super.copyWith((message) => updates(message as GetPaperQuestionsResponse))
+          as GetPaperQuestionsResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GetPaperQuestionsResponse create() => GetPaperQuestionsResponse._();
+  @$core.override
+  GetPaperQuestionsResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static GetPaperQuestionsResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetPaperQuestionsResponse>(create);
+  static GetPaperQuestionsResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<PaperQuestion> get questions => $_getList(0);
+}
+
+/// Global catalog operation.
+/// Lists questions from the shared system-wide question bank and is not school-scoped.
+/// School-scoped fields belong only to paper assembly / grading / marking requests.
 class ListQuestionsRequest extends $pb.GeneratedMessage {
   factory ListQuestionsRequest({
     $core.int? topicId,
@@ -2519,6 +2725,9 @@ class ListQuestionsResponse extends $pb.GeneratedMessage {
   void clearTotal() => $_clearField(2);
 }
 
+/// Global catalog operation.
+/// Fetches a question from the shared system-wide question bank and is not school-scoped.
+/// School-scoped fields belong only to paper assembly / grading / marking requests.
 class GetQuestionRequest extends $pb.GeneratedMessage {
   factory GetQuestionRequest({
     $core.int? questionId,
@@ -2630,6 +2839,9 @@ class GetQuestionResponse extends $pb.GeneratedMessage {
   Question ensureQuestion() => $_ensure(0);
 }
 
+/// School-scoped grading/marking operation.
+/// The `school` field is intentional here because question-grade lookup is school-bound,
+/// unlike global question-bank catalog CRUD/import/list requests.
 class GetQuestionGradesRequest extends $pb.GeneratedMessage {
   factory GetQuestionGradesRequest({
     $core.String? school,
@@ -2916,6 +3128,9 @@ class QuestionGradeDetail extends $pb.GeneratedMessage {
   $pb.PbList<RubricCriterion> get rubric => $_getList(5);
 }
 
+/// School-scoped grading/marking operation.
+/// The `school` field is intentional here because marking status is school-bound,
+/// unlike global question-bank catalog CRUD/import/list requests.
 class MarkingStatusRequest extends $pb.GeneratedMessage {
   factory MarkingStatusRequest({
     $core.String? school,

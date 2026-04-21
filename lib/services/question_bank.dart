@@ -552,6 +552,53 @@ class QuestionBankService {
   }
 
   // ---------------------------------------------------------------------------
+  // Get Paper Questions (Task 04)
+  // ---------------------------------------------------------------------------
+
+  /// Fetch the currently assembled question list for a paper from the server.
+  /// Returns an empty list if no paper has been generated yet.
+  Future<Result<List<models.PaperQuestion>, GrpcError>> getPaperQuestions({
+    required String school,
+    required String exam,
+    required int subject,
+    int? paper,
+    required int grade,
+    int? stream,
+    required String accessToken,
+  }) async {
+    print(
+      '[QB] getPaperQuestions → school=$school exam=$exam '
+      'subject=$subject grade=$grade',
+    );
+    try {
+      final req = pb.GetPaperQuestionsRequest()
+        ..school = school
+        ..exam = exam
+        ..subject = subject
+        ..grade = grade;
+      if (paper != null) req.paper = paper;
+      if (stream != null) req.stream = stream;
+      final options = CallOptions(
+        metadata: {'authorization': 'Bearer $accessToken'},
+        timeout: const Duration(seconds: 30),
+      );
+      final client = pbgrpc.QuestionBankClient(_mainChannel);
+      final resp = await client.getPaperQuestions(req, options: options);
+      final questions = resp.questions
+          .map(models.PaperQuestion.fromProto)
+          .toList();
+      print('[QB] getPaperQuestions ← OK (questions=${questions.length})');
+      return Ok(questions);
+    } on GrpcError catch (e) {
+      print('[QB] getPaperQuestions ← GrpcError: ${e.code} ${e.message}');
+      return Err(e);
+    } catch (e, st) {
+      print('[QB] getPaperQuestions ← UNEXPECTED ${e.runtimeType}: $e\n$st');
+      return Err(GrpcError.internal('getPaperQuestions failed: $e'));
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Marking Status & Question Grades (Task 05)
   // ---------------------------------------------------------------------------
 

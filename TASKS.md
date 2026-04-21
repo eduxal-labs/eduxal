@@ -495,7 +495,7 @@ in the build method. Only the one `if` condition on the print button changes.
 
 ---
 
-### Task 04: Add GetPaperQuestions RPC so the wizard can restore state on re-entry
+### [x] Task 04: Add GetPaperQuestions RPC so the wizard can restore state on re-entry
 
 **Files to create/modify:**
 - `lib/services/question_bank.dart`

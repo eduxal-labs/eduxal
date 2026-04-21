@@ -319,6 +319,13 @@ const BulkImportResponse$json = {
       '10': 'errors'
     },
     {'1': 'question_ids', '3': 3, '4': 3, '5': 5, '10': 'questionIds'},
+    {
+      '1': 'duplicates_skipped',
+      '3': 4,
+      '4': 1,
+      '5': 5,
+      '10': 'duplicatesSkipped'
+    },
   ],
 };
 
@@ -326,7 +333,8 @@ const BulkImportResponse$json = {
 final $typed_data.Uint8List bulkImportResponseDescriptor = $convert.base64Decode(
     'ChJCdWxrSW1wb3J0UmVzcG9uc2USKwoRcXVlc3Rpb25zX2NyZWF0ZWQYASABKAVSEHF1ZXN0aW'
     '9uc0NyZWF0ZWQSMgoGZXJyb3JzGAIgAygLMhoucXVlc3Rpb25fYmFuay5JbXBvcnRFcnJvclIG'
-    'ZXJyb3JzEiEKDHF1ZXN0aW9uX2lkcxgDIAMoBVILcXVlc3Rpb25JZHM=');
+    'ZXJyb3JzEiEKDHF1ZXN0aW9uX2lkcxgDIAMoBVILcXVlc3Rpb25JZHMSLQoSZHVwbGljYXRlc1'
+    '9za2lwcGVkGAQgASgFUhFkdXBsaWNhdGVzU2tpcHBlZA==');
 
 @$core.Deprecated('Use importErrorDescriptor instead')
 const ImportError$json = {
@@ -708,6 +716,51 @@ const GetPaperPdfResponse$json = {
 final $typed_data.Uint8List getPaperPdfResponseDescriptor = $convert.base64Decode(
     'ChNHZXRQYXBlclBkZlJlc3BvbnNlEhcKB3BkZl91cmwYASABKAlSBnBkZlVybBIdCgpwZGZfZX'
     'hwaXJ5GAIgASgDUglwZGZFeHBpcnk=');
+
+@$core.Deprecated('Use getPaperQuestionsRequestDescriptor instead')
+const GetPaperQuestionsRequest$json = {
+  '1': 'GetPaperQuestionsRequest',
+  '2': [
+    {'1': 'school', '3': 1, '4': 1, '5': 9, '10': 'school'},
+    {'1': 'exam', '3': 2, '4': 1, '5': 9, '10': 'exam'},
+    {'1': 'subject', '3': 3, '4': 1, '5': 5, '10': 'subject'},
+    {'1': 'paper', '3': 4, '4': 1, '5': 5, '9': 0, '10': 'paper', '17': true},
+    {'1': 'grade', '3': 5, '4': 1, '5': 5, '10': 'grade'},
+    {'1': 'stream', '3': 6, '4': 1, '5': 5, '9': 1, '10': 'stream', '17': true},
+  ],
+  '8': [
+    {'1': '_paper'},
+    {'1': '_stream'},
+  ],
+};
+
+/// Descriptor for `GetPaperQuestionsRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getPaperQuestionsRequestDescriptor = $convert.base64Decode(
+    'ChhHZXRQYXBlclF1ZXN0aW9uc1JlcXVlc3QSFgoGc2Nob29sGAEgASgJUgZzY2hvb2wSEgoEZX'
+    'hhbRgCIAEoCVIEZXhhbRIYCgdzdWJqZWN0GAMgASgFUgdzdWJqZWN0EhkKBXBhcGVyGAQgASgF'
+    'SABSBXBhcGVyiAEBEhQKBWdyYWRlGAUgASgFUgVncmFkZRIbCgZzdHJlYW0YBiABKAVIAVIGc3'
+    'RyZWFtiAEBQggKBl9wYXBlckIJCgdfc3RyZWFt');
+
+@$core.Deprecated('Use getPaperQuestionsResponseDescriptor instead')
+const GetPaperQuestionsResponse$json = {
+  '1': 'GetPaperQuestionsResponse',
+  '2': [
+    {
+      '1': 'questions',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.question_bank.PaperQuestion',
+      '10': 'questions'
+    },
+  ],
+};
+
+/// Descriptor for `GetPaperQuestionsResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getPaperQuestionsResponseDescriptor =
+    $convert.base64Decode(
+        'ChlHZXRQYXBlclF1ZXN0aW9uc1Jlc3BvbnNlEjoKCXF1ZXN0aW9ucxgBIAMoCzIcLnF1ZXN0aW'
+        '9uX2JhbmsuUGFwZXJRdWVzdGlvblIJcXVlc3Rpb25z');
 
 @$core.Deprecated('Use listQuestionsRequestDescriptor instead')
 const ListQuestionsRequest$json = {
