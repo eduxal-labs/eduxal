@@ -30,6 +30,7 @@ class PaperGenerationPage extends StatefulWidget {
     this.stream,
     required this.subjectName,
     required this.examName,
+    this.allStreamsForGrade = const [],
   });
 
   final String schoolId;
@@ -40,6 +41,11 @@ class PaperGenerationPage extends StatefulWidget {
   final int? stream;
   final String subjectName;
   final String examName;
+
+  /// All streams available for this grade. Used to populate the multi-stream
+  /// copy picker shown after PDF generation. Pass an empty list to hide the
+  /// copy section.
+  final List<({int code, String name})> allStreamsForGrade;
 
   @override
   State<PaperGenerationPage> createState() => _PaperGenerationPageState();
@@ -55,6 +61,11 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
   bool _isFinalizing = false;
   bool _isClearing = false;
   String? _generateError;
+
+  // Multi-stream copy state
+  final Set<int> _selectedTargetStreams = {};
+  bool _isCopying = false;
+  List<StreamCopyResult>? _copyResults; // null = not yet attempted
 
   /// Guard against `addPostFrameCallback` accumulating on every stream rebuild.
   List<Topic> _lastSyncedTopics = [];
@@ -1552,11 +1563,45 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
     }
   }
 
+  Future<void> _copyToOtherStreams() async {
+    if (_selectedTargetStreams.isEmpty || _isCopying) return;
+
+    setState(() => _isCopying = true);
+
+    final result = await questionBankService.copyPaperToStreams(
+      school: widget.schoolId,
+      exam: widget.examId,
+      subject: widget.subjectId,
+      paper: widget.paperId,
+      grade: widget.grade,
+      sourceStream: widget.stream,
+      targetStreams: _selectedTargetStreams.toList(),
+      accessToken: accessToken,
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _isCopying = false;
+      switch (result) {
+        case Ok(:final value):
+          _copyResults = value;
+        case Err(:final error):
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Copy failed: ${error.message}')),
+          );
+      }
+    });
+  }
+
   Widget _buildFinalizeStep(ColorScheme cs, bool isDark) {
     final totalMarks = _generatedQuestions.fold<int>(
       0,
       (sum, q) => sum + q.marks,
     );
+
+    final otherStreams = widget.allStreamsForGrade
+        .where((s) => s.code != widget.stream)
+        .toList();
 
     return Column(
       children: [
@@ -1733,6 +1778,161 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
                           cs: cs,
                         ),
                       ),
+
+                      // ── Multi-stream copy section (only when other streams exist) ──
+                      if (otherStreams.isNotEmpty) ...[
+                        const SizedBox(height: 20),
+                        Divider(
+                          color: AppTheme.borderColor(isDark, cs),
+                          thickness: 0.5,
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Header
+                        Text(
+                          'Copy to other streams',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: cs.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Apply the same questions and generate PDFs for additional streams '
+                          'in the same grade.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Stream multi-select chips
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: otherStreams.map((s) {
+                            final selected = _selectedTargetStreams.contains(
+                              s.code,
+                            );
+                            return GestureDetector(
+                              onTap: _copyResults != null
+                                  ? null // lock after copy is done
+                                  : () => setState(() {
+                                      if (selected) {
+                                        _selectedTargetStreams.remove(s.code);
+                                      } else {
+                                        _selectedTargetStreams.add(s.code);
+                                      }
+                                    }),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: selected
+                                      ? cs.primary.withValues(
+                                          alpha: isDark ? 0.18 : 0.10,
+                                        )
+                                      : (isDark
+                                            ? const Color(0xFF1A2536)
+                                            : cs.surfaceContainerHighest),
+                                  borderRadius: BorderRadius.circular(
+                                    AppTheme.kChipRadius,
+                                  ),
+                                  border: Border.all(
+                                    color: selected
+                                        ? cs.primary.withValues(alpha: 0.5)
+                                        : AppTheme.borderColor(isDark, cs),
+                                    width: 0.5,
+                                  ),
+                                ),
+                                child: Text(
+                                  s.name,
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: selected
+                                        ? FontWeight.w500
+                                        : FontWeight.w400,
+                                    color: selected ? cs.primary : cs.onSurface,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        // "Apply" button — shown when no copy has been done yet.
+                        if (_copyResults == null)
+                          SizedBox(
+                            width: double.infinity,
+                            child: _FinalizeActionButton(
+                              icon: _isCopying
+                                  ? Icons.hourglass_empty_rounded
+                                  : Icons.copy_all_rounded,
+                              label: _isCopying
+                                  ? 'Copying\u2026'
+                                  : _selectedTargetStreams.isEmpty
+                                  ? 'Select streams above'
+                                  : 'Apply to ${_selectedTargetStreams.length} '
+                                        'stream${_selectedTargetStreams.length == 1 ? '' : 's'}',
+                              color:
+                                  _selectedTargetStreams.isEmpty || _isCopying
+                                  ? (isDark
+                                        ? cs.surfaceContainerHighest
+                                        : cs.surfaceContainerHigh)
+                                  : cs.secondary,
+                              textColor:
+                                  _selectedTargetStreams.isEmpty || _isCopying
+                                  ? cs.onSurfaceVariant.withValues(alpha: 0.5)
+                                  : cs.onSecondary,
+                              onTap:
+                                  _selectedTargetStreams.isEmpty || _isCopying
+                                  ? null
+                                  : () => _copyToOtherStreams(),
+                            ),
+                          ),
+
+                        // Per-stream copy results
+                        if (_copyResults != null) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.kCardRadius,
+                              ),
+                              border: Border.all(
+                                color: AppTheme.borderColor(isDark, cs),
+                                width: 0.5,
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                for (
+                                  int i = 0;
+                                  i < _copyResults!.length;
+                                  i++
+                                ) ...[
+                                  if (i > 0)
+                                    AppTheme.tableRowDivider(isDark, cs),
+                                  _buildCopyResultRow(
+                                    _copyResults![i],
+                                    otherStreams,
+                                    cs,
+                                    isDark,
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
                     ],
                   ),
                 ),
@@ -1853,6 +2053,69 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCopyResultRow(
+    StreamCopyResult result,
+    List<({int code, String name})> streams,
+    ColorScheme cs,
+    bool isDark,
+  ) {
+    final streamName = streams
+        .firstWhere(
+          (s) => s.code == result.stream,
+          orElse: () => (code: result.stream, name: 'Stream ${result.stream}'),
+        )
+        .name;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        children: [
+          Icon(
+            result.success
+                ? Icons.check_circle_rounded
+                : Icons.error_outline_rounded,
+            size: 16,
+            color: result.success ? Colors.green.shade400 : cs.error,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  streamName,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurface,
+                  ),
+                ),
+                if (!result.success && result.error != null)
+                  Text(
+                    result.error!,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w400,
+                      color: cs.error.withValues(alpha: 0.75),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (result.success)
+            Text(
+              'PDF generated',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w400,
+                color: Colors.green.shade400,
+              ),
+            ),
         ],
       ),
     );
@@ -2070,7 +2333,7 @@ class _FinalizeActionButton extends StatefulWidget {
   final String label;
   final Color color;
   final Color textColor;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   State<_FinalizeActionButton> createState() => _FinalizeActionButtonState();

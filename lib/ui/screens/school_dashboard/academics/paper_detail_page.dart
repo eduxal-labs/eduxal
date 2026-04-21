@@ -56,6 +56,7 @@ class PaperDetailPage extends StatefulWidget {
     this.curriculumType = CurriculumType.cbc,
     required this.schoolContext,
     this.subjectNames = const {},
+    this.streamNames = const {},
     this.onBack,
   });
 
@@ -68,6 +69,10 @@ class PaperDetailPage extends StatefulWidget {
   final CurriculumType curriculumType;
   final SchoolContext schoolContext;
   final Map<int, String> subjectNames;
+
+  /// Maps streamCode → stream name for all streams in this paper's grade.
+  /// Forwarded to [PaperGenerationPage] to populate the multi-stream copy picker.
+  final Map<int, String> streamNames;
   final VoidCallback? onBack;
 
   @override
@@ -463,6 +468,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                         exam: widget.exam,
                         schoolId: widget.schoolId,
                         subjectNames: widget.subjectNames,
+                        streamNames: widget.streamNames,
                         cs: cs,
                         canEdit: _canProgressStatus,
                         canManage: _canProgressStatus,
@@ -659,6 +665,7 @@ class _PaperHeader extends StatefulWidget {
     required this.exam,
     required this.schoolId,
     required this.subjectNames,
+    required this.streamNames,
     required this.cs,
     required this.canEdit,
     required this.canManage,
@@ -684,6 +691,7 @@ class _PaperHeader extends StatefulWidget {
   final ExamWithPapers exam;
   final String schoolId;
   final Map<int, String> subjectNames;
+  final Map<int, String> streamNames;
   final ColorScheme cs;
   final bool canEdit;
   final bool canManage;
@@ -1263,6 +1271,9 @@ class _PaperHeaderState extends State<_PaperHeader>
                                 widget.subjectNames[widget.paper.subject] ??
                                 'Subject ${widget.paper.subject}',
                             examName: widget.exam.exam.name,
+                            allStreamsForGrade: widget.streamNames.entries
+                                .map((e) => (code: e.key, name: e.value))
+                                .toList(),
                           ),
                         ),
                       );

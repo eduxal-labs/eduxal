@@ -658,7 +658,7 @@ Future<Result<List<models.StreamCopyResult>, GrpcError>> copyPaperToStreams({
 
 ---
 
-### Task P06: Add multi-stream copy UI to `PaperGenerationPage`
+### Task P06: ✅ Add multi-stream copy UI to `PaperGenerationPage`
 
 **Files to modify:**
 - `lib/ui/screens/school_dashboard/academics/paper_generation_page.dart`
@@ -977,10 +977,10 @@ PaperGenerationPage(
 ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — update `paper_generation_page.dart`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — update `paper_generation_page.dart`
   and `paper_detail_page.dart` entries to reflect new params
-- [ ] Mark this task `[x]`
-- [ ] Commit: `git add -A && git commit -m "feat: add multi-stream paper copy UI to generation page"`
+- [x] Mark this task `[x]`
+- [x] Commit: `git add -A && git commit -m "feat: add multi-stream paper copy UI to generation page"`
 
 ---
 
