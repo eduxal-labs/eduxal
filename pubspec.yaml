@@ -39,6 +39,7 @@ dependencies:
   drift: ^2.31.0
   drift_flutter: ^0.2.8
   path_provider: ^2.1.5
+  share_plus: ^10.0.0
   async: ^2.13.0
   image_picker: ^1.2.1
   flutter_image_compress: ^2.3.0

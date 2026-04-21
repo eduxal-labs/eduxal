@@ -294,7 +294,7 @@ below the callback block) — the new `topicsChanged` check above covers it.
 
 ---
 
-### Task 02: Fix mobile PDF sharing in paper_pdf_viewer.dart
+### [x] Task 02: Fix mobile PDF sharing in paper_pdf_viewer.dart
 
 **Files to create/modify:**
 - `lib/ui/screens/school_dashboard/academics/paper_pdf_viewer.dart`

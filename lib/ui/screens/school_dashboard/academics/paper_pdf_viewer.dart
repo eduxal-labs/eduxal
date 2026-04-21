@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../../client.dart';
 import '../../../../models/result.dart';
@@ -101,13 +102,11 @@ Future<void> downloadAndOpenPdf({
           } else if (Platform.isWindows) {
             await Process.run('start', ['', file.path], runInShell: true);
           } else {
-            // Android / iOS — show saved path as fallback.
-            messenger.showSnackBar(
-              SnackBar(
-                content: Text('PDF saved to: ${file.path}'),
-                duration: const Duration(seconds: 5),
-              ),
-            );
+            // Android / iOS — open system share sheet so the user can print,
+            // open in a PDF viewer, or share the file.
+            await Share.shareXFiles([
+              XFile(file.path, mimeType: 'application/pdf'),
+            ], subject: 'Exam Paper PDF');
           }
         } finally {
           httpClient.close();
