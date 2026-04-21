@@ -1073,3 +1073,137 @@ final $typed_data.Uint8List markingStatusResponseDescriptor = $convert.base64Dec
     '1hcmtpbmdQaGFzZVIFcGhhc2USGgoIcHJvZ3Jlc3MYAiABKAlSCHByb2dyZXNzEhkKBWVycm9y'
     'GAMgASgJSABSBWVycm9yiAEBEjYKFGVzdGltYXRlZF9jb21wbGV0aW9uGAQgASgDSAFSE2VzdG'
     'ltYXRlZENvbXBsZXRpb26IAQFCCAoGX2Vycm9yQhcKFV9lc3RpbWF0ZWRfY29tcGxldGlvbg==');
+
+@$core.Deprecated('Use clearPaperQuestionsRequestDescriptor instead')
+const ClearPaperQuestionsRequest$json = {
+  '1': 'ClearPaperQuestionsRequest',
+  '2': [
+    {'1': 'school', '3': 1, '4': 1, '5': 9, '10': 'school'},
+    {'1': 'exam', '3': 2, '4': 1, '5': 9, '10': 'exam'},
+    {'1': 'subject', '3': 3, '4': 1, '5': 5, '10': 'subject'},
+    {'1': 'paper', '3': 4, '4': 1, '5': 5, '9': 0, '10': 'paper', '17': true},
+    {'1': 'grade', '3': 5, '4': 1, '5': 5, '10': 'grade'},
+    {'1': 'stream', '3': 6, '4': 1, '5': 5, '9': 1, '10': 'stream', '17': true},
+  ],
+  '8': [
+    {'1': '_paper'},
+    {'1': '_stream'},
+  ],
+};
+
+/// Descriptor for `ClearPaperQuestionsRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clearPaperQuestionsRequestDescriptor = $convert.base64Decode(
+    'ChpDbGVhclBhcGVyUXVlc3Rpb25zUmVxdWVzdBIWCgZzY2hvb2wYASABKAlSBnNjaG9vbBISCg'
+    'RleGFtGAIgASgJUgRleGFtEhgKB3N1YmplY3QYAyABKAVSB3N1YmplY3QSGQoFcGFwZXIYBCAB'
+    'KAVIAFIFcGFwZXKIAQESFAoFZ3JhZGUYBSABKAVSBWdyYWRlEhsKBnN0cmVhbRgGIAEoBUgBUg'
+    'ZzdHJlYW2IAQFCCAoGX3BhcGVyQgkKB19zdHJlYW0=');
+
+@$core.Deprecated('Use clearPaperQuestionsResponseDescriptor instead')
+const ClearPaperQuestionsResponse$json = {
+  '1': 'ClearPaperQuestionsResponse',
+  '2': [
+    {
+      '1': 'questions_deleted',
+      '3': 1,
+      '4': 1,
+      '5': 5,
+      '10': 'questionsDeleted'
+    },
+    {'1': 'pdf_deleted', '3': 2, '4': 1, '5': 8, '10': 'pdfDeleted'},
+  ],
+};
+
+/// Descriptor for `ClearPaperQuestionsResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clearPaperQuestionsResponseDescriptor =
+    $convert.base64Decode(
+        'ChtDbGVhclBhcGVyUXVlc3Rpb25zUmVzcG9uc2USKwoRcXVlc3Rpb25zX2RlbGV0ZWQYASABKA'
+        'VSEHF1ZXN0aW9uc0RlbGV0ZWQSHwoLcGRmX2RlbGV0ZWQYAiABKAhSCnBkZkRlbGV0ZWQ=');
+
+@$core.Deprecated('Use copyPaperToStreamsRequestDescriptor instead')
+const CopyPaperToStreamsRequest$json = {
+  '1': 'CopyPaperToStreamsRequest',
+  '2': [
+    {'1': 'school', '3': 1, '4': 1, '5': 9, '10': 'school'},
+    {'1': 'exam', '3': 2, '4': 1, '5': 9, '10': 'exam'},
+    {'1': 'subject', '3': 3, '4': 1, '5': 5, '10': 'subject'},
+    {'1': 'paper', '3': 4, '4': 1, '5': 5, '9': 0, '10': 'paper', '17': true},
+    {'1': 'grade', '3': 5, '4': 1, '5': 5, '10': 'grade'},
+    {
+      '1': 'source_stream',
+      '3': 6,
+      '4': 1,
+      '5': 5,
+      '9': 1,
+      '10': 'sourceStream',
+      '17': true
+    },
+    {'1': 'target_streams', '3': 7, '4': 3, '5': 5, '10': 'targetStreams'},
+  ],
+  '8': [
+    {'1': '_paper'},
+    {'1': '_source_stream'},
+  ],
+};
+
+/// Descriptor for `CopyPaperToStreamsRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List copyPaperToStreamsRequestDescriptor = $convert.base64Decode(
+    'ChlDb3B5UGFwZXJUb1N0cmVhbXNSZXF1ZXN0EhYKBnNjaG9vbBgBIAEoCVIGc2Nob29sEhIKBG'
+    'V4YW0YAiABKAlSBGV4YW0SGAoHc3ViamVjdBgDIAEoBVIHc3ViamVjdBIZCgVwYXBlchgEIAEo'
+    'BUgAUgVwYXBlcogBARIUCgVncmFkZRgFIAEoBVIFZ3JhZGUSKAoNc291cmNlX3N0cmVhbRgGIA'
+    'EoBUgBUgxzb3VyY2VTdHJlYW2IAQESJQoOdGFyZ2V0X3N0cmVhbXMYByADKAVSDXRhcmdldFN0'
+    'cmVhbXNCCAoGX3BhcGVyQhAKDl9zb3VyY2Vfc3RyZWFt');
+
+@$core.Deprecated('Use streamCopyResultDescriptor instead')
+const StreamCopyResult$json = {
+  '1': 'StreamCopyResult',
+  '2': [
+    {'1': 'stream', '3': 1, '4': 1, '5': 5, '10': 'stream'},
+    {'1': 'success', '3': 2, '4': 1, '5': 8, '10': 'success'},
+    {'1': 'pdf_url', '3': 3, '4': 1, '5': 9, '10': 'pdfUrl'},
+    {'1': 'pdf_expiry', '3': 4, '4': 1, '5': 3, '10': 'pdfExpiry'},
+    {
+      '1': 'marking_scheme_url',
+      '3': 5,
+      '4': 1,
+      '5': 9,
+      '10': 'markingSchemeUrl'
+    },
+    {
+      '1': 'marking_scheme_expiry',
+      '3': 6,
+      '4': 1,
+      '5': 3,
+      '10': 'markingSchemeExpiry'
+    },
+    {'1': 'error', '3': 7, '4': 1, '5': 9, '10': 'error'},
+  ],
+};
+
+/// Descriptor for `StreamCopyResult`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List streamCopyResultDescriptor = $convert.base64Decode(
+    'ChBTdHJlYW1Db3B5UmVzdWx0EhYKBnN0cmVhbRgBIAEoBVIGc3RyZWFtEhgKB3N1Y2Nlc3MYAi'
+    'ABKAhSB3N1Y2Nlc3MSFwoHcGRmX3VybBgDIAEoCVIGcGRmVXJsEh0KCnBkZl9leHBpcnkYBCAB'
+    'KANSCXBkZkV4cGlyeRIsChJtYXJraW5nX3NjaGVtZV91cmwYBSABKAlSEG1hcmtpbmdTY2hlbW'
+    'VVcmwSMgoVbWFya2luZ19zY2hlbWVfZXhwaXJ5GAYgASgDUhNtYXJraW5nU2NoZW1lRXhwaXJ5'
+    'EhQKBWVycm9yGAcgASgJUgVlcnJvcg==');
+
+@$core.Deprecated('Use copyPaperToStreamsResponseDescriptor instead')
+const CopyPaperToStreamsResponse$json = {
+  '1': 'CopyPaperToStreamsResponse',
+  '2': [
+    {
+      '1': 'results',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.question_bank.StreamCopyResult',
+      '10': 'results'
+    },
+  ],
+};
+
+/// Descriptor for `CopyPaperToStreamsResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List copyPaperToStreamsResponseDescriptor =
+    $convert.base64Decode(
+        'ChpDb3B5UGFwZXJUb1N0cmVhbXNSZXNwb25zZRI5CgdyZXN1bHRzGAEgAygLMh8ucXVlc3Rpb2'
+        '5fYmFuay5TdHJlYW1Db3B5UmVzdWx0UgdyZXN1bHRz');

@@ -3558,6 +3558,491 @@ class MarkingStatusResponse extends $pb.GeneratedMessage {
   void clearEstimatedCompletion() => $_clearField(4);
 }
 
+class ClearPaperQuestionsRequest extends $pb.GeneratedMessage {
+  factory ClearPaperQuestionsRequest({
+    $core.String? school,
+    $core.String? exam,
+    $core.int? subject,
+    $core.int? paper,
+    $core.int? grade,
+    $core.int? stream,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (exam != null) result.exam = exam;
+    if (subject != null) result.subject = subject;
+    if (paper != null) result.paper = paper;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
+    return result;
+  }
+
+  ClearPaperQuestionsRequest._();
+
+  factory ClearPaperQuestionsRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClearPaperQuestionsRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClearPaperQuestionsRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'question_bank'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'exam')
+    ..aI(3, _omitFieldNames ? '' : 'subject')
+    ..aI(4, _omitFieldNames ? '' : 'paper')
+    ..aI(5, _omitFieldNames ? '' : 'grade')
+    ..aI(6, _omitFieldNames ? '' : 'stream')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClearPaperQuestionsRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClearPaperQuestionsRequest copyWith(
+          void Function(ClearPaperQuestionsRequest) updates) =>
+      super.copyWith(
+              (message) => updates(message as ClearPaperQuestionsRequest))
+          as ClearPaperQuestionsRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClearPaperQuestionsRequest create() => ClearPaperQuestionsRequest._();
+  @$core.override
+  ClearPaperQuestionsRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClearPaperQuestionsRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClearPaperQuestionsRequest>(create);
+  static ClearPaperQuestionsRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get exam => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set exam($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasExam() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearExam() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get subject => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set subject($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSubject() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSubject() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get paper => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set paper($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasPaper() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearPaper() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get grade => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set grade($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasGrade() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearGrade() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get stream => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set stream($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasStream() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearStream() => $_clearField(6);
+}
+
+class ClearPaperQuestionsResponse extends $pb.GeneratedMessage {
+  factory ClearPaperQuestionsResponse({
+    $core.int? questionsDeleted,
+    $core.bool? pdfDeleted,
+  }) {
+    final result = create();
+    if (questionsDeleted != null) result.questionsDeleted = questionsDeleted;
+    if (pdfDeleted != null) result.pdfDeleted = pdfDeleted;
+    return result;
+  }
+
+  ClearPaperQuestionsResponse._();
+
+  factory ClearPaperQuestionsResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClearPaperQuestionsResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClearPaperQuestionsResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'question_bank'),
+      createEmptyInstance: create)
+    ..aI(1, _omitFieldNames ? '' : 'questionsDeleted')
+    ..aOB(2, _omitFieldNames ? '' : 'pdfDeleted')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClearPaperQuestionsResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClearPaperQuestionsResponse copyWith(
+          void Function(ClearPaperQuestionsResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as ClearPaperQuestionsResponse))
+          as ClearPaperQuestionsResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClearPaperQuestionsResponse create() =>
+      ClearPaperQuestionsResponse._();
+  @$core.override
+  ClearPaperQuestionsResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClearPaperQuestionsResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClearPaperQuestionsResponse>(create);
+  static ClearPaperQuestionsResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get questionsDeleted => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set questionsDeleted($core.int value) => $_setSignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasQuestionsDeleted() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearQuestionsDeleted() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get pdfDeleted => $_getBF(1);
+  @$pb.TagNumber(2)
+  set pdfDeleted($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasPdfDeleted() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearPdfDeleted() => $_clearField(2);
+}
+
+class CopyPaperToStreamsRequest extends $pb.GeneratedMessage {
+  factory CopyPaperToStreamsRequest({
+    $core.String? school,
+    $core.String? exam,
+    $core.int? subject,
+    $core.int? paper,
+    $core.int? grade,
+    $core.int? sourceStream,
+    $core.Iterable<$core.int>? targetStreams,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (exam != null) result.exam = exam;
+    if (subject != null) result.subject = subject;
+    if (paper != null) result.paper = paper;
+    if (grade != null) result.grade = grade;
+    if (sourceStream != null) result.sourceStream = sourceStream;
+    if (targetStreams != null) result.targetStreams.addAll(targetStreams);
+    return result;
+  }
+
+  CopyPaperToStreamsRequest._();
+
+  factory CopyPaperToStreamsRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CopyPaperToStreamsRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CopyPaperToStreamsRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'question_bank'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'exam')
+    ..aI(3, _omitFieldNames ? '' : 'subject')
+    ..aI(4, _omitFieldNames ? '' : 'paper')
+    ..aI(5, _omitFieldNames ? '' : 'grade')
+    ..aI(6, _omitFieldNames ? '' : 'sourceStream')
+    ..p<$core.int>(
+        7, _omitFieldNames ? '' : 'targetStreams', $pb.PbFieldType.K3)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CopyPaperToStreamsRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CopyPaperToStreamsRequest copyWith(
+          void Function(CopyPaperToStreamsRequest) updates) =>
+      super.copyWith((message) => updates(message as CopyPaperToStreamsRequest))
+          as CopyPaperToStreamsRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CopyPaperToStreamsRequest create() => CopyPaperToStreamsRequest._();
+  @$core.override
+  CopyPaperToStreamsRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CopyPaperToStreamsRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CopyPaperToStreamsRequest>(create);
+  static CopyPaperToStreamsRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get exam => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set exam($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasExam() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearExam() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get subject => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set subject($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSubject() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSubject() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get paper => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set paper($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasPaper() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearPaper() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get grade => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set grade($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasGrade() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearGrade() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get sourceStream => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set sourceStream($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasSourceStream() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearSourceStream() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $pb.PbList<$core.int> get targetStreams => $_getList(6);
+}
+
+class StreamCopyResult extends $pb.GeneratedMessage {
+  factory StreamCopyResult({
+    $core.int? stream,
+    $core.bool? success,
+    $core.String? pdfUrl,
+    $fixnum.Int64? pdfExpiry,
+    $core.String? markingSchemeUrl,
+    $fixnum.Int64? markingSchemeExpiry,
+    $core.String? error,
+  }) {
+    final result = create();
+    if (stream != null) result.stream = stream;
+    if (success != null) result.success = success;
+    if (pdfUrl != null) result.pdfUrl = pdfUrl;
+    if (pdfExpiry != null) result.pdfExpiry = pdfExpiry;
+    if (markingSchemeUrl != null) result.markingSchemeUrl = markingSchemeUrl;
+    if (markingSchemeExpiry != null)
+      result.markingSchemeExpiry = markingSchemeExpiry;
+    if (error != null) result.error = error;
+    return result;
+  }
+
+  StreamCopyResult._();
+
+  factory StreamCopyResult.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory StreamCopyResult.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'StreamCopyResult',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'question_bank'),
+      createEmptyInstance: create)
+    ..aI(1, _omitFieldNames ? '' : 'stream')
+    ..aOB(2, _omitFieldNames ? '' : 'success')
+    ..aOS(3, _omitFieldNames ? '' : 'pdfUrl')
+    ..aInt64(4, _omitFieldNames ? '' : 'pdfExpiry')
+    ..aOS(5, _omitFieldNames ? '' : 'markingSchemeUrl')
+    ..aInt64(6, _omitFieldNames ? '' : 'markingSchemeExpiry')
+    ..aOS(7, _omitFieldNames ? '' : 'error')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  StreamCopyResult clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  StreamCopyResult copyWith(void Function(StreamCopyResult) updates) =>
+      super.copyWith((message) => updates(message as StreamCopyResult))
+          as StreamCopyResult;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static StreamCopyResult create() => StreamCopyResult._();
+  @$core.override
+  StreamCopyResult createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static StreamCopyResult getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<StreamCopyResult>(create);
+  static StreamCopyResult? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get stream => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set stream($core.int value) => $_setSignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasStream() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearStream() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get success => $_getBF(1);
+  @$pb.TagNumber(2)
+  set success($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSuccess() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSuccess() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get pdfUrl => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set pdfUrl($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasPdfUrl() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearPdfUrl() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get pdfExpiry => $_getI64(3);
+  @$pb.TagNumber(4)
+  set pdfExpiry($fixnum.Int64 value) => $_setInt64(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasPdfExpiry() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearPdfExpiry() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get markingSchemeUrl => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set markingSchemeUrl($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasMarkingSchemeUrl() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearMarkingSchemeUrl() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $fixnum.Int64 get markingSchemeExpiry => $_getI64(5);
+  @$pb.TagNumber(6)
+  set markingSchemeExpiry($fixnum.Int64 value) => $_setInt64(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasMarkingSchemeExpiry() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearMarkingSchemeExpiry() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get error => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set error($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasError() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearError() => $_clearField(7);
+}
+
+class CopyPaperToStreamsResponse extends $pb.GeneratedMessage {
+  factory CopyPaperToStreamsResponse({
+    $core.Iterable<StreamCopyResult>? results,
+  }) {
+    final result = create();
+    if (results != null) result.results.addAll(results);
+    return result;
+  }
+
+  CopyPaperToStreamsResponse._();
+
+  factory CopyPaperToStreamsResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CopyPaperToStreamsResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CopyPaperToStreamsResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'question_bank'),
+      createEmptyInstance: create)
+    ..pPM<StreamCopyResult>(1, _omitFieldNames ? '' : 'results',
+        subBuilder: StreamCopyResult.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CopyPaperToStreamsResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CopyPaperToStreamsResponse copyWith(
+          void Function(CopyPaperToStreamsResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as CopyPaperToStreamsResponse))
+          as CopyPaperToStreamsResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CopyPaperToStreamsResponse create() => CopyPaperToStreamsResponse._();
+  @$core.override
+  CopyPaperToStreamsResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CopyPaperToStreamsResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CopyPaperToStreamsResponse>(create);
+  static CopyPaperToStreamsResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<StreamCopyResult> get results => $_getList(0);
+}
+
 const $core.bool _omitFieldNames =
     $core.bool.fromEnvironment('protobuf.omit_field_names');
 const $core.bool _omitMessageNames =

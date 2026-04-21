@@ -121,6 +121,23 @@ class QuestionBankClient extends $grpc.Client {
         options: options);
   }
 
+  /// Delete all generated questions and the generated PDF for a paper.
+  /// The paper must be in Pending status. Returns FAILED_PRECONDITION otherwise.
+  $grpc.ResponseFuture<$0.ClearPaperQuestionsResponse> clearPaperQuestions(
+    $0.ClearPaperQuestionsRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$clearPaperQuestions, request, options: options);
+  }
+
+  /// Copy a generated paper to additional streams in the same grade.
+  $grpc.ResponseFuture<$0.CopyPaperToStreamsResponse> copyPaperToStreams(
+    $0.CopyPaperToStreamsRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$copyPaperToStreams, request, options: options);
+  }
+
   /// === Read Operations (paper state restoration) ===
   $grpc.ResponseFuture<$0.ListQuestionsResponse> listQuestions(
     $0.ListQuestionsRequest request, {
@@ -213,6 +230,16 @@ class QuestionBankClient extends $grpc.Client {
       '/question_bank.QuestionBank/SetPaperQuestionSection',
       ($0.SetPaperQuestionSectionRequest value) => value.writeToBuffer(),
       $0.SetPaperQuestionSectionResponse.fromBuffer);
+  static final _$clearPaperQuestions = $grpc.ClientMethod<
+          $0.ClearPaperQuestionsRequest, $0.ClearPaperQuestionsResponse>(
+      '/question_bank.QuestionBank/ClearPaperQuestions',
+      ($0.ClearPaperQuestionsRequest value) => value.writeToBuffer(),
+      $0.ClearPaperQuestionsResponse.fromBuffer);
+  static final _$copyPaperToStreams = $grpc.ClientMethod<
+          $0.CopyPaperToStreamsRequest, $0.CopyPaperToStreamsResponse>(
+      '/question_bank.QuestionBank/CopyPaperToStreams',
+      ($0.CopyPaperToStreamsRequest value) => value.writeToBuffer(),
+      $0.CopyPaperToStreamsResponse.fromBuffer);
   static final _$listQuestions =
       $grpc.ClientMethod<$0.ListQuestionsRequest, $0.ListQuestionsResponse>(
           '/question_bank.QuestionBank/ListQuestions',
@@ -346,6 +373,24 @@ abstract class QuestionBankServiceBase extends $grpc.Service {
         ($core.List<$core.int> value) =>
             $0.SetPaperQuestionSectionRequest.fromBuffer(value),
         ($0.SetPaperQuestionSectionResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.ClearPaperQuestionsRequest,
+            $0.ClearPaperQuestionsResponse>(
+        'ClearPaperQuestions',
+        clearPaperQuestions_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.ClearPaperQuestionsRequest.fromBuffer(value),
+        ($0.ClearPaperQuestionsResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.CopyPaperToStreamsRequest,
+            $0.CopyPaperToStreamsResponse>(
+        'CopyPaperToStreams',
+        copyPaperToStreams_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.CopyPaperToStreamsRequest.fromBuffer(value),
+        ($0.CopyPaperToStreamsResponse value) => value.writeToBuffer()));
     $addMethod(
         $grpc.ServiceMethod<$0.ListQuestionsRequest, $0.ListQuestionsResponse>(
             'ListQuestions',
@@ -490,6 +535,24 @@ abstract class QuestionBankServiceBase extends $grpc.Service {
 
   $async.Future<$0.SetPaperQuestionSectionResponse> setPaperQuestionSection(
       $grpc.ServiceCall call, $0.SetPaperQuestionSectionRequest request);
+
+  $async.Future<$0.ClearPaperQuestionsResponse> clearPaperQuestions_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.ClearPaperQuestionsRequest> $request) async {
+    return clearPaperQuestions($call, await $request);
+  }
+
+  $async.Future<$0.ClearPaperQuestionsResponse> clearPaperQuestions(
+      $grpc.ServiceCall call, $0.ClearPaperQuestionsRequest request);
+
+  $async.Future<$0.CopyPaperToStreamsResponse> copyPaperToStreams_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.CopyPaperToStreamsRequest> $request) async {
+    return copyPaperToStreams($call, await $request);
+  }
+
+  $async.Future<$0.CopyPaperToStreamsResponse> copyPaperToStreams(
+      $grpc.ServiceCall call, $0.CopyPaperToStreamsRequest request);
 
   $async.Future<$0.ListQuestionsResponse> listQuestions_Pre(
       $grpc.ServiceCall $call,
