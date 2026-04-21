@@ -909,7 +909,7 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
               children: [
                 // Question number
                 Text(
-                  'Q${question.order}.',
+                  'Q${question.order + 1}.',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -1058,7 +1058,7 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
             child: Row(
               children: [
                 Text(
-                  'Q${question.order}. — Editing',
+                  'Q${question.order + 1}. — Editing',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -1618,7 +1618,7 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
           SizedBox(
             width: 28,
             child: Text(
-              'Q${question.order}',
+              'Q${question.order + 1}',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
