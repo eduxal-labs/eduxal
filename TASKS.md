@@ -284,7 +284,7 @@ Future<Result<int, GrpcError>> clearPaperQuestions({
 
 ---
 
-### Task P04: Add "Clear & Regenerate" button to `PaperGenerationPage`
+### Task P04: ✅ Add "Clear & Regenerate" button to `PaperGenerationPage`
 
 **Files to modify:** `lib/ui/screens/school_dashboard/academics/paper_generation_page.dart`
 **Context files to read (if needed):** None — full spec below

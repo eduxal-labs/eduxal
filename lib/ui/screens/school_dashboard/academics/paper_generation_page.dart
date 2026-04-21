@@ -53,6 +53,7 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
   PaperPdf? _paperPdf;
   bool _isGenerating = false;
   bool _isFinalizing = false;
+  bool _isClearing = false;
   String? _generateError;
 
   /// Guard against `addPostFrameCallback` accumulating on every stream rebuild.
@@ -963,6 +964,8 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
           onFinalize: _generatedQuestions.isNotEmpty
               ? () => setState(() => _currentStep = 2)
               : null,
+          onClear: _generatedQuestions.isNotEmpty ? _clearAndRestart : null,
+          isClearing: _isClearing,
         ),
       ],
     );
@@ -1481,6 +1484,74 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
     }
   }
 
+  Future<void> _clearAndRestart() async {
+    if (_isClearing) return;
+
+    // Confirm — this is destructive.
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        return AlertDialog(
+          title: const Text(
+            'Clear Questions?',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+          ),
+          content: const Text(
+            'This will permanently delete all generated questions and the PDF '
+            'for this paper. You can then generate a new set from scratch.',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w400),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text('Clear', style: TextStyle(color: cs.error)),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirm != true || !mounted) return;
+
+    setState(() => _isClearing = true);
+
+    final result = await questionBankService.clearPaperQuestions(
+      school: widget.schoolId,
+      exam: widget.examId,
+      subject: widget.subjectId,
+      paper: widget.paperId,
+      grade: widget.grade,
+      stream: widget.stream,
+      accessToken: accessToken,
+    );
+
+    if (!mounted) return;
+    setState(() => _isClearing = false);
+
+    switch (result) {
+      case Ok():
+        // Reset wizard to step 0.
+        setState(() {
+          _generatedQuestions = [];
+          _paperPdf = null;
+          _currentStep = 0;
+          _editingIndex = -1;
+          _regeneratingIndex = -1;
+          _questionTopics.clear();
+        });
+      case Err(:final error):
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to clear questions: ${error.message}'),
+          ),
+        );
+    }
+  }
+
   Widget _buildFinalizeStep(ColorScheme cs, bool isDark) {
     final totalMarks = _generatedQuestions.fold<int>(
       0,
@@ -1654,12 +1725,34 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
                           onTap: () => Navigator.of(context).pop(_paperPdf),
                         ),
                       ),
+                      const SizedBox(height: 4),
+                      Center(
+                        child: _ClearRegenerateButton(
+                          onTap: _clearAndRestart,
+                          isClearing: _isClearing,
+                          cs: cs,
+                        ),
+                      ),
                     ],
                   ),
                 ),
             ],
           ),
         ),
+
+        // ── Clear & Regenerate (shown only before PDF is generated) ──
+        if (_paperPdf == null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: _ClearRegenerateButton(
+                onTap: _clearAndRestart,
+                isClearing: _isClearing,
+                cs: cs,
+              ),
+            ),
+          ),
 
         // ── Finalize button footer (hidden once PDF is generated) ──
         if (_paperPdf == null)
@@ -2298,6 +2391,51 @@ class _ImageBadge extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Clear & Regenerate button
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ClearRegenerateButton extends StatelessWidget {
+  const _ClearRegenerateButton({
+    required this.onTap,
+    required this.isClearing,
+    required this.cs,
+  });
+
+  final VoidCallback onTap;
+  final bool isClearing;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton.icon(
+      onPressed: isClearing ? null : onTap,
+      style: TextButton.styleFrom(
+        foregroundColor: cs.error.withValues(alpha: 0.75),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      ),
+      icon: isClearing
+          ? SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                color: cs.error.withValues(alpha: 0.75),
+              ),
+            )
+          : Icon(
+              Icons.refresh_outlined,
+              size: 16,
+              color: cs.error.withValues(alpha: 0.75),
+            ),
+      label: Text(
+        isClearing ? 'Clearing…' : 'Clear & Regenerate',
+        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w400),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Review footer with Finalize button
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -2307,12 +2445,16 @@ class _ReviewFooter extends StatefulWidget {
     required this.cs,
     required this.isDark,
     required this.onFinalize,
+    this.onClear,
+    required this.isClearing,
   });
 
   final int questionCount;
   final ColorScheme cs;
   final bool isDark;
   final VoidCallback? onFinalize;
+  final VoidCallback? onClear;
+  final bool isClearing;
 
   @override
   State<_ReviewFooter> createState() => _ReviewFooterState();
@@ -2362,16 +2504,12 @@ class _ReviewFooterState extends State<_ReviewFooter>
         top: false,
         child: Row(
           children: [
-            Expanded(
-              child: Text(
-                '${widget.questionCount} question${widget.questionCount == 1 ? '' : 's'} ready',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
+            _ClearRegenerateButton(
+              onTap: widget.onClear ?? () {},
+              isClearing: widget.isClearing,
+              cs: cs,
             ),
+            const Spacer(),
             GestureDetector(
               onTapDown: enabled ? _handleTapDown : null,
               onTapUp: enabled ? _handleTapUp : null,
