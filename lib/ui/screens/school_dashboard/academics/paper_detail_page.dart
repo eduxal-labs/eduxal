@@ -711,7 +711,6 @@ class _PaperHeader extends StatefulWidget {
 class _PaperHeaderState extends State<_PaperHeader>
     with TickerProviderStateMixin {
   bool _busy = false;
-  bool _printBusy = false;
   late AnimationController _arcCtrl;
   late AnimationController _scaleCtrl;
   late AnimationController _flashCtrl;
@@ -1293,43 +1292,32 @@ class _PaperHeaderState extends State<_PaperHeader>
                 Tooltip(
                   message: 'View / Print Paper',
                   child: InkWell(
-                    onTap: _printBusy
-                        ? null
-                        : () async {
-                            setState(() => _printBusy = true);
-                            try {
-                              await downloadAndOpenPdf(
-                                school: widget.schoolId,
-                                exam: widget.exam.exam.id,
-                                subject: widget.paper.subject,
-                                paper: widget.paper.paper,
-                                grade: widget.paper.grade,
-                                stream: widget.paper.stream,
-                                accessToken: accessToken,
-                                context: context,
-                              );
-                            } finally {
-                              if (mounted) {
-                                setState(() => _printBusy = false);
-                              }
-                            }
-                          },
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => PaperPdfViewerPage(
+                            school: widget.schoolId,
+                            exam: widget.exam.exam.id,
+                            subject: widget.paper.subject,
+                            paper: widget.paper.paper,
+                            grade: widget.paper.grade,
+                            stream: widget.paper.stream,
+                            accessToken: accessToken,
+                            title:
+                                '${widget.subjectNames[widget.paper.subject] ?? 'Paper'}'
+                                '${widget.paper.paper != null ? ' Paper ${widget.paper.paper}' : ''}',
+                          ),
+                        ),
+                      );
+                    },
                     borderRadius: BorderRadius.circular(4),
                     child: Padding(
                       padding: const EdgeInsets.all(5),
-                      child: _printBusy
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 1.5,
-                              ),
-                            )
-                          : Icon(
-                              Icons.print_rounded,
-                              size: 18,
-                              color: cs.primary.withValues(alpha: 0.7),
-                            ),
+                      child: Icon(
+                        Icons.picture_as_pdf_rounded,
+                        size: 18,
+                        color: cs.primary.withValues(alpha: 0.7),
+                      ),
                     ),
                   ),
                 ),

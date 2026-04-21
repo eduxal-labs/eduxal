@@ -1599,18 +1599,22 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
                         width: double.infinity,
                         child: _FinalizeActionButton(
                           icon: Icons.picture_as_pdf_outlined,
-                          label: 'Download / Print PDF',
+                          label: 'View PDF',
                           color: cs.primary,
                           textColor: cs.onPrimary,
-                          onTap: () => downloadAndOpenPdf(
-                            school: widget.schoolId,
-                            exam: widget.examId,
-                            subject: widget.subjectId,
-                            paper: widget.paperId,
-                            grade: widget.grade,
-                            stream: widget.stream,
-                            accessToken: accessToken,
-                            context: context,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => PaperPdfViewerPage(
+                                school: widget.schoolId,
+                                exam: widget.examId,
+                                subject: widget.subjectId,
+                                paper: widget.paperId,
+                                grade: widget.grade,
+                                stream: widget.stream,
+                                accessToken: accessToken,
+                                title: widget.subjectName,
+                              ),
+                            ),
                           ),
                         ),
                       ),
