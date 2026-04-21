@@ -976,9 +976,16 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
   Future<void> createPaper({
     required PapersCompanion paper,
     required String accountId,
+    int? timeAllowedMinutes,
+    String? customInstructions,
   }) async {
+    // Merge optional new fields into the companion before inserting.
+    final fullPaper = paper.copyWith(
+      timeAllowedMinutes: Value(timeAllowedMinutes),
+      customInstructions: Value(customInstructions),
+    );
     await transaction(() async {
-      await into(papers).insert(paper);
+      await into(papers).insert(fullPaper);
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
       final payload = sync_pb.CreatePaperPayload(
@@ -995,6 +1002,12 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
       }
       if (paper.paper.present && paper.paper.value != null) {
         payload.paper = paper.paper.value!;
+      }
+      if (timeAllowedMinutes != null) {
+        payload.timeAllowedMinutes = timeAllowedMinutes;
+      }
+      if (customInstructions != null) {
+        payload.instructions = customInstructions;
       }
 
       final paperLabel = paper.paper.present && paper.paper.value != null
@@ -1024,12 +1037,27 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     required int? stream,
     required PapersCompanion changes,
     required String accountId,
+    int? timeAllowedMinutes,
+    String? customInstructions,
   }) async {
     await transaction(() async {
+      // Merge optional new fields into the changes companion.
+      var resolvedChanges = changes;
+      if (timeAllowedMinutes != null) {
+        resolvedChanges = resolvedChanges.copyWith(
+          timeAllowedMinutes: Value(timeAllowedMinutes),
+        );
+      }
+      if (customInstructions != null) {
+        resolvedChanges = resolvedChanges.copyWith(
+          customInstructions: Value(customInstructions),
+        );
+      }
+
       debugPrint(
         '[updatePaper] WHERE school=$schoolId, exam=$examId, subject=$subject, '
         'paper=$paperNum, grade=$grade, stream=$stream | '
-        'changes: ${changes.toColumns(false).keys.join(', ')}',
+        'changes: ${resolvedChanges.toColumns(false).keys.join(', ')}',
       );
 
       final affected =
@@ -1046,7 +1074,7 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
                         ? p.stream.equals(stream)
                         : p.stream.isNull()),
               ))
-              .write(changes);
+              .write(resolvedChanges);
 
       debugPrint('[updatePaper] Rows affected: $affected');
 
@@ -1087,6 +1115,14 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         if (changes.stream.value != null) {
           payload.stream = changes.stream.value!;
         }
+        hasChanges = true;
+      }
+      if (timeAllowedMinutes != null) {
+        payload.timeAllowedMinutes = timeAllowedMinutes;
+        hasChanges = true;
+      }
+      if (customInstructions != null) {
+        payload.instructions = customInstructions;
         hasChanges = true;
       }
       if (!hasChanges) return;

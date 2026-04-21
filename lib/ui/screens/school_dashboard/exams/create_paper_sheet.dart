@@ -66,6 +66,8 @@ class _CreatePaperSheetState extends State<CreatePaperSheet> {
   int _paperNumber = 1; // 1–3 wheel
   bool _calendarOpen = false;
   bool _timeOpen = false;
+  int? _timeAllowedMinutes;
+  final TextEditingController _instructionsCtrl = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   int _startHour = 8;
   int _startMinIndex = 0; // index into 0..11 (0,5,10,...55)
@@ -114,6 +116,7 @@ class _CreatePaperSheetState extends State<CreatePaperSheet> {
     _startMinCtrl.dispose();
     _durHourCtrl.dispose();
     _durMinCtrl.dispose();
+    _instructionsCtrl.dispose();
     super.dispose();
   }
 
@@ -180,6 +183,14 @@ class _CreatePaperSheetState extends State<CreatePaperSheet> {
 
   DateTime get _endDateTime =>
       _startDateTime.add(Duration(minutes: _durationMinutes));
+
+  String _formatMinutes(int m) {
+    final h = m ~/ 60;
+    final rem = m % 60;
+    if (h == 0) return '$rem minutes';
+    if (rem == 0) return '$h ${h == 1 ? 'hour' : 'hours'}';
+    return '$h ${h == 1 ? 'hour' : 'hours'} $rem minutes';
+  }
 
   String _fmtTimeTrigger() {
     final sh = _startHour.toString().padLeft(2, '0');
@@ -401,6 +412,10 @@ class _CreatePaperSheetState extends State<CreatePaperSheet> {
           updated: Value(now),
         ),
         accountId: accountId,
+        timeAllowedMinutes: _timeAllowedMinutes,
+        customInstructions: _instructionsCtrl.text.trim().isEmpty
+            ? null
+            : _instructionsCtrl.text.trim(),
       );
       if (mounted) Navigator.of(context).pop();
     } finally {

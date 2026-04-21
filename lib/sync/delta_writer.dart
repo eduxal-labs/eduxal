@@ -990,9 +990,12 @@ class DeltaWriter {
         ' AND stream ${streamVal == null ? 'IS NULL' : '= ?'}',
         [k[0], k[1], _parseInt(k[2]), gradeVal, ?streamVal],
       );
+      final timeAllowedVal =
+          row.hasTimeAllowedMinutes() ? row.timeAllowedMinutes : null;
+      final instructionsVal = row.hasInstructions() ? row.instructions : null;
       await _db.customStatement(
-        'INSERT INTO papers (school, exam, subject, paper, topic, invigilator, start, "end", status, grade, stream, created, updated)'
-        ' VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO papers (school, exam, subject, paper, topic, invigilator, start, "end", status, grade, stream, time_allowed_minutes, instructions, created, updated)'
+        ' VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [
           k[0],
           k[1],
@@ -1004,6 +1007,8 @@ class DeltaWriter {
           row.status,
           gradeVal,
           streamVal,
+          timeAllowedVal,
+          instructionsVal,
           now.toInt(),
           now.toInt(),
         ],
@@ -1013,15 +1018,20 @@ class DeltaWriter {
       // papers for different (grade, stream) combinations are never confused.
       // Previously this only listed 4 columns, causing the upsert to match
       // the wrong row when multiple streams share the same (subject, paper).
+      final timeAllowedVal =
+          row.hasTimeAllowedMinutes() ? row.timeAllowedMinutes : null;
+      final instructionsVal = row.hasInstructions() ? row.instructions : null;
       await _db.customStatement(
-        'INSERT INTO papers (school, exam, subject, paper, topic, invigilator, start, "end", status, grade, stream, created, updated)'
-        ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO papers (school, exam, subject, paper, topic, invigilator, start, "end", status, grade, stream, time_allowed_minutes, instructions, created, updated)'
+        ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         ' ON CONFLICT (school, exam, subject, paper, grade, stream) DO UPDATE SET'
         ' topic = excluded.topic,'
         ' invigilator = excluded.invigilator,'
         ' start = excluded.start,'
         ' "end" = excluded."end",'
         ' status = excluded.status,'
+        ' time_allowed_minutes = excluded.time_allowed_minutes,'
+        ' instructions = excluded.instructions,'
         ' created = excluded.created,'
         ' updated = excluded.updated',
         [
@@ -1036,6 +1046,8 @@ class DeltaWriter {
           row.status,
           gradeVal,
           streamVal,
+          timeAllowedVal,
+          instructionsVal,
           now.toInt(),
           now.toInt(),
         ],

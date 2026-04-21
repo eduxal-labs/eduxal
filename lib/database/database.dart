@@ -288,7 +288,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -621,6 +621,15 @@ class AppDatabase extends _$AppDatabase {
         await customStatement('ALTER TABLE roles_new RENAME TO roles');
 
         await customStatement('PRAGMA foreign_keys = ON');
+      }
+      if (from < 11) {
+        // Add time_allowed_minutes and instructions columns to papers table.
+        await customStatement(
+          'ALTER TABLE papers ADD COLUMN time_allowed_minutes INTEGER',
+        );
+        await customStatement(
+          'ALTER TABLE papers ADD COLUMN instructions TEXT',
+        );
       }
     },
     onCreate: (m) async {

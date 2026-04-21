@@ -22,6 +22,7 @@ class PaperQuestion {
   final List<RubricCriterion> rubric;
   final List<QuestionImage> images;
   final int order;
+  final String? section; // 'A', 'B', 'C', or null
   const PaperQuestion({
     required this.id,
     required this.questionId,
@@ -30,6 +31,7 @@ class PaperQuestion {
     required this.rubric,
     required this.images,
     required this.order,
+    this.section,
   });
 
   factory PaperQuestion.fromProto(pb.PaperQuestion proto) {
@@ -42,6 +44,7 @@ class PaperQuestion {
       rubric: q.rubric.map(RubricCriterion.fromProto).toList(),
       images: q.images.map(QuestionImage.fromProto).toList(),
       order: proto.position,
+      section: proto.hasSection() ? proto.section : null,
     );
   }
 }

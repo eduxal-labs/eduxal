@@ -521,13 +521,26 @@ const PaperQuestion$json = {
       '6': '.question_bank.Question',
       '10': 'question'
     },
+    {
+      '1': 'section',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'section',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_section'},
   ],
 };
 
 /// Descriptor for `PaperQuestion`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List paperQuestionDescriptor = $convert.base64Decode(
     'Cg1QYXBlclF1ZXN0aW9uEhoKCHBvc2l0aW9uGAEgASgFUghwb3NpdGlvbhIzCghxdWVzdGlvbh'
-    'gCIAEoCzIXLnF1ZXN0aW9uX2JhbmsuUXVlc3Rpb25SCHF1ZXN0aW9u');
+    'gCIAEoCzIXLnF1ZXN0aW9uX2JhbmsuUXVlc3Rpb25SCHF1ZXN0aW9uEh0KB3NlY3Rpb24YAyAB'
+    'KAlIAFIHc2VjdGlvbogBAUIKCghfc2VjdGlvbg==');
 
 @$core.Deprecated('Use regenerateQuestionRequestDescriptor instead')
 const RegenerateQuestionRequest$json = {
@@ -671,13 +684,29 @@ const FinalizePaperResponse$json = {
   '2': [
     {'1': 'pdf_url', '3': 1, '4': 1, '5': 9, '10': 'pdfUrl'},
     {'1': 'pdf_expiry', '3': 2, '4': 1, '5': 3, '10': 'pdfExpiry'},
+    {
+      '1': 'marking_scheme_url',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '10': 'markingSchemeUrl'
+    },
+    {
+      '1': 'marking_scheme_expiry',
+      '3': 4,
+      '4': 1,
+      '5': 3,
+      '10': 'markingSchemeExpiry'
+    },
   ],
 };
 
 /// Descriptor for `FinalizePaperResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List finalizePaperResponseDescriptor = $convert.base64Decode(
     'ChVGaW5hbGl6ZVBhcGVyUmVzcG9uc2USFwoHcGRmX3VybBgBIAEoCVIGcGRmVXJsEh0KCnBkZl'
-    '9leHBpcnkYAiABKANSCXBkZkV4cGlyeQ==');
+    '9leHBpcnkYAiABKANSCXBkZkV4cGlyeRIsChJtYXJraW5nX3NjaGVtZV91cmwYAyABKAlSEG1h'
+    'cmtpbmdTY2hlbWVVcmwSMgoVbWFya2luZ19zY2hlbWVfZXhwaXJ5GAQgASgDUhNtYXJraW5nU2'
+    'NoZW1lRXhwaXJ5');
 
 @$core.Deprecated('Use getPaperPdfRequestDescriptor instead')
 const GetPaperPdfRequest$json = {
@@ -761,6 +790,51 @@ final $typed_data.Uint8List getPaperQuestionsResponseDescriptor =
     $convert.base64Decode(
         'ChlHZXRQYXBlclF1ZXN0aW9uc1Jlc3BvbnNlEjoKCXF1ZXN0aW9ucxgBIAMoCzIcLnF1ZXN0aW'
         '9uX2JhbmsuUGFwZXJRdWVzdGlvblIJcXVlc3Rpb25z');
+
+@$core.Deprecated('Use setPaperQuestionSectionRequestDescriptor instead')
+const SetPaperQuestionSectionRequest$json = {
+  '1': 'SetPaperQuestionSectionRequest',
+  '2': [
+    {'1': 'school', '3': 1, '4': 1, '5': 9, '10': 'school'},
+    {'1': 'exam', '3': 2, '4': 1, '5': 9, '10': 'exam'},
+    {'1': 'subject', '3': 3, '4': 1, '5': 5, '10': 'subject'},
+    {'1': 'paper', '3': 4, '4': 1, '5': 5, '9': 0, '10': 'paper', '17': true},
+    {'1': 'grade', '3': 5, '4': 1, '5': 5, '10': 'grade'},
+    {'1': 'stream', '3': 6, '4': 1, '5': 5, '9': 1, '10': 'stream', '17': true},
+    {'1': 'position', '3': 7, '4': 1, '5': 5, '10': 'position'},
+    {
+      '1': 'section',
+      '3': 8,
+      '4': 1,
+      '5': 9,
+      '9': 2,
+      '10': 'section',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_paper'},
+    {'1': '_stream'},
+    {'1': '_section'},
+  ],
+};
+
+/// Descriptor for `SetPaperQuestionSectionRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List setPaperQuestionSectionRequestDescriptor = $convert.base64Decode(
+    'Ch5TZXRQYXBlclF1ZXN0aW9uU2VjdGlvblJlcXVlc3QSFgoGc2Nob29sGAEgASgJUgZzY2hvb2'
+    'wSEgoEZXhhbRgCIAEoCVIEZXhhbRIYCgdzdWJqZWN0GAMgASgFUgdzdWJqZWN0EhkKBXBhcGVy'
+    'GAQgASgFSABSBXBhcGVyiAEBEhQKBWdyYWRlGAUgASgFUgVncmFkZRIbCgZzdHJlYW0YBiABKA'
+    'VIAVIGc3RyZWFtiAEBEhoKCHBvc2l0aW9uGAcgASgFUghwb3NpdGlvbhIdCgdzZWN0aW9uGAgg'
+    'ASgJSAJSB3NlY3Rpb26IAQFCCAoGX3BhcGVyQgkKB19zdHJlYW1CCgoIX3NlY3Rpb24=');
+
+@$core.Deprecated('Use setPaperQuestionSectionResponseDescriptor instead')
+const SetPaperQuestionSectionResponse$json = {
+  '1': 'SetPaperQuestionSectionResponse',
+};
+
+/// Descriptor for `SetPaperQuestionSectionResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List setPaperQuestionSectionResponseDescriptor =
+    $convert.base64Decode('Ch9TZXRQYXBlclF1ZXN0aW9uU2VjdGlvblJlc3BvbnNl');
 
 @$core.Deprecated('Use listQuestionsRequestDescriptor instead')
 const ListQuestionsRequest$json = {

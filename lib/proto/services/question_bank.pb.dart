@@ -1584,10 +1584,12 @@ class PaperQuestion extends $pb.GeneratedMessage {
   factory PaperQuestion({
     $core.int? position,
     Question? question,
+    $core.String? section,
   }) {
     final result = create();
     if (position != null) result.position = position;
     if (question != null) result.question = question;
+    if (section != null) result.section = section;
     return result;
   }
 
@@ -1607,6 +1609,7 @@ class PaperQuestion extends $pb.GeneratedMessage {
     ..aI(1, _omitFieldNames ? '' : 'position')
     ..aOM<Question>(2, _omitFieldNames ? '' : 'question',
         subBuilder: Question.create)
+    ..aOS(3, _omitFieldNames ? '' : 'section')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1647,6 +1650,15 @@ class PaperQuestion extends $pb.GeneratedMessage {
   void clearQuestion() => $_clearField(2);
   @$pb.TagNumber(2)
   Question ensureQuestion() => $_ensure(1);
+
+  @$pb.TagNumber(3)
+  $core.String get section => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set section($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSection() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSection() => $_clearField(3);
 }
 
 /// School-scoped paper assembly operation.
@@ -2145,10 +2157,15 @@ class FinalizePaperResponse extends $pb.GeneratedMessage {
   factory FinalizePaperResponse({
     $core.String? pdfUrl,
     $fixnum.Int64? pdfExpiry,
+    $core.String? markingSchemeUrl,
+    $fixnum.Int64? markingSchemeExpiry,
   }) {
     final result = create();
     if (pdfUrl != null) result.pdfUrl = pdfUrl;
     if (pdfExpiry != null) result.pdfExpiry = pdfExpiry;
+    if (markingSchemeUrl != null) result.markingSchemeUrl = markingSchemeUrl;
+    if (markingSchemeExpiry != null)
+      result.markingSchemeExpiry = markingSchemeExpiry;
     return result;
   }
 
@@ -2167,6 +2184,8 @@ class FinalizePaperResponse extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'pdfUrl')
     ..aInt64(2, _omitFieldNames ? '' : 'pdfExpiry')
+    ..aOS(3, _omitFieldNames ? '' : 'markingSchemeUrl')
+    ..aInt64(4, _omitFieldNames ? '' : 'markingSchemeExpiry')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2206,6 +2225,24 @@ class FinalizePaperResponse extends $pb.GeneratedMessage {
   $core.bool hasPdfExpiry() => $_has(1);
   @$pb.TagNumber(2)
   void clearPdfExpiry() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get markingSchemeUrl => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set markingSchemeUrl($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasMarkingSchemeUrl() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearMarkingSchemeUrl() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get markingSchemeExpiry => $_getI64(3);
+  @$pb.TagNumber(4)
+  set markingSchemeExpiry($fixnum.Int64 value) => $_setInt64(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasMarkingSchemeExpiry() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearMarkingSchemeExpiry() => $_clearField(4);
 }
 
 /// School-scoped paper retrieval operation.
@@ -2556,6 +2593,189 @@ class GetPaperQuestionsResponse extends $pb.GeneratedMessage {
 
   @$pb.TagNumber(1)
   $pb.PbList<PaperQuestion> get questions => $_getList(0);
+}
+
+class SetPaperQuestionSectionRequest extends $pb.GeneratedMessage {
+  factory SetPaperQuestionSectionRequest({
+    $core.String? school,
+    $core.String? exam,
+    $core.int? subject,
+    $core.int? paper,
+    $core.int? grade,
+    $core.int? stream,
+    $core.int? position,
+    $core.String? section,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (exam != null) result.exam = exam;
+    if (subject != null) result.subject = subject;
+    if (paper != null) result.paper = paper;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
+    if (position != null) result.position = position;
+    if (section != null) result.section = section;
+    return result;
+  }
+
+  SetPaperQuestionSectionRequest._();
+
+  factory SetPaperQuestionSectionRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SetPaperQuestionSectionRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SetPaperQuestionSectionRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'question_bank'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aOS(2, _omitFieldNames ? '' : 'exam')
+    ..aI(3, _omitFieldNames ? '' : 'subject')
+    ..aI(4, _omitFieldNames ? '' : 'paper')
+    ..aI(5, _omitFieldNames ? '' : 'grade')
+    ..aI(6, _omitFieldNames ? '' : 'stream')
+    ..aI(7, _omitFieldNames ? '' : 'position')
+    ..aOS(8, _omitFieldNames ? '' : 'section')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetPaperQuestionSectionRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetPaperQuestionSectionRequest copyWith(
+          void Function(SetPaperQuestionSectionRequest) updates) =>
+      super.copyWith(
+              (message) => updates(message as SetPaperQuestionSectionRequest))
+          as SetPaperQuestionSectionRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SetPaperQuestionSectionRequest create() =>
+      SetPaperQuestionSectionRequest._();
+  @$core.override
+  SetPaperQuestionSectionRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SetPaperQuestionSectionRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SetPaperQuestionSectionRequest>(create);
+  static SetPaperQuestionSectionRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get exam => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set exam($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasExam() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearExam() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get subject => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set subject($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSubject() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSubject() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get paper => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set paper($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasPaper() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearPaper() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get grade => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set grade($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasGrade() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearGrade() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get stream => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set stream($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasStream() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearStream() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.int get position => $_getIZ(6);
+  @$pb.TagNumber(7)
+  set position($core.int value) => $_setSignedInt32(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasPosition() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearPosition() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.String get section => $_getSZ(7);
+  @$pb.TagNumber(8)
+  set section($core.String value) => $_setString(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasSection() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearSection() => $_clearField(8);
+}
+
+class SetPaperQuestionSectionResponse extends $pb.GeneratedMessage {
+  factory SetPaperQuestionSectionResponse() => create();
+
+  SetPaperQuestionSectionResponse._();
+
+  factory SetPaperQuestionSectionResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SetPaperQuestionSectionResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SetPaperQuestionSectionResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'question_bank'),
+      createEmptyInstance: create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetPaperQuestionSectionResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetPaperQuestionSectionResponse copyWith(
+          void Function(SetPaperQuestionSectionResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as SetPaperQuestionSectionResponse))
+          as SetPaperQuestionSectionResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SetPaperQuestionSectionResponse create() =>
+      SetPaperQuestionSectionResponse._();
+  @$core.override
+  SetPaperQuestionSectionResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SetPaperQuestionSectionResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SetPaperQuestionSectionResponse>(
+          create);
+  static SetPaperQuestionSectionResponse? _defaultInstance;
 }
 
 /// Global catalog operation.

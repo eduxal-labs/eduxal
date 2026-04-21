@@ -395,6 +395,7 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
           rubric: editedQuestion.rubric,
           images: editedQuestion.images,
           order: question.order,
+          section: question.section,
         );
         // Preserve topic mapping
         final topicId = _questionTopics.remove(question.id);
@@ -419,6 +420,91 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
               ),
             );
         }
+    }
+  }
+
+  // ─────────────────────── Section assignment ─────────────────────────────
+
+  void _showSectionPicker(BuildContext context, PaperQuestion question) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _SectionPickerSheet(
+        currentSection: question.section,
+        onSelected: (String? selected) {
+          Navigator.pop(ctx);
+          _setSectionForQuestion(question, selected);
+        },
+      ),
+    );
+  }
+
+  Future<void> _setSectionForQuestion(
+    PaperQuestion question,
+    String? section,
+  ) async {
+    // Optimistic update
+    setState(() {
+      _generatedQuestions = _generatedQuestions.map((q) {
+        if (q.order == question.order) {
+          return PaperQuestion(
+            id: q.id,
+            questionId: q.questionId,
+            text: q.text,
+            marks: q.marks,
+            rubric: q.rubric,
+            images: q.images,
+            order: q.order,
+            section: section,
+          );
+        }
+        return q;
+      }).toList();
+    });
+
+    final result = await questionBankService.setPaperQuestionSection(
+      school: widget.schoolId,
+      exam: widget.examId,
+      subject: widget.subjectId,
+      paper: widget.paperId,
+      grade: widget.grade,
+      stream: widget.stream,
+      position: question.order,
+      section: section,
+      accessToken: accessToken,
+    );
+
+    if (!mounted) return;
+
+    if (result is Err) {
+      // Revert to original section on failure
+      setState(() {
+        _generatedQuestions = _generatedQuestions.map((q) {
+          if (q.order == question.order) {
+            return PaperQuestion(
+              id: q.id,
+              questionId: q.questionId,
+              text: q.text,
+              marks: q.marks,
+              rubric: q.rubric,
+              images: q.images,
+              order: q.order,
+              section: question.section,
+            );
+          }
+          return q;
+        }).toList();
+      });
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to update section: ${(result as Err).error.message ?? 'Unknown error'}',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
     }
   }
 
@@ -934,6 +1020,35 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
                       fontWeight: FontWeight.w500,
                       color: cs.primary,
                       fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                // Section chip
+                GestureDetector(
+                  onTap: () => _showSectionPicker(context, question),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: question.section != null
+                          ? cs.primaryContainer
+                          : cs.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+                    ),
+                    child: Text(
+                      question.section != null
+                          ? 'Section ${question.section}'
+                          : 'No section',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w400,
+                        color: question.section != null
+                            ? cs.onPrimaryContainer
+                            : cs.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ),
@@ -1649,6 +1764,67 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Section picker bottom sheet
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SectionPickerSheet extends StatelessWidget {
+  const _SectionPickerSheet({
+    required this.currentSection,
+    required this.onSelected,
+  });
+
+  final String? currentSection;
+  final void Function(String?) onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final options = [null, 'A', 'B', 'C'];
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.modalBg(isDark, cs),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 12),
+          // Drag handle
+          Container(
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...options.map(
+            (opt) => ListTile(
+              dense: true,
+              leading: Icon(
+                opt == currentSection
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                size: 20,
+                color: opt == currentSection ? cs.primary : cs.onSurfaceVariant,
+              ),
+              title: Text(
+                opt == null ? 'No section' : 'Section $opt',
+                style: const TextStyle(fontWeight: FontWeight.w400),
+              ),
+              onTap: () => onSelected(opt),
+            ),
+          ),
+          const SizedBox(height: 16),
         ],
       ),
     );

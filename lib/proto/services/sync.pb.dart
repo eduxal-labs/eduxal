@@ -5066,6 +5066,8 @@ class CreatePaperPayload extends $pb.GeneratedMessage {
     $core.int? topic,
     $core.int? grade,
     $core.int? stream,
+    $core.int? timeAllowedMinutes,
+    $core.String? instructions,
   }) {
     final result = create();
     if (school != null) result.school = school;
@@ -5078,6 +5080,9 @@ class CreatePaperPayload extends $pb.GeneratedMessage {
     if (topic != null) result.topic = topic;
     if (grade != null) result.grade = grade;
     if (stream != null) result.stream = stream;
+    if (timeAllowedMinutes != null)
+      result.timeAllowedMinutes = timeAllowedMinutes;
+    if (instructions != null) result.instructions = instructions;
     return result;
   }
 
@@ -5104,6 +5109,8 @@ class CreatePaperPayload extends $pb.GeneratedMessage {
     ..aI(8, _omitFieldNames ? '' : 'topic')
     ..aI(9, _omitFieldNames ? '' : 'grade')
     ..aI(10, _omitFieldNames ? '' : 'stream')
+    ..aI(11, _omitFieldNames ? '' : 'timeAllowedMinutes')
+    ..aOS(12, _omitFieldNames ? '' : 'instructions')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -5214,6 +5221,24 @@ class CreatePaperPayload extends $pb.GeneratedMessage {
   $core.bool hasStream() => $_has(9);
   @$pb.TagNumber(10)
   void clearStream() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $core.int get timeAllowedMinutes => $_getIZ(10);
+  @$pb.TagNumber(11)
+  set timeAllowedMinutes($core.int value) => $_setSignedInt32(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasTimeAllowedMinutes() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearTimeAllowedMinutes() => $_clearField(11);
+
+  @$pb.TagNumber(12)
+  $core.String get instructions => $_getSZ(11);
+  @$pb.TagNumber(12)
+  set instructions($core.String value) => $_setString(11, value);
+  @$pb.TagNumber(12)
+  $core.bool hasInstructions() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearInstructions() => $_clearField(12);
 }
 
 class UpdatePaperPayload extends $pb.GeneratedMessage {
@@ -5229,6 +5254,8 @@ class UpdatePaperPayload extends $pb.GeneratedMessage {
     $core.int? topic,
     $core.int? grade,
     $core.int? stream,
+    $core.int? timeAllowedMinutes,
+    $core.String? instructions,
   }) {
     final result = create();
     if (school != null) result.school = school;
@@ -5242,6 +5269,9 @@ class UpdatePaperPayload extends $pb.GeneratedMessage {
     if (topic != null) result.topic = topic;
     if (grade != null) result.grade = grade;
     if (stream != null) result.stream = stream;
+    if (timeAllowedMinutes != null)
+      result.timeAllowedMinutes = timeAllowedMinutes;
+    if (instructions != null) result.instructions = instructions;
     return result;
   }
 
@@ -5269,6 +5299,8 @@ class UpdatePaperPayload extends $pb.GeneratedMessage {
     ..aI(9, _omitFieldNames ? '' : 'topic')
     ..aI(10, _omitFieldNames ? '' : 'grade')
     ..aI(11, _omitFieldNames ? '' : 'stream')
+    ..aI(12, _omitFieldNames ? '' : 'timeAllowedMinutes')
+    ..aOS(13, _omitFieldNames ? '' : 'instructions')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -5388,6 +5420,24 @@ class UpdatePaperPayload extends $pb.GeneratedMessage {
   $core.bool hasStream() => $_has(10);
   @$pb.TagNumber(11)
   void clearStream() => $_clearField(11);
+
+  @$pb.TagNumber(12)
+  $core.int get timeAllowedMinutes => $_getIZ(11);
+  @$pb.TagNumber(12)
+  set timeAllowedMinutes($core.int value) => $_setSignedInt32(11, value);
+  @$pb.TagNumber(12)
+  $core.bool hasTimeAllowedMinutes() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearTimeAllowedMinutes() => $_clearField(12);
+
+  @$pb.TagNumber(13)
+  $core.String get instructions => $_getSZ(12);
+  @$pb.TagNumber(13)
+  set instructions($core.String value) => $_setString(12, value);
+  @$pb.TagNumber(13)
+  $core.bool hasInstructions() => $_has(12);
+  @$pb.TagNumber(13)
+  void clearInstructions() => $_clearField(13);
 }
 
 class DeletePaperPayload extends $pb.GeneratedMessage {
@@ -13165,6 +13215,8 @@ class PaperInsert extends $pb.GeneratedMessage {
     $core.int? status,
     $core.int? grade,
     $core.int? stream,
+    $core.int? timeAllowedMinutes,
+    $core.String? instructions,
   }) {
     final result = create();
     if (school != null) result.school = school;
@@ -13178,6 +13230,9 @@ class PaperInsert extends $pb.GeneratedMessage {
     if (status != null) result.status = status;
     if (grade != null) result.grade = grade;
     if (stream != null) result.stream = stream;
+    if (timeAllowedMinutes != null)
+      result.timeAllowedMinutes = timeAllowedMinutes;
+    if (instructions != null) result.instructions = instructions;
     return result;
   }
 
@@ -13205,6 +13260,8 @@ class PaperInsert extends $pb.GeneratedMessage {
     ..aI(9, _omitFieldNames ? '' : 'status')
     ..aI(10, _omitFieldNames ? '' : 'grade')
     ..aI(11, _omitFieldNames ? '' : 'stream')
+    ..aI(12, _omitFieldNames ? '' : 'timeAllowedMinutes')
+    ..aOS(13, _omitFieldNames ? '' : 'instructions')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -13324,6 +13381,24 @@ class PaperInsert extends $pb.GeneratedMessage {
   $core.bool hasStream() => $_has(10);
   @$pb.TagNumber(11)
   void clearStream() => $_clearField(11);
+
+  @$pb.TagNumber(12)
+  $core.int get timeAllowedMinutes => $_getIZ(11);
+  @$pb.TagNumber(12)
+  set timeAllowedMinutes($core.int value) => $_setSignedInt32(11, value);
+  @$pb.TagNumber(12)
+  $core.bool hasTimeAllowedMinutes() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearTimeAllowedMinutes() => $_clearField(12);
+
+  @$pb.TagNumber(13)
+  $core.String get instructions => $_getSZ(12);
+  @$pb.TagNumber(13)
+  set instructions($core.String value) => $_setString(12, value);
+  @$pb.TagNumber(13)
+  $core.bool hasInstructions() => $_has(12);
+  @$pb.TagNumber(13)
+  void clearInstructions() => $_clearField(13);
 }
 
 class GradeInsert extends $pb.GeneratedMessage {

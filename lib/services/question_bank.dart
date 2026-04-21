@@ -469,6 +469,53 @@ class QuestionBankService {
     }
   }
 
+  /// Set (or clear) the section label for a single question on a generated paper.
+  ///
+  /// Pass [section] as `null` to clear the section assignment.
+  Future<Result<void, GrpcError>> setPaperQuestionSection({
+    required String school,
+    required String exam,
+    required int subject,
+    int? paper,
+    required int grade,
+    int? stream,
+    required int position,
+    String? section, // null clears the section
+    required String accessToken,
+  }) async {
+    print(
+      '[QB] setPaperQuestionSection → school=$school exam=$exam '
+      'position=$position section=$section',
+    );
+    try {
+      final req = pb.SetPaperQuestionSectionRequest()
+        ..school = school
+        ..exam = exam
+        ..subject = subject
+        ..grade = grade
+        ..position = position;
+      if (paper != null) req.paper = paper;
+      if (stream != null) req.stream = stream;
+      if (section != null) req.section = section;
+      final options = CallOptions(
+        metadata: {'authorization': 'Bearer $accessToken'},
+        timeout: const Duration(seconds: 15),
+      );
+      final client = pbgrpc.QuestionBankClient(_mainChannel);
+      await client.setPaperQuestionSection(req, options: options);
+      print('[QB] setPaperQuestionSection ← OK');
+      return const Ok(null);
+    } on GrpcError catch (e) {
+      print('[QB] setPaperQuestionSection ← GrpcError: ${e.code} ${e.message}');
+      return Err(e);
+    } catch (e, st) {
+      print(
+        '[QB] setPaperQuestionSection ← UNEXPECTED ${e.runtimeType}: $e\n$st',
+      );
+      return Err(GrpcError.internal('setPaperQuestionSection failed: $e'));
+    }
+  }
+
   /// Finalize the paper and generate PDF.
   Future<Result<models.PaperPdf, GrpcError>> finalizePaper({
     required String school,

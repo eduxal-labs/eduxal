@@ -624,7 +624,7 @@ Map from `PaperInsert.timeAllowedMinutes` and `PaperInsert.instructions`.
 
 ---
 
-### Task C04: Section assignment UI in paper generation wizard
+### Task C04: ✅ Section assignment UI in paper generation wizard
 
 **Files to create/modify:**
 - `lib/ui/screens/school_dashboard/academics/paper_generation_page.dart`
@@ -749,6 +749,6 @@ Current selection shown with a filled radio dot.
 ---
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/exams/CONTEXT.md`
-- [ ] Mark this task `[x]`
-- [ ] Commit: `git add -A && git commit -m "feat: section assignment UI in paper generation wizard"`
+- [x] Update `lib/ui/screens/school_dashboard/exams/CONTEXT.md`
+- [x] Mark this task `[x]`
+- [x] Commit: `git add -A && git commit -m "feat: section assignment UI in paper generation wizard"`

@@ -28,6 +28,8 @@ class Papers extends Table {
       .withDefault(const Constant(0))();
   IntColumn get grade => integer()();
   IntColumn get stream => integer().nullable()();
+  IntColumn get timeAllowedMinutes => integer().nullable()();
+  TextColumn get customInstructions => text().nullable()();
   Int64Column get created => int64()();
   Int64Column get updated => int64()();
 

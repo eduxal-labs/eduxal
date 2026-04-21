@@ -1232,11 +1232,31 @@ const CreatePaperPayload$json = {
       '10': 'stream',
       '17': true
     },
+    {
+      '1': 'time_allowed_minutes',
+      '3': 11,
+      '4': 1,
+      '5': 5,
+      '9': 3,
+      '10': 'timeAllowedMinutes',
+      '17': true
+    },
+    {
+      '1': 'instructions',
+      '3': 12,
+      '4': 1,
+      '5': 9,
+      '9': 4,
+      '10': 'instructions',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_paper'},
     {'1': '_topic'},
     {'1': '_stream'},
+    {'1': '_time_allowed_minutes'},
+    {'1': '_instructions'},
   ],
 };
 
@@ -1246,8 +1266,10 @@ final $typed_data.Uint8List createPaperPayloadDescriptor = $convert.base64Decode
     'EoCVIEZXhhbRIYCgdzdWJqZWN0GAMgASgFUgdzdWJqZWN0EhkKBXBhcGVyGAQgASgFSABSBXBh'
     'cGVyiAEBEiAKC2ludmlnaWxhdG9yGAUgASgJUgtpbnZpZ2lsYXRvchIUCgVzdGFydBgGIAEoA1'
     'IFc3RhcnQSEAoDZW5kGAcgASgDUgNlbmQSGQoFdG9waWMYCCABKAVIAVIFdG9waWOIAQESFAoF'
-    'Z3JhZGUYCSABKAVSBWdyYWRlEhsKBnN0cmVhbRgKIAEoBUgCUgZzdHJlYW2IAQFCCAoGX3BhcG'
-    'VyQggKBl90b3BpY0IJCgdfc3RyZWFt');
+    'Z3JhZGUYCSABKAVSBWdyYWRlEhsKBnN0cmVhbRgKIAEoBUgCUgZzdHJlYW2IAQESNQoUdGltZV'
+    '9hbGxvd2VkX21pbnV0ZXMYCyABKAVIA1ISdGltZUFsbG93ZWRNaW51dGVziAEBEicKDGluc3Ry'
+    'dWN0aW9ucxgMIAEoCUgEUgxpbnN0cnVjdGlvbnOIAQFCCAoGX3BhcGVyQggKBl90b3BpY0IJCg'
+    'dfc3RyZWFtQhcKFV90aW1lX2FsbG93ZWRfbWludXRlc0IPCg1faW5zdHJ1Y3Rpb25z');
 
 @$core.Deprecated('Use updatePaperPayloadDescriptor instead')
 const UpdatePaperPayload$json = {
@@ -1280,6 +1302,24 @@ const UpdatePaperPayload$json = {
       '10': 'stream',
       '17': true
     },
+    {
+      '1': 'time_allowed_minutes',
+      '3': 12,
+      '4': 1,
+      '5': 5,
+      '9': 7,
+      '10': 'timeAllowedMinutes',
+      '17': true
+    },
+    {
+      '1': 'instructions',
+      '3': 13,
+      '4': 1,
+      '5': 9,
+      '9': 8,
+      '10': 'instructions',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_paper'},
@@ -1289,6 +1329,8 @@ const UpdatePaperPayload$json = {
     {'1': '_status'},
     {'1': '_topic'},
     {'1': '_stream'},
+    {'1': '_time_allowed_minutes'},
+    {'1': '_instructions'},
   ],
 };
 
@@ -1299,9 +1341,11 @@ final $typed_data.Uint8List updatePaperPayloadDescriptor = $convert.base64Decode
     'cGVyiAEBEiUKC2ludmlnaWxhdG9yGAUgASgJSAFSC2ludmlnaWxhdG9yiAEBEhkKBXN0YXJ0GA'
     'YgASgDSAJSBXN0YXJ0iAEBEhUKA2VuZBgHIAEoA0gDUgNlbmSIAQESGwoGc3RhdHVzGAggASgF'
     'SARSBnN0YXR1c4gBARIZCgV0b3BpYxgJIAEoBUgFUgV0b3BpY4gBARIUCgVncmFkZRgKIAEoBV'
-    'IFZ3JhZGUSGwoGc3RyZWFtGAsgASgFSAZSBnN0cmVhbYgBAUIICgZfcGFwZXJCDgoMX2ludmln'
-    'aWxhdG9yQggKBl9zdGFydEIGCgRfZW5kQgkKB19zdGF0dXNCCAoGX3RvcGljQgkKB19zdHJlYW'
-    '0=');
+    'IFZ3JhZGUSGwoGc3RyZWFtGAsgASgFSAZSBnN0cmVhbYgBARI1ChR0aW1lX2FsbG93ZWRfbWlu'
+    'dXRlcxgMIAEoBUgHUhJ0aW1lQWxsb3dlZE1pbnV0ZXOIAQESJwoMaW5zdHJ1Y3Rpb25zGA0gAS'
+    'gJSAhSDGluc3RydWN0aW9uc4gBAUIICgZfcGFwZXJCDgoMX2ludmlnaWxhdG9yQggKBl9zdGFy'
+    'dEIGCgRfZW5kQgkKB19zdGF0dXNCCAoGX3RvcGljQgkKB19zdHJlYW1CFwoVX3RpbWVfYWxsb3'
+    'dlZF9taW51dGVzQg8KDV9pbnN0cnVjdGlvbnM=');
 
 @$core.Deprecated('Use deletePaperPayloadDescriptor instead')
 const DeletePaperPayload$json = {
@@ -3427,11 +3471,31 @@ const PaperInsert$json = {
       '10': 'stream',
       '17': true
     },
+    {
+      '1': 'time_allowed_minutes',
+      '3': 12,
+      '4': 1,
+      '5': 5,
+      '9': 3,
+      '10': 'timeAllowedMinutes',
+      '17': true
+    },
+    {
+      '1': 'instructions',
+      '3': 13,
+      '4': 1,
+      '5': 9,
+      '9': 4,
+      '10': 'instructions',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_paper'},
     {'1': '_topic'},
     {'1': '_stream'},
+    {'1': '_time_allowed_minutes'},
+    {'1': '_instructions'},
   ],
 };
 
@@ -3442,7 +3506,10 @@ final $typed_data.Uint8List paperInsertDescriptor = $convert.base64Decode(
     'GQoFdG9waWMYBSABKAVIAVIFdG9waWOIAQESIAoLaW52aWdpbGF0b3IYBiABKAlSC2ludmlnaW'
     'xhdG9yEhQKBXN0YXJ0GAcgASgDUgVzdGFydBIQCgNlbmQYCCABKANSA2VuZBIWCgZzdGF0dXMY'
     'CSABKAVSBnN0YXR1cxIUCgVncmFkZRgKIAEoBVIFZ3JhZGUSGwoGc3RyZWFtGAsgASgFSAJSBn'
-    'N0cmVhbYgBAUIICgZfcGFwZXJCCAoGX3RvcGljQgkKB19zdHJlYW0=');
+    'N0cmVhbYgBARI1ChR0aW1lX2FsbG93ZWRfbWludXRlcxgMIAEoBUgDUhJ0aW1lQWxsb3dlZE1p'
+    'bnV0ZXOIAQESJwoMaW5zdHJ1Y3Rpb25zGA0gASgJSARSDGluc3RydWN0aW9uc4gBAUIICgZfcG'
+    'FwZXJCCAoGX3RvcGljQgkKB19zdHJlYW1CFwoVX3RpbWVfYWxsb3dlZF9taW51dGVzQg8KDV9p'
+    'bnN0cnVjdGlvbnM=');
 
 @$core.Deprecated('Use gradeInsertDescriptor instead')
 const GradeInsert$json = {
