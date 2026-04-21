@@ -31,6 +31,7 @@ import '../../../widgets/edu_sheet.dart';
 import '../../../widgets/student_avatar.dart';
 import '../../../widgets/user_avatar.dart';
 import '../../../widgets/marking_status_indicator.dart';
+import 'paper_generation_page.dart';
 import 'paper_pdf_viewer.dart';
 import 'question_grades_sheet.dart';
 
@@ -1201,10 +1202,20 @@ class _PaperHeaderState extends State<_PaperHeader>
                   message: 'Generate Paper',
                   child: InkWell(
                     onTap: () {
-                      // TODO: Task 12 — navigate to PaperGenerationPage
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Paper generation coming soon'),
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => PaperGenerationPage(
+                            schoolId: widget.schoolId,
+                            examId: widget.exam.exam.id,
+                            subjectId: widget.paper.subject,
+                            paperId: widget.paper.paper,
+                            grade: widget.paper.grade,
+                            stream: widget.paper.stream,
+                            subjectName:
+                                widget.subjectNames[widget.paper.subject] ??
+                                'Subject ${widget.paper.subject}',
+                            examName: widget.exam.exam.name,
+                          ),
                         ),
                       );
                     },
