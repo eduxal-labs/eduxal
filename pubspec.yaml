@@ -50,7 +50,7 @@ dependencies:
   image: ^4.8.0
   connectivity_plus: ^6.1.4
   file_picker: ^8.1.6
-  pdfx: ^2.6.0
+
   printing: ^5.13.2
 
 dev_dependencies:

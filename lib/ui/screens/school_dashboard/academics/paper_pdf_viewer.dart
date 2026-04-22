@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart'
     show consolidateHttpClientResponseBytes;
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:pdfx/pdfx.dart';
+
 import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -223,7 +223,7 @@ Future<void> downloadAndOpenDirectUrl({
 // PaperPdfViewerPage
 //
 // Full-screen in-app PDF viewer. Downloads the paper PDF from the server and
-// renders it inline using the `pdfx` package.
+// renders it inline using the `printing` package (cross-platform, including Linux).
 // ─────────────────────────────────────────────────────────────────────────────
 
 class PaperPdfViewerPage extends StatefulWidget {
@@ -255,8 +255,7 @@ class PaperPdfViewerPage extends StatefulWidget {
 }
 
 class _PaperPdfViewerPageState extends State<PaperPdfViewerPage> {
-  PdfController? _pdfController;
-  Uint8List? _pdfBytes; // retained for printing/sharing
+  Uint8List? _pdfBytes;
   bool _loading = true;
   String? _error;
   bool _isPrinting = false;
@@ -269,7 +268,6 @@ class _PaperPdfViewerPageState extends State<PaperPdfViewerPage> {
 
   @override
   void dispose() {
-    _pdfController?.dispose();
     super.dispose();
   }
 
@@ -312,9 +310,8 @@ class _PaperPdfViewerPageState extends State<PaperPdfViewerPage> {
 
         if (!mounted) return;
 
-        // Step 3 — open in pdfx.
+        // Step 3 — store bytes; PdfPreview handles rendering.
         _pdfBytes = bytes;
-        _pdfController = PdfController(document: PdfDocument.openData(bytes));
         setState(() => _loading = false);
       } finally {
         httpClient.close();
@@ -450,15 +447,14 @@ class _PaperPdfViewerPageState extends State<PaperPdfViewerPage> {
       );
     }
 
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: PdfView(
-        controller: _pdfController!,
-        scrollDirection: Axis.vertical,
-        pageSnapping: false,
-        physics: const BouncingScrollPhysics(),
-        backgroundDecoration: const BoxDecoration(color: Colors.transparent),
-      ),
+    return PdfPreview(
+      build: (_) async => _pdfBytes!,
+      useActions: false,
+      canChangePageFormat: false,
+      canChangeOrientation: false,
+      canDebug: false,
+      scrollViewDecoration: const BoxDecoration(color: Colors.transparent),
+      pdfFileName: widget.title,
     );
   }
 }
