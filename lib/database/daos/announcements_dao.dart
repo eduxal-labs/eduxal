@@ -230,6 +230,17 @@ class AnnouncementsDao extends DatabaseAccessor<AppDatabase>
     return row == null ? null : _mapRow(row);
   }
 
+  /// Returns the school ID for [announcementId], or null if not found locally.
+  ///
+  /// Used by [AuthorizationService] to resolve the organisation context for
+  /// [SyncAction.updateAnnouncement] and [SyncAction.deleteAnnouncement].
+  Future<String?> getSchoolForAnnouncement(String announcementId) async {
+    final row = await (select(
+      announcements,
+    )..where((t) => t.id.equals(announcementId))).getSingleOrNull();
+    return row?.school;
+  }
+
   /// Returns the count of announcements for [schoolId].
   Future<int> countAnnouncements(String schoolId) async {
     final countExpr = announcements.id.count();

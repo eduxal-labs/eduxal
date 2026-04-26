@@ -16,6 +16,7 @@ This directory contains **8 service files**. Services sit between the UI and the
 
 | File | Key Exports | Domain | Status |
 |---|---|---|---|
+| `authorization_service.dart` | `AuthorizationService`, `PermissionException`, `PermissionResult`, `OrgContext`, `Organisation` | Pre-flight authorization engine — checks whether the current user may perform a given `SyncAction` before it is enqueued. Stateless; reads from the local Drift DB only (no network). Fail-open contract. | ✅ Complete |
 | `authentication.dart` | `Authentication` | Login, verify, setup, refresh, change phone | ✅ Complete |
 | `members.dart` | `MemberCreationService` | Phone-first member creation (owners, teachers, staff, students, guardians) + profile image saving | ✅ Complete |
 | `member_management.dart` | `MemberManagementService` | Post-creation lifecycle: edit fields, change status, remove members (all types) | ✅ Complete |
@@ -268,7 +269,15 @@ Pure-Dart utility for parsing and validating question bank JSON files for bulk i
 - `client.dart` is the only file that holds the gRPC `ClientChannel`. Services receive the channel (or a service client) via constructor injection.
 
 ## Last Updated
-Task P05 — Added `copyPaperToStreams` to `QuestionBankService`. New method copies a finalized paper's question set to one or more additional streams; returns `List<StreamCopyResult>` on success (partial failures possible per stream). Updated dependencies entry to include `StreamCopyResult` from `models/paper_generation.dart`.
+Task AUTH-A01 — Added `authorization_service.dart`. New stateless `AuthorizationService` class with:
+- `check({action, schoolId, recordId}) → Future<PermissionResult>` — top-level pre-flight check.
+- `_resolveOrganisation(...)` — maps a `SyncAction` + optional IDs to `OrgContext` (system / account / school).
+- `_loadSystemPermissions(userId, level)` — builds `SystemPermissions` from system-scoped roles via `db.rolesDao.getSystemRolesForUser()`.
+- `_actionPermission(SyncAction)` — exhaustive static switch mapping all 95 `SyncAction` values to `(Resource, Action)` pairs.
+- `_denialMessage(Resource, Action)` — human-readable denial string for display in the UI.
+Supporting types: `PermissionException`, `PermissionResult`, `Organisation` enum, `OrgContext` sealed class hierarchy (`_SystemOrg`, `_AccountOrg`, `_SchoolOrg`).
+
+Previous: Task P05 — Added `copyPaperToStreams` to `QuestionBankService`. New method copies a finalized paper's question set to one or more additional streams; returns `List<StreamCopyResult>` on success (partial failures possible per stream). Updated dependencies entry to include `StreamCopyResult` from `models/paper_generation.dart`.
 
 Previous:
 Task P03 — Added `clearPaperQuestions` to `QuestionBankService`. New method deletes all generated questions for a paper and invalidates its S3 PDF; returns `int` (questions deleted count) on success. Wraps the new `ClearPaperQuestions` RPC in `question_bank.pbgrpc.dart`. Added to Paper Generation table in this CONTEXT.md.

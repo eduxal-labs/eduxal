@@ -477,6 +477,18 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     return (select(exams)..where((e) => e.id.equals(examId))).getSingleOrNull();
   }
 
+  /// Returns the school ID for [examId], or null if the exam is not found
+  /// locally.
+  ///
+  /// Used by [AuthorizationService] to resolve the organisation context for
+  /// [SyncAction.updateExam] and [SyncAction.deleteExam].
+  Future<String?> getSchoolForExam(String examId) async {
+    final row = await (select(
+      exams,
+    )..where((t) => t.id.equals(examId))).getSingleOrNull();
+    return row?.school;
+  }
+
   /// Returns a single paper (by composite key), or null.
   Future<Paper?> getPaper({
     required String schoolId,

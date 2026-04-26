@@ -1305,6 +1305,45 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
     return (select(fees)..where((f) => f.id.equals(id))).getSingleOrNull();
   }
 
+  /// Returns the school ID for [feeId], or null if not found locally.
+  ///
+  /// Used by [AuthorizationService] to resolve the organisation context for
+  /// [SyncAction.updateFee] and [SyncAction.deleteFee].
+  Future<String?> getSchoolForFee(String feeId) async {
+    final row = await (select(
+      fees,
+    )..where((t) => t.id.equals(feeId))).getSingleOrNull();
+    return row?.school;
+  }
+
+  /// Returns the school ID for [invoiceId], or null if not found locally.
+  ///
+  /// Used by [AuthorizationService] to resolve the organisation context for
+  /// [SyncAction.updateInvoice] and [SyncAction.deleteInvoice].
+  Future<String?> getSchoolForInvoice(String invoiceId) async {
+    final row = await (select(
+      invoices,
+    )..where((t) => t.id.equals(invoiceId))).getSingleOrNull();
+    return row?.school;
+  }
+
+  /// Returns the school ID for [paymentId], or null if not found locally.
+  ///
+  /// Note: invoice-linked payments have a nullable [school] column; only
+  /// direct payments carry an explicit school reference. Returns null for
+  /// invoice-linked payments — the caller falls back to [schoolId] from
+  /// the action payload in that case.
+  ///
+  /// Used by [AuthorizationService] to resolve the organisation context for
+  /// [SyncAction.updatePayment], [SyncAction.deletePayment], and
+  /// [SyncAction.approvePayment].
+  Future<String?> getSchoolForPayment(String paymentId) async {
+    final row = await (select(
+      payments,
+    )..where((t) => t.id.equals(paymentId))).getSingleOrNull();
+    return row?.school;
+  }
+
   /// Returns a single invoice by ID.
   Future<Invoice?> getInvoice(String id) {
     return (select(invoices)..where((i) => i.id.equals(id))).getSingleOrNull();

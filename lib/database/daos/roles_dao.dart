@@ -9,6 +9,7 @@ import '../tables/users.dart';
 import '../../client.dart';
 import '../../core/permission_parser.dart';
 import '../../models/permissions.dart';
+import '../../models/system_permissions.dart';
 import '../../proto/services/sync.pb.dart' as sync_pb;
 
 part 'roles_dao.g.dart';
@@ -139,6 +140,27 @@ class RolesDao extends DatabaseAccessor<AppDatabase> with _$RolesDaoMixin {
           ..where((t) => t.school.isNull())
           ..orderBy([(t) => OrderingTerm.asc(t.name)]))
         .get();
+  }
+
+  /// Returns all system-scoped roles ([RolePermissions]) assigned to [userId]
+  /// via scopes where `school IS NULL`.
+  ///
+  /// Used by [AuthorizationService] to build a [SystemPermissions] instance
+  /// for system-level action checks.
+  Future<List<RolePermissions>> getSystemRolesForUser(String userId) async {
+    final query = select(scopes).join([
+      innerJoin(roles, roles.id.equalsExp(scopes.role)),
+    ])..where(scopes.user.equals(userId) & scopes.school.isNull());
+
+    final rows = await query.get();
+    return rows.map((row) {
+      final role = row.readTable(roles);
+      return RolePermissions(
+        roleId: role.id,
+        roleName: role.name,
+        permissionsData: role.permissions,
+      );
+    }).toList();
   }
 
   // ---------------------------------------------------------------------------

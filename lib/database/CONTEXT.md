@@ -81,7 +81,14 @@ The `logs` table was redesigned in Task C2 from a mutation-tracking model (`tbl`
 **Added enums:** `SyncAction` (81 values, explicit `int value` per entry) + `SyncActionConverter`.
 
 ## Last Updated
-Task C03 — Add `time_allowed_minutes` and `custom_instructions` to `Papers` table:
+Task AUTH-A01 — Added DAO authorization helper methods (read-only, no schema changes):
+- `lib/database/daos/exams_grades_dao.dart` — added `getSchoolForExam(String examId) → Future<String?>`. Returns the school ID for an exam by ID. Used by `AuthorizationService` to resolve org context for `updateExam`/`deleteExam`.
+- `lib/database/daos/finance_dao.dart` — added `getSchoolForFee(String feeId) → Future<String?>`, `getSchoolForInvoice(String invoiceId) → Future<String?>`, `getSchoolForPayment(String paymentId) → Future<String?>`. Used by `AuthorizationService` to resolve org context for fee/invoice/payment update and delete actions. Note: `getSchoolForPayment` may return null for invoice-linked payments (school is nullable on the payments table for that case).
+- `lib/database/daos/announcements_dao.dart` — added `getSchoolForAnnouncement(String announcementId) → Future<String?>`. Used by `AuthorizationService` to resolve org context for `updateAnnouncement`/`deleteAnnouncement`.
+- `lib/database/daos/roles_dao.dart` — added `getSystemRolesForUser(String userId) → Future<List<RolePermissions>>`. Returns all system-scoped roles (scopes where `school IS NULL`) for the user, joined with the roles table, as `RolePermissions` instances for `SystemPermissions.forUser()`. Added `import '../../models/system_permissions.dart'`.
+- `lib/database/daos/schools_dao.dart` — `isOwner(String schoolId, String userId) → Future<bool>` already existed; no changes needed.
+
+Previous: Task C03 — Add `time_allowed_minutes` and `custom_instructions` to `Papers` table:
 - Bumped `schemaVersion` 10 → **11**. Added `from < 11` migration: two `ALTER TABLE papers ADD COLUMN` statements — `time_allowed_minutes INTEGER` (nullable) and `custom_instructions TEXT` (nullable).
 - `lib/database/tables/papers.dart` — added `IntColumn get timeAllowedMinutes => integer().nullable()()` and `TextColumn get customInstructions => text().nullable()()` at end of `Papers` class.
 - `database.g.dart` regenerated — `PapersData` now has `int? timeAllowedMinutes` and `String? customInstructions` fields; `PapersCompanion` has corresponding `Value<int?>` and `Value<String?>` fields.
