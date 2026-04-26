@@ -244,6 +244,9 @@ class AppTheme {
   /// Cancelled status — gray.
   static const Color statusCancelled = Color(0xFF9E9E9E);
 
+  /// Permission-denied snackbar background — deep red.
+  static const Color kPermissionDeniedColor = Color(0xFFB00020);
+
   // ─────────────────────────────────────────────────────────────────────────
   // Design tokens — level badge icons
   // ─────────────────────────────────────────────────────────────────────────

@@ -1106,7 +1106,7 @@ This replaces (or supplements) the existing optional `SchoolPermissions?` check.
 
 ---
 
-### Task AUTH-C01: `PermissionException` UI Error Handling — Shared Helper + Snackbar Pattern
+### Task AUTH-C01: [x] `PermissionException` UI Error Handling — Shared Helper + Snackbar Pattern
 
 **Files to create/modify:**
 - `lib/ui/widgets/permission_denied_handler.dart` ← **create new**
@@ -1198,9 +1198,9 @@ for methods that return `Result<T, E>` (where the error is surfaced differently)
 ---
 
 **Update after completion:**
-- [ ] Update `lib/ui/CONTEXT.md` — add `permission_denied_handler.dart` entry
-- [ ] Mark this task `[x]`
-- [ ] Orchestrator: `git add -A && git commit -m "feat: add permission denied snackbar helper (guardedAction, showPermissionDenied)"`
+- [x] Update `lib/ui/CONTEXT.md` — add `permission_denied_handler.dart` entry
+- [x] Mark this task `[x]`
+- [x] Orchestrator: `git add -A && git commit -m "feat: add permission denied snackbar helper (guardedAction, showPermissionDenied)"`
 
 ---
 
