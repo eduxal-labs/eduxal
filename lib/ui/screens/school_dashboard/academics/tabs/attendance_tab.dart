@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../widgets/inline_date_picker_dialog.dart';
+import '../../../../widgets/permission_denied_handler.dart';
 
 import '../../../../../core/formatters.dart';
 import '../../../../../client.dart';
@@ -753,16 +754,18 @@ class _AttendanceMarkingBodyState extends State<_AttendanceMarkingBody> {
       }
 
       if (statuses.isNotEmpty) {
-        await widget.dao.markClassAttendance(
-          schoolId: widget.schoolId,
-          year: widget.year,
-          term: widget.term,
-          grade: widget.grade,
-          stream: widget.stream,
-          date: widget.date,
-          statuses: statuses,
-          accountId: _accountId,
-        );
+        await guardedAction(context, () async {
+          await widget.dao.markClassAttendance(
+            schoolId: widget.schoolId,
+            year: widget.year,
+            term: widget.term,
+            grade: widget.grade,
+            stream: widget.stream,
+            date: widget.date,
+            statuses: statuses,
+            accountId: _accountId,
+          );
+        });
       }
     } finally {
       if (mounted) setState(() => _markingAllPresent = false);
@@ -771,17 +774,19 @@ class _AttendanceMarkingBodyState extends State<_AttendanceMarkingBody> {
 
   /// Instant-save a single student's attendance status.
   Future<void> _markSingle(int studentAdm, AttendanceStatus status) async {
-    await widget.dao.markAttendance(
-      schoolId: widget.schoolId,
-      year: widget.year,
-      term: widget.term,
-      grade: widget.grade,
-      stream: widget.stream,
-      studentAdm: studentAdm,
-      date: widget.date,
-      status: status,
-      accountId: _accountId,
-    );
+    await guardedAction(context, () async {
+      await widget.dao.markAttendance(
+        schoolId: widget.schoolId,
+        year: widget.year,
+        term: widget.term,
+        grade: widget.grade,
+        stream: widget.stream,
+        studentAdm: studentAdm,
+        date: widget.date,
+        status: status,
+        accountId: _accountId,
+      );
+    });
   }
 
   @override

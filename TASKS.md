@@ -1514,7 +1514,7 @@ result.match(
 
 ---
 
-### Task AUTH-C06: UI Permission Gating — System Dashboard (Plans, Subjects, Roles, Schools)
+### [x] Task AUTH-C06: UI Permission Gating — System Dashboard (Plans, Subjects, Roles, Schools)
 
 **Files to modify:**
 - `lib/ui/screens/system/plans/plans_section.dart`
@@ -1564,9 +1564,9 @@ Wrap async mutation handlers with `guardedAction(context, ...)`.
 ---
 
 **Update after completion:**
-- [ ] Update `lib/ui/CONTEXT.md`
-- [ ] Mark this task `[x]`
-- [ ] Orchestrator: `git add -A && git commit -m "ui: add permission gating to system dashboard screens"`
+- [x] Update `lib/ui/CONTEXT.md`
+- [x] Mark this task `[x]`
+- [x] Orchestrator: `git add -A && git commit -m "ui: add permission gating to system dashboard screens"`
 
 ---
 

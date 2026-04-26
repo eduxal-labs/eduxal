@@ -20,6 +20,8 @@ import '../../../../core/extensions.dart';
 import '../../../../services/timetable_generator.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/active_term_provider.dart';
+import '../../../widgets/permission_denied_handler.dart';
+import '../../../../services/authorization_service.dart';
 import '../../../widgets/edu_tab_bar.dart';
 import 'lesson_management.dart';
 import 'timetable_grid.dart';
@@ -329,6 +331,8 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
         term: term.term,
         accountId: account.user.id,
       );
+    } on PermissionException catch (e) {
+      if (mounted) showPermissionDenied(context, e.reason);
     } finally {
       if (mounted) setState(() => _deleting = false);
     }
@@ -444,6 +448,8 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
           ),
         );
       }
+    } on PermissionException catch (e) {
+      if (mounted) showPermissionDenied(context, e.reason);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

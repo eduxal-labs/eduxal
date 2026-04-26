@@ -174,11 +174,12 @@ class _PlansSectionState extends State<PlansSection> {
           onToggleFilters: _toggleFilters,
           // ── Actions ────────────────────────────────────────────────
           actions: (plan) => [
-            EduDataTableAction<Plan>(
-              icon: Icons.edit_outlined,
-              label: 'Edit',
-              onTap: (p) => _openPlanDetail(context, p),
-            ),
+            if (permissions.can(Resource.plans, Action.update))
+              EduDataTableAction<Plan>(
+                icon: Icons.edit_outlined,
+                label: 'Edit',
+                onTap: (p) => _openPlanDetail(context, p),
+              ),
             if (plan.status != PlanStatus.deleted &&
                 permissions.can(Resource.plans, Action.delete))
               EduDataTableAction<Plan>(

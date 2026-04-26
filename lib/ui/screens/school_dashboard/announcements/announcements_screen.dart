@@ -20,6 +20,7 @@ import '../../../../models/school_context.dart';
 import '../../../widgets/active_term_provider.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_sheet.dart';
+import '../../../widgets/permission_denied_handler.dart';
 import '../../../widgets/pressable_row.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -783,7 +784,9 @@ class _AnnouncementRowState extends State<_AnnouncementRow>
     if (!confirmed) return;
     final user = cache.currentUser;
     if (user == null) return;
-    await widget.dao.deleteAnnouncement(id: item.id, accountId: user.user.id);
+    await guardedAction(context, () async {
+      await widget.dao.deleteAnnouncement(id: item.id, accountId: user.user.id);
+    });
   }
 }
 

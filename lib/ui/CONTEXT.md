@@ -125,6 +125,11 @@ All design tokens are codified in `AppTheme` (`lib/ui/theme/app_theme.dart`) and
 - All tab surfaces in the app use `EduTabBar`, whether icon-only or text-label mode.
 
 ## Last Updated
+AUTH-C06: permission gating added to system dashboard.
+
+- `screens/system/plans/plans_section.dart` — **Updated.** Added `if (permissions.can(Resource.plans, Action.update))` guard to the Edit row-action button in `_PlansSectionState.build()`. Previously the Edit `EduDataTableAction` was always shown regardless of permissions. All other system dashboard screens were already fully permission-gated (no changes required).
+
+Previous:
 AUTH-C02: permission gating added to exams and grades screens.
 
 - `exam_creation_page.dart` — **Updated.** Added imports for `authorization_service.dart` and `permission_denied_handler.dart`. Added `on PermissionException catch (e)` block before the generic `catch (e, stack)` in `_save()` — shows permission-denied snackbar and resets `_saving = false`.
