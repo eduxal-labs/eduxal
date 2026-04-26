@@ -1297,7 +1297,7 @@ This task adds fine-grained control within the admin view.
 
 ---
 
-### Task AUTH-C03: UI Permission Gating — Finance Screen
+### Task AUTH-C03: UI Permission Gating — Finance Screen ✅
 
 **Files to modify:**
 - `lib/ui/screens/school_dashboard/finance/finance_screen.dart`
@@ -1337,8 +1337,8 @@ Wrap all async button handlers for mutations with `guardedAction()`.
 ---
 
 **Update after completion:**
-- [ ] Update `lib/ui/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/CONTEXT.md`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: `git add -A && git commit -m "ui: add permission gating to finance screens"`
 
 ---

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' hide Action;
 
 import '../../../../client.dart';
+import '../../../../services/authorization_service.dart';
 import '../../../../core/formatters.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/finance_dao.dart';
@@ -10,6 +11,7 @@ import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/active_term_provider.dart';
+import '../../../widgets/permission_denied_handler.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_empty_state.dart';
 import '../../../widgets/edu_tab_bar.dart';
@@ -165,6 +167,8 @@ class _FeeDetailPageState extends State<FeeDetailPage>
           ),
         );
       }
+    } on PermissionException catch (e) {
+      if (context.mounted) showPermissionDenied(context, e.reason);
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -205,6 +209,8 @@ class _FeeDetailPageState extends State<FeeDetailPage>
         );
       }
       // If this was the last grade, pop happens reactively via the stream.
+    } on PermissionException catch (e) {
+      if (context.mounted) showPermissionDenied(context, e.reason);
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

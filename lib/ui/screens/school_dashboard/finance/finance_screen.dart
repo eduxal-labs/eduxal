@@ -3,8 +3,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart' hide Action;
 import 'package:flutter/services.dart';
 
+import '../../../../services/authorization_service.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/inline_date_picker_dialog.dart';
+import '../../../widgets/permission_denied_handler.dart';
 import '../../../../client.dart';
 import '../../../../core/formatters.dart';
 import '../../../../database/database.dart';
@@ -2970,6 +2972,11 @@ class _CreateFeeSheetState extends State<_CreateFeeSheet> {
       }
 
       if (mounted) Navigator.pop(context);
+    } on PermissionException catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        showPermissionDenied(context, e.reason);
+      }
     } catch (e) {
       if (mounted) {
         setState(() => _saving = false);
@@ -3374,6 +3381,11 @@ class _RecordPaymentSheetState extends State<_RecordPaymentSheet> {
       );
 
       if (mounted) Navigator.pop(context);
+    } on PermissionException catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        showPermissionDenied(context, e.reason);
+      }
     } catch (e) {
       if (mounted) {
         setState(() => _saving = false);

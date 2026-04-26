@@ -125,7 +125,12 @@ All design tokens are codified in `AppTheme` (`lib/ui/theme/app_theme.dart`) and
 - All tab surfaces in the app use `EduTabBar`, whether icon-only or text-label mode.
 
 ## Last Updated
-Task G2-A — Fixed `_ClassRankStat` tie handling and scoped ranking to student's grade.
+AUTH-C03: permission gating added to finance screens.
+
+- `finance_screen.dart` — **Updated.** Added imports for `authorization_service.dart` and `permission_denied_handler.dart`. Wrapped `_CreateFeeSheetState._save()` and `_RecordPaymentSheetState._save()` mutation paths with `on PermissionException catch (e)` blocks (before the generic `catch (e)`) that call `showPermissionDenied(context, e.reason)` and reset `_saving = false`. All visibility-level permission gates were already in place: `_FeesTab` FAB gated by `canCreateFee`, `_InvoiceListView` row actions gated by `canRecord`/`canEditInvoice`/`canDeleteInvoice`, and `_PaymentsTab` row actions gated by `canApprove`/`canEdit`/`canDelete`.
+- `fee_detail_page.dart` — **Updated.** Added imports for `authorization_service.dart` and `permission_denied_handler.dart`. Wrapped `_FeeDetailPageState._generateInvoices()` and `_FeeDetailPageState._deleteFee()` with `on PermissionException catch (e)` blocks (before the generic `catch (e)`) that call `showPermissionDenied(context, e.reason)`. Visibility gates (`_canCreateFee` → `canGenerateInvoices`, `_canDeleteFee` → `canDelete`) were already correctly wired to `_GradeFeePage`.
+
+Previous: Task G2-A — Fixed `_ClassRankStat` tie handling and scoped ranking to student's grade.
 
 - `progress_screen.dart` (`_ClassRankStat`) — **Fixed.** Two bugs resolved:
   1. **Tie handling:** Replaced simple iteration-based ranking with competition ranking (RANK() style). Uses `studentTotals.values.where((s) => s > targetScore).length + 1` — students with identical scores share the same rank.
