@@ -652,7 +652,7 @@ change, update `lib/models/permissions.dart` simultaneously.
 
 ---
 
-### Task AUTH-B01: Wire Authorization into `ExamsGradesDao` Mutations
+### Task AUTH-B01: [x] Wire Authorization into `ExamsGradesDao` Mutations
 
 **Files to modify:** `lib/database/daos/exams_grades_dao.dart`
 
