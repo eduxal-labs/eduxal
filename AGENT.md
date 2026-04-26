@@ -345,7 +345,7 @@ This is the **offline action queue**. Every local mutation produces one log entr
 CREATE TABLE logs (
     id        INTEGER  PRIMARY KEY AUTOINCREMENT,
     account   TEXT     NOT NULL,      -- FK → accounts.id (actions are per-account)
-    action    SMALLINT NOT NULL,      -- SyncAction enum (91 values, 89 active + 2 reserved; see §7a)
+    action    SMALLINT NOT NULL,      -- SyncAction enum (95 values, 91 active + 4 deprecated; see §7a)
     resource  TEXT     NOT NULL,      -- Human-readable display key (school name, user phone, etc.)
     payload   BLOB     NOT NULL,      -- Serialized protobuf action message (self-contained)
     status    SMALLINT NOT NULL DEFAULT 0, -- LogStatus enum: 0=Pending, 1=Failed
@@ -380,7 +380,7 @@ Server responses include per-action error codes:
 
 ---
 
-## 7a. The `SyncAction` Enum (91 Values — 89 Active)
+## 7a. The `SyncAction` Enum (95 Values — 91 Active)
 
 Each value represents a single, self-contained operation that the client can push to the server. Values are fixed — do not reorder or renumber. Defined in `lib/database/tables/enums.dart`.
 
@@ -451,7 +451,13 @@ enum SyncAction {
   @Deprecated('exam_grades table removed in schema v3 — grade/stream moved to papers')
   addExamGrade(89),
   @Deprecated('exam_grades table removed in schema v3 — grade/stream moved to papers')
-  removeExamGrade(90);
+  removeExamGrade(90),
+  // Scheme pages (marking scheme file sync)
+  uploadScheme(91),
+  deleteScheme(92),
+  // Answer pages (student answer sheet file sync)
+  uploadAnswerSheet(93),
+  deleteAnswerSheet(94);
 
   const SyncAction(this.value);
   final int value;
@@ -640,6 +646,25 @@ The only live network traffic is:
 - `sync.watchChanges()` — server-streaming gRPC (receives deltas from server)
 
 Everything else is local SQLite reads/writes.
+
+---
+
+## 16b. Keeping `AuthorizationService` in Sync With the Server
+
+The client-side `AuthorizationService` (`lib/services/authorization_service.dart`) replicates
+the server's `action_permission()` and `action_organisation()` logic. When a new `SyncAction`
+is added, ALL of the following must be updated in the same commit:
+
+1. **Server** — add to `action_permission()` and `execute_action()` in `src/db/database/tables/actions.rs`
+2. **`lib/database/tables/enums.dart`** — add new `SyncAction` enum value with the next integer
+3. **`AuthorizationService._actionPermission()`** — add the `(Resource, Action)` mapping entry
+4. **`AuthorizationService._resolveOrganisation()`** — add to `systemActions` set if system-level,
+   or add a DB-lookup branch if school must be derived from a related record
+5. **The relevant DAO mutation method** — add `authorization.check(...)` call at the top
+
+The binary permissions format (`roles.permissions` blob) is defined in
+`src/types/role/permissions.rs` on the server. If Resource IDs or the encoding format ever
+change, update `lib/models/permissions.dart` simultaneously.
 
 ---
 

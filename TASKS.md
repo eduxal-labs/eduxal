@@ -647,8 +647,8 @@ change, update `lib/models/permissions.dart` simultaneously.
 ---
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Orchestrator: `git add -A && git commit -m "docs: update AGENT.md with SyncAction 91-94 and AuthorizationService maintenance rule"`
+- [x] Mark this task `[x]`
+- [x] Orchestrator: `git add -A && git commit -m "docs: update AGENT.md with SyncAction 91-94 and AuthorizationService maintenance rule"`
 
 ---
 
