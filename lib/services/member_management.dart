@@ -65,6 +65,15 @@ class MemberManagementService {
       return const Err(MemberActionError.noActiveAccount);
     }
 
+    final authResult = await authorization.check(
+      action: SyncAction.updateTeacher,
+      schoolId: schoolId,
+      recordId: null,
+    );
+    if (!authResult.allowed) {
+      return Err(MemberActionError.permissionDenied);
+    }
+
     // Permission guard (defense-in-depth)
     if (permissions != null &&
         !permissions.can(Resource.teachers, Action.update)) {
@@ -113,6 +122,15 @@ class MemberManagementService {
       return const Err(MemberActionError.noActiveAccount);
     }
 
+    final authResult = await authorization.check(
+      action: SyncAction.updateTeacher,
+      schoolId: schoolId,
+      recordId: null,
+    );
+    if (!authResult.allowed) {
+      return Err(MemberActionError.permissionDenied);
+    }
+
     // Permission guard (defense-in-depth)
     if (permissions != null &&
         !permissions.can(Resource.teachers, Action.update)) {
@@ -150,6 +168,15 @@ class MemberManagementService {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
       return const Err(MemberActionError.noActiveAccount);
+    }
+
+    final authResult = await authorization.check(
+      action: SyncAction.deleteTeacher,
+      schoolId: schoolId,
+      recordId: null,
+    );
+    if (!authResult.allowed) {
+      return Err(MemberActionError.permissionDenied);
     }
 
     // Permission guard (defense-in-depth)
@@ -191,6 +218,15 @@ class MemberManagementService {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
       return const Err(MemberActionError.noActiveAccount);
+    }
+
+    final authResult = await authorization.check(
+      action: SyncAction.updateStaff,
+      schoolId: schoolId,
+      recordId: null,
+    );
+    if (!authResult.allowed) {
+      return Err(MemberActionError.permissionDenied);
     }
 
     // Permission guard (defense-in-depth)
@@ -239,6 +275,15 @@ class MemberManagementService {
       return const Err(MemberActionError.noActiveAccount);
     }
 
+    final authResult = await authorization.check(
+      action: SyncAction.updateStaff,
+      schoolId: schoolId,
+      recordId: null,
+    );
+    if (!authResult.allowed) {
+      return Err(MemberActionError.permissionDenied);
+    }
+
     // Permission guard (defense-in-depth)
     if (permissions != null &&
         !permissions.can(Resource.staff, Action.update)) {
@@ -273,6 +318,15 @@ class MemberManagementService {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
       return const Err(MemberActionError.noActiveAccount);
+    }
+
+    final authResult = await authorization.check(
+      action: SyncAction.deleteStaff,
+      schoolId: schoolId,
+      recordId: null,
+    );
+    if (!authResult.allowed) {
+      return Err(MemberActionError.permissionDenied);
     }
 
     // Permission guard (defense-in-depth)
@@ -311,6 +365,15 @@ class MemberManagementService {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
       return const Err(MemberActionError.noActiveAccount);
+    }
+
+    final authResult = await authorization.check(
+      action: SyncAction.deleteOwner,
+      schoolId: schoolId,
+      recordId: null,
+    );
+    if (!authResult.allowed) {
+      return Err(MemberActionError.permissionDenied);
     }
 
     // Permission guard (defense-in-depth)
@@ -362,6 +425,15 @@ class MemberManagementService {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
       return const Err(MemberActionError.noActiveAccount);
+    }
+
+    final authResult = await authorization.check(
+      action: SyncAction.updateStudent,
+      schoolId: schoolId,
+      recordId: null,
+    );
+    if (!authResult.allowed) {
+      return Err(MemberActionError.permissionDenied);
     }
 
     // Permission guard (defense-in-depth)
@@ -437,6 +509,15 @@ class MemberManagementService {
       return const Err(MemberActionError.noActiveAccount);
     }
 
+    final authResult = await authorization.check(
+      action: SyncAction.updateStudent,
+      schoolId: schoolId,
+      recordId: null,
+    );
+    if (!authResult.allowed) {
+      return Err(MemberActionError.permissionDenied);
+    }
+
     // Permission guard (defense-in-depth)
     if (permissions != null &&
         !permissions.can(Resource.students, Action.update)) {
@@ -474,6 +555,15 @@ class MemberManagementService {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
       return const Err(MemberActionError.noActiveAccount);
+    }
+
+    final authResult = await authorization.check(
+      action: SyncAction.deleteStudent,
+      schoolId: schoolId,
+      recordId: null,
+    );
+    if (!authResult.allowed) {
+      return Err(MemberActionError.permissionDenied);
     }
 
     // Permission guard (defense-in-depth)
@@ -516,6 +606,15 @@ class MemberManagementService {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
       return const Err(MemberActionError.noActiveAccount);
+    }
+
+    final authResult = await authorization.check(
+      action: SyncAction.updateGuardian,
+      schoolId: schoolId,
+      recordId: null,
+    );
+    if (!authResult.allowed) {
+      return Err(MemberActionError.permissionDenied);
     }
 
     // Permission guard (defense-in-depth)
@@ -564,6 +663,15 @@ class MemberManagementService {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
       return const Err(MemberActionError.noActiveAccount);
+    }
+
+    final authResult = await authorization.check(
+      action: SyncAction.deleteGuardian,
+      schoolId: schoolId,
+      recordId: null,
+    );
+    if (!authResult.allowed) {
+      return Err(MemberActionError.permissionDenied);
     }
 
     // Permission guard (defense-in-depth)

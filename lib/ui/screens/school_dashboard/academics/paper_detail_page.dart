@@ -25,6 +25,8 @@ import '../../../../models/result.dart';
 import '../../../../models/membership.dart';
 import '../../../../models/permissions.dart';
 import '../../../../models/school_context.dart';
+import '../../../../services/authorization_service.dart';
+import '../../../widgets/permission_denied_handler.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/animated_save_button.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
@@ -860,6 +862,8 @@ class _PaperHeaderState extends State<_PaperHeader>
         accountId: accountId,
       );
       widget.onDeleted.call();
+    } on PermissionException catch (e) {
+      if (mounted) showPermissionDenied(context, e.reason);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -894,6 +898,8 @@ class _PaperHeaderState extends State<_PaperHeader>
         changes: PapersCompanion(status: Value(next), updated: Value(now)),
         accountId: accountId,
       );
+    } on PermissionException catch (e) {
+      if (mounted) showPermissionDenied(context, e.reason);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -2379,6 +2385,8 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
       // Clear draft for this adm since it's been saved
       _drafts.remove(adm);
       widget.onDirtyChanged?.call(hasDirtyGrades);
+    } on PermissionException catch (e) {
+      if (mounted) showPermissionDenied(context, e.reason);
     } finally {
       if (mounted) setState(() => _saving[adm] = false);
     }
@@ -2423,6 +2431,8 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
       if (fc != null && mounted) {
         fc.forward(from: 0.0).then((_) => fc.reverse());
       }
+    } on PermissionException catch (e) {
+      if (mounted) showPermissionDenied(context, e.reason);
     } finally {
       if (mounted) setState(() => _quickGrading[adm] = false);
     }
@@ -3414,6 +3424,8 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
       if (fc != null && mounted) {
         fc.forward(from: 0.0).then((_) => fc.reverse());
       }
+    } on PermissionException catch (e) {
+      if (mounted) showPermissionDenied(context, e.reason);
     } finally {
       if (mounted) setState(() => _quickGrading[adm] = false);
     }
@@ -5069,6 +5081,8 @@ class _MobileGradeEntrySheetState extends State<_MobileGradeEntrySheet> {
         widget.onSaved?.call();
         Navigator.of(context).pop();
       }
+    } on PermissionException catch (e) {
+      if (mounted) showPermissionDenied(context, e.reason);
     } finally {
       if (mounted) setState(() => _saving = false);
     }

@@ -8,6 +8,7 @@ import '../tables/schools.dart';
 import '../tables/users.dart';
 import '../../client.dart';
 import '../../proto/services/sync.pb.dart' as sync_pb;
+import '../../services/authorization_service.dart';
 
 part 'schools_dao.g.dart';
 
@@ -116,6 +117,12 @@ class SchoolsDao extends DatabaseAccessor<AppDatabase> with _$SchoolsDaoMixin {
     required UsersData ownerUser,
     required String accountId,
   }) async {
+    final _authResult = await authorization.check(
+      action: SyncAction.createSchool,
+      schoolId: null,
+      recordId: null,
+    );
+    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
     await transaction(() async {
       // Insert the school row.
       await into(schools).insert(school);
@@ -191,6 +198,12 @@ class SchoolsDao extends DatabaseAccessor<AppDatabase> with _$SchoolsDaoMixin {
     SchoolsCompanion changes, {
     required String accountId,
   }) async {
+    final _authResult = await authorization.check(
+      action: SyncAction.updateSchool,
+      schoolId: schoolId,
+      recordId: null,
+    );
+    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
     await transaction(() async {
       await (update(
         schools,
@@ -287,6 +300,12 @@ class SchoolsDao extends DatabaseAccessor<AppDatabase> with _$SchoolsDaoMixin {
   ///
   /// [accountId] is the currently active account's user id.
   Future<void> purgeSchool(String schoolId, {required String accountId}) async {
+    final _authResult = await authorization.check(
+      action: SyncAction.deleteSchool,
+      schoolId: schoolId,
+      recordId: null,
+    );
+    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
     await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
@@ -355,6 +374,12 @@ class SchoolsDao extends DatabaseAccessor<AppDatabase> with _$SchoolsDaoMixin {
     required UsersData ownerUser,
     required String accountId,
   }) async {
+    final _authResult = await authorization.check(
+      action: SyncAction.createOwner,
+      schoolId: schoolId,
+      recordId: null,
+    );
+    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
     await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final nowSeconds = BigInt.from(

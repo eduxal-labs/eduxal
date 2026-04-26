@@ -7,6 +7,7 @@ import '../tables/logs.dart';
 import '../tables/terms.dart';
 import '../../client.dart';
 import '../../proto/services/sync.pb.dart' as sync_pb;
+import '../../services/authorization_service.dart';
 
 part 'terms_dao.g.dart';
 
@@ -155,6 +156,12 @@ class TermsDao extends DatabaseAccessor<AppDatabase> with _$TermsDaoMixin {
     required TermsCompanion term,
     required String accountId,
   }) async {
+    final _authResult = await authorization.check(
+      action: SyncAction.createTerm,
+      schoolId: term.school.value,
+      recordId: null,
+    );
+    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
     await transaction(() async {
       await into(terms).insert(term);
 
@@ -199,6 +206,12 @@ class TermsDao extends DatabaseAccessor<AppDatabase> with _$TermsDaoMixin {
     required TermsCompanion changes,
     required String accountId,
   }) async {
+    final _authResult = await authorization.check(
+      action: SyncAction.updateTerm,
+      schoolId: schoolId,
+      recordId: null,
+    );
+    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
     await transaction(() async {
       await (update(terms)..where(
             (t) =>
@@ -255,6 +268,12 @@ class TermsDao extends DatabaseAccessor<AppDatabase> with _$TermsDaoMixin {
     required int termNumber,
     required String accountId,
   }) async {
+    final _authResult = await authorization.check(
+      action: SyncAction.deleteTerm,
+      schoolId: schoolId,
+      recordId: null,
+    );
+    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
     await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 

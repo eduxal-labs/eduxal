@@ -14,6 +14,8 @@ import '../../../../database/tables/enums.dart';
 
 import '../../../../models/membership.dart';
 import '../../../../models/school_config.dart';
+import '../../../../services/authorization_service.dart';
+import '../../../widgets/permission_denied_handler.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/edu_sheet.dart';
 import '../../../widgets/edu_tab_bar.dart';
@@ -1215,6 +1217,11 @@ class _ExamCreationPageState extends State<ExamCreationPage>
       );
 
       if (mounted) Navigator.of(context).pop();
+    } on PermissionException catch (e) {
+      if (mounted) {
+        showPermissionDenied(context, e.reason);
+        setState(() => _saving = false);
+      }
     } catch (e, stack) {
       debugPrint('══════ EXAM CREATION ERROR ══════');
       debugPrint('Type : ${e.runtimeType}');

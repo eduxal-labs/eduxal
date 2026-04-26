@@ -269,7 +269,10 @@ Pure-Dart utility for parsing and validating question bank JSON files for bulk i
 - `client.dart` is the only file that holds the gRPC `ClientChannel`. Services receive the channel (or a service client) via constructor injection.
 
 ## Last Updated
-Task AUTH-A01 — Added `authorization_service.dart`. New stateless `AuthorizationService` class with:
+Task AUTH-B06 — Authorization pre-flight checks added to `MemberManagementService`:
+- `lib/services/member_management.dart` — added `authorization.check(...)` call (using the global `authorization` from `client.dart`) immediately after the `accountId` null check in all 12 public mutation methods. Each check uses `schoolId` (already a direct parameter in every method) and `recordId: null`. On denial, returns `Err(MemberActionError.permissionDenied)`. No new import needed — `authorization` is accessible via the existing `import '../client.dart'`. Existing `SchoolPermissions`-based defense-in-depth guards are retained below the new pre-flight check. Action mapping: `updateTeacher`/`changeTeacherStatus` → `SyncAction.updateTeacher`; `removeTeacher` → `SyncAction.deleteTeacher`; `updateStaff`/`changeStaffStatus` → `SyncAction.updateStaff`; `removeStaff` → `SyncAction.deleteStaff`; `removeOwner` → `SyncAction.deleteOwner`; `updateStudent`/`changeStudentStatus` → `SyncAction.updateStudent`; `removeStudent` → `SyncAction.deleteStudent`; `updateGuardian` → `SyncAction.updateGuardian`; `removeGuardian` → `SyncAction.deleteGuardian`.
+
+Previous: Task AUTH-A01 — Added `authorization_service.dart`. New stateless `AuthorizationService` class with:
 - `check({action, schoolId, recordId}) → Future<PermissionResult>` — top-level pre-flight check.
 - `_resolveOrganisation(...)` — maps a `SyncAction` + optional IDs to `OrgContext` (system / account / school).
 - `_loadSystemPermissions(userId, level)` — builds `SystemPermissions` from system-scoped roles via `db.rolesDao.getSystemRolesForUser()`.

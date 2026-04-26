@@ -13,6 +13,8 @@ import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../database/tables/enums.dart';
 import '../../../../models/exam_group.dart';
 import '../../../../models/school_config.dart';
+import '../../../../services/authorization_service.dart';
+import '../../../widgets/permission_denied_handler.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/animated_save_button.dart';
 import '../../../widgets/edu_sheet.dart';
@@ -418,6 +420,8 @@ class _CreatePaperSheetState extends State<CreatePaperSheet> {
             : _instructionsCtrl.text.trim(),
       );
       if (mounted) Navigator.of(context).pop();
+    } on PermissionException catch (e) {
+      if (mounted) showPermissionDenied(context, e.reason);
     } finally {
       if (mounted) setState(() => _saving = false);
     }

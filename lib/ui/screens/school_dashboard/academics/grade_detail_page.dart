@@ -20,7 +20,9 @@ import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/active_term_provider.dart';
+import '../../../../services/authorization_service.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
+import '../../../widgets/permission_denied_handler.dart';
 import '../../../widgets/edu_sheet.dart';
 import '../../../widgets/edu_empty_state.dart';
 import '../../../widgets/no_terms_blank_state.dart';
@@ -2711,6 +2713,8 @@ class _CreateExamFromGradeSheetState extends State<_CreateExamFromGradeSheet> {
           ),
         );
       }
+    } on PermissionException catch (e) {
+      if (mounted) showPermissionDenied(context, e.reason);
     } catch (e, stack) {
       debugPrint('══════ EXAM CREATION ERROR ══════');
       debugPrint('Type : ${e.runtimeType}');

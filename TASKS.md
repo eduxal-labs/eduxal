@@ -930,7 +930,7 @@ Future<String?> getSchoolForTimetableEntry(String entryId) async {
 
 ---
 
-### Task AUTH-B06: Wire Authorization into Remaining DAO Mutations
+### Task AUTH-B06: [x] Wire Authorization into Remaining DAO Mutations
 
 
 **Files to modify:**
