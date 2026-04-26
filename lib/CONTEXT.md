@@ -44,7 +44,8 @@ UI (screens/widgets) → Services → DAOs → Drift (SQLite)
   - `initializeClient()` — async bootstrap called from `main()`. Opens DB, creates Client, restores session (which starts sync), starts `watchActiveAccount()` listener.
   - Global `late` variables: `accessToken`, `refreshToken`, `cache` (`AppCache`), `client` (`Client`).
   - Global DAO singletons: `accountsDao`, `usersDao`, `logsDao`, `schoolsDao`, `membershipsDao`, `rolesDao`, `plansDao`, `settingsDao`, `systemStatsDao`.
-- **Dependencies:** `core/constants.dart`, `core/app_cache.dart`, `database/database.dart`, all DAO files, `models/authenticated.dart`, `models/result.dart`, `services/authentication.dart`, `sync/sync_engine.dart`.
+  - `authorization` — global `AuthorizationService` singleton, initialized in `initializeClient()`. Call `authorization.check(...)` at the start of every DAO mutation method that maps to a `SyncAction`.
+- **Dependencies:** `core/constants.dart`, `core/app_cache.dart`, `database/database.dart`, all DAO files, `models/authenticated.dart`, `models/result.dart`, `services/authentication.dart`, `services/authorization_service.dart`, `sync/sync_engine.dart`.
 - **Key behaviour:**
   - `active()` — pure DB read. If access token expired → `_refresh()`. If refresh token expired → delete account, return null. **On success, starts `SyncEngine`** via `_startSync()`.
   - `saveAccount()` — recomputes token expiry from `now`, writes to both `users` and `accounts` tables in a transaction, sets active. **If sync was running, restarts it** with the fresh token. Also calls `_startSync()` internally.
@@ -72,3 +73,8 @@ Tasks D5, D6 — Sync/client fixes:
 - **D6:** Removed duplicate `_startSync(first)` call in `logOut()` when exactly one account remains after logout. `saveAccount(first)` already calls `_startSync()` internally — the extra call caused a double stop-and-restart that killed in-flight sync operations.
 
 Previous: Task 1001 — Updated to reflect UI overhaul (Tracks 1–10). No structural changes to `lib/` top-level layout — all changes were within existing subdirectories (`ui/`, `models/`, `database/`, `services/`, `core/`).
+
+Task AUTH-A02 — Registered `AuthorizationService` global singleton in `client.dart`:
+- Added `import 'services/authorization_service.dart'` alongside other service imports.
+- Added `late final AuthorizationService authorization` module-level variable with doc comment.
+- Initialized `authorization = const AuthorizationService()` in `initializeClient()` immediately after `db` and `client` are set up.

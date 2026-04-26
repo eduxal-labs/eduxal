@@ -20,6 +20,7 @@ import 'models/authenticated.dart';
 import 'models/result.dart';
 import 'services/authentication.dart';
 import 'services/ai_marking.dart';
+import 'services/authorization_service.dart';
 import 'services/question_bank.dart';
 import 'sync/connectivity.dart';
 import 'sync/sync_engine.dart';
@@ -53,6 +54,13 @@ late final PlansDao plansDao;
 late final SystemStatsDao systemStatsDao;
 late final CatalogDao catalogDao;
 
+/// Global [AuthorizationService] singleton.
+///
+/// Call [authorization.check(...)] at the start of every DAO mutation method
+/// that maps to a [SyncAction]. Throws nothing — callers inspect
+/// [PermissionResult.allowed] and throw [PermissionException] on denial.
+late final AuthorizationService authorization;
+
 /// Global getter so services can trigger a push via `sync.schedulePush()`.
 ///
 /// Safe to call fire-and-forget from any service or DAO after writing to the
@@ -82,6 +90,7 @@ QuestionBankService get questionBankService => client.questionBank;
 Future<void> initializeClient() async {
   db = AppDatabase();
   client = await Client.create();
+  authorization = const AuthorizationService();
 
   // NOTE: Do NOT call client.active() here — the splash screen calls it
   // during _resolveAuthAndNavigate(). Calling it twice causes _startSync()

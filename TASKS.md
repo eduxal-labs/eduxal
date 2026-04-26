@@ -533,7 +533,7 @@ Note: `RolePermissions` is defined in `lib/models/system_permissions.dart`. Impo
 - [x] Update `lib/services/CONTEXT.md` — add `authorization_service.dart` entry
 - [x] Update `lib/database/CONTEXT.md` — note new helper methods on each DAO
 - [x] Mark this task `[x]`
-- [ ] Orchestrator: `git add -A && git commit -m "feat: add AuthorizationService core + DAO authorization helpers"`
+- [x] Orchestrator: `git add -A && git commit -m "feat: add AuthorizationService core + DAO authorization helpers"`
 
 ---
 
@@ -582,9 +582,9 @@ global `db` and `cache` at call time.
 ---
 
 **Update after completion:**
-- [ ] Update `lib/CONTEXT.md` — note the `authorization` global singleton
-- [ ] Mark this task `[x]`
-- [ ] Orchestrator: `git add -A && git commit -m "feat: register AuthorizationService singleton in client.dart"`
+- [x] Update `lib/CONTEXT.md` — note the `authorization` global singleton
+- [x] Mark this task `[x]`
+- [x] Orchestrator: `git add -A && git commit -m "feat: register AuthorizationService singleton in client.dart"`
 
 ---
 
