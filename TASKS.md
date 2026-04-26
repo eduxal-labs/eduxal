@@ -831,7 +831,7 @@ Apply the pattern to:
 
 ---
 
-### Task AUTH-B04: Wire Authorization into `AttendanceDao` and `AcademicsDao` Mutations
+### [x] Task AUTH-B04: Wire Authorization into `AttendanceDao` and `AcademicsDao` Mutations
 
 **Files to modify:**
 - `lib/database/daos/attendance_dao.dart`
@@ -876,9 +876,9 @@ a `LogsCompanion` row). Common candidates:
 ---
 
 **Update after completion:**
-- [ ] Update `lib/database/CONTEXT.md`
-- [ ] Mark this task `[x]`
-- [ ] Orchestrator: `git add -A && git commit -m "feat: wire authorization checks into AttendanceDao and AcademicsDao mutations"`
+- [x] Update `lib/database/CONTEXT.md`
+- [x] Mark this task `[x]`
+- [x] Orchestrator: `git add -A && git commit -m "feat: wire authorization checks into AttendanceDao and AcademicsDao mutations"`
 
 ---
 

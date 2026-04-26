@@ -81,7 +81,11 @@ The `logs` table was redesigned in Task C2 from a mutation-tracking model (`tbl`
 **Added enums:** `SyncAction` (81 values, explicit `int value` per entry) + `SyncActionConverter`.
 
 ## Last Updated
-Task AUTH-B03 — Authorization checks added to all `AnnouncementsDao` mutation methods:
+Task AUTH-B04 — Authorization checks added to `AttendanceDao` mutation methods:
+- `lib/database/daos/attendance_dao.dart` — added `import '../../services/authorization_service.dart'`. Added pre-flight `authorization.check(...)` + `PermissionException` throw as the first statement in: `markAttendance` (`SyncAction.markAttendance`, `schoolId: schoolId`), `markClassAttendance` (`SyncAction.markAttendance`, `schoolId: schoolId`), `deleteAttendanceRecord` (`SyncAction.deleteAttendance`, `schoolId: schoolId`). All three methods already carry `schoolId` as a direct parameter — no lookup helpers were needed.
+- `lib/database/daos/academics_dao.dart` — **no changes made**. `AcademicsDao` is a pure read-only analytics/computation DAO (all `watch*` and `compute*` methods). It has zero mutation methods and enqueues no `LogsCompanion` rows. The lesson mutations (`createLesson`, `deleteLesson`) live in `TimetableDao` and are covered by AUTH-B05.
+
+Previous: Task AUTH-B03 — Authorization checks added to all `AnnouncementsDao` mutation methods:
 - `lib/database/daos/announcements_dao.dart` — added `import '../../services/authorization_service.dart'`. Added pre-flight `authorization.check(...)` + `PermissionException` throw as the first statement in: `createAnnouncement` (`SyncAction.createAnnouncement`, `schoolId: schoolId`, `recordId: null`), `updateAnnouncement` (`SyncAction.updateAnnouncement`, `schoolId: null`, `recordId: id`), `deleteAnnouncement` (`SyncAction.deleteAnnouncement`, `schoolId: null`, `recordId: id`). The existing `getSchoolForAnnouncement` helper (added in AUTH-A01) is used internally by `AuthorizationService._resolveOrganisation()` for update/delete — no manual school lookup needed in the DAO.
 
 Previous: Task AUTH-B02 — Authorization checks added to all `FinanceDao` mutation methods:
