@@ -125,7 +125,16 @@ All design tokens are codified in `AppTheme` (`lib/ui/theme/app_theme.dart`) and
 - All tab surfaces in the app use `EduTabBar`, whether icon-only or text-label mode.
 
 ## Last Updated
-AUTH-C03: permission gating added to finance screens.
+AUTH-C02: permission gating added to exams and grades screens.
+
+- `exam_creation_page.dart` — **Updated.** Added imports for `authorization_service.dart` and `permission_denied_handler.dart`. Added `on PermissionException catch (e)` block before the generic `catch (e, stack)` in `_save()` — shows permission-denied snackbar and resets `_saving = false`.
+- `create_paper_sheet.dart` — **Updated.** Added imports for `authorization_service.dart` and `permission_denied_handler.dart`. Added `on PermissionException catch (e)` block before `finally` in `_save()`.
+- `paper_detail_page.dart` — **Updated.** Added imports for `authorization_service.dart` and `permission_denied_handler.dart`. Added `on PermissionException catch (e)` blocks to: `_PaperHeaderState._advance()`, `_PaperHeaderState._deletePaper()`, `_GradeSpreadsheetState._saveRow()`, `_GradeSpreadsheetState._quickGrade()`, `_GradeListState._quickGrade()`, and `_MobileGradeEntrySheetState._save()`. All visibility gates (`canManage`, `canGrade`, `canEdit`) were already correctly in place.
+- `grade_detail_page.dart` — **Updated.** Added imports for `authorization_service.dart` and `permission_denied_handler.dart`. Added `on PermissionException catch (e)` block before the generic `catch (e, stack)` in `_CreateExamFromGradeSheetState._save()`.
+- `exam_list_view.dart` — **No changes needed.** Create-exam FAB already gated by `_canCreateExam` (checks `Resource.exams / Action.create`). No delete-row button exists on exam list rows.
+- `exam_detail_page.dart` — **No changes needed.** Read-only page (Papers/Grades/Performance tabs). No mutation buttons. `schoolContext` already properly threaded to `_PapersTab` → `PaperDetailPage`. The add-paper/edit/delete-exam functionality lives in `exam_group_detail_view.dart` (which already has `_canCreateExam`, `_canEditExam`, `_canDeleteExam` gates).
+
+Previous: AUTH-C03: permission gating added to finance screens.
 
 - `finance_screen.dart` — **Updated.** Added imports for `authorization_service.dart` and `permission_denied_handler.dart`. Wrapped `_CreateFeeSheetState._save()` and `_RecordPaymentSheetState._save()` mutation paths with `on PermissionException catch (e)` blocks (before the generic `catch (e)`) that call `showPermissionDenied(context, e.reason)` and reset `_saving = false`. All visibility-level permission gates were already in place: `_FeesTab` FAB gated by `canCreateFee`, `_InvoiceListView` row actions gated by `canRecord`/`canEditInvoice`/`canDeleteInvoice`, and `_PaymentsTab` row actions gated by `canApprove`/`canEdit`/`canDelete`.
 - `fee_detail_page.dart` — **Updated.** Added imports for `authorization_service.dart` and `permission_denied_handler.dart`. Wrapped `_FeeDetailPageState._generateInvoices()` and `_FeeDetailPageState._deleteFee()` with `on PermissionException catch (e)` blocks (before the generic `catch (e)`) that call `showPermissionDenied(context, e.reason)`. Visibility gates (`_canCreateFee` → `canGenerateInvoices`, `_canDeleteFee` → `canDelete`) were already correctly wired to `_GradeFeePage`.

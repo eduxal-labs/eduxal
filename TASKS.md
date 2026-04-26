@@ -1204,7 +1204,7 @@ for methods that return `Result<T, E>` (where the error is surfaced differently)
 
 ---
 
-### Task AUTH-C02: UI Permission Gating — Exams & Grades Screens
+### Task AUTH-C02: [x] UI Permission Gating — Exams & Grades Screens
 
 **Files to modify:**
 - `lib/ui/screens/school_dashboard/exams/exam_list_view.dart`
