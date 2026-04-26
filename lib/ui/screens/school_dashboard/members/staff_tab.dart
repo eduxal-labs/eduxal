@@ -146,11 +146,8 @@ class _StaffTabState extends State<StaffTab> {
                 switch (result) {
                   case Ok():
                     break;
-                  case Err(error: MemberActionError.permissionDenied):
-                    showPermissionDenied(
-                      context,
-                      'You don\'t have permission to remove staff members.',
-                    );
+                  case Err(error: PermissionDenied(:final reason)):
+                    showPermissionDenied(context, reason);
                   case Err(:final error):
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -752,11 +749,8 @@ class _StaffInfoSheet extends StatelessWidget {
     switch (result) {
       case Ok():
         Navigator.pop(context); // close sheet
-      case Err(error: MemberActionError.permissionDenied):
-        showPermissionDenied(
-          context,
-          'You don\'t have permission to remove staff members.',
-        );
+      case Err(error: PermissionDenied(:final reason)):
+        showPermissionDenied(context, reason);
       case Err(:final error):
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

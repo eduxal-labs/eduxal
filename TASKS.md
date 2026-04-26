@@ -1419,7 +1419,7 @@ Member resource mapping:
 
 ---
 
-### Task AUTH-C05: Update `MemberActionError` to Carry Denial Reason + Propagate to UI
+### Task AUTH-C05: ✅ Update `MemberActionError` to Carry Denial Reason + Propagate to UI
 
 **Files to modify:**
 - `lib/services/member_management.dart`

@@ -157,11 +157,8 @@ class _TeachersTabState extends State<TeachersTab> {
                 switch (result) {
                   case Ok():
                     break;
-                  case Err(error: MemberActionError.permissionDenied):
-                    showPermissionDenied(
-                      context,
-                      'You don\'t have permission to remove this teacher.',
-                    );
+                  case Err(error: PermissionDenied(:final reason)):
+                    showPermissionDenied(context, reason);
                   case Err(:final error):
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -308,11 +305,8 @@ class _TeacherRow extends StatelessWidget {
     switch (result) {
       case Ok():
         break;
-      case Err(error: MemberActionError.permissionDenied):
-        showPermissionDenied(
-          context,
-          'You don\'t have permission to remove this teacher.',
-        );
+      case Err(error: PermissionDenied(:final reason)):
+        showPermissionDenied(context, reason);
       case Err(:final error):
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to remove teacher: $error')),
@@ -1065,11 +1059,8 @@ class _TeacherInfoSheetState extends State<_TeacherInfoSheet> {
     switch (result) {
       case Ok():
         Navigator.pop(context); // close sheet
-      case Err(error: MemberActionError.permissionDenied):
-        showPermissionDenied(
-          context,
-          'You don\'t have permission to remove this teacher.',
-        );
+      case Err(error: PermissionDenied(:final reason)):
+        showPermissionDenied(context, reason);
       case Err(:final error):
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

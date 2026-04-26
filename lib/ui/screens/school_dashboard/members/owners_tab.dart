@@ -161,11 +161,8 @@ class _OwnersTabState extends State<OwnersTab> {
                 switch (result) {
                   case Ok():
                     break;
-                  case Err(error: MemberActionError.permissionDenied):
-                    showPermissionDenied(
-                      context,
-                      'You don\'t have permission to remove owners.',
-                    );
+                  case Err(error: PermissionDenied(:final reason)):
+                    showPermissionDenied(context, reason);
                   case Err(:final error):
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -300,11 +297,8 @@ class _OwnerRow extends StatelessWidget {
             behavior: SnackBarBehavior.floating,
           ),
         );
-      case Err(error: MemberActionError.permissionDenied):
-        showPermissionDenied(
-          context,
-          'You don\'t have permission to remove owners.',
-        );
+      case Err(error: PermissionDenied(:final reason)):
+        showPermissionDenied(context, reason);
       case Err(:final error):
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -487,11 +481,8 @@ class _OwnerInfoSheet extends StatelessWidget {
     switch (result) {
       case Ok():
         Navigator.pop(context); // close sheet
-      case Err(error: MemberActionError.permissionDenied):
-        showPermissionDenied(
-          context,
-          'You don\'t have permission to remove owners.',
-        );
+      case Err(error: PermissionDenied(:final reason)):
+        showPermissionDenied(context, reason);
       case Err(:final error):
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

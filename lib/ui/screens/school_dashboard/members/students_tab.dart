@@ -115,11 +115,8 @@ class _StudentsTabState extends State<StudentsTab> {
                 switch (result) {
                   case Ok():
                     break;
-                  case Err(error: MemberActionError.permissionDenied):
-                    showPermissionDenied(
-                      context,
-                      'You don\'t have permission to delete students.',
-                    );
+                  case Err(error: PermissionDenied(:final reason)):
+                    showPermissionDenied(context, reason);
                   case Err(:final error):
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -257,11 +254,8 @@ class _StudentRow extends StatelessWidget {
     switch (result) {
       case Ok():
         break;
-      case Err(error: MemberActionError.permissionDenied):
-        showPermissionDenied(
-          context,
-          'You don\'t have permission to delete students.',
-        );
+      case Err(error: PermissionDenied(:final reason)):
+        showPermissionDenied(context, reason);
       case Err(:final error):
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to delete student: $error')),

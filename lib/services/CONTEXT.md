@@ -88,7 +88,12 @@ Handles post-creation lifecycle actions for all member types: editing fields, ch
 **Constructor:** `MemberManagementService(MembersDao dao)`
 
 **Error type (defined in same file):**
-- `MemberActionError` — enum: `noActiveAccount`, `notFound`, `databaseError`, `cannotRemoveSelf`, `permissionDenied`.
+- `MemberActionError` — **sealed class** hierarchy (not an enum). Subtypes:
+  - `NoActiveAccount` — user is not logged in.
+  - `NotFound` — target member row not found locally.
+  - `DatabaseError` — unexpected local DB error.
+  - `CannotRemoveSelf` — caller attempted to remove their own owner row.
+  - `PermissionDenied(String reason)` — carries the human-readable denial message from `AuthorizationService`. Auth-check denials propagate `authResult.reason!`; defense-in-depth denials use a generic fallback string.
 
 All mutation methods accept an optional `SchoolPermissions? permissions` parameter for defense-in-depth RBAC enforcement. When provided, the method checks the caller has the required `Resource`/`Action` before proceeding; when `null`, the check is skipped (backward compatible with existing callers).
 
@@ -100,7 +105,7 @@ All mutation methods accept an optional `SchoolPermissions? permissions` paramet
 | `updateStaff` | `Future<Result<void, MemberActionError>> updateStaff({required String schoolId, required String userId, String? role, String? department, String? idNumber, SchoolPermissions? permissions})` | `Resource.staff` / `Action.update` | Updates mutable fields on a staff row. |
 | `changeStaffStatus` | `Future<Result<void, MemberActionError>> changeStaffStatus({required String schoolId, required String userId, required StaffStatus status, SchoolPermissions? permissions})` | `Resource.staff` / `Action.update` | Changes a staff member's status. |
 | `removeStaff` | `Future<Result<void, MemberActionError>> removeStaff({required String schoolId, required String userId, SchoolPermissions? permissions})` | `Resource.staff` / `Action.delete` | Removes a staff member from a school. |
-| `removeOwner` | `Future<Result<void, MemberActionError>> removeOwner({required String schoolId, required String userId, SchoolPermissions? permissions})` | `Resource.owners` / `Action.delete` | Removes an owner. Returns `cannotRemoveSelf` if caller tries to remove themselves. |
+| `removeOwner` | `Future<Result<void, MemberActionError>> removeOwner({required String schoolId, required String userId, SchoolPermissions? permissions})` | `Resource.owners` / `Action.delete` | Removes an owner. Returns `CannotRemoveSelf` if caller tries to remove themselves. |
 | `updateStudent` | `Future<Result<void, MemberActionError>> updateStudent({required String schoolId, required int adm, String? name, DateTime? dob, Gender? gender, String? phone, SchoolPermissions? permissions})` | `Resource.students` / `Action.update` | Updates mutable fields on a student row. |
 | `changeStudentStatus` | `Future<Result<void, MemberActionError>> changeStudentStatus({required String schoolId, required int adm, required StudentStatus status, SchoolPermissions? permissions})` | `Resource.students` / `Action.update` | Changes a student's status (e.g. active → expelled). |
 | `removeStudent` | `Future<Result<void, MemberActionError>> removeStudent({required String schoolId, required int adm, SchoolPermissions? permissions})` | `Resource.students` / `Action.delete` | Removes a student from a school. Hard-deletes the row locally and enqueues a `SyncAction.deleteStudent` log. |
@@ -269,7 +274,16 @@ Pure-Dart utility for parsing and validating question bank JSON files for bulk i
 - `client.dart` is the only file that holds the gRPC `ClientChannel`. Services receive the channel (or a service client) via constructor injection.
 
 ## Last Updated
-Task AUTH-B06 — Authorization pre-flight checks added to `MemberManagementService`:
+AUTH-C05 — `MemberActionError` converted from enum to sealed class hierarchy in `member_management.dart`:
+- `enum MemberActionError` replaced with `sealed class MemberActionError` and five `final class` subtypes: `NoActiveAccount`, `NotFound`, `DatabaseError`, `CannotRemoveSelf`, `PermissionDenied(String reason)`.
+- All 12 `authorization.check()` denial sites now return `Err(PermissionDenied(authResult.reason!))` — the actual denial reason propagates to the UI.
+- All 12 defense-in-depth `permissions?.can()` denial sites return `const Err(PermissionDenied('You don\'t have permission to perform this action.'))`.
+- All 12 `noActiveAccount` sites updated to `const Err(NoActiveAccount())`.
+- All 12 `databaseError` sites updated to `const Err(DatabaseError())`.
+- `cannotRemoveSelf` site updated to `const Err(CannotRemoveSelf())`.
+- UI switch expressions in `teachers_tab.dart` (3 sites), `staff_tab.dart` (2 sites), `students_tab.dart` (2 sites), `guardians_tab.dart` (1 site), `owners_tab.dart` (3 sites) updated from `case Err(error: MemberActionError.permissionDenied)` to `case Err(error: PermissionDenied(:final reason))` — `showPermissionDenied(context, reason)` now shows the actual server-provided message.
+
+Previous: Task AUTH-B06 — Authorization pre-flight checks added to `MemberManagementService`:
 - `lib/services/member_management.dart` — added `authorization.check(...)` call (using the global `authorization` from `client.dart`) immediately after the `accountId` null check in all 12 public mutation methods. Each check uses `schoolId` (already a direct parameter in every method) and `recordId: null`. On denial, returns `Err(MemberActionError.permissionDenied)`. No new import needed — `authorization` is accessible via the existing `import '../client.dart'`. Existing `SchoolPermissions`-based defense-in-depth guards are retained below the new pre-flight check. Action mapping: `updateTeacher`/`changeTeacherStatus` → `SyncAction.updateTeacher`; `removeTeacher` → `SyncAction.deleteTeacher`; `updateStaff`/`changeStaffStatus` → `SyncAction.updateStaff`; `removeStaff` → `SyncAction.deleteStaff`; `removeOwner` → `SyncAction.deleteOwner`; `updateStudent`/`changeStudentStatus` → `SyncAction.updateStudent`; `removeStudent` → `SyncAction.deleteStudent`; `updateGuardian` → `SyncAction.updateGuardian`; `removeGuardian` → `SyncAction.deleteGuardian`.
 
 Previous: Task AUTH-A01 — Added `authorization_service.dart`. New stateless `AuthorizationService` class with:

@@ -12,22 +12,38 @@ import '../models/school_permissions.dart';
 // Domain errors
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Errors that the member management service can surface to the UI.
-enum MemberActionError {
-  /// The active account could not be found — user is not logged in.
-  noActiveAccount,
+/// Base sealed class for all errors the member management service can surface.
+sealed class MemberActionError {
+  const MemberActionError();
+}
 
-  /// The target member row was not found in the local database.
-  notFound,
+/// The active account could not be found — user is not logged in.
+final class NoActiveAccount extends MemberActionError {
+  const NoActiveAccount();
+}
 
-  /// An unexpected local database error occurred.
-  databaseError,
+/// The target member row was not found in the local database.
+final class NotFound extends MemberActionError {
+  const NotFound();
+}
 
-  /// The caller attempted to remove themselves (e.g. owner removing self).
-  cannotRemoveSelf,
+/// An unexpected local database error occurred.
+final class DatabaseError extends MemberActionError {
+  const DatabaseError();
+}
 
-  /// The caller lacks the required permission for this operation.
-  permissionDenied,
+/// The caller attempted to remove themselves (e.g. owner removing self).
+final class CannotRemoveSelf extends MemberActionError {
+  const CannotRemoveSelf();
+}
+
+/// The caller lacks the required permission for this operation.
+///
+/// [reason] carries the human-readable denial message from
+/// [AuthorizationService] so the UI can surface the exact reason.
+final class PermissionDenied extends MemberActionError {
+  const PermissionDenied(this.reason);
+  final String reason;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -62,7 +78,7 @@ class MemberManagementService {
   }) async {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
-      return const Err(MemberActionError.noActiveAccount);
+      return const Err(NoActiveAccount());
     }
 
     final authResult = await authorization.check(
@@ -71,13 +87,15 @@ class MemberManagementService {
       recordId: null,
     );
     if (!authResult.allowed) {
-      return Err(MemberActionError.permissionDenied);
+      return Err(PermissionDenied(authResult.reason!));
     }
 
     // Permission guard (defense-in-depth)
     if (permissions != null &&
         !permissions.can(Resource.teachers, Action.update)) {
-      return const Err(MemberActionError.permissionDenied);
+      return const Err(
+        PermissionDenied('You don\'t have permission to perform this action.'),
+      );
     }
 
     try {
@@ -103,7 +121,7 @@ class MemberManagementService {
 
       return const Ok(null);
     } on Exception {
-      return const Err(MemberActionError.databaseError);
+      return const Err(DatabaseError());
     }
   }
 
@@ -119,7 +137,7 @@ class MemberManagementService {
   }) async {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
-      return const Err(MemberActionError.noActiveAccount);
+      return const Err(NoActiveAccount());
     }
 
     final authResult = await authorization.check(
@@ -128,13 +146,15 @@ class MemberManagementService {
       recordId: null,
     );
     if (!authResult.allowed) {
-      return Err(MemberActionError.permissionDenied);
+      return Err(PermissionDenied(authResult.reason!));
     }
 
     // Permission guard (defense-in-depth)
     if (permissions != null &&
         !permissions.can(Resource.teachers, Action.update)) {
-      return const Err(MemberActionError.permissionDenied);
+      return const Err(
+        PermissionDenied('You don\'t have permission to perform this action.'),
+      );
     }
 
     try {
@@ -152,7 +172,7 @@ class MemberManagementService {
 
       return const Ok(null);
     } on Exception {
-      return const Err(MemberActionError.databaseError);
+      return const Err(DatabaseError());
     }
   }
 
@@ -167,7 +187,7 @@ class MemberManagementService {
   }) async {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
-      return const Err(MemberActionError.noActiveAccount);
+      return const Err(NoActiveAccount());
     }
 
     final authResult = await authorization.check(
@@ -176,13 +196,15 @@ class MemberManagementService {
       recordId: null,
     );
     if (!authResult.allowed) {
-      return Err(MemberActionError.permissionDenied);
+      return Err(PermissionDenied(authResult.reason!));
     }
 
     // Permission guard (defense-in-depth)
     if (permissions != null &&
         !permissions.can(Resource.teachers, Action.delete)) {
-      return const Err(MemberActionError.permissionDenied);
+      return const Err(
+        PermissionDenied('You don\'t have permission to perform this action.'),
+      );
     }
 
     try {
@@ -194,7 +216,7 @@ class MemberManagementService {
 
       return const Ok(null);
     } on Exception {
-      return const Err(MemberActionError.databaseError);
+      return const Err(DatabaseError());
     }
   }
 
@@ -217,7 +239,7 @@ class MemberManagementService {
   }) async {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
-      return const Err(MemberActionError.noActiveAccount);
+      return const Err(NoActiveAccount());
     }
 
     final authResult = await authorization.check(
@@ -226,13 +248,15 @@ class MemberManagementService {
       recordId: null,
     );
     if (!authResult.allowed) {
-      return Err(MemberActionError.permissionDenied);
+      return Err(PermissionDenied(authResult.reason!));
     }
 
     // Permission guard (defense-in-depth)
     if (permissions != null &&
         !permissions.can(Resource.staff, Action.update)) {
-      return const Err(MemberActionError.permissionDenied);
+      return const Err(
+        PermissionDenied('You don\'t have permission to perform this action.'),
+      );
     }
 
     try {
@@ -256,7 +280,7 @@ class MemberManagementService {
 
       return const Ok(null);
     } on Exception {
-      return const Err(MemberActionError.databaseError);
+      return const Err(DatabaseError());
     }
   }
 
@@ -272,7 +296,7 @@ class MemberManagementService {
   }) async {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
-      return const Err(MemberActionError.noActiveAccount);
+      return const Err(NoActiveAccount());
     }
 
     final authResult = await authorization.check(
@@ -281,13 +305,15 @@ class MemberManagementService {
       recordId: null,
     );
     if (!authResult.allowed) {
-      return Err(MemberActionError.permissionDenied);
+      return Err(PermissionDenied(authResult.reason!));
     }
 
     // Permission guard (defense-in-depth)
     if (permissions != null &&
         !permissions.can(Resource.staff, Action.update)) {
-      return const Err(MemberActionError.permissionDenied);
+      return const Err(
+        PermissionDenied('You don\'t have permission to perform this action.'),
+      );
     }
 
     try {
@@ -302,7 +328,7 @@ class MemberManagementService {
 
       return const Ok(null);
     } on Exception {
-      return const Err(MemberActionError.databaseError);
+      return const Err(DatabaseError());
     }
   }
 
@@ -317,7 +343,7 @@ class MemberManagementService {
   }) async {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
-      return const Err(MemberActionError.noActiveAccount);
+      return const Err(NoActiveAccount());
     }
 
     final authResult = await authorization.check(
@@ -326,13 +352,15 @@ class MemberManagementService {
       recordId: null,
     );
     if (!authResult.allowed) {
-      return Err(MemberActionError.permissionDenied);
+      return Err(PermissionDenied(authResult.reason!));
     }
 
     // Permission guard (defense-in-depth)
     if (permissions != null &&
         !permissions.can(Resource.staff, Action.delete)) {
-      return const Err(MemberActionError.permissionDenied);
+      return const Err(
+        PermissionDenied('You don\'t have permission to perform this action.'),
+      );
     }
 
     try {
@@ -344,7 +372,7 @@ class MemberManagementService {
 
       return const Ok(null);
     } on Exception {
-      return const Err(MemberActionError.databaseError);
+      return const Err(DatabaseError());
     }
   }
 
@@ -352,7 +380,7 @@ class MemberManagementService {
 
   /// Removes an owner from a school.
   ///
-  /// Returns [MemberActionError.cannotRemoveSelf] if the caller attempts
+  /// Returns [CannotRemoveSelf] if the caller attempts
   /// to remove their own owner row.
   ///
   /// When [permissions] is provided, verifies the caller has
@@ -364,7 +392,7 @@ class MemberManagementService {
   }) async {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
-      return const Err(MemberActionError.noActiveAccount);
+      return const Err(NoActiveAccount());
     }
 
     final authResult = await authorization.check(
@@ -373,17 +401,19 @@ class MemberManagementService {
       recordId: null,
     );
     if (!authResult.allowed) {
-      return Err(MemberActionError.permissionDenied);
+      return Err(PermissionDenied(authResult.reason!));
     }
 
     // Permission guard (defense-in-depth)
     if (permissions != null &&
         !permissions.can(Resource.owners, Action.delete)) {
-      return const Err(MemberActionError.permissionDenied);
+      return const Err(
+        PermissionDenied('You don\'t have permission to perform this action.'),
+      );
     }
 
     if (userId == accountId) {
-      return const Err(MemberActionError.cannotRemoveSelf);
+      return const Err(CannotRemoveSelf());
     }
 
     try {
@@ -395,7 +425,7 @@ class MemberManagementService {
 
       return const Ok(null);
     } on Exception {
-      return const Err(MemberActionError.databaseError);
+      return const Err(DatabaseError());
     }
   }
 
@@ -424,7 +454,7 @@ class MemberManagementService {
   }) async {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
-      return const Err(MemberActionError.noActiveAccount);
+      return const Err(NoActiveAccount());
     }
 
     final authResult = await authorization.check(
@@ -433,13 +463,15 @@ class MemberManagementService {
       recordId: null,
     );
     if (!authResult.allowed) {
-      return Err(MemberActionError.permissionDenied);
+      return Err(PermissionDenied(authResult.reason!));
     }
 
     // Permission guard (defense-in-depth)
     if (permissions != null &&
         !permissions.can(Resource.students, Action.update)) {
-      return const Err(MemberActionError.permissionDenied);
+      return const Err(
+        PermissionDenied('You don\'t have permission to perform this action.'),
+      );
     }
 
     try {
@@ -490,7 +522,7 @@ class MemberManagementService {
 
       return const Ok(null);
     } on Exception {
-      return const Err(MemberActionError.databaseError);
+      return const Err(DatabaseError());
     }
   }
 
@@ -506,7 +538,7 @@ class MemberManagementService {
   }) async {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
-      return const Err(MemberActionError.noActiveAccount);
+      return const Err(NoActiveAccount());
     }
 
     final authResult = await authorization.check(
@@ -515,13 +547,15 @@ class MemberManagementService {
       recordId: null,
     );
     if (!authResult.allowed) {
-      return Err(MemberActionError.permissionDenied);
+      return Err(PermissionDenied(authResult.reason!));
     }
 
     // Permission guard (defense-in-depth)
     if (permissions != null &&
         !permissions.can(Resource.students, Action.update)) {
-      return const Err(MemberActionError.permissionDenied);
+      return const Err(
+        PermissionDenied('You don\'t have permission to perform this action.'),
+      );
     }
 
     try {
@@ -539,7 +573,7 @@ class MemberManagementService {
 
       return const Ok(null);
     } on Exception {
-      return const Err(MemberActionError.databaseError);
+      return const Err(DatabaseError());
     }
   }
 
@@ -554,7 +588,7 @@ class MemberManagementService {
   }) async {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
-      return const Err(MemberActionError.noActiveAccount);
+      return const Err(NoActiveAccount());
     }
 
     final authResult = await authorization.check(
@@ -563,13 +597,15 @@ class MemberManagementService {
       recordId: null,
     );
     if (!authResult.allowed) {
-      return Err(MemberActionError.permissionDenied);
+      return Err(PermissionDenied(authResult.reason!));
     }
 
     // Permission guard (defense-in-depth)
     if (permissions != null &&
         !permissions.can(Resource.students, Action.delete)) {
-      return const Err(MemberActionError.permissionDenied);
+      return const Err(
+        PermissionDenied('You don\'t have permission to perform this action.'),
+      );
     }
 
     try {
@@ -581,7 +617,7 @@ class MemberManagementService {
 
       return const Ok(null);
     } on Exception {
-      return const Err(MemberActionError.databaseError);
+      return const Err(DatabaseError());
     }
   }
 
@@ -605,7 +641,7 @@ class MemberManagementService {
   }) async {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
-      return const Err(MemberActionError.noActiveAccount);
+      return const Err(NoActiveAccount());
     }
 
     final authResult = await authorization.check(
@@ -614,14 +650,16 @@ class MemberManagementService {
       recordId: null,
     );
     if (!authResult.allowed) {
-      return Err(MemberActionError.permissionDenied);
+      return Err(PermissionDenied(authResult.reason!));
     }
 
     // Permission guard (defense-in-depth)
     // Guardians fall under the Students resource per AGENT.md §17a.
     if (permissions != null &&
         !permissions.can(Resource.students, Action.update)) {
-      return const Err(MemberActionError.permissionDenied);
+      return const Err(
+        PermissionDenied('You don\'t have permission to perform this action.'),
+      );
     }
 
     try {
@@ -645,7 +683,7 @@ class MemberManagementService {
 
       return const Ok(null);
     } on Exception {
-      return const Err(MemberActionError.databaseError);
+      return const Err(DatabaseError());
     }
   }
 
@@ -662,7 +700,7 @@ class MemberManagementService {
   }) async {
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) {
-      return const Err(MemberActionError.noActiveAccount);
+      return const Err(NoActiveAccount());
     }
 
     final authResult = await authorization.check(
@@ -671,14 +709,16 @@ class MemberManagementService {
       recordId: null,
     );
     if (!authResult.allowed) {
-      return Err(MemberActionError.permissionDenied);
+      return Err(PermissionDenied(authResult.reason!));
     }
 
     // Permission guard (defense-in-depth)
     // Guardians fall under the Students resource per AGENT.md §17a.
     if (permissions != null &&
         !permissions.can(Resource.students, Action.delete)) {
-      return const Err(MemberActionError.permissionDenied);
+      return const Err(
+        PermissionDenied('You don\'t have permission to perform this action.'),
+      );
     }
 
     try {
@@ -691,7 +731,7 @@ class MemberManagementService {
 
       return const Ok(null);
     } on Exception {
-      return const Err(MemberActionError.databaseError);
+      return const Err(DatabaseError());
     }
   }
 

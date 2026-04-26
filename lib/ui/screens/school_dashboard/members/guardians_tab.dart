@@ -759,11 +759,8 @@ class _WardItem extends StatelessWidget {
     switch (result) {
       case Ok():
         break;
-      case Err(error: MemberActionError.permissionDenied):
-        showPermissionDenied(
-          context,
-          'You don\'t have permission to unlink this guardian.',
-        );
+      case Err(error: PermissionDenied(:final reason)):
+        showPermissionDenied(context, reason);
       case Err(:final error):
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

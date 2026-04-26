@@ -125,6 +125,18 @@ All design tokens are codified in `AppTheme` (`lib/ui/theme/app_theme.dart`) and
 - All tab surfaces in the app use `EduTabBar`, whether icon-only or text-label mode.
 
 ## Last Updated
+AUTH-C05: `MemberActionError` converted to sealed class — UI switch expressions updated.
+
+- `teachers_tab.dart` — 3 switch expressions updated: `case Err(error: MemberActionError.permissionDenied): showPermissionDenied(context, 'hardcoded')` replaced with `case Err(error: PermissionDenied(:final reason)): showPermissionDenied(context, reason)`. Affected handlers: `_TeachersTabState` Dismissible `confirmDismiss`, `_TeacherRow._confirmRemove()`, `_TeacherInfoSheetState._confirmRemove()`.
+- `staff_tab.dart` — 2 switch expressions updated. Affected handlers: `_StaffTabState` Dismissible `confirmDismiss`, `_StaffInfoSheet._confirmRemove()`.
+- `students_tab.dart` — 2 switch expressions updated. Affected handlers: `_StudentsTabState` Dismissible `confirmDismiss`, `_StudentRow._confirmDelete()`.
+- `guardians_tab.dart` — 1 switch expression updated. Affected handler: `_WardItem._unlinkGuardian()`.
+- `owners_tab.dart` — 3 switch expressions updated. Affected handlers: `_OwnersTabState` Dismissible `confirmDismiss`, `_OwnerRow._confirmRemoveOwner()`, `_OwnerInfoSheet._confirmRemoveOwner()`.
+- `departments_tab.dart` — no changes needed (does not use `MemberActionError`).
+
+All permission-denied UI messages now display the exact denial reason string from `AuthorizationService` rather than a hardcoded fallback.
+
+Previous:
 AUTH-C04: permission gating added to announcements, timetable, attendance, and members screens.
 
 - `announcements_screen.dart` — **No visibility changes needed.** FAB (`canCreate`), edit/delete row actions (`canEdit`/`canDelete`) were already correctly gated. **Updated:** Added `permission_denied_handler.dart` import. Wrapped `_AnnouncementRowState._confirmDelete()` DAO call with `guardedAction()`. Added `context.mounted` guard before the call.
