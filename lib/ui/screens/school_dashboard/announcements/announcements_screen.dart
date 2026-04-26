@@ -782,6 +782,7 @@ class _AnnouncementRowState extends State<_AnnouncementRow>
       isDestructive: true,
     );
     if (!confirmed) return;
+    if (!context.mounted) return;
     final user = cache.currentUser;
     if (user == null) return;
     await guardedAction(context, () async {

@@ -11,6 +11,7 @@ import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_sheet.dart';
+import '../../../widgets/permission_denied_handler.dart';
 import '../../../widgets/status_indicator.dart';
 import '../../../widgets/user_avatar.dart';
 import '../../../../services/member_management.dart';
@@ -156,13 +157,22 @@ class _OwnersTabState extends State<OwnersTab> {
                   schoolId: widget.schoolId,
                   userId: user.id,
                 );
-                if (result case Err(:final error) when context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Failed to remove owner: $error'),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
+                if (!context.mounted) return false;
+                switch (result) {
+                  case Ok():
+                    break;
+                  case Err(error: MemberActionError.permissionDenied):
+                    showPermissionDenied(
+                      context,
+                      'You don\'t have permission to remove owners.',
+                    );
+                  case Err(:final error):
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to remove owner: $error'),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
                 }
                 return false; // Stream rebuild handles visual removal
               },
@@ -281,25 +291,27 @@ class _OwnerRow extends StatelessWidget {
       schoolId: schoolId,
       userId: user.id,
     );
+    if (!context.mounted) return;
     switch (result) {
       case Ok():
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('"${user.name}" removed'),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('"${user.name}" removed'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      case Err(error: MemberActionError.permissionDenied):
+        showPermissionDenied(
+          context,
+          'You don\'t have permission to remove owners.',
+        );
       case Err(:final error):
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to remove owner: $error'),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to remove owner: $error'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
     }
   }
 }
@@ -471,18 +483,22 @@ class _OwnerInfoSheet extends StatelessWidget {
       schoolId: schoolId,
       userId: user.id,
     );
+    if (!context.mounted) return;
     switch (result) {
       case Ok():
-        if (context.mounted) Navigator.pop(context); // close sheet
+        Navigator.pop(context); // close sheet
+      case Err(error: MemberActionError.permissionDenied):
+        showPermissionDenied(
+          context,
+          'You don\'t have permission to remove owners.',
+        );
       case Err(:final error):
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to remove owner: $error'),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to remove owner: $error'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
     }
   }
 }

@@ -13,6 +13,7 @@ import '../../../../services/member_management.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_sheet.dart';
+import '../../../widgets/permission_denied_handler.dart';
 import '../../../widgets/status_indicator.dart';
 import '../../../widgets/user_avatar.dart';
 import 'members_shared.dart';
@@ -141,13 +142,22 @@ class _StaffTabState extends State<StaffTab> {
                   schoolId: widget.schoolId,
                   userId: user.id,
                 );
-                if (result case Err(:final error) when context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Failed to remove staff member: $error'),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
+                if (!context.mounted) return false;
+                switch (result) {
+                  case Ok():
+                    break;
+                  case Err(error: MemberActionError.permissionDenied):
+                    showPermissionDenied(
+                      context,
+                      'You don\'t have permission to remove staff members.',
+                    );
+                  case Err(:final error):
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to remove staff member: $error'),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
                 }
                 return false; // Stream rebuild handles visual removal
               },
@@ -738,18 +748,22 @@ class _StaffInfoSheet extends StatelessWidget {
       schoolId: schoolId,
       userId: member.user,
     );
+    if (!context.mounted) return;
     switch (result) {
       case Ok():
-        if (context.mounted) Navigator.pop(context); // close sheet
+        Navigator.pop(context); // close sheet
+      case Err(error: MemberActionError.permissionDenied):
+        showPermissionDenied(
+          context,
+          'You don\'t have permission to remove staff members.',
+        );
       case Err(:final error):
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to remove staff member: $error'),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to remove staff member: $error'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
     }
   }
 }

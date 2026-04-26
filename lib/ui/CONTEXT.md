@@ -125,6 +125,29 @@ All design tokens are codified in `AppTheme` (`lib/ui/theme/app_theme.dart`) and
 - All tab surfaces in the app use `EduTabBar`, whether icon-only or text-label mode.
 
 ## Last Updated
+AUTH-C04: permission gating added to announcements, timetable, attendance, and members screens.
+
+- `announcements_screen.dart` — **No visibility changes needed.** FAB (`canCreate`), edit/delete row actions (`canEdit`/`canDelete`) were already correctly gated. **Updated:** Added `permission_denied_handler.dart` import. Wrapped `_AnnouncementRowState._confirmDelete()` DAO call with `guardedAction()`. Added `context.mounted` guard before the call.
+
+- `timetable_screen.dart` — **No visibility changes needed.** FABs (`canGenerate`, `canDelete`, `canGenerateLessons`, `canManage`) were already correctly gated. **Updated:** Added `permission_denied_handler.dart` and `authorization_service.dart` imports. Added `on PermissionException catch (e)` block in `_deleteTimetable()` (before `finally`) and in `_runGeneration()` (before the generic `catch (e)`) — both call `showPermissionDenied(context, e.reason)`.
+
+- `attendance_tab.dart` — **No visibility changes needed.** `_canMark` resolution and `canMark` prop-gating of `_ActionBar` and `_StatusToggleGroup` were already in place. **Updated:** Added `permission_denied_handler.dart` import. Wrapped `_AttendanceMarkingBodyState._markAllPresent()` inner DAO call with `guardedAction()`. Wrapped `_AttendanceMarkingBodyState._markSingle()` DAO call with `guardedAction()`.
+
+- `teachers_tab.dart` — **No visibility changes needed.** `_canDelete`/`_canEdit` getters already in place. **Updated:** Added `permission_denied_handler.dart` import. Added specific `case Err(error: MemberActionError.permissionDenied)` with `showPermissionDenied()` in three handlers: `_TeachersTabState` Dismissible `confirmDismiss`, `_TeacherRow._confirmRemove()`, and `_TeacherInfoSheetState._confirmRemove()`.
+
+- `staff_tab.dart` — **No visibility changes needed.** `_canDelete`/`_canEdit` getters already in place. **Updated:** Added `permission_denied_handler.dart` import. Added `case Err(error: MemberActionError.permissionDenied)` handling in `_StaffTabState` Dismissible `confirmDismiss` and `_StaffInfoSheet._confirmRemove()`.
+
+- `students_tab.dart` — **No visibility changes needed.** `_canDelete` getter already in place. **Updated:** Added `permission_denied_handler.dart` import. Added `case Err(error: MemberActionError.permissionDenied)` handling in `_StudentsTabState` Dismissible `confirmDismiss` and `_StudentRow._confirmDelete()`.
+
+- `guardians_tab.dart` — **No visibility changes needed.** `_canEditGuardian`/`_canUnlinkGuardian` getters already in place. **Updated:** Added `permission_denied_handler.dart` import. `_WardItem._unlinkGuardian()` previously ignored the return value of `service.removeGuardian()` — now captures result and handles `MemberActionError.permissionDenied` with `showPermissionDenied()`.
+
+- `owners_tab.dart` — **No visibility changes needed.** `_canDelete` getter already in place. **Updated:** Added `permission_denied_handler.dart` import. Added `case Err(error: MemberActionError.permissionDenied)` handling in `_OwnersTabState` Dismissible `confirmDismiss`, `_OwnerRow._confirmRemoveOwner()`, and `_OwnerInfoSheet._confirmRemoveOwner()`.
+
+- `departments_tab.dart` — **No visibility changes needed.** `_canDelete` and `_canDeleteDept`/`_canUpdateDept` getters already in place. **Updated:** Added `permission_denied_handler.dart` import. Wrapped `_DepartmentsTabState._confirmDeleteDepartment()` DAO call with `guardedAction()`. In `_DepartmentDetailScreenState`: wrapped `_confirmDelete()` DAO call with `guardedAction()` + `deleted` flag to guard nav pop, and wrapped `_removeTeacher()`/`_removeStaff()` DAO calls with `guardedAction()`.
+
+- `members_page.dart` — **No changes needed.** FAB visibility already gated by `_canCreateForCurrentTab()` which checks the relevant `Resource`/`Action.create` per tab.
+
+Previous:
 AUTH-C06: permission gating added to system dashboard.
 
 - `screens/system/plans/plans_section.dart` — **Updated.** Added `if (permissions.can(Resource.plans, Action.update))` guard to the Edit row-action button in `_PlansSectionState.build()`. Previously the Edit `EduDataTableAction` was always shown regardless of permissions. All other system dashboard screens were already fully permission-gated (no changes required).

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart' hide Action;
 import '../../../../client.dart';
+import '../../../widgets/permission_denied_handler.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/members_dao.dart';
 import '../../../../database/tables/enums.dart';
@@ -749,10 +750,27 @@ class _WardItem extends StatelessWidget {
     );
     if (!confirmed) return;
 
-    await service.removeGuardian(
+    final result = await service.removeGuardian(
       schoolId: schoolId,
       userId: guardian.user,
       studentAdm: guardian.student,
     );
+    if (!context.mounted) return;
+    switch (result) {
+      case Ok():
+        break;
+      case Err(error: MemberActionError.permissionDenied):
+        showPermissionDenied(
+          context,
+          'You don\'t have permission to unlink this guardian.',
+        );
+      case Err(:final error):
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to unlink guardian: $error'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+    }
   }
 }

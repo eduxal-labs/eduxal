@@ -14,6 +14,7 @@ import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_form_field.dart';
 import '../../../widgets/edu_sheet.dart';
 import '../../../widgets/edu_tab_bar.dart';
+import '../../../widgets/permission_denied_handler.dart';
 import '../../../widgets/pressable_row.dart';
 import 'members_shared.dart';
 
@@ -232,11 +233,13 @@ class _DepartmentsTabState extends State<DepartmentsTab> {
     if (confirmed && context.mounted) {
       final user = cache.currentUser?.user;
       if (user != null) {
-        await _dao.deleteDepartment(
-          widget.schoolId,
-          dept.name,
-          accountId: user.id,
-        );
+        await guardedAction(context, () async {
+          await _dao.deleteDepartment(
+            widget.schoolId,
+            dept.name,
+            accountId: user.id,
+          );
+        });
       }
     }
   }
@@ -682,13 +685,17 @@ class _DepartmentDetailScreenState extends State<_DepartmentDetailScreen>
     if (confirmed && context.mounted) {
       final user = cache.currentUser?.user;
       if (user != null) {
-        await widget.dao.deleteDepartment(
-          widget.schoolId,
-          widget.dept.name,
-          accountId: user.id,
-        );
+        bool deleted = false;
+        await guardedAction(context, () async {
+          await widget.dao.deleteDepartment(
+            widget.schoolId,
+            widget.dept.name,
+            accountId: user.id,
+          );
+          deleted = true;
+        });
+        if (deleted && context.mounted) Navigator.pop(context);
       }
-      if (context.mounted) Navigator.pop(context);
     }
   }
 
@@ -708,23 +715,27 @@ class _DepartmentDetailScreenState extends State<_DepartmentDetailScreen>
   Future<void> _removeTeacher(String teacherUserId) async {
     final user = cache.currentUser?.user;
     if (user == null) return;
-    await widget.dao.assignTeacherToDepartment(
-      widget.schoolId,
-      teacherUserId,
-      departmentName: null,
-      accountId: user.id,
-    );
+    await guardedAction(context, () async {
+      await widget.dao.assignTeacherToDepartment(
+        widget.schoolId,
+        teacherUserId,
+        departmentName: null,
+        accountId: user.id,
+      );
+    });
   }
 
   Future<void> _removeStaff(String staffUserId) async {
     final user = cache.currentUser?.user;
     if (user == null) return;
-    await widget.dao.assignStaffToDepartment(
-      widget.schoolId,
-      staffUserId,
-      departmentName: null,
-      accountId: user.id,
-    );
+    await guardedAction(context, () async {
+      await widget.dao.assignStaffToDepartment(
+        widget.schoolId,
+        staffUserId,
+        departmentName: null,
+        accountId: user.id,
+      );
+    });
   }
 }
 

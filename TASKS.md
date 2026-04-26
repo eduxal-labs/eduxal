@@ -1343,7 +1343,7 @@ Wrap all async button handlers for mutations with `guardedAction()`.
 
 ---
 
-### Task AUTH-C04: UI Permission Gating — Announcements, Timetable, Attendance, Members
+### [x] Task AUTH-C04: UI Permission Gating — Announcements, Timetable, Attendance, Members
 
 **Files to modify:**
 - `lib/ui/screens/school_dashboard/announcements/announcements_screen.dart`
@@ -1413,9 +1413,9 @@ Member resource mapping:
 ---
 
 **Update after completion:**
-- [ ] Update `lib/ui/CONTEXT.md`
-- [ ] Mark this task `[x]`
-- [ ] Orchestrator: `git add -A && git commit -m "ui: add permission gating to announcements, timetable, attendance, and members screens"`
+- [x] Update `lib/ui/CONTEXT.md`
+- [x] Mark this task `[x]`
+- [x] Orchestrator: `git add -A && git commit -m "ui: add permission gating to announcements, timetable, attendance, and members screens"`
 
 ---
 

@@ -10,6 +10,7 @@ import '../../../../services/member_management.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_sheet.dart';
+import '../../../widgets/permission_denied_handler.dart';
 import '../../../widgets/student_avatar.dart';
 import 'student_detail_page.dart';
 import 'members_shared.dart';
@@ -105,11 +106,28 @@ class _StudentsTabState extends State<StudentsTab> {
                 );
                 if (!confirmed || !context.mounted) return false;
                 final service = MemberManagementService(MembersDao(db));
-                await service.changeStudentStatus(
+                final result = await service.changeStudentStatus(
                   schoolId: widget.schoolId,
                   adm: s.adm,
                   status: StudentStatus.deleted,
                 );
+                if (!context.mounted) return false;
+                switch (result) {
+                  case Ok():
+                    break;
+                  case Err(error: MemberActionError.permissionDenied):
+                    showPermissionDenied(
+                      context,
+                      'You don\'t have permission to delete students.',
+                    );
+                  case Err(:final error):
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to delete student: $error'),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                }
                 return false; // Stream rebuild handles visual removal
               },
               child: row,
@@ -235,13 +253,19 @@ class _StudentRow extends StatelessWidget {
       adm: student.adm,
       status: StudentStatus.deleted,
     );
+    if (!context.mounted) return;
     switch (result) {
-      case Err(:final error) when context.mounted:
+      case Ok():
+        break;
+      case Err(error: MemberActionError.permissionDenied):
+        showPermissionDenied(
+          context,
+          'You don\'t have permission to delete students.',
+        );
+      case Err(:final error):
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to delete student: $error')),
         );
-      default:
-        break;
     }
   }
 }

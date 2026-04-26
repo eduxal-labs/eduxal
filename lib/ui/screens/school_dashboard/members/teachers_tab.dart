@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart' hide Action;
 import '../../../widgets/inline_date_picker_dialog.dart';
+import '../../../widgets/permission_denied_handler.dart';
 import '../../../../client.dart';
 
 import '../../../../database/database.dart';
@@ -152,13 +153,22 @@ class _TeachersTabState extends State<TeachersTab> {
                   schoolId: widget.schoolId,
                   userId: user.id,
                 );
-                if (result case Err(:final error) when context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Failed to remove teacher: $error'),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
+                if (!context.mounted) return false;
+                switch (result) {
+                  case Ok():
+                    break;
+                  case Err(error: MemberActionError.permissionDenied):
+                    showPermissionDenied(
+                      context,
+                      'You don\'t have permission to remove this teacher.',
+                    );
+                  case Err(:final error):
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to remove teacher: $error'),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
                 }
                 return false; // Stream rebuild handles visual removal
               },
@@ -294,13 +304,19 @@ class _TeacherRow extends StatelessWidget {
       schoolId: schoolId,
       userId: user.id,
     );
+    if (!context.mounted) return;
     switch (result) {
-      case Err(:final error) when context.mounted:
+      case Ok():
+        break;
+      case Err(error: MemberActionError.permissionDenied):
+        showPermissionDenied(
+          context,
+          'You don\'t have permission to remove this teacher.',
+        );
+      case Err(:final error):
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to remove teacher: $error')),
         );
-      default:
-        break;
     }
   }
 }
@@ -1049,6 +1065,11 @@ class _TeacherInfoSheetState extends State<_TeacherInfoSheet> {
     switch (result) {
       case Ok():
         Navigator.pop(context); // close sheet
+      case Err(error: MemberActionError.permissionDenied):
+        showPermissionDenied(
+          context,
+          'You don\'t have permission to remove this teacher.',
+        );
       case Err(:final error):
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
