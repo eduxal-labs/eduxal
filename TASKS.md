@@ -735,7 +735,7 @@ All four methods already receive `schoolId` as a named parameter — pass it dir
 
 ---
 
-### Task AUTH-B02: Wire Authorization into `FinanceDao` Mutations
+### Task AUTH-B02: [x] Wire Authorization into `FinanceDao` Mutations
 
 **Files to modify:** `lib/database/daos/finance_dao.dart`
 

@@ -1242,8 +1242,7 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
           schoolId: null,
           recordId: null,
         );
-        if (!_authResult.allowed)
-          throw PermissionException(_authResult.reason!);
+        if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
         await (update(discounts)..where(
               (d) =>
                   d.school.equals(schoolId) &
@@ -1286,8 +1285,7 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
           schoolId: null,
           recordId: null,
         );
-        if (!_authResult.allowed)
-          throw PermissionException(_authResult.reason!);
+        if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
         await into(discounts).insert(
           DiscountsCompanion(
             school: Value(schoolId),
