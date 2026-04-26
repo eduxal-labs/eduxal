@@ -882,7 +882,7 @@ a `LogsCompanion` row). Common candidates:
 
 ---
 
-### Task AUTH-B05: Wire Authorization into `TimetableDao` Mutations
+### [x] Task AUTH-B05: Wire Authorization into `TimetableDao` Mutations
 
 **Files to modify:** `lib/database/daos/timetable_dao.dart`
 
@@ -924,9 +924,9 @@ Future<String?> getSchoolForTimetableEntry(String entryId) async {
 ---
 
 **Update after completion:**
-- [ ] Update `lib/database/CONTEXT.md`
-- [ ] Mark this task `[x]`
-- [ ] Orchestrator: `git add -A && git commit -m "feat: wire authorization checks into TimetableDao mutations"`
+- [x] Update `lib/database/CONTEXT.md`
+- [x] Mark this task `[x]`
+- [x] Orchestrator: `git add -A && git commit -m "feat: wire authorization checks into TimetableDao mutations"`
 
 ---
 

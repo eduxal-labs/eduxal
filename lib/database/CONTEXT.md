@@ -81,9 +81,21 @@ The `logs` table was redesigned in Task C2 from a mutation-tracking model (`tbl`
 **Added enums:** `SyncAction` (81 values, explicit `int value` per entry) + `SyncActionConverter`.
 
 ## Last Updated
-Task AUTH-B04 — Authorization checks added to `AttendanceDao` mutation methods:
+Task AUTH-B05 — Authorization checks added to all `TimetableDao` mutation methods:
+- `lib/database/daos/timetable_dao.dart` — added `import '../../services/authorization_service.dart'`. Added pre-flight `authorization.check(...)` + `PermissionException` throw as the first statement in all 8 mutation methods:
+  - `insertSlot` (`SyncAction.createTimetableEntry`, `schoolId: slot.school.value`, `recordId: null`)
+  - `insertSlots` (`SyncAction.createTimetableEntry`, `schoolId: slots.isEmpty ? null : slots.first.school.value`, `recordId: null`)
+  - `deleteSlot` (`SyncAction.deleteTimetableEntry`, `schoolId: schoolId`, `recordId: null`)
+  - `clearClassTimetable` (`SyncAction.deleteTimetableEntry`, `schoolId: schoolId`, `recordId: null`)
+  - `clearTermTimetable` (`SyncAction.deleteTimetableEntry`, `schoolId: schoolId`, `recordId: null`)
+  - `insertLesson` (`SyncAction.createLesson`, `schoolId: lesson.school.value`, `recordId: null`)
+  - `deleteLesson` (`SyncAction.deleteLesson`, `schoolId: schoolId`, `recordId: null`)
+  - `saveLessons` (`SyncAction.createLesson`, `schoolId: lessonsList.first.school.value`, `recordId: null`) — auth check placed after the existing `if (lessonsList.isEmpty) return` guard so that `lessonsList.first` is safe.
+- No helper methods were needed — all mutation methods carry `schoolId` directly as a parameter or via a `Companion.school.value` field. The `assignClassTeacher`, `unassignClassTeacher`, `assignSubject`, and `unassignSubject` actions referenced in the task spec reside in `SubjectsDao` (not `TimetableDao`) and are not present in this file.
+
+Previous: Task AUTH-B04 — Authorization checks added to `AttendanceDao` mutation methods:
 - `lib/database/daos/attendance_dao.dart` — added `import '../../services/authorization_service.dart'`. Added pre-flight `authorization.check(...)` + `PermissionException` throw as the first statement in: `markAttendance` (`SyncAction.markAttendance`, `schoolId: schoolId`), `markClassAttendance` (`SyncAction.markAttendance`, `schoolId: schoolId`), `deleteAttendanceRecord` (`SyncAction.deleteAttendance`, `schoolId: schoolId`). All three methods already carry `schoolId` as a direct parameter — no lookup helpers were needed.
-- `lib/database/daos/academics_dao.dart` — **no changes made**. `AcademicsDao` is a pure read-only analytics/computation DAO (all `watch*` and `compute*` methods). It has zero mutation methods and enqueues no `LogsCompanion` rows. The lesson mutations (`createLesson`, `deleteLesson`) live in `TimetableDao` and are covered by AUTH-B05.
+- `lib/database/daos/academics_dao.dart` — **no changes made**. `AcademicsDao` is a pure read-only analytics/computation DAO (all `watch*` and `compute*` methods). It has zero mutation methods and enqueues no `LogsCompanion` rows.
 
 Previous: Task AUTH-B03 — Authorization checks added to all `AnnouncementsDao` mutation methods:
 - `lib/database/daos/announcements_dao.dart` — added `import '../../services/authorization_service.dart'`. Added pre-flight `authorization.check(...)` + `PermissionException` throw as the first statement in: `createAnnouncement` (`SyncAction.createAnnouncement`, `schoolId: schoolId`, `recordId: null`), `updateAnnouncement` (`SyncAction.updateAnnouncement`, `schoolId: null`, `recordId: id`), `deleteAnnouncement` (`SyncAction.deleteAnnouncement`, `schoolId: null`, `recordId: id`). The existing `getSchoolForAnnouncement` helper (added in AUTH-A01) is used internally by `AuthorizationService._resolveOrganisation()` for update/delete — no manual school lookup needed in the DAO.
