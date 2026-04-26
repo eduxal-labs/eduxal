@@ -7,6 +7,7 @@ import '../tables/logs.dart';
 import '../tables/users.dart';
 import '../../client.dart';
 import '../../proto/services/sync.pb.dart' as sync_pb;
+import '../../services/authorization_service.dart';
 
 part 'announcements_dao.g.dart';
 
@@ -286,6 +287,13 @@ class AnnouncementsDao extends DatabaseAccessor<AppDatabase>
     required String authorId,
     required String accountId,
   }) async {
+    final authResult = await authorization.check(
+      action: SyncAction.createAnnouncement,
+      schoolId: schoolId,
+      recordId: null,
+    );
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
+
     await transaction(() async {
       final nowSeconds = BigInt.from(
         DateTime.now().millisecondsSinceEpoch ~/ 1000,
@@ -347,6 +355,13 @@ class AnnouncementsDao extends DatabaseAccessor<AppDatabase>
     Value<int?>? grade,
     Value<int?>? stream,
   }) async {
+    final authResult = await authorization.check(
+      action: SyncAction.updateAnnouncement,
+      schoolId: null,
+      recordId: id,
+    );
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
+
     await transaction(() async {
       final nowSeconds = BigInt.from(
         DateTime.now().millisecondsSinceEpoch ~/ 1000,
@@ -469,6 +484,13 @@ class AnnouncementsDao extends DatabaseAccessor<AppDatabase>
     required String id,
     required String accountId,
   }) async {
+    final authResult = await authorization.check(
+      action: SyncAction.deleteAnnouncement,
+      schoolId: null,
+      recordId: id,
+    );
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
+
     await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 

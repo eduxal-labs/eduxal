@@ -795,7 +795,7 @@ add them here with:
 
 ---
 
-### Task AUTH-B03: Wire Authorization into `AnnouncementsDao` Mutations
+### Task AUTH-B03: [x] Wire Authorization into `AnnouncementsDao` Mutations
 
 **Files to modify:** `lib/database/daos/announcements_dao.dart`
 
@@ -825,9 +825,9 @@ Apply the pattern to:
 ---
 
 **Update after completion:**
-- [ ] Update `lib/database/CONTEXT.md`
-- [ ] Mark this task `[x]`
-- [ ] Orchestrator: `git add -A && git commit -m "feat: wire authorization checks into AnnouncementsDao mutations"`
+- [x] Update `lib/database/CONTEXT.md`
+- [x] Mark this task `[x]`
+- [x] Orchestrator: `git add -A && git commit -m "feat: wire authorization checks into AnnouncementsDao mutations"`
 
 ---
 
