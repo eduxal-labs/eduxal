@@ -1988,8 +1988,8 @@ Use `Chip(backgroundColor: color, label: ...)` with white label text.
 Imports needed: `event.dart`, `paper_service.dart` (via global `paperService`), `paper_preview_page.dart` (Task F2), `client.dart` (for `accessToken`), `models/school_config.dart` (for `gradeLabel`).
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/exams/CONTEXT.md` — add `event_detail_screen.dart` entry
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/exams/CONTEXT.md` — add `event_detail_screen.dart` entry
+- [x] Mark this task `[x]`
 - [ ] git commit: `feat: event detail screen with per-paper phase polling`
 
 ---

@@ -6,6 +6,8 @@ import '../../../../models/result.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_sheet.dart';
+import '../../../widgets/stimulus_block.dart';
+import '../../../widgets/tiptap_renderer.dart';
 import 'create_question_sheet.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -460,11 +462,21 @@ class _QuestionRowState extends State<_QuestionRow>
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 6),
+                  // Type badge
+                  Chip(
+                    label: Text(q.type, style: const TextStyle(fontSize: 10)),
+                    backgroundColor: _questionTypeColor(q.type),
+                    padding: EdgeInsets.zero,
+                    labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  const SizedBox(width: 6),
                   // Question text
                   Expanded(
                     child: Text(
-                      q.text,
+                      q.body,
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w300,
@@ -619,8 +631,13 @@ class _QuestionExpandedContent extends StatelessWidget {
           // ── Full question text ──────────────────────────────────────
           _SectionLabel(label: 'Question', cs: cs),
           const SizedBox(height: 4),
-          Text(
-            question.text,
+          if (question.stimulus != null) ...[
+            StimulusBlock(stimulus: question.stimulus!),
+            const SizedBox(height: 4),
+          ],
+          renderBody(
+            question.body,
+            question.bodyFormat,
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w300,
@@ -628,6 +645,29 @@ class _QuestionExpandedContent extends StatelessWidget {
               height: 1.45,
             ),
           ),
+          if (question.parts.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: question.parts
+                  .map(
+                    (p) => Padding(
+                      padding: const EdgeInsets.only(left: 16, top: 6),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '(${p.label})  ',
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          ),
+                          Expanded(child: renderBody(p.body, p.bodyFormat)),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
 
           // ── Rubric ─────────────────────────────────────────────────
           if (question.rubric.isNotEmpty) ...[
@@ -687,21 +727,34 @@ class _QuestionExpandedContent extends StatelessWidget {
           ],
 
           // ── Example answer ─────────────────────────────────────────
-          if (question.exampleAnswer != null &&
-              question.exampleAnswer!.isNotEmpty) ...[
+          if (question.exampleAnswer != null) ...[
             const SizedBox(height: 12),
             _SectionLabel(label: 'Example Answer', cs: cs),
             const SizedBox(height: 4),
-            Text(
-              question.exampleAnswer!,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w300,
-                color: cs.onSurface.withValues(alpha: 0.70),
-                height: 1.4,
-                fontStyle: FontStyle.italic,
+            if (question.exampleAnswer is Map)
+              renderBody(
+                (question.exampleAnswer as Map)['content'] as String? ?? '',
+                (question.exampleAnswer as Map)['format'] as String? ?? 'plain',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w300,
+                  color: cs.onSurface.withValues(alpha: 0.70),
+                  height: 1.4,
+                  fontStyle: FontStyle.italic,
+                ),
+              )
+            else if (question.exampleAnswer is String &&
+                (question.exampleAnswer as String).isNotEmpty)
+              Text(
+                question.exampleAnswer as String,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w300,
+                  color: cs.onSurface.withValues(alpha: 0.70),
+                  height: 1.4,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
-            ),
           ],
 
           // ── Images ─────────────────────────────────────────────────
@@ -787,6 +840,23 @@ class _QuestionExpandedContent extends StatelessWidget {
     ImageContext.question => 'Question',
     ImageContext.rubric => 'Rubric',
     ImageContext.exampleAnswer => 'Example',
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Question type colour helper
+// ─────────────────────────────────────────────────────────────────────────────
+
+Color _questionTypeColor(String type) {
+  return switch (type) {
+    'definition' => Colors.blue.shade100,
+    'calculation' => Colors.orange.shade100,
+    'structured' => Colors.purple.shade100,
+    'experiment' => Colors.green.shade100,
+    'diagram' => Colors.teal.shade100,
+    'data_response' => Colors.cyan.shade100,
+    'explanation' => Colors.grey.shade200,
+    _ => Colors.grey.shade200,
   };
 }
 
@@ -1053,9 +1123,13 @@ class _EditQuestionSheetState extends State<_EditQuestionSheet> {
   void initState() {
     super.initState();
     final q = widget.question;
-    _textCtrl = TextEditingController(text: q.text);
+    _textCtrl = TextEditingController(text: q.body);
     _marksCtrl = TextEditingController(text: '${q.marks}');
-    _exampleAnswerCtrl = TextEditingController(text: q.exampleAnswer ?? '');
+    _exampleAnswerCtrl = TextEditingController(
+      text: q.exampleAnswer is Map
+          ? ((q.exampleAnswer as Map)['content'] as String? ?? '')
+          : (q.exampleAnswer is String ? q.exampleAnswer as String : ''),
+    );
 
     for (final r in q.rubric) {
       _rubric.add(
