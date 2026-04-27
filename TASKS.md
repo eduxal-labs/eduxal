@@ -1108,9 +1108,9 @@ Also verify `lib/proto/services/question_bank.pb.dart` contains references to `b
 If the generated files are missing or incomplete, stop and notify: the server agent has not yet committed the proto changes.
 
 **Update after completion:**
-- [ ] Update `lib/proto/CONTEXT.md` — add `paper.pb.dart`, `paper.pbgrpc.dart` entries; note `question_bank.pb.dart` was regenerated with new Question fields
-- [ ] Mark this task `[x]`
-- [ ] git commit: `chore: regenerate proto stubs — add paper service, new Question fields`
+- [x] Update `lib/proto/CONTEXT.md` — add `paper.pb.dart`, `paper.pbgrpc.dart` entries; note `question_bank.pb.dart` was regenerated with new Question fields
+- [x] Mark this task `[x]`
+- [x] git commit: `chore: regenerate proto stubs — add paper service, new Question fields`
 
 ---
 

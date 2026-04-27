@@ -249,7 +249,7 @@ All gRPC calls attach the access token via metadata when needed (e.g. `refresh` 
 
 - `RubricCriterion` — criterion (string), marks (int)
 - `QuestionImage` — context (ImageContext enum), filename (string), caption (string?), description (string), getUrl (string?)
-- `Question` — id (int), topicId (int), text (string), marks (int), rubric (repeated RubricCriterion), exampleAnswer (string?), images (repeated QuestionImage), created (Int64), updated (Int64)
+- `Question` — id (int), topicId (int), text (string), **body** (string, optional), **bodyFormat** (int enum: 0=plain, 1=tiptap), **stimulus** (string, JSON-encoded), **type** (int enum: 0–6), **difficulty** (int 1–5), **cognitiveLevel** (int 0–3), marks (int), **maxMarks** (int), **answerSpaceType** (int enum: 0–4), **answerLines** (int), rubric (repeated RubricCriterion), exampleAnswer (string?), images (repeated QuestionImage), **parts** (repeated QuestionPart), created (Int64), updated (Int64). Bold = new fields added in regeneration.
 - `CreateQuestionRequest/Response`, `UpdateQuestionRequest/Response`, `DeleteQuestionRequest/Response` — standard CRUD wrappers
 - `BulkImportRequest` — jsonContent (string); `BulkImportResponse` — createdCount (int), errors (repeated ImportError)
 - `ImportError` — index (int), message (string)
@@ -280,5 +280,98 @@ Minimal stub — JSON descriptors placeholder. Not required for runtime operatio
 
 **Note:** All four files are hand-written Dart stubs (no `.proto` source file). They follow the same `$pb.GeneratedMessage` / `$grpc.Client` patterns as `ai_marking.*`. If the server provides a `.proto` file in the future, regenerate with `protoc` to replace these stubs.
 
+### `services/event.pbgrpc.dart`
+
+**Service:** `EventServiceClient` — CRUD for exam events.
+
+| RPC | Request | Response |
+|---|---|---|
+| `CreateEvent` | `CreateEventRequest` | `CreateEventResponse` |
+| `GetEvent` | `GetEventRequest` | `GetEventResponse` |
+| `ListEvents` | `ListEventsRequest` | `ListEventsResponse` |
+| `UpdateEvent` | `UpdateEventRequest` | `UpdateEventResponse` |
+| `DeleteEvent` | `DeleteEventRequest` | `DeleteEventResponse` |
+
+**`CreateEventRequest` fields:** `school` (String), `name` (String), `type` (int enum), `term` (int), `year` (int), `startDate` (int — days since epoch), `endDate` (int — days since epoch).
+**`CreateEventResponse` fields:** `event` (Event proto object with `.id` String field).
+
+### `services/paper.pbgrpc.dart`
+
+**Service:** `PaperServiceClient` — CRUD for exam papers plus PDF/marking-scheme URL retrieval.
+
+| RPC | Request | Response |
+|---|---|---|
+| `CreatePaper` | `CreatePaperRequest` | `CreatePaperResponse` |
+| `GetPaper` | `GetPaperRequest` | `GetPaperResponse` |
+| `ListPapers` | `ListPapersRequest` | `ListPapersResponse` |
+| `UpdatePaper` | `UpdatePaperRequest` | `UpdatePaperResponse` |
+| `GetPaperPdfUrl` | `GetPaperPdfUrlRequest` | `GetPaperPdfUrlResponse` |
+| `GetMarkingSchemeUrl` | `GetMarkingSchemeUrlRequest` | `GetMarkingSchemeUrlResponse` |
+| `ForceSetPaperStatus` | `ForceSetPaperStatusRequest` | `ForceSetPaperStatusResponse` |
+
+**`CreatePaperRequest` fields:** `school` (String), `event` (String — event ID), `subject` (int), `grade` (int), `stream` (int), `type` (int enum), `name` (String), `totalMarks` (int), `durationMinutes` (int), `date` (int — days since epoch), `generationMode` (int enum), `instructions` (String), `topicWeights` (repeated `PaperTopicWeight`).
+
+### `services/paper_management.pbgrpc.dart`
+
+**Service:** `PaperManagementClient` — Scheduling, syllabus coverage, generation, and per-student paper status.
+
+| RPC | Request | Response |
+|---|---|---|
+| `SchedulePaper` | `SchedulePaperRequest` | `SchedulePaperResponse` |
+| `AssignInvigilator` | `AssignInvigilatorRequest` | `AssignInvigilatorResponse` |
+| `ListPaperSchedules` | `ListSchedulesRequest` | `ListSchedulesResponse` |
+| `UpdateSchedule` | `UpdateScheduleRequest` | `UpdateScheduleResponse` |
+| `SetTaughtTopics` | `SetTaughtTopicsRequest` | `SetTaughtTopicsResponse` |
+| `GetTaughtTopics` | `GetTaughtTopicsRequest` | `GetTaughtTopicsResponse` |
+| `ConfirmExamCoverage` | `ConfirmExamCoverageRequest` | `ConfirmExamCoverageResponse` |
+| `GetExamCoverage` | `GetExamCoverageRequest` | `GetExamCoverageResponse` |
+| `GenerateAssessment` | `GenerateAssessmentRequest` | `GenerateAssessmentResponse` |
+| `GenerateAssignment` | `GenerateAssignmentRequest` | `GenerateAssignmentResponse` |
+| `FinalizeStudentPapers` | `FinalizeStudentPapersRequest` | `FinalizeStudentPapersResponse` |
+| `GetStudentPapersStatus` | `GetStudentPapersStatusRequest` | `GetStudentPapersStatusResponse` |
+| `GetStudentPaperPdf` | `GetStudentPaperPdfRequest` | `GetStudentPaperPdfResponse` |
+
+**Key request/response shapes:**
+- `SchedulePaperRequest`: `eventId` (String), `subject` (int), `grade` (int), `stream` (int), `date` (int — days since epoch), `startTime` (int — minutes since midnight), `endTime` (int), `durationMinutes` (int), `invigilator` (String — user ID), `revealAt` (Int64 — ms timestamp). Returns `SchedulePaperResponse.scheduleId` (String).
+- `SetTaughtTopicsRequest`: `school` (String), `subject` (int), `grade` (int), `stream` (int), `topics` (repeated `TaughtTopicProto`). `TaughtTopicProto`: `topicId` (int), `status` (int: 0=not_started, 1=in_progress, 2=completed), `taughtDate` (int — days since epoch).
+- `GetTaughtTopicsRequest`: `school`, `subject`, `grade`, `stream` (all int/String). Returns `GetTaughtTopicsResponse.topics` (repeated `TaughtTopicProto`). **Note:** `TaughtTopicProto` does NOT include topic name — name must come from local DB.
+- `ConfirmExamCoverageRequest`: `scheduleId` (String), `topicIds` (repeated int). Returns `topicsConfirmed` (int).
+- `GenerateAssessmentRequest`: `paperId` (String) only. Returns `accepted` (bool), `message` (String).
+- `GenerateAssignmentRequest`: `paperId` (String) only. Returns `accepted` (bool), `message` (String).
+- `FinalizeStudentPapersRequest`: `paperId` (String). Returns `FinalizeStudentPapersResponse.jobId` (String).
+- `GetStudentPapersStatusRequest`: `paperId` (String). Returns `jobId`, `complete` (bool), `total` (int), `generated` (int), `statuses` (repeated `StudentPdfStatus`). `StudentPdfStatus`: `student` (int — student DB id), `generated` (bool), `error` (String).
+- `GetStudentPaperPdfRequest`: `paperId` (String), `student` (int — student DB id). Returns `pdfUrl` (String), `expiry` (Int64).
+
+**Important deviations from original task spec (M4):**
+- The spec's `PaperClient` does not exist. Use `EventServiceClient` for event creation and `PaperManagementClient` for everything else.
+- `generateAssessment` / `generateAssignment` only accept `paperId` (paper must already exist via `PaperServiceClient.createPaper`).
+- `setTaughtTopics` is plural (takes a full list, not a single topic).
+- `student` in `GetStudentPaperPdfRequest` is an `int`, not a String.
+- `StudentPdfStatus.student` is an `int` — student name/admNo must be joined from local DB.
+
+### `services/question_bank.pb.dart` — Updated Question fields (regenerated)
+
+The `Question` proto message now includes additional fields (all optional for backward compat):
+- `body` (String, tag 3) — replaces `text`; use `hasBody()` guard
+- `bodyFormat` (int, tag 4) — enum: 0=plain, 1=tiptap; use `hasBodyFormat()` guard
+- `stimulus` (String, tag 5) — JSON-encoded stimulus object; use `hasStimulus()` guard
+- `type` (int, tag 6) — enum: 0=definition, 1=explanation, 2=calculation, 3=structured, 4=experiment, 5=data_response, 6=diagram; use `hasType()` guard (**NOT** `hasType2()`)
+- `difficulty` (int, tag 7) — 1–5; use `hasDifficulty()` guard
+- `cognitiveLevel` (int, tag 8) — 0=recall, 1=comprehension, 2=application, 3=analysis; use `hasCognitiveLevel()` guard
+- `maxMarks` (int, tag 10) — use `hasMaxMarks()` guard
+- `answerSpaceType` (int, tag 11) — 0=lines, 1=plain_box, 2=diagram_box, 3=construction_box, 4=grid_box
+- `answerLines` (int, tag 12)
+- `parts` (repeated `QuestionPart`, tag 16)
+
+The `QuestionPart` proto message fields: `position` (int), `label` (String), `body` (String), `bodyFormat` (int), `marks` (int), `maxMarks` (int), `answerSpaceType` (int), `answerLines` (int), `answerBoxHeightMm` (int), `exampleAnswer` (String), `rubric` (repeated `RubricCriterion`), `stimulus` (String).
+
+**Enum int→string conversion helpers needed in `Question.fromProto`:**
+```dart
+static String _bodyFormatStr(int v) => v == 1 ? 'tiptap' : 'plain';
+static const _typeStrs = ['definition','explanation','calculation','structured','experiment','data_response','diagram'];
+static const _cognitiveStrs = ['recall','comprehension','application','analysis'];
+static const _answerSpaceStrs = ['lines','plain_box','diagram_box','construction_box','grid_box'];
+```
+
 ## Last Updated
-Task 20 — Final CONTEXT.md sweep for question bank feature.
+Task M0 — Regenerated proto stubs; added paper.pb.dart, paper_management.pb.dart, event.pb.dart entries; updated question_bank.pb.dart with new Question fields.
