@@ -32,12 +32,26 @@ class QuestionBankClient extends $grpc.Client {
 
   QuestionBankClient(super.channel, {super.options, super.interceptors});
 
-  /// === System User Operations (question management) ===
+  /// ── Global catalog (admin/teacher) ──────────────────────────
   $grpc.ResponseFuture<$0.CreateQuestionResponse> createQuestion(
     $0.CreateQuestionRequest request, {
     $grpc.CallOptions? options,
   }) {
     return $createUnaryCall(_$createQuestion, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.GetQuestionResponse> getQuestion(
+    $0.GetQuestionRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$getQuestion, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.ListQuestionsResponse> listQuestions(
+    $0.ListQuestionsRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$listQuestions, request, options: options);
   }
 
   $grpc.ResponseFuture<$0.UpdateQuestionResponse> updateQuestion(
@@ -54,11 +68,11 @@ class QuestionBankClient extends $grpc.Client {
     return $createUnaryCall(_$deleteQuestion, request, options: options);
   }
 
-  $grpc.ResponseFuture<$0.BulkImportResponse> bulkImportQuestions(
+  $grpc.ResponseFuture<$0.BulkImportResponse> bulkImport(
     $0.BulkImportRequest request, {
     $grpc.CallOptions? options,
   }) {
-    return $createUnaryCall(_$bulkImportQuestions, request, options: options);
+    return $createUnaryCall(_$bulkImport, request, options: options);
   }
 
   $grpc.ResponseFuture<$0.ImageUploadUrlsResponse> requestImageUploadUrls(
@@ -69,40 +83,12 @@ class QuestionBankClient extends $grpc.Client {
         options: options);
   }
 
-  /// === Teacher Operations (exam paper assembly) ===
+  /// ── Paper question management ────────────────────────────────
   $grpc.ResponseFuture<$0.GeneratePaperResponse> generatePaper(
     $0.GeneratePaperRequest request, {
     $grpc.CallOptions? options,
   }) {
     return $createUnaryCall(_$generatePaper, request, options: options);
-  }
-
-  $grpc.ResponseFuture<$0.RegenerateQuestionResponse> regenerateQuestion(
-    $0.RegenerateQuestionRequest request, {
-    $grpc.CallOptions? options,
-  }) {
-    return $createUnaryCall(_$regenerateQuestion, request, options: options);
-  }
-
-  $grpc.ResponseFuture<$0.EditPaperQuestionResponse> editPaperQuestion(
-    $0.EditPaperQuestionRequest request, {
-    $grpc.CallOptions? options,
-  }) {
-    return $createUnaryCall(_$editPaperQuestion, request, options: options);
-  }
-
-  $grpc.ResponseFuture<$0.FinalizePaperResponse> finalizePaper(
-    $0.FinalizePaperRequest request, {
-    $grpc.CallOptions? options,
-  }) {
-    return $createUnaryCall(_$finalizePaper, request, options: options);
-  }
-
-  $grpc.ResponseFuture<$0.GetPaperPdfResponse> getPaperPdf(
-    $0.GetPaperPdfRequest request, {
-    $grpc.CallOptions? options,
-  }) {
-    return $createUnaryCall(_$getPaperPdf, request, options: options);
   }
 
   $grpc.ResponseFuture<$0.GetPaperQuestionsResponse> getPaperQuestions(
@@ -112,17 +98,13 @@ class QuestionBankClient extends $grpc.Client {
     return $createUnaryCall(_$getPaperQuestions, request, options: options);
   }
 
-  $grpc.ResponseFuture<$0.SetPaperQuestionSectionResponse>
-      setPaperQuestionSection(
-    $0.SetPaperQuestionSectionRequest request, {
+  $grpc.ResponseFuture<$0.RegenerateQuestionResponse> regenerateQuestion(
+    $0.RegenerateQuestionRequest request, {
     $grpc.CallOptions? options,
   }) {
-    return $createUnaryCall(_$setPaperQuestionSection, request,
-        options: options);
+    return $createUnaryCall(_$regenerateQuestion, request, options: options);
   }
 
-  /// Delete all generated questions and the generated PDF for a paper.
-  /// The paper must be in Pending status. Returns FAILED_PRECONDITION otherwise.
   $grpc.ResponseFuture<$0.ClearPaperQuestionsResponse> clearPaperQuestions(
     $0.ClearPaperQuestionsRequest request, {
     $grpc.CallOptions? options,
@@ -130,27 +112,19 @@ class QuestionBankClient extends $grpc.Client {
     return $createUnaryCall(_$clearPaperQuestions, request, options: options);
   }
 
-  /// Copy a generated paper to additional streams in the same grade.
-  $grpc.ResponseFuture<$0.CopyPaperToStreamsResponse> copyPaperToStreams(
-    $0.CopyPaperToStreamsRequest request, {
+  $grpc.ResponseFuture<$0.FinalizePaperResponse> finalizePaper(
+    $0.FinalizePaperRequest request, {
     $grpc.CallOptions? options,
   }) {
-    return $createUnaryCall(_$copyPaperToStreams, request, options: options);
+    return $createUnaryCall(_$finalizePaper, request, options: options);
   }
 
-  /// === Read Operations (paper state restoration) ===
-  $grpc.ResponseFuture<$0.ListQuestionsResponse> listQuestions(
-    $0.ListQuestionsRequest request, {
+  /// ── Marking ──────────────────────────────────────────────────
+  $grpc.ResponseFuture<$0.MarkingStatusResponse> getMarkingStatus(
+    $0.MarkingStatusRequest request, {
     $grpc.CallOptions? options,
   }) {
-    return $createUnaryCall(_$listQuestions, request, options: options);
-  }
-
-  $grpc.ResponseFuture<$0.GetQuestionResponse> getQuestion(
-    $0.GetQuestionRequest request, {
-    $grpc.CallOptions? options,
-  }) {
-    return $createUnaryCall(_$getQuestion, request, options: options);
+    return $createUnaryCall(_$getMarkingStatus, request, options: options);
   }
 
   $grpc.ResponseFuture<$0.GetQuestionGradesResponse> getQuestionGrades(
@@ -160,13 +134,6 @@ class QuestionBankClient extends $grpc.Client {
     return $createUnaryCall(_$getQuestionGrades, request, options: options);
   }
 
-  $grpc.ResponseFuture<$0.MarkingStatusResponse> getMarkingStatus(
-    $0.MarkingStatusRequest request, {
-    $grpc.CallOptions? options,
-  }) {
-    return $createUnaryCall(_$getMarkingStatus, request, options: options);
-  }
-
   // method descriptors
 
   static final _$createQuestion =
@@ -174,6 +141,16 @@ class QuestionBankClient extends $grpc.Client {
           '/question_bank.QuestionBank/CreateQuestion',
           ($0.CreateQuestionRequest value) => value.writeToBuffer(),
           $0.CreateQuestionResponse.fromBuffer);
+  static final _$getQuestion =
+      $grpc.ClientMethod<$0.GetQuestionRequest, $0.GetQuestionResponse>(
+          '/question_bank.QuestionBank/GetQuestion',
+          ($0.GetQuestionRequest value) => value.writeToBuffer(),
+          $0.GetQuestionResponse.fromBuffer);
+  static final _$listQuestions =
+      $grpc.ClientMethod<$0.ListQuestionsRequest, $0.ListQuestionsResponse>(
+          '/question_bank.QuestionBank/ListQuestions',
+          ($0.ListQuestionsRequest value) => value.writeToBuffer(),
+          $0.ListQuestionsResponse.fromBuffer);
   static final _$updateQuestion =
       $grpc.ClientMethod<$0.UpdateQuestionRequest, $0.UpdateQuestionResponse>(
           '/question_bank.QuestionBank/UpdateQuestion',
@@ -184,9 +161,9 @@ class QuestionBankClient extends $grpc.Client {
           '/question_bank.QuestionBank/DeleteQuestion',
           ($0.DeleteQuestionRequest value) => value.writeToBuffer(),
           $0.DeleteQuestionResponse.fromBuffer);
-  static final _$bulkImportQuestions =
+  static final _$bulkImport =
       $grpc.ClientMethod<$0.BulkImportRequest, $0.BulkImportResponse>(
-          '/question_bank.QuestionBank/BulkImportQuestions',
+          '/question_bank.QuestionBank/BulkImport',
           ($0.BulkImportRequest value) => value.writeToBuffer(),
           $0.BulkImportResponse.fromBuffer);
   static final _$requestImageUploadUrls =
@@ -199,67 +176,36 @@ class QuestionBankClient extends $grpc.Client {
           '/question_bank.QuestionBank/GeneratePaper',
           ($0.GeneratePaperRequest value) => value.writeToBuffer(),
           $0.GeneratePaperResponse.fromBuffer);
-  static final _$regenerateQuestion = $grpc.ClientMethod<
-          $0.RegenerateQuestionRequest, $0.RegenerateQuestionResponse>(
-      '/question_bank.QuestionBank/RegenerateQuestion',
-      ($0.RegenerateQuestionRequest value) => value.writeToBuffer(),
-      $0.RegenerateQuestionResponse.fromBuffer);
-  static final _$editPaperQuestion = $grpc.ClientMethod<
-          $0.EditPaperQuestionRequest, $0.EditPaperQuestionResponse>(
-      '/question_bank.QuestionBank/EditPaperQuestion',
-      ($0.EditPaperQuestionRequest value) => value.writeToBuffer(),
-      $0.EditPaperQuestionResponse.fromBuffer);
-  static final _$finalizePaper =
-      $grpc.ClientMethod<$0.FinalizePaperRequest, $0.FinalizePaperResponse>(
-          '/question_bank.QuestionBank/FinalizePaper',
-          ($0.FinalizePaperRequest value) => value.writeToBuffer(),
-          $0.FinalizePaperResponse.fromBuffer);
-  static final _$getPaperPdf =
-      $grpc.ClientMethod<$0.GetPaperPdfRequest, $0.GetPaperPdfResponse>(
-          '/question_bank.QuestionBank/GetPaperPdf',
-          ($0.GetPaperPdfRequest value) => value.writeToBuffer(),
-          $0.GetPaperPdfResponse.fromBuffer);
   static final _$getPaperQuestions = $grpc.ClientMethod<
           $0.GetPaperQuestionsRequest, $0.GetPaperQuestionsResponse>(
       '/question_bank.QuestionBank/GetPaperQuestions',
       ($0.GetPaperQuestionsRequest value) => value.writeToBuffer(),
       $0.GetPaperQuestionsResponse.fromBuffer);
-  static final _$setPaperQuestionSection = $grpc.ClientMethod<
-          $0.SetPaperQuestionSectionRequest,
-          $0.SetPaperQuestionSectionResponse>(
-      '/question_bank.QuestionBank/SetPaperQuestionSection',
-      ($0.SetPaperQuestionSectionRequest value) => value.writeToBuffer(),
-      $0.SetPaperQuestionSectionResponse.fromBuffer);
+  static final _$regenerateQuestion = $grpc.ClientMethod<
+          $0.RegenerateQuestionRequest, $0.RegenerateQuestionResponse>(
+      '/question_bank.QuestionBank/RegenerateQuestion',
+      ($0.RegenerateQuestionRequest value) => value.writeToBuffer(),
+      $0.RegenerateQuestionResponse.fromBuffer);
   static final _$clearPaperQuestions = $grpc.ClientMethod<
           $0.ClearPaperQuestionsRequest, $0.ClearPaperQuestionsResponse>(
       '/question_bank.QuestionBank/ClearPaperQuestions',
       ($0.ClearPaperQuestionsRequest value) => value.writeToBuffer(),
       $0.ClearPaperQuestionsResponse.fromBuffer);
-  static final _$copyPaperToStreams = $grpc.ClientMethod<
-          $0.CopyPaperToStreamsRequest, $0.CopyPaperToStreamsResponse>(
-      '/question_bank.QuestionBank/CopyPaperToStreams',
-      ($0.CopyPaperToStreamsRequest value) => value.writeToBuffer(),
-      $0.CopyPaperToStreamsResponse.fromBuffer);
-  static final _$listQuestions =
-      $grpc.ClientMethod<$0.ListQuestionsRequest, $0.ListQuestionsResponse>(
-          '/question_bank.QuestionBank/ListQuestions',
-          ($0.ListQuestionsRequest value) => value.writeToBuffer(),
-          $0.ListQuestionsResponse.fromBuffer);
-  static final _$getQuestion =
-      $grpc.ClientMethod<$0.GetQuestionRequest, $0.GetQuestionResponse>(
-          '/question_bank.QuestionBank/GetQuestion',
-          ($0.GetQuestionRequest value) => value.writeToBuffer(),
-          $0.GetQuestionResponse.fromBuffer);
-  static final _$getQuestionGrades = $grpc.ClientMethod<
-          $0.GetQuestionGradesRequest, $0.GetQuestionGradesResponse>(
-      '/question_bank.QuestionBank/GetQuestionGrades',
-      ($0.GetQuestionGradesRequest value) => value.writeToBuffer(),
-      $0.GetQuestionGradesResponse.fromBuffer);
+  static final _$finalizePaper =
+      $grpc.ClientMethod<$0.FinalizePaperRequest, $0.FinalizePaperResponse>(
+          '/question_bank.QuestionBank/FinalizePaper',
+          ($0.FinalizePaperRequest value) => value.writeToBuffer(),
+          $0.FinalizePaperResponse.fromBuffer);
   static final _$getMarkingStatus =
       $grpc.ClientMethod<$0.MarkingStatusRequest, $0.MarkingStatusResponse>(
           '/question_bank.QuestionBank/GetMarkingStatus',
           ($0.MarkingStatusRequest value) => value.writeToBuffer(),
           $0.MarkingStatusResponse.fromBuffer);
+  static final _$getQuestionGrades = $grpc.ClientMethod<
+          $0.GetQuestionGradesRequest, $0.GetQuestionGradesResponse>(
+      '/question_bank.QuestionBank/GetQuestionGrades',
+      ($0.GetQuestionGradesRequest value) => value.writeToBuffer(),
+      $0.GetQuestionGradesResponse.fromBuffer);
 }
 
 @$pb.GrpcServiceName('question_bank.QuestionBank')
@@ -276,6 +222,24 @@ abstract class QuestionBankServiceBase extends $grpc.Service {
         ($core.List<$core.int> value) =>
             $0.CreateQuestionRequest.fromBuffer(value),
         ($0.CreateQuestionResponse value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.GetQuestionRequest, $0.GetQuestionResponse>(
+            'GetQuestion',
+            getQuestion_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.GetQuestionRequest.fromBuffer(value),
+            ($0.GetQuestionResponse value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.ListQuestionsRequest, $0.ListQuestionsResponse>(
+            'ListQuestions',
+            listQuestions_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.ListQuestionsRequest.fromBuffer(value),
+            ($0.ListQuestionsResponse value) => value.writeToBuffer()));
     $addMethod($grpc.ServiceMethod<$0.UpdateQuestionRequest,
             $0.UpdateQuestionResponse>(
         'UpdateQuestion',
@@ -295,8 +259,8 @@ abstract class QuestionBankServiceBase extends $grpc.Service {
             $0.DeleteQuestionRequest.fromBuffer(value),
         ($0.DeleteQuestionResponse value) => value.writeToBuffer()));
     $addMethod($grpc.ServiceMethod<$0.BulkImportRequest, $0.BulkImportResponse>(
-        'BulkImportQuestions',
-        bulkImportQuestions_Pre,
+        'BulkImport',
+        bulkImport_Pre,
         false,
         false,
         ($core.List<$core.int> value) => $0.BulkImportRequest.fromBuffer(value),
@@ -319,6 +283,15 @@ abstract class QuestionBankServiceBase extends $grpc.Service {
             ($core.List<$core.int> value) =>
                 $0.GeneratePaperRequest.fromBuffer(value),
             ($0.GeneratePaperResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.GetPaperQuestionsRequest,
+            $0.GetPaperQuestionsResponse>(
+        'GetPaperQuestions',
+        getPaperQuestions_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.GetPaperQuestionsRequest.fromBuffer(value),
+        ($0.GetPaperQuestionsResponse value) => value.writeToBuffer()));
     $addMethod($grpc.ServiceMethod<$0.RegenerateQuestionRequest,
             $0.RegenerateQuestionResponse>(
         'RegenerateQuestion',
@@ -328,15 +301,15 @@ abstract class QuestionBankServiceBase extends $grpc.Service {
         ($core.List<$core.int> value) =>
             $0.RegenerateQuestionRequest.fromBuffer(value),
         ($0.RegenerateQuestionResponse value) => value.writeToBuffer()));
-    $addMethod($grpc.ServiceMethod<$0.EditPaperQuestionRequest,
-            $0.EditPaperQuestionResponse>(
-        'EditPaperQuestion',
-        editPaperQuestion_Pre,
+    $addMethod($grpc.ServiceMethod<$0.ClearPaperQuestionsRequest,
+            $0.ClearPaperQuestionsResponse>(
+        'ClearPaperQuestions',
+        clearPaperQuestions_Pre,
         false,
         false,
         ($core.List<$core.int> value) =>
-            $0.EditPaperQuestionRequest.fromBuffer(value),
-        ($0.EditPaperQuestionResponse value) => value.writeToBuffer()));
+            $0.ClearPaperQuestionsRequest.fromBuffer(value),
+        ($0.ClearPaperQuestionsResponse value) => value.writeToBuffer()));
     $addMethod(
         $grpc.ServiceMethod<$0.FinalizePaperRequest, $0.FinalizePaperResponse>(
             'FinalizePaper',
@@ -347,68 +320,14 @@ abstract class QuestionBankServiceBase extends $grpc.Service {
                 $0.FinalizePaperRequest.fromBuffer(value),
             ($0.FinalizePaperResponse value) => value.writeToBuffer()));
     $addMethod(
-        $grpc.ServiceMethod<$0.GetPaperPdfRequest, $0.GetPaperPdfResponse>(
-            'GetPaperPdf',
-            getPaperPdf_Pre,
+        $grpc.ServiceMethod<$0.MarkingStatusRequest, $0.MarkingStatusResponse>(
+            'GetMarkingStatus',
+            getMarkingStatus_Pre,
             false,
             false,
             ($core.List<$core.int> value) =>
-                $0.GetPaperPdfRequest.fromBuffer(value),
-            ($0.GetPaperPdfResponse value) => value.writeToBuffer()));
-    $addMethod($grpc.ServiceMethod<$0.GetPaperQuestionsRequest,
-            $0.GetPaperQuestionsResponse>(
-        'GetPaperQuestions',
-        getPaperQuestions_Pre,
-        false,
-        false,
-        ($core.List<$core.int> value) =>
-            $0.GetPaperQuestionsRequest.fromBuffer(value),
-        ($0.GetPaperQuestionsResponse value) => value.writeToBuffer()));
-    $addMethod($grpc.ServiceMethod<$0.SetPaperQuestionSectionRequest,
-            $0.SetPaperQuestionSectionResponse>(
-        'SetPaperQuestionSection',
-        setPaperQuestionSection_Pre,
-        false,
-        false,
-        ($core.List<$core.int> value) =>
-            $0.SetPaperQuestionSectionRequest.fromBuffer(value),
-        ($0.SetPaperQuestionSectionResponse value) => value.writeToBuffer()));
-    $addMethod($grpc.ServiceMethod<$0.ClearPaperQuestionsRequest,
-            $0.ClearPaperQuestionsResponse>(
-        'ClearPaperQuestions',
-        clearPaperQuestions_Pre,
-        false,
-        false,
-        ($core.List<$core.int> value) =>
-            $0.ClearPaperQuestionsRequest.fromBuffer(value),
-        ($0.ClearPaperQuestionsResponse value) => value.writeToBuffer()));
-    $addMethod($grpc.ServiceMethod<$0.CopyPaperToStreamsRequest,
-            $0.CopyPaperToStreamsResponse>(
-        'CopyPaperToStreams',
-        copyPaperToStreams_Pre,
-        false,
-        false,
-        ($core.List<$core.int> value) =>
-            $0.CopyPaperToStreamsRequest.fromBuffer(value),
-        ($0.CopyPaperToStreamsResponse value) => value.writeToBuffer()));
-    $addMethod(
-        $grpc.ServiceMethod<$0.ListQuestionsRequest, $0.ListQuestionsResponse>(
-            'ListQuestions',
-            listQuestions_Pre,
-            false,
-            false,
-            ($core.List<$core.int> value) =>
-                $0.ListQuestionsRequest.fromBuffer(value),
-            ($0.ListQuestionsResponse value) => value.writeToBuffer()));
-    $addMethod(
-        $grpc.ServiceMethod<$0.GetQuestionRequest, $0.GetQuestionResponse>(
-            'GetQuestion',
-            getQuestion_Pre,
-            false,
-            false,
-            ($core.List<$core.int> value) =>
-                $0.GetQuestionRequest.fromBuffer(value),
-            ($0.GetQuestionResponse value) => value.writeToBuffer()));
+                $0.MarkingStatusRequest.fromBuffer(value),
+            ($0.MarkingStatusResponse value) => value.writeToBuffer()));
     $addMethod($grpc.ServiceMethod<$0.GetQuestionGradesRequest,
             $0.GetQuestionGradesResponse>(
         'GetQuestionGrades',
@@ -418,15 +337,6 @@ abstract class QuestionBankServiceBase extends $grpc.Service {
         ($core.List<$core.int> value) =>
             $0.GetQuestionGradesRequest.fromBuffer(value),
         ($0.GetQuestionGradesResponse value) => value.writeToBuffer()));
-    $addMethod(
-        $grpc.ServiceMethod<$0.MarkingStatusRequest, $0.MarkingStatusResponse>(
-            'GetMarkingStatus',
-            getMarkingStatus_Pre,
-            false,
-            false,
-            ($core.List<$core.int> value) =>
-                $0.MarkingStatusRequest.fromBuffer(value),
-            ($0.MarkingStatusResponse value) => value.writeToBuffer()));
   }
 
   $async.Future<$0.CreateQuestionResponse> createQuestion_Pre(
@@ -437,6 +347,23 @@ abstract class QuestionBankServiceBase extends $grpc.Service {
 
   $async.Future<$0.CreateQuestionResponse> createQuestion(
       $grpc.ServiceCall call, $0.CreateQuestionRequest request);
+
+  $async.Future<$0.GetQuestionResponse> getQuestion_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.GetQuestionRequest> $request) async {
+    return getQuestion($call, await $request);
+  }
+
+  $async.Future<$0.GetQuestionResponse> getQuestion(
+      $grpc.ServiceCall call, $0.GetQuestionRequest request);
+
+  $async.Future<$0.ListQuestionsResponse> listQuestions_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.ListQuestionsRequest> $request) async {
+    return listQuestions($call, await $request);
+  }
+
+  $async.Future<$0.ListQuestionsResponse> listQuestions(
+      $grpc.ServiceCall call, $0.ListQuestionsRequest request);
 
   $async.Future<$0.UpdateQuestionResponse> updateQuestion_Pre(
       $grpc.ServiceCall $call,
@@ -456,13 +383,12 @@ abstract class QuestionBankServiceBase extends $grpc.Service {
   $async.Future<$0.DeleteQuestionResponse> deleteQuestion(
       $grpc.ServiceCall call, $0.DeleteQuestionRequest request);
 
-  $async.Future<$0.BulkImportResponse> bulkImportQuestions_Pre(
-      $grpc.ServiceCall $call,
+  $async.Future<$0.BulkImportResponse> bulkImport_Pre($grpc.ServiceCall $call,
       $async.Future<$0.BulkImportRequest> $request) async {
-    return bulkImportQuestions($call, await $request);
+    return bulkImport($call, await $request);
   }
 
-  $async.Future<$0.BulkImportResponse> bulkImportQuestions(
+  $async.Future<$0.BulkImportResponse> bulkImport(
       $grpc.ServiceCall call, $0.BulkImportRequest request);
 
   $async.Future<$0.ImageUploadUrlsResponse> requestImageUploadUrls_Pre(
@@ -483,41 +409,6 @@ abstract class QuestionBankServiceBase extends $grpc.Service {
   $async.Future<$0.GeneratePaperResponse> generatePaper(
       $grpc.ServiceCall call, $0.GeneratePaperRequest request);
 
-  $async.Future<$0.RegenerateQuestionResponse> regenerateQuestion_Pre(
-      $grpc.ServiceCall $call,
-      $async.Future<$0.RegenerateQuestionRequest> $request) async {
-    return regenerateQuestion($call, await $request);
-  }
-
-  $async.Future<$0.RegenerateQuestionResponse> regenerateQuestion(
-      $grpc.ServiceCall call, $0.RegenerateQuestionRequest request);
-
-  $async.Future<$0.EditPaperQuestionResponse> editPaperQuestion_Pre(
-      $grpc.ServiceCall $call,
-      $async.Future<$0.EditPaperQuestionRequest> $request) async {
-    return editPaperQuestion($call, await $request);
-  }
-
-  $async.Future<$0.EditPaperQuestionResponse> editPaperQuestion(
-      $grpc.ServiceCall call, $0.EditPaperQuestionRequest request);
-
-  $async.Future<$0.FinalizePaperResponse> finalizePaper_Pre(
-      $grpc.ServiceCall $call,
-      $async.Future<$0.FinalizePaperRequest> $request) async {
-    return finalizePaper($call, await $request);
-  }
-
-  $async.Future<$0.FinalizePaperResponse> finalizePaper(
-      $grpc.ServiceCall call, $0.FinalizePaperRequest request);
-
-  $async.Future<$0.GetPaperPdfResponse> getPaperPdf_Pre($grpc.ServiceCall $call,
-      $async.Future<$0.GetPaperPdfRequest> $request) async {
-    return getPaperPdf($call, await $request);
-  }
-
-  $async.Future<$0.GetPaperPdfResponse> getPaperPdf(
-      $grpc.ServiceCall call, $0.GetPaperPdfRequest request);
-
   $async.Future<$0.GetPaperQuestionsResponse> getPaperQuestions_Pre(
       $grpc.ServiceCall $call,
       $async.Future<$0.GetPaperQuestionsRequest> $request) async {
@@ -527,14 +418,14 @@ abstract class QuestionBankServiceBase extends $grpc.Service {
   $async.Future<$0.GetPaperQuestionsResponse> getPaperQuestions(
       $grpc.ServiceCall call, $0.GetPaperQuestionsRequest request);
 
-  $async.Future<$0.SetPaperQuestionSectionResponse> setPaperQuestionSection_Pre(
+  $async.Future<$0.RegenerateQuestionResponse> regenerateQuestion_Pre(
       $grpc.ServiceCall $call,
-      $async.Future<$0.SetPaperQuestionSectionRequest> $request) async {
-    return setPaperQuestionSection($call, await $request);
+      $async.Future<$0.RegenerateQuestionRequest> $request) async {
+    return regenerateQuestion($call, await $request);
   }
 
-  $async.Future<$0.SetPaperQuestionSectionResponse> setPaperQuestionSection(
-      $grpc.ServiceCall call, $0.SetPaperQuestionSectionRequest request);
+  $async.Future<$0.RegenerateQuestionResponse> regenerateQuestion(
+      $grpc.ServiceCall call, $0.RegenerateQuestionRequest request);
 
   $async.Future<$0.ClearPaperQuestionsResponse> clearPaperQuestions_Pre(
       $grpc.ServiceCall $call,
@@ -545,40 +436,14 @@ abstract class QuestionBankServiceBase extends $grpc.Service {
   $async.Future<$0.ClearPaperQuestionsResponse> clearPaperQuestions(
       $grpc.ServiceCall call, $0.ClearPaperQuestionsRequest request);
 
-  $async.Future<$0.CopyPaperToStreamsResponse> copyPaperToStreams_Pre(
+  $async.Future<$0.FinalizePaperResponse> finalizePaper_Pre(
       $grpc.ServiceCall $call,
-      $async.Future<$0.CopyPaperToStreamsRequest> $request) async {
-    return copyPaperToStreams($call, await $request);
+      $async.Future<$0.FinalizePaperRequest> $request) async {
+    return finalizePaper($call, await $request);
   }
 
-  $async.Future<$0.CopyPaperToStreamsResponse> copyPaperToStreams(
-      $grpc.ServiceCall call, $0.CopyPaperToStreamsRequest request);
-
-  $async.Future<$0.ListQuestionsResponse> listQuestions_Pre(
-      $grpc.ServiceCall $call,
-      $async.Future<$0.ListQuestionsRequest> $request) async {
-    return listQuestions($call, await $request);
-  }
-
-  $async.Future<$0.ListQuestionsResponse> listQuestions(
-      $grpc.ServiceCall call, $0.ListQuestionsRequest request);
-
-  $async.Future<$0.GetQuestionResponse> getQuestion_Pre($grpc.ServiceCall $call,
-      $async.Future<$0.GetQuestionRequest> $request) async {
-    return getQuestion($call, await $request);
-  }
-
-  $async.Future<$0.GetQuestionResponse> getQuestion(
-      $grpc.ServiceCall call, $0.GetQuestionRequest request);
-
-  $async.Future<$0.GetQuestionGradesResponse> getQuestionGrades_Pre(
-      $grpc.ServiceCall $call,
-      $async.Future<$0.GetQuestionGradesRequest> $request) async {
-    return getQuestionGrades($call, await $request);
-  }
-
-  $async.Future<$0.GetQuestionGradesResponse> getQuestionGrades(
-      $grpc.ServiceCall call, $0.GetQuestionGradesRequest request);
+  $async.Future<$0.FinalizePaperResponse> finalizePaper(
+      $grpc.ServiceCall call, $0.FinalizePaperRequest request);
 
   $async.Future<$0.MarkingStatusResponse> getMarkingStatus_Pre(
       $grpc.ServiceCall $call,
@@ -588,4 +453,13 @@ abstract class QuestionBankServiceBase extends $grpc.Service {
 
   $async.Future<$0.MarkingStatusResponse> getMarkingStatus(
       $grpc.ServiceCall call, $0.MarkingStatusRequest request);
+
+  $async.Future<$0.GetQuestionGradesResponse> getQuestionGrades_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.GetQuestionGradesRequest> $request) async {
+    return getQuestionGrades($call, await $request);
+  }
+
+  $async.Future<$0.GetQuestionGradesResponse> getQuestionGrades(
+      $grpc.ServiceCall call, $0.GetQuestionGradesRequest request);
 }

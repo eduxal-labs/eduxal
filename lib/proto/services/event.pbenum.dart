@@ -1,6 +1,6 @@
 // This is a generated file - do not edit.
 //
-// Generated from services/question_bank.proto.
+// Generated from services/event.proto.
 
 // @dart = 3.3
 

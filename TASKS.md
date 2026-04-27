@@ -1139,7 +1139,7 @@ await launchUrl(Uri.parse(pdfUrl), mode: LaunchMode.externalApplication);
 Do NOT add it to dev_dependencies. It is a runtime dependency.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] git commit: `chore: add url_launcher dependency for PDF print-all`
 
 ---

@@ -19,31 +19,24 @@ import 'dart:typed_data' as $typed_data;
 const UploadUrlsRequest$json = {
   '1': 'UploadUrlsRequest',
   '2': [
-    {'1': 'school', '3': 1, '4': 1, '5': 9, '10': 'school'},
-    {'1': 'exam', '3': 2, '4': 1, '5': 9, '10': 'exam'},
-    {'1': 'subject', '3': 3, '4': 1, '5': 5, '10': 'subject'},
-    {'1': 'paper', '3': 4, '4': 1, '5': 5, '9': 0, '10': 'paper', '17': true},
-    {'1': 'scheme_count', '3': 5, '4': 1, '5': 5, '10': 'schemeCount'},
+    {'1': 'paper_id', '3': 1, '4': 1, '5': 9, '10': 'paperId'},
+    {'1': 'scheme_count', '3': 2, '4': 1, '5': 5, '10': 'schemeCount'},
     {
       '1': 'students',
-      '3': 6,
+      '3': 3,
       '4': 3,
       '5': 11,
       '6': '.ai_marking.StudentSheetCount',
       '10': 'students'
     },
   ],
-  '8': [
-    {'1': '_paper'},
-  ],
 };
 
 /// Descriptor for `UploadUrlsRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List uploadUrlsRequestDescriptor = $convert.base64Decode(
-    'ChFVcGxvYWRVcmxzUmVxdWVzdBIWCgZzY2hvb2wYASABKAlSBnNjaG9vbBISCgRleGFtGAIgAS'
-    'gJUgRleGFtEhgKB3N1YmplY3QYAyABKAVSB3N1YmplY3QSGQoFcGFwZXIYBCABKAVIAFIFcGFw'
-    'ZXKIAQESIQoMc2NoZW1lX2NvdW50GAUgASgFUgtzY2hlbWVDb3VudBI5CghzdHVkZW50cxgGIA'
-    'MoCzIdLmFpX21hcmtpbmcuU3R1ZGVudFNoZWV0Q291bnRSCHN0dWRlbnRzQggKBl9wYXBlcg==');
+    'ChFVcGxvYWRVcmxzUmVxdWVzdBIZCghwYXBlcl9pZBgBIAEoCVIHcGFwZXJJZBIhCgxzY2hlbW'
+    'VfY291bnQYAiABKAVSC3NjaGVtZUNvdW50EjkKCHN0dWRlbnRzGAMgAygLMh0uYWlfbWFya2lu'
+    'Zy5TdHVkZW50U2hlZXRDb3VudFIIc3R1ZGVudHM=');
 
 @$core.Deprecated('Use studentSheetCountDescriptor instead')
 const StudentSheetCount$json = {
@@ -126,37 +119,26 @@ final $typed_data.Uint8List studentSignedUrlsDescriptor = $convert.base64Decode(
 const MarkPaperRequest$json = {
   '1': 'MarkPaperRequest',
   '2': [
-    {'1': 'school', '3': 1, '4': 1, '5': 9, '10': 'school'},
-    {'1': 'exam', '3': 2, '4': 1, '5': 9, '10': 'exam'},
-    {'1': 'subject', '3': 3, '4': 1, '5': 5, '10': 'subject'},
-    {'1': 'paper', '3': 4, '4': 1, '5': 5, '9': 0, '10': 'paper', '17': true},
-    {'1': 'grade', '3': 5, '4': 1, '5': 5, '10': 'grade'},
-    {'1': 'stream', '3': 6, '4': 1, '5': 5, '9': 1, '10': 'stream', '17': true},
-    {'1': 'total_marks', '3': 7, '4': 1, '5': 5, '10': 'totalMarks'},
-    {'1': 'scheme_keys', '3': 8, '4': 3, '5': 9, '10': 'schemeKeys'},
+    {'1': 'paper_id', '3': 1, '4': 1, '5': 9, '10': 'paperId'},
+    {'1': 'total_marks', '3': 2, '4': 1, '5': 5, '10': 'totalMarks'},
+    {'1': 'scheme_keys', '3': 3, '4': 3, '5': 9, '10': 'schemeKeys'},
     {
       '1': 'students',
-      '3': 9,
+      '3': 4,
       '4': 3,
       '5': 11,
       '6': '.ai_marking.StudentMarkTarget',
       '10': 'students'
     },
   ],
-  '8': [
-    {'1': '_paper'},
-    {'1': '_stream'},
-  ],
 };
 
 /// Descriptor for `MarkPaperRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List markPaperRequestDescriptor = $convert.base64Decode(
-    'ChBNYXJrUGFwZXJSZXF1ZXN0EhYKBnNjaG9vbBgBIAEoCVIGc2Nob29sEhIKBGV4YW0YAiABKA'
-    'lSBGV4YW0SGAoHc3ViamVjdBgDIAEoBVIHc3ViamVjdBIZCgVwYXBlchgEIAEoBUgAUgVwYXBl'
-    'cogBARIUCgVncmFkZRgFIAEoBVIFZ3JhZGUSGwoGc3RyZWFtGAYgASgFSAFSBnN0cmVhbYgBAR'
-    'IfCgt0b3RhbF9tYXJrcxgHIAEoBVIKdG90YWxNYXJrcxIfCgtzY2hlbWVfa2V5cxgIIAMoCVIK'
-    'c2NoZW1lS2V5cxI5CghzdHVkZW50cxgJIAMoCzIdLmFpX21hcmtpbmcuU3R1ZGVudE1hcmtUYX'
-    'JnZXRSCHN0dWRlbnRzQggKBl9wYXBlckIJCgdfc3RyZWFt');
+    'ChBNYXJrUGFwZXJSZXF1ZXN0EhkKCHBhcGVyX2lkGAEgASgJUgdwYXBlcklkEh8KC3RvdGFsX2'
+    '1hcmtzGAIgASgFUgp0b3RhbE1hcmtzEh8KC3NjaGVtZV9rZXlzGAMgAygJUgpzY2hlbWVLZXlz'
+    'EjkKCHN0dWRlbnRzGAQgAygLMh0uYWlfbWFya2luZy5TdHVkZW50TWFya1RhcmdldFIIc3R1ZG'
+    'VudHM=');
 
 @$core.Deprecated('Use studentMarkTargetDescriptor instead')
 const StudentMarkTarget$json = {
