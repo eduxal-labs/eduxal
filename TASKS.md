@@ -1140,7 +1140,7 @@ Do NOT add it to dev_dependencies. It is a runtime dependency.
 
 **Update after completion:**
 - [x] Mark this task `[x]`
-- [ ] git commit: `chore: add url_launcher dependency for PDF print-all`
+- [x] git commit: `chore: add url_launcher dependency for PDF print-all`
 
 ---
 
@@ -1990,7 +1990,7 @@ Imports needed: `event.dart`, `paper_service.dart` (via global `paperService`), 
 **Update after completion:**
 - [x] Update `lib/ui/screens/school_dashboard/exams/CONTEXT.md` — add `event_detail_screen.dart` entry
 - [x] Mark this task `[x]`
-- [ ] git commit: `feat: event detail screen with per-paper phase polling`
+- [x] git commit: `feat: event detail screen with per-paper phase polling`
 
 ---
 
@@ -2126,7 +2126,7 @@ Imports: `dart:async`, `package:flutter_svg/flutter_svg.dart`, `tiptap_renderer.
 **Update after completion:**
 - [x] Update `lib/ui/screens/school_dashboard/exams/CONTEXT.md` — add `paper_reveal_page.dart` entry
 - [x] Mark this task `[x]`
-- [ ] git commit: `feat: teacher paper reveal screen with 30-min time gate`
+- [x] git commit: `feat: teacher paper reveal screen with 30-min time gate`
 
 
 
