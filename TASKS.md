@@ -745,8 +745,8 @@ Summary text: "You are about to activate [N] exam papers across [K] subjects and
 6. On any error: hide overlay, show error SnackBar, stay on step 5 with retry available.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] git commit: `feat: exam wizard steps 4+5 — review and confirm`
+- [x] Mark this task `[x]`
+- [x] git commit: `feat: exam wizard steps 4+5 — review and confirm`
 
 ---
 
