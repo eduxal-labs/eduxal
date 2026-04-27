@@ -2124,8 +2124,8 @@ Navigator.push(context, MaterialPageRoute(
 Imports: `dart:async`, `package:flutter_svg/flutter_svg.dart`, `tiptap_renderer.dart` (for renderBody), `stimulus_block.dart`, `answer_space.dart`, `models/paper_generation.dart` (for `PaperQuestion`), `services/question_bank.dart` (for `getPaperQuestions`), `client.dart` (for `accessToken`).
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/exams/CONTEXT.md` — add `paper_reveal_page.dart` entry
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/exams/CONTEXT.md` — add `paper_reveal_page.dart` entry
+- [x] Mark this task `[x]`
 - [ ] git commit: `feat: teacher paper reveal screen with 30-min time gate`
 
 
