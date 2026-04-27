@@ -69,7 +69,9 @@ class _PaperScheduleRow {
 /// Full-page wizard for creating exam events. Five steps:
 ///   1. Event details (name, type, term, year, date range)
 ///   2. Schedule papers (papers per grade/stream with timetable preview)
-///   3–5. Coming soon (Tasks D2, D3)
+///   3. Syllabus coverage (topic selection per grade)
+///   4. Review (timetable preview + paper summaries)
+///   5. Confirm & activate (calls CreateEvent + SchedulePaper + ConfirmExamCoverage RPCs)
 class ExamCreationPage extends StatefulWidget {
   const ExamCreationPage({
     super.key,

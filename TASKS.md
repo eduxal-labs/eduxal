@@ -2167,3 +2167,805 @@ D1 → D2 → D3
 - Task F2 now also depends on Task M4 (calls `PaperService.getStudentPaperPdf`) and Task M2 (PaperQuestion new fields)
 - Task C1 now also depends on Task M2 (reads `question.body`, `question.bodyFormat`, `question.parts`, `question.stimulus`)
 - Task G1 now also depends on Task M2 (backward-compat preview uses new Question fields)
+
+---
+
+## Track FIX — Proto-Service Mismatch Fixes (build-blocking: 29 compiler errors)
+
+> **Root cause:** Task B1 (paper ID refactor) and Task M0 (proto regeneration) updated the generated
+> proto stubs but did NOT update the three service/model files that call those protos. The result is
+> 29 hard compiler errors across 3 files, plus 4 cascading call-site breakages in UI screens that will
+> surface once the services are fixed. All FIX tasks must be completed before the app can compile.
+>
+> **Execution order:** FIX-01, FIX-02, FIX-03 can run in parallel (disjoint write sets).
+> FIX-04a depends on FIX-02. FIX-04b depends on FIX-03. Run FIX-04a and FIX-04b in parallel after
+> their respective prerequisites.
+
+---
+
+### Task FIX-01: Fix MarkingPhase — remove deleted proto enum dependency
+**Files to create/modify:** `lib/models/marking_status.dart`
+**Context files to read (if needed):** none — all required info is inlined below
+**Depends on:** nothing
+**Parallel group:** FIX-wave-1
+
+**Background:**
+`lib/proto/services/question_bank.pbenum.dart` previously contained a `MarkingPhase` proto enum.
+After proto regeneration (Task M0) that enum was removed from the proto schema — the pbenum file is
+now an empty stub (just the file header comment). The `MarkingStatusResponse.phase` field is now a
+plain `int` in `question_bank.pb.dart`.
+
+Current failing code in `marking_status.dart` (lines 51–58):
+```dart
+import '../proto/services/question_bank.pbenum.dart' as pbenum;
+...
+MarkingPhase _phaseFromProto(pbenum.MarkingPhase phase) => switch (phase) {
+  pbenum.MarkingPhase.QUEUED      => MarkingPhase.queued,
+  pbenum.MarkingPhase.DOWNLOADING => MarkingPhase.downloading,
+  pbenum.MarkingPhase.CACHING     => MarkingPhase.downloading,
+  pbenum.MarkingPhase.MARKING     => MarkingPhase.marking,
+  pbenum.MarkingPhase.AGGREGATING => MarkingPhase.computing,
+  pbenum.MarkingPhase.COMPLETE    => MarkingPhase.complete,
+  pbenum.MarkingPhase.FAILED      => MarkingPhase.failed,
+  _                               => MarkingPhase.failed,
+};
+```
+
+**Fix:** Replace the pbenum-based function with an integer-mapped version. The proto3 enum integer
+values (sequential from 0) are: 0=QUEUED, 1=DOWNLOADING, 2=CACHING, 3=MARKING, 4=AGGREGATING,
+5=COMPLETE, 6=FAILED.
+
+**Complete replacement for `lib/models/marking_status.dart`:**
+
+```dart
+import '../proto/services/question_bank.pb.dart' as pb;
+
+/// Status of an AI marking job.
+enum MarkingPhase { queued, downloading, marking, computing, complete, failed }
+
+class MarkingStatus {
+  final MarkingPhase phase;
+  final int progressCurrent;
+  final int progressTotal;
+  final String? errorMessage;
+  const MarkingStatus({
+    required this.phase,
+    required this.progressCurrent,
+    required this.progressTotal,
+    this.errorMessage,
+  });
+
+  double get progressFraction =>
+      progressTotal > 0 ? progressCurrent / progressTotal : 0.0;
+
+  String get displayLabel => switch (phase) {
+    MarkingPhase.queued      => 'Queued',
+    MarkingPhase.downloading => 'Downloading images...',
+    MarkingPhase.marking     =>
+      'Marking ($progressCurrent/$progressTotal students)...',
+    MarkingPhase.computing   => 'Computing results...',
+    MarkingPhase.complete    => 'Complete',
+    MarkingPhase.failed      => 'Failed: ${errorMessage ?? "Unknown error"}',
+  };
+
+  factory MarkingStatus.fromProto(pb.MarkingStatusResponse proto) {
+    int current = 0;
+    int total = 0;
+    if (proto.hasProgress()) {
+      final parts = proto.progress.split('/');
+      if (parts.length == 2) {
+        current = int.tryParse(parts[0]) ?? 0;
+        total   = int.tryParse(parts[1]) ?? 0;
+      }
+    }
+    return MarkingStatus(
+      phase:           _phaseFromInt(proto.phase),
+      progressCurrent: current,
+      progressTotal:   total,
+      errorMessage:    proto.hasError() ? proto.error : null,
+    );
+  }
+}
+
+/// Maps the raw proto integer phase value to [MarkingPhase].
+/// Proto3 enum values: 0=QUEUED 1=DOWNLOADING 2=CACHING 3=MARKING
+///                     4=AGGREGATING 5=COMPLETE 6=FAILED
+MarkingPhase _phaseFromInt(int phase) => switch (phase) {
+  0 => MarkingPhase.queued,
+  1 => MarkingPhase.downloading,
+  2 => MarkingPhase.downloading, // CACHING → downloading (same UI state)
+  3 => MarkingPhase.marking,
+  4 => MarkingPhase.computing,   // AGGREGATING → computing
+  5 => MarkingPhase.complete,
+  6 => MarkingPhase.failed,
+  _ => MarkingPhase.failed,
+};
+```
+
+**Update after completion:**
+- [ ] Update `lib/models/CONTEXT.md` — note `marking_status.dart` no longer imports pbenum; `_phaseFromProto` renamed `_phaseFromInt` and accepts `int`
+- [ ] Mark this task `[x]`
+- [ ] Orchestrator: git commit after this task
+
+---
+
+### Task FIX-02: Fix AiMarkingService — update to paper_id-based proto API
+**Files to create/modify:** `lib/services/ai_marking.dart`
+**Context files to read (if needed):** none — all required info is inlined below
+**Depends on:** nothing
+**Parallel group:** FIX-wave-1
+
+**Background:**
+After the paper-ID refactor (Task B1), the proto messages `UploadUrlsRequest` and `MarkPaperRequest`
+in `lib/proto/services/ai_marking.pb.dart` now use a single `paperId: String` field instead of the
+previous 6-field composite (`school`, `exam`, `subject`, `paper`, `grade`, `stream`).
+
+`lib/services/ai_marking.dart` still sets the old fields → 10 compiler errors at lines 58–62
+and 161–167.
+
+**Current broken `requestUploadUrls` proto block (lines 56–66 approx):**
+```dart
+final req = UploadUrlsRequest()
+  ..school = school
+  ..exam = exam
+  ..subject = subject
+  ..schemeCount = schemeCount;
+if (paper != null) req.paper = paper;
+```
+
+**Current broken `markPaper` proto block (lines 159–168 approx):**
+```dart
+final req = MarkPaperRequest()
+  ..school = school
+  ..exam = exam
+  ..subject = subject
+  ..grade = grade
+  ..paper = paper
+  ..stream = stream ?? 0
+  ..totalMarks = totalMarks;
+```
+
+**Fix — update both method signatures and their proto-building blocks:**
+
+Replace the `requestUploadUrls` method signature:
+```dart
+// OLD — remove these params:
+//   required String school,
+//   required String exam,
+//   required int subject,
+//   int? paper,
+// NEW — replace with:
+//   required String paperId,
+```
+
+New proto-building block for `requestUploadUrls`:
+```dart
+final req = UploadUrlsRequest()
+  ..paperId = paperId
+  ..schemeCount = schemeCount;
+```
+(Remove the `if (paper != null) req.paper = paper;` line.)
+
+Also update the `print` log line at the top of the method body:
+```dart
+// OLD:
+print(
+  '[AI] requestUploadUrls → school=$school exam=$exam subject=$subject '
+  'schemeCount=$schemeCount students=${studentSheetCounts.length}',
+);
+// NEW:
+print(
+  '[AI] requestUploadUrls → paperId=$paperId '
+  'schemeCount=$schemeCount students=${studentSheetCounts.length}',
+);
+```
+
+Replace the `markPaper` method signature (remove `school`, `exam`, `subject`, `grade`, `paper`,
+`stream` params; add `required String paperId`):
+```dart
+Future<Result<MarkPaperResponse, GrpcError>> markPaper({
+  required String paperId,
+  required int totalMarks,
+  required List<String> schemeKeys,
+  required Map<int, List<String>> studentKeys,
+  required String accessToken,
+})
+```
+
+New proto-building block for `markPaper`:
+```dart
+final req = MarkPaperRequest()
+  ..paperId = paperId
+  ..totalMarks = totalMarks;
+```
+(The rest of the method body — iterating `schemeKeys` and `studentKeys` to add `StudentMarkTarget`
+entries — remains unchanged.)
+
+Also update the `print` log line at the top of `markPaper`:
+```dart
+// Replace the old multi-field log with:
+print('[AI] markPaper → paperId=$paperId totalMarks=$totalMarks '
+    'schemeKeys=${schemeKeys.length} studentKeys=${studentKeys.length}');
+```
+
+**Update after completion:**
+- [ ] Update `lib/services/CONTEXT.md` — update `ai_marking.dart` entry: `requestUploadUrls` and `markPaper` signatures now use `paperId: String`
+- [ ] Mark this task `[x]`
+- [ ] Orchestrator: git commit after this task
+
+---
+
+### Task FIX-03: Fix QuestionBankService — update 6 broken proto API calls
+**Files to create/modify:** `lib/services/question_bank.dart`
+**Context files to read (if needed):** none — all required info is inlined below
+**Depends on:** nothing
+**Parallel group:** FIX-wave-1
+
+**Background:**
+Proto regeneration (Task M0) changed 6 distinct API surfaces in `question_bank.pb.dart` and
+`question_bank.pbgrpc.dart`. The service file was not updated, causing 11 compiler errors.
+
+**Change 1 — `ListQuestionsRequest`: `offset`/`limit` → `page`/`pageSize`**
+
+Current broken code (around line 89):
+```dart
+final req = pb.ListQuestionsRequest()
+  ..topicId = topicId
+  ..offset = offset
+  ..limit = limit;
+```
+New proto fields: `page` (0-indexed page number) and `pageSize`.
+
+Fix — update `listQuestions` method signature and body:
+```dart
+// OLD signature params:
+//   int offset = 0,
+//   int limit = 50,
+// NEW signature params:
+//   int page = 0,
+//   int pageSize = 50,
+```
+```dart
+// NEW proto block:
+final req = pb.ListQuestionsRequest()
+  ..topicId = topicId
+  ..page = page
+  ..pageSize = pageSize;
+```
+Update the `print` log line similarly (replace `offset=$offset limit=$limit` with `page=$page pageSize=$pageSize`).
+
+**Change 2 — `CreateQuestionRequest`: `text` → `body`**
+
+Current broken code (around line 154):
+```dart
+final req = pb.CreateQuestionRequest()
+  ..topicId = topicId
+  ..text = text
+  ..marks = marks;
+```
+Fix: Change `..text = text` → `..body = body`.
+Also rename the method param from `required String text` → `required String body`.
+Update the method signature accordingly.
+
+**Change 3 — `UpdateQuestionRequest`: `text` → `body`**
+
+Current broken code (around line 193):
+```dart
+final req = pb.UpdateQuestionRequest()
+  ..questionId = id
+  ..text = text
+  ..marks = marks;
+```
+Fix: Change `..text = text` → `..body = body`.
+Also rename the method param from `required String text` → `required String body`.
+Update the method signature accordingly.
+
+**Change 4 — `BulkImportRequest`: `jsonContent` string → `questions` repeated list**
+
+Current broken code (around line 261):
+```dart
+final req = pb.BulkImportRequest()..jsonContent = jsonContent;
+```
+And on line 267:
+```dart
+final resp = await client.bulkImportQuestions(req, options: options);
+```
+
+The new `BulkImportRequest` takes a `questions` field of type `List<CreateQuestionRequest>`.
+The new client method is `bulkImport` (not `bulkImportQuestions`).
+
+The service method `bulkImport` still accepts `jsonContent: String` from the caller — do NOT change
+the public method signature. Instead, parse the JSON internally and construct proto objects:
+
+```dart
+// Parse the JSON string → List<CreateQuestionRequest>
+final decoded = jsonDecode(jsonContent) as Map<String, dynamic>;
+final rawList = (decoded['questions'] as List<dynamic>? ?? [])
+    .cast<Map<String, dynamic>>();
+
+final req = pb.BulkImportRequest();
+for (final q in rawList) {
+  final body    = q['body'] as String? ?? q['text'] as String? ?? '';
+  final marks   = q['marks'] as int? ?? 0;
+  final topicId = q['topic_id'] as int? ?? 0;
+
+  final protoQ = pb.CreateQuestionRequest()
+    ..topicId = topicId
+    ..body    = body
+    ..marks   = marks;
+
+  // Rubric criteria
+  final rubric = (q['rubric'] as List<dynamic>? ?? [])
+      .cast<Map<String, dynamic>>();
+  for (final r in rubric) {
+    protoQ.rubric.add(
+      pb.RubricCriterionInput()
+        ..criterion = (r['criterion'] as String? ?? '')
+        ..marks     = (r['marks'] as int? ?? 0),
+    );
+  }
+
+  // Example answer (string only in bulk import)
+  final ea = q['example_answer'];
+  if (ea is String && ea.isNotEmpty) protoQ.exampleAnswer = ea;
+
+  req.questions.add(protoQ);
+}
+
+final options = CallOptions(
+  metadata: {'authorization': 'Bearer $accessToken'},
+  timeout: const Duration(seconds: 60),
+);
+final client = pbgrpc.QuestionBankClient(_mainChannel);
+final resp = await client.bulkImport(req, options: options);   // ← renamed method
+```
+
+The `BulkImportResponse` now has `created` and `skipped` (int) fields instead of the old structure.
+Update the `models.BulkImportResult.fromProto` call — if `BulkImportResult` has a `fromProto`
+factory that matches the new shape it stays; if it uses old fields that no longer exist, adapt by
+constructing directly:
+```dart
+// If BulkImportResult.fromProto still works with .created/.skipped, keep it.
+// Otherwise construct directly:
+final result = models.BulkImportResult(
+  createdCount: resp.created,
+  errors: [],   // server no longer returns per-question errors in bulk response
+);
+```
+Check `lib/models/question.dart` for the `BulkImportResult` class definition and adapt accordingly.
+
+**Change 5 — `requestImageUploadUrls`: new `questionId`/`count` API, `List<String>` return**
+
+Current broken code (around lines 307–314):
+```dart
+Future<Result<List<pb.ImageUploadUrl>, GrpcError>> requestImageUploadUrls({
+  required List<pb.ImageUploadSpec> imageSpecs,
+  required String accessToken,
+}) async {
+  ...
+  final req = pb.ImageUploadUrlsRequest();
+  req.images.addAll(imageSpecs);
+  ...
+  return Ok(resp.urls.toList());
+}
+```
+`pb.ImageUploadSpec` and `pb.ImageUploadUrl` no longer exist.
+
+New API: `ImageUploadUrlsRequest` has `questionId: int` and `count: int`.
+`ImageUploadUrlsResponse.urls` is `PbList<String>` (plain PUT URL strings).
+
+Replace the entire method with:
+```dart
+/// Requests [count] presigned S3/R2 PUT URLs for uploading images for one question.
+///
+/// Returns a list of PUT URL strings. The caller uploads each image to the
+/// corresponding URL in order (position 1 = index 0, position 2 = index 1, …).
+Future<Result<List<String>, GrpcError>> requestImageUploadUrls({
+  required int questionId,
+  required int count,
+  required String accessToken,
+}) async {
+  print('[QB] requestImageUploadUrls → questionId=$questionId count=$count');
+  try {
+    final req = pb.ImageUploadUrlsRequest()
+      ..questionId = questionId
+      ..count      = count;
+    final options = CallOptions(
+      metadata: {'authorization': 'Bearer $accessToken'},
+      timeout: const Duration(seconds: 30),
+    );
+    final client = pbgrpc.QuestionBankClient(_mainChannel);
+    final resp = await client.requestImageUploadUrls(req, options: options);
+    final urls = resp.urls.toList();
+    print('[QB] requestImageUploadUrls ← OK (urls=${urls.length})');
+    return Ok(urls);
+  } on GrpcError catch (e) {
+    print('[QB] requestImageUploadUrls ← GrpcError: ${e.code} ${e.message}');
+    return Err(e);
+  } catch (e, st) {
+    print('[QB] requestImageUploadUrls ← UNEXPECTED ${e.runtimeType}: $e\n$st');
+    return Err(GrpcError.internal('requestImageUploadUrls failed: $e'));
+  }
+}
+```
+
+**Change 6 — `importFileWithImages`: refactor image upload loop for new per-question API**
+
+The `importFileWithImages` method (around lines 840–920) builds `pb.ImageUploadSpec` objects and
+calls `requestImageUploadUrls(imageSpecs: allSpecs, ...)` in a single batch call. This no longer
+works. Replace the image-upload section (Phase 2) with a per-question loop:
+
+```dart
+// ── Phase 2: Upload images per question ──────────────────────────────
+int imagesUploaded = 0;
+int imagesFailed   = 0;
+int imagesSkipped  = parsed.missingImages.length;
+
+final cleanedParsed =
+    jsonDecode(parsed.cleanedJson!) as Map<String, dynamic>;
+final questions = cleanedParsed['questions'] as List<dynamic>;
+
+int k = 0;
+for (
+  var j = 0;
+  j < parsed.questionCount && k < createdIds.length;
+  j++
+) {
+  if (errorIndices.contains(j)) continue;
+  final questionId = createdIds[k];
+  k++;
+
+  if (j >= questions.length) continue;
+  final q      = questions[j] as Map<String, dynamic>;
+  final images = (q['images'] as List<dynamic>? ?? [])
+      .cast<Map<String, dynamic>>();
+
+  // Collect local paths for this question's images (skip missing)
+  final localPaths = <String>[];
+  for (final img in images) {
+    final basename = (img['filename'] as String?) ?? '';
+    if (basename.isEmpty) { imagesSkipped++; continue; }
+    final localPath = parsed.imagePathMap[basename];
+    if (localPath == null) { imagesSkipped++; continue; }
+    localPaths.add(localPath);
+  }
+
+  if (localPaths.isEmpty) continue;
+
+  // Request PUT URLs for this question's images
+  final urlResult = await requestImageUploadUrls(
+    questionId:  questionId,
+    count:       localPaths.length,
+    accessToken: accessToken,
+  );
+  if (urlResult is Err) {
+    errors.add('Q${j + 1}: failed to get image upload URLs — '
+        '${(urlResult as Err).error.message}');
+    imagesFailed += localPaths.length;
+    continue;
+  }
+  final putUrls = (urlResult as Ok<List<String>, GrpcError>).value;
+
+  // Upload each image
+  for (var p = 0; p < localPaths.length; p++) {
+    final putUrl = p < putUrls.length ? putUrls[p] : '';
+    final success = await uploadFile(putUrl, localPaths[p]);
+    if (success) {
+      imagesUploaded++;
+    } else {
+      imagesFailed++;
+      errors.add('Q${j + 1} image ${p + 1}: upload failed');
+    }
+  }
+}
+```
+
+Note: the `uploadFile` method reference here is from `AiMarkingService`, but
+`importFileWithImages` is on `QuestionBankService`. Check whether `QuestionBankService` has its own
+`_uploadFile` helper or delegates to `aiMarking`. If it has its own private `_uploadFile(putUrl,
+localPath)` method, use it directly. If not, add a minimal private helper identical to the one in
+`AiMarkingService`:
+```dart
+Future<bool> _uploadFile(String putUrl, String localPath) async {
+  if (putUrl.isEmpty) return true;
+  HttpClient? httpClient;
+  try {
+    final file = File(localPath);
+    if (!await file.exists()) return false;
+    final bytes  = await file.readAsBytes();
+    httpClient   = HttpClient();
+    final req    = await httpClient.putUrl(Uri.parse(putUrl));
+    req.headers.set('Content-Type', 'application/octet-stream');
+    req.headers.set('Content-Length', '${bytes.length}');
+    req.add(bytes);
+    final resp   = await req.close();
+    await resp.drain<void>();
+    return resp.statusCode >= 200 && resp.statusCode < 300;
+  } catch (_) {
+    return false;
+  } finally {
+    httpClient?.close();
+  }
+}
+```
+
+**Update after completion:**
+- [ ] Update `lib/services/CONTEXT.md` — update `question_bank.dart` entry:
+  - `listQuestions` now uses `page`/`pageSize` instead of `offset`/`limit`
+  - `createQuestion` param renamed `text` → `body`
+  - `updateQuestion` param renamed `text` → `body`
+  - `bulkImport` now parses JSON internally and sends `CreateQuestionRequest` list
+  - `requestImageUploadUrls` signature changed to `(questionId, count)` → `List<String>`
+  - `importFileWithImages` image-upload loop refactored to per-question `requestImageUploadUrls` calls
+- [ ] Mark this task `[x]`
+- [ ] Orchestrator: git commit after this task
+
+---
+
+### Task FIX-04a: Fix paper_detail_page.dart — update aiMarking call sites after FIX-02
+**Files to create/modify:** `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`
+**Context files to read (if needed):** none — all required info is inlined below
+**Depends on:** Task FIX-02
+**Parallel group:** FIX-wave-2a
+
+**Background:**
+`paper_detail_page.dart` calls `client.aiMarking.requestUploadUrls` and `client.aiMarking.markPaper`
+with the old 6-field composite signature. After FIX-02 those methods accept `paperId: String`
+instead. There are **4 call sites** (2 per method, in two different inner widget states —
+`_GradeSpreadsheetState` around line 2097 and `_GradeListState` around line 3103).
+
+The composite `paperId` format used throughout `paper_detail_page.dart` is already established:
+```dart
+'${widget.schoolId}|${_exam.id}|${_paper.subject}|'
+'${_paper.paper ?? ''}|${_paper.grade}|${_paper.stream ?? ''}'
+```
+(`_exam` and `_paper` are the local state fields of each inner widget state class.)
+
+**Fix for `requestUploadUrls` call sites (both occurrences):**
+
+Find and replace each call that looks like:
+```dart
+final urlResult = await client.aiMarking.requestUploadUrls(
+  school: widget.schoolId,
+  exam: widget.exam.id,
+  subject: widget.paper.subject,
+  paper: widget.paper.paper,
+  schemeCount: widget.schemeFiles.length,
+  studentSheetCounts: studentSheetCounts,
+  accessToken: token,
+);
+```
+Replace with (construct the composite paperId first if not already in scope):
+```dart
+final _paperId =
+    '${widget.schoolId}|${widget.exam.exam.id}|${widget.paper.subject}|'
+    '${widget.paper.paper ?? ''}|${widget.paper.grade}|${widget.paper.stream ?? ''}';
+final urlResult = await client.aiMarking.requestUploadUrls(
+  paperId: _paperId,
+  schemeCount: widget.schemeFiles.length,
+  studentSheetCounts: studentSheetCounts,
+  accessToken: token,
+);
+```
+
+**Fix for `markPaper` call sites (both occurrences):**
+
+Find and replace each call that looks like:
+```dart
+final markResult = await client.aiMarking.markPaper(
+  school: widget.schoolId,
+  exam: widget.exam.id,
+  subject: widget.paper.subject,
+  paper: widget.paper.paper,
+  grade: widget.paper.grade,
+  stream: widget.paper.stream,
+  totalMarks: _maxScore,
+  schemeKeys: [...],
+  studentKeys: studentKeys,
+  accessToken: token,
+);
+```
+Replace with (reuse the `_paperId` local variable already declared for the `requestUploadUrls` call
+above it in the same method — it's the same value):
+```dart
+final markResult = await client.aiMarking.markPaper(
+  paperId: _paperId,
+  totalMarks: _maxScore,
+  schemeKeys: [...],   // keep existing schemeKeys expression unchanged
+  studentKeys: studentKeys,
+  accessToken: token,
+);
+```
+
+Also find and remove the stale `print` log lines that reference the old field names (e.g. the line
+that logs `'school=${widget.schoolId} exam=${widget.exam.id} subject=...'` before the `markPaper`
+call) and replace with a single concise log:
+```dart
+print('[SPREADSHEET] calling markPaper — paperId=$_paperId totalMarks=$_maxScore');
+```
+(and similarly for the `[GRADELIST]` log in the second occurrence).
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+- [ ] Orchestrator: git commit after this task
+
+---
+
+### Task FIX-04b: Fix question-bank UI callers — update listQuestions/createQuestion/updateQuestion call sites after FIX-03
+**Files to create/modify:**
+- `lib/ui/screens/system/settings/questions_list_page.dart`
+- `lib/ui/screens/system/settings/create_question_sheet.dart`
+- `lib/ui/screens/system/settings/subjects_section.dart`
+**Context files to read (if needed):** none — all required info is inlined below
+**Depends on:** Task FIX-03
+**Parallel group:** FIX-wave-2b
+
+**Background:**
+Three UI screens call `questionBankService.listQuestions`, `createQuestion`, and `updateQuestion`
+using the old parameter names (`offset`/`limit` and `text:`). After FIX-03 those method signatures
+use `page`/`pageSize` and `body:` instead.
+
+---
+
+**Fix A — `questions_list_page.dart`:**
+
+There are two `listQuestions` call sites (around lines 68 and around 1453 via
+`subjects_section.dart`). In this file the relevant one is around line 68:
+
+```dart
+// OLD — find and replace:
+final offset = reset ? 0 : _questions.length;
+final result = await questionBankService.listQuestions(
+  topicId: widget.topicId,
+  offset: offset,
+  limit: 50,
+  accessToken: accessToken,
+);
+```
+Replace with page-based pagination:
+```dart
+final page = reset ? 0 : _questions.length ~/ 50;
+final result = await questionBankService.listQuestions(
+  topicId: widget.topicId,
+  page: page,
+  pageSize: 50,
+  accessToken: accessToken,
+);
+```
+
+There is also an `updateQuestion` call (around line 1256):
+```dart
+// OLD — find and replace:
+final result = await questionBankService.updateQuestion(
+  id: widget.question.id,
+  text: _textCtrl.text.trim(),
+  marks: marks,
+  rubric: rubric,
+  exampleAnswer: exampleAnswer,
+  images: images,
+  accessToken: accessToken,
+);
+```
+Replace `text:` with `body:`:
+```dart
+final result = await questionBankService.updateQuestion(
+  id: widget.question.id,
+  body: _textCtrl.text.trim(),
+  marks: marks,
+  rubric: rubric,
+  exampleAnswer: exampleAnswer,
+  images: images,
+  accessToken: accessToken,
+);
+```
+
+---
+
+**Fix B — `create_question_sheet.dart`:**
+
+There is one `createQuestion` call (around line 202):
+```dart
+// OLD — find and replace:
+final result = await questionBankService.createQuestion(
+  topicId: widget.topicId,
+  text: _textCtrl.text.trim(),
+  marks: marks,
+  rubric: rubric,
+  exampleAnswer: exampleAnswer,
+  images: images,
+  accessToken: accessToken,
+);
+```
+Replace `text:` with `body:`:
+```dart
+final result = await questionBankService.createQuestion(
+  topicId: widget.topicId,
+  body: _textCtrl.text.trim(),
+  marks: marks,
+  rubric: rubric,
+  exampleAnswer: exampleAnswer,
+  images: images,
+  accessToken: accessToken,
+);
+```
+
+---
+
+**Fix C — `subjects_section.dart`:**
+
+There are two `listQuestions` call sites (around lines 1187 and 1453). Apply the same
+`offset`/`limit` → `page`/`pageSize` fix as in Fix A to both:
+
+```dart
+// OLD (both occurrences):
+.listQuestions(
+  topicId: ...,
+  offset: ...,
+  limit: ...,
+  accessToken: accessToken,
+)
+// NEW (both occurrences):
+.listQuestions(
+  topicId: ...,
+  page: ...,      // compute as: (currentOffset ~/ pageSize) or 0 for initial load
+  pageSize: 50,
+  accessToken: accessToken,
+)
+```
+For any call that passed `offset: 0, limit: 50` for initial load, replace with `page: 0, pageSize: 50`.
+For any call that passed a computed offset for load-more, convert: `page: offset ~/ 50`.
+
+---
+
+**Update after completion:**
+- [ ] Mark this task `[x]`
+- [ ] Orchestrator: git commit after this task
+
+---
+
+## Track FIX — Execution Summary
+
+```
+FIX-01, FIX-02, FIX-03  → run in parallel (wave 1, no dependencies)
+FIX-04a                  → after FIX-02 (wave 2a)
+FIX-04b                  → after FIX-03 (wave 2b)
+FIX-04a and FIX-04b can run in parallel with each other (disjoint files)
+```
+
+| Wave | Tasks               | Start condition          |
+|------|---------------------|--------------------------|
+| 1    | FIX-01, FIX-02, FIX-03 | Immediately           |
+| 2    | FIX-04a, FIX-04b   | FIX-04a after FIX-02; FIX-04b after FIX-03 |
+
+After FIX-04b completes, run `flutter analyze` to confirm zero errors remain.
+Expected residual warnings (non-blocking): deprecated proto method annotations, unused
+`_host`/`_port` fields in `AiMarkingService` (intentional fallback — do not remove).
+
+---
+
+## Track CHORE — Minor Cleanup (low priority, non-blocking)
+
+### Task CHORE-01: Fix stale doc comment in exam_creation_page.dart
+**Files to create/modify:** `lib/ui/screens/school_dashboard/exams/exam_creation_page.dart`
+**Depends on:** nothing
+**Parallel group:** any
+
+**Specification:**
+Line 72 has an outdated doc comment that says "3–5. Coming soon (Tasks D2, D3)".
+Tasks D2 and D3 have been implemented — the `_SyllabusCoverageStep`, `_ReviewStep`, and
+`_ConfirmStep` classes are present and functional.
+
+Replace:
+```dart
+///   3–5. Coming soon (Tasks D2, D3)
+```
+With:
+```dart
+///   3. Syllabus coverage (topic selection per grade)
+///   4. Review (timetable preview + paper summaries)
+///   5. Confirm & activate (calls CreateEvent + SchedulePaper + ConfirmExamCoverage RPCs)
+```
+
+**Update after completion:**
+- [x] Mark this task `[x]`
+- [x] Orchestrator: git commit after this task

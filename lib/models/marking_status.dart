@@ -1,5 +1,4 @@
 import '../proto/services/question_bank.pb.dart' as pb;
-import '../proto/services/question_bank.pbenum.dart' as pbenum;
 
 /// Status of an AI marking job.
 enum MarkingPhase { queued, downloading, marking, computing, complete, failed }
@@ -40,7 +39,7 @@ class MarkingStatus {
       }
     }
     return MarkingStatus(
-      phase: _phaseFromProto(proto.phase),
+      phase: _phaseFromInt(proto.phase),
       progressCurrent: current,
       progressTotal: total,
       errorMessage: proto.hasError() ? proto.error : null,
@@ -48,13 +47,16 @@ class MarkingStatus {
   }
 }
 
-MarkingPhase _phaseFromProto(pbenum.MarkingPhase phase) => switch (phase) {
-  pbenum.MarkingPhase.QUEUED => MarkingPhase.queued,
-  pbenum.MarkingPhase.DOWNLOADING => MarkingPhase.downloading,
-  pbenum.MarkingPhase.CACHING => MarkingPhase.downloading,
-  pbenum.MarkingPhase.MARKING => MarkingPhase.marking,
-  pbenum.MarkingPhase.AGGREGATING => MarkingPhase.computing,
-  pbenum.MarkingPhase.COMPLETE => MarkingPhase.complete,
-  pbenum.MarkingPhase.FAILED => MarkingPhase.failed,
+/// Maps the raw proto integer phase value to [MarkingPhase].
+/// Proto3 enum values: 0=QUEUED 1=DOWNLOADING 2=CACHING 3=MARKING
+///                     4=AGGREGATING 5=COMPLETE 6=FAILED
+MarkingPhase _phaseFromInt(int phase) => switch (phase) {
+  0 => MarkingPhase.queued,
+  1 => MarkingPhase.downloading,
+  2 => MarkingPhase.downloading, // CACHING → downloading (same UI state)
+  3 => MarkingPhase.marking,
+  4 => MarkingPhase.computing, // AGGREGATING → computing
+  5 => MarkingPhase.complete,
+  6 => MarkingPhase.failed,
   _ => MarkingPhase.failed,
 };
