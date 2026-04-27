@@ -672,8 +672,8 @@ Below the list: `_TimetablePreview` widget.
 Validation on Next: every row must have subject, grade, date, startTime, endTime set. Show inline error on incomplete rows.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] git commit: `feat: exam wizard steps 1+2`
+- [x] Mark this task `[x]`
+- [x] git commit: `feat: exam wizard steps 1+2`
 
 ---
 
