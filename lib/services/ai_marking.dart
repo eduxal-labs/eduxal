@@ -39,10 +39,7 @@ class AiMarkingService {
 
   /// Request presigned PUT URLs for marking scheme and student answer sheets.
   Future<Result<UploadUrlsResponse, GrpcError>> requestUploadUrls({
-    required String school,
-    required String exam,
-    required int subject,
-    int? paper,
+    required String paperId,
     required int schemeCount,
     required Map<int, int> studentSheetCounts,
     required String accessToken,
@@ -50,16 +47,13 @@ class AiMarkingService {
     // Use print() — not debugPrint() — for critical-path logging so output
     // is never throttled or dropped by Flutter's debugPrint buffer.
     print(
-      '[AI] requestUploadUrls → school=$school exam=$exam subject=$subject '
+      '[AI] requestUploadUrls → paperId=$paperId '
       'schemeCount=$schemeCount students=${studentSheetCounts.length}',
     );
     try {
       final req = UploadUrlsRequest()
-        ..school = school
-        ..exam = exam
-        ..subject = subject
+        ..paperId = paperId
         ..schemeCount = schemeCount;
-      if (paper != null) req.paper = paper;
       for (final entry in studentSheetCounts.entries) {
         req.students.add(
           StudentSheetCount()
@@ -139,32 +133,21 @@ class AiMarkingService {
   /// - Transient HTTP/2 framing errors
   /// - Channel state-machine bugs in the Dart gRPC library
   Future<Result<MarkPaperResponse, GrpcError>> markPaper({
-    required String school,
-    required String exam,
-    required int subject,
-    int? paper,
-    required int grade,
-    int? stream,
+    required String paperId,
     required int totalMarks,
     required List<String> schemeKeys,
     required Map<int, List<String>> studentKeys,
     required String accessToken,
   }) async {
     print(
-      '[AI] markPaper → school=$school exam=$exam subject=$subject paper=$paper '
-      'grade=$grade stream=$stream totalMarks=$totalMarks '
-      'schemeKeys=${schemeKeys.length} students=${studentKeys.length}',
+      '[AI] markPaper → paperId=$paperId totalMarks=$totalMarks '
+      'schemeKeys=${schemeKeys.length} studentKeys=${studentKeys.length}',
     );
 
     // Build the proto request once — reused across attempts.
     final req = MarkPaperRequest()
-      ..school = school
-      ..exam = exam
-      ..subject = subject
-      ..grade = grade
+      ..paperId = paperId
       ..totalMarks = totalMarks;
-    if (paper != null) req.paper = paper;
-    if (stream != null) req.stream = stream;
     req.schemeKeys.addAll(schemeKeys);
     for (final entry in studentKeys.entries) {
       req.students.add(

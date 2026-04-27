@@ -201,10 +201,10 @@ Domain models for AI paper generation flow. Imports: `dart:convert`, `question.d
 - **`StreamCopyResult`** — Result for a single target stream in a `copyPaperToStreams` operation. Fields: `stream` (int), `success` (bool), `pdfUrl` (String?), `pdfExpiry` (DateTime?), `markingSchemeUrl` (String?), `markingSchemeExpiry` (DateTime?), `error` (String?). Factory: `fromProto(pb.StreamCopyResult)`. ⚠️ `pb.StreamCopyResult` no longer exists in proto — compile error pending a separate fix.
 
 ### Marking Status models — `marking_status.dart`
-Domain models for AI marking job status polling. Imports: `proto/services/question_bank.pb.dart`, `question_bank.pbenum.dart`.
+Domain models for AI marking job status polling. Imports: `proto/services/question_bank.pb.dart` only (pbenum import removed in FIX-01).
 
-- **`MarkingPhase`** — Enum: `queued`, `downloading`, `marking`, `computing`, `complete`, `failed`. Mapped from proto `MarkingStatusEnum` (0–5).
-- **`MarkingStatus`** — Status of an AI marking job. Fields: `phase` (MarkingPhase), `progressCurrent` (int), `progressTotal` (int), `errorMessage` (String?). Computed: `progressFraction` (double, 0.0–1.0), `displayLabel` (String — human-readable status text). Factory: `fromProto(pb.MarkingStatusResponse)`.
+- **`MarkingPhase`** — Enum: `queued`, `downloading`, `marking`, `computing`, `complete`, `failed`. Mapped from proto integer phase values (0=QUEUED, 1=DOWNLOADING, 2=CACHING→downloading, 3=MARKING, 4=AGGREGATING→computing, 5=COMPLETE, 6=FAILED).
+- **`MarkingStatus`** — Status of an AI marking job. Fields: `phase` (MarkingPhase), `progressCurrent` (int), `progressTotal` (int), `errorMessage` (String?). Computed: `progressFraction` (double, 0.0–1.0), `displayLabel` (String — human-readable status text). Factory: `fromProto(pb.MarkingStatusResponse)`. Internal helper: `_phaseFromInt(int)` (previously `_phaseFromProto(pbenum.MarkingPhase)` — renamed and changed to accept raw `int` after pbenum removal).
 
 ### Question Grade models — `question_grade.dart`
 Domain models for per-question AI marking results. Import: `proto/services/question_bank.pb.dart`.
@@ -214,7 +214,7 @@ Domain models for per-question AI marking results. Import: `proto/services/quest
 
 ## Dependencies
 
-- **Depends on:** `database/database.dart` (for Drift-generated data classes like `UsersData`, `AccountsData`, `SchoolsData`, etc.), `database/tables/enums.dart` (for `AppThemeMode`, `UserLevel`, `SyncAction`, `LogStatus`, etc.), `database/tables/curriculum_subjects.dart` (for `CurriculumType`, `CbcSubject`, `EightFourFourSubject`), `package:flutter/foundation.dart` (only `school_context.dart` and `active_term_context.dart` for `ValueNotifier`/`ChangeNotifier`), `proto/services/question_bank.pb.dart` and `question_bank.pbenum.dart` (for question bank model `fromProto` factories).
+- **Depends on:** `database/database.dart` (for Drift-generated data classes like `UsersData`, `AccountsData`, `SchoolsData`, etc.), `database/tables/enums.dart` (for `AppThemeMode`, `UserLevel`, `SyncAction`, `LogStatus`, etc.), `database/tables/curriculum_subjects.dart` (for `CurriculumType`, `CbcSubject`, `EightFourFourSubject`), `package:flutter/foundation.dart` (only `school_context.dart` and `active_term_context.dart` for `ValueNotifier`/`ChangeNotifier`), `proto/services/question_bank.pb.dart` (for question bank model `fromProto` factories — `question_bank.pbenum.dart` no longer imported after FIX-01).
 - **Depended on by:** `services/`, `ui/`, `client.dart`, `database/daos/memberships_dao.dart`.
 
 ## Conventions
@@ -245,7 +245,9 @@ Grouping model for the exams UI. Multiple exam rows sharing the same name are pr
 - **`ExamStreamEntry`** — One exam row + its papers for a specific stream. Fields: `exam` (Exam), `streamCode` (int?), `papers` (List<Paper>).
 
 ## Last Updated
-Task M2 — Updated `question.dart`: added `QuestionPart` class, `RubricCriterion.fromMap`, new `Question` fields (`body`, `bodyFormat`, `parts`, `stimulus`, `type`, `difficulty`, `cognitiveLevel`, `maxMarks`, `answerSpaceType`, `answerLines`), removed `QuestionImage.fromProto`/`_imageContextFromProto` (proto dropped `QuestionImage`), fixed `Question.fromProto` to use `proto.body` (no `text` field), fixed `BulkImportResult.fromProto` to use `proto.created` (proto renamed fields), removed `ImportError.fromProto` (proto dropped `ImportError`). Updated `paper_generation.dart`: added new `PaperQuestion` fields mirroring `Question`, changed `PaperQuestion.fromProto` signature from `pb.PaperQuestion` to `pb.Question` (proto dropped the wrapper).
+Task FIX-01 — Updated `marking_status.dart`: removed `question_bank.pbenum.dart` import (pbenum file is now an empty stub after proto regeneration); renamed `_phaseFromProto(pbenum.MarkingPhase)` → `_phaseFromInt(int)` which maps raw proto3 integer phase values (0–6) directly to `MarkingPhase` enum values; updated Dependencies section to remove `question_bank.pbenum.dart` reference.
+
+Previous: Task M2 — Updated `question.dart`: added `QuestionPart` class, `RubricCriterion.fromMap`, new `Question` fields (`body`, `bodyFormat`, `parts`, `stimulus`, `type`, `difficulty`, `cognitiveLevel`, `maxMarks`, `answerSpaceType`, `answerLines`), removed `QuestionImage.fromProto`/`_imageContextFromProto` (proto dropped `QuestionImage`), fixed `Question.fromProto` to use `proto.body` (no `text` field), fixed `BulkImportResult.fromProto` to use `proto.created` (proto renamed fields), removed `ImportError.fromProto` (proto dropped `ImportError`). Updated `paper_generation.dart`: added new `PaperQuestion` fields mirroring `Question`, changed `PaperQuestion.fromProto` signature from `pb.PaperQuestion` to `pb.Question` (proto dropped the wrapper).
 
 Previous: Task M4 — `TaughtTopic` helper class is defined in `lib/services/paper_service.dart` (NOT in `models/`) because it is a thin proto-mapping type with no Drift dependency and is used exclusively by `PaperService`. It carries `topicId` (int), `status` (int), and `taughtDate` (DateTime?) — no `topicName` (not in proto). File count unchanged at 25.
 

@@ -2283,9 +2283,9 @@ MarkingPhase _phaseFromInt(int phase) => switch (phase) {
 ```
 
 **Update after completion:**
-- [ ] Update `lib/models/CONTEXT.md` — note `marking_status.dart` no longer imports pbenum; `_phaseFromProto` renamed `_phaseFromInt` and accepts `int`
-- [ ] Mark this task `[x]`
-- [ ] Orchestrator: git commit after this task
+- [x] Update `lib/models/CONTEXT.md` — note `marking_status.dart` no longer imports pbenum; `_phaseFromProto` renamed `_phaseFromInt` and accepts `int`
+- [x] Mark this task `[x]`
+- [x] Orchestrator: git commit after this task
 
 ---
 
