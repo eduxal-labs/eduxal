@@ -5,7 +5,7 @@
 
 ## Overview
 
-This directory contains **22 files** — each defining one or more pure Dart classes, sealed types, or enums used across the app. Models here never import `package:drift` directly (though some reference Drift-generated data classes like `UsersData`, `AccountsData`, `SchoolsData` from `database/database.dart`).
+This directory contains **25 files** — each defining one or more pure Dart classes, sealed types, or enums used across the app. Models here never import `package:drift` directly (though some reference Drift-generated data classes like `UsersData`, `AccountsData`, `SchoolsData` from `database/database.dart`).
 
 ## Files
 
@@ -15,11 +15,13 @@ This directory contains **22 files** — each defining one or more pure Dart cla
 | `app_notification.dart` | `AppNotification` | ✅ Complete |
 | `authenticated.dart` | `Authenticated` | ✅ Complete |
 | `curriculum_levels.dart` | `CurriculumLevel`, `kCbcLevels`, `k844Levels`, `levelsFor()`, `subjectLabel()` | ✅ Complete |
+| `event.dart` | `PaperGenerationPhase`, `ExamEvent`, `ScheduledPaper` | ✅ Complete |
 | `exam_group.dart` | `ExamGroup`, `ExamGradeEntry`, `ExamStreamEntry` | ✅ Complete |
 | `grade_analytics.dart` | `StreamStats`, `Trajectory`, `SubjectTeacherEntry`, `GradeStudentRow`, `ClassTeacherHistoryEntry` | ✅ Complete |
 | `marking_status.dart` | `MarkingPhase`, `MarkingStatus` | ✅ Complete |
 | `membership.dart` | `MembershipRole`, `MembershipEntry` (sealed), `SchoolMembership` | ✅ Complete |
 | `mpesa_config.dart` | `MpesaConfig`, `MpesaEnvironment` | ✅ Complete |
+| `paper.dart` | `StudentPaperEntry`, `StudentPapersStatus`, `StudentPaperPdf` | ✅ Complete |
 | `paper_generation.dart` | `TopicAllocation`, `PaperQuestion`, `PaperPdf` | ✅ Complete |
 | `permissions.dart` | `Resource`, `Action`, `Permissions` | ✅ Complete |
 | `plan_features.dart` | `PlanFeature`, `kPlanFeatures`, `GradeLevel`, `GradeLevelGroup`, `gradeLabel()`, `kCbcGroups` | ✅ Complete |
@@ -242,6 +244,9 @@ Grouping model for the exams UI. Multiple exam rows sharing the same name are pr
 - **`ExamStreamEntry`** — One exam row + its papers for a specific stream. Fields: `exam` (Exam), `streamCode` (int?), `papers` (List<Paper>).
 
 ## Last Updated
+Task M3 — Added `event.dart` (exports: `PaperGenerationPhase`, `ExamEvent`, `ScheduledPaper`) and `paper.dart` (exports: `StudentPaperEntry`, `StudentPapersStatus`, `StudentPaperPdf`). File count updated from 22 → 25 (includes previously uncounted `verify_result.dart`).
+
+Previous:
 Task P05 — Added `StreamCopyResult` class to `paper_generation.dart`. Added `import 'package:fixnum/fixnum.dart' show Int64;` to support `Int64.ZERO` comparisons in `fromProto`. Factory maps proto optional Int64 expiry fields via zero-check and optional string fields via empty-string check.
 
 Previous:

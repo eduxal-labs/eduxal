@@ -1509,9 +1509,9 @@ class StudentPaperPdf {
 ```
 
 **Update after completion:**
-- [ ] Update `lib/models/CONTEXT.md` — add `event.dart` (ExamEvent, ScheduledPaper, PaperGenerationPhase) and `paper.dart` (StudentPaperEntry, StudentPapersStatus, StudentPaperPdf) entries
-- [ ] Mark this task `[x]`
-- [ ] git commit: `feat: add ExamEvent, ScheduledPaper, and StudentPaper domain models`
+- [x] Update `lib/models/CONTEXT.md` — add `event.dart` (ExamEvent, ScheduledPaper, PaperGenerationPhase) and `paper.dart` (StudentPaperEntry, StudentPapersStatus, StudentPaperPdf) entries
+- [x] Mark this task `[x]`
+- [x] git commit: `feat: add ExamEvent, ScheduledPaper, and StudentPaper domain models`
 
 ---
 
