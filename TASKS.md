@@ -556,8 +556,8 @@ Steps:
 5. This is a pure refactor — no behavior or UI changes.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] git commit: `refactor: replace 6-field paper composite with paper_id`
+- [x] Mark this task `[x]`
+- [x] git commit: `refactor: replace 6-field paper composite with paper_id`
 
 ---
 

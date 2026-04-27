@@ -22,6 +22,8 @@ class QuestionGradesSheet extends StatefulWidget {
     required this.student,
     required this.subject,
     this.paper,
+    required this.grade,
+    this.stream,
     required this.studentName,
     required this.overallScore,
     required this.totalMarks,
@@ -32,6 +34,8 @@ class QuestionGradesSheet extends StatefulWidget {
   final int student;
   final int subject;
   final int? paper;
+  final int grade;
+  final int? stream;
   final String studentName;
   final double overallScore;
   final int totalMarks;
@@ -50,12 +54,12 @@ class _QuestionGradesSheetState extends State<QuestionGradesSheet> {
   }
 
   void _fetchGrades() {
+    final paperId =
+        '${widget.school}|${widget.exam}|${widget.subject}|'
+        '${widget.paper ?? ''}|${widget.grade}|${widget.stream ?? ''}';
     _future = questionBankService.getQuestionGrades(
-      school: widget.school,
-      exam: widget.exam,
+      paperId: paperId,
       student: widget.student,
-      subject: widget.subject,
-      paper: widget.paper,
       accessToken: accessToken,
     );
     if (mounted) setState(() {});

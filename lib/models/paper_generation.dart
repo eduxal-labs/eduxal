@@ -1,7 +1,5 @@
 import 'dart:convert';
 
-import 'package:fixnum/fixnum.dart' show Int64;
-
 import 'question.dart';
 import '../proto/services/question_bank.pb.dart' as pb;
 
@@ -154,27 +152,22 @@ class PaperPdf {
     this.markingSchemeExpiry,
   });
 
+  /// Constructs a [PaperPdf] from a [pb.FinalizePaperResponse].
+  ///
+  /// After M0 proto regeneration, [pb.FinalizePaperResponse] no longer carries
+  /// presigned URL fields. It now returns storage keys (`pdfKey`, `msKey`).
+  /// The keys are stored as-is in [pdfUrl] / [markingSchemeUrl] until a signed
+  /// URL is obtained separately by the client.
   factory PaperPdf.fromProto(pb.FinalizePaperResponse proto) => PaperPdf(
-    pdfUrl: proto.pdfUrl,
-    pdfExpiry: DateTime.fromMillisecondsSinceEpoch(
-      proto.pdfExpiry.toInt() * 1000,
-    ),
-    markingSchemeUrl: proto.hasMarkingSchemeUrl()
-        ? proto.markingSchemeUrl
+    pdfUrl: proto.pdfKey,
+    // Expiry is unknown at this point — use a 1-hour placeholder.
+    pdfExpiry: DateTime.now().add(const Duration(hours: 1)),
+    markingSchemeUrl: proto.hasMsKey() && proto.msKey.isNotEmpty
+        ? proto.msKey
         : null,
-    markingSchemeExpiry: proto.hasMarkingSchemeExpiry()
-        ? DateTime.fromMillisecondsSinceEpoch(
-            proto.markingSchemeExpiry.toInt() * 1000,
-          )
+    markingSchemeExpiry: proto.hasMsKey() && proto.msKey.isNotEmpty
+        ? DateTime.now().add(const Duration(hours: 1))
         : null,
-  );
-
-  factory PaperPdf.fromGetPdfProto(pb.GetPaperPdfResponse proto) => PaperPdf(
-    pdfUrl: proto.pdfUrl,
-    pdfExpiry: DateTime.fromMillisecondsSinceEpoch(
-      proto.pdfExpiry.toInt() * 1000,
-    ),
-    // GetPaperPdfResponse does not carry a marking scheme URL — stays null.
   );
 }
 
@@ -197,24 +190,4 @@ class StreamCopyResult {
     this.markingSchemeExpiry,
     this.error,
   });
-
-  factory StreamCopyResult.fromProto(pb.StreamCopyResult proto) {
-    return StreamCopyResult(
-      stream: proto.stream,
-      success: proto.success,
-      pdfUrl: proto.pdfUrl.isEmpty ? null : proto.pdfUrl,
-      pdfExpiry: proto.pdfExpiry == Int64.ZERO
-          ? null
-          : DateTime.fromMillisecondsSinceEpoch(proto.pdfExpiry.toInt() * 1000),
-      markingSchemeUrl: proto.markingSchemeUrl.isEmpty
-          ? null
-          : proto.markingSchemeUrl,
-      markingSchemeExpiry: proto.markingSchemeExpiry == Int64.ZERO
-          ? null
-          : DateTime.fromMillisecondsSinceEpoch(
-              proto.markingSchemeExpiry.toInt() * 1000,
-            ),
-      error: proto.error.isEmpty ? null : proto.error,
-    );
-  }
 }

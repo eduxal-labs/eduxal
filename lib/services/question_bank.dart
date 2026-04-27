@@ -335,36 +335,32 @@ class QuestionBankService {
   // Paper Generation (Task 04)
   // ---------------------------------------------------------------------------
 
-  /// Generate paper questions from topic allocations using AI.
-  Future<Result<List<models.PaperQuestion>, GrpcError>> generatePaper({
-    required String school,
-    required String exam,
-    required int subject,
-    int? paper,
-    required int grade,
-    int? stream,
+  /// Generate questions for a paper from topic allocations.
+  ///
+  /// Triggers async paper generation on the server. On success, call
+  /// [getPaperQuestions] to retrieve the generated questions.
+  ///
+  /// [paperId] is the composite paper identity string:
+  /// `"$school|$exam|$subject|${paper ?? ''}|$grade|${stream ?? ''}"`.
+  Future<Result<void, GrpcError>> generatePaper({
+    required String paperId,
     required int totalMarks,
     required List<models.TopicAllocation> allocations,
     required String accessToken,
   }) async {
     print(
-      '[QB] generatePaper → school=$school exam=$exam subject=$subject '
-      'grade=$grade totalMarks=$totalMarks allocations=${allocations.length}',
+      '[QB] generatePaper → paperId=$paperId '
+      'totalMarks=$totalMarks allocations=${allocations.length}',
     );
     try {
       final req = pb.GeneratePaperRequest()
-        ..school = school
-        ..exam = exam
-        ..subject = subject
-        ..grade = grade
+        ..paperId = paperId
         ..totalMarks = totalMarks;
-      if (paper != null) req.paper = paper;
-      if (stream != null) req.stream = stream;
       req.topicAllocations.addAll(
         allocations.map(
           (a) => pb.TopicAllocation()
             ..topicId = a.topicId
-            ..marks = a.marks,
+            ..totalMarks = a.marks,
         ),
       );
       final options = CallOptions(
@@ -373,11 +369,15 @@ class QuestionBankService {
       );
       final client = pbgrpc.QuestionBankClient(_mainChannel);
       final resp = await client.generatePaper(req, options: options);
-      final questions = resp.questions
-          .map(models.PaperQuestion.fromProto)
-          .toList();
-      print('[QB] generatePaper ← OK (questions=${questions.length})');
-      return Ok(questions);
+      if (!resp.success) {
+        return Err(
+          GrpcError.internal(
+            resp.message.isNotEmpty ? resp.message : 'Paper generation failed',
+          ),
+        );
+      }
+      print('[QB] generatePaper ← OK');
+      return const Ok(null);
     } on GrpcError catch (e) {
       print('[QB] generatePaper ← GrpcError: ${e.code} ${e.message}');
       return Err(e);
@@ -388,38 +388,33 @@ class QuestionBankService {
   }
 
   /// Regenerate a single question on the paper.
+  ///
+  /// [paperId] is the composite paper identity string:
+  /// `"$school|$exam|$subject|${paper ?? ''}|$grade|${stream ?? ''}"`.
   Future<Result<models.PaperQuestion, GrpcError>> regenerateQuestion({
-    required String school,
-    required String exam,
-    required int subject,
-    int? paper,
-    required int grade,
+    required String paperId,
     required int position,
     required int topicId,
     required int marks,
     required String accessToken,
   }) async {
     print(
-      '[QB] regenerateQuestion → school=$school exam=$exam '
+      '[QB] regenerateQuestion → paperId=$paperId '
       'position=$position topicId=$topicId marks=$marks',
     );
     try {
       final req = pb.RegenerateQuestionRequest()
-        ..school = school
-        ..exam = exam
-        ..subject = subject
-        ..grade = grade
+        ..paperId = paperId
         ..position = position
         ..topicId = topicId
         ..marks = marks;
-      if (paper != null) req.paper = paper;
       final options = CallOptions(
         metadata: {'authorization': 'Bearer $accessToken'},
         timeout: const Duration(seconds: 60),
       );
       final client = pbgrpc.QuestionBankClient(_mainChannel);
       final resp = await client.regenerateQuestion(req, options: options);
-      final question = models.PaperQuestion.fromProto(resp.replacement);
+      final question = models.PaperQuestion.fromProto(resp.question);
       print('[QB] regenerateQuestion ← OK (id=${question.id})');
       return Ok(question);
     } on GrpcError catch (e) {
@@ -432,6 +427,9 @@ class QuestionBankService {
   }
 
   /// Edit a question on the generated paper.
+  ///
+  /// NOTE: This method has been removed from the server API (M0 proto
+  /// regeneration). Returns [GrpcError.unimplemented] immediately.
   Future<Result<models.Question, GrpcError>> editPaperQuestion({
     required int questionId,
     required String text,
@@ -440,104 +438,46 @@ class QuestionBankService {
     String? exampleAnswer,
     required String accessToken,
   }) async {
-    print(
-      '[QB] editPaperQuestion → questionId=$questionId '
-      'marks=$marks rubric=${rubric.length}',
+    print('[QB] editPaperQuestion → STUB (removed from server API)');
+    return Err(
+      GrpcError.unimplemented(
+        'editPaperQuestion has been removed from the server API',
+      ),
     );
-    try {
-      final req = pb.EditPaperQuestionRequest()
-        ..questionId = questionId
-        ..text = text
-        ..marks = marks;
-      if (exampleAnswer != null) req.exampleAnswer = exampleAnswer;
-      req.rubric.addAll(rubric.map(_toProtoCriterion));
-      final options = CallOptions(
-        metadata: {'authorization': 'Bearer $accessToken'},
-        timeout: const Duration(seconds: 30),
-      );
-      final client = pbgrpc.QuestionBankClient(_mainChannel);
-      final resp = await client.editPaperQuestion(req, options: options);
-      final question = models.Question.fromProto(resp.question);
-      print('[QB] editPaperQuestion ← OK (id=${question.id})');
-      return Ok(question);
-    } on GrpcError catch (e) {
-      print('[QB] editPaperQuestion ← GrpcError: ${e.code} ${e.message}');
-      return Err(e);
-    } catch (e, st) {
-      print('[QB] editPaperQuestion ← UNEXPECTED ${e.runtimeType}: $e\n$st');
-      return Err(GrpcError.internal('editPaperQuestion failed: $e'));
-    }
   }
 
   /// Set (or clear) the section label for a single question on a generated paper.
   ///
-  /// Pass [section] as `null` to clear the section assignment.
+  /// NOTE: This method has been removed from the server API (M0 proto
+  /// regeneration). Returns [GrpcError.unimplemented] immediately.
+  ///
+  /// [paperId] is the composite paper identity string:
+  /// `"$school|$exam|$subject|${paper ?? ''}|$grade|${stream ?? ''}"`.
   Future<Result<void, GrpcError>> setPaperQuestionSection({
-    required String school,
-    required String exam,
-    required int subject,
-    int? paper,
-    required int grade,
-    int? stream,
+    required String paperId,
     required int position,
-    String? section, // null clears the section
+    String? section,
     required String accessToken,
   }) async {
-    print(
-      '[QB] setPaperQuestionSection → school=$school exam=$exam '
-      'position=$position section=$section',
+    print('[QB] setPaperQuestionSection → STUB (removed from server API)');
+    return Err(
+      GrpcError.unimplemented(
+        'setPaperQuestionSection has been removed from the server API',
+      ),
     );
-    try {
-      final req = pb.SetPaperQuestionSectionRequest()
-        ..school = school
-        ..exam = exam
-        ..subject = subject
-        ..grade = grade
-        ..position = position;
-      if (paper != null) req.paper = paper;
-      if (stream != null) req.stream = stream;
-      if (section != null) req.section = section;
-      final options = CallOptions(
-        metadata: {'authorization': 'Bearer $accessToken'},
-        timeout: const Duration(seconds: 15),
-      );
-      final client = pbgrpc.QuestionBankClient(_mainChannel);
-      await client.setPaperQuestionSection(req, options: options);
-      print('[QB] setPaperQuestionSection ← OK');
-      return const Ok(null);
-    } on GrpcError catch (e) {
-      print('[QB] setPaperQuestionSection ← GrpcError: ${e.code} ${e.message}');
-      return Err(e);
-    } catch (e, st) {
-      print(
-        '[QB] setPaperQuestionSection ← UNEXPECTED ${e.runtimeType}: $e\n$st',
-      );
-      return Err(GrpcError.internal('setPaperQuestionSection failed: $e'));
-    }
   }
 
   /// Finalize the paper and generate PDF.
+  ///
+  /// [paperId] is the composite paper identity string:
+  /// `"$school|$exam|$subject|${paper ?? ''}|$grade|${stream ?? ''}"`.
   Future<Result<models.PaperPdf, GrpcError>> finalizePaper({
-    required String school,
-    required String exam,
-    required int subject,
-    int? paper,
-    required int grade,
-    int? stream,
+    required String paperId,
     required String accessToken,
   }) async {
-    print(
-      '[QB] finalizePaper → school=$school exam=$exam subject=$subject '
-      'grade=$grade',
-    );
+    print('[QB] finalizePaper → paperId=$paperId');
     try {
-      final req = pb.FinalizePaperRequest()
-        ..school = school
-        ..exam = exam
-        ..subject = subject
-        ..grade = grade;
-      if (paper != null) req.paper = paper;
-      if (stream != null) req.stream = stream;
+      final req = pb.FinalizePaperRequest()..paperId = paperId;
       final options = CallOptions(
         metadata: {'authorization': 'Bearer $accessToken'},
         timeout: const Duration(seconds: 60),
@@ -545,9 +485,7 @@ class QuestionBankService {
       final client = pbgrpc.QuestionBankClient(_mainChannel);
       final resp = await client.finalizePaper(req, options: options);
       final pdf = models.PaperPdf.fromProto(resp);
-      print(
-        '[QB] finalizePaper ← OK (pdfUrl=${pdf.pdfUrl.substring(0, 40)}...)',
-      );
+      print('[QB] finalizePaper ← OK (pdfKey=${pdf.pdfUrl})');
       return Ok(pdf);
     } on GrpcError catch (e) {
       print('[QB] finalizePaper ← GrpcError: ${e.code} ${e.message}');
@@ -560,136 +498,64 @@ class QuestionBankService {
 
   /// Delete all generated questions for a paper and invalidate its S3 PDF.
   /// Only valid when the paper is still in Pending status.
-  /// Returns the count of paper_questions rows deleted on success.
-  Future<Result<int, GrpcError>> clearPaperQuestions({
-    required String school,
-    required String exam,
-    required int subject,
-    int? paper,
-    required int grade,
-    int? stream,
+  ///
+  /// [paperId] is the composite paper identity string:
+  /// `"$school|$exam|$subject|${paper ?? ''}|$grade|${stream ?? ''}"`.
+  Future<Result<void, GrpcError>> clearPaperQuestions({
+    required String paperId,
     required String accessToken,
   }) async {
-    print(
-      '[QB] clearPaperQuestions → school=$school exam=$exam '
-      'subject=$subject grade=$grade',
-    );
+    print('[QB] clearPaperQuestions → paperId=$paperId');
     try {
-      final req = pb.ClearPaperQuestionsRequest()
-        ..school = school
-        ..exam = exam
-        ..subject = subject
-        ..grade = grade;
-      if (paper != null) req.paper = paper;
-      if (stream != null) req.stream = stream;
+      final req = pb.ClearPaperQuestionsRequest()..paperId = paperId;
       final options = CallOptions(
         metadata: {'authorization': 'Bearer $accessToken'},
         timeout: const Duration(seconds: 30),
       );
       final client = pbgrpc.QuestionBankClient(_mainChannel);
-      final resp = await client.clearPaperQuestions(req, options: options);
-      print(
-        '[QB] clearPaperQuestions ← OK '
-        '(deleted=${resp.questionsDeleted} pdf=${resp.pdfDeleted})',
-      );
-      return Ok(resp.questionsDeleted);
+      await client.clearPaperQuestions(req, options: options);
+      print('[QB] clearPaperQuestions ← OK');
+      return const Ok(null);
     } on GrpcError catch (e) {
       print('[QB] clearPaperQuestions ← GrpcError: ${e.code} ${e.message}');
       return Err(e);
     } catch (e, st) {
-      print(
-        '[QB] clearPaperQuestions ← UNEXPECTED ${e.runtimeType}: $e\n$st\n',
-      );
+      print('[QB] clearPaperQuestions ← UNEXPECTED ${e.runtimeType}: $e\n$st');
       return Err(GrpcError.internal('clearPaperQuestions failed: $e'));
     }
   }
 
   /// Copy a finalized paper's question set to one or more additional streams.
-  /// The server copies question rows and generates a PDF for each target stream.
-  /// The source stream must already have generated questions.
-  /// Partial failures are possible — check [StreamCopyResult.success] per stream.
+  ///
+  /// NOTE: This method has been removed from the server API (M0 proto
+  /// regeneration). Returns [GrpcError.unimplemented] immediately.
   Future<Result<List<models.StreamCopyResult>, GrpcError>> copyPaperToStreams({
-    required String school,
-    required String exam,
-    required int subject,
-    int? paper,
-    required int grade,
-    int? sourceStream,
+    required String paperId,
     required List<int> targetStreams,
     required String accessToken,
   }) async {
-    print(
-      '[QB] copyPaperToStreams → school=$school exam=$exam '
-      'grade=$grade targets=$targetStreams',
+    print('[QB] copyPaperToStreams → STUB (removed from server API)');
+    return Err(
+      GrpcError.unimplemented(
+        'copyPaperToStreams has been removed from the server API',
+      ),
     );
-    try {
-      final req = pb.CopyPaperToStreamsRequest()
-        ..school = school
-        ..exam = exam
-        ..subject = subject
-        ..grade = grade;
-      if (paper != null) req.paper = paper;
-      if (sourceStream != null) req.sourceStream = sourceStream;
-      req.targetStreams.addAll(targetStreams);
-      final options = CallOptions(
-        metadata: {'authorization': 'Bearer $accessToken'},
-        // Allow up to 2 minutes — server generates a PDF per stream.
-        timeout: const Duration(seconds: 120),
-      );
-      final client = pbgrpc.QuestionBankClient(_mainChannel);
-      final resp = await client.copyPaperToStreams(req, options: options);
-      final results = resp.results
-          .map(models.StreamCopyResult.fromProto)
-          .toList();
-      print('[QB] copyPaperToStreams ← OK (${results.length} streams)');
-      return Ok(results);
-    } on GrpcError catch (e) {
-      print('[QB] copyPaperToStreams ← GrpcError: ${e.code} ${e.message}');
-      return Err(e);
-    } catch (e, st) {
-      print('[QB] copyPaperToStreams ← UNEXPECTED ${e.runtimeType}: $e\n$st\n');
-      return Err(GrpcError.internal('copyPaperToStreams failed: $e'));
-    }
   }
 
   /// Get the PDF URL for a finalized paper.
+  ///
+  /// NOTE: This method has been removed from the server API (M0 proto
+  /// regeneration). Use the pdfKey returned by [finalizePaper] instead.
   Future<Result<models.PaperPdf, GrpcError>> getPaperPdf({
-    required String school,
-    required String exam,
-    required int subject,
-    int? paper,
-    required int grade,
-    int? stream,
+    required String paperId,
     required String accessToken,
   }) async {
-    print(
-      '[QB] getPaperPdf → school=$school exam=$exam '
-      'subject=$subject grade=$grade',
+    print('[QB] getPaperPdf → STUB (removed from server API)');
+    return Err(
+      GrpcError.unimplemented(
+        'getPaperPdf has been removed from the server API',
+      ),
     );
-    try {
-      final req = pb.GetPaperPdfRequest()
-        ..school = school
-        ..exam = exam
-        ..subject = subject
-        ..grade = grade;
-      if (paper != null) req.paper = paper;
-      if (stream != null) req.stream = stream;
-      final options = CallOptions(
-        metadata: {'authorization': 'Bearer $accessToken'},
-        timeout: const Duration(seconds: 30),
-      );
-      final client = pbgrpc.QuestionBankClient(_mainChannel);
-      final resp = await client.getPaperPdf(req, options: options);
-      final pdf = models.PaperPdf.fromGetPdfProto(resp);
-      print('[QB] getPaperPdf ← OK (pdfUrl=${pdf.pdfUrl.substring(0, 40)}...)');
-      return Ok(pdf);
-    } on GrpcError catch (e) {
-      print('[QB] getPaperPdf ← GrpcError: ${e.code} ${e.message}');
-      return Err(e);
-    } catch (e, st) {
-      print('[QB] getPaperPdf ← UNEXPECTED ${e.runtimeType}: $e\n$st');
-      return Err(GrpcError.internal('getPaperPdf failed: $e'));
-    }
   }
 
   // ---------------------------------------------------------------------------
@@ -698,27 +564,18 @@ class QuestionBankService {
 
   /// Fetch the currently assembled question list for a paper from the server.
   /// Returns an empty list if no paper has been generated yet.
+  ///
+  /// [paperId] is the composite paper identity string:
+  /// `"$school|$exam|$subject|${paper ?? ''}|$grade|${stream ?? ''}"`.
   Future<Result<List<models.PaperQuestion>, GrpcError>> getPaperQuestions({
-    required String school,
-    required String exam,
-    required int subject,
-    int? paper,
-    required int grade,
-    int? stream,
+    required String paperId,
+    int? student,
     required String accessToken,
   }) async {
-    print(
-      '[QB] getPaperQuestions → school=$school exam=$exam '
-      'subject=$subject grade=$grade',
-    );
+    print('[QB] getPaperQuestions → paperId=$paperId');
     try {
-      final req = pb.GetPaperQuestionsRequest()
-        ..school = school
-        ..exam = exam
-        ..subject = subject
-        ..grade = grade;
-      if (paper != null) req.paper = paper;
-      if (stream != null) req.stream = stream;
+      final req = pb.GetPaperQuestionsRequest()..paperId = paperId;
+      if (student != null) req.student = student;
       final options = CallOptions(
         metadata: {'authorization': 'Bearer $accessToken'},
         timeout: const Duration(seconds: 30),
@@ -744,27 +601,16 @@ class QuestionBankService {
   // ---------------------------------------------------------------------------
 
   /// Get current marking job status.
+  ///
+  /// [paperId] is the composite paper identity string:
+  /// `"$school|$exam|$subject|${paper ?? ''}|$grade|${stream ?? ''}"`.
   Future<Result<models.MarkingStatus, GrpcError>> getMarkingStatus({
-    required String school,
-    required String exam,
-    required int subject,
-    int? paper,
-    required int grade,
-    int? stream,
+    required String paperId,
     required String accessToken,
   }) async {
-    print(
-      '[QB] getMarkingStatus → school=$school exam=$exam '
-      'subject=$subject grade=$grade',
-    );
+    print('[QB] getMarkingStatus → paperId=$paperId');
     try {
-      final req = pb.MarkingStatusRequest()
-        ..school = school
-        ..exam = exam
-        ..subject = subject
-        ..grade = grade;
-      if (paper != null) req.paper = paper;
-      if (stream != null) req.stream = stream;
+      final req = pb.MarkingStatusRequest()..paperId = paperId;
       final options = CallOptions(
         metadata: {'authorization': 'Bearer $accessToken'},
         timeout: const Duration(seconds: 30),
@@ -784,26 +630,20 @@ class QuestionBankService {
   }
 
   /// Get per-question grade breakdown for a student.
+  ///
+  /// [paperId] is the composite paper identity string:
+  /// `"$school|$exam|$subject|${paper ?? ''}|$grade|${stream ?? ''}"`.
   Future<Result<List<models.QuestionGradeDetail>, GrpcError>>
   getQuestionGrades({
-    required String school,
-    required String exam,
+    required String paperId,
     required int student,
-    required int subject,
-    int? paper,
     required String accessToken,
   }) async {
-    print(
-      '[QB] getQuestionGrades → school=$school exam=$exam '
-      'student=$student subject=$subject',
-    );
+    print('[QB] getQuestionGrades → paperId=$paperId student=$student');
     try {
       final req = pb.GetQuestionGradesRequest()
-        ..school = school
-        ..exam = exam
-        ..student = student
-        ..subject = subject;
-      if (paper != null) req.paper = paper;
+        ..paperId = paperId
+        ..student = student;
       final options = CallOptions(
         metadata: {'authorization': 'Bearer $accessToken'},
         timeout: const Duration(seconds: 30),
@@ -826,24 +666,17 @@ class QuestionBankService {
 
   /// Polls marking status every [interval] until complete or failed.
   /// Yields each status update to the caller.
+  ///
+  /// [paperId] is the composite paper identity string:
+  /// `"$school|$exam|$subject|${paper ?? ''}|$grade|${stream ?? ''}"`.
   Stream<models.MarkingStatus> watchMarkingStatus({
-    required String school,
-    required String exam,
-    required int subject,
-    int? paper,
-    required int grade,
-    int? stream,
+    required String paperId,
     required String accessToken,
     Duration interval = const Duration(seconds: 3),
   }) async* {
     while (true) {
       final result = await getMarkingStatus(
-        school: school,
-        exam: exam,
-        subject: subject,
-        paper: paper,
-        grade: grade,
-        stream: stream,
+        paperId: paperId,
         accessToken: accessToken,
       );
       switch (result) {

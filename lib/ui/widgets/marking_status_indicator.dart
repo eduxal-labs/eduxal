@@ -74,16 +74,11 @@ class _MarkingStatusIndicatorState extends State<MarkingStatusIndicator>
     final token = accessToken;
     if (token.isEmpty) return;
 
+    final paperId =
+        '${widget.school}|${widget.exam}|${widget.subject}|'
+        '${widget.paper ?? ''}|${widget.grade}|${widget.stream ?? ''}';
     _sub = questionBankService
-        .watchMarkingStatus(
-          school: widget.school,
-          exam: widget.exam,
-          subject: widget.subject,
-          paper: widget.paper,
-          grade: widget.grade,
-          stream: widget.stream,
-          accessToken: token,
-        )
+        .watchMarkingStatus(paperId: paperId, accessToken: token)
         .listen(
           (status) {
             if (!mounted) return;

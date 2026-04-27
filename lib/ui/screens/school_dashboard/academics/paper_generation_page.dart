@@ -150,13 +150,11 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
       _generateError = null;
     });
 
-    final result = await questionBankService.generatePaper(
-      school: widget.schoolId,
-      exam: widget.examId,
-      subject: widget.subjectId,
-      paper: widget.paperId,
-      grade: widget.grade,
-      stream: widget.stream,
+    final paperKey =
+        '${widget.schoolId}|${widget.examId}|${widget.subjectId}|'
+        '${widget.paperId ?? ''}|${widget.grade}|${widget.stream ?? ''}';
+    final genResult = await questionBankService.generatePaper(
+      paperId: paperKey,
       totalMarks: _totalMarks,
       allocations: nonZero,
       accessToken: accessToken,
@@ -164,19 +162,33 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
 
     if (!mounted) return;
 
-    switch (result) {
-      case Ok(value: final questions):
-        // Build the question → topic map.
-        // Heuristic: distribute questions across allocations proportionally.
-        // Each allocation specifies marks for a topic — questions are ordered
-        // and we assign them to topics based on cumulative marks.
-        _questionTopics.clear();
-        _buildQuestionTopicMap(questions, nonZero);
-        setState(() {
-          _generatedQuestions = questions;
-          _currentStep = 1;
-          _isGenerating = false;
-        });
+    switch (genResult) {
+      case Ok():
+        // Paper generated on server — now fetch the question list.
+        final questResult = await questionBankService.getPaperQuestions(
+          paperId: paperKey,
+          accessToken: accessToken,
+        );
+        if (!mounted) return;
+        switch (questResult) {
+          case Ok(value: final questions):
+            // Build the question → topic map.
+            // Heuristic: distribute questions across allocations proportionally.
+            // Each allocation specifies marks for a topic — questions are ordered
+            // and we assign them to topics based on cumulative marks.
+            _questionTopics.clear();
+            _buildQuestionTopicMap(questions, nonZero);
+            setState(() {
+              _generatedQuestions = questions;
+              _currentStep = 1;
+              _isGenerating = false;
+            });
+          case Err(error: final e):
+            setState(() {
+              _isGenerating = false;
+              _generateError = _friendlyGenerateError(e);
+            });
+        }
       case Err(error: final e):
         setState(() {
           _isGenerating = false;
@@ -206,13 +218,11 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
   /// Fetch questions already generated for this paper from the server and
   /// restore wizard state to the review step (step 1) if any are found.
   Future<void> _tryRestoreExistingQuestions() async {
+    final paperKey =
+        '${widget.schoolId}|${widget.examId}|${widget.subjectId}|'
+        '${widget.paperId ?? ''}|${widget.grade}|${widget.stream ?? ''}';
     final result = await questionBankService.getPaperQuestions(
-      school: widget.schoolId,
-      exam: widget.examId,
-      subject: widget.subjectId,
-      paper: widget.paperId,
-      grade: widget.grade,
-      stream: widget.stream,
+      paperId: paperKey,
       accessToken: accessToken,
     );
     if (!mounted) return;
@@ -278,12 +288,11 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
 
     setState(() => _regeneratingIndex = index);
 
+    final paperKey =
+        '${widget.schoolId}|${widget.examId}|${widget.subjectId}|'
+        '${widget.paperId ?? ''}|${widget.grade}|${widget.stream ?? ''}';
     final result = await questionBankService.regenerateQuestion(
-      school: widget.schoolId,
-      exam: widget.examId,
-      subject: widget.subjectId,
-      paper: widget.paperId,
-      grade: widget.grade,
+      paperId: paperKey,
       position: question.order,
       topicId: _findTopicForQuestion(question),
       marks: question.marks,
@@ -471,13 +480,11 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
       }).toList();
     });
 
+    final paperKey =
+        '${widget.schoolId}|${widget.examId}|${widget.subjectId}|'
+        '${widget.paperId ?? ''}|${widget.grade}|${widget.stream ?? ''}';
     final result = await questionBankService.setPaperQuestionSection(
-      school: widget.schoolId,
-      exam: widget.examId,
-      subject: widget.subjectId,
-      paper: widget.paperId,
-      grade: widget.grade,
-      stream: widget.stream,
+      paperId: paperKey,
       position: question.order,
       section: section,
       accessToken: accessToken,
@@ -1468,13 +1475,11 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
     if (_isFinalizing) return;
     setState(() => _isFinalizing = true);
 
+    final paperKey =
+        '${widget.schoolId}|${widget.examId}|${widget.subjectId}|'
+        '${widget.paperId ?? ''}|${widget.grade}|${widget.stream ?? ''}';
     final result = await questionBankService.finalizePaper(
-      school: widget.schoolId,
-      exam: widget.examId,
-      subject: widget.subjectId,
-      paper: widget.paperId,
-      grade: widget.grade,
-      stream: widget.stream,
+      paperId: paperKey,
       accessToken: accessToken,
     );
 
@@ -1530,13 +1535,11 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
 
     setState(() => _isClearing = true);
 
+    final paperKey =
+        '${widget.schoolId}|${widget.examId}|${widget.subjectId}|'
+        '${widget.paperId ?? ''}|${widget.grade}|${widget.stream ?? ''}';
     final result = await questionBankService.clearPaperQuestions(
-      school: widget.schoolId,
-      exam: widget.examId,
-      subject: widget.subjectId,
-      paper: widget.paperId,
-      grade: widget.grade,
-      stream: widget.stream,
+      paperId: paperKey,
       accessToken: accessToken,
     );
 
@@ -1568,13 +1571,11 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
 
     setState(() => _isCopying = true);
 
+    final paperKey =
+        '${widget.schoolId}|${widget.examId}|${widget.subjectId}|'
+        '${widget.paperId ?? ''}|${widget.grade}|${widget.stream ?? ''}';
     final result = await questionBankService.copyPaperToStreams(
-      school: widget.schoolId,
-      exam: widget.examId,
-      subject: widget.subjectId,
-      paper: widget.paperId,
-      grade: widget.grade,
-      sourceStream: widget.stream,
+      paperId: paperKey,
       targetStreams: _selectedTargetStreams.toList(),
       accessToken: accessToken,
     );

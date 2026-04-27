@@ -236,13 +236,11 @@ class _PaperDetailPageState extends State<PaperDetailPage>
   Future<void> _tryLoadExistingPdf() async {
     final token = accessToken;
     if (token.isEmpty) return;
+    final paperId =
+        '${widget.schoolId}|${_exam.id}|${_paper.subject}|'
+        '${_paper.paper ?? ''}|${_paper.grade}|${_paper.stream ?? ''}';
     final result = await questionBankService.getPaperPdf(
-      school: widget.schoolId,
-      exam: _exam.id,
-      subject: _paper.subject,
-      paper: _paper.paper,
-      grade: _paper.grade,
-      stream: _paper.stream,
+      paperId: paperId,
       accessToken: token,
     );
     if (!mounted) return;
@@ -2590,6 +2588,8 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
                           student: student.adm,
                           subject: widget.paper.subject,
                           paper: widget.paper.paper,
+                          grade: widget.paper.grade,
+                          stream: widget.paper.stream,
                           studentName: student.name,
                           overallScore: existingGrade.score,
                           totalMarks: existingGrade.total,
@@ -3535,6 +3535,8 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
                         student: student.adm,
                         subject: widget.paper.subject,
                         paper: widget.paper.paper,
+                        grade: widget.paper.grade,
+                        stream: widget.paper.stream,
                         studentName: student.name,
                         overallScore: grade.score,
                         totalMarks: grade.total,

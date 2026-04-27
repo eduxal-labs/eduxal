@@ -36,12 +36,18 @@ class QuestionGradeDetail {
     required this.rubricResults,
   });
 
-  factory QuestionGradeDetail.fromProto(pb.QuestionGradeDetail proto) =>
+  /// Constructs from [pb.QuestionGrade].
+  ///
+  /// After M0 proto regeneration, the response carries [pb.QuestionGrade]
+  /// (questionId, score, feedback) instead of the richer QuestionGradeDetail
+  /// message. Fields not present in the new proto are stubbed with defaults.
+  factory QuestionGradeDetail.fromProto(pb.QuestionGrade proto) =>
       QuestionGradeDetail(
-        questionText: proto.questionText,
-        marksAwarded: proto.score,
-        totalMarks: proto.questionMarks,
+        questionText: '', // not available in QuestionGrade (M0 proto change)
+        marksAwarded: proto.score.toDouble(),
+        totalMarks: 0, // not available in QuestionGrade (M0 proto change)
         feedback: proto.feedback,
-        rubricResults: proto.rubric.map(RubricResult.fromProto).toList(),
+        rubricResults:
+            const [], // not available in QuestionGrade (M0 proto change)
       );
 }
