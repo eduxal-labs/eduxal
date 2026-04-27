@@ -315,9 +315,7 @@ class _CreateAssignmentPageState extends State<CreateAssignmentPage> {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
-                      color: selected
-                          ? cs.onPrimary
-                          : cs.onSurface,
+                      color: selected ? cs.onPrimary : cs.onSurface,
                     ),
                   ),
                   selected: selected,
@@ -370,94 +368,97 @@ class _CreateAssignmentPageState extends State<CreateAssignmentPage> {
                 border: Border.all(color: AppTheme.borderColor(isDark, cs)),
               ),
               child: Column(
-                children: _allTopics
-                    .where((t) => _selectedTopics.contains(t.id))
-                    .toList()
-                    .asMap()
-                    .entries
-                    .map((entry) {
-                  final index = entry.key;
-                  final topic = entry.value;
-                  final weight = _weights[topic.id] ?? 1.0;
-                  final isLast = index ==
-                      _selectedTopics.length - 1;
-                  return Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 8, 8, 6),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: Text(
-                                topic.name,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w400,
-                                  color: cs.onSurface,
+                children: () {
+                  final selectedList = _allTopics
+                      .where((t) => _selectedTopics.contains(t.id))
+                      .toList();
+                  return selectedList.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final topic = entry.value;
+                    final weight = _weights[topic.id] ?? 1.0;
+                    final isLast = index == selectedList.length - 1;
+                    return Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 8, 8, 6),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: Text(
+                                  topic.name,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w400,
+                                    color: cs.onSurface,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                            Expanded(
-                              flex: 4,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    children: [
-                                      Text(
-                                        '${weight.toStringAsFixed(1)}×',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w500,
-                                          color: cs.primary,
+                              Expanded(
+                                flex: 4,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      '${weight.toStringAsFixed(1)}\u00d7',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                        color: cs.primary,
+                                      ),
+                                    ),
+                                    SliderTheme(
+                                      data: SliderThemeData(
+                                        trackHeight: 2,
+                                        thumbShape: const RoundSliderThumbShape(
+                                          enabledThumbRadius: 7,
+                                        ),
+                                        overlayShape:
+                                            const RoundSliderOverlayShape(
+                                              overlayRadius: 14,
+                                            ),
+                                        activeTrackColor: cs.primary,
+                                        inactiveTrackColor: cs.primary
+                                            .withValues(alpha: 0.18),
+                                        thumbColor: cs.primary,
+                                        overlayColor: cs.primary.withValues(
+                                          alpha: 0.12,
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                  SliderTheme(
-                                    data: SliderThemeData(
-                                      trackHeight: 2,
-                                      thumbRadius: 7,
-                                      overlayRadius: 14,
-                                      activeTrackColor: cs.primary,
-                                      inactiveTrackColor: cs.primary
-                                          .withValues(alpha: 0.18),
-                                      thumbColor: cs.primary,
-                                      overlayColor: cs.primary
-                                          .withValues(alpha: 0.12),
+                                      child: Slider(
+                                        value: weight,
+                                        min: 0.5,
+                                        max: 3.0,
+                                        divisions: 5,
+                                        label:
+                                            '${weight.toStringAsFixed(1)}\u00d7',
+                                        onChanged: (v) {
+                                          setState(
+                                            () => _weights[topic.id] = v,
+                                          );
+                                        },
+                                      ),
                                     ),
-                                    child: Slider(
-                                      value: weight,
-                                      min: 0.5,
-                                      max: 3.0,
-                                      divisions: 5,
-                                      label: '${weight.toStringAsFixed(1)}×',
-                                      onChanged: (v) {
-                                        setState(() => _weights[topic.id] = v);
-                                      },
-                                    ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      if (!isLast)
-                        Divider(
-                          height: 1,
-                          thickness: 0.5,
-                          color: AppTheme.borderColor(isDark, cs),
-                        ),
-                    ],
-                  );
-                }).toList(),
+                        if (!isLast)
+                          Divider(
+                            height: 1,
+                            thickness: 0.5,
+                            color: AppTheme.borderColor(isDark, cs),
+                          ),
+                      ],
+                    );
+                  }).toList();
+                }(),
               ),
             ),
           ],
@@ -567,8 +568,18 @@ class _DateTile extends StatelessWidget {
     if (selectedDate == null) return 'Tap to select a due date';
     final d = selectedDate!;
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${d.day} ${months[d.month - 1]} ${d.year}';
   }
@@ -633,6 +644,7 @@ class _SubmitButton extends StatefulWidget {
   final bool submitting;
   final VoidCallback? onTap;
   final ColorScheme cs;
+  // ignore: unused_field
   final bool isDark;
 
   @override
@@ -771,6 +783,3 @@ class _FieldLabel extends StatelessWidget {
     );
   }
 }
-```
-
-Now let me save the file and run the required steps:

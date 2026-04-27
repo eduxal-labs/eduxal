@@ -860,8 +860,8 @@ Button: `FilledButton('Generate Assignments')`:
 2. Same success/error flow as E2 → navigate to `StudentPapersListPage`.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] git commit: `feat: assignment creation page`
+- [x] Mark this task `[x]`
+- [x] git commit: `feat: assignment creation page`
 
 ---
 
