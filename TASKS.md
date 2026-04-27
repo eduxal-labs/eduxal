@@ -909,8 +909,8 @@ Each `_StudentPaperRow` (`StatefulWidget`):
 `_printAll()`: iterate all ready students, open each `pdf_url` via `url_launcher` `launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication)`.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] git commit: `feat: per-student papers list with print-all`
+- [x] Mark this task `[x]`
+- [x] git commit: `feat: per-student papers list with print-all`
 
 ---
 
