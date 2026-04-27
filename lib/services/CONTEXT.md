@@ -24,6 +24,7 @@ This directory contains **8 service files**. Services sit between the UI and the
 | `question_bank.dart` | `QuestionBankService` | Question bank operations: CRUD for questions within topics, bulk import from JSON, presigned S3 upload URLs for question images. Wraps `QuestionBank` gRPC service. | ✅ Complete |
 | `timetable_generator.dart` | `TimetableGenerator`, `TimetableSlot`, `GeneratorResult`, `GeneratorSuccess`, `GeneratorFailure`, `GeneratorInput`, `runTimetableGenerator` | Pure-Dart CSP backtracking solver for timetable generation. No Flutter dependencies. Run via `compute(runTimetableGenerator, input)`. | ✅ Complete |
 | `import_file_parser.dart` | `ParsedImportFile`, `MissingImage`, `parseImportFile` | Pure-Dart utility for parsing and validating question bank JSON files for bulk import. Zero Flutter/UI dependencies. | ✅ Complete |
+| `paper_service.dart` | `PaperService`, `TaughtTopic` | Exam lifecycle gRPC service wrapper: event creation, paper creation, paper scheduling, syllabus coverage confirmation, assessment/assignment generation, per-student paper status polling and PDF retrieval. Wraps `EventServiceClient`, `PaperServiceClient`, and `PaperManagementClient`. | ✅ Complete |
 
 ## Key Methods by Service
 
@@ -252,6 +253,64 @@ Pure-Dart utility for parsing and validating question bank JSON files for bulk i
 
 ---
 
+### `PaperService` — `paper_service.dart`
+
+Wraps three gRPC service clients for the full exam lifecycle. Uses `EventServiceClient`, `PaperServiceClient`, and `PaperManagementClient` (one instance per call, stateless, channel reused).
+
+**Constructor:** `PaperService({required ClientChannel channel})`
+
+**Helper class (defined in same file):**
+- `TaughtTopic` — topic with current taught status. Fields: `topicId` (int), `status` (int: 0=not_started, 1=in_progress, 2=completed), `taughtDate` (DateTime?, non-null when status==2). **No `topicName` field** — the proto does not carry it; callers must join against the local `topics` Drift table to resolve display names.
+
+#### Event Lifecycle
+
+| Method | Signature | Description |
+|---|---|---|
+| `createEvent` | `Future<Result<String, GrpcError>> createEvent({required String school, required String name, required int type, required int term, required int year, required DateTime startDate, required DateTime endDate, required String accessToken})` | Create an exam event. `type`: 0=exam, 1=mock, 2=holiday_revision. Dates converted to days-since-epoch. Returns new event ID. |
+
+#### Paper Creation
+
+| Method | Signature | Description |
+|---|---|---|
+| `createPaper` | `Future<Result<String, GrpcError>> createPaper({required String school, required String eventId, required int subject, required int grade, int stream = 0, required int type, required String name, required int totalMarks, required int durationMinutes, required DateTime date, int generationMode = 0, String instructions = '', List<({int topicId, int marks})> topicWeights = const [], required String accessToken})` | Create an exam paper within an event. `topicWeights` marks are converted to `double` for the proto `PaperTopicWeight.weight` field. Returns new paper ID. |
+
+#### Scheduling
+
+| Method | Signature | Description |
+|---|---|---|
+| `schedulePaper` | `Future<Result<String, GrpcError>> schedulePaper({required String eventId, required int subject, required int grade, int stream = 0, required DateTime date, required int startMinutes, required int endMinutes, String? invigilatorId, required String accessToken})` | Schedule a paper within an event. `startMinutes`/`endMinutes` are minutes since midnight. `durationMinutes` is derived. Returns new schedule ID. |
+
+#### Topic Coverage
+
+| Method | Signature | Description |
+|---|---|---|
+| `getTaughtTopics` | `Future<Result<List<TaughtTopic>, GrpcError>> getTaughtTopics({required String school, required int subject, required int grade, int stream = 0, required String accessToken})` | Fetch taught-topic statuses. Returns `topicId` + `status` + `taughtDate` only — no topic name in proto. |
+| `setTaughtTopics` | `Future<Result<void, GrpcError>> setTaughtTopics({required String school, required int subject, required int grade, required int stream, required List<({int topicId, int status})> updates, required String accessToken})` | Update taught status for a list of topics in one call. |
+| `confirmExamCoverage` | `Future<Result<int, GrpcError>> confirmExamCoverage({required String scheduleId, required List<int> topicIds, required String accessToken})` | Confirm syllabus coverage for a scheduled paper. Returns count of topics confirmed. |
+
+#### Generation
+
+| Method | Signature | Description |
+|---|---|---|
+| `generateAssessment` | `Future<Result<bool, GrpcError>> generateAssessment({required String paperId, required String accessToken})` | Trigger assessment generation for an already-created paper. Returns `true` if server accepted. |
+| `generateAssignment` | `Future<Result<bool, GrpcError>> generateAssignment({required String paperId, required String accessToken})` | Trigger assignment generation for an already-created paper. Returns `true` if server accepted. |
+| `finalizeStudentPapers` | `Future<Result<String, GrpcError>> finalizeStudentPapers({required String paperId, required String accessToken})` | Trigger per-student PDF generation for all enrolled students. Returns job ID for status polling. |
+
+#### Per-Student Status & Retrieval
+
+| Method | Signature | Description |
+|---|---|---|
+| `getStudentPapersStatus` | `Future<Result<StudentPapersStatus, GrpcError>> getStudentPapersStatus({required String paperId, required String accessToken})` | Poll generation progress for all students. `StudentPaperEntry.studentId` is the string of the int DB student ID. `studentName`/`admNo` are empty — join from local `students` table. |
+| `getStudentPaperPdf` | `Future<Result<StudentPaperPdf, GrpcError>> getStudentPaperPdf({required String paperId, required String studentId, required String accessToken})` | Get presigned PDF URL for a specific student's paper. `studentId` is parsed to int for the proto request. `studentName`/`admNo` are empty — join from local `students` table. |
+
+**Global accessor:** `PaperService get paperService => client.paper;` (in `client.dart`)
+
+**Client field:** `late final paper = PaperService(channel: _channel);` (in `Client` class)
+
+**Dependencies:** `grpc` package (ClientChannel, CallOptions, GrpcError), `models/event.dart` (PaperGenerationPhase), `models/paper.dart` (StudentPaperEntry, StudentPapersStatus, StudentPaperPdf), `models/result.dart`, `proto/services/event.pb.dart` + `event.pbgrpc.dart` (EventServiceClient, CreateEventRequest/Response), `proto/services/paper.pb.dart` + `paper.pbgrpc.dart` (PaperServiceClient, CreatePaperRequest/Response, PaperTopicWeight), `proto/services/paper_management.pb.dart` + `paper_management.pbgrpc.dart` (PaperManagementClient, SchedulePaperRequest/Response, TaughtTopicProto, SetTaughtTopicsRequest, GetTaughtTopicsRequest/Response, ConfirmExamCoverageRequest/Response, GenerateAssessmentRequest/Response, GenerateAssignmentRequest/Response, FinalizeStudentPapersRequest/Response, GetStudentPapersStatusRequest/Response, StudentPdfStatus, GetStudentPaperPdfRequest/Response).
+
+---
+
 ## Planned Services (Not Yet Created)
 
 | Future file | Domain | Blocked by |
@@ -274,7 +333,9 @@ Pure-Dart utility for parsing and validating question bank JSON files for bulk i
 - `client.dart` is the only file that holds the gRPC `ClientChannel`. Services receive the channel (or a service client) via constructor injection.
 
 ## Last Updated
-AUTH-C05 — `MemberActionError` converted from enum to sealed class hierarchy in `member_management.dart`:
+Task M4 — Added `paper_service.dart` (9 public methods, `TaughtTopic` helper class). File count updated from 8 → 9. Wired in `client.dart` as `late final paper = PaperService(channel: _channel)` with global getter `PaperService get paperService => client.paper`. Key implementation note: `PaperTopicWeight.weight` is a `double` proto field — `int marks` parameters are converted via `.toDouble()`. `TaughtTopic` carries no `topicName` field (not in proto). `StudentPaperEntry.studentId` is the string representation of the integer DB student ID from `StudentPdfStatus.student`.
+
+Previous: AUTH-C05 — `MemberActionError` converted from enum to sealed class hierarchy in `member_management.dart`:
 - `enum MemberActionError` replaced with `sealed class MemberActionError` and five `final class` subtypes: `NoActiveAccount`, `NotFound`, `DatabaseError`, `CannotRemoveSelf`, `PermissionDenied(String reason)`.
 - All 12 `authorization.check()` denial sites now return `Err(PermissionDenied(authResult.reason!))` — the actual denial reason propagates to the UI.
 - All 12 defense-in-depth `permissions?.can()` denial sites return `const Err(PermissionDenied('You don\'t have permission to perform this action.'))`.

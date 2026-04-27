@@ -244,7 +244,9 @@ Grouping model for the exams UI. Multiple exam rows sharing the same name are pr
 - **`ExamStreamEntry`** — One exam row + its papers for a specific stream. Fields: `exam` (Exam), `streamCode` (int?), `papers` (List<Paper>).
 
 ## Last Updated
-Task M3 — Added `event.dart` (exports: `PaperGenerationPhase`, `ExamEvent`, `ScheduledPaper`) and `paper.dart` (exports: `StudentPaperEntry`, `StudentPapersStatus`, `StudentPaperPdf`). File count updated from 22 → 25 (includes previously uncounted `verify_result.dart`).
+Task M4 — `TaughtTopic` helper class is defined in `lib/services/paper_service.dart` (NOT in `models/`) because it is a thin proto-mapping type with no Drift dependency and is used exclusively by `PaperService`. It carries `topicId` (int), `status` (int), and `taughtDate` (DateTime?) — no `topicName` (not in proto). File count unchanged at 25.
+
+Previous: Task M3 — Added `event.dart` (exports: `PaperGenerationPhase`, `ExamEvent`, `ScheduledPaper`) and `paper.dart` (exports: `StudentPaperEntry`, `StudentPapersStatus`, `StudentPaperPdf`). File count updated from 22 → 25 (includes previously uncounted `verify_result.dart`).
 
 Previous:
 Task P05 — Added `StreamCopyResult` class to `paper_generation.dart`. Added `import 'package:fixnum/fixnum.dart' show Int64;` to support `Int64.ZERO` comparisons in `fromProto`. Factory maps proto optional Int64 expiry fields via zero-check and optional string fields via empty-string check.

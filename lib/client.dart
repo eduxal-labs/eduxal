@@ -22,6 +22,7 @@ import 'services/authentication.dart';
 import 'services/ai_marking.dart';
 import 'services/authorization_service.dart';
 import 'services/question_bank.dart';
+import 'services/paper_service.dart';
 import 'sync/connectivity.dart';
 import 'sync/sync_engine.dart';
 
@@ -74,6 +75,9 @@ SyncEngine get sync => client.syncEngine;
 
 /// Global convenience accessor for the [QuestionBankService].
 QuestionBankService get questionBankService => client.questionBank;
+
+/// Global convenience accessor for the [PaperService].
+PaperService get paperService => client.paper;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Bootstrap
@@ -181,6 +185,11 @@ class Client {
     host: kDomain,
     port: kPort,
   );
+
+  /// Paper service — exam event creation, paper scheduling, syllabus coverage,
+  /// assessment/assignment generation, and per-student paper status & PDF retrieval.
+  /// Uses the main [_channel] kept alive by the sync engine.
+  late final paper = PaperService(channel: _channel);
 
   // ───────────────────────────────────────────────────────────────────────────
   // Factory

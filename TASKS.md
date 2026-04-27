@@ -1873,10 +1873,10 @@ class PaperService {
 **Constructor wiring:** `PaperService` must be instantiated in `lib/client.dart` alongside the existing `QuestionBankService`. Add a `PaperService get paperService` getter. Export a global `late PaperService paperService;` in `client.dart` for use by UI screens (following the same pattern as the existing `QuestionBankService` instance).
 
 **Update after completion:**
-- [ ] Update `lib/services/CONTEXT.md` — add `paper_service.dart` entry with all methods and TaughtTopic type
-- [ ] Update `lib/models/CONTEXT.md` — note TaughtTopic is defined in `services/paper_service.dart`
-- [ ] Mark this task `[x]`
-- [ ] git commit: `feat: add PaperService with exam lifecycle, coverage, and generation methods`
+- [x] Update `lib/services/CONTEXT.md` — add `paper_service.dart` entry with all methods and TaughtTopic type
+- [x] Update `lib/models/CONTEXT.md` — note TaughtTopic is defined in `services/paper_service.dart`
+- [x] Mark this task `[x]`
+- [x] git commit: `feat: add PaperService with exam lifecycle, coverage, and generation methods`
 
 ---
 
